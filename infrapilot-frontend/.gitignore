@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Vite & Build
+.vite
+.turbo
+node_modules
+dist
+dist-ssr
+*.local
