@@ -6,6 +6,7 @@ import DashboardLayout from "../../components/common/DashboardLayout";
 import Navbar from "../../components/common/Navbar";
 import StatCard from "../../components/common/StatCard";
 import NewProjectModal from "../../components/dashboard/NewProjectModal";
+import CreateUserModal from "../../components/forms/CreateUserModal";
 
 // Mock Data
 const budgetData = [
@@ -34,6 +35,13 @@ const activities = [
 const AdminDashboard = () => {
   const [activityFilter, setActivityFilter] = useState("All");
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+
+  const handleCreateUser = (userData: any) => {
+    console.log("New User Data:", userData);
+    // Here you would typically call an API service
+    alert(`User ${userData.fullName} created successfully!`);
+  };
 
   return (
     <DashboardLayout>
@@ -56,7 +64,12 @@ const AdminDashboard = () => {
             >
               + New Project
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all">+ Add User</button>
+            <button
+              onClick={() => setIsUserModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
+            >
+              + Add User
+            </button>
             <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all">+ Create BOQ</button>
             <button className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all">Create Report</button>
           </div>
@@ -292,6 +305,11 @@ const AdminDashboard = () => {
       <NewProjectModal
         isOpen={isNewProjectModalOpen}
         onClose={() => setIsNewProjectModalOpen(false)}
+      />
+      <CreateUserModal
+        isOpen={isUserModalOpen}
+        onClose={() => setIsUserModalOpen(false)}
+        onSubmit={handleCreateUser}
       />
     </DashboardLayout>
   );
