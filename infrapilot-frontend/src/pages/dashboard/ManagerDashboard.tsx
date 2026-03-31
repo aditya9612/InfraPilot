@@ -42,7 +42,7 @@ const ManagerDashboard = () => {
                 New Project
               </button>
             </div>
-          </div>
+          </div>f
 
           {/* KPI Summary Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

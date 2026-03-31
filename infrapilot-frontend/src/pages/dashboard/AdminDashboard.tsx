@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceArea 
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceArea
 } from "recharts";
 import DashboardLayout from "../../components/common/DashboardLayout";
 import Navbar from "../../components/common/Navbar";
-import StatCard from "../../components/common/StatCard";
 import CreateUserModal from "../../components/forms/CreateUserModal";
+import NewProjectModal from "../../components/dashboard/NewProjectModal";
 
 // Mock Data
 const budgetData = [
@@ -34,6 +34,7 @@ const activities = [
 const AdminDashboard = () => {
   const [activityFilter, setActivityFilter] = useState("All");
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
 
   const handleCreateUser = (userData: any) => {
     console.log("New User Data:", userData);
@@ -56,8 +57,13 @@ const AdminDashboard = () => {
             <p className="text-slate-500 text-sm">Real-time infrastructure health and budget monitoring.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all">+ New Project</button>
-            <button 
+            <button
+              onClick={() => setIsNewProjectModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
+            >
+              + New Project
+            </button>
+            <button
               onClick={() => setIsUserModalOpen(true)}
               className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
             >
@@ -93,36 +99,36 @@ const AdminDashboard = () => {
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={budgetData} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis 
-                    dataKey="month" 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fill: "#94a3b8", fontSize: 12 }} 
+                  <XAxis
+                    dataKey="month"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "#94a3b8", fontSize: 12 }}
                     dy={10}
                   />
-                  <YAxis 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fill: "#94a3b8", fontSize: 12 }} 
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "#94a3b8", fontSize: 12 }}
                   />
-                  <Tooltip 
+                  <Tooltip
                     contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)" }}
                   />
                   <Legend iconType="circle" wrapperStyle={{ paddingTop: "20px" }} />
-                  <Line 
-                    type="monotone" 
-                    dataKey="budget" 
-                    stroke="#2563EB" 
-                    strokeWidth={3} 
+                  <Line
+                    type="monotone"
+                    dataKey="budget"
+                    stroke="#2563EB"
+                    strokeWidth={3}
                     dot={{ fill: "#2563EB", strokeWidth: 2, r: 4 }}
                     activeDot={{ r: 6, strokeWidth: 0 }}
                     name="Planned Budget"
                   />
-                  <Line 
-                    type="monotone" 
-                    dataKey="actual" 
-                    stroke="#F43F5E" 
-                    strokeWidth={3} 
+                  <Line
+                    type="monotone"
+                    dataKey="actual"
+                    stroke="#F43F5E"
+                    strokeWidth={3}
                     dot={{ fill: "#F43F5E", strokeWidth: 2, r: 4 }}
                     activeDot={{ r: 6, strokeWidth: 0 }}
                     name="Actual Cost"
@@ -140,12 +146,11 @@ const AdminDashboard = () => {
               <h2 className="font-bold text-slate-800 mb-4">Activity Pulse</h2>
               <div className="flex gap-2">
                 {["All", "Issues", "Updates"].map(tab => (
-                  <button 
+                  <button
                     key={tab}
                     onClick={() => setActivityFilter(tab)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
-                      activityFilter === tab ? "bg-primary text-white shadow-md shadow-primary/20" : "bg-slate-50 text-slate-500 hover:bg-slate-100"
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${activityFilter === tab ? "bg-primary text-white shadow-md shadow-primary/20" : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                      }`}
                   >
                     {tab.toUpperCase()}
                   </button>
@@ -155,9 +160,8 @@ const AdminDashboard = () => {
             <div className="flex-1 p-6 space-y-6 overflow-y-auto max-h-[400px]">
               {activities.map((act, i) => (
                 <div key={i} className="flex gap-4 group">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                    act.type === "alert" ? "bg-red-50 text-red-500" : act.type === "money" ? "bg-green-50 text-green-500" : "bg-blue-50 text-blue-500"
-                  }`}>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${act.type === "alert" ? "bg-red-50 text-red-500" : act.type === "money" ? "bg-green-50 text-green-500" : "bg-blue-50 text-blue-500"
+                    }`}>
                     {act.type === "task" && "✔"}
                     {act.type === "money" && "₹"}
                     {act.type === "photo" && "📷"}
@@ -286,9 +290,8 @@ const AdminDashboard = () => {
                       <span className="text-slate-800 font-bold">92.4</span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${
-                        p.status === "On Track" ? "bg-green-100 text-success" : p.status === "Delayed" ? "bg-red-100 text-danger" : "bg-amber-100 text-warning"
-                      }`}>{p.status}</span>
+                      <span className={`px-3 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${p.status === "On Track" ? "bg-green-100 text-success" : p.status === "Delayed" ? "bg-red-100 text-danger" : "bg-amber-100 text-warning"
+                        }`}>{p.status}</span>
                     </td>
                   </tr>
                 ))}
@@ -298,10 +301,14 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      <CreateUserModal 
-        isOpen={isUserModalOpen} 
-        onClose={() => setIsUserModalOpen(false)} 
-        onSubmit={handleCreateUser} 
+      <CreateUserModal
+        isOpen={isUserModalOpen}
+        onClose={() => setIsUserModalOpen(false)}
+        onSubmit={handleCreateUser}
+      />
+      <NewProjectModal
+        isOpen={isNewProjectModalOpen}
+        onClose={() => setIsNewProjectModalOpen(false)}
       />
     </DashboardLayout>
   );
