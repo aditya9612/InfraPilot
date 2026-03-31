@@ -9,6 +9,7 @@ import ContractorDashboard from "../pages/dashboard/ContractorDashboard";
 import AccountantDashboard from "../pages/dashboard/AccountantDashboard";
 import ClientDashboard from "../pages/dashboard/ClientDashboard";
 import Unauthorized from "../pages/Unauthorized";
+import ProjectsPage from "../pages/ProjectsPage";
 
 const RootRedirect = () => {
   const { user, isAuthenticated } = useAuth();
@@ -46,7 +47,24 @@ function AppRoutes() {
         <Route path="/client" element={
           <ProtectedRoute allowedRoles={["Client"]}><ClientDashboard /></ProtectedRoute>
         } />
-
+         
+          {/* project page */}
+        <Route
+          path="/admin/projects"
+          element={
+            <ProtectedRoute allowedRoles={["Admin"]}>
+              <ProjectsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/manager/projects"
+          element={
+            <ProtectedRoute allowedRoles={["Project Manager"]}>
+              <ProjectsPage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
