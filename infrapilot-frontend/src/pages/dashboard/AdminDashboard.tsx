@@ -6,6 +6,7 @@ import DashboardLayout from "../../components/common/DashboardLayout";
 import Navbar from "../../components/common/Navbar";
 import CreateUserModal from "../../components/forms/CreateUserModal";
 import NewProjectModal from "../../components/dashboard/NewProjectModal";
+import StatCard from "../../components/common/StatCard";
 
 // Mock Data
 const budgetData = [
