@@ -26,26 +26,25 @@ const WORK_TYPES = ['Civil', 'Electrical', 'Plumbing'];
 
 const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSubmit }) => {
   const [formData, setFormData] = useState({
-    fullName: '',
-    mobile: '',
+    full_name: '',
+    mobile_number: '',
     email: '',
     role: '',
-    // Site Engineer / Project Manager
+    designation: '',
+    joining_date: new Date().toISOString().split('T')[0],
+    pan_number: '',
+    aadhaar_number: '',
+    address: '',
+    is_active: true,
+    // Role specific (Optional)
     assignedProject: '',
     experience: '',
     qualification: '',
-    // Contractor
     companyName: '',
     workType: '',
     gstNumber: '',
-    // Accountant
     department: '',
-    // Client
     projectLinked: '',
-    address: '',
-    // Status
-    isActive: true,
-    // Optional
     notes: '',
   });
 
@@ -72,12 +71,12 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
   const validate = () => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.fullName || formData.fullName.length < 3) {
-      newErrors.fullName = 'Full Name must be at least 3 characters.';
+    if (!formData.full_name || formData.full_name.length < 3) {
+      newErrors.full_name = 'Full Name must be at least 3 characters.';
     }
 
-    if (!formData.mobile || !/^\d{10}$/.test(formData.mobile)) {
-      newErrors.mobile = 'Enter a valid 10-digit mobile number.';
+    if (!formData.mobile_number || !/^\d{10}$/.test(formData.mobile_number)) {
+      newErrors.mobile_number = 'Enter a valid 10-digit mobile number.';
     }
 
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
@@ -86,6 +85,18 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
 
     if (!formData.role) {
       newErrors.role = 'Please select a role.';
+    }
+
+    if (!formData.designation) {
+      newErrors.designation = 'Designation is required.';
+    }
+
+    if (formData.pan_number && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.pan_number)) {
+      newErrors.pan_number = 'Enter a valid PAN (e.g., ABCDE1234F).';
+    }
+
+    if (formData.aadhaar_number && !/^\d{12}$/.test(formData.aadhaar_number)) {
+      newErrors.aadhaar_number = 'Enter a valid 12-digit Aadhaar number.';
     }
 
     // Role specific validation
@@ -118,7 +129,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
   };
 
   const handleToggle = () => {
-    setFormData((prev) => ({ ...prev, isActive: !prev.isActive }));
+    setFormData((prev) => ({ ...prev, is_active: !prev.is_active }));
   };
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -133,7 +144,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
       setIsLoading(true);
       // Simulate API call
       setTimeout(() => {
-        onSubmit({ ...formData, photo });
+        onSubmit({ ...formData, profile_image: photo ? URL.createObjectURL(photo) : "" });
         setIsLoading(false);
         onClose();
       }, 1500);
@@ -183,26 +194,26 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
                 <label className="block text-sm font-medium text-gray-600 mb-1">Full Name <span className="text-danger">*</span></label>
                 <input
                   type="text"
-                  name="fullName"
-                  value={formData.fullName}
+                  name="full_name"
+                  value={formData.full_name}
                   onChange={handleChange}
                   placeholder="John Doe"
-                  className={`w-full px-4 py-2 bg-gray-50 border ${errors.fullName ? 'border-danger focus:ring-danger' : 'border-gray-200 focus:ring-primary'} rounded-xl focus:ring-2 focus:ring-offset-0 focus:outline-none transition-all outline-none`}
+                  className={`w-full px-4 py-2 bg-gray-50 border ${errors.full_name ? 'border-danger focus:ring-danger' : 'border-gray-200 focus:ring-primary'} rounded-xl focus:ring-2 focus:ring-offset-0 focus:outline-none transition-all outline-none`}
                 />
-                {errors.fullName && <p className="mt-1 text-xs text-danger">{errors.fullName}</p>}
+                {errors.full_name && <p className="mt-1 text-xs text-danger">{errors.full_name}</p>}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">Mobile Number <span className="text-danger">*</span></label>
                 <input
-                  type="number"
-                  name="mobile"
-                  value={formData.mobile}
+                  type="text"
+                  name="mobile_number"
+                  value={formData.mobile_number}
                   onChange={handleChange}
                   placeholder="9876543210"
-                  className={`w-full px-4 py-2 bg-gray-50 border ${errors.mobile ? 'border-danger focus:ring-danger' : 'border-gray-200 focus:ring-primary'} rounded-xl focus:ring-2 focus:ring-offset-0 focus:outline-none transition-all outline-none`}
+                  className={`w-full px-4 py-2 bg-gray-50 border ${errors.mobile_number ? 'border-danger focus:ring-danger' : 'border-gray-200 focus:ring-primary'} rounded-xl focus:ring-2 focus:ring-offset-0 focus:outline-none transition-all outline-none`}
                 />
-                {errors.mobile && <p className="mt-1 text-xs text-danger">{errors.mobile}</p>}
+                {errors.mobile_number && <p className="mt-1 text-xs text-danger">{errors.mobile_number}</p>}
               </div>
 
               <div>
@@ -232,6 +243,68 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
                   ))}
                 </select>
                 {errors.role && <p className="mt-1 text-xs text-danger">{errors.role}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Designation <span className="text-danger">*</span></label>
+                <input
+                  type="text"
+                  name="designation"
+                  value={formData.designation}
+                  onChange={handleChange}
+                  placeholder="Project Admin"
+                  className={`w-full px-4 py-2 bg-gray-50 border ${errors.designation ? 'border-danger focus:ring-danger' : 'border-gray-200 focus:ring-primary'} rounded-xl focus:ring-2 focus:ring-offset-0 focus:outline-none transition-all outline-none`}
+                />
+                {errors.designation && <p className="mt-1 text-xs text-danger">{errors.designation}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Joining Date <span className="text-danger">*</span></label>
+                <input
+                  type="date"
+                  name="joining_date"
+                  value={formData.joining_date}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-2 bg-gray-50 border border-gray-200 focus:ring-primary rounded-xl focus:ring-2 focus:ring-offset-0 focus:outline-none transition-all outline-none`}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">PAN Number</label>
+                <input
+                  type="text"
+                  name="pan_number"
+                  value={formData.pan_number}
+                  onChange={handleChange}
+                  placeholder="ABCDE1234F"
+                  className={`w-full px-4 py-2 bg-gray-50 border ${errors.pan_number ? 'border-danger focus:ring-danger' : 'border-gray-200 focus:ring-primary'} rounded-xl focus:ring-2 focus:ring-offset-0 focus:outline-none transition-all outline-none uppercase`}
+                />
+                {errors.pan_number && <p className="mt-1 text-xs text-danger">{errors.pan_number}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Aadhaar Number</label>
+                <input
+                  type="text"
+                  name="aadhaar_number"
+                  value={formData.aadhaar_number}
+                  onChange={handleChange}
+                  placeholder="123412341234"
+                  className={`w-full px-4 py-2 bg-gray-50 border ${errors.aadhaar_number ? 'border-danger focus:ring-danger' : 'border-gray-200 focus:ring-primary'} rounded-xl focus:ring-2 focus:ring-offset-0 focus:outline-none transition-all outline-none`}
+                />
+                {errors.aadhaar_number && <p className="mt-1 text-xs text-danger">{errors.aadhaar_number}</p>}
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-600 mb-1">Address</label>
+                <textarea
+                  name="address"
+                  rows={2}
+                  value={formData.address}
+                  onChange={handleChange}
+                  placeholder="Enter full address"
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 focus:ring-primary rounded-xl focus:ring-2 focus:ring-offset-0 focus:outline-none transition-all outline-none resize-none"
+                />
               </div>
             </div>
           </div>
@@ -379,10 +452,10 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
               <button
                 type="button"
                 onClick={handleToggle}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${formData.isActive ? 'bg-success' : 'bg-gray-300'}`}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${formData.is_active ? 'bg-success' : 'bg-gray-300'}`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${formData.isActive ? 'translate-x-6' : 'translate-x-1'}`}
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${formData.is_active ? 'translate-x-6' : 'translate-x-1'}`}
                 />
               </button>
             </div>
@@ -456,8 +529,8 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
             </button>
             <button
               type="submit"
-              disabled={isLoading || !formData.fullName || !formData.mobile || !formData.role}
-              className={`px-8 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center gap-2 ${isLoading || !formData.fullName || !formData.mobile || !formData.role ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}
+              disabled={isLoading || !formData.full_name || !formData.mobile_number || !formData.role || !formData.designation}
+              className={`px-8 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center gap-2 ${isLoading || !formData.full_name || !formData.mobile_number || !formData.role || !formData.designation ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}
             >
               {isLoading ? (
                 <>

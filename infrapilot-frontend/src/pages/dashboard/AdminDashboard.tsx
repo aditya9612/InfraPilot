@@ -40,7 +40,7 @@ const AdminDashboard = () => {
   const handleCreateUser = (userData: any) => {
     console.log("New User Data:", userData);
     // Here you would typically call an API service
-    alert(`User ${userData.fullName} created successfully!`);
+    alert(`User ${userData.full_name} created successfully!`);
   };
 
   return (
