@@ -7,6 +7,8 @@ import Navbar from "../../components/common/Navbar";
 import CreateUserModal from "../../components/forms/CreateUserModal";
 import NewProjectModal from "../../components/dashboard/NewProjectModal";
 import StatCard from "../../components/common/StatCard";
+import PageTransition from "../../components/common/PageTransition";
+
 
 // Mock Data
 const budgetData = [
@@ -50,7 +52,7 @@ const AdminDashboard = () => {
         breadcrumb={["InfraPilot", "Dashboard", "Admin"]}
       />
 
-      <div className="p-6 bg-slate-50 min-h-screen font-inter">
+      <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
         {/* Header Actions */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
@@ -300,7 +302,7 @@ const AdminDashboard = () => {
             </table>
           </div>
         </div>
-      </div>
+      </PageTransition>
 
       <CreateUserModal
         isOpen={isUserModalOpen}

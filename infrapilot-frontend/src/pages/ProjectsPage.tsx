@@ -1,61 +1,48 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DashboardLayout from "../components/common/DashboardLayout";
 import Navbar from "../components/common/Navbar";
-// import DashboardLayout from "../../components/common/DashboardLayout";
-// import Navbar from "../../components/common/Navbar";
+import PageTransition from "../components/common/PageTransition";
+import { motion, AnimatePresence } from "framer-motion";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type ProjectType = "Residential" | "Commercial";
-type ProjectStatus = "Ongoing" | "Completed" | "Hold";
+type ProjectStatus = "Planned" | "Ongoing" | "Completed" | "Hold";
 
 interface Project {
   id: string;
-  ownerId: string;
-  siteAddress: string;
-  siteArea: number;
-  type: ProjectType;
+  project_name: string;
+  owner_id: number;
+  description: string;
   startDate: string;
   endDate: string;
-  duration: string;
-  budget: number;
-  paymentTerms: string;
-  advancePaid: number;
-  siteEngineer: string;
   status: ProjectStatus;
   progress: number;
+  // UI-only/Legacy fields kept for compatibility with existing components
+  siteAddress: string;
+  type: ProjectType;
+  budget: number;
+  siteEngineer: string;
 }
 
 // ─── Seed Data ────────────────────────────────────────────────────────────────
 const SEED: Project[] = [
   {
-    id: "PRJ-2025-001", ownerId: "OWN-101",
+    id: "PRJ-2025-001", project_name: "Skyline Tower A", owner_id: 101,
+    description: "Residential project in Baner Road",
     siteAddress: "Plot 14, Baner Road, Pune, Maharashtra 411045",
-    siteArea: 4200, type: "Residential",
+    type: "Residential",
     startDate: "2025-01-10", endDate: "2026-06-30",
-    duration: "1 Year 5 Months 20 Days",
-    budget: 12400000, paymentTerms: "30% advance, 40% mid-stage, 30% on completion",
-    advancePaid: 3720000, siteEngineer: "Ravi Kumar",
+    budget: 12400000, siteEngineer: "Ravi Kumar",
     status: "Ongoing", progress: 75,
   },
   {
-    id: "PRJ-2025-002", ownerId: "OWN-102",
+    id: "PRJ-2025-002", project_name: "Metro Extension", owner_id: 102,
+    description: "Commercial project in Wakad",
     siteAddress: "Survey No. 88, Wakad, Pune, Maharashtra 411057",
-    siteArea: 18500, type: "Commercial",
+    type: "Commercial",
     startDate: "2024-08-01", endDate: "2027-03-31",
-    duration: "2 Years 7 Months",
-    budget: 45000000, paymentTerms: "25% advance, milestone-based 75%",
-    advancePaid: 11250000, siteEngineer: "Ankit Desai",
+    budget: 45000000, siteEngineer: "Ankit Desai",
     status: "Ongoing", progress: 45,
-  },
-  {
-    id: "PRJ-2025-003", ownerId: "OWN-103",
-    siteAddress: "Hadapsar Industrial Estate, Pune 411028",
-    siteArea: 9800, type: "Commercial",
-    startDate: "2023-06-15", endDate: "2025-02-28",
-    duration: "1 Year 8 Months 13 Days",
-    budget: 8200000, paymentTerms: "50% advance, balance on delivery",
-    advancePaid: 4100000, siteEngineer: "Sunita Rao",
-    status: "Completed", progress: 100,
   },
 ];
 
@@ -67,18 +54,21 @@ const fmt = (n: number) =>
 
 // Exact same status badge classes used in AdminDashboard health column
 const statusBadge: Record<ProjectStatus, string> = {
+  Planned:   "bg-slate-100 text-slate-500",
   Ongoing:   "bg-green-100 text-success",
   Completed: "bg-blue-100 text-primary",
   Hold:      "bg-amber-100 text-warning",
 };
 // Exact same progress bar color classes used in AdminDashboard
 const progressFill: Record<ProjectStatus, string> = {
+  Planned:   "bg-slate-300",
   Ongoing:   "bg-success",
   Completed: "bg-primary",
   Hold:      "bg-warning",
 };
 // Status dot colors matching AdminDashboard project progress section
 const statusDot: Record<ProjectStatus, string> = {
+  Planned:   "bg-slate-400",
   Ongoing:   "bg-success",
   Completed: "bg-primary",
   Hold:      "bg-warning",
@@ -90,34 +80,18 @@ const typeBadge: Record<ProjectType, string> = {
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 const EMPTY = {
-  id: "", ownerId: "", siteAddress: "", siteArea: "",
-  type: "" as "" | ProjectType,
-  startDate: "", endDate: "", duration: "",
-  budget: "", paymentTerms: "", advancePaid: "",
-  siteEngineer: "", status: "" as "" | ProjectStatus,
+  project_name: "", owner_id: 1, description: "",
+  startDate: "", endDate: "", status: "Planned",
 };
 type FormErrors = Partial<Record<keyof typeof EMPTY, string>>;
 
-function validate(f: typeof EMPTY, existing: Project[]): FormErrors {
+function validate(f: typeof EMPTY): FormErrors {
   const e: FormErrors = {};
-  if (!f.id.trim())                                  e.id = "Project ID is required.";
-  else if (existing.find(p => p.id === f.id.trim())) e.id = "Project ID already exists.";
-  if (!f.ownerId.trim())                             e.ownerId = "Owner ID is required.";
-  if (!f.siteAddress.trim())                         e.siteAddress = "Required.";
-  else if (f.siteAddress.length < 10)                e.siteAddress = "Minimum 10 characters.";
-  if (!f.siteArea || Number(f.siteArea) <= 0)        e.siteArea = "Positive number required.";
-  if (!f.type)                                       e.type = "Select project type.";
-  if (!f.startDate)                                  e.startDate = "Required.";
-  if (!f.endDate)                                    e.endDate = "Required.";
-  else if (f.startDate && f.endDate < f.startDate)   e.endDate = "Must be ≥ Start Date.";
-  if (!f.duration.trim())                            e.duration = "Required.";
-  if (!f.budget || Number(f.budget) <= 0)            e.budget = "Must be positive.";
-  if (!f.paymentTerms.trim())                        e.paymentTerms = "Required.";
-  if (f.advancePaid && Number(f.advancePaid) > Number(f.budget))
-                                                     e.advancePaid = "Advance ≤ Budget.";
-  if (!f.siteEngineer.trim())                        e.siteEngineer = "Required.";
-  else if (f.siteEngineer.trim().length < 5)         e.siteEngineer = "Minimum 5 characters.";
-  if (!f.status)                                     e.status = "Mandatory field.";
+  if (!f.project_name.trim()) e.project_name = "Project name is required.";
+  if (!f.description.trim())  e.description = "Required.";
+  if (!f.startDate)           e.startDate = "Required.";
+  if (!f.endDate)             e.endDate = "Required.";
+  else if (f.startDate && f.endDate < f.startDate) e.endDate = "Must be ≥ Start Date.";
   return e;
 }
 
@@ -141,23 +115,19 @@ const Field = ({ label, error, hint, children }: {
 
 // ─── Detail Modal ─────────────────────────────────────────────────────────────
 const DetailModal = ({ p, onClose }: { p: Project; onClose: () => void }) => {
-  const remaining = p.budget - p.advancePaid;
   const rows: [string, string][] = [
     ["Project ID",        p.id],
-    ["Owner ID",          p.ownerId],
-    ["Site Address",      p.siteAddress],
-    ["Site Area",         `${p.siteArea.toLocaleString("en-IN")} Sq. Ft.`],
-    ["Type",              p.type],
+    ["Project Name",      p.project_name],
+    ["Owner ID",          p.owner_id.toString()],
+    ["Description",       p.description],
     ["Start Date",        new Date(p.startDate).toLocaleDateString("en-IN")],
     ["End Date",          new Date(p.endDate).toLocaleDateString("en-IN")],
-    ["Duration",          p.duration],
-    ["Budget",            fmt(p.budget)],
-    ["Payment Terms",     p.paymentTerms],
-    ["Advance Paid",      fmt(p.advancePaid)],
-    ["Remaining Balance", fmt(remaining)],
-    ["Site Engineer",     p.siteEngineer],
     ["Status",            p.status],
     ["Work Progress",     `${p.progress}%`],
+    ["Site Address",      p.siteAddress],
+    ["Type",              p.type],
+    ["Budget",            fmt(p.budget)],
+    ["Site Engineer",     p.siteEngineer],
   ];
 
   return (
@@ -228,49 +198,57 @@ const ProjectsPage = () => {
   const [filterStatus, setFilterStatus] = useState<"All" | ProjectStatus>("All");
   const [filterType, setFilterType]     = useState<"All" | ProjectType>("All");
   const [search, setSearch]             = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [successMsg, setSuccessMsg]     = useState("");
   const [actTab, setActTab]             = useState("All");
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [search]);
 
   const set = (k: keyof typeof EMPTY, v: string) => {
     setForm(f => ({ ...f, [k]: v }));
     setErrors(e => ({ ...e, [k]: undefined }));
   };
 
-  const remaining =
-    form.budget && form.advancePaid
-      ? Number(form.budget) - Number(form.advancePaid)
-      : null;
-
   const handleSubmit = async () => {
-    const errs = validate(form, projects);
+    const errs = validate(form);
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setSaving(true);
     await new Promise(r => setTimeout(r, 800));
     const np: Project = {
-      id: form.id.trim(), ownerId: form.ownerId.trim(),
-      siteAddress: form.siteAddress.trim(), siteArea: Number(form.siteArea),
-      type: form.type as ProjectType,
+      id: `PRJ-${Math.floor(1000 + Math.random() * 9000)}`,
+      project_name: form.project_name.trim(),
+      owner_id: Number(form.owner_id) || 1,
+      description: form.description.trim(),
       startDate: form.startDate, endDate: form.endDate,
-      duration: form.duration.trim(), budget: Number(form.budget),
-      paymentTerms: form.paymentTerms.trim(),
-      advancePaid: Number(form.advancePaid) || 0,
-      siteEngineer: form.siteEngineer.trim(),
-      status: form.status as ProjectStatus, progress: 0,
+      status: form.status as ProjectStatus,
+      progress: 0,
+      
+      // Fallbacks for UI compatibility
+      siteAddress: form.description.trim() || 'No address',
+      type: "Residential",
+      budget: 0,
+      siteEngineer: "Unassigned",
     };
     setProjects(prev => [np, ...prev]);
     setForm({ ...EMPTY }); setErrors({});
     setSaving(false); setShowForm(false);
-    setSuccessMsg(`Project "${np.id}" created successfully!`);
+    setSuccessMsg(`Project "${np.project_name}" created successfully!`);
     setTimeout(() => setSuccessMsg(""), 4000);
   };
+
 
   const filtered = projects.filter(p => {
     const ms = filterStatus === "All" || p.status === filterStatus;
     const mt = filterType === "All"   || p.type   === filterType;
-    const mq = !search ||
-      p.id.toLowerCase().includes(search.toLowerCase()) ||
-      p.siteAddress.toLowerCase().includes(search.toLowerCase()) ||
-      p.siteEngineer.toLowerCase().includes(search.toLowerCase());
+    const mq = !debouncedSearch ||
+      p.id.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      p.siteAddress.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      p.siteEngineer.toLowerCase().includes(debouncedSearch.toLowerCase());
     return ms && mt && mq;
   });
 
@@ -286,7 +264,7 @@ const ProjectsPage = () => {
     <DashboardLayout>
       <Navbar title="Projects" breadcrumb={["InfraPilot", "Admin", "Projects"]} />
 
-      <div className="p-6 bg-slate-50 min-h-screen font-inter">
+      <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
 
         {/* Success toast — same bg-success color */}
         {successMsg && (
@@ -575,15 +553,18 @@ const ProjectsPage = () => {
         </div>
 
         {/* ── Create Project Drawer ── */}
-        {showForm && (
-          <div
-            className="fixed inset-0 z-50 flex items-start justify-end bg-black/40 backdrop-blur-sm"
-            onClick={() => setShowForm(false)}
-          >
-            <div
-              className="relative bg-white w-full max-w-2xl h-full overflow-y-auto shadow-2xl flex flex-col"
-              onClick={e => e.stopPropagation()}
+        <AnimatePresence>
+          {showForm && (
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-start justify-end bg-black/40 backdrop-blur-sm"
+              onClick={() => setShowForm(false)}
             >
+              <motion.div
+                initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                className="relative bg-white w-full max-w-2xl h-full overflow-y-auto shadow-2xl flex flex-col"
+                onClick={e => e.stopPropagation()}
+              >
               {/* bg-primary — same as Navbar */}
               <div className="bg-primary px-6 py-4 flex items-center justify-between sticky top-0 z-10">
                 <div>
@@ -605,87 +586,36 @@ const ProjectsPage = () => {
                     Basic Information
                   </p>
                   <div className="grid grid-cols-2 gap-4 mb-4">
-                    <Field label="Project ID *" error={errors.id} hint="e.g. PRJ-2025-004">
-                      <input className={inp(errors.id)} placeholder="PRJ-2025-004" value={form.id} onChange={e => set("id", e.target.value)} />
+                    <Field label="Project Name *" error={errors.project_name} hint="e.g. SARA CITY">
+                      <input className={inp(errors.project_name)} placeholder="SARA CITY" value={form.project_name} onChange={e => set("project_name", e.target.value)} />
                     </Field>
-                    <Field label="Owner ID *" error={errors.ownerId} hint="From Owner Module">
-                      <input className={inp(errors.ownerId)} placeholder="OWN-104" value={form.ownerId} onChange={e => set("ownerId", e.target.value)} />
+                    <Field label="Owner ID *" error={errors.owner_id} hint="Numeric ID">
+                      <input type="number" className={inp(errors.owner_id)} placeholder="1" value={form.owner_id} onChange={e => set("owner_id", e.target.value)} />
                     </Field>
                   </div>
-                  <Field label="Site Address *" error={errors.siteAddress} hint="Min 10, max 255 characters">
-                    <textarea rows={2} className={`${inp(errors.siteAddress)} resize-none`} placeholder="Plot No., Street, City, State PIN" value={form.siteAddress} onChange={e => set("siteAddress", e.target.value)} />
+                  <Field label="Description *" error={errors.description} hint="Project details">
+                    <textarea rows={2} className={`${inp(errors.description)} resize-none`} placeholder="Wing A Construction" value={form.description} onChange={e => set("description", e.target.value)} />
                   </Field>
-                  <div className="grid grid-cols-2 gap-4 mt-4">
-                    <Field label="Site Area (Sq. Ft.) Approx *" error={errors.siteArea} hint="Positive numbers only">
-                      <input type="number" min={1} className={inp(errors.siteArea)} placeholder="4500" value={form.siteArea} onChange={e => set("siteArea", e.target.value)} />
-                    </Field>
-                    <Field label="Type *" error={errors.type}>
-                      <select className={inp(errors.type)} value={form.type} onChange={e => set("type", e.target.value)}>
-                        <option value="">Select One Option</option>
-                        <option value="Residential">Residential</option>
-                        <option value="Commercial">Commercial</option>
-                      </select>
-                    </Field>
-                  </div>
                 </div>
 
                 <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Timeline</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Timeline & Status</p>
                   <div className="grid grid-cols-2 gap-4 mb-4">
-                    <Field label="Expected Start Date *" error={errors.startDate} hint="Cannot be past date">
+                    <Field label="Start Date *" error={errors.startDate} hint="Expected start date">
                       <input type="date" className={inp(errors.startDate)} value={form.startDate} onChange={e => set("startDate", e.target.value)} />
                     </Field>
-                    <Field label="Project End Date *" error={errors.endDate} hint="Must be ≥ Start Date">
+                    <Field label="End Date *" error={errors.endDate} hint="Expected completion">
                       <input type="date" className={inp(errors.endDate)} value={form.endDate} onChange={e => set("endDate", e.target.value)} />
                     </Field>
                   </div>
-                  <Field label="Project Estimated Duration *" error={errors.duration} hint="e.g. 2 Years 5 Months 25 Days">
-                    <input className={inp(errors.duration)} placeholder="1 Year 6 Months" value={form.duration} onChange={e => set("duration", e.target.value)} />
+                  <Field label="Project Status *" error={errors.status}>
+                    <select className={inp(errors.status)} value={form.status} onChange={e => set("status", e.target.value)}>
+                      <option value="Planned">Planned</option>
+                      <option value="Ongoing">Ongoing</option>
+                      <option value="Completed">Completed</option>
+                      <option value="Hold">Hold</option>
+                    </select>
                   </Field>
-                </div>
-
-                <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Financials</p>
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <Field label="Project Estimated Budget (₹) *" error={errors.budget} hint="e.g. 2500000">
-                      <input type="number" min={1} className={inp(errors.budget)} placeholder="2500000" value={form.budget} onChange={e => set("budget", e.target.value)} />
-                    </Field>
-                    <Field label="Advance Paid (₹)" error={errors.advancePaid} hint="Must be ≤ Budget">
-                      <input type="number" min={0} className={inp(errors.advancePaid)} placeholder="500000" value={form.advancePaid} onChange={e => set("advancePaid", e.target.value)} />
-                    </Field>
-                  </div>
-                  {/* Auto-calc — same info alert style as Critical Alerts section */}
-                  {remaining !== null && (
-                    <div className="p-3 bg-blue-50 rounded-xl flex items-center justify-between mb-4 border border-blue-100">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-primary" />
-                        <p className="text-xs font-bold text-primary">Remaining Balance (Auto Calculated)</p>
-                      </div>
-                      <span className={`text-sm font-bold ${remaining < 0 ? "text-danger" : "text-success"}`}>
-                        {remaining < 0 ? `- ${fmt(Math.abs(remaining))}` : fmt(remaining)}
-                      </span>
-                    </div>
-                  )}
-                  <Field label="Payment Terms *" error={errors.paymentTerms} hint="Payment schedule details">
-                    <input className={inp(errors.paymentTerms)} placeholder="30% advance, 40% mid-stage, 30% on completion" value={form.paymentTerms} onChange={e => set("paymentTerms", e.target.value)} />
-                  </Field>
-                </div>
-
-                <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Team & Status</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field label="Site Engineer Name *" error={errors.siteEngineer} hint="5–50 characters">
-                      <input className={inp(errors.siteEngineer)} placeholder="Ravi Kumar" value={form.siteEngineer} onChange={e => set("siteEngineer", e.target.value)} />
-                    </Field>
-                    <Field label="Project Status *" error={errors.status}>
-                      <select className={inp(errors.status)} value={form.status} onChange={e => set("status", e.target.value)}>
-                        <option value="">Select Status</option>
-                        <option value="Ongoing">1) Ongoing</option>
-                        <option value="Completed">2) Completed</option>
-                        <option value="Hold">3) Hold</option>
-                      </select>
-                    </Field>
-                  </div>
                 </div>
               </div>
 
@@ -710,12 +640,13 @@ const ProjectsPage = () => {
                   ) : "Create Project"}
                 </button>
               </div>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
+        </AnimatePresence>
 
         {viewP && <DetailModal p={viewP} onClose={() => setViewP(null)} />}
-      </div>
+      </PageTransition>
     </DashboardLayout>
   );
 };
