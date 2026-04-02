@@ -1,5 +1,5 @@
-import { useState } from "react";
 import DashboardLayout from "../../components/common/DashboardLayout";
+import { useState } from "react";
 import Navbar from "../../components/common/Navbar";
 
 // Mock Data
@@ -29,7 +29,7 @@ const EngineerDashboard = () => {
 
   return (
     <DashboardLayout>
-      <Navbar
+        <Navbar
         title="Field Dashboard"
         breadcrumb={["InfraPilot", "Engineer"]}
       />

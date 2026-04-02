@@ -215,6 +215,44 @@ const icons: Record<string, JSX.Element> = {
       <line x1="1" y1="10" x2="23" y2="10" strokeWidth="1.8" />
     </svg>
   ),
+  briefcase: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <rect x="2" y="7" width="20" height="14" rx="2" ry="2" strokeWidth="1.8" />
+      <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+    </svg>
+  ),
+  "user-check": (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+      <circle cx="8.5" cy="7" r="4" strokeWidth="1.8" />
+      <polyline points="17 11 19 13 23 9" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+    </svg>
+  ),
+  "check-circle": (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+      <polyline points="22 4 12 14.01 9 11.01" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+    </svg>
+  ),
+  bell: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+    </svg>
+  ),
+  database: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <ellipse cx="12" cy="5" rx="9" ry="3" strokeWidth="1.8" />
+      <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" strokeWidth="1.8" />
+      <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" strokeWidth="1.8" />
+    </svg>
+  ),
+  link: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+    </svg>
+  ),
 };
 
 const Chevron = () => (
@@ -233,20 +271,29 @@ const Chevron = () => (
   </svg>
 );
 
-const Sidebar = () => {
+interface SidebarProps {
+  onClose?: () => void;
+}
+
+const Sidebar = ({ onClose }: SidebarProps) => {
   const { user, logout } = useAuth();
   if (!user) return null;
   const menu = sidebarMenus[user.role];
 
   return (
-    <aside className="w-56 h-full bg-white border-r border-slate-100 flex flex-col shadow-sm shrink-0">
-      {/* Logo */}
-      <div className="px-2 pt-1 pb-0 border-b border-slate-100 flex justify-center">
+    <aside className="w-full h-full bg-white border-r border-slate-100 flex flex-col shadow-sm shrink-0">
+      {/* Logo container ... */}
+      <div className="px-2 pt-1 pb-0 border-b border-slate-100 flex justify-center lg:items-center relative">
         <img
           src={logo}
           alt="InfraPilot Logo"
           className="w-full h-16 object-contain"
         />
+        {onClose && (
+          <button onClick={onClose} className="lg:hidden absolute right-2 text-slate-500 p-2 hover:bg-slate-50 rounded-lg">
+             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        )}
       </div>
 
       {/* Search */}
@@ -276,6 +323,7 @@ const Sidebar = () => {
             key={item.path}
             to={item.path}
             end
+            onClick={onClose}
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors mb-0.5 ${
                 isActive

@@ -26,7 +26,7 @@ const ClientDashboard = () => {
 
   return (
     <DashboardLayout>
-      <Navbar
+        <Navbar
         title="Project Transparency Portal"
         breadcrumb={["InfraPilot", "Client", "Dashboard"]}
       />

@@ -11,7 +11,7 @@ import ActivityFeed from "../../components/dashboard/ActivityFeed";
 const ManagerDashboard = () => {
   return (
     <DashboardLayout>
-      <Navbar
+        <Navbar
         title="Project Manager Dashboard"
         breadcrumb={["InfraPilot", "Dashboard", "Manager"]}
         action={{ label: "Generate Report" }}
