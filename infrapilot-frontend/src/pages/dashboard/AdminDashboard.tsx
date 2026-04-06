@@ -77,12 +77,35 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* Top Feature Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <StatCard title="Total Projects" value="24" sub="+3 this month" accent="text-primary" />
-          <StatCard title="Active Users" value="138" sub="Across 12 sites" accent="text-blue-500" />
-          <StatCard title="Total Budget" value="₹4.2Cr" sub="FY 2025-26" accent="text-violet-500" />
-          <StatCard title="Pending Issues" value="12" sub="3 High Priority" accent="text-danger" />
+        {/* Top Feature Stats - Project Overview */}
+        <div className="mb-6">
+          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Project Overview</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <StatCard title="Total Projects" value="24" sub="+3 this month" accent="text-primary" />
+            <StatCard title="Active Projects" value="18" sub="On-going sites" accent="text-blue-500" />
+            <StatCard title="Completed Projects" value="6" sub="Handed over" accent="text-emerald-500" />
+            <StatCard title="Delayed Projects" value="2" sub="At high risk" accent="text-rose-500" />
+          </div>
+        </div>
+
+        {/* Financial Overview */}
+        <div className="mb-6">
+          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Financial Status</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <StatCard title="Total Revenue" value="₹12.8Cr" sub="FY 2025-26" accent="text-indigo-500" />
+            <StatCard title="Total Expenses" value="₹8.4Cr" sub="Payments & Wages" accent="text-orange-500" />
+            <StatCard title="Profit / Loss" value="+ ₹4.4Cr" sub="Net Margin" accent="text-green-600" />
+          </div>
+        </div>
+
+        {/* Operations & Alerts */}
+        <div className="mb-8">
+          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Operations & Health</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <StatCard title="Active Users" value="138" sub="Across 12 sites" accent="text-sky-500" />
+            <StatCard title="Pending Approvals" value="12" sub="5 Awaiting Admin" accent="text-amber-500" />
+            <StatCard title="Active Alerts" value="4" sub="Low stock / Over budget" accent="text-danger" />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">

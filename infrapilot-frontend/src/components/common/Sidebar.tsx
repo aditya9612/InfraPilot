@@ -1,8 +1,12 @@
-import { NavLink } from "react-router-dom";
+import { useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../../context/AuthContext";
-import { sidebarMenus } from "../../config/sidebarMenu";
+import { sidebarMenus, type MenuItem } from "../../config/sidebarMenu";
 import type { JSX } from "react";
 import logo from "../../assets/logo.png";
+
+// ... (icons remain unchanged)
 
 const icons: Record<string, JSX.Element> = {
   grid: (
@@ -255,9 +259,9 @@ const icons: Record<string, JSX.Element> = {
   ),
 };
 
-const Chevron = () => (
+const Chevron = ({ isOpen }: { isOpen?: boolean }) => (
   <svg
-    className="w-3 h-3 ml-auto text-slate-300"
+    className={`w-3 h-3 ml-auto text-slate-300 transition-transform duration-300 ${isOpen ? "rotate-90" : ""}`}
     fill="none"
     stroke="currentColor"
     viewBox="0 0 24 24"
@@ -275,6 +279,89 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
+const SidebarItem = ({ 
+  item, 
+  onClose, 
+  depth = 0 
+}: { 
+  item: MenuItem; 
+  onClose?: () => void; 
+  depth?: number 
+}) => {
+  const location = useLocation();
+  const [isOpen, setIsOpen] = useState(location.pathname.startsWith(item.path));
+  const hasSubNav = item.subNav && item.subNav.length > 0;
+  const isParentActive = hasSubNav && location.pathname.startsWith(item.path);
+
+  if (hasSubNav) {
+    return (
+      <div className="mb-0.5">
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+            isParentActive
+              ? "text-primary bg-blue-50/50 font-semibold"
+              : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+          }`}
+        >
+          <span className={isParentActive ? "text-primary" : "text-slate-400"}>
+            {icons[item.icon]}
+          </span>
+          <span className="flex-1 text-left">{item.label}</span>
+          <Chevron isOpen={isOpen} />
+        </button>
+        <AnimatePresence initial={false}>
+          {isOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: "easeInOut" }}
+              className="overflow-hidden ml-4 border-l border-slate-100 pl-2"
+            >
+              <div className="pt-0.5 pb-1">
+              {item.subNav!.map((subItem) => (
+                <SidebarItem 
+                  key={subItem.path} 
+                  item={subItem} 
+                  onClose={onClose} 
+                  depth={depth + 1} 
+                />
+              ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
+
+  return (
+    <NavLink
+      to={item.path}
+      end={depth > 0 || item.path === "/admin" || item.path === "/manager" || item.path === "/engineer" || item.path === "/contractor" || item.path === "/accountant" || item.path === "/client"}
+      onClick={onClose}
+      className={({ isActive }) =>
+        `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors mb-0.5 ${
+          isActive
+            ? "text-primary bg-blue-50 font-semibold shadow-sm shadow-blue-100/50"
+            : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+        }`
+      }
+    >
+      {({ isActive }) => (
+        <>
+          <span className={isActive ? "text-primary" : "text-slate-400"}>
+            {icons[item.icon]}
+          </span>
+          <span className="flex-1">{item.label}</span>
+          {!hasSubNav && depth === 0 && <Chevron />}
+        </>
+      )}
+    </NavLink>
+  );
+};
+
 const Sidebar = ({ onClose }: SidebarProps) => {
   const { user, logout } = useAuth();
   if (!user) return null;
@@ -282,7 +369,7 @@ const Sidebar = ({ onClose }: SidebarProps) => {
 
   return (
     <aside className="w-full h-full bg-white border-r border-slate-100 flex flex-col shadow-sm shrink-0">
-      {/* Logo container ... */}
+      {/* Logo container */}
       <div className="px-2 pt-1 pb-0 border-b border-slate-100 flex justify-center lg:items-center relative">
         <img
           src={logo}
@@ -296,59 +383,17 @@ const Sidebar = ({ onClose }: SidebarProps) => {
         )}
       </div>
 
-      {/* Search */}
-      <div className="px-4 py-1 border-b border-slate-100">
-        <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2">
-          <svg
-            className="w-3.5 h-3.5 text-slate-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <circle cx="11" cy="11" r="8" strokeWidth="2" />
-            <path strokeLinecap="round" strokeWidth="2" d="M21 21l-4.35-4.35" />
-          </svg>
-          <input
-            type="text"
-            placeholder="Search here..."
-            className="bg-transparent text-xs text-slate-500 outline-none w-full placeholder:text-slate-400"
-          />
-        </div>
-      </div>
-
       {/* Nav */}
       <nav className="flex-1 px-3 pt-1 pb-3 overflow-y-auto">
         {menu.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            end
-            onClick={onClose}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors mb-0.5 ${
-                isActive
-                  ? "text-primary bg-blue-50 font-semibold"
-                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
-              }`
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <span className={isActive ? "text-primary" : "text-slate-400"}>
-                  {icons[item.icon]}
-                </span>
-                <span className="flex-1">{item.label}</span>
-                <Chevron />
-              </>
-            )}
-          </NavLink>
+          <SidebarItem key={item.path} item={item} onClose={onClose} />
         ))}
       </nav>
 
       {/* User + Logout */}
       <div className="px-4 py-4 border-t border-slate-100">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-sm font-bold shrink-0">
+          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-md shadow-primary/20">
             {user.name.charAt(0)}
           </div>
           <div className="min-w-0">
@@ -360,10 +405,10 @@ const Sidebar = ({ onClose }: SidebarProps) => {
         </div>
         <button
           onClick={logout}
-          className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+          className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors group"
         >
           <svg
-            className="w-3.5 h-3.5"
+            className="w-3.5 h-3.5 group-hover:text-red-500"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"

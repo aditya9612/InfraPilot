@@ -24,6 +24,8 @@ import DocumentsPage from "../pages/admin/DocumentsPage";
 import MasterDataPage from "../pages/admin/MasterDataPage";
 import IntegrationsPage from "../pages/admin/IntegrationsPage";
 import SettingsPage from "../pages/admin/SettingsPage";
+import RolesPage from "../pages/admin/RolesPage";
+import PermissionsPage from "../pages/admin/PermissionsPage";
 
 const RootRedirect = () => {
   const { user, isAuthenticated } = useAuth();
@@ -53,17 +55,46 @@ function AppRoutes() {
         <Route path="/admin/projects" element={<ProtectedRoute allowedRoles={["Admin"]}><ProjectsPage /></ProtectedRoute>} />
         <Route path="/manager/projects" element={<ProtectedRoute allowedRoles={["Project Manager"]}><ProjectsPage /></ProtectedRoute>} />
         <Route path="/admin/users" element={<ProtectedRoute allowedRoles={["Admin"]}><UsersPage /></ProtectedRoute>} />
+        <Route path="/admin/users/roles" element={<ProtectedRoute allowedRoles={["Admin"]}><RolesPage /></ProtectedRoute>} />
+        <Route path="/admin/users/permissions" element={<ProtectedRoute allowedRoles={["Admin"]}><PermissionsPage /></ProtectedRoute>} />
         <Route path="/admin/contractors" element={<ProtectedRoute allowedRoles={["Admin"]}><ContractorsPage /></ProtectedRoute>} />
         <Route path="/admin/clients" element={<ProtectedRoute allowedRoles={["Admin"]}><ClientsPage /></ProtectedRoute>} />
         <Route path="/admin/engineers" element={<ProtectedRoute allowedRoles={["Admin"]}><EngineersPage /></ProtectedRoute>} />
         <Route path="/admin/boq" element={<ProtectedRoute allowedRoles={["Admin"]}><BOQPage /></ProtectedRoute>} />
+        <Route path="/admin/boq/setup" element={<ProtectedRoute allowedRoles={["Admin"]}><BOQPage /></ProtectedRoute>} />
+        <Route path="/admin/boq/activities" element={<ProtectedRoute allowedRoles={["Admin"]}><BOQPage /></ProtectedRoute>} />
+        
         <Route path="/admin/inventory" element={<ProtectedRoute allowedRoles={["Admin"]}><InventoryPage /></ProtectedRoute>} />
+        <Route path="/admin/inventory/master" element={<ProtectedRoute allowedRoles={["Admin"]}><InventoryPage /></ProtectedRoute>} />
+        <Route path="/admin/inventory/stock" element={<ProtectedRoute allowedRoles={["Admin"]}><InventoryPage /></ProtectedRoute>} />
+        
         <Route path="/admin/finance" element={<ProtectedRoute allowedRoles={["Admin"]}><FinancePage /></ProtectedRoute>} />
+        <Route path="/admin/finance/invoices" element={<ProtectedRoute allowedRoles={["Admin"]}><FinancePage /></ProtectedRoute>} />
+        <Route path="/admin/finance/payments" element={<ProtectedRoute allowedRoles={["Admin"]}><FinancePage /></ProtectedRoute>} />
+        <Route path="/admin/finance/expenses" element={<ProtectedRoute allowedRoles={["Admin"]}><FinancePage /></ProtectedRoute>} />
+        <Route path="/admin/finance/profit" element={<ProtectedRoute allowedRoles={["Admin"]}><FinancePage /></ProtectedRoute>} />
+        
         <Route path="/admin/approvals" element={<ProtectedRoute allowedRoles={["Admin"]}><ApprovalsPage /></ProtectedRoute>} />
+        <Route path="/admin/approvals/material" element={<ProtectedRoute allowedRoles={["Admin"]}><ApprovalsPage /></ProtectedRoute>} />
+        <Route path="/admin/approvals/billing" element={<ProtectedRoute allowedRoles={["Admin"]}><ApprovalsPage /></ProtectedRoute>} />
+        <Route path="/admin/approvals/expense" element={<ProtectedRoute allowedRoles={["Admin"]}><ApprovalsPage /></ProtectedRoute>} />
+        
         <Route path="/admin/reports" element={<ProtectedRoute allowedRoles={["Admin"]}><ReportsPage /></ProtectedRoute>} />
+        <Route path="/admin/reports/progress" element={<ProtectedRoute allowedRoles={["Admin"]}><ReportsPage /></ProtectedRoute>} />
+        <Route path="/admin/reports/financial" element={<ProtectedRoute allowedRoles={["Admin"]}><ReportsPage /></ProtectedRoute>} />
+        <Route path="/admin/reports/labor" element={<ProtectedRoute allowedRoles={["Admin"]}><ReportsPage /></ProtectedRoute>} />
+        <Route path="/admin/reports/consumption" element={<ProtectedRoute allowedRoles={["Admin"]}><ReportsPage /></ProtectedRoute>} />
+        <Route path="/admin/reports/performance" element={<ProtectedRoute allowedRoles={["Admin"]}><ReportsPage /></ProtectedRoute>} />
+        
         <Route path="/admin/notifications" element={<ProtectedRoute allowedRoles={["Admin"]}><NotificationsPage /></ProtectedRoute>} />
         <Route path="/admin/documents" element={<ProtectedRoute allowedRoles={["Admin"]}><DocumentsPage /></ProtectedRoute>} />
+        
         <Route path="/admin/master-data" element={<ProtectedRoute allowedRoles={["Admin"]}><MasterDataPage /></ProtectedRoute>} />
+        <Route path="/admin/master-data/materials" element={<ProtectedRoute allowedRoles={["Admin"]}><MasterDataPage /></ProtectedRoute>} />
+        <Route path="/admin/master-data/labor" element={<ProtectedRoute allowedRoles={["Admin"]}><MasterDataPage /></ProtectedRoute>} />
+        <Route path="/admin/master-data/activities" element={<ProtectedRoute allowedRoles={["Admin"]}><MasterDataPage /></ProtectedRoute>} />
+        <Route path="/admin/master-data/units" element={<ProtectedRoute allowedRoles={["Admin"]}><MasterDataPage /></ProtectedRoute>} />
+        
         <Route path="/admin/integrations" element={<ProtectedRoute allowedRoles={["Admin"]}><IntegrationsPage /></ProtectedRoute>} />
         <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={["Admin"]}><SettingsPage /></ProtectedRoute>} />
 
