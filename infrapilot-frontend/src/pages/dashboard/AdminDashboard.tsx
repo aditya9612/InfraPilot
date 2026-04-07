@@ -8,9 +8,11 @@ import CreateUserModal from "../../components/forms/CreateUserModal";
 import NewProjectModal from "../../components/dashboard/NewProjectModal";
 import StatCard from "../../components/common/StatCard";
 import PageTransition from "../../components/common/PageTransition";
+import CreateBOQModal from "../../components/forms/CreateBOQModal";
+import { PROJECTS } from "../../config/projectSeed";
+import type { ProjectStatus } from "../../types/project";
 
-
-// Mock Data
+// ─── Mock Data ────────────────────────────────────────────────────────────────
 const budgetData = [
   { month: "Jan", budget: 45, actual: 40 },
   { month: "Feb", budget: 52, actual: 48 },
@@ -20,13 +22,6 @@ const budgetData = [
   { month: "Jun", budget: 67, actual: 72 },
 ];
 
-const projects = [
-  { name: "Skyline Tower A", progress: 75, status: "On Track", budget: "₹12.4Cr", color: "bg-success" },
-  { name: "Metro Extension Ph-II", progress: 45, status: "Delayed", budget: "₹45.0Cr", color: "bg-danger" },
-  { name: "Grand Vista Residency", progress: 92, status: "On Track", budget: "₹8.2Cr", color: "bg-success" },
-  { name: "Bridge Overpass Site", progress: 30, status: "At Risk", budget: "₹15.5Cr", color: "bg-warning" },
-];
-
 const activities = [
   { user: "Rahul S.", action: "completed Foundation Paving", time: "12m ago", type: "task" },
   { user: "Priya N.", action: "submitted Invoice #882", time: "45m ago", type: "money" },
@@ -34,15 +29,52 @@ const activities = [
   { user: "Amit K.", action: "reported Material Shortage", time: "4h ago", type: "alert" },
 ];
 
+// ─── Styling Helpers ──────────────────────────────────────────────────────────
+const statusBadge: Record<ProjectStatus, string> = {
+  Planned: "bg-slate-100 text-slate-500",
+  Active: "bg-green-100 text-success",
+  Delayed: "bg-red-100 text-danger",
+  Completed: "bg-blue-100 text-primary",
+  "On Hold": "bg-amber-100 text-warning",
+};
+
+const statusDot: Record<ProjectStatus, string> = {
+  Planned: "bg-slate-400",
+  Active: "bg-success",
+  Delayed: "bg-danger",
+  Completed: "bg-primary",
+  "On Hold": "bg-warning",
+};
+
+const progressPulse: Record<ProjectStatus, string> = {
+  Planned: "bg-slate-300",
+  Active: "bg-success",
+  Delayed: "bg-danger",
+  Completed: "bg-primary",
+  "On Hold": "bg-warning",
+};
+
+// ─── Main Component ──────────────────────────────────────────────────────────
 const AdminDashboard = () => {
   const [activityFilter, setActivityFilter] = useState("All");
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
+  const [isBOQModalOpen, setIsBOQModalOpen] = useState(false);
 
   const handleCreateUser = (userData: any) => {
     console.log("New User Data:", userData);
-    // Here you would typically call an API service
-    alert(`User ${userData.full_name} created successfully!`);
+  };
+
+  const handleCreateBOQ = (boqData: any) => {
+    console.log("New BOQ Item from Dashboard:", boqData);
+  };
+
+  // Dynamic Statistics
+  const stats = {
+    total: PROJECTS.length,
+    active: PROJECTS.filter(p => p.status === "Active").length,
+    completed: PROJECTS.filter(p => p.status === "Completed").length,
+    delayed: PROJECTS.filter(p => p.status === "Delayed").length,
   };
 
   return (
@@ -72,7 +104,12 @@ const AdminDashboard = () => {
             >
               + Add User
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all">+ Create BOQ</button>
+            <button 
+              onClick={() => setIsBOQModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
+            >
+              + Create BOQ
+            </button>
             <button className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all">Create Report</button>
           </div>
         </div>
@@ -81,10 +118,10 @@ const AdminDashboard = () => {
         <div className="mb-6">
           <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Project Overview</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <StatCard title="Total Projects" value="24" sub="+3 this month" accent="text-primary" />
-            <StatCard title="Active Projects" value="18" sub="On-going sites" accent="text-blue-500" />
-            <StatCard title="Completed Projects" value="6" sub="Handed over" accent="text-emerald-500" />
-            <StatCard title="Delayed Projects" value="2" sub="At high risk" accent="text-rose-500" />
+            <StatCard title="Total Projects" value={String(stats.total)} sub="+3 this month" accent="text-primary" />
+            <StatCard title="Active Projects" value={String(stats.active)} sub="On-going sites" accent="text-blue-500" />
+            <StatCard title="Completed Projects" value={String(stats.completed)} sub="Handed over" accent="text-emerald-500" />
+            <StatCard title="Delayed Projects" value={String(stats.delayed)} sub="At high risk" accent="text-rose-500" />
           </div>
         </div>
 
@@ -217,7 +254,7 @@ const AdminDashboard = () => {
               <div className="p-3 bg-red-50 rounded-xl flex items-start gap-3">
                 <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5" />
                 <div className="flex-1">
-                  <p className="text-xs font-bold text-red-900">Budget Exceeded: SkyTower A</p>
+                  <p className="text-xs font-bold text-red-900">Budget Exceeded: SARA CITY</p>
                   <p className="text-[10px] text-red-600">Material costs spiking by 12% in current phase.</p>
                 </div>
               </div>
@@ -238,17 +275,17 @@ const AdminDashboard = () => {
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ongoing Modules</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {projects.map((p, i) => (
+              {PROJECTS.slice(0, 4).map((p, i) => (
                 <div key={i} className="group cursor-pointer">
                   <div className="flex justify-between items-center mb-2">
-                    <p className="text-xs font-bold text-slate-700 group-hover:text-primary transition-colors">{p.name}</p>
-                    <span className="text-[10px] font-bold text-slate-400">{p.progress}%</span>
+                    <p className="text-xs font-bold text-slate-700 group-hover:text-primary transition-colors">{p.project_name}</p>
+                    <span className="text-[10px] font-bold text-slate-400">{p.completion_percentage}%</span>
                   </div>
                   <div className="w-full h-2 bg-slate-50 rounded-full overflow-hidden">
-                    <div className={`h-full ${p.color} transition-all duration-1000`} style={{ width: `${p.progress}%` }} />
+                    <div className={`h-full ${progressPulse[p.status]} transition-all duration-1000`} style={{ width: `${p.completion_percentage}%` }} />
                   </div>
                   <div className="flex items-center gap-2 mt-2">
-                    <span className={`w-1.5 h-1.5 rounded-full ${p.status === "On Track" ? "bg-green-500" : p.status === "Delayed" ? "bg-red-500" : "bg-amber-500"}`} />
+                    <span className={`w-1.5 h-1.5 rounded-full ${statusDot[p.status]}`} />
                     <span className="text-[9px] font-bold text-slate-400 uppercase translate-y-px">{p.status}</span>
                   </div>
                 </div>
@@ -293,31 +330,30 @@ const AdminDashboard = () => {
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] border-b border-slate-50">
                   <th className="px-6 py-4">Site/Project</th>
-                  <th className="px-6 py-4">Allocated Budget</th>
+                  <th className="px-6 py-4">Dates</th>
                   <th className="px-6 py-4">Total Progress</th>
                   <th className="px-6 py-4 text-center">Efficiency Score</th>
                   <th className="px-6 py-4">Health</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {projects.map((p, i) => (
+                {PROJECTS.map((p, i) => (
                   <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
-                    <td className="px-6 py-4 font-bold text-slate-700">{p.name}</td>
-                    <td className="px-6 py-4 text-slate-500 font-medium text-sm">{p.budget}</td>
+                    <td className="px-6 py-4 font-bold text-slate-700">{p.project_name}</td>
+                    <td className="px-6 py-4 text-slate-500 font-medium text-xs">{p.start_date} - {p.end_date}</td>
                     <td className="px-6 py-4 min-w-[200px]">
                       <div className="flex items-center gap-3">
                         <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                          <div className={`h-full ${p.color}`} style={{ width: `${p.progress}%` }} />
+                          <div className={`h-full ${progressPulse[p.status]}`} style={{ width: `${p.completion_percentage}%` }} />
                         </div>
-                        <span className="text-xs font-bold text-slate-400">{p.progress}%</span>
+                        <span className="text-xs font-bold text-slate-400">{p.completion_percentage}%</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-center">
                       <span className="text-slate-800 font-bold">92.4</span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${p.status === "On Track" ? "bg-green-100 text-success" : p.status === "Delayed" ? "bg-red-100 text-danger" : "bg-amber-100 text-warning"
-                        }`}>{p.status}</span>
+                      <span className={`px-3 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${statusBadge[p.status]}`}>{p.status}</span>
                     </td>
                   </tr>
                 ))}
@@ -335,6 +371,11 @@ const AdminDashboard = () => {
       <NewProjectModal
         isOpen={isNewProjectModalOpen}
         onClose={() => setIsNewProjectModalOpen(false)}
+      />
+      <CreateBOQModal
+        isOpen={isBOQModalOpen}
+        onClose={() => setIsBOQModalOpen(false)}
+        onSubmit={handleCreateBOQ}
       />
     </DashboardLayout>
   );

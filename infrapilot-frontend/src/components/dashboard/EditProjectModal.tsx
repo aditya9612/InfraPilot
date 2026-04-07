@@ -1,30 +1,43 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Modal from "../common/Modal";
 import toast from "react-hot-toast";
+import type { Project } from "../../types/project";
 
-interface NewProjectModalProps {
+interface EditProjectModalProps {
     isOpen: boolean;
     onClose: () => void;
+    project: Project | null;
     onSubmit?: (projectData: any) => void;
 }
 
-const NewProjectModal = ({ isOpen, onClose, onSubmit }: NewProjectModalProps) => {
+const EditProjectModal = ({ isOpen, onClose, project, onSubmit }: EditProjectModalProps) => {
     const [formData, setFormData] = useState({
         project_name: "",
-        owner_id: 1,
         description: "",
         start_date: "",
         end_date: "",
-        status: "Planned",
+        status: "" as any,
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        if (project) {
+            setFormData({
+                project_name: project.project_name,
+                description: project.description,
+                start_date: project.start_date,
+                end_date: project.end_date,
+                status: project.status,
+            });
+        }
+    }, [project]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setFormData((prev) => ({
             ...prev,
-            [name]: name === "owner_id" ? parseInt(value) || 0 : value
+            [name]: value
         }));
         if (errors[name]) {
             setErrors(prev => {
@@ -37,7 +50,6 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit }: NewProjectModalProps) =>
     const validate = () => {
         const newErrors: Record<string, string> = {};
         if (!formData.project_name.trim()) newErrors.project_name = "Project name is required.";
-        if (formData.owner_id <= 0) newErrors.owner_id = "Valid Owner ID is required.";
         if (!formData.description.trim()) newErrors.description = "Description is required.";
         if (!formData.start_date) newErrors.start_date = "Start date is required.";
         if (!formData.end_date) newErrors.end_date = "End date is required.";
@@ -50,19 +62,22 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit }: NewProjectModalProps) =>
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!validate()) return;
+        if (!validate() || !project) return;
         
         setIsLoading(true);
-        // Simulate API call
+        // Simulate API call based on USER provided request/response
         setTimeout(() => {
             const requestBody = {
-                ...formData,
-                owner_id: Number(formData.owner_id)
+                project_id: project.id, // required field as per user
+                ...formData
             };
-            console.log("Submitting new project:", requestBody);
+            
+            console.log("Updating project (Request Body):", requestBody);
+            
             if (onSubmit) onSubmit(requestBody);
             setIsLoading(false);
-            toast.success(`Project "${formData.project_name}" created successfully!`, {
+            
+            toast.success(`Project "${formData.project_name}" updated successfully!`, {
                 style: {
                     borderRadius: '12px',
                     background: '#333',
@@ -85,12 +100,12 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit }: NewProjectModalProps) =>
                 Cancel
             </button>
             <button
-                form="project-form"
+                form="edit-project-form"
                 type="submit"
                 disabled={isLoading}
                 className="px-5 py-2.5 text-sm font-bold text-white bg-primary rounded-xl hover:bg-blue-600 shadow-md shadow-primary/20 transition-all disabled:opacity-50"
             >
-                {isLoading ? "Creating..." : "Create Project"}
+                {isLoading ? "Updating..." : "Update Project"}
             </button>
         </>
     );
@@ -99,10 +114,10 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit }: NewProjectModalProps) =>
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title="Create New Project"
+            title="Edit Project"
             footer={modalFooter}
         >
-            <form id="project-form" onSubmit={handleSubmit} className="space-y-6">
+            <form id="edit-project-form" onSubmit={handleSubmit} className="space-y-6">
                 {/* Basic Info */}
                 <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
                     <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Project Details</h3>
@@ -115,26 +130,21 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit }: NewProjectModalProps) =>
                             />
                             {errors.project_name && <p className="text-[10px] text-red-500 mt-1">{errors.project_name}</p>}
                         </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Owner ID <span className="text-red-500">*</span></label>
-                            <input
-                                required type="number" name="owner_id" value={formData.owner_id} onChange={handleChange} placeholder="e.g. 1"
-                                className={`w-full px-3 py-2 bg-slate-50 border ${errors.owner_id ? 'border-red-500 focus:ring-red-200' : 'border-slate-200 focus:ring-primary focus:border-primary'} rounded-lg text-sm outline-none transition-all placeholder:text-slate-300`}
-                            />
-                            {errors.owner_id && <p className="text-[10px] text-red-500 mt-1">{errors.owner_id}</p>}
-                        </div>
-                        <div>
+                        
+                        <div className="md:col-span-2">
                             <label className="block text-xs font-bold text-slate-500 mb-1">Project Status</label>
                             <select
                                 name="status" value={formData.status} onChange={handleChange}
                                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                             >
                                 <option value="Planned">Planned</option>
-                                <option value="In Progress">In Progress</option>
+                                <option value="Active">Active</option>
+                                <option value="Delayed">Delayed</option>
                                 <option value="Completed">Completed</option>
                                 <option value="On Hold">On Hold</option>
                             </select>
                         </div>
+                        
                         <div className="md:col-span-2">
                             <label className="block text-xs font-bold text-slate-500 mb-1">Description <span className="text-red-500">*</span></label>
                             <textarea
@@ -173,4 +183,4 @@ const NewProjectModal = ({ isOpen, onClose, onSubmit }: NewProjectModalProps) =>
     );
 };
 
-export default NewProjectModal;
+export default EditProjectModal;

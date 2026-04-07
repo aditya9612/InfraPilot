@@ -26,6 +26,7 @@ import IntegrationsPage from "../pages/admin/IntegrationsPage";
 import SettingsPage from "../pages/admin/SettingsPage";
 import RolesPage from "../pages/admin/RolesPage";
 import PermissionsPage from "../pages/admin/PermissionsPage";
+import ProjectDetailsPage from "../pages/projects/ProjectDetailsPage";
 
 const RootRedirect = () => {
   const { user, isAuthenticated } = useAuth();
@@ -53,7 +54,9 @@ function AppRoutes() {
         <Route path="/client" element={<ProtectedRoute allowedRoles={["Client"]}><ClientDashboard /></ProtectedRoute>} />
 
         <Route path="/admin/projects" element={<ProtectedRoute allowedRoles={["Admin"]}><ProjectsPage /></ProtectedRoute>} />
+        <Route path="/admin/projects/:id" element={<ProtectedRoute allowedRoles={["Admin"]}><ProjectDetailsPage /></ProtectedRoute>} />
         <Route path="/manager/projects" element={<ProtectedRoute allowedRoles={["Project Manager"]}><ProjectsPage /></ProtectedRoute>} />
+        <Route path="/manager/projects/:id" element={<ProtectedRoute allowedRoles={["Project Manager"]}><ProjectDetailsPage /></ProtectedRoute>} />
         <Route path="/admin/users" element={<ProtectedRoute allowedRoles={["Admin"]}><UsersPage /></ProtectedRoute>} />
         <Route path="/admin/users/roles" element={<ProtectedRoute allowedRoles={["Admin"]}><RolesPage /></ProtectedRoute>} />
         <Route path="/admin/users/permissions" element={<ProtectedRoute allowedRoles={["Admin"]}><PermissionsPage /></ProtectedRoute>} />
