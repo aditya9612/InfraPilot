@@ -1,6 +1,5 @@
 import { useState, useMemo } from "react";
 import { useLocation } from "react-router-dom";
-import DashboardLayout from "../../components/common/DashboardLayout";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
@@ -150,7 +149,7 @@ const BOQPage = () => {
   }, [searchTerm, statusFilter, categoryFilter, projectFilter]);
 
   return (
-    <DashboardLayout>
+    <>
       <Navbar title="Work & BOQ Management" breadcrumb={["Admin", "Work & BOQ", isSetup ? "BOQ Setup" : "Activity List"]} />
       
       <PageTransition className="p-6 bg-slate-50 min-h-screen">
@@ -358,7 +357,7 @@ const BOQPage = () => {
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleCreateBOQ}
       />
-    </DashboardLayout>
+    </>
   );
 };
 

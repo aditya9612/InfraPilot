@@ -1,4 +1,3 @@
-import DashboardLayout from "../../components/common/DashboardLayout";
 import Navbar from "../../components/common/Navbar";
 import StatCard from "../../components/common/StatCard";
 import ProjectTable from "../../components/dashboard/ProjectTable";
@@ -10,7 +9,7 @@ import ActivityFeed from "../../components/dashboard/ActivityFeed";
 
 const ManagerDashboard = () => {
   return (
-    <DashboardLayout>
+    <>
       <Navbar
         title="Project Manager Dashboard"
         breadcrumb={["InfraPilot", "Dashboard", "Manager"]}
@@ -263,7 +262,7 @@ const ManagerDashboard = () => {
           </div>
         </div>
       </main>
-    </DashboardLayout>
+    </>
   );
 };
 

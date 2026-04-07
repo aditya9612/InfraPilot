@@ -1,8 +1,8 @@
 import { useState } from "react";
-import DashboardLayout from "../../components/common/DashboardLayout";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import CreateUserModal from "../../components/forms/CreateUserModal";
+import UserDetailsModal from "../../components/dashboard/UserDetailsModal";
 import type { User } from "../../types/user";
 
 const INITIAL_USERS: User[] = [
@@ -55,6 +55,8 @@ const UsersPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [viewingUser, setViewingUser] = useState<User | null>(null);
   const [limit] = useState(20);
   const [offset] = useState(0);
 
@@ -83,6 +85,11 @@ const UsersPage = () => {
     }
   };
 
+  const handleViewDetails = (user: User) => {
+    setViewingUser(user);
+    setIsViewModalOpen(true);
+  };
+
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingUser(null);
@@ -96,7 +103,7 @@ const UsersPage = () => {
   );
 
   return (
-    <DashboardLayout>
+    <>
       <Navbar title="User Management" breadcrumb={["Admin", "Users"]} />
 
       <PageTransition className="p-6 bg-slate-50 min-h-screen">
@@ -224,8 +231,19 @@ const UsersPage = () => {
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button 
-                          onClick={() => handleEditClick(user)}
+                          onClick={() => handleViewDetails(user)}
+                          title="View Details"
                           className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        </button>
+                        <button 
+                          onClick={() => handleEditClick(user)}
+                          title="Update User"
+                          className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -233,6 +251,7 @@ const UsersPage = () => {
                         </button>
                         <button 
                           onClick={() => handleDeleteClick(user.user_id)}
+                          title="Delete User"
                           className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -285,7 +304,16 @@ const UsersPage = () => {
         onSubmit={handleCreateOrUpdateUser}
         initialData={editingUser}
       />
-    </DashboardLayout>
+
+      <UserDetailsModal
+        isOpen={isViewModalOpen}
+        onClose={() => {
+          setIsViewModalOpen(false);
+          setViewingUser(null);
+        }}
+        user={viewingUser}
+      />
+    </>
   );
 };
 

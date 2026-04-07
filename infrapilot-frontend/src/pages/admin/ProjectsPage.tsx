@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import DashboardLayout from "../../components/common/DashboardLayout";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import NewProjectModal from "../../components/dashboard/NewProjectModal";
@@ -37,7 +36,9 @@ const ProjectsPage = () => {
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>(PROJECTS);
   const [showForm, setShowForm] = useState(false);
-  const [filterStatus, setFilterStatus] = useState<"All" | ProjectStatus>("All");
+  const [filterStatus, setFilterStatus] = useState<"All" | ProjectStatus>(
+    "All",
+  );
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [actTab, setActTab] = useState("All");
@@ -55,7 +56,6 @@ const ProjectsPage = () => {
     };
     setProjects((prev) => [np, ...prev]);
   };
-
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -82,16 +82,15 @@ const ProjectsPage = () => {
 
   const handleViewProject = (id: number) => {
     // Determine the base path based on the current URL (admin or manager)
-    const basePath = window.location.pathname.startsWith("/admin") ? "/admin" : "/manager";
+    const basePath = window.location.pathname.startsWith("/admin")
+      ? "/admin"
+      : "/manager";
     navigate(`${basePath}/projects/${id}`);
   };
 
   return (
-    <DashboardLayout>
-      <Navbar
-        title="Projects"
-        breadcrumb={["InfraPilot", "Projects"]}
-      />
+    <>
+      <Navbar title="Projects" breadcrumb={["InfraPilot", "Projects"]} />
 
       <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
@@ -187,21 +186,27 @@ const ProjectsPage = () => {
                   />
                 </div>
                 <div className="flex gap-2">
-                  {(["All", "Active", "Planned", "Delayed", "Completed"] as const).map(
-                    (s) => (
-                      <button
-                        key={s}
-                        onClick={() => setFilterStatus(s)}
-                        className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
-                          filterStatus === s
-                            ? "bg-primary text-white shadow-md shadow-primary/20"
-                            : "bg-slate-50 text-slate-500 hover:bg-slate-100"
-                        }`}
-                      >
-                        {s.toUpperCase()}
-                      </button>
-                    ),
-                  )}
+                  {(
+                    [
+                      "All",
+                      "Active",
+                      "Planned",
+                      "Delayed",
+                      "Completed",
+                    ] as const
+                  ).map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setFilterStatus(s)}
+                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                        filterStatus === s
+                          ? "bg-primary text-white shadow-md shadow-primary/20"
+                          : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                      }`}
+                    >
+                      {s.toUpperCase()}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
@@ -292,14 +297,36 @@ const ProjectsPage = () => {
               </div>
             </div>
             <div className="flex-1 p-6 space-y-6 overflow-y-auto max-h-[420px]">
-               {[
-                { user: "Ravi K.", action: "completed Foundation — SARA CITY", time: "12m ago", type: "task" },
-                { user: "Priya N.", action: "submitted Invoice #882 for METRO HEIGHTS", time: "45m ago", type: "money" },
-                { user: "Site Bot", action: "uploaded 12 site photos", time: "2h ago", type: "photo" },
-                { user: "Amit K.", action: "reported Material Shortage at Hadapsar", time: "4h ago", type: "alert" },
+              {[
+                {
+                  user: "Ravi K.",
+                  action: "completed Foundation — SARA CITY",
+                  time: "12m ago",
+                  type: "task",
+                },
+                {
+                  user: "Priya N.",
+                  action: "submitted Invoice #882 for METRO HEIGHTS",
+                  time: "45m ago",
+                  type: "money",
+                },
+                {
+                  user: "Site Bot",
+                  action: "uploaded 12 site photos",
+                  time: "2h ago",
+                  type: "photo",
+                },
+                {
+                  user: "Amit K.",
+                  action: "reported Material Shortage at Hadapsar",
+                  time: "4h ago",
+                  type: "alert",
+                },
               ].map((act, i) => (
                 <div key={i} className="flex gap-4 group">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${act.type === "alert" ? "bg-red-50 text-red-500" : act.type === "money" ? "bg-green-50 text-green-500" : "bg-blue-50 text-blue-500"}`}>
+                  <div
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${act.type === "alert" ? "bg-red-50 text-red-500" : act.type === "money" ? "bg-green-50 text-green-500" : "bg-blue-50 text-blue-500"}`}
+                  >
                     {act.type === "task" && "✔"}
                     {act.type === "money" && "₹"}
                     {act.type === "photo" && "📷"}
@@ -309,7 +336,9 @@ const ProjectsPage = () => {
                     <p className="text-xs text-slate-800 leading-snug">
                       <span className="font-bold">{act.user}</span> {act.action}
                     </p>
-                    <p className="text-[10px] text-slate-400 mt-1">{act.time}</p>
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      {act.time}
+                    </p>
                   </div>
                 </div>
               ))}
@@ -371,7 +400,7 @@ const ProjectsPage = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <button 
+                      <button
                         onClick={() => handleViewProject(p.id)}
                         className="text-xs font-bold text-primary hover:underline"
                       >
@@ -391,7 +420,7 @@ const ProjectsPage = () => {
           onSubmit={handleCreateProject}
         />
       </PageTransition>
-    </DashboardLayout>
+    </>
   );
 };
 

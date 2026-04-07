@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useLocation } from "react-router-dom";
-import DashboardLayout from "../../components/common/DashboardLayout";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
@@ -22,7 +21,7 @@ const FinancePage = () => {
   );
 
   return (
-    <DashboardLayout>
+    <>
       <Navbar title="Finance & Accounts" breadcrumb={["Admin", "Finance", subPage.charAt(0).toUpperCase() + subPage.slice(1)]} />
       
       <PageTransition className="p-6 bg-slate-50 min-h-screen">
@@ -123,7 +122,7 @@ const FinancePage = () => {
           </div>
         </div>
       </PageTransition>
-    </DashboardLayout>
+    </>
   );
 };
 

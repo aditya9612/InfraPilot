@@ -70,3 +70,18 @@ export interface ProfitLoss {
   profit: number;
   status: "profit" | "loss";
 }
+
+export type RateType = "lumpsum" | "measured" | "others";
+
+export interface Contractor {
+  id: number;
+  contractor_id: string;
+  name: string;
+  work_type: string;
+  contact_number: string;
+  gst_number: string;
+  rate_type: RateType;
+  total_work_assigned: number;
+  payment_given: number;
+  bank_details: string;
+}

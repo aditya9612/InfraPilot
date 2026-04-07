@@ -1,5 +1,4 @@
 import { useState } from "react";
-import DashboardLayout from "../../components/common/DashboardLayout";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
@@ -50,7 +49,7 @@ const EngineersPage = () => {
   );
 
   return (
-    <DashboardLayout>
+    <>
       <Navbar
         title="Site Engineer Management"
         breadcrumb={["Admin", "Engineers"]}
@@ -219,7 +218,7 @@ const EngineersPage = () => {
           </div>
         </div>
       </PageTransition>
-    </DashboardLayout>
+    </>
   );
 };
 

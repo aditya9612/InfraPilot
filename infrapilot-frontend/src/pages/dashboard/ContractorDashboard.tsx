@@ -1,4 +1,3 @@
-import DashboardLayout from "../../components/common/DashboardLayout";
 import { useState } from "react";
 import Navbar from "../../components/common/Navbar";
 import { useAuth } from "../../context/AuthContext";
@@ -113,7 +112,7 @@ const ContractorDashboard = () => {
   };
 
   return (
-    <DashboardLayout>
+    <>
       <Navbar
         title="Contractor Portal"
         breadcrumb={["InfraPilot", "Contractor", "Dashboard"]}
@@ -555,7 +554,7 @@ const ContractorDashboard = () => {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </>
   );
 };
 

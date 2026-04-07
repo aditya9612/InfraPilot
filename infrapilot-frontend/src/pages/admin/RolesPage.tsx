@@ -1,10 +1,9 @@
-import DashboardLayout from "../../components/common/DashboardLayout";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 
 const RolesPage = () => {
   return (
-    <DashboardLayout>
+    <>
       <Navbar
         title="Roles Management"
         breadcrumb={["Admin", "Users", "Roles"]}
@@ -40,7 +39,7 @@ const RolesPage = () => {
           </div>
         </div>
       </PageTransition>
-    </DashboardLayout>
+    </>
   );
 };
 

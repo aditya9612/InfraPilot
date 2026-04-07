@@ -1,10 +1,9 @@
-import DashboardLayout from "../../components/common/DashboardLayout";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 
 const PermissionsPage = () => {
   return (
-    <DashboardLayout>
+    <>
       <Navbar
         title="Permissions"
         breadcrumb={["Admin", "Users", "Permissions"]}
@@ -40,7 +39,7 @@ const PermissionsPage = () => {
           </div>
         </div>
       </PageTransition>
-    </DashboardLayout>
+    </>
   );
 };
 

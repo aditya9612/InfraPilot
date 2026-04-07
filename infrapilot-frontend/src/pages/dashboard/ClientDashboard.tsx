@@ -1,4 +1,3 @@
-import DashboardLayout from "../../components/common/DashboardLayout";
 import Navbar from "../../components/common/Navbar";
 import { useAuth } from "../../context/AuthContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
@@ -25,7 +24,7 @@ const ClientDashboard = () => {
   const { user } = useAuth();
 
   return (
-    <DashboardLayout>
+    <>
         <Navbar
         title="Project Transparency Portal"
         breadcrumb={["InfraPilot", "Client", "Dashboard"]}
@@ -221,7 +220,7 @@ const ClientDashboard = () => {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </>
   );
 };
 

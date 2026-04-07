@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useLocation } from "react-router-dom";
-import DashboardLayout from "../../components/common/DashboardLayout";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
@@ -23,7 +22,7 @@ const InventoryPage = () => {
   );
 
   return (
-    <DashboardLayout>
+    <>
       <Navbar title="Material & Inventory Control" breadcrumb={["Admin", "Inventory", isMaster ? "Material Master" : "Stock Management"]} />
       
       <PageTransition className="p-6 bg-slate-50 min-h-screen">
@@ -129,7 +128,7 @@ const InventoryPage = () => {
           </div>
         </div>
       </PageTransition>
-    </DashboardLayout>
+    </>
   );
 };
 

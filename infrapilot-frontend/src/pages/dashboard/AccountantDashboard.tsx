@@ -1,4 +1,3 @@
-import DashboardLayout from "../../components/common/DashboardLayout";
 import Navbar from "../../components/common/Navbar";
 import StatCard from "../../components/common/StatCard";
 import InvoiceTable from "../../components/dashboard/InvoiceTable";
@@ -9,7 +8,7 @@ import TransactionFeed from "../../components/dashboard/TransactionFeed";
 
 const AccountantDashboard = () => {
   return (
-    <DashboardLayout>
+    <>
         <Navbar
         title="Accountant Dashboard"
         breadcrumb={["InfraPilot", "Dashboard", "Accountant"]}
@@ -157,7 +156,7 @@ const AccountantDashboard = () => {
           </div>
         </div>
       </main>
-    </DashboardLayout>
+    </>
   );
 };
 

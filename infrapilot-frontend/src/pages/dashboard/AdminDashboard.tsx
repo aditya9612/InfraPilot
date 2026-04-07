@@ -2,7 +2,6 @@ import { useState } from "react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceArea
 } from "recharts";
-import DashboardLayout from "../../components/common/DashboardLayout";
 import Navbar from "../../components/common/Navbar";
 import CreateUserModal from "../../components/forms/CreateUserModal";
 import NewProjectModal from "../../components/dashboard/NewProjectModal";
@@ -78,7 +77,7 @@ const AdminDashboard = () => {
   };
 
   return (
-    <DashboardLayout>
+    <>
       <Navbar
         title="Admin Overview"
         breadcrumb={["InfraPilot", "Dashboard", "Admin"]}
@@ -377,7 +376,7 @@ const AdminDashboard = () => {
         onClose={() => setIsBOQModalOpen(false)}
         onSubmit={handleCreateBOQ}
       />
-    </DashboardLayout>
+    </>
   );
 };
 

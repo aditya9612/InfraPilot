@@ -1,4 +1,3 @@
-import DashboardLayout from "../../components/common/DashboardLayout";
 import { useState } from "react";
 import Navbar from "../../components/common/Navbar";
 
@@ -76,7 +75,7 @@ const EngineerDashboard = () => {
   });
 
   return (
-    <DashboardLayout>
+    <>
       <Navbar title="Field Dashboard" breadcrumb={["InfraPilot", "Engineer"]} />
 
       <div className="p-4 md:p-8 bg-slate-50 min-h-screen font-inter pb-24">
@@ -373,7 +372,7 @@ const EngineerDashboard = () => {
           </div>
         </div>
       )}
-    </DashboardLayout>
+    </>
   );
 };
 

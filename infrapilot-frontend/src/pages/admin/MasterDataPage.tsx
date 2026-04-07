@@ -1,5 +1,4 @@
 import { useState } from "react";
-import DashboardLayout from "../../components/common/DashboardLayout";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
@@ -22,7 +21,7 @@ const MasterDataPage = () => {
   );
 
   return (
-    <DashboardLayout>
+    <>
       <Navbar title="Master Data Console" breadcrumb={["Admin", "Master Data"]} />
       
       <PageTransition className="p-6 bg-slate-50 min-h-screen">
@@ -123,7 +122,7 @@ const MasterDataPage = () => {
           )}
         </div>
       </PageTransition>
-    </DashboardLayout>
+    </>
   );
 };
 

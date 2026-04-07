@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useLocation } from "react-router-dom";
-import DashboardLayout from "../../components/common/DashboardLayout";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
@@ -23,7 +22,7 @@ const ApprovalsPage = () => {
   );
 
   return (
-    <DashboardLayout>
+    <>
       <Navbar title="Approvals & Workflow" breadcrumb={["Admin", "Approvals", subPage.charAt(0).toUpperCase() + subPage.slice(1)]} />
       
       <PageTransition className="p-6 bg-slate-50 min-h-screen">
@@ -130,7 +129,7 @@ const ApprovalsPage = () => {
           </div>
         </div>
       </PageTransition>
-    </DashboardLayout>
+    </>
   );
 };
 
