@@ -6,6 +6,7 @@ interface CreateBOQModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (boqData: any) => void;
+  initialData?: any;
 }
 
 const CATEGORIES = [
@@ -29,8 +30,8 @@ const UNITS = ['Bags', 'Cum', 'Sqm', 'MT', 'Kg', 'Ft', 'Nos', 'Ltr'];
 
 const STATUSES = ['Active', 'Draft', 'Under Review', 'Completed'];
 
-const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubmit }) => {
-  const [formData, setFormData] = useState({
+const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubmit, initialData }) => {
+  const [formData, setFormData] = React.useState({
     project_id: '',
     item_name: '',
     category: '',
@@ -40,6 +41,32 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
     unit_cost: '',
     status: 'Active',
   });
+
+  React.useEffect(() => {
+    if (initialData) {
+      setFormData({
+        project_id: initialData.project_id?.toString() || '',
+        item_name: initialData.item_name || '',
+        category: initialData.category || '',
+        description: initialData.description || '',
+        quantity: initialData.quantity?.toString() || '',
+        unit: initialData.unit || '',
+        unit_cost: initialData.unit_cost?.toString() || '',
+        status: initialData.status || 'Active',
+      });
+    } else {
+      setFormData({
+        project_id: '',
+        item_name: '',
+        category: '',
+        description: '',
+        quantity: '',
+        unit: '',
+        unit_cost: '',
+        status: 'Active',
+      });
+    }
+  }, [initialData, isOpen]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -107,7 +134,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
         };
         onSubmit(submissionData);
         setIsLoading(false);
-        toast.success(`BOQ Item "${formData.item_name}" created successfully!`, {
+        toast.success(`BOQ Item "${formData.item_name}" ${initialData ? 'updated' : 'created'} successfully!`, {
           style: { borderRadius: '12px', background: '#333', color: '#fff' },
         });
         onClose();
@@ -152,7 +179,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
             Processing...
           </>
         ) : (
-          'Add BOQ Item'
+          initialData ? 'Update BOQ Item' : 'Add BOQ Item'
         )}
       </button>
     </>
@@ -162,7 +189,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Create New BOQ Item"
+      title={initialData ? "Update BOQ Item" : "Create New BOQ Item"}
       footer={modalFooter}
       maxWidth="max-w-2xl"
     >

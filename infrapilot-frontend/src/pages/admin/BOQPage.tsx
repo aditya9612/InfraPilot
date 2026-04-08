@@ -4,6 +4,7 @@ import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
 import CreateBOQModal from "../../components/forms/CreateBOQModal";
+import BOQDetailsModal from "../../components/dashboard/BOQDetailsModal";
 
 // Mock Project Mapper
 const projectMap: Record<number, string> = {
@@ -14,7 +15,7 @@ const projectMap: Record<number, string> = {
 };
 
 // Expanded Dummy Data following API spec
-const initialBoqData = [
+const INITIAL_BOQ_DATA = [
   {
     id: 1,
     project_id: 1,
@@ -112,7 +113,7 @@ const initialBoqData = [
   }
 ];
 
-const activitiesData = [
+const INITIAL_ACTIVITIES_DATA = [
   { id: 1, name: "Site Clearing", type: "Pre-construction", project: "Skyline Tower A", status: "Completed" },
   { id: 2, name: "Foundation Pouring", type: "Civil", project: "Skyline Tower A", status: "In Progress" },
   { id: 3, name: "Column Casting", type: "Structure", project: "Metro Ph-II", status: "Pending" },
@@ -128,16 +129,65 @@ const BOQPage = () => {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");
   
+  const [boqData, setBoqData] = useState(INITIAL_BOQ_DATA);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [viewingItem, setViewingItem] = useState<any | null>(null);
+  const [editingItem, setEditingItem] = useState<any | null>(null);
 
-  const handleCreateBOQ = (boqData: any) => {
-    console.log("New BOQ Item Created Locally:", boqData);
-    // Refresh logic would go here
+  const handleCreateOrUpdateBOQ = (data: any) => {
+    if (editingItem) {
+      setBoqData(prev => prev.map(item => item.id === editingItem.id ? { 
+        ...item, 
+        ...data,
+        total_cost: (parseFloat(data.quantity) * parseFloat(data.unit_cost)).toString(),
+        variance_cost: (parseFloat(data.quantity) * parseFloat(data.unit_cost) - parseFloat(item.actual_cost)).toString()
+      } : item));
+    } else {
+      const newItem = {
+        id: boqData.length + 1,
+        project_id: data.project_id,
+        boq_group_id: 100 + boqData.length + 1,
+        version_no: 1,
+        is_latest: true,
+        item_name: data.item_name,
+        category: data.category,
+        description: data.description,
+        quantity: data.quantity.toString(),
+        unit: data.unit,
+        unit_cost: data.unit_cost.toString(),
+        total_cost: (data.quantity * data.unit_cost).toString(),
+        actual_quantity: "0.000",
+        actual_cost: "0.00",
+        variance_cost: (data.quantity * data.unit_cost).toString(),
+        is_completed: false,
+        status: data.status
+      };
+      setBoqData([newItem, ...boqData]);
+    }
+    setIsModalOpen(false);
+    setEditingItem(null);
+  };
+
+  const handleViewDetails = (item: any) => {
+    setViewingItem(item);
+    setIsViewModalOpen(true);
+  };
+
+  const handleEditClick = (item: any) => {
+    setEditingItem(item);
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteBOQ = (id: number) => {
+    if (window.confirm("Are you sure you want to delete this BOQ item?")) {
+      setBoqData(prev => prev.filter(item => item.id !== id));
+    }
   };
 
   // Memoized Filtered Logic
   const filteredBoqData = useMemo(() => {
-    return initialBoqData.filter(item => {
+    return boqData.filter(item => {
       const matchSearch = item.item_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           item.description.toLowerCase().includes(searchTerm.toLowerCase());
       const matchStatus = statusFilter === "all" || item.status.toLowerCase() === statusFilter.toLowerCase();
@@ -146,7 +196,7 @@ const BOQPage = () => {
 
       return matchSearch && matchStatus && matchCategory && matchProject;
     });
-  }, [searchTerm, statusFilter, categoryFilter, projectFilter]);
+  }, [boqData, searchTerm, statusFilter, categoryFilter, projectFilter]);
 
   return (
     <>
@@ -163,7 +213,10 @@ const BOQPage = () => {
           <div className="flex gap-2">
             <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all">Import Excel</button>
             <button 
-              onClick={() => setIsModalOpen(true)}
+              onClick={() => {
+                setEditingItem(null);
+                setIsModalOpen(true);
+              }}
               className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
             >
               {isSetup ? "+ Add BOQ Item" : "+ New Activity"}
@@ -172,12 +225,12 @@ const BOQPage = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <StatCard title="Total BOQ Value" value="₹4.2Cr" sub="Across all active items" accent="text-primary" />
-          <StatCard title="Total Items" value="128" sub="Categorized by type" accent="text-violet-500" />
-          <StatCard title="Pending Items" value="14" sub="Awaiting rate approval" accent="text-amber-500" />
+          <StatCard title="Total BOQ Value" value={`₹${(filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.total_cost), 0) / 10000000).toFixed(2)}Cr`} sub="Across current filtered items" accent="text-primary" />
+          <StatCard title="Total Items" value={filteredBoqData.length.toString()} sub="Categorized by type" accent="text-violet-500" />
+          <StatCard title="Pending Items" value={filteredBoqData.filter(i => i.status === "Draft").length.toString()} sub="Awaiting rate approval" accent="text-amber-500" />
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden text-slate-800">
           {/* Enhanced Filter Bar */}
           <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4">
             <div className="relative flex-1 max-w-md">
@@ -262,18 +315,17 @@ const BOQPage = () => {
                     <th className="px-6 py-4">Unit Cost</th>
                     <th className="px-6 py-4">Est. Total</th>
                     <th className="px-6 py-4">Variance</th>
-                    <th className="px-6 py-4">Project</th>
-                    <th className="px-6 py-4">Status</th>
+                    <th className="px-6 py-4 text-center">Status</th>
                     <th className="px-6 py-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {filteredBoqData.length > 0 ? filteredBoqData.map((item) => (
-                    <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
+                    <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group text-slate-800">
                       <td className="px-6 py-4">
                         <div>
                           <p className="font-bold text-slate-700 group-hover:text-primary transition-colors line-clamp-1">{item.item_name}</p>
-                          <p className="text-[10px] text-slate-400 font-medium line-clamp-1">{item.description}</p>
+                          <p className="text-[10px] text-slate-400 font-medium line-clamp-1">{projectMap[item.project_id] || "N/A"}</p>
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -287,10 +339,7 @@ const BOQPage = () => {
                       <td className="px-6 py-4 text-sm font-bold text-rose-500">
                         ₹{parseFloat(item.variance_cost).toLocaleString()}
                       </td>
-                      <td className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-tighter">
-                        {projectMap[item.project_id] || "N/A"}
-                      </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 text-center">
                         <span className={`px-2 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${
                           item.status === "Active" ? "bg-emerald-100 text-emerald-600" : 
                           item.status === "Completed" ? "bg-blue-100 text-blue-600" : 
@@ -300,14 +349,41 @@ const BOQPage = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <button className="p-1 text-slate-400 hover:text-primary transition-colors">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          <button 
+                            onClick={() => handleViewDetails(item)}
+                            title="View Details"
+                            className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                          </button>
+                          <button 
+                            onClick={() => handleEditClick(item)}
+                            title="Update BOQ"
+                            className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteBOQ(item.id)}
+                            title="Delete BOQ"
+                            className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )) : (
                     <tr>
-                      <td colSpan={9} className="px-6 py-12 text-center text-slate-400 font-medium">
+                      <td colSpan={8} className="px-6 py-12 text-center text-slate-400 font-medium">
                         No items found matching your filters.
                       </td>
                     </tr>
@@ -326,8 +402,8 @@ const BOQPage = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {activitiesData.map((act) => (
-                    <tr key={act.id} className="hover:bg-slate-50/50 transition-colors group">
+                  {INITIAL_ACTIVITIES_DATA.map((act) => (
+                    <tr key={act.id} className="hover:bg-slate-50/50 transition-colors group text-slate-800">
                       <td className="px-6 py-4 font-bold text-slate-700 group-hover:text-primary transition-colors">{act.name}</td>
                       <td className="px-6 py-4 text-sm text-slate-500 font-medium">{act.type}</td>
                       <td className="px-6 py-4 text-sm text-slate-500 font-medium">{act.project}</td>
@@ -339,9 +415,11 @@ const BOQPage = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <button className="p-1 text-slate-400 hover:text-primary transition-colors">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          <button className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -354,8 +432,22 @@ const BOQPage = () => {
 
       <CreateBOQModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSubmit={handleCreateBOQ}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingItem(null);
+        }}
+        onSubmit={handleCreateOrUpdateBOQ}
+        initialData={editingItem}
+      />
+
+      <BOQDetailsModal
+        isOpen={isViewModalOpen}
+        onClose={() => {
+          setIsViewModalOpen(false);
+          setViewingItem(null);
+        }}
+        boqItem={viewingItem}
+        projectName={viewingItem ? projectMap[viewingItem.project_id] : ""}
       />
     </>
   );
