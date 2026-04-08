@@ -1,5 +1,5 @@
-export type InvoiceType = "labour" | "material" | "owner" | "other";
-export type InvoiceStatus = "pending" | "paid" | "overdue" | "cancelled";
+export type InvoiceType = 'owner' | 'labour' | 'material' | 'expense';
+export type InvoiceStatus = 'pending' | 'paid' | 'overdue' | 'cancelled';
 
 export interface Invoice {
   id: number;
@@ -7,7 +7,7 @@ export interface Invoice {
   owner_id: number;
   type: InvoiceType;
   reference_id: number;
-  amount: number; // base amount
+  amount: number;
   gst_percent: number;
   gst_amount: number;
   tax_percent: number;
