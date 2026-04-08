@@ -1,0 +1,35 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@theme {
+  --color-primary: #2563EB;
+  --color-success: #16A34A;
+  --color-warning: #F59E0B;
+  --color-danger: #DC2626;
+  --color-background: #F9FAFB;
+
+  --font-inter: "Inter", sans-serif;
+
+  --text-h1: 24px;
+  --text-h2: 18px;
+  --text-body: 14px;
+}
+
+@layer base {
+  html, body {
+    font-family: var(--font-inter);
+    background-color: var(--color-background);
+    font-size: var(--text-body);
+    color: #1F2937; /* Tailwind Gray 800 for better readability */
+  }
+
+  h1 {
+    font-size: var(--text-h1);
+    font-weight: 700;
+  }
+
+  h2 {
+    font-size: var(--text-h2);
+    font-weight: 600;
+  }
+}
