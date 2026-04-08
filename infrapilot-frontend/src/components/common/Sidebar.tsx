@@ -1,6 +1,8 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { sidebarMenus } from "../../config/sidebarMenu";
+import type { MenuItem } from "../../config/sidebarMenu";
+import { useState, useEffect } from "react";
 import type { JSX } from "react";
 import logo from "../../assets/logo.png";
 
@@ -253,6 +255,24 @@ const icons: Record<string, JSX.Element> = {
       <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
     </svg>
   ),
+  camera: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+      <circle cx="12" cy="13" r="4" strokeWidth="1.8" />
+    </svg>
+  ),
+  "alert-triangle": (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+      <line x1="12" y1="9" x2="12" y2="13" strokeLinecap="round" strokeWidth="1.8" />
+      <line x1="12" y1="17" x2="12.01" y2="17" strokeLinecap="round" strokeWidth="1.8" />
+    </svg>
+  ),
+  "message-circle": (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+    </svg>
+  ),
 };
 
 const Chevron = () => (
@@ -277,8 +297,93 @@ interface SidebarProps {
 
 const Sidebar = ({ onClose }: SidebarProps) => {
   const { user, logout } = useAuth();
+  const { pathname } = useLocation();
+  const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
+
   if (!user) return null;
   const menu = sidebarMenus[user.role];
+
+  // Auto-expand menu if sub-item is active
+  useEffect(() => {
+    menu.forEach(item => {
+      if (item.subMenu?.some(sub => pathname.startsWith(sub.path))) {
+        setExpandedMenus(prev => prev.includes(item.label) ? prev : [...prev, item.label]);
+      }
+    });
+  }, [pathname, menu]);
+
+  const toggleMenu = (label: string) => {
+    setExpandedMenus(prev =>
+      prev.includes(label) ? prev.filter(l => l !== label) : [...prev, label]
+    );
+  };
+
+  const renderMenuItem = (item: MenuItem, isSubItem = false) => {
+    const isExpanded = expandedMenus.includes(item.label);
+    const hasSubMenu = item.subMenu && item.subMenu.length > 0;
+
+    if (hasSubMenu) {
+      return (
+        <div key={item.label} className="mb-0.5">
+          <button
+            onClick={() => toggleMenu(item.label)}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+              pathname.startsWith(item.path)
+                ? "text-primary bg-blue-50 font-semibold"
+                : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+            }`}
+          >
+            <span className={pathname.startsWith(item.path) ? "text-primary" : "text-slate-400"}>
+              {icons[item.icon]}
+            </span>
+            <span className="flex-1 text-left">{item.label}</span>
+            <svg
+              className={`w-3 h-3 transition-transform duration-200 text-slate-300 ${isExpanded ? "rotate-90" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+          
+          {isExpanded && (
+            <div className="mt-0.5 space-y-0.5">
+              {item.subMenu!.map(sub => renderMenuItem(sub, true))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <NavLink
+        key={item.path}
+        to={item.path}
+        end
+        onClick={onClose}
+        className={({ isActive }) =>
+          `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors mb-0.5 ${
+            isSubItem ? "pl-10" : ""
+          } ${
+            isActive
+              ? "text-primary bg-blue-50 font-semibold border-r-2 border-primary rounded-r-none"
+              : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+          }`
+        }
+      >
+        {({ isActive }) => (
+          <>
+            <span className={isActive ? "text-primary" : "text-slate-400"}>
+              {icons[item.icon]}
+            </span>
+            <span className="flex-1">{item.label}</span>
+            {!isSubItem && <Chevron />}
+          </>
+        )}
+      </NavLink>
+    );
+  };
 
   return (
     <aside className="w-full h-full bg-white border-r border-slate-100 flex flex-col shadow-sm shrink-0">
@@ -318,31 +423,7 @@ const Sidebar = ({ onClose }: SidebarProps) => {
 
       {/* Nav */}
       <nav className="flex-1 px-3 pt-1 pb-3 overflow-y-auto">
-        {menu.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            end
-            onClick={onClose}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors mb-0.5 ${
-                isActive
-                  ? "text-primary bg-blue-50 font-semibold"
-                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
-              }`
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <span className={isActive ? "text-primary" : "text-slate-400"}>
-                  {icons[item.icon]}
-                </span>
-                <span className="flex-1">{item.label}</span>
-                <Chevron />
-              </>
-            )}
-          </NavLink>
-        ))}
+        {menu.map((item) => renderMenuItem(item))}
       </nav>
 
       {/* User + Logout */}
