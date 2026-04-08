@@ -1,4 +1,3 @@
-import DashboardLayout from "../../../components/common/DashboardLayout";
 import Navbar from "../../../components/common/Navbar";
 
 const pendingApprovals = [
@@ -32,7 +31,7 @@ const pendingApprovals = [
 ];
 
 const ClientPendingApprovalsPage = () => (
-   <DashboardLayout>
+   <>
       <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Approvals", "Pending"]} />
       <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
          <div className="mb-8">
@@ -102,7 +101,7 @@ const ClientPendingApprovalsPage = () => (
             ))}
          </div>
       </div>
-   </DashboardLayout>
+   </>
 );
 
 export default ClientPendingApprovalsPage;

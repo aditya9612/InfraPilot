@@ -1,4 +1,3 @@
-import DashboardLayout from "../../components/common/DashboardLayout";
 import Navbar from "../../components/common/Navbar";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
@@ -12,7 +11,7 @@ const reportData = [
 ];
 
 const ClientReportsPage = () => (
-  <DashboardLayout>
+  <>
     <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Reports"]} />
     <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
       <div className="mb-8">
@@ -77,7 +76,7 @@ const ClientReportsPage = () => (
         </div>
       </div>
     </div>
-  </DashboardLayout>
+  </>
 );
 
 export default ClientReportsPage;

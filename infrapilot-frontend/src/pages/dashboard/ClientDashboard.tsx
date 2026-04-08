@@ -1,4 +1,3 @@
-import DashboardLayout from "../../components/common/DashboardLayout";
 import Navbar from "../../components/common/Navbar";
 import { useAuth } from "../../context/AuthContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
@@ -25,9 +24,8 @@ const ClientDashboard = () => {
   const { user } = useAuth();
 
   return (
-    <DashboardLayout>
+    <>
       <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Dashboard"]} />
-
       <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
@@ -36,13 +34,12 @@ const ClientDashboard = () => {
             <h1 className="text-4xl font-black text-slate-800 tracking-tight">Skyline Tower Project</h1>
           </div>
           <div className="flex items-center gap-4">
-             <div className="bg-white border border-slate-200 rounded-2xl px-6 py-3 shadow-sm flex items-center gap-3">
-               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-               <p className="text-sm font-black text-slate-700">Project Status: Healthy</p>
-             </div>
+            <div className="bg-white border border-slate-200 rounded-2xl px-6 py-3 shadow-sm flex items-center gap-3">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <p className="text-sm font-black text-slate-700">Project Status: Healthy</p>
+            </div>
           </div>
         </div>
-
         {/* Vital Metrics Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-10">
           {[
@@ -56,29 +53,23 @@ const ClientDashboard = () => {
             { label: "Client Account", value: "Mr. Sharma", sub: "Premium Access", icon: "👤", color: "text-slate-600 bg-slate-50" },
           ].map((card, i) => (
             <div key={i} className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 transition-all hover:shadow-2xl hover:shadow-blue-500/5 group">
-              <div className={`w-12 h-12 ${card.color} rounded-2xl flex items-center justify-center text-xl mb-6 shadow-inner group-hover:scale-110 transition-transform`}>
-                {card.icon}
-              </div>
+              <div className={`w-12 h-12 ${card.color} rounded-2xl flex items-center justify-center text-xl mb-6 shadow-inner group-hover:scale-110 transition-transform`}>{card.icon}</div>
               <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">{card.label}</p>
               <p className="text-xl font-black text-slate-800 tracking-tight leading-none">{card.value}</p>
               <p className="text-[10px] text-slate-400 font-bold mt-2 uppercase tracking-tight">{card.sub}</p>
             </div>
           ))}
         </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
           <div className="lg:col-span-2 space-y-10">
-            
             {/* Project Progress Viz */}
             <div className="bg-white rounded-[48px] p-12 shadow-sm border border-slate-100 relative overflow-hidden">
-               <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/50 rounded-full blur-3xl -mr-32 -mt-32" />
+              <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/50 rounded-full blur-3xl -mr-32 -mt-32" />
               <div className="flex flex-col md:flex-row gap-12 items-center relative z-10">
                 <div className="relative w-56 h-56 flex items-center justify-center">
                   <svg className="w-full h-full transform -rotate-90">
                     <circle cx="112" cy="112" r="100" stroke="currentColor" strokeWidth="16" fill="transparent" className="text-slate-100" />
-                    <circle cx="112" cy="112" r="100" stroke="currentColor" strokeWidth="16" fill="transparent" 
-                            strokeDasharray={628.3} strokeDashoffset={628.3 * (1 - 0.68)}
-                            className="text-primary rounded-full transition-all duration-1000 shadow-lg shadow-blue-500/20" />
+                    <circle cx="112" cy="112" r="100" stroke="currentColor" strokeWidth="16" fill="transparent" strokeDasharray={628.3} strokeDashoffset={628.3 * (1 - 0.68)} className="text-primary rounded-full transition-all duration-1000 shadow-lg shadow-blue-500/20" />
                   </svg>
                   <div className="absolute flex flex-col items-center">
                     <span className="text-5xl font-black text-slate-800 tracking-tighter">68%</span>
@@ -103,13 +94,12 @@ const ClientDashboard = () => {
                 </div>
               </div>
             </div>
-
             {/* Financial Status Bar Chart */}
             <div className="bg-white rounded-[48px] p-10 shadow-sm border border-slate-100">
               <div className="flex items-center justify-between mb-10">
                 <div>
-                   <h2 className="text-xl font-black text-slate-800 tracking-tight">Cost Management Audit</h2>
-                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Projected Budget vs Actual Real-time Spent (₹ Cr)</p>
+                  <h2 className="text-xl font-black text-slate-800 tracking-tight">Cost Management Audit</h2>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Projected Budget vs Actual Real-time Spent (₹ Cr)</p>
                 </div>
                 <div className="flex items-center gap-6">
                   <div className="flex items-center gap-2">
@@ -126,9 +116,9 @@ const ClientDashboard = () => {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={costData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} />
-                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} unit="Cr" />
-                    <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '24px', border: 'none', boxShadow: '0 20px 40px rgba(0,0,0,0.1)', padding: '16px'}} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} unit="Cr" />
+                    <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 20px 40px rgba(0,0,0,0.1)', padding: '16px' }} />
                     <Bar dataKey="budget" fill="#F1F5F9" radius={[12, 12, 0, 0]} barSize={40} />
                     <Bar dataKey="actual" fill="#2563EB" radius={[12, 12, 0, 0]} barSize={40}>
                       {costData.map((entry, index) => (
@@ -139,7 +129,6 @@ const ClientDashboard = () => {
                 </ResponsiveContainer>
               </div>
             </div>
-
             {/* Site Photos Gallery Snippet */}
             <div className="space-y-6 pb-6">
               <div className="flex items-center justify-between px-4">
@@ -159,10 +148,8 @@ const ClientDashboard = () => {
               </div>
             </div>
           </div>
-
           {/* Side Module: Alerts, Updates, and Actions */}
           <div className="space-y-10">
-            
             {/* Timeline Stream */}
             <div className="bg-white rounded-[48px] p-10 shadow-sm border border-slate-100">
               <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-10 border-b border-slate-50 pb-4">Live Execution Feed</h2>
@@ -176,10 +163,9 @@ const ClientDashboard = () => {
                 ))}
               </div>
             </div>
-
             {/* Critical Alert */}
             <div className="p-8 bg-red-50 border border-red-100 rounded-[40px] relative overflow-hidden group">
-               <div className="absolute top-0 right-0 w-24 h-24 bg-red-100/50 rounded-full blur-2xl -mr-12 -mt-12 group-hover:scale-150 transition-transform duration-700" />
+              <div className="absolute top-0 right-0 w-24 h-24 bg-red-100/50 rounded-full blur-2xl -mr-12 -mt-12 group-hover:scale-150 transition-transform duration-700" />
               <div className="flex items-start gap-5 relative z-10">
                 <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-2xl shadow-xl shadow-red-200 shrink-0">⚠️</div>
                 <div className="flex-1">
@@ -189,35 +175,33 @@ const ClientDashboard = () => {
                 </div>
               </div>
             </div>
-
             {/* Quick Portal Switcher */}
             <div className="bg-slate-900 rounded-[48px] p-8 text-white relative overflow-hidden">
-               <div className="absolute bottom-0 right-0 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl" />
-               <div className="relative z-10">
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400 mb-6 italic">Support Access</p>
-                  <div className="space-y-4">
-                     <button className="w-full flex items-center justify-between p-5 bg-white/5 border border-white/10 rounded-3xl hover:bg-white/10 transition-all group">
-                        <div className="text-left">
-                           <p className="text-sm font-black tracking-tight">Site Engineer Chat</p>
-                           <p className="text-[9px] text-white/50 font-bold uppercase tracking-widest">Available Now</p>
-                        </div>
-                        <span className="text-xl group-hover:translate-x-1 transition-transform">→</span>
-                     </button>
-                     <button className="w-full flex items-center justify-between p-5 bg-primary rounded-3xl shadow-2xl shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all group">
-                        <div className="text-left">
-                           <p className="text-sm font-black tracking-tight text-white">Instant Portal Bot</p>
-                           <p className="text-[9px] text-white/70 font-bold uppercase tracking-widest">AI Assistance</p>
-                        </div>
-                        <span className="text-xl group-hover:translate-x-1 transition-transform">⚡</span>
-                     </button>
-                  </div>
-               </div>
+              <div className="absolute bottom-0 right-0 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl" />
+              <div className="relative z-10">
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400 mb-6 italic">Support Access</p>
+                <div className="space-y-4">
+                  <button className="w-full flex items-center justify-between p-5 bg-white/5 border border-white/10 rounded-3xl hover:bg-white/10 transition-all group">
+                    <div className="text-left">
+                      <p className="text-sm font-black tracking-tight">Site Engineer Chat</p>
+                      <p className="text-[9px] text-white/50 font-bold uppercase tracking-widest">Available Now</p>
+                    </div>
+                    <span className="text-xl group-hover:translate-x-1 transition-transform">→</span>
+                  </button>
+                  <button className="w-full flex items-center justify-between p-5 bg-primary rounded-3xl shadow-2xl shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all group">
+                    <div className="text-left">
+                      <p className="text-sm font-black tracking-tight text-white">Instant Portal Bot</p>
+                      <p className="text-[9px] text-white/70 font-bold uppercase tracking-widest">AI Assistance</p>
+                    </div>
+                    <span className="text-xl group-hover:translate-x-1 transition-transform">⚡</span>
+                  </button>
+                </div>
+              </div>
             </div>
-
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </>
   );
 };
 

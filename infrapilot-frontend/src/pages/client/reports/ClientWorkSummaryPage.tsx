@@ -1,4 +1,3 @@
-import DashboardLayout from "../../../components/common/DashboardLayout";
 import Navbar from "../../../components/common/Navbar";
 
 const workSummary = [
@@ -12,7 +11,7 @@ const workSummary = [
 ];
 
 const ClientWorkSummaryPage = () => (
-  <DashboardLayout>
+  <>
     <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Reports", "Work Summary"]} />
     <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
       <div className="mb-8">
@@ -67,7 +66,7 @@ const ClientWorkSummaryPage = () => (
         </div>
       </div>
     </div>
-  </DashboardLayout>
+  </>
 );
 
 export default ClientWorkSummaryPage;

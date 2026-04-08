@@ -1,4 +1,3 @@
-import DashboardLayout from "../../components/common/DashboardLayout";
 import Navbar from "../../components/common/Navbar";
 import { useState } from "react";
 
@@ -18,7 +17,7 @@ const ClientCommunicationPage = () => {
   const [selected, setSelected] = useState(threads[0]);
 
   return (
-    <DashboardLayout>
+    <>
       <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Communication"]} />
       <div className="p-6 bg-slate-50 min-h-screen font-inter pb-6">
         <div className="mb-6">
@@ -84,7 +83,7 @@ const ClientCommunicationPage = () => {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </>
   );
 };
 

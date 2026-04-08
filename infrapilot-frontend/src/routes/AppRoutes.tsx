@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import ProtectedRoute from "./ProtectedRoute";
+import DashboardLayout from "../components/common/DashboardLayout";
 import Login from "../pages/auth/Login";
 import AdminDashboard from "../pages/dashboard/AdminDashboard";
 import ManagerDashboard from "../pages/dashboard/ManagerDashboard";
@@ -24,6 +25,9 @@ import DocumentsPage from "../pages/admin/DocumentsPage";
 import MasterDataPage from "../pages/admin/MasterDataPage";
 import IntegrationsPage from "../pages/admin/IntegrationsPage";
 import SettingsPage from "../pages/admin/SettingsPage";
+import RolesPage from "../pages/admin/RolesPage";
+import PermissionsPage from "../pages/admin/PermissionsPage";
+import ProjectDetailsPage from "../pages/projects/ProjectDetailsPage";
 
 // Client Pages
 import ClientOverviewPage from "../pages/client/ClientOverviewPage";
@@ -48,8 +52,11 @@ const RootRedirect = () => {
   const { user, isAuthenticated } = useAuth();
   if (!isAuthenticated) return <Login />;
   const paths: Record<string, string> = {
-    Admin: "/admin", "Project Manager": "/manager",
-    "Site Engineer": "/engineer", Contractor: "/contractor", Accountant: "/accountant",
+    Admin: "/admin",
+    "Project Manager": "/manager",
+    "Site Engineer": "/engineer",
+    Contractor: "/contractor",
+    Accountant: "/accountant",
     Client: "/client",
   };
   return <Navigate to={paths[user!.role]} replace />;
@@ -61,55 +68,98 @@ function AppRoutes() {
       <Routes>
         <Route path="/" element={<RootRedirect />} />
         <Route path="/unauthorized" element={<Unauthorized />} />
-
-        <Route path="/admin" element={<ProtectedRoute allowedRoles={["Admin"]}><AdminDashboard /></ProtectedRoute>} />
-        <Route path="/manager" element={<ProtectedRoute allowedRoles={["Project Manager"]}><ManagerDashboard /></ProtectedRoute>} />
-        <Route path="/engineer" element={<ProtectedRoute allowedRoles={["Site Engineer"]}><EngineerDashboard /></ProtectedRoute>} />
-        <Route path="/contractor" element={<ProtectedRoute allowedRoles={["Contractor"]}><ContractorDashboard /></ProtectedRoute>} />
-        <Route path="/accountant" element={<ProtectedRoute allowedRoles={["Accountant"]}><AccountantDashboard /></ProtectedRoute>} />
-        <Route path="/client" element={<ProtectedRoute allowedRoles={["Client"]}><ClientDashboard /></ProtectedRoute>} />
-        
-        {/* Client Routes */}
-        <Route path="/client/overview" element={<ProtectedRoute allowedRoles={["Client"]}><ClientOverviewPage /></ProtectedRoute>} />
-        <Route path="/client/progress" element={<ProtectedRoute allowedRoles={["Client"]}><ClientProgressPage /></ProtectedRoute>} />
-        <Route path="/client/financials" element={<Navigate to="/client/financials/summary" replace />} />
-        <Route path="/client/financials/summary" element={<ProtectedRoute allowedRoles={["Client"]}><ClientFinancialsSummaryPage /></ProtectedRoute>} />
-        <Route path="/client/financials/invoices" element={<ProtectedRoute allowedRoles={["Client"]}><ClientInvoicesPage /></ProtectedRoute>} />
-        <Route path="/client/financials/payments" element={<ProtectedRoute allowedRoles={["Client"]}><ClientPaymentsPage /></ProtectedRoute>} />
-        <Route path="/client/site-updates" element={<Navigate to="/client/site-updates/photos" replace />} />
-        <Route path="/client/site-updates/photos" element={<ProtectedRoute allowedRoles={["Client"]}><ClientPhotosPage /></ProtectedRoute>} />
-        <Route path="/client/site-updates/dsr" element={<ProtectedRoute allowedRoles={["Client"]}><ClientDSRSummaryPage /></ProtectedRoute>} />
-        <Route path="/client/issues" element={<ProtectedRoute allowedRoles={["Client"]}><ClientIssuesPage /></ProtectedRoute>} />
-        <Route path="/client/documents" element={<ProtectedRoute allowedRoles={["Client"]}><ClientDocumentsPage /></ProtectedRoute>} />
-        <Route path="/client/approvals" element={<Navigate to="/client/approvals/pending" replace />} />
-        <Route path="/client/approvals/pending" element={<ProtectedRoute allowedRoles={["Client"]}><ClientPendingApprovalsPage /></ProtectedRoute>} />
-        <Route path="/client/approvals/approved" element={<ProtectedRoute allowedRoles={["Client"]}><ClientApprovedItemsPage /></ProtectedRoute>} />
-        <Route path="/client/communication" element={<Navigate to="/client/communication/messages" replace />} />
-        <Route path="/client/communication/messages" element={<ProtectedRoute allowedRoles={["Client"]}><ClientMessagesPage /></ProtectedRoute>} />
-        <Route path="/client/communication/announcements" element={<ProtectedRoute allowedRoles={["Client"]}><ClientAnnouncementsPage /></ProtectedRoute>} />
-        <Route path="/client/reports" element={<Navigate to="/client/reports/monthly" replace />} />
-        <Route path="/client/reports/monthly" element={<ProtectedRoute allowedRoles={["Client"]}><ClientMonthlyProgressReportPage /></ProtectedRoute>} />
-        <Route path="/client/reports/financial" element={<ProtectedRoute allowedRoles={["Client"]}><ClientFinancialReportPage /></ProtectedRoute>} />
-        <Route path="/client/reports/work-summary" element={<ProtectedRoute allowedRoles={["Client"]}><ClientWorkSummaryPage /></ProtectedRoute>} />
-        <Route path="/client/settings" element={<ProtectedRoute allowedRoles={["Client"]}><ClientSettingsPage /></ProtectedRoute>} />
-
-        <Route path="/admin/projects" element={<ProtectedRoute allowedRoles={["Admin"]}><ProjectsPage /></ProtectedRoute>} />
-        <Route path="/manager/projects" element={<ProtectedRoute allowedRoles={["Project Manager"]}><ProjectsPage /></ProtectedRoute>} />
-        <Route path="/admin/users" element={<ProtectedRoute allowedRoles={["Admin"]}><UsersPage /></ProtectedRoute>} />
-        <Route path="/admin/contractors" element={<ProtectedRoute allowedRoles={["Admin"]}><ContractorsPage /></ProtectedRoute>} />
-        <Route path="/admin/clients" element={<ProtectedRoute allowedRoles={["Admin"]}><ClientsPage /></ProtectedRoute>} />
-        <Route path="/admin/engineers" element={<ProtectedRoute allowedRoles={["Admin"]}><EngineersPage /></ProtectedRoute>} />
-        <Route path="/admin/boq" element={<ProtectedRoute allowedRoles={["Admin"]}><BOQPage /></ProtectedRoute>} />
-        <Route path="/admin/inventory" element={<ProtectedRoute allowedRoles={["Admin"]}><InventoryPage /></ProtectedRoute>} />
-        <Route path="/admin/finance" element={<ProtectedRoute allowedRoles={["Admin"]}><FinancePage /></ProtectedRoute>} />
-        <Route path="/admin/approvals" element={<ProtectedRoute allowedRoles={["Admin"]}><ApprovalsPage /></ProtectedRoute>} />
-        <Route path="/admin/reports" element={<ProtectedRoute allowedRoles={["Admin"]}><ReportsPage /></ProtectedRoute>} />
-        <Route path="/admin/notifications" element={<ProtectedRoute allowedRoles={["Admin"]}><NotificationsPage /></ProtectedRoute>} />
-        <Route path="/admin/documents" element={<ProtectedRoute allowedRoles={["Admin"]}><DocumentsPage /></ProtectedRoute>} />
-        <Route path="/admin/master-data" element={<ProtectedRoute allowedRoles={["Admin"]}><MasterDataPage /></ProtectedRoute>} />
-        <Route path="/admin/integrations" element={<ProtectedRoute allowedRoles={["Admin"]}><IntegrationsPage /></ProtectedRoute>} />
-        <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={["Admin"]}><SettingsPage /></ProtectedRoute>} />
-
+        <Route path="/login" element={<Login />} />
+        {/* Persistent Dashboard Layout Group */}
+        <Route element={<ProtectedRoute />}> {/* No role restriction here, inner routes will handle */}
+          <Route element={<DashboardLayout />}>
+            {/* Admin Specific Routes */}
+            <Route element={<ProtectedRoute allowedRoles={["Admin"]} />}>
+              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/projects" element={<ProjectsPage />} />
+              <Route path="/admin/projects/:id" element={<ProjectDetailsPage />} />
+              <Route path="/admin/users" element={<UsersPage />} />
+              <Route path="/admin/users/roles" element={<RolesPage />} />
+              <Route path="/admin/users/permissions" element={<PermissionsPage />} />
+              <Route path="/admin/contractors" element={<ContractorsPage />} />
+              <Route path="/admin/clients" element={<ClientsPage />} />
+              <Route path="/admin/engineers" element={<EngineersPage />} />
+              <Route path="/admin/boq" element={<BOQPage />} />
+              <Route path="/admin/boq/setup" element={<BOQPage />} />
+              <Route path="/admin/boq/activities" element={<BOQPage />} />
+              <Route path="/admin/inventory" element={<InventoryPage />} />
+              <Route path="/admin/inventory/master" element={<InventoryPage />} />
+              <Route path="/admin/inventory/stock" element={<InventoryPage />} />
+              <Route path="/admin/finance" element={<FinancePage />} />
+              <Route path="/admin/finance/invoices" element={<FinancePage />} />
+              <Route path="/admin/finance/payments" element={<FinancePage />} />
+              <Route path="/admin/finance/expenses" element={<FinancePage />} />
+              <Route path="/admin/finance/profit" element={<FinancePage />} />
+              <Route path="/admin/approvals" element={<ApprovalsPage />} />
+              <Route path="/admin/approvals/material" element={<ApprovalsPage />} />
+              <Route path="/admin/approvals/billing" element={<ApprovalsPage />} />
+              <Route path="/admin/approvals/expense" element={<ApprovalsPage />} />
+              <Route path="/admin/reports" element={<ReportsPage />} />
+              <Route path="/admin/reports/progress" element={<ReportsPage />} />
+              <Route path="/admin/reports/financial" element={<ReportsPage />} />
+              <Route path="/admin/reports/labor" element={<ReportsPage />} />
+              <Route path="/admin/reports/consumption" element={<ReportsPage />} />
+              <Route path="/admin/reports/performance" element={<ReportsPage />} />
+              <Route path="/admin/notifications" element={<NotificationsPage />} />
+              <Route path="/admin/documents" element={<DocumentsPage />} />
+              <Route path="/admin/master-data" element={<MasterDataPage />} />
+              <Route path="/admin/master-data/materials" element={<MasterDataPage />} />
+              <Route path="/admin/master-data/labor" element={<MasterDataPage />} />
+              <Route path="/admin/master-data/activities" element={<MasterDataPage />} />
+              <Route path="/admin/master-data/units" element={<MasterDataPage />} />
+              <Route path="/admin/integrations" element={<IntegrationsPage />} />
+              <Route path="/admin/settings" element={<SettingsPage />} />
+            </Route>
+            {/* Manager Specific Routes */}
+            <Route element={<ProtectedRoute allowedRoles={["Project Manager"]} />}>
+              <Route path="/manager" element={<ManagerDashboard />} />
+              <Route path="/manager/projects" element={<ProjectsPage />} />
+              <Route path="/manager/projects/:id" element={<ProjectDetailsPage />} />
+            </Route>
+            {/* Engineer Specific Routes */}
+            <Route element={<ProtectedRoute allowedRoles={["Site Engineer"]} />}>
+              <Route path="/engineer" element={<EngineerDashboard />} />
+            </Route>
+            {/* Contractor Specific Routes */}
+            <Route element={<ProtectedRoute allowedRoles={["Contractor"]} />}>
+              <Route path="/contractor" element={<ContractorDashboard />} />
+            </Route>
+            {/* Accountant Specific Routes */}
+            <Route element={<ProtectedRoute allowedRoles={["Accountant"]} />}>
+              <Route path="/accountant" element={<AccountantDashboard />} />
+            </Route>
+            {/* Client Specific Routes */}
+            <Route element={<ProtectedRoute allowedRoles={["Client"]} />}>
+              <Route path="/client" element={<ClientDashboard />} />
+              <Route path="/client/overview" element={<ClientOverviewPage />} />
+              <Route path="/client/progress" element={<ClientProgressPage />} />
+              <Route path="/client/financials" element={<Navigate to="/client/financials/summary" replace />} />
+              <Route path="/client/financials/summary" element={<ClientFinancialsSummaryPage />} />
+              <Route path="/client/financials/invoices" element={<ClientInvoicesPage />} />
+              <Route path="/client/financials/payments" element={<ClientPaymentsPage />} />
+              <Route path="/client/site-updates" element={<Navigate to="/client/site-updates/photos" replace />} />
+              <Route path="/client/site-updates/photos" element={<ClientPhotosPage />} />
+              <Route path="/client/site-updates/dsr" element={<ClientDSRSummaryPage />} />
+              <Route path="/client/issues" element={<ClientIssuesPage />} />
+              <Route path="/client/documents" element={<ClientDocumentsPage />} />
+              <Route path="/client/approvals" element={<Navigate to="/client/approvals/pending" replace />} />
+              <Route path="/client/approvals/pending" element={<ClientPendingApprovalsPage />} />
+              <Route path="/client/approvals/approved" element={<ClientApprovedItemsPage />} />
+              <Route path="/client/communication" element={<Navigate to="/client/communication/messages" replace />} />
+              <Route path="/client/communication/messages" element={<ClientMessagesPage />} />
+              <Route path="/client/communication/announcements" element={<ClientAnnouncementsPage />} />
+              <Route path="/client/reports" element={<Navigate to="/client/reports/monthly" replace />} />
+              <Route path="/client/reports/monthly" element={<ClientMonthlyProgressReportPage />} />
+              <Route path="/client/reports/financial" element={<ClientFinancialReportPage />} />
+              <Route path="/client/reports/work-summary" element={<ClientWorkSummaryPage />} />
+              <Route path="/client/settings" element={<ClientSettingsPage />} />
+            </Route>
+          </Route>
+        </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

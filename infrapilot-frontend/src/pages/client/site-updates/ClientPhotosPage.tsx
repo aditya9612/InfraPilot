@@ -1,4 +1,3 @@
-import DashboardLayout from "../../../components/common/DashboardLayout";
 import Navbar from "../../../components/common/Navbar";
 
 const photos = [
@@ -13,7 +12,7 @@ const photos = [
 const tags = ["All", "Structure", "Foundation", "Masonry", "Equipment", "Safety"];
 
 const ClientPhotosPage = () => (
-  <DashboardLayout>
+  <>
     <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Site Updates", "Photos"]} />
     <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
@@ -63,7 +62,7 @@ const ClientPhotosPage = () => (
         ))}
       </div>
     </div>
-  </DashboardLayout>
+  </>
 );
 
 export default ClientPhotosPage;

@@ -1,9 +1,8 @@
-import DashboardLayout from "../../components/common/DashboardLayout";
 import Navbar from "../../components/common/Navbar";
 
 const IntegrationsPage = () => {
   return (
-    <DashboardLayout>
+    <>
       <Navbar title="Integrations" breadcrumb={["Admin", "Integrations"]} />
       <div className="p-6">
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-8 text-center flex flex-col items-center justify-center min-h-[400px]">
@@ -15,7 +14,7 @@ const IntegrationsPage = () => {
           </p>
         </div>
       </div>
-    </DashboardLayout>
+    </>
   );
 };
 

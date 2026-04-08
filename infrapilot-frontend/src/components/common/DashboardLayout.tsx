@@ -1,10 +1,11 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
+import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import logo from "../../assets/logo.png";
 
 interface Props {
-  children: ReactNode;
+  children?: ReactNode;
 }
 
 const DashboardLayout = ({ children }: Props) => {
@@ -55,7 +56,9 @@ const DashboardLayout = ({ children }: Props) => {
           />
         </div>
 
-        <main className="flex-1 overflow-y-auto">{children}</main>
+        <main className="flex-1 overflow-y-auto">
+          {children || <Outlet />}
+        </main>
       </div>
     </div>
   );

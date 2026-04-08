@@ -1,9 +1,8 @@
-import DashboardLayout from "../../components/common/DashboardLayout";
 import Navbar from "../../components/common/Navbar";
 
 const SettingsPage = () => {
   return (
-    <DashboardLayout>
+    <>
       <Navbar title="Settings" breadcrumb={["Admin", "Settings"]} />
       <div className="p-6">
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-8 text-center flex flex-col items-center justify-center min-h-[400px]">
@@ -13,7 +12,7 @@ const SettingsPage = () => {
           </p>
         </div>
       </div>
-    </DashboardLayout>
+    </>
   );
 };
 

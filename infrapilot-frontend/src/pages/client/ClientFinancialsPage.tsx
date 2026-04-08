@@ -1,4 +1,3 @@
-import DashboardLayout from "../../components/common/DashboardLayout";
 import Navbar from "../../components/common/Navbar";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
@@ -18,7 +17,7 @@ const invoices = [
 ];
 
 const ClientFinancialsPage = () => (
-  <DashboardLayout>
+  <>
     <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Financials"]} />
     <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
       <div className="mb-8">
@@ -90,7 +89,7 @@ const ClientFinancialsPage = () => (
         </div>
       </div>
     </div>
-  </DashboardLayout>
+  </>
 );
 
 export default ClientFinancialsPage;

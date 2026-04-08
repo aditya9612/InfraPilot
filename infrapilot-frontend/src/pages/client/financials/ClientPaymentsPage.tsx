@@ -1,4 +1,3 @@
-import DashboardLayout from "../../../components/common/DashboardLayout";
 import Navbar from "../../../components/common/Navbar";
 
 const payments = [
@@ -10,7 +9,7 @@ const payments = [
 ];
 
 const ClientPaymentsPage = () => (
-  <DashboardLayout>
+  <>
     <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Financials", "Payments"]} />
     <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
       <div className="mb-8">
@@ -54,7 +53,7 @@ const ClientPaymentsPage = () => (
          </div>
       </div>
     </div>
-  </DashboardLayout>
+  </>
 );
 
 export default ClientPaymentsPage;

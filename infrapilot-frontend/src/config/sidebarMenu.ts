@@ -4,25 +4,90 @@ export interface MenuItem {
   label: string;
   path: string;
   icon: string;
-  subMenu?: MenuItem[];
+  subNav?: MenuItem[];
 }
 
 export const sidebarMenus: Record<Role, MenuItem[]> = {
   Admin: [
     { label: "Dashboard", path: "/admin", icon: "grid" },
     { label: "Projects", path: "/admin/projects", icon: "folder" },
-    { label: "Users & Roles", path: "/admin/users", icon: "users" },
+    {
+      label: "User & Role Management",
+      path: "/admin/users",
+      icon: "users",
+      subNav: [
+        { label: "Users", path: "/admin/users", icon: "users" },
+        { label: "Roles", path: "/admin/users/roles", icon: "user-check" },
+        { label: "Permissions", path: "/admin/users/permissions", icon: "check-circle" },
+      ],
+    },
     { label: "Contractors", path: "/admin/contractors", icon: "briefcase" },
     { label: "Clients", path: "/admin/clients", icon: "user-check" },
     { label: "Site Engineers", path: "/admin/engineers", icon: "tool" },
-    { label: "Work & BOQ", path: "/admin/boq", icon: "clipboard" },
-    { label: "Material & Inventory", path: "/admin/inventory", icon: "package" },
-    { label: "Finance & Accounts", path: "/admin/finance", icon: "dollar-sign" },
-    { label: "Approvals & Workflow", path: "/admin/approvals", icon: "check-circle" },
-    { label: "Reports & Analytics", path: "/admin/reports", icon: "bar-chart" },
+    {
+      label: "Work & BOQ",
+      path: "/admin/boq",
+      icon: "clipboard",
+      subNav: [
+        { label: "BOQ Setup", path: "/admin/boq/setup", icon: "list" },
+        { label: "Activity List", path: "/admin/boq/activities", icon: "activity" },
+      ],
+    },
+    {
+      label: "Material & Inventory",
+      path: "/admin/inventory",
+      icon: "package",
+      subNav: [
+        { label: "Material Master", path: "/admin/inventory/master", icon: "database" },
+        { label: "Stock Management", path: "/admin/inventory/stock", icon: "box" },
+      ],
+    },
+    {
+      label: "Finance & Accounts",
+      path: "/admin/finance",
+      icon: "dollar-sign",
+      subNav: [
+        { label: "Invoices", path: "/admin/finance/invoices", icon: "file-text" },
+        { label: "Payments", path: "/admin/finance/payments", icon: "credit-card" },
+        { label: "Expenses", path: "/admin/finance/expenses", icon: "dollar-sign" },
+        { label: "Profit Tracking", path: "/admin/finance/profit", icon: "trending-up" },
+      ],
+    },
+    {
+      label: "Approvals & Workflow",
+      path: "/admin/approvals",
+      icon: "check-circle",
+      subNav: [
+        { label: "Material Approval", path: "/admin/approvals/material", icon: "package" },
+        { label: "Billing Approval", path: "/admin/approvals/billing", icon: "file-text" },
+        { label: "Expense Approval", path: "/admin/approvals/expense", icon: "dollar-sign" },
+      ],
+    },
+    {
+      label: "Reports & Analytics",
+      path: "/admin/reports",
+      icon: "bar-chart",
+      subNav: [
+        { label: "Progress Report", path: "/admin/reports/progress", icon: "trending-up" },
+        { label: "Financial Report", path: "/admin/reports/financial", icon: "dollar-sign" },
+        { label: "Labor Report", path: "/admin/reports/labor", icon: "users" },
+        { label: "Material Consumption", path: "/admin/reports/consumption", icon: "package" },
+        { label: "Contractor Performance", path: "/admin/reports/performance", icon: "briefcase" },
+      ],
+    },
     { label: "Notifications", path: "/admin/notifications", icon: "bell" },
     { label: "Documents", path: "/admin/documents", icon: "file-text" },
-    { label: "Master Data", path: "/admin/master-data", icon: "database" },
+    {
+      label: "Master Data",
+      path: "/admin/master-data",
+      icon: "database",
+      subNav: [
+        { label: "Material Master", path: "/admin/master-data/materials", icon: "package" },
+        { label: "Labor Types", path: "/admin/master-data/labor", icon: "users" },
+        { label: "Activity Types", path: "/admin/master-data/activities", icon: "list" },
+        { label: "Units", path: "/admin/master-data/units", icon: "tool" },
+      ],
+    },
     { label: "Integrations", path: "/admin/integrations", icon: "link" },
     { label: "Settings", path: "/admin/settings", icon: "settings" },
   ],
@@ -60,7 +125,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       label: "Financials",
       path: "/client/financials",
       icon: "dollar-sign",
-      subMenu: [
+      subNav: [
         { label: "Invoices", path: "/client/financials/invoices", icon: "file-text" },
         { label: "Payments", path: "/client/financials/payments", icon: "credit-card" },
         { label: "Summary", path: "/client/financials/summary", icon: "bar-chart" },
@@ -70,7 +135,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       label: "Site Updates",
       path: "/client/site-updates",
       icon: "camera",
-      subMenu: [
+      subNav: [
         { label: "DSR Summary", path: "/client/site-updates/dsr", icon: "clipboard" },
         { label: "Photos", path: "/client/site-updates/photos", icon: "package" },
       ],
@@ -81,7 +146,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       label: "Approvals",
       path: "/client/approvals",
       icon: "check-circle",
-      subMenu: [
+      subNav: [
         { label: "Pending Approvals", path: "/client/approvals/pending", icon: "clock" },
         { label: "Approved Items", path: "/client/approvals/approved", icon: "check-circle" },
       ],
@@ -90,7 +155,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       label: "Communication",
       path: "/client/communication",
       icon: "message-circle",
-      subMenu: [
+      subNav: [
         { label: "Messages", path: "/client/communication/messages", icon: "mail" },
         { label: "Announcements", path: "/client/communication/announcements", icon: "bell" },
       ],
@@ -99,7 +164,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       label: "Reports",
       path: "/client/reports",
       icon: "clipboard",
-      subMenu: [
+      subNav: [
         { label: "Monthly Progress Report", path: "/client/reports/monthly", icon: "calendar" },
         { label: "Financial Report", path: "/client/reports/financial", icon: "dollar-sign" },
         { label: "Work Summary", path: "/client/reports/work-summary", icon: "activity" },
