@@ -3,9 +3,9 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceArea
 } from "recharts";
 import Navbar from "../../components/common/Navbar";
-import CreateUserModal from "../../components/forms/CreateUserModal";
-import NewProjectModal from "../../components/dashboard/NewProjectModal";
 import StatCard from "../../components/common/StatCard";
+import NewProjectModal from "../../components/dashboard/NewProjectModal";
+import CreateUserModal from "../../components/forms/CreateUserModal";
 import PageTransition from "../../components/common/PageTransition";
 import CreateBOQModal from "../../components/forms/CreateBOQModal";
 import { PROJECTS } from "../../config/projectSeed";

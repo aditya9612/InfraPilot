@@ -257,6 +257,24 @@ const icons: Record<string, JSX.Element> = {
       <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
     </svg>
   ),
+  camera: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+      <circle cx="12" cy="13" r="4" strokeWidth="1.8" />
+    </svg>
+  ),
+  "alert-triangle": (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+      <line x1="12" y1="9" x2="12" y2="13" strokeLinecap="round" strokeWidth="1.8" />
+      <line x1="12" y1="17" x2="12.01" y2="17" strokeLinecap="round" strokeWidth="1.8" />
+    </svg>
+  ),
+  "message-circle": (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+    </svg>
+  ),
 };
 
 const Chevron = ({ isOpen }: { isOpen?: boolean }) => (
@@ -364,6 +382,7 @@ const SidebarItem = ({
 
 const Sidebar = ({ onClose }: SidebarProps) => {
   const { user, logout } = useAuth();
+
   if (!user) return null;
   const menu = sidebarMenus[user.role];
 
