@@ -29,12 +29,34 @@ import RolesPage from "../pages/admin/RolesPage";
 import PermissionsPage from "../pages/admin/PermissionsPage";
 import ProjectDetailsPage from "../pages/projects/ProjectDetailsPage";
 
+// Client Pages
+import ClientOverviewPage from "../pages/client/ClientOverviewPage";
+import ClientProgressPage from "../pages/client/ClientProgressPage";
+import ClientFinancialsSummaryPage from "../pages/client/financials/ClientFinancialsSummaryPage";
+import ClientInvoicesPage from "../pages/client/financials/ClientInvoicesPage";
+import ClientPaymentsPage from "../pages/client/financials/ClientPaymentsPage";
+import ClientPhotosPage from "../pages/client/site-updates/ClientPhotosPage";
+import ClientDSRSummaryPage from "../pages/client/site-updates/ClientDSRSummaryPage";
+import ClientIssuesPage from "../pages/client/ClientIssuesPage";
+import ClientDocumentsPage from "../pages/client/ClientDocumentsPage";
+import ClientPendingApprovalsPage from "../pages/client/approvals/ClientPendingApprovalsPage";
+import ClientApprovedItemsPage from "../pages/client/approvals/ClientApprovedItemsPage";
+import ClientMessagesPage from "../pages/client/communication/ClientMessagesPage";
+import ClientAnnouncementsPage from "../pages/client/communication/ClientAnnouncementsPage";
+import ClientMonthlyProgressReportPage from "../pages/client/reports/ClientMonthlyProgressReportPage";
+import ClientFinancialReportPage from "../pages/client/reports/ClientFinancialReportPage";
+import ClientWorkSummaryPage from "../pages/client/reports/ClientWorkSummaryPage";
+import ClientSettingsPage from "../pages/client/ClientSettingsPage";
+
 const RootRedirect = () => {
   const { user, isAuthenticated } = useAuth();
   if (!isAuthenticated) return <Login />;
   const paths: Record<string, string> = {
-    Admin: "/admin", "Project Manager": "/manager",
-    "Site Engineer": "/engineer", Contractor: "/contractor", Accountant: "/accountant",
+    Admin: "/admin",
+    "Project Manager": "/manager",
+    "Site Engineer": "/engineer",
+    Contractor: "/contractor",
+    Accountant: "/accountant",
     Client: "/client",
   };
   return <Navigate to={paths[user!.role]} replace />;
@@ -47,11 +69,9 @@ function AppRoutes() {
         <Route path="/" element={<RootRedirect />} />
         <Route path="/unauthorized" element={<Unauthorized />} />
         <Route path="/login" element={<Login />} />
-
         {/* Persistent Dashboard Layout Group */}
-        <Route element={<ProtectedRoute />}>
+        <Route element={<ProtectedRoute />}> {/* No role restriction here, inner routes will handle */}
           <Route element={<DashboardLayout />}>
-            
             {/* Admin Specific Routes */}
             <Route element={<ProtectedRoute allowedRoles={["Admin"]} />}>
               <Route path="/admin" element={<AdminDashboard />} />
@@ -94,31 +114,52 @@ function AppRoutes() {
               <Route path="/admin/integrations" element={<IntegrationsPage />} />
               <Route path="/admin/settings" element={<SettingsPage />} />
             </Route>
-
             {/* Manager Specific Routes */}
             <Route element={<ProtectedRoute allowedRoles={["Project Manager"]} />}>
               <Route path="/manager" element={<ManagerDashboard />} />
               <Route path="/manager/projects" element={<ProjectsPage />} />
               <Route path="/manager/projects/:id" element={<ProjectDetailsPage />} />
             </Route>
-
-            {/* Other Roles */}
+            {/* Engineer Specific Routes */}
             <Route element={<ProtectedRoute allowedRoles={["Site Engineer"]} />}>
               <Route path="/engineer" element={<EngineerDashboard />} />
             </Route>
+            {/* Contractor Specific Routes */}
             <Route element={<ProtectedRoute allowedRoles={["Contractor"]} />}>
               <Route path="/contractor" element={<ContractorDashboard />} />
             </Route>
+            {/* Accountant Specific Routes */}
             <Route element={<ProtectedRoute allowedRoles={["Accountant"]} />}>
               <Route path="/accountant" element={<AccountantDashboard />} />
             </Route>
+            {/* Client Specific Routes */}
             <Route element={<ProtectedRoute allowedRoles={["Client"]} />}>
               <Route path="/client" element={<ClientDashboard />} />
+              <Route path="/client/overview" element={<ClientOverviewPage />} />
+              <Route path="/client/progress" element={<ClientProgressPage />} />
+              <Route path="/client/financials" element={<Navigate to="/client/financials/summary" replace />} />
+              <Route path="/client/financials/summary" element={<ClientFinancialsSummaryPage />} />
+              <Route path="/client/financials/invoices" element={<ClientInvoicesPage />} />
+              <Route path="/client/financials/payments" element={<ClientPaymentsPage />} />
+              <Route path="/client/site-updates" element={<Navigate to="/client/site-updates/photos" replace />} />
+              <Route path="/client/site-updates/photos" element={<ClientPhotosPage />} />
+              <Route path="/client/site-updates/dsr" element={<ClientDSRSummaryPage />} />
+              <Route path="/client/issues" element={<ClientIssuesPage />} />
+              <Route path="/client/documents" element={<ClientDocumentsPage />} />
+              <Route path="/client/approvals" element={<Navigate to="/client/approvals/pending" replace />} />
+              <Route path="/client/approvals/pending" element={<ClientPendingApprovalsPage />} />
+              <Route path="/client/approvals/approved" element={<ClientApprovedItemsPage />} />
+              <Route path="/client/communication" element={<Navigate to="/client/communication/messages" replace />} />
+              <Route path="/client/communication/messages" element={<ClientMessagesPage />} />
+              <Route path="/client/communication/announcements" element={<ClientAnnouncementsPage />} />
+              <Route path="/client/reports" element={<Navigate to="/client/reports/monthly" replace />} />
+              <Route path="/client/reports/monthly" element={<ClientMonthlyProgressReportPage />} />
+              <Route path="/client/reports/financial" element={<ClientFinancialReportPage />} />
+              <Route path="/client/reports/work-summary" element={<ClientWorkSummaryPage />} />
+              <Route path="/client/settings" element={<ClientSettingsPage />} />
             </Route>
-            
           </Route>
         </Route>
-
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

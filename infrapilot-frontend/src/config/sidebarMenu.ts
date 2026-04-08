@@ -119,8 +119,57 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
   ],
   Client: [
     { label: "Dashboard", path: "/client", icon: "grid" },
-    { label: "Progress", path: "/client/progress", icon: "bar-chart" },
-    { label: "Site Photos", path: "/client/photos", icon: "package" },
-    { label: "Documents", path: "/client/documents", icon: "file-text" },
+    { label: "Project Overview", path: "/client/overview", icon: "folder" },
+    { label: "Work Progress", path: "/client/progress", icon: "bar-chart" },
+    {
+      label: "Financials",
+      path: "/client/financials",
+      icon: "dollar-sign",
+      subNav: [
+        { label: "Invoices", path: "/client/financials/invoices", icon: "file-text" },
+        { label: "Payments", path: "/client/financials/payments", icon: "credit-card" },
+        { label: "Summary", path: "/client/financials/summary", icon: "bar-chart" },
+      ],
+    },
+    {
+      label: "Site Updates",
+      path: "/client/site-updates",
+      icon: "camera",
+      subNav: [
+        { label: "DSR Summary", path: "/client/site-updates/dsr", icon: "clipboard" },
+        { label: "Photos", path: "/client/site-updates/photos", icon: "package" },
+      ],
+    },
+    { label: "Issues & Risks", path: "/client/issues", icon: "alert-triangle" },
+    { label: "Documents & Drawings", path: "/client/documents", icon: "file-text" },
+    {
+      label: "Approvals",
+      path: "/client/approvals",
+      icon: "check-circle",
+      subNav: [
+        { label: "Pending Approvals", path: "/client/approvals/pending", icon: "clock" },
+        { label: "Approved Items", path: "/client/approvals/approved", icon: "check-circle" },
+      ],
+    },
+    {
+      label: "Communication",
+      path: "/client/communication",
+      icon: "message-circle",
+      subNav: [
+        { label: "Messages", path: "/client/communication/messages", icon: "mail" },
+        { label: "Announcements", path: "/client/communication/announcements", icon: "bell" },
+      ],
+    },
+    {
+      label: "Reports",
+      path: "/client/reports",
+      icon: "clipboard",
+      subNav: [
+        { label: "Monthly Progress Report", path: "/client/reports/monthly", icon: "calendar" },
+        { label: "Financial Report", path: "/client/reports/financial", icon: "dollar-sign" },
+        { label: "Work Summary", path: "/client/reports/work-summary", icon: "activity" },
+      ],
+    },
+    { label: "Settings", path: "/client/settings", icon: "settings" },
   ],
 };
