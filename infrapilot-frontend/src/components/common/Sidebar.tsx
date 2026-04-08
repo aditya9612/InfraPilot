@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { sidebarMenus } from "../../config/sidebarMenu";
 import type { JSX } from "react";
@@ -143,16 +143,40 @@ export interface MenuItem {
 const Sidebar = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
 
-  // Track which parent menus are open
-  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>(() => {
-    // Auto-open if current path matches a child
-    const initial: Record<string, boolean> = {};
-    return initial;
+  const handleLogout = () => {
+    logout();
+    navigate("/");
+  };
+
+  // Filter menus based on search term
+  // sidebarMenus[role] is an array of MenuItem.
+  const menu = (user ? sidebarMenus[user.role] : []) as MenuItem[];
+
+  const filteredMenuList = menu.filter(item => {
+    const matchesParent = item.label.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesChild = item.children?.some(child =>
+      child.label.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    return matchesParent || matchesChild;
+  }).map(item => {
+    if (searchTerm && item.children) {
+      // If searching, we also want to filter the children shown
+      return {
+        ...item,
+        children: item.children.filter(child =>
+          child.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          item.label.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+      };
+    }
+    return item;
   });
 
   if (!user) return null;
-  const menu = sidebarMenus[user.role] as MenuItem[];
 
   const toggleMenu = (path: string) => {
     setOpenMenus(prev => ({ ...prev, [path]: !prev[path] }));
@@ -175,17 +199,23 @@ const Sidebar = () => {
             <circle cx="11" cy="11" r="8" strokeWidth="2" />
             <path strokeLinecap="round" strokeWidth="2" d="M21 21l-4.35-4.35" />
           </svg>
-          <input type="text" placeholder="Search here..."
-            className="bg-transparent text-xs text-slate-500 outline-none w-full placeholder:text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search menu..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="bg-transparent text-xs text-slate-500 outline-none w-full placeholder:text-slate-400"
+          />
         </div>
       </div>
 
       {/* Nav */}
       <nav className="flex-1 px-3 pt-1 pb-3 overflow-y-auto">
-        {menu.map((item) => {
+        {filteredMenuList.map((item) => {
           const hasChildren = item.children && item.children.length > 0;
           const childActive = isChildActive(item);
-          const isOpen = openMenus[item.path] ?? childActive;
+          // If searching, auto-expand
+          const isOpen = searchTerm ? true : (openMenus[item.path] ?? childActive);
 
           if (hasChildren) {
             return (
@@ -193,11 +223,10 @@ const Sidebar = () => {
                 {/* Parent button */}
                 <button
                   onClick={() => toggleMenu(item.path)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                    childActive
-                      ? "text-primary bg-blue-50 font-semibold"
-                      : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
-                  }`}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${childActive
+                    ? "text-primary bg-blue-50 font-semibold"
+                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                    }`}
                 >
                   <span className={childActive ? "text-primary" : "text-slate-400"}>
                     {icons[item.icon] ?? icons["file"]}
@@ -216,10 +245,9 @@ const Sidebar = () => {
                         key={child.path}
                         to={child.path}
                         className={({ isActive }) =>
-                          `block px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-                            isActive
-                              ? "text-primary bg-blue-50 font-semibold"
-                              : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                          `block px-3 py-2 rounded-lg text-xs font-medium transition-colors ${isActive
+                            ? "text-primary bg-blue-50 font-semibold"
+                            : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
                           }`
                         }
                       >
@@ -239,10 +267,9 @@ const Sidebar = () => {
               to={item.path}
               end
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors mb-0.5 ${
-                  isActive
-                    ? "text-primary bg-blue-50 font-semibold"
-                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors mb-0.5 ${isActive
+                  ? "text-primary bg-blue-50 font-semibold"
+                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
                 }`
               }
             >
@@ -258,6 +285,11 @@ const Sidebar = () => {
             </NavLink>
           );
         })}
+        {filteredMenuList.length === 0 && (
+          <div className="px-4 py-8 text-center">
+            <p className="text-xs text-slate-400">No results found</p>
+          </div>
+        )}
       </nav>
 
       {/* User + Logout */}
@@ -272,7 +304,7 @@ const Sidebar = () => {
           </div>
         </div>
         <button
-          onClick={logout}
+          onClick={handleLogout}
           className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

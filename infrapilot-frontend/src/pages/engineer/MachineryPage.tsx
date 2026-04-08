@@ -168,8 +168,14 @@ const MachineryPage = () => {
       </div>
 
       {showLogModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-[32px] p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 cursor-pointer"
+          onClick={() => { setShowLogModal(false); setErrors({}); }}
+        >
+          <div
+            className="bg-white w-full max-w-md rounded-[32px] p-8 shadow-2xl max-h-[90vh] overflow-y-auto cursor-default"
+            onClick={e => e.stopPropagation()}
+          >
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-lg font-bold text-slate-800 tracking-tight">+ Log Usage</h3>
               <button onClick={() => { setShowLogModal(false); setErrors({}); }} className="text-slate-400 text-2xl">×</button>
@@ -234,8 +240,14 @@ const MachineryPage = () => {
       )}
 
       {historyEqId && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-3xl rounded-[32px] shadow-2xl max-h-[85vh] flex flex-col overflow-hidden border border-slate-100">
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 cursor-pointer"
+          onClick={() => setHistoryEqId(null)}
+        >
+          <div
+            className="bg-white w-full max-w-3xl rounded-[32px] shadow-2xl max-h-[85vh] flex flex-col overflow-hidden border border-slate-100 cursor-default"
+            onClick={e => e.stopPropagation()}
+          >
             <div className="p-8 border-b border-slate-50 flex justify-between items-start bg-white">
               <div className="flex items-center gap-5">
                 <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center text-3xl border border-slate-100 shadow-sm">

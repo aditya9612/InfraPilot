@@ -2,21 +2,67 @@ import { useState } from "react";
 import DashboardLayout from "../../components/common/DashboardLayout";
 import Navbar from "../../components/common/Navbar";
 
-const issues = [
-  { id: 1, title: "Cement delivery delayed", category: "Material", description: "Cement supplier not delivering on schedule. 150 bags pending.", reported: "2025-04-01", priority: "High", assignedTo: "Priya Nair (PM)", status: "Open", resolution: "" },
-  { id: 2, title: "Design mismatch in Column C3", category: "Design", description: "Structural drawing and architectural drawing dimensions don't match.", reported: "2025-03-30", priority: "High", assignedTo: "Structural Consultant", status: "Open", resolution: "" },
-  { id: 3, title: "Unskilled labour shortage", category: "Labor", description: "Only 12 helpers available against planned 25.", reported: "2025-03-28", priority: "Medium", assignedTo: "Sharma Contractors", status: "Closed", resolution: "Additional 10 workers arranged from alternate source." },
-  { id: 4, title: "JCB breakdown at site", category: "Machinery", description: "JCB EQ-001 hydraulic failure. Repair estimated 2 days.", reported: "2025-04-03", priority: "Medium", assignedTo: "Equipment Manager", status: "Open", resolution: "" },
-  { id: 5, title: "Rain delay – Foundation casting", category: "Weather", description: "Continuous rain for 2 days halted outdoor work at Block A.", reported: "2025-03-25", priority: "Low", assignedTo: "—", status: "Closed", resolution: "Work resumed after weather cleared." },
-];
-
 const CATEGORIES = ["All", "Material", "Labor", "Design", "Machinery", "Weather"];
 const PRIORITIES = { High: "bg-red-50 text-danger border-red-100", Medium: "bg-orange-50 text-warning border-orange-100", Low: "bg-slate-50 text-slate-500 border-slate-100" };
 
 const IssueTrackerPage = () => {
+  const [issues, setIssues] = useState([
+    { id: 1, title: "Cement delivery delayed", category: "Material", description: "Cement supplier not delivering on schedule. 150 bags pending.", reported: "2025-04-01", priority: "High", assignedTo: "Priya Nair (PM)", status: "Open", resolution: "" },
+    { id: 2, title: "Design mismatch in Column C3", category: "Design", description: "Structural drawing and architectural drawing dimensions don't match.", reported: "2025-03-30", priority: "High", assignedTo: "Structural Consultant", status: "Open", resolution: "" },
+    { id: 3, title: "Unskilled labour shortage", category: "Labor", description: "Only 12 helpers available against planned 25.", reported: "2025-03-28", priority: "Medium", assignedTo: "Sharma Contractors", status: "Closed", resolution: "Additional 10 workers arranged from alternate source." },
+    { id: 4, title: "JCB breakdown at site", category: "Machinery", description: "JCB EQ-001 hydraulic failure. Repair estimated 2 days.", reported: "2025-04-03", priority: "Medium", assignedTo: "Equipment Manager", status: "Open", resolution: "" },
+    { id: 5, title: "Rain delay – Foundation casting", category: "Weather", description: "Continuous rain for 2 days halted outdoor work at Block A.", reported: "2025-03-25", priority: "Low", assignedTo: "—", status: "Closed", resolution: "Work resumed after weather cleared." },
+  ]);
+
   const [filter, setFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState<"All" | "Open" | "Closed">("All");
   const [showAdd, setShowAdd] = useState(false);
+
+  // New issue form state
+  const [newIssue, setNewIssue] = useState({
+    title: "",
+    category: "Material",
+    description: "",
+    reported: new Date().toISOString().split('T')[0],
+    priority: "Medium",
+    assignedTo: "",
+    status: "Open",
+    resolution: ""
+  });
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const handleReportSubmit = () => {
+    // Basic validation
+    const newErrors: Record<string, string> = {};
+    if (!newIssue.title) newErrors.title = "Title is required";
+    if (!newIssue.description) newErrors.description = "Description is required";
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    const issueToAdd = {
+      ...newIssue,
+      id: Date.now(),
+    };
+
+    setIssues([issueToAdd, ...issues]);
+    setShowAdd(false);
+    // Reset form
+    setNewIssue({
+      title: "",
+      category: "Material",
+      description: "",
+      reported: new Date().toISOString().split('T')[0],
+      priority: "Medium",
+      assignedTo: "",
+      status: "Open",
+      resolution: ""
+    });
+    setErrors({});
+  };
 
   const filtered = issues.filter(i =>
     (filter === "All" || i.category === filter) &&
@@ -109,34 +155,60 @@ const IssueTrackerPage = () => {
           <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-slate-800">Report Issue / Delay</h3>
-              <button onClick={() => setShowAdd(false)} className="text-slate-400 text-2xl">×</button>
+              <button onClick={() => { setShowAdd(false); setErrors({}); }} className="text-slate-400 text-2xl">×</button>
             </div>
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-[0.15em] mb-2">Issue Title *</label>
-                <input type="text" placeholder="Brief title" className="w-full bg-slate-50 border-none rounded-xl p-4 text-sm text-slate-700" />
+                <input
+                  type="text"
+                  placeholder="Brief title"
+                  className={`w-full bg-slate-50 border-none rounded-xl p-4 text-sm text-slate-700 ${errors.title ? "ring-2 ring-red-200" : ""}`}
+                  value={newIssue.title}
+                  onChange={e => setNewIssue({ ...newIssue, title: e.target.value })}
+                />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-[0.15em] mb-2">Category *</label>
-                <select className="w-full bg-slate-50 border-none rounded-xl p-4 text-sm text-slate-700">
-                  {["Material", "Labor", "Design"].map(c => <option key={c}>{c}</option>)}
-                  <option>Machinery</option>
-                  <option>Weather</option>
+                <select
+                  className="w-full bg-slate-50 border-none rounded-xl p-4 text-sm text-slate-700"
+                  value={newIssue.category}
+                  onChange={e => setNewIssue({ ...newIssue, category: e.target.value })}
+                >
+                  {["Material", "Labor", "Design", "Machinery", "Weather"].map(c => <option key={c}>{c}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-[0.15em] mb-2">Description *</label>
-                <textarea rows={3} placeholder="Detailed description..." className="w-full bg-slate-50 border-none rounded-xl p-4 text-sm text-slate-700 resize-none" />
+                <textarea
+                  rows={3}
+                  placeholder="Detailed description..."
+                  className={`w-full bg-slate-50 border-none rounded-xl p-4 text-sm text-slate-700 resize-none ${errors.description ? "ring-2 ring-red-200" : ""}`}
+                  value={newIssue.description}
+                  onChange={e => setNewIssue({ ...newIssue, description: e.target.value })}
+                />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-[0.15em] mb-2">Reported Date *</label>
-                <input type="date" className="w-full bg-slate-50 border-none rounded-xl p-4 text-sm text-slate-700" defaultValue={new Date().toISOString().split('T')[0]} />
+                <input
+                  type="date"
+                  className="w-full bg-slate-50 border-none rounded-xl p-4 text-sm text-slate-700"
+                  value={newIssue.reported}
+                  onChange={e => setNewIssue({ ...newIssue, reported: e.target.value })}
+                />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-[0.15em] mb-2">Priority *</label>
                 <div className="flex gap-3">
                   {["Low", "Medium", "High"].map(p => (
-                    <button key={p} className={`flex-1 py-3 rounded-xl text-xs font-bold border transition-all ${p === "High" ? "bg-red-50 text-danger border-red-200" : p === "Medium" ? "bg-orange-50 text-warning border-orange-200" : "bg-slate-50 text-slate-500 border-slate-200"}`}>
+                    <button
+                      key={p}
+                      onClick={() => setNewIssue({ ...newIssue, priority: p })}
+                      className={`flex-1 py-3 rounded-xl text-xs font-bold border transition-all ${newIssue.priority === p
+                        ? (p === "High" ? "bg-red-50 text-danger border-red-200" : p === "Medium" ? "bg-orange-50 text-warning border-orange-200" : "bg-blue-50 text-primary border-blue-200")
+                        : "bg-slate-50 text-slate-400 border-slate-200"
+                        }`}
+                    >
                       {p}
                     </button>
                   ))}
@@ -144,21 +216,43 @@ const IssueTrackerPage = () => {
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-[0.15em] mb-2">Assigned To</label>
-                <input type="text" placeholder="Person / team responsible" className="w-full bg-slate-50 border-none rounded-xl p-4 text-sm text-slate-700" />
+                <input
+                  type="text"
+                  placeholder="Person / team responsible"
+                  className="w-full bg-slate-50 border-none rounded-xl p-4 text-sm text-slate-700"
+                  value={newIssue.assignedTo}
+                  onChange={e => setNewIssue({ ...newIssue, assignedTo: e.target.value })}
+                />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-[0.15em] mb-2">Status</label>
-                <select className="w-full bg-slate-50 border-none rounded-xl p-4 text-sm text-slate-700">
-                  <option>Open</option>
-                  <option>Closed</option>
+                <select
+                  className="w-full bg-slate-50 border-none rounded-xl p-4 text-sm text-slate-700"
+                  value={newIssue.status}
+                  onChange={e => setNewIssue({ ...newIssue, status: e.target.value as any })}
+                >
+                  <option value="Open">Open</option>
+                  <option value="Closed">Closed</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-[0.15em] mb-2">Resolution Notes</label>
-                <textarea rows={2} placeholder="Resolution details if closed..." className="w-full bg-slate-50 border-none rounded-xl p-4 text-sm text-slate-700 resize-none" />
-              </div>
-              <button className="w-full py-4 bg-primary text-white rounded-2xl text-base font-bold shadow-xl shadow-primary/30 active:scale-95 transition-all"
-                onClick={() => setShowAdd(false)}>Submit Issue</button>
+              {newIssue.status === "Closed" && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-[0.15em] mb-2">Resolution Notes</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Resolution details if closed..."
+                    className="w-full bg-slate-50 border-none rounded-xl p-4 text-sm text-slate-700 resize-none"
+                    value={newIssue.resolution}
+                    onChange={e => setNewIssue({ ...newIssue, resolution: e.target.value })}
+                  />
+                </div>
+              )}
+              <button
+                className="w-full py-4 bg-primary text-white rounded-2xl text-base font-bold shadow-xl shadow-primary/30 active:scale-95 transition-all"
+                onClick={handleReportSubmit}
+              >
+                Submit Issue
+              </button>
             </div>
           </div>
         </div>

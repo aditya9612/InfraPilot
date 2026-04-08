@@ -225,21 +225,33 @@ const WorkProgressPage = () => {
           <div className="bg-white w-full max-w-md rounded-3xl p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-bold text-slate-800 mb-5">New Activity</h3>
             <div className="space-y-4">
-              <input className={inp} placeholder="Activity Name" value={newAct.name} onChange={e => setNewAct({ ...newAct, name: e.target.value })} />
-              {actErrors.name && <p className={errMsg}>⚠ {actErrors.name}</p>}
-              <input className={inp} placeholder="BOQ Code" value={newAct.boqCode} onChange={e => setNewAct({ ...newAct, boqCode: e.target.value })} />
-              {actErrors.boqCode && <p className={errMsg}>⚠ {actErrors.boqCode}</p>}
+              <div>
+                <input className={`${inp} ${actErrors.name ? "ring-2 ring-red-200 border-red-300" : ""}`} placeholder="Activity Name *" value={newAct.name} onChange={e => setNewAct({ ...newAct, name: e.target.value })} />
+                {actErrors.name && <p className={errMsg}>⚠ {actErrors.name}</p>}
+              </div>
+              <div>
+                <input className={`${inp} ${actErrors.boqCode ? "ring-2 ring-red-200 border-red-300" : ""}`} placeholder="BOQ Code *" value={newAct.boqCode} onChange={e => setNewAct({ ...newAct, boqCode: e.target.value })} />
+                {actErrors.boqCode && <p className={errMsg}>⚠ {actErrors.boqCode}</p>}
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <select className={inp} value={newAct.unit} onChange={e => setNewAct({ ...newAct, unit: e.target.value })}>
                   {["m³", "m²", "Rmt", "Nos", "Ton", "Kg"].map(u => <option key={u}>{u}</option>)}
                 </select>
-                <input type="number" className={inp} placeholder="Planned Qty" value={newAct.planned} onChange={e => setNewAct({ ...newAct, planned: e.target.value })} />
+                <div>
+                  <input type="number" className={`${inp} ${actErrors.planned ? "ring-2 ring-red-200 border-red-300" : ""}`} placeholder="Planned Qty *" value={newAct.planned} onChange={e => setNewAct({ ...newAct, planned: e.target.value })} />
+                  {actErrors.planned && <p className={errMsg}>⚠ {actErrors.planned}</p>}
+                </div>
               </div>
-              {actErrors.planned && <p className={errMsg}>⚠ {actErrors.planned}</p>}
 
               <div className="grid grid-cols-2 gap-3">
-                <input type="number" className={inp} placeholder="Today Progress" value={newAct.todayProgress} onChange={e => setNewAct({ ...newAct, todayProgress: e.target.value })} />
-                <input type="number" className={inp} placeholder="Total Complete" value={newAct.totalComplete} onChange={e => setNewAct({ ...newAct, totalComplete: e.target.value })} />
+                <div>
+                  <input type="number" className={`${inp} ${actErrors.todayProgress ? "ring-2 ring-red-200 border-red-300" : ""}`} placeholder="Today Progress" value={newAct.todayProgress} onChange={e => setNewAct({ ...newAct, todayProgress: e.target.value })} />
+                  {actErrors.todayProgress && <p className={errMsg}>⚠ {actErrors.todayProgress}</p>}
+                </div>
+                <div>
+                  <input type="number" className={`${inp} ${actErrors.totalComplete ? "ring-2 ring-red-200 border-red-300" : ""}`} placeholder="Total Complete" value={newAct.totalComplete} onChange={e => setNewAct({ ...newAct, totalComplete: e.target.value })} />
+                  {actErrors.totalComplete && <p className={errMsg}>⚠ {actErrors.totalComplete}</p>}
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <input type="number" className={inp} placeholder="Remaining Qty" value={newAct.remainingQty} onChange={e => setNewAct({ ...newAct, remainingQty: e.target.value })} />
@@ -247,8 +259,14 @@ const WorkProgressPage = () => {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <input type="date" className={inp} value={newAct.start} onChange={e => setNewAct({ ...newAct, start: e.target.value })} />
-                <input type="date" className={inp} value={newAct.end} onChange={e => setNewAct({ ...newAct, end: e.target.value })} />
+                <div>
+                  <input type="date" className={`${inp} ${actErrors.start ? "ring-2 ring-red-200 border-red-300" : ""}`} value={newAct.start} onChange={e => setNewAct({ ...newAct, start: e.target.value })} />
+                  {actErrors.start && <p className={errMsg}>⚠ {actErrors.start}</p>}
+                </div>
+                <div>
+                  <input type="date" className={`${inp} ${actErrors.end ? "ring-2 ring-red-200 border-red-300" : ""}`} value={newAct.end} onChange={e => setNewAct({ ...newAct, end: e.target.value })} />
+                  {actErrors.end && <p className={errMsg}>⚠ {actErrors.end}</p>}
+                </div>
               </div>
 
               <button onClick={handleAddActivity} className="w-full py-4 bg-primary text-white rounded-2xl font-bold">Add Activity</button>

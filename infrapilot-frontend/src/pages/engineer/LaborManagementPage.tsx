@@ -65,8 +65,8 @@ const LaborManagementPage = () => {
     const errs: Record<string, string> = {};
     if (!newWorker.name.trim()) errs.name = "Worker naam required hai";
     if (!newWorker.aadhaar.trim()) errs.aadhaar = "Aadhaar / ID required hai";
-    else if (!/^\d{4}[-\s]?\d{4}[-\s]?\d{4}$/.test(newWorker.aadhaar.replace(/X/gi, "0")))
-      errs.aadhaar = "Valid Aadhaar format dalo (XXXX-XXXX-XXXX)";
+    else if (!/^[X\d]{4}[-\s]?[X\d]{4}[-\s]?[X\d]{4}$/i.test(newWorker.aadhaar))
+      errs.aadhaar = "Valid Aadhaar format dalo (e.g. XXXX-XXXX-1234)";
     if (!newWorker.contractor.trim()) errs.contractor = "Contractor naam required hai";
     if (!newWorker.wage || isNaN(Number(newWorker.wage)) || Number(newWorker.wage) <= 0)
       errs.wage = "Valid wage rate dalo";
