@@ -104,26 +104,34 @@ const ContractorsPage = () => {
       />
 
       <PageTransition className="p-6 bg-slate-50 min-h-screen">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
-              Contractor Directory
-            </h1>
-            <p className="text-slate-500 text-sm">
-              Manage construction partners, ratings, and site assignments.
-            </p>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Contractor Directory</h1>
+            <p className="text-slate-500 text-sm">Manage construction partners, ratings, and site assignments.</p>
           </div>
           <div className="flex gap-2">
-            <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all">
-              Export CSV
-            </button>
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
-            >
-              + New Contractor
-            </button>
+            <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all">Export CSV</button>
+            <button onClick={() => setIsModalOpen(true)} className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all">+ New Contractor</button>
           </div>
+        </div>
+
+        {/* Features Section */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          {[
+            { title: "Assign Contractor to Project", desc: "Map contractor to specific project", behavior: "Should link Contractor ID with Project ID.", icon: "🤝", color: "text-blue-600", bg: "bg-blue-50" },
+            { title: "Track Contractor Bills", desc: "Maintain contractor work bill details", behavior: "Should store bill amount, date, and work description.", icon: "🧾", color: "text-emerald-600", bg: "bg-emerald-50" },
+            { title: "Payment History", desc: "Record all payments made to contractor", behavior: "Should show date-wise payment records.", icon: "💰", color: "text-amber-600", bg: "bg-amber-50" },
+            { title: "Pending Payment Report", desc: "Generate contractor pending dues report", behavior: "Should display contractor-wise outstanding amount.", icon: "📊", color: "text-purple-600", bg: "bg-purple-50" }
+          ].map((f, i) => (
+            <div key={i} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm transition-all hover:shadow-md">
+              <div className={`w-10 h-10 ${f.bg} ${f.color} rounded-lg flex items-center justify-center mb-3 text-lg`}>{f.icon}</div>
+              <h3 className="font-bold text-slate-800 mb-1">{f.title}</h3>
+              <p className="text-xs text-slate-500 mb-3">{f.desc}</p>
+              <div className="pt-2 border-t border-slate-50">
+                <p className="text-[10px] font-bold text-slate-400 uppercase">Behavior: <span className="text-slate-600 lowercase font-medium italic">"{f.behavior}"</span></p>
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* Stats Summary */}
@@ -247,18 +255,17 @@ const ContractorsPage = () => {
                     </td>
                     <td className="px-6 py-4">
                       <span
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${
-                          c.status === "Active"
-                            ? "bg-emerald-100 text-emerald-600"
-                            : "bg-rose-100 text-rose-600"
-                        }`}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${c.status === "Active"
+                          ? "bg-emerald-100 text-emerald-600"
+                          : "bg-rose-100 text-rose-600"
+                          }`}
                       >
                         {c.status}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button 
+                        <button
                           onClick={() => handleViewDetails(c)}
                           title="View Details"
                           className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
@@ -268,7 +275,7 @@ const ContractorsPage = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                           </svg>
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleEditClick(c)}
                           title="Update Contractor"
                           className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
@@ -277,7 +284,7 @@ const ContractorsPage = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                           </svg>
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleDeleteContractor(c.id)}
                           title="Delete Contractor"
                           className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"

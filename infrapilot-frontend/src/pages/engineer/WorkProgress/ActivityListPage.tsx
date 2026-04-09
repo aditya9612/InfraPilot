@@ -69,6 +69,52 @@ const ActivityListPage = () => {
                     </div>
                 </div>
 
+                {/* Features Section */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    {[
+                        {
+                            name: "Site-wise Expense Tracking",
+                            desc: "Track all expenses related to specific site",
+                            behavior: "Should record expense date, type, amount, and category",
+                            icon: "💰",
+                            color: "text-blue-600",
+                            bg: "bg-blue-50"
+                        },
+                        {
+                            name: "Timeline Tracking",
+                            desc: "Monitor project timeline",
+                            behavior: "Should show project phases and completion progress",
+                            icon: "⏱️",
+                            color: "text-emerald-600",
+                            bg: "bg-emerald-50"
+                        },
+                        {
+                            name: "Work Progress %",
+                            desc: "Track project completion percentage",
+                            behavior: "System should calculate progress (0–100%)",
+                            icon: "📊",
+                            color: "text-purple-600",
+                            bg: "bg-purple-50"
+                        }
+                    ].map((feature, i) => (
+                        <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 transition-all hover:shadow-md hover:border-primary/20 group">
+                            <div className={`w-12 h-12 ${feature.bg} ${feature.color} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform text-2xl`}>
+                                {feature.icon}
+                            </div>
+                            <h3 className="font-bold text-slate-800 mb-1">{feature.name}</h3>
+                            <p className="text-sm text-slate-500 mb-3">{feature.desc}</p>
+                            <div className="pt-3 border-t border-slate-50">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Expected Behavior</p>
+                                <p className="text-xs text-slate-600 italic">"{feature.behavior}"</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+
+
+
+
                 {/* Submenu Tabs */}
                 <div className="flex border-b border-slate-200 mb-8 overflow-x-auto">
                     <button className="px-6 py-3 text-sm font-black uppercase tracking-widest border-b-2 border-primary text-primary whitespace-nowrap">
