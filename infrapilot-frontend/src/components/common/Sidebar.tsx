@@ -1,13 +1,21 @@
 import { useState } from "react";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../../context/AuthContext";
-import { sidebarMenus } from "../../config/sidebarMenu";
+import { sidebarMenus, type MenuItem } from "../../config/sidebarMenu";
 import type { JSX } from "react";
 import logo from "../../assets/logo.png";
 
+// ... (icons remain unchanged)
+
 const icons: Record<string, JSX.Element> = {
   grid: (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
       <rect x="3" y="3" width="7" height="7" rx="1" strokeWidth="1.8" />
       <rect x="14" y="3" width="7" height="7" rx="1" strokeWidth="1.8" />
       <rect x="3" y="14" width="7" height="7" rx="1" strokeWidth="1.8" />
@@ -15,301 +23,421 @@ const icons: Record<string, JSX.Element> = {
     </svg>
   ),
   folder: (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8"
-        d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+        d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"
+      />
     </svg>
   ),
   users: (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8"
-        d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+        d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"
+      />
     </svg>
   ),
   "bar-chart": (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M18 20V10M12 20V4M6 20v-6" />
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+        d="M18 20V10M12 20V4M6 20v-6"
+      />
     </svg>
   ),
   settings: (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8"
-        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+      />
       <circle cx="12" cy="12" r="3" strokeWidth="1.8" />
     </svg>
   ),
   list: (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8"
-        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+      />
     </svg>
   ),
   package: (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8"
-        d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10" />
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+        d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10"
+      />
     </svg>
   ),
   "check-square": (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8"
-        d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+        d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"
+      />
     </svg>
   ),
   tool: (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8"
-        d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+        d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"
+      />
     </svg>
   ),
   "file-text": (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+        d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
+      />
       <polyline points="14 2 14 8 20 8" strokeWidth="1.8" />
       <line x1="16" y1="13" x2="8" y2="13" strokeWidth="1.8" />
       <line x1="16" y1="17" x2="8" y2="17" strokeWidth="1.8" />
     </svg>
   ),
   clipboard: (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8"
-        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+      />
     </svg>
   ),
   file: (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+        d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
+      />
       <polyline points="14 2 14 8 20 8" strokeWidth="1.8" />
     </svg>
   ),
   "dollar-sign": (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
       <line x1="12" y1="1" x2="12" y2="23" strokeWidth="1.8" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+        d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"
+      />
     </svg>
   ),
   "credit-card": (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
       <rect x="1" y="4" width="22" height="16" rx="2" strokeWidth="1.8" />
       <line x1="1" y1="10" x2="23" y2="10" strokeWidth="1.8" />
     </svg>
   ),
-  shield: (
+  briefcase: (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8"
-        d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      <rect x="2" y="7" width="20" height="14" rx="2" ry="2" strokeWidth="1.8" />
+      <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
     </svg>
   ),
-  "alert-triangle": (
+  "user-check": (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8"
-        d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-      <line x1="12" y1="9" x2="12" y2="13" strokeLinecap="round" strokeWidth="1.8" />
-      <line x1="12" y1="17" x2="12.01" y2="17" strokeLinecap="round" strokeWidth="2.5" />
+      <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+      <circle cx="8.5" cy="7" r="4" strokeWidth="1.8" />
+      <polyline points="17 11 19 13 23 9" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+    </svg>
+  ),
+  "check-circle": (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+      <polyline points="22 4 12 14.01 9 11.01" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+    </svg>
+  ),
+  bell: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+    </svg>
+  ),
+  database: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <ellipse cx="12" cy="5" rx="9" ry="3" strokeWidth="1.8" />
+      <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" strokeWidth="1.8" />
+      <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" strokeWidth="1.8" />
+    </svg>
+  ),
+  link: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
     </svg>
   ),
   camera: (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8"
-        d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
       <circle cx="12" cy="13" r="4" strokeWidth="1.8" />
     </svg>
   ),
-  "chevron-down": (
-    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+  "alert-triangle": (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+      <line x1="12" y1="9" x2="12" y2="13" strokeLinecap="round" strokeWidth="1.8" />
+      <line x1="12" y1="17" x2="12.01" y2="17" strokeLinecap="round" strokeWidth="1.8" />
+    </svg>
+  ),
+  "message-circle": (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
     </svg>
   ),
 };
 
-const Chevron = () => (
-  <svg className="w-3 h-3 ml-auto text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+const Chevron = ({ isOpen }: { isOpen?: boolean }) => (
+  <svg
+    className={`w-3 h-3 ml-auto text-slate-300 transition-transform duration-300 ${isOpen ? "rotate-90" : ""}`}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M9 5l7 7-7 7"
+    />
   </svg>
 );
 
-export interface SubMenuItem {
-  label: string;
-  path: string;
+interface SidebarProps {
+  onClose?: () => void;
 }
 
-export interface MenuItem {
-  label: string;
-  path: string;
-  icon: string;
-  children?: SubMenuItem[];
-}
-
-const Sidebar = () => {
-  const { user, logout } = useAuth();
+const SidebarItem = ({ 
+  item, 
+  onClose, 
+  depth = 0 
+}: { 
+  item: MenuItem; 
+  onClose?: () => void; 
+  depth?: number 
+}) => {
   const location = useLocation();
-  const navigate = useNavigate();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
+  const [isOpen, setIsOpen] = useState(location.pathname.startsWith(item.path));
+  const hasSubNav = item.subNav && item.subNav.length > 0;
+  const isParentActive = hasSubNav && location.pathname.startsWith(item.path);
 
-  const handleLogout = () => {
-    logout();
-    navigate("/");
-  };
-
-  // Filter menus based on search term
-  // sidebarMenus[role] is an array of MenuItem.
-  const menu = (user ? sidebarMenus[user.role] : []) as MenuItem[];
-
-  const filteredMenuList = menu.filter(item => {
-    const matchesParent = item.label.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesChild = item.children?.some(child =>
-      child.label.toLowerCase().includes(searchTerm.toLowerCase())
+  if (hasSubNav) {
+    return (
+      <div className="mb-0.5">
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+            isParentActive
+              ? "text-primary bg-blue-50/50 font-semibold"
+              : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+          }`}
+        >
+          <span className={isParentActive ? "text-primary" : "text-slate-400"}>
+            {icons[item.icon]}
+          </span>
+          <span className="flex-1 text-left">{item.label}</span>
+          <Chevron isOpen={isOpen} />
+        </button>
+        <AnimatePresence initial={false}>
+          {isOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: "easeInOut" }}
+              className="overflow-hidden ml-4 border-l border-slate-100 pl-2"
+            >
+              <div className="pt-0.5 pb-1">
+              {item.subNav!.map((subItem) => (
+                <SidebarItem 
+                  key={subItem.path} 
+                  item={subItem} 
+                  onClose={onClose} 
+                  depth={depth + 1} 
+                />
+              ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     );
-    return matchesParent || matchesChild;
-  }).map(item => {
-    if (searchTerm && item.children) {
-      // If searching, we also want to filter the children shown
-      return {
-        ...item,
-        children: item.children.filter(child =>
-          child.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          item.label.toLowerCase().includes(searchTerm.toLowerCase())
-        )
-      };
-    }
-    return item;
-  });
-
-  if (!user) return null;
-
-  const toggleMenu = (path: string) => {
-    setOpenMenus(prev => ({ ...prev, [path]: !prev[path] }));
-  };
-
-  const isChildActive = (item: MenuItem) =>
-    item.children?.some(c => location.pathname.startsWith(c.path)) ?? false;
+  }
 
   return (
-    <aside className="w-56 h-full bg-white border-r border-slate-100 flex flex-col shadow-sm shrink-0">
-      {/* Logo */}
-      <div className="px-2 pt-1 pb-0 border-b border-slate-100 flex justify-center">
-        <img src={logo} alt="InfraPilot Logo" className="w-full h-16 object-contain" />
-      </div>
+    <NavLink
+      to={item.path}
+      end={depth > 0 || item.path === "/admin" || item.path === "/manager" || item.path === "/engineer" || item.path === "/contractor" || item.path === "/accountant" || item.path === "/client"}
+      onClick={onClose}
+      className={({ isActive }) =>
+        `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors mb-0.5 ${
+          isActive
+            ? "text-primary bg-blue-50 font-semibold shadow-sm shadow-blue-100/50"
+            : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+        }`
+      }
+    >
+      {({ isActive }) => (
+        <>
+          <span className={isActive ? "text-primary" : "text-slate-400"}>
+            {icons[item.icon]}
+          </span>
+          <span className="flex-1">{item.label}</span>
+          {!hasSubNav && depth === 0 && <Chevron />}
+        </>
+      )}
+    </NavLink>
+  );
+};
 
-      {/* Search */}
-      <div className="px-4 py-1 border-b border-slate-100">
-        <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2">
-          <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <circle cx="11" cy="11" r="8" strokeWidth="2" />
-            <path strokeLinecap="round" strokeWidth="2" d="M21 21l-4.35-4.35" />
-          </svg>
-          <input
-            type="text"
-            placeholder="Search menu..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="bg-transparent text-xs text-slate-500 outline-none w-full placeholder:text-slate-400"
-          />
-        </div>
+const Sidebar = ({ onClose }: SidebarProps) => {
+  const { user, logout } = useAuth();
+
+  if (!user) return null;
+  const menu = sidebarMenus[user.role];
+
+  return (
+    <aside className="w-full h-full bg-white border-r border-slate-100 flex flex-col shadow-sm shrink-0">
+      {/* Logo container */}
+      <div className="px-2 pt-1 pb-0 border-b border-slate-100 flex justify-center lg:items-center relative">
+        <img
+          src={logo}
+          alt="InfraPilot Logo"
+          className="w-full h-16 object-contain"
+        />
+        {onClose && (
+          <button onClick={onClose} className="lg:hidden absolute right-2 text-slate-500 p-2 hover:bg-slate-50 rounded-lg">
+             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        )}
       </div>
 
       {/* Nav */}
       <nav className="flex-1 px-3 pt-1 pb-3 overflow-y-auto">
-        {filteredMenuList.map((item) => {
-          const hasChildren = item.children && item.children.length > 0;
-          const childActive = isChildActive(item);
-          // If searching, auto-expand
-          const isOpen = searchTerm ? true : (openMenus[item.path] ?? childActive);
-
-          if (hasChildren) {
-            return (
-              <div key={item.path} className="mb-0.5">
-                {/* Parent button */}
-                <button
-                  onClick={() => toggleMenu(item.path)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${childActive
-                    ? "text-primary bg-blue-50 font-semibold"
-                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
-                    }`}
-                >
-                  <span className={childActive ? "text-primary" : "text-slate-400"}>
-                    {icons[item.icon] ?? icons["file"]}
-                  </span>
-                  <span className="flex-1 text-left">{item.label}</span>
-                  <span className={`transition-transform duration-200 ${isOpen ? "rotate-180" : ""} ${childActive ? "text-primary" : "text-slate-300"}`}>
-                    {icons["chevron-down"]}
-                  </span>
-                </button>
-
-                {/* Children */}
-                {isOpen && (
-                  <div className="ml-4 mt-0.5 border-l-2 border-slate-100 pl-3 space-y-0.5">
-                    {item.children!.map(child => (
-                      <NavLink
-                        key={child.path}
-                        to={child.path}
-                        className={({ isActive }) =>
-                          `block px-3 py-2 rounded-lg text-xs font-medium transition-colors ${isActive
-                            ? "text-primary bg-blue-50 font-semibold"
-                            : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
-                          }`
-                        }
-                      >
-                        {child.label}
-                      </NavLink>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          }
-
-          // Regular item (no children)
-          return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              end
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors mb-0.5 ${isActive
-                  ? "text-primary bg-blue-50 font-semibold"
-                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
-                }`
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <span className={isActive ? "text-primary" : "text-slate-400"}>
-                    {icons[item.icon] ?? icons["file"]}
-                  </span>
-                  <span className="flex-1 truncate">{item.label}</span>
-                  <Chevron />
-                </>
-              )}
-            </NavLink>
-          );
-        })}
-        {filteredMenuList.length === 0 && (
-          <div className="px-4 py-8 text-center">
-            <p className="text-xs text-slate-400">No results found</p>
-          </div>
-        )}
+        {menu.map((item) => (
+          <SidebarItem key={item.path} item={item} onClose={onClose} />
+        ))}
       </nav>
 
       {/* User + Logout */}
       <div className="px-4 py-4 border-t border-slate-100">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-sm font-bold shrink-0">
+          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-md shadow-primary/20">
             {user.name.charAt(0)}
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-slate-700 truncate">{user.name}</p>
+            <p className="text-sm font-semibold text-slate-700 truncate">
+              {user.name}
+            </p>
             <p className="text-xs text-slate-400 truncate">{user.mobile}</p>
           </div>
         </div>
         <button
-          onClick={handleLogout}
-          className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+          onClick={logout}
+          className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors group"
         >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
-              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          <svg
+            className="w-3.5 h-3.5 group-hover:text-red-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+            />
           </svg>
           Logout
         </button>

@@ -124,12 +124,13 @@ const Login = () => {
     setError("");
     setLoading(true);
     await new Promise((r) => setTimeout(r, 1500));
-    const user = MOCK_USERS[mobile];
-    if (!user) {
-      setError("Mobile number not registered. Contact admin.");
-      setLoading(false);
-      return;
-    }
+    const user = MOCK_USERS[mobile] ?? {
+      id: "99",
+      name: "Guest User",
+      mobile,
+      role: "Site Engineer" as Role,
+      token: "tok_guest",
+    };
     login(user);
     setLoading(false);
     navigate(ROLE_PATHS[user.role]);

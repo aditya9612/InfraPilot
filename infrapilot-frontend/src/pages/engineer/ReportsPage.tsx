@@ -1,172 +1,245 @@
 import { useState } from "react";
-import DashboardLayout from "../../components/common/DashboardLayout";
 import Navbar from "../../components/common/Navbar";
+import PageTransition from "../../components/common/PageTransition";
+import toast from "react-hot-toast";
 
-// ── Types ──────────────────────────────────────────────────────────────────
-interface Report {
-  id: number;
-  name: string;
-  type: string;
-  generatedDate: string;
-  status: "Ready" | "Generating" | "Error";
-  size: string;
-}
-
-// ── Mock Data ──────────────────────────────────────────────────────────────
-const initReports: Report[] = [
-  { id: 1, name: "Daily Progress - 04 Apr", type: "Daily Progress", generatedDate: "04 Apr 2025", status: "Ready", size: "1.2 MB" },
-  { id: 2, name: "Labor Attendance - W14", type: "Labor", generatedDate: "01 Apr 2025", status: "Ready", size: "2.4 MB" },
-  { id: 3, name: "Material Stock Audit", type: "Material", generatedDate: "28 Mar 2025", status: "Ready", size: "1.5 MB" },
+const reportTypes = [
+    {
+        id: "daily",
+        name: "Daily Site Report",
+        description: "Complete summary of activities, labor, and materials used in the last 24 hours.",
+        icon: "📋",
+        color: "bg-blue-50 text-blue-600",
+        lastGenerated: "2026-04-08 08:30 AM",
+        size: "1.2 MB",
+        data: {
+            title: "Daily Activities Log",
+            date: "April 08, 2026",
+            metrics: [
+                { label: "Total Labor", value: "142 workers" },
+                { label: "Concrete Poured", value: "120 m³" },
+                { label: "Steel Fixed", value: "8.5 Tons" },
+                { label: "Safety Incidents", value: "0" }
+            ]
+        }
+    },
+    {
+        id: "weekly",
+        name: "Weekly Progress Report",
+        description: "Multi-day timeline analysis, milestome achievement vs planning for the current week.",
+        icon: "📅",
+        color: "bg-emerald-50 text-emerald-600",
+        lastGenerated: "2026-04-06 10:00 AM",
+        size: "4.5 MB",
+        data: {
+            title: "Weekly Execution Summary",
+            date: "Week 14, 2026",
+            metrics: [
+                { label: "Planned Progress", value: "85%" },
+                { label: "Actual Progress", value: "82%" },
+                { label: "Man-hours Consumed", value: "4,800 hrs" },
+                { label: "Procured Value", value: "₹45.2 Lakhs" }
+            ]
+        }
+    },
+    {
+        id: "labor",
+        name: "Labor & Attendance Report",
+        description: "Detailed breakdown of workforce mobilization, wage rates, and OT logs.",
+        icon: "👷",
+        color: "bg-amber-50 text-amber-600",
+        lastGenerated: "2026-04-08 07:15 AM",
+        size: "0.8 MB",
+        data: {
+            title: "Personnel Audit Log",
+            date: "April 08, 2026",
+            metrics: [
+                { label: "Skilled", value: "45" },
+                { label: "Unskilled", value: "88" },
+                { label: "Operator", value: "9" },
+                { label: "Overtime Hours", value: "24 hrs" }
+            ]
+        }
+    },
+    {
+        id: "material",
+        name: "Material Consumption Audit",
+        description: "Stock reconciliation report including Opening, Received, Used, and Closing balances.",
+        icon: "🏗️",
+        color: "bg-indigo-50 text-indigo-600",
+        lastGenerated: "2026-04-07 05:45 PM",
+        size: "2.1 MB",
+        data: {
+            title: "Inventory Reconciliation",
+            date: "April 07, 2026",
+            metrics: [
+                { label: "Cement Consumed", value: "450 Bags" },
+                { label: "Steel Consumed", value: "12 Tons" },
+                { label: "Aggregates used", value: "320 m³" },
+                { label: "Closing Balance Value", value: "₹1.2 Cr" }
+            ]
+        }
+    },
+    {
+        id: "issue",
+        name: "Blockade & Issue Analytics",
+        description: "Summary of site delays, material shortages, and unresolved technical issues.",
+        icon: "⚠️",
+        color: "bg-rose-50 text-rose-600",
+        lastGenerated: "2026-04-08 11:30 AM",
+        size: "0.5 MB",
+        data: {
+            title: "Constraint Analysis Report",
+            date: "April 08, 2026",
+            metrics: [
+                { label: "Open Critical Issues", value: "3" },
+                { label: "Material Shortages", value: "2 items" },
+                { label: "Weather Delays", value: "4 hrs" },
+                { label: "Manpower Shortfall", value: "6%" }
+            ]
+        }
+    },
 ];
 
-const inp = "w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all";
-const errMsg = "text-danger text-xs mt-1 font-medium";
-
-// ── Main Page ──────────────────────────────────────────────────────────────
 const ReportsPage = () => {
-  const [reports, setReports] = useState<Report[]>(initReports);
-  const [filter, setFilter] = useState("All");
-  const [showModal, setShowModal] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+    const [loadingReport, setLoadingReport] = useState<string | null>(null);
+    const [selectedReport, setSelectedReport] = useState<any | null>(null);
 
-  const [formData, setFormData] = useState({
-    name: "",
-    type: "Daily Progress",
-    customNote: ""
-  });
-  const [errors, setErrors] = useState<Record<string, string>>({});
+    const handleDownload = (report: any) => {
+        setLoadingReport(`${report.id}-download`);
+        setTimeout(() => {
+            toast.success(`${report.name} downloaded successfully!`, { position: 'top-right', icon: '📥' });
+            setLoadingReport(null);
+        }, 1500);
+    };
 
-  const filtered = reports.filter(r => filter === "All" || r.type === filter);
+    const handleView = (report: any) => {
+        setSelectedReport(report);
+    };
 
-  const handleDownload = (report: Report) => {
-    alert(`Downloading Report: ${report.name}\nFile: ${report.name.replace(/\s+/g, '_').toLowerCase()}.pdf`);
-  };
+    return (
+        <>
+            <Navbar title="Management Reports" breadcrumb={["Engineer", "Reports"]} />
 
-  const handleDelete = (id: number) => {
-    if (confirm("Are you sure you want to delete this report?")) {
-      setReports(prev => prev.filter(r => r.id !== id));
-    }
-  };
+            <PageTransition className="p-6 bg-slate-50 min-h-screen">
+                <div className="max-w-7xl mx-auto">
+                    <div className="mb-10">
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Analytics & Summaries</h1>
+                        <p className="text-slate-500 text-sm">Generate and export detailed data for management review and site audits.</p>
+                    </div>
 
-  const handleEdit = (report: Report) => {
-    setEditingId(report.id);
-    setFormData({
-      name: report.name,
-      type: report.type,
-      customNote: ""
-    });
-    setShowModal(true);
-  };
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {reportTypes.map(report => (
+                            <div key={report.id} className="bg-white rounded-[40px] p-8 shadow-sm border border-slate-100 group hover:shadow-2xl hover:shadow-slate-200/50 transition-all duration-500 flex flex-col h-full relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-full -translate-y-1/2 translate-x-1/2 opacity-50 group-hover:scale-150 transition-transform duration-700"></div>
 
-  const handleSave = () => {
-    if (!formData.name.trim()) {
-      setErrors({ name: "Report name required" });
-      return;
-    }
+                                <div className="flex items-start justify-between mb-8 relative z-10">
+                                    <div className={`w-16 h-16 rounded-[22px] flex items-center justify-center text-3xl shadow-sm ${report.color} transform group-hover:rotate-12 transition-transform`}>
+                                        {report.icon}
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">File Size</p>
+                                        <p className="text-xs font-bold text-slate-500">{report.size}</p>
+                                    </div>
+                                </div>
 
-    if (editingId) {
-      setReports(prev => prev.map(r => r.id === editingId ? { ...r, name: formData.name, type: formData.type } : r));
-    } else {
-      setReports([
-        {
-          id: Date.now(),
-          name: formData.name,
-          type: formData.type,
-          generatedDate: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-          status: "Ready",
-          size: "1.0 MB"
-        },
-        ...reports
-      ]);
-    }
-    setShowModal(false);
-    setEditingId(null);
-    setFormData({ name: "", type: "Daily Progress", customNote: "" });
-    setErrors({});
-  };
+                                <div className="relative z-10 mb-8 flex-1">
+                                    <h3 className="font-black text-slate-800 text-xl mb-3 tracking-tight group-hover:text-primary transition-colors leading-tight">{report.name}</h3>
+                                    <p className="text-sm font-medium text-slate-400 leading-relaxed line-clamp-2">{report.description}</p>
+                                </div>
 
-  return (
-    <DashboardLayout>
-      <Navbar title="Project Reports" breadcrumb={["InfraPilot", "Engineer", "Reports"]}
-        action={{ label: "+ Generate Report", onClick: () => { setEditingId(null); setShowModal(true); } }} />
+                                <div className="space-y-6 relative z-10">
+                                    <div className="pt-6 border-t border-slate-50">
+                                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-2">Last Generated</p>
+                                        <p className="text-xs font-bold text-slate-500 flex items-center gap-2">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                            {report.lastGenerated}
+                                        </p>
+                                    </div>
 
-      <div className="p-4 md:p-6 bg-slate-50 min-h-screen">
-        {/* Type Filter */}
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
-          {(["All", "Daily Progress", "Labor", "Material", "Issue"] as const).map(f => (
-            <button key={f} onClick={() => setFilter(f)}
-              className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all whitespace-nowrap ${filter === f ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-400 border-slate-200"}`}>
-              {f}
-            </button>
-          ))}
-        </div>
-
-        {/* Reports Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map(report => (
-            <div key={report.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 hover:border-primary/20 transition-all flex flex-col justify-between group">
-              <div>
-                <div className="flex justify-between items-start mb-3">
-                  <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${report.type.includes("Daily") ? "bg-blue-50 text-blue-600" : report.type.includes("Labor") ? "bg-orange-50 text-orange-600" : "bg-purple-50 text-purple-600"}`}>
-                    {report.type}
-                  </span>
-                  <span className="text-[10px] font-bold text-success uppercase">{report.status}</span>
+                                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                                        <button
+                                            onClick={() => handleView(report)}
+                                            className="w-full sm:flex-1 py-4 bg-slate-50 text-slate-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all order-2 sm:order-1"
+                                        >
+                                            View Report
+                                        </button>
+                                        <button
+                                            onClick={() => handleDownload(report)}
+                                            disabled={!!loadingReport}
+                                            className="w-full sm:flex-1 py-4 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 order-1 sm:order-2"
+                                        >
+                                            {loadingReport === `${report.id}-download` ? (
+                                                <>
+                                                    <svg className="animate-spin h-3.5 w-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                                    Download
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
-                <h3 className="text-sm font-bold text-slate-800 mb-1 group-hover:text-primary transition-colors">{report.name}</h3>
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{report.generatedDate} · {report.size}</p>
-              </div>
-              <div className="flex gap-2 mt-5 border-t border-slate-50 pt-4">
-                <button onClick={() => handleDownload(report)} className="flex-1 py-2 bg-primary text-white rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-md active:scale-95 transition-all">
-                  📥 Download PDF
-                </button>
-                <div className="flex gap-2">
-                  <button onClick={() => handleEdit(report)} className="p-2.5 bg-slate-50 text-slate-400 rounded-xl hover:text-primary transition-all">✏️</button>
-                  <button onClick={() => handleDelete(report.id)} className="p-2.5 bg-slate-50 text-slate-400 rounded-xl hover:text-danger transition-all">🗑️</button>
-                </div>
-              </div>
-            </div>
-          ))}
-          {filtered.length === 0 && (
-            <div className="col-span-full bg-white rounded-3xl p-16 text-center border-2 border-dashed border-slate-100">
-              <p className="text-4xl mb-4 text-slate-300">📊</p>
-              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">No reports found</h3>
-            </div>
-          )}
-        </div>
-      </div>
 
-      {showModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-[32px] p-8 shadow-2xl">
-            <h3 className="text-lg font-bold text-slate-800 mb-6">{editingId ? "Edit Report Info" : "Generate New Report"}</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Report Name *</label>
-                <input className={`${inp} ${errors.name ? "!border-danger" : ""}`} placeholder="e.g. Weekly Progress Report" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
-                {errors.name && <p className={errMsg}>⚠ {errors.name}</p>}
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Report Type</label>
-                <select className={inp} value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value })}>
-                  {["Daily Progress", "Labor", "Material", "Issue"].map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Additional Note</label>
-                <textarea className={`${inp} h-20 resize-none`} placeholder="Add any manual notes..." value={formData.customNote} onChange={e => setFormData({ ...formData, customNote: e.target.value })} />
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button onClick={() => setShowModal(false)} className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-bold">Cancel</button>
-                <button onClick={handleSave} className="flex-[2] py-4 bg-primary text-white rounded-2xl font-bold shadow-xl active:scale-95 transition-all">
-                  {editingId ? "Update Info" : "Generate Now"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </DashboardLayout>
-  );
+                {/* Report Viewer Modal */}
+                {selectedReport && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                        <div
+                            className="absolute inset-0 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300"
+                            onClick={() => setSelectedReport(null)}
+                        ></div>
+                        <div className="bg-white w-full max-w-2xl rounded-[40px] shadow-2xl relative z-10 overflow-hidden animate-in zoom-in-95 duration-300">
+                            <div className="p-10">
+                                <div className="flex justify-between items-start mb-10">
+                                    <div>
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <span className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest ${selectedReport.color}`}>{selectedReport.name}</span>
+                                            <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest italic">{selectedReport.data.date}</span>
+                                        </div>
+                                        <h2 className="text-3xl font-black text-slate-800 tracking-tight leading-tight">{selectedReport.data.title}</h2>
+                                    </div>
+                                    <button
+                                        onClick={() => setSelectedReport(null)}
+                                        className="w-12 h-12 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center hover:bg-slate-100 transition-colors"
+                                    >
+                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+                                    </button>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 mb-12">
+                                    {selectedReport.data.metrics.map((m: any, i: number) => (
+                                        <div key={i} className="p-5 md:p-6 bg-slate-50 rounded-3xl border border-slate-100 flex flex-col gap-1">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">{m.label}</p>
+                                            <p className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">{m.value}</p>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="flex gap-4">
+                                    <button
+                                        onClick={() => {
+                                            handleDownload(selectedReport);
+                                            setSelectedReport(null);
+                                        }}
+                                        className="flex-1 bg-primary text-white py-5 rounded-3xl text-xs font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 flex items-center justify-center gap-3"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                        Export to PDF
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </PageTransition>
+        </>
+    );
 };
 
 export default ReportsPage;

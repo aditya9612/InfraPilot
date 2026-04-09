@@ -23,14 +23,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(() => {
     const stored = localStorage.getItem("infrapilot_user");
-    if (!stored) return null;
-    try {
-      return JSON.parse(stored);
-    } catch (e) {
-      console.error("Failed to parse stored user", e);
-      localStorage.removeItem("infrapilot_user");
-      return null;
-    }
+    return stored ? JSON.parse(stored) : null;
   });
 
   const login = (userData: User) => {
