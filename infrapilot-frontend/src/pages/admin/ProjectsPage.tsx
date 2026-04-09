@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import NewProjectModal from "../../components/dashboard/NewProjectModal";
+import ConfirmModal from "../../components/common/ConfirmModal";
 import { PROJECTS } from "../../config/projectSeed";
 import type { Project, ProjectStatus } from "../../types/project";
 
@@ -42,6 +43,8 @@ const ProjectsPage = () => {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [actTab, setActTab] = useState("All");
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<number | null>(null);
 
   const handleCreateProject = (projectData: any) => {
     const np: Project = {
@@ -86,6 +89,19 @@ const ProjectsPage = () => {
       ? "/admin"
       : "/manager";
     navigate(`${basePath}/projects/${id}`);
+  };
+
+  const handleDeleteClick = (id: number) => {
+    setProjectToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (projectToDelete) {
+      setProjects(prev => prev.filter(p => p.id !== projectToDelete));
+      setIsDeleteModalOpen(false);
+      setProjectToDelete(null);
+    }
   };
 
   return (
@@ -400,12 +416,23 @@ const ProjectsPage = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <button
-                        onClick={() => handleViewProject(p.id)}
-                        className="text-xs font-bold text-primary hover:underline"
-                      >
-                        View Details
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => handleViewProject(p.id)}
+                          className="text-xs font-bold text-primary hover:underline"
+                        >
+                          View Details
+                        </button>
+                        <button
+                          onClick={() => handleDeleteClick(p.id)}
+                          className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                          title="Delete Project"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -418,6 +445,19 @@ const ProjectsPage = () => {
           isOpen={showForm}
           onClose={() => setShowForm(false)}
           onSubmit={handleCreateProject}
+        />
+
+        <ConfirmModal
+          isOpen={isDeleteModalOpen}
+          onClose={() => {
+            setIsDeleteModalOpen(false);
+            setProjectToDelete(null);
+          }}
+          onConfirm={handleDeleteConfirm}
+          title="Delete Project"
+          message="Are you sure you want to delete this project? This will permanently remove all associated data including tasks and finance records."
+          confirmText="Delete"
+          type="danger"
         />
       </PageTransition>
     </>

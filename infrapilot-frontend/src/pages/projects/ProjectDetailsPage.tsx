@@ -2,11 +2,12 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useState, useMemo } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
-import { PROJECTS, PROJECT_MEMBERS, MILESTONES, TASKS, PROFIT_LOSS_DATA } from "../../config/projectSeed";
+import { PROJECTS, PROJECT_MEMBERS, MILESTONES, TASKS, PROFIT_LOSS_DATA, PROJECT_EXPENSES } from "../../config/projectSeed";
 import KanbanBoard from "../../components/projects/KanbanBoard";
 import MilestoneTimeline from "../../components/projects/MilestoneTimeline";
 import TeamMembersList from "../../components/projects/TeamMembersList";
 import ProfitLossCard from "../../components/projects/ProfitLossCard";
+import ProjectExpensesTable from "../../components/projects/ProjectExpensesTable";
 import EditProjectModal from "../../components/dashboard/EditProjectModal";
 
 const ProjectDetailsPage = () => {
@@ -15,7 +16,7 @@ const ProjectDetailsPage = () => {
     const projectId = id ? parseInt(id) : 0;
     
     // State for tabs
-    const [activeTab, setActiveTab] = useState<"Overview" | "Tasks" | "Milestones" | "Members">("Overview");
+    const [activeTab, setActiveTab] = useState<"Overview" | "Tasks" | "Milestones" | "Finance" | "Members">("Overview");
 
     // Fetch data from seed
     const [project, setProject] = useState(() => PROJECTS.find(p => p.id === projectId));
@@ -25,6 +26,25 @@ const ProjectDetailsPage = () => {
     const milestones = useMemo(() => MILESTONES[projectId] || [], [projectId]);
     const tasks = useMemo(() => TASKS[projectId] || [], [projectId]);
     const profitLoss = useMemo(() => PROFIT_LOSS_DATA[projectId], [projectId]);
+    const expenses = useMemo(() => PROJECT_EXPENSES[projectId] || [], [projectId]);
+
+    // Dynamic Progress Calculation
+    const calculatedProgress = useMemo(() => {
+        if (!tasks || tasks.length === 0) return 0;
+        const totalTasks = tasks.length;
+        const completedTasksCount = tasks.filter(t => t.status === "Completed").length;
+        return Math.round((completedTasksCount / totalTasks) * 100);
+    }, [tasks]);
+
+    // Timeline Phase Logic
+    const currentPhase = useMemo(() => {
+        if (!milestones || milestones.length === 0) return "Planning";
+        const inProgress = milestones.find(m => m.status === "In Progress");
+        if (inProgress) return inProgress.title;
+        const completedCount = milestones.filter(m => m.status === "Completed").length;
+        if (completedCount === milestones.length) return "Handover";
+        return milestones[completedCount]?.title || "Executing";
+    }, [milestones]);
 
     const handleUpdateProject = (updatedData: any) => {
         setProject(prev => prev ? { ...prev, ...updatedData, id: updatedData.project_id } : prev);
@@ -80,7 +100,7 @@ const ProjectDetailsPage = () => {
 
                 {/* Tabs Navigation */}
                 <div className="flex border-b border-slate-200 mb-8 overflow-x-auto no-scrollbar">
-                    {(["Overview", "Tasks", "Milestones", "Members"] as const).map((tab) => (
+                    {(["Overview", "Tasks", "Milestones", "Finance", "Members"] as const).map((tab) => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
@@ -102,30 +122,38 @@ const ProjectDetailsPage = () => {
                             <div className="lg:col-span-2 space-y-8">
                                 {/* Basic Info Card */}
                                 <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                                    <h3 className="font-bold text-slate-800 mb-6">Schedule & Progress</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                                        <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-50">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Start Date</p>
-                                            <p className="text-sm font-bold text-slate-700">{new Date(project.start_date).toLocaleDateString()}</p>
-                                        </div>
-                                        <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-50">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">End Date</p>
-                                            <p className="text-sm font-bold text-slate-700">{new Date(project.end_date).toLocaleDateString()}</p>
-                                        </div>
-                                        <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-50">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Completion</p>
-                                            <p className="text-sm font-bold text-slate-700">{project.completion_percentage}%</p>
+                                    <div className="flex items-center justify-between mb-8">
+                                        <h3 className="font-bold text-slate-800">Site Schedule & Monitoring</h3>
+                                        <div className="flex items-center gap-2 px-3 py-1 bg-violet-50 border border-violet-100 rounded-lg">
+                                            <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
+                                            <span className="text-[10px] font-black text-violet-600 uppercase tracking-widest">Active Phase: {currentPhase}</span>
                                         </div>
                                     </div>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                                        <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-50 transition-all hover:bg-white hover:shadow-md group">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Start Date</p>
+                                            <p className="text-sm font-bold text-slate-700 group-hover:text-primary transition-colors">{new Date(project.start_date).toLocaleDateString()}</p>
+                                        </div>
+                                        <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-50 transition-all hover:bg-white hover:shadow-md group">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">End Date</p>
+                                            <p className="text-sm font-bold text-slate-700 group-hover:text-primary transition-colors">{new Date(project.end_date).toLocaleDateString()}</p>
+                                        </div>
+                                        <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-50 transition-all hover:bg-white hover:shadow-md group">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Site Progress</p>
+                                            <p className="text-sm font-bold text-slate-700 group-hover:text-primary transition-colors">{calculatedProgress}% Calculated</p>
+                                        </div>
+                                    </div>
+
                                     <div className="space-y-3">
                                         <div className="flex justify-between items-center text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                                            <span>Overall Completion</span>
-                                            <span className="text-slate-700">{project.completion_percentage}%</span>
+                                            <span>Task Completion Progress</span>
+                                            <span className="text-slate-700 font-black">{calculatedProgress}%</span>
                                         </div>
-                                        <div className="w-full h-3 bg-slate-50 rounded-full overflow-hidden border border-slate-100">
+                                        <div className="relative w-full h-3 bg-slate-50 rounded-full overflow-hidden border border-slate-100">
                                             <div 
-                                                className="h-full bg-primary transition-all duration-1000"
-                                                style={{ width: `${project.completion_percentage}%` }}
+                                                className="absolute top-0 left-0 h-full bg-primary transition-all duration-1000 shadow-[0_0_10px_rgba(37,99,235,0.4)]"
+                                                style={{ width: `${calculatedProgress}%` }}
                                             />
                                         </div>
                                     </div>
@@ -149,6 +177,27 @@ const ProjectDetailsPage = () => {
                     {activeTab === "Milestones" && (
                         <div className="max-w-4xl mx-auto">
                             <MilestoneTimeline milestones={milestones} />
+                        </div>
+                    )}
+
+                    {activeTab === "Finance" && (
+                        <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-300">
+                             <div className="bg-primary rounded-2xl p-6 text-white shadow-xl relative overflow-hidden">
+                                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32" />
+                                 <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                                     <div>
+                                         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60 mb-1">Site-wise Expense Tracking</p>
+                                         <h4 className="text-2xl font-black">Financial Ledger: {project.project_name}</h4>
+                                     </div>
+                                     <div className="flex gap-4">
+                                         <div className="px-4 py-2 bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
+                                            <p className="text-[9px] font-bold uppercase text-white/50">Total Site Expense</p>
+                                            <p className="text-lg font-black">₹{expenses.reduce((acc, curr) => acc + curr.amount, 0).toLocaleString()}</p>
+                                         </div>
+                                     </div>
+                                 </div>
+                             </div>
+                             <ProjectExpensesTable expenses={expenses} />
                         </div>
                     )}
 

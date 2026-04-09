@@ -2,7 +2,9 @@ import { useState } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import CreateUserModal from "../../components/forms/CreateUserModal";
+import toast from "react-hot-toast";
 import UserDetailsModal from "../../components/dashboard/UserDetailsModal";
+import ConfirmModal from "../../components/common/ConfirmModal";
 import type { User } from "../../types/user";
 
 const INITIAL_USERS: User[] = [
@@ -57,6 +59,8 @@ const UsersPage = () => {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [viewingUser, setViewingUser] = useState<User | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<number | null>(null);
   const [limit] = useState(20);
   const [offset] = useState(0);
 
@@ -79,9 +83,17 @@ const UsersPage = () => {
     setIsModalOpen(true);
   };
 
-  const handleDeleteClick = (userId: number) => {
-    if (window.confirm("Are you sure you want to delete this user?")) {
-      setUsers(prev => prev.filter(u => u.user_id !== userId));
+  const handleDeleteClick = (id: number) => {
+    setUserToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleDeleteUser = () => {
+    if (userToDelete) {
+      setUsers(users.filter(user => user.user_id !== userToDelete));
+      toast.success("User deleted successfully!");
+      setIsDeleteModalOpen(false);
+      setUserToDelete(null);
     }
   };
 
@@ -312,6 +324,19 @@ const UsersPage = () => {
           setViewingUser(null);
         }}
         user={viewingUser}
+      />
+
+      <ConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setUserToDelete(null);
+        }}
+        onConfirm={handleDeleteUser}
+        title="Delete User"
+        message="Are you sure you want to delete this user? This action cannot be undone and the user will lose all access immediately."
+        confirmText="Delete User"
+        type="danger"
       />
     </>
   );

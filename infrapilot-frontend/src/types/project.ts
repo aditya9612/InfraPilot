@@ -63,6 +63,18 @@ export interface TaskComment {
   created_at?: string;
 }
 
+export type RateType = "lumpsum" | "measured" | "others";
+
+export interface ProjectExpense {
+  id: number;
+  project_id: number;
+  date: string;
+  category: "Labour" | "Material" | "Permits" | "Tools" | "Other";
+  amount: number;
+  description: string;
+  status: "Paid" | "Pending";
+}
+
 export interface ProfitLoss {
   project_id: number;
   total_invoice: number;
@@ -71,12 +83,30 @@ export interface ProfitLoss {
   status: "profit" | "loss";
 }
 
-export type RateType = "lumpsum" | "measured" | "others";
+export interface ContractorBill {
+  id: number;
+  contractor_id: number;
+  memo: string;
+  amount: number;
+  date: string;
+  status: "pending" | "approved" | "rejected";
+}
+
+export interface ContractorPayment {
+  id: number;
+  contractor_id: number;
+  amount: number;
+  date: string;
+  method: string;
+  reference?: string;
+}
 
 export interface Contractor {
   id: number;
-  contractor_id: string;
+  contractor_id: string; // Internal system ID
   name: string;
+  company: string;
+  email: string;
   work_type: string;
   contact_number: string;
   gst_number: string;
@@ -84,4 +114,9 @@ export interface Contractor {
   total_work_assigned: number;
   payment_given: number;
   bank_details: string;
+  project_id?: number;
+  rating?: number;
+  status?: "Active" | "Delayed" | "Inactive";
+  bills?: ContractorBill[];
+  payments?: ContractorPayment[];
 }

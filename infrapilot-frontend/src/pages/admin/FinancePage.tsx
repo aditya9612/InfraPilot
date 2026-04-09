@@ -6,6 +6,7 @@ import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
 import CreateInvoiceModal from "../../components/forms/CreateInvoiceModal";
 import InvoiceDetailsModal from "../../components/dashboard/InvoiceDetailsModal";
+import ConfirmModal from "../../components/common/ConfirmModal";
 import type { Invoice, InvoiceStatus } from "../../types/invoice";
 import { PROJECTS } from "../../config/projectSeed";
 
@@ -75,6 +76,8 @@ const FinancePage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [invoiceToDelete, setInvoiceToDelete] = useState<number | null>(null);
 
   // Handlers
   const handleCreateOrUpdate = (data: any) => {
@@ -92,10 +95,17 @@ const FinancePage = () => {
     setSelectedInvoice(null);
   };
 
-  const handleDelete = (id: number) => {
-    if (confirm("Are you sure you want to delete this invoice?")) {
-      setInvoices(prev => prev.filter(inv => inv.id !== id));
+  const handleDeleteClick = (id: number) => {
+    setInvoiceToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleDeleteInvoice = () => {
+    if (invoiceToDelete) {
+      setInvoices(invoices.filter(inv => inv.id !== invoiceToDelete));
       toast.success("Invoice deleted");
+      setIsDeleteModalOpen(false);
+      setInvoiceToDelete(null);
     }
   };
 
@@ -138,7 +148,7 @@ const FinancePage = () => {
     <>
       <Navbar title="Finance & Accounts" breadcrumb={["Admin", "Finance", subPage.charAt(0).toUpperCase() + subPage.slice(1)]} />
       
-      <PageTransition className="p-6 bg-slate-50 min-h-screen">
+      <PageTransition key={location.pathname} className="p-6 bg-slate-50 min-h-screen">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{subPage.charAt(0).toUpperCase() + subPage.slice(1)} Management</h1>
@@ -269,8 +279,8 @@ const FinancePage = () => {
                         <button onClick={() => { setSelectedInvoice(inv); setIsModalOpen(true); }} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Edit Invoice">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 012.828 0L20.828 7.586a2 2 0 010 2.828L11.828 19.414a2 2 0 01-1.414.586H8v-2.414a2 2 0 01.586-1.414L17.586 3.586z" /></svg>
                         </button>
-                        <button onClick={() => handleDelete(inv.id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Delete Invoice">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        <button onClick={() => handleDeleteClick(inv.id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Delete Invoice">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
                       </div>
                     </td>
@@ -294,6 +304,19 @@ const FinancePage = () => {
         invoice={selectedInvoice}
         onMarkPaid={handleMarkPaid}
         onDownloadPDF={handleDownloadPDF}
+      />
+
+      <ConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setInvoiceToDelete(null);
+        }}
+        onConfirm={handleDeleteInvoice}
+        title="Delete Invoice"
+        message="Are you sure you want to delete this invoice? This action will remove the financial record from the system."
+        confirmText="Delete"
+        type="danger"
       />
     </>
   );
