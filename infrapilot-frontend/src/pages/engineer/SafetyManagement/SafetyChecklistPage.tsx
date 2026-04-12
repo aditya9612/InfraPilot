@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import Navbar from "../../../components/common/Navbar";
 import PageTransition from "../../../components/common/PageTransition";
+import Navbar from "../../../components/common/Navbar";
+import StatCard from "../../../components/common/StatCard";
 import toast from "react-hot-toast";
 
 const initialChecklist = [
@@ -22,83 +22,109 @@ const SafetyChecklistPage = () => {
     };
 
     const handleSave = () => {
-        toast.success("Safety checklist updated successfully!", { position: "top-right" });
+        toast.success("HSE Compliance Ledger Synchronized", { position: "top-right" });
     };
 
     return (
         <>
-            <Navbar title="Safety Management" breadcrumb={["Engineer", "Safety", "Checklist"]} />
+            <Navbar
+                title="HSE Protocol Dashboard"
+                breadcrumb={["InfraPilot", "Dashboard", "Engineer", "Safety"]}
+            />
 
-            <PageTransition className="p-6 bg-slate-50 min-h-screen">
-                <div className="max-w-4xl mx-auto">
-                    <div className="mb-6">
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Safety Management</h1>
-                        <p className="text-slate-500 text-sm">Verify PPE and site safety standards on a daily basis.</p>
+            <PageTransition className="p-8 bg-slate-50 min-h-screen font-inter pb-24">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+                    <div>
+                        <h2 className="text-2xl font-black text-slate-800 tracking-tighter mb-2">Safety Audit Matrix</h2>
+                        <p className="text-slate-500 text-sm font-medium">Daily verification of PPE and structural safety standards.</p>
                     </div>
-
-                    {/* Submenu Tabs */}
-                    <div className="flex border-b border-slate-200 mb-8 overflow-x-auto">
-                        <button className="px-6 py-3 text-sm font-black uppercase tracking-widest border-b-2 border-primary text-primary whitespace-nowrap">
-                            Safety Checklist
+                    <div className="flex gap-4">
+                        <button
+                            onClick={handleSave}
+                            className="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-md hover:bg-blue-700 transition-all flex items-center gap-2"
+                        >
+                            SYNC COMPLIANCE
                         </button>
-                        <Link to="/engineer/safety/incident" className="px-6 py-3 text-sm font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors whitespace-nowrap">
-                            Incident Report
-                        </Link>
-                    </div>
-
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                        <h2 className="text-xs font-black text-primary uppercase tracking-[0.2em] flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
-                            Critical Safety Compliance Log
-                        </h2>
-                        <button onClick={handleSave} className="px-8 py-3 bg-primary text-white text-xs font-black uppercase tracking-widest rounded-xl shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">
-                            Save Compliance Status
-                        </button>
-                    </div>
-
-                    <div className="bg-white rounded-[32px] shadow-sm border border-slate-100 overflow-hidden">
-                        <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
-                            <h2 className="font-bold text-slate-800 tracking-tight">Standard Safety Items</h2>
-                            <div className="flex gap-4">
-                                <div className="flex items-center gap-2">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                    <span className="text-[10px] font-black text-slate-400 tracking-widest">PASSED</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="w-2 h-2 rounded-full bg-rose-500"></span>
-                                    <span className="text-[10px] font-black text-slate-400 tracking-widest">VIOLATION</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="divide-y divide-slate-50">
-                            {checklist.map(item => (
-                                <div key={item.id} className="p-6 flex flex-col md:flex-row md:items-center justify-between hover:bg-slate-50/50 transition-colors group">
-                                    <div className="flex items-center gap-4 mb-4 md:mb-0">
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg shadow-sm transition-all ${item.status === 'Yes' ? 'bg-emerald-50 text-emerald-500 group-hover:bg-emerald-500 group-hover:text-white' :
-                                            item.status === 'No' ? 'bg-rose-50 text-rose-500 group-hover:bg-rose-500 group-hover:text-white' :
-                                                'bg-amber-50 text-amber-500 group-hover:bg-amber-500 group-hover:text-white'
-                                            }`}>
-                                            {item.status === 'Yes' ? '✓' : item.status === 'No' ? '✗' : '!'}
-                                        </div>
-                                        <span className="text-sm font-bold text-slate-700 tracking-tight">{item.item}</span>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        {['Yes', 'No', 'Pending'].map(s => (
-                                            <button
-                                                key={s}
-                                                onClick={() => handleStatusChange(item.id, s)}
-                                                className={`px-6 py-2 rounded-xl text-[10px] font-black tracking-widest uppercase transition-all ${item.status === s ? 'bg-slate-800 text-white shadow-lg shadow-slate-200' : 'bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-600'
-                                                    }`}
-                                            >
-                                                {s === 'Yes' ? 'Pass' : s === 'No' ? 'Fail' : 'TBD'}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
                     </div>
                 </div>
+
+                <section className="mb-12">
+                    <h2 className="text-[10px] font-black text-slate-400 tracking-[0.3em] mb-6 flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Compliance Vitals
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <StatCard
+                            title="Checklists Done"
+                            value="12"
+                            sub="Completed protocol logs"
+                            accent="text-blue-600"
+                        />
+                        <StatCard
+                            title="Hazards Found"
+                            value="03"
+                            sub="Identified site risks"
+                            accent="text-amber-500"
+                        />
+                        <StatCard
+                            title="Mitigations"
+                            value="02"
+                            sub="Corrective actions taken"
+                            accent="text-emerald-500"
+                        />
+                        <StatCard
+                            title="Safety Score"
+                            value="98%"
+                            sub="Protocol adherence"
+                            accent="text-blue-500"
+                        />
+                    </div>
+                </section>
+
+                <section>
+                    <h2 className="text-[10px] font-black text-slate-400 tracking-[0.3em] mb-6 flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+                        HSE Compliance Ledger
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {checklist.map(item => (
+                            <div key={item.id} className="relative bg-white rounded-[40px] p-8 shadow-sm border border-slate-100 flex flex-col gap-6 hover:shadow-2xl hover:shadow-slate-200/50 transition-all group overflow-hidden">
+                                <div className={`absolute left-0 top-10 bottom-10 w-2 rounded-r-full transition-all ${item.status === 'Yes' ? "bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)]" : item.status === 'No' ? "bg-rose-500 shadow-[0_0_20px_rgba(244,63,94,0.3)]" : "bg-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.3)]"
+                                    }`} />
+
+                                <div className="flex items-start justify-between">
+                                    <div className="flex items-center gap-6">
+                                        <div className={`w-14 h-14 rounded-[22px] bg-slate-50 border border-slate-100 flex items-center justify-center text-[11px] font-black transition-all group-hover:bg-slate-900 group-hover:text-white group-hover:rotate-6 shadow-sm ${item.status === 'Yes' ? 'text-emerald-600' : item.status === 'No' ? 'text-rose-600' : 'text-amber-600'}`}>
+                                            {item.item.split(' ').map(n => n[0]).join('')}
+                                        </div>
+                                        <div>
+                                            <span className="text-[9px] font-black text-slate-400 tracking-[0.2em] uppercase mb-1 block">PROTOCOL HSE-00{item.id}</span>
+                                            <h3 className="text-sm font-black text-slate-800 tracking-tight group-hover:text-blue-600 transition-colors uppercase leading-tight">{item.item}</h3>
+                                        </div>
+                                    </div>
+                                    <span className={`px-4 py-1.5 rounded-xl text-[9px] font-black tracking-widest border transition-all ${item.status === 'Yes' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : item.status === 'No' ? 'bg-rose-50 text-rose-600 border-rose-100 animate-pulse' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
+                                        {item.status === 'Yes' ? 'COMPLIANT' : item.status === 'No' ? 'VIOLATION' : 'PENDING'}
+                                    </span>
+                                </div>
+
+                                <div className="flex items-center gap-3 pt-4 border-t border-slate-50 mt-auto">
+                                    <button
+                                        onClick={() => handleStatusChange(item.id, 'Yes')}
+                                        className={`flex-1 py-3 rounded-2xl text-[9px] font-black tracking-widest transition-all ${item.status === 'Yes' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20' : 'bg-slate-50 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600'}`}
+                                    >PASS</button>
+                                    <button
+                                        onClick={() => handleStatusChange(item.id, 'No')}
+                                        className={`flex-1 py-3 rounded-2xl text-[9px] font-black tracking-widest transition-all ${item.status === 'No' ? 'bg-rose-600 text-white shadow-lg shadow-rose-500/20' : 'bg-slate-50 text-slate-300 hover:bg-rose-50 hover:text-rose-600'}`}
+                                    >FAIL</button>
+                                    <button
+                                        onClick={() => handleStatusChange(item.id, 'Pending')}
+                                        className={`flex-1 py-3 rounded-2xl text-[9px] font-black tracking-widest transition-all ${item.status === 'Pending' ? 'bg-amber-600 text-white shadow-lg shadow-amber-500/20' : 'bg-slate-50 text-slate-300 hover:bg-amber-50 hover:text-amber-600'}`}
+                                    >AUDIT</button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </section>
             </PageTransition>
         </>
     );

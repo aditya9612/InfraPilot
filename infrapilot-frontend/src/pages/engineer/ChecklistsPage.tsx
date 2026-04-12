@@ -1,21 +1,22 @@
-import { useState } from "react";
-import Navbar from "../../components/common/Navbar";
+import React, { useState } from "react";
 import PageTransition from "../../components/common/PageTransition";
+import Navbar from "../../components/common/Navbar";
+import StatCard from "../../components/common/StatCard";
+import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
 
-const initialChecklists = [
-    { id: 1, name: "End of Day Site Security", type: "Daily", items: ["Check all main gates", "Verify equipment lockup", "Backup CCTV logs", "Lights off in Block A"], status: "Pending", remarks: "Security guard to verify finally." },
-    { id: 2, name: "Column Casting Preparation", type: "Activity", items: ["Check shuttering alignment", "Verify reinforcement as per drawing", "Slump test kit ready", "Vibrator functional check"], status: "Done", remarks: "Approved by structural engineer." },
-    { id: 3, name: "Batching Plant Startup", type: "Daily", items: ["Check aggregate moisture", "Calibrate weighing scales", "Verify water supply", "Admixture level check"], status: "Pending", remarks: "Awaiting calibration tech." },
-];
-
 const ChecklistsPage = () => {
-    const [showForm, setShowForm] = useState(false);
-    const [selectedChecklist, setSelectedChecklist] = useState<typeof initialChecklists[0] | null>(null);
+    const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+    const [selectedChecklist, setSelectedChecklist] = useState<any>(null);
+    const [checklists, setChecklists] = useState([
+        { id: 1, name: "Concrete Pouring - Foundation", items: ["Check forms", "Inspect rebar", "Verify slump test"], status: "Done", remarks: "All criteria met for Block A pour.", date: "2024-03-15" },
+        { id: 2, name: "Post-Tensioning Audit", items: ["Verify strand layout", "Check duct integrity", "Anchor alignment"], status: "Pending", remarks: "Waiting for structural engineer.", date: "2024-03-20" },
+        { id: 3, name: "Mechanical & Electrical Rough-in", items: ["Check conduit routing", "Verify box placement"], status: "Done", remarks: "Passed initial inspection.", date: "2024-04-01" },
+    ]);
+
     const [formData, setFormData] = useState({
         name: "",
-        type: "Daily",
-        items: ["", ""], // Initial 2 empty items
+        items: [""],
         status: "Pending",
         remarks: ""
     });
@@ -44,17 +45,16 @@ const ChecklistsPage = () => {
     };
 
     const removeItem = (index: number) => {
-        if (formData.items.length <= 1) return;
-        const newItems = formData.items.filter((_, i) => i !== index);
-        setFormData(prev => ({ ...prev, items: newItems }));
+        if (formData.items.length > 1) {
+            const newItems = formData.items.filter((_, i) => i !== index);
+            setFormData(prev => ({ ...prev, items: newItems }));
+        }
     };
 
     const validateForm = () => {
         const newErrors: Record<string, string> = {};
-        if (!formData.name.trim()) newErrors.name = "Checklist name is required";
-
-        const filledItems = formData.items.filter(i => i.trim() !== "");
-        if (filledItems.length === 0) newErrors.items = "At least one checklist item is required";
+        if (!formData.name.trim()) newErrors.name = "Required";
+        if (formData.items.some(item => !item.trim())) newErrors.items = "All items required";
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -63,325 +63,336 @@ const ChecklistsPage = () => {
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!validateForm()) {
-            toast.error("Please fill required fields", { position: "top-right" });
+            toast.error("Please fill all required fields.");
             return;
         }
-        toast.success("Checklist saved successfully!", { position: "top-right" });
-        setShowForm(false);
-        handleReset();
-    };
 
-    const handleReset = () => {
-        setFormData({
-            name: "",
-            type: "Daily",
-            items: ["", ""],
-            status: "Pending",
-            remarks: ""
-        });
-        setErrors({});
+        const newChecklist = {
+            id: Date.now(),
+            ...formData,
+            items: formData.items.filter(i => i.trim()),
+            date: new Date().toISOString().split("T")[0]
+        };
+
+        toast.loading("Configuring Protocol...");
+        setTimeout(() => {
+            setChecklists([newChecklist, ...checklists]);
+            toast.dismiss();
+            toast.success("Protocol Registered!");
+            setIsFormModalOpen(false);
+            setFormData({
+                name: "",
+                items: [""],
+                status: "Pending",
+                remarks: ""
+            });
+        }, 1200);
     };
 
     return (
         <>
-            <Navbar title="Checklists & Inspections" breadcrumb={["Engineer", "Checklists"]} />
+            <Navbar
+                title="Compliance Vault"
+                breadcrumb={["InfraPilot", "Dashboard", "Engineer", "Compliance"]}
+            />
 
-            <PageTransition className="p-6 bg-slate-50 min-h-screen">
-                <div className="max-w-7xl mx-auto">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                        <div>
-                            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Standardized Checks</h1>
-                            <p className="text-slate-500 text-sm">Ensure all quality and operational protocols are followed.</p>
-                        </div>
+            <PageTransition className="p-8 bg-slate-50 min-h-screen font-inter pb-24">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+                    <div>
+                        <h1 className="text-2xl font-black text-slate-800 tracking-tighter mb-2">Compliance Checkpoints</h1>
+                        <p className="text-slate-500 text-sm font-medium">Maintain high-spec compliance through dynamic verification protocols and audit trails.</p>
+                    </div>
+                    <div>
                         <button
-                            onClick={() => setShowForm(!showForm)}
-                            className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all shadow-lg ${showForm ? 'bg-slate-200 text-slate-700 hover:bg-slate-300' : 'bg-primary text-white shadow-primary/20 hover:bg-blue-600'}`}
+                            onClick={() => setIsFormModalOpen(true)}
+                            className="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-md hover:bg-blue-700 transition-all flex items-center gap-2"
                         >
-                            {showForm ? 'Cancel Entry' : '+ Create New Checklist'}
+                            + INITIATE AUDIT
                         </button>
                     </div>
+                </div>
 
-                    {showForm && (
-                        <div className="mb-12 bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in slide-in-from-top-4 duration-500">
-                            <form onSubmit={handleSubmit} className="p-10">
-                                <h2 className="text-xs font-black text-primary uppercase tracking-[0.2em] mb-10 flex items-center gap-2">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
-                                    Define Inspection Protocol
-                                </h2>
+                <section className="mb-12">
+                    <h2 className="text-[10px] font-black text-slate-400 tracking-[0.3em] mb-6 flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+                        Audit Intelligence
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <StatCard
+                            title="Total Audits"
+                            value="284"
+                            sub="+12 Today"
+                            accent="text-primary"
+                        />
+                        <StatCard
+                            title="Compliance"
+                            value="98.2%"
+                            sub="Optimum"
+                            accent="text-emerald-500"
+                        />
+                        <StatCard
+                            title="Pending"
+                            value="14"
+                            sub="Urgent"
+                            accent="text-amber-500"
+                        />
+                        <StatCard
+                            title="Efficiency"
+                            value="A+"
+                            sub="High Spec"
+                            accent="text-purple-600"
+                        />
+                    </div>
+                </section>
 
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                                    <div className="md:col-span-2">
-                                        <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${errors.name ? 'text-rose-500' : 'text-slate-400'}`}>Checklist Name</label>
-                                        <input
-                                            type="text"
-                                            name="name"
-                                            value={formData.name}
-                                            onChange={handleChange}
-                                            placeholder="e.g. Scaffolding Inspection - West Wing"
-                                            className={`w-full px-4 py-3 bg-slate-50 border rounded-xl outline-none font-bold h-[52px] ${errors.name ? 'border-rose-300 ring-4 ring-rose-50' : 'border-slate-200 focus:ring-2 focus:ring-primary/20'}`}
-                                        />
-                                        {errors.name && <p className="text-[10px] text-rose-500 font-bold mt-1.5 ml-1">{errors.name}</p>}
+                <div className="grid grid-cols-1 gap-6 mb-24">
+                    {checklists.map((checklist) => (
+                        <div
+                            key={checklist.id}
+                            className="relative bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col md:flex-row gap-8 items-start md:items-center hover:shadow-xl hover:shadow-slate-200/50 cursor-pointer group transition-all"
+                            onClick={() => setSelectedChecklist(checklist)}
+                        >
+                            <div className="absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl opacity-0 group-hover:opacity-100 transition-opacity bg-emerald-600" />
+
+                            <div className="w-12 h-12 rounded-xl bg-slate-900 flex items-center justify-center text-white text-xs shadow-sm group-hover:rotate-6 transition-all">
+                                📄
+                            </div>
+
+                            <div className="flex-1 space-y-2">
+                                <div className="flex items-center gap-4 mb-2">
+                                    <span className="text-xl font-black text-slate-800 tracking-tighter uppercase">CP-{checklist.id}</span>
+                                    <span className={`px-2 py-0.5 text-[10px] font-bold rounded uppercase tracking-widest ${checklist.status === 'Done' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600 animate-pulse'}`}>
+                                        {checklist.status}
+                                    </span>
+                                    <span className="text-[10px] font-black text-slate-400 ml-auto tracking-widest uppercase">{checklist.date}</span>
+                                </div>
+
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 py-4 border-y border-slate-50">
+                                    <div>
+                                        <span className="text-[8px] font-black text-slate-400 tracking-widest uppercase mb-1 block">Protocol Specification</span>
+                                        <p className="text-[11px] font-black text-slate-700 uppercase">{checklist.name}</p>
                                     </div>
                                     <div>
-                                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Checklist Type</label>
-                                        <select
-                                            name="type"
-                                            value={formData.type}
-                                            onChange={handleChange}
-                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold h-[52px] appearance-none"
-                                        >
-                                            <option>Daily</option>
-                                            <option>Activity</option>
+                                        <span className="text-[8px] font-black text-slate-400 tracking-widest uppercase mb-1 block">Verification Points</span>
+                                        <p className="text-[11px] font-black text-slate-700 uppercase">{checklist.items.length} Points</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-[8px] font-black text-slate-400 tracking-widest uppercase mb-1 block">Compliance Integrity</span>
+                                        <p className={`text-[11px] font-black ${checklist.status === 'Done' ? 'text-emerald-600' : 'text-amber-600'} uppercase`}>{checklist.status === 'Done' ? 'CERTIFIED' : 'PENDING'}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-[8px] font-black text-slate-400 tracking-widest uppercase mb-1 block">Vault Pulse</span>
+                                        <p className="text-[11px] font-black text-blue-600 uppercase">ACTIVE SYNC</p>
+                                    </div>
+                                </div>
+
+                                <div className="pt-2">
+                                    <span className="text-[8px] font-black text-slate-400 tracking-widest uppercase mb-1 block">Audit Narrative</span>
+                                    <p className="text-[11px] font-medium text-slate-500 line-clamp-1 italic text-balance lowercase">"{checklist.remarks}"</p>
+                                </div>
+                            </div>
+
+                            <button className="w-12 h-12 rounded-2xl bg-slate-900 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all shadow-xl shadow-slate-200">
+                                →
+                            </button>
+                        </div>
+                    ))}
+                </div>
+
+                <Modal
+                    isOpen={isFormModalOpen}
+                    onClose={() => setIsFormModalOpen(false)}
+                    title="Verification Protocol Initiation"
+                    maxWidth="max-w-4xl"
+                >
+                    <div className="admin-pulse-modal-body p-12 bg-white">
+                        <form id="checklist-form" onSubmit={handleSubmit} className="space-y-10">
+                            <div className="space-y-6">
+                                <div className="admin-pulse-form-section-header">
+                                    <div className="admin-pulse-form-section-indicator bg-blue-600" />
+                                    <h3 className="admin-pulse-form-section-title">Metadata Profile</h3>
+                                </div>
+                                <div className="grid grid-cols-2 gap-6">
+                                    <div className="col-span-2 admin-pulse-form-group">
+                                        <label className="admin-pulse-form-label admin-pulse-form-label-required">Checklist Name</label>
+                                        <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="e.g. SLAB CASTING INSPECTION" className="admin-pulse-form-input font-black " />
+                                        {errors.name && <p className="text-[10px] font-bold text-red-500 px-1">{errors.name}</p>}
+                                    </div>
+                                    <div className="admin-pulse-form-group">
+                                        <label className="admin-pulse-form-label admin-pulse-form-label-required">Initial Status</label>
+                                        <select name="status" value={formData.status} onChange={handleChange} className="admin-pulse-form-input font-black appearance-none cursor-pointer">
+                                            <option value="Pending">Pending Audit</option>
+                                            <option value="Done">Fully Compliant</option>
                                         </select>
                                     </div>
                                 </div>
-
-                                <div className="mb-8">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <label className={`block text-[10px] font-black uppercase tracking-widest ${errors.items ? 'text-rose-500' : 'text-slate-400'}`}>Protocol Item List</label>
-                                        <button
-                                            type="button"
-                                            onClick={addItem}
-                                            className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline"
-                                        >
-                                            + Add Item
-                                        </button>
-                                    </div>
-                                    <div className="space-y-3">
-                                        {formData.items.map((item, index) => (
-                                            <div key={index} className="flex gap-3 animate-in slide-in-from-left-2 duration-300">
-                                                <div className="w-8 h-[48px] bg-slate-50 rounded-lg flex items-center justify-center text-[10px] font-black text-slate-300 border border-slate-100 italic">{index + 1}</div>
-                                                <input
-                                                    type="text"
-                                                    value={item}
-                                                    onChange={(e) => handleItemChange(index, e.target.value)}
-                                                    placeholder="Specify point of inspection..."
-                                                    className="flex-1 px-4 py-3 bg-white border border-slate-100 rounded-xl outline-none font-medium text-sm focus:ring-2 focus:ring-primary/10"
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => removeItem(index)}
-                                                    className="w-12 h-[48px] flex items-center justify-center text-slate-300 hover:text-rose-500 transition-colors"
-                                                >
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    {errors.items && <p className="text-[10px] text-rose-500 font-bold mt-2 ml-1">{errors.items}</p>}
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-                                    <div className="lg:col-span-1">
-                                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Status</label>
-                                        <div className="flex bg-slate-50 border border-slate-200 rounded-xl p-1 h-[52px]">
-                                            {['Pending', 'Done'].map(s => (
-                                                <button
-                                                    key={s}
-                                                    type="button"
-                                                    onClick={() => setFormData(prev => ({ ...prev, status: s }))}
-                                                    className={`flex-1 rounded-lg text-[10px] font-black uppercase tracking-tight transition-all ${formData.status === s ? (s === 'Done' ? 'bg-emerald-500 text-white shadow-md' : 'bg-amber-500 text-white shadow-md') : 'text-slate-400'}`}
-                                                >
-                                                    {s}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <div className="lg:col-span-3">
-                                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Remarks / Observations</label>
-                                        <input
-                                            type="text"
-                                            name="remarks"
-                                            value={formData.remarks}
-                                            onChange={handleChange}
-                                            placeholder="General comments about findings..."
-                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold h-[52px]"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="flex gap-4 max-w-md ml-auto">
-                                    <button
-                                        type="button"
-                                        onClick={handleReset}
-                                        className="flex-1 py-4 text-xs font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 rounded-2xl transition-all"
-                                    >
-                                        Clear Draft
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="flex-[2] bg-primary text-white py-4 rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
-                                    >
-                                        Finalize & Save
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    )}
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {initialChecklists.map(c => (
-                            <div key={c.id} className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 group hover:shadow-2xl hover:shadow-slate-200/50 transition-all duration-500 relative flex flex-col">
-                                <div className="flex justify-between items-start mb-6">
-                                    <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest italic ${c.type === 'Daily' ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-500'}`}>
-                                        {c.type} Checklist
-                                    </span>
-                                    <div className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${c.status === 'Done' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-                                        {c.status}
-                                    </div>
-                                </div>
-                                <h3 className="font-black text-slate-800 text-xl mb-4 tracking-tight leading-tight group-hover:text-primary transition-colors">{c.name}</h3>
-
-                                <div className="space-y-4 mb-8 flex-1">
-                                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Protocol Points</p>
-                                    <div className="space-y-2">
-                                        {c.items.slice(0, 3).map((item, i) => (
-                                            <div key={i} className="flex items-center gap-2">
-                                                <div className="w-4 h-4 rounded-md border border-slate-100 flex items-center justify-center">
-                                                    <svg className="w-2.5 h-2.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
-                                                </div>
-                                                <p className="text-xs font-bold text-slate-500 line-clamp-1">{item}</p>
-                                            </div>
-                                        ))}
-                                        {c.items.length > 3 && (
-                                            <p className="text-[10px] font-black text-primary tracking-widest mt-2">{c.items.length - 3} MORE POINTS</p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="pt-6 border-t border-slate-50 mt-auto flex items-center justify-between">
-                                    <div className="flex-1">
-                                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">Remarks</p>
-                                        <p className="text-[10px] text-slate-400 italic font-medium line-clamp-1">"{c.remarks || "No notes."}"</p>
-                                    </div>
-                                    <button
-                                        onClick={() => setSelectedChecklist(c)}
-                                        className="w-10 h-10 rounded-xl bg-slate-50 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-all shadow-sm group/btn"
-                                    >
-                                        <svg className="w-5 h-5 group-hover/btn:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-                                    </button>
-                                </div>
                             </div>
-                        ))}
-                    </div>
 
-                    {/* Premium Detail Modal */}
-                    {selectedChecklist && (
-                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setSelectedChecklist(null)}>
-                            <div
-                                className="bg-white w-full max-w-3xl rounded-[32px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-8 duration-500"
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                <div className="space-y-0 relative">
-                                    {/* Premium Header - Admin Style */}
-                                    <div className="relative overflow-hidden bg-primary p-8 md:p-10 text-white shadow-xl">
-                                        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32" />
-                                        <div className="flex flex-col md:flex-row items-center gap-6 relative z-10">
-                                            <div className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-md border border-white/20 flex items-center justify-center font-black text-2xl shadow-xl shrink-0">
-                                                <span className="bg-gradient-to-br from-white to-white/60 bg-clip-text text-transparent italic">
-                                                    {selectedChecklist.name.charAt(0)}
-                                                </span>
-                                            </div>
-
-                                            <div className="text-center md:text-left space-y-2 flex-1">
-                                                <div className="flex flex-col md:flex-row items-center gap-3">
-                                                    <h3 className="text-2xl font-black tracking-tight">{selectedChecklist.name}</h3>
-                                                    <span className={`px-2.5 py-1 bg-white/20 backdrop-blur-md border border-white/10 rounded-lg text-[10px] font-black uppercase tracking-widest ${selectedChecklist.status === 'Pending' ? 'text-amber-200' : 'text-emerald-300'}`}>
-                                                        {selectedChecklist.status}
-                                                    </span>
-                                                </div>
-                                                <p className="text-white/70 text-sm font-bold flex items-center justify-center md:justify-start gap-2 italic">
-                                                    {selectedChecklist.type} Protocol | Ref: #CHK-0{selectedChecklist.id}
-                                                </p>
-                                            </div>
-
+                            <div className="space-y-6">
+                                <div className="flex items-center justify-between">
+                                    <div className="admin-pulse-form-section-header">
+                                        <div className="admin-pulse-form-section-indicator bg-indigo-600" />
+                                        <h3 className="admin-pulse-form-section-title">Verification Points</h3>
+                                    </div>
+                                    <button type="button" onClick={addItem} className="text-[10px] font-black text-blue-600  tracking-widest bg-blue-50 px-4 py-2 rounded-xl hover:bg-blue-600 hover:text-white transition-all">
+                                        + Add Point
+                                    </button>
+                                </div>
+                                <div className="space-y-4">
+                                    {formData.items.map((item, index) => (
+                                        <div key={index} className="flex gap-4">
+                                            <div className="w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center text-[10px] font-black text-white shrink-0 ">{index + 1}</div>
+                                            <input
+                                                type="text"
+                                                value={item}
+                                                onChange={(e) => handleItemChange(index, e.target.value)}
+                                                placeholder="Identify verification parameter..."
+                                                className="flex-1 admin-pulse-form-input font-bold"
+                                            />
                                             <button
-                                                onClick={() => setSelectedChecklist(null)}
-                                                className="absolute top-0 right-0 md:relative md:top-auto md:right-auto w-10 h-10 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center text-white transition-all font-bold"
+                                                type="button"
+                                                onClick={() => removeItem(index)}
+                                                className="w-12 h-12 rounded-xl bg-red-50 text-red-400 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center shrink-0"
                                             >
                                                 ✕
                                             </button>
                                         </div>
+                                    ))}
+                                </div>
+                                {errors.items && <p className="text-[10px] font-bold text-red-500 text-center ">{errors.items}</p>}
+                            </div>
+
+                            <div className="space-y-6">
+                                <div className="admin-pulse-form-section-header">
+                                    <div className="admin-pulse-form-section-indicator bg-slate-400" />
+                                    <h3 className="admin-pulse-form-section-title">Engineering Remarks</h3>
+                                </div>
+                                <textarea name="remarks" value={formData.remarks} onChange={handleChange} rows={3} placeholder="Document deviations..." className="admin-pulse-form-input font-bold" />
+                            </div>
+                        </form>
+                    </div>
+
+                    <div className="admin-pulse-modal-footer bg-slate-50/50 p-12 border-t border-slate-100 flex items-center justify-end gap-4">
+                        <button
+                            type="button"
+                            onClick={() => setIsFormModalOpen(false)}
+                            className="px-8 py-5 text-[11px] font-black text-slate-400  tracking-[0.2em] hover:text-slate-800 transition-all"
+                        >
+                            Discard Protocol
+                        </button>
+                        <button
+                            type="submit"
+                            form="checklist-form"
+                            className="px-14 py-5 bg-primary text-white text-[11px] font-black  tracking-[0.3em] rounded-[24px] shadow-2xl shadow-primary/30 hover:bg-slate-800 active:scale-95 transition-all"
+                        >
+                            Register Protocol
+                        </button>
+                    </div>
+                </Modal>
+
+                {selectedChecklist && (
+                    <Modal
+                        isOpen={!!selectedChecklist}
+                        onClose={() => setSelectedChecklist(null)}
+                        title="Verification Protocol Intelligence"
+                        maxWidth="max-w-4xl"
+                    >
+                        <div className="p-10 bg-white">
+                            {/* Premium Banner */}
+                            <div className="admin-pulse-details-banner">
+                                <div className="admin-pulse-details-icon-container bg-blue-600">
+                                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <h2 className="text-3xl font-black tracking-tight leading-none uppercase">{selectedChecklist.name}</h2>
+                                        <span className={`admin-pulse-status-badge ${selectedChecklist.status === 'Done' ? 'bg-emerald-500/20 text-emerald-100 border-emerald-500/30' :
+                                            'bg-amber-500/20 text-amber-100 border-amber-500/30 animate-pulse'
+                                            } backdrop-blur-md border`}>
+                                            {selectedChecklist.status.toUpperCase()}
+                                        </span>
                                     </div>
+                                    <div className="flex items-center gap-4">
+                                        <h3 className="text-xl font-black text-white tracking-tight uppercase">Compliance Protocol</h3>
+                                        <span className="px-3 py-1 bg-slate-800 text-blue-400 rounded-lg text-[9px] font-black tracking-[0.2em] border border-slate-700">
+                                            {selectedChecklist.items.length} VERIFICATION POINTS
+                                        </span>
+                                    </div>
+                                    <p className="text-blue-200/60 text-[10px] font-black uppercase tracking-[0.2em] mt-3">Protocol Hash: CP-{selectedChecklist.id}-VAULT</p>
+                                </div>
+                            </div>
 
-                                    <div className="p-8 md:p-10 max-h-[60vh] overflow-y-auto">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
-                                            {/* Protocol Overview */}
-                                            <Section
-                                                icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>}
-                                                title="Full Checklist Items"
-                                                fullWidth
-                                            >
-                                                <div className="grid grid-cols-1 gap-3">
-                                                    {selectedChecklist.items.map((item, index) => (
-                                                        <div key={index} className="flex items-start gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100/50 group hover:bg-white hover:shadow-md transition-all">
-                                                            <div className="w-6 h-6 rounded-lg bg-emerald-500 flex items-center justify-center shrink-0 mt-0.5 shadow-sm shadow-emerald-200">
-                                                                <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
-                                                            </div>
-                                                            <div className="space-y-1">
-                                                                <p className="text-xs font-black text-slate-300 uppercase tracking-tighter">Point {index + 1}</p>
-                                                                <p className="text-sm font-bold text-slate-700">{item}</p>
-                                                            </div>
+                            <div className="grid grid-cols-5 gap-12">
+                                {/* Verification Points Column */}
+                                <div className="col-span-3 space-y-10">
+                                    <div>
+                                        <div className="admin-pulse-details-section-header">
+                                            <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                                            <h3 className="admin-pulse-details-section-title">Verification Intelligence</h3>
+                                        </div>
+                                        <div className="space-y-4">
+                                            {selectedChecklist.items.map((item: string, i: number) => (
+                                                <div key={i} className="flex items-center gap-6 p-6 bg-slate-50 rounded-[24px] border border-slate-100 hover:border-blue-200 transition-all group">
+                                                    <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-[10px] font-black text-slate-400 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-500 transition-all shadow-sm shrink-0">
+                                                        {String(i + 1).padStart(2, '0')}
+                                                    </div>
+                                                    <p className="text-sm font-black text-slate-700 leading-tight uppercase italic">{item}</p>
+                                                    <div className="ml-auto flex items-center gap-2">
+                                                        <span className="text-[9px] font-black text-emerald-600 tracking-widest uppercase">Validated</span>
+                                                        <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-white text-[10px] shadow-lg shadow-emerald-200">
+                                                            ✓
                                                         </div>
-                                                    ))}
+                                                    </div>
                                                 </div>
-                                            </Section>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
 
-                                            {/* Remarks & Notes */}
-                                            <Section
-                                                icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg>}
-                                                title="Engineering Remarks"
-                                                fullWidth
-                                            >
-                                                <div className="bg-amber-50 rounded-2xl p-6 border border-amber-100/30">
-                                                    <p className="text-sm font-bold text-amber-900 leading-relaxed italic italic">
-                                                        "{selectedChecklist.remarks || "No critical observations were recorded for this checklist session."}"
-                                                    </p>
-                                                </div>
-                                            </Section>
-
-                                            <div className="md:col-span-2 grid grid-cols-2 gap-6 bg-slate-50 p-6 rounded-[24px]">
-                                                <InfoItem label="Inspection Type" value={selectedChecklist.type} />
-                                                <InfoItem label="Compliance Status" value={selectedChecklist.status} valueClass={selectedChecklist.status === 'Done' ? 'text-emerald-600' : 'text-amber-600'} />
+                                {/* Remarks & Actions Column */}
+                                <div className="col-span-2 space-y-10">
+                                    <div>
+                                        <div className="admin-pulse-details-section-header">
+                                            <svg className="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                            <h3 className="admin-pulse-details-section-title">Engineering Artifact</h3>
+                                        </div>
+                                        <div className="p-8 bg-slate-900 rounded-[32px] border border-slate-800 min-h-[350px] font-black uppercase shadow-2xl shadow-slate-900/40 relative overflow-hidden group">
+                                            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-blue-600/20 transition-all"></div>
+                                            <span className="admin-pulse-details-label mb-6 block underline underline-offset-4 decoration-slate-700 uppercase font-black text-slate-400">Deviation Narrative</span>
+                                            <p className="text-base font-bold text-white leading-[1.8] italic uppercase font-black tracking-tight">
+                                                "{selectedChecklist.remarks || "NO DEVIATIONS ENCOUNTERED. SYSTEM COMPLIANCE AT OPTIMUM LEVELS."}"
+                                            </p>
+                                            <div className="absolute bottom-8 left-8 flex items-center gap-3">
+                                                <div className="w-3 h-3 rounded-full bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.5)]"></div>
+                                                <span className="text-[10px] font-black text-slate-500 tracking-[0.2em]">AUDIT TIMESTAMP: {selectedChecklist.date}</span>
                                             </div>
                                         </div>
+                                    </div>
 
-                                        <button
-                                            onClick={() => setSelectedChecklist(null)}
-                                            className="w-full py-4 bg-slate-900 text-white text-xs font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-slate-200 hover:bg-black hover:-translate-y-1 transition-all active:scale-95"
-                                        >
-                                            Dismiss Protocol View
-                                        </button>
+                                    <div className="p-8 bg-blue-50/50 rounded-[32px] border border-blue-100 flex items-center justify-between font-black uppercase">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest font-black">Compliance Integrity</span>
+                                            <p className="text-2xl font-black text-slate-800 tracking-tighter italic font-black">{selectedChecklist.status === 'Done' ? 'CERTIFIED' : 'PENDING'}</p>
+                                        </div>
+                                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg ${selectedChecklist.status === 'Done' ? 'bg-emerald-600 shadow-emerald-500/20' : 'bg-amber-600 shadow-amber-500/20'}`}>
+                                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
+
+                            <div className="mt-12 pt-10 border-t border-slate-100 flex items-center justify-between font-black uppercase">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] italic font-black">VERIFICATION PROTOCOL ARCHIVED IN COMPLIANCE VAULT</span>
+                                <button onClick={() => setSelectedChecklist(null)} className="admin-pulse-btn-primary bg-slate-900 shadow-slate-900/20 hover:bg-black px-12 font-black uppercase">
+                                    Archive Protocol
+                                </button>
+                            </div>
                         </div>
-                    )}
-                </div>
-            </PageTransition>
+                    </Modal>
+                )}
+            </PageTransition >
         </>
     );
 };
-
-// --- Helper Components for Premium Detail View ---
-
-const Section: React.FC<{ icon: React.ReactNode, title: string, children: React.ReactNode, fullWidth?: boolean }> = ({ icon, title, children, fullWidth }) => (
-    <div className={`space-y-4 ${fullWidth ? 'md:col-span-2' : ''}`}>
-        <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-            <div className="text-primary">{icon}</div>
-            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">{title}</h4>
-        </div>
-        <div className="space-y-4 pt-1">
-            {children}
-        </div>
-    </div>
-);
-
-const InfoItem: React.FC<{ label: string, value: string, valueClass?: string }> = ({ label, value, valueClass }) => (
-    <div className="group">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter mb-0.5 group-hover:text-primary transition-colors">{label}</p>
-        <p className={`text-sm font-bold text-slate-800 ${valueClass}`}>{value || '—'}</p>
-    </div>
-);
 
 export default ChecklistsPage;

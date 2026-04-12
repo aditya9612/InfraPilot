@@ -1,101 +1,103 @@
 import { useState } from "react";
 import Navbar from "../../components/common/Navbar";
+import StatCard from "../../components/common/StatCard";
 import PageTransition from "../../components/common/PageTransition";
+import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
 
 const reportTypes = [
     {
         id: "daily",
-        name: "Daily Site Report",
-        description: "Complete summary of activities, labor, and materials used in the last 24 hours.",
+        name: "Daily Intelligence Ledger",
+        description: "High-fidelity summary of operational throughput, personnel deployment, and site logistics.",
         icon: "📋",
         color: "bg-blue-50 text-blue-600",
         lastGenerated: "2026-04-08 08:30 AM",
         size: "1.2 MB",
         data: {
-            title: "Daily Activities Log",
+            title: "Operational Velocity Log",
             date: "April 08, 2026",
             metrics: [
-                { label: "Total Labor", value: "142 workers" },
-                { label: "Concrete Poured", value: "120 m³" },
-                { label: "Steel Fixed", value: "8.5 Tons" },
-                { label: "Safety Incidents", value: "0" }
+                { label: "Mobilization", value: "142 Personnel" },
+                { label: "Concrete Volume", value: "120 m³" },
+                { label: "Steel Fixation", value: "8.5 Tons" },
+                { label: "Safety Variance", value: "0 Delta" }
             ]
         }
     },
     {
         id: "weekly",
-        name: "Weekly Progress Report",
-        description: "Multi-day timeline analysis, milestome achievement vs planning for the current week.",
-        icon: "📅",
+        name: "Weekly Strategy Audit",
+        description: "Advanced trend analysis and milestone synchronization benchmarks for the current cycle.",
+        icon: "📈",
         color: "bg-emerald-50 text-emerald-600",
         lastGenerated: "2026-04-06 10:00 AM",
         size: "4.5 MB",
         data: {
-            title: "Weekly Execution Summary",
+            title: "Performance Trajectory Summary",
             date: "Week 14, 2026",
             metrics: [
-                { label: "Planned Progress", value: "85%" },
-                { label: "Actual Progress", value: "82%" },
-                { label: "Man-hours Consumed", value: "4,800 hrs" },
-                { label: "Procured Value", value: "₹45.2 Lakhs" }
+                { label: "Planned Uptime", value: "85%" },
+                { label: "Actual Throughput", value: "82%" },
+                { label: "Human Equity Consumed", value: "4,800 hrs" },
+                { label: "Financial Exposure", value: "₹45.2 Lakhs" }
             ]
         }
     },
     {
         id: "labor",
-        name: "Labor & Attendance Report",
-        description: "Detailed breakdown of workforce mobilization, wage rates, and OT logs.",
+        name: "Human Resource Analytics",
+        description: "Comprehensive breakdown of workforce stratification, overheads, and shift efficiency.",
         icon: "👷",
         color: "bg-amber-50 text-amber-600",
         lastGenerated: "2026-04-08 07:15 AM",
         size: "0.8 MB",
         data: {
-            title: "Personnel Audit Log",
+            title: "Workforce Deployment Audit",
             date: "April 08, 2026",
             metrics: [
-                { label: "Skilled", value: "45" },
-                { label: "Unskilled", value: "88" },
-                { label: "Operator", value: "9" },
-                { label: "Overtime Hours", value: "24 hrs" }
+                { label: "Skilled Force", value: "45 Units" },
+                { label: "General Support", value: "88 Units" },
+                { label: "Tech Operators", value: "9 Units" },
+                { label: "Overtime Delta", value: "24 hrs" }
             ]
         }
     },
     {
         id: "material",
-        name: "Material Consumption Audit",
-        description: "Stock reconciliation report including Opening, Received, Used, and Closing balances.",
+        name: "Inventory Reconciliation",
+        description: "Real-time stock equilibrium report covering acquisition, consumption, and closing reserves.",
         icon: "🏗️",
         color: "bg-indigo-50 text-indigo-600",
         lastGenerated: "2026-04-07 05:45 PM",
         size: "2.1 MB",
         data: {
-            title: "Inventory Reconciliation",
+            title: "Material Flux Audit",
             date: "April 07, 2026",
             metrics: [
-                { label: "Cement Consumed", value: "450 Bags" },
-                { label: "Steel Consumed", value: "12 Tons" },
-                { label: "Aggregates used", value: "320 m³" },
-                { label: "Closing Balance Value", value: "₹1.2 Cr" }
+                { label: "Cement Outflow", value: "450 Bags" },
+                { label: "Steel Outflow", value: "12 Tons" },
+                { label: "Aggregate Flow", value: "320 m³" },
+                { label: "Asset Valuation", value: "₹1.2 Cr" }
             ]
         }
     },
     {
         id: "issue",
-        name: "Blockade & Issue Analytics",
-        description: "Summary of site delays, material shortages, and unresolved technical issues.",
+        name: "Constraint Risk Analytics",
+        description: "Deep-dive into site dependencies, blockade durations, and mitigation effectiveness.",
         icon: "⚠️",
         color: "bg-rose-50 text-rose-600",
         lastGenerated: "2026-04-08 11:30 AM",
         size: "0.5 MB",
         data: {
-            title: "Constraint Analysis Report",
+            title: "Structural Risk Breakdown",
             date: "April 08, 2026",
             metrics: [
-                { label: "Open Critical Issues", value: "3" },
-                { label: "Material Shortages", value: "2 items" },
-                { label: "Weather Delays", value: "4 hrs" },
-                { label: "Manpower Shortfall", value: "6%" }
+                { label: "Active Blockades", value: "3 Critical" },
+                { label: "Supply Gaps", value: "2 Lines" },
+                { label: "Weather Impact", value: "4 hrs" },
+                { label: "Manpower Variance", value: "6% Short" }
             ]
         }
     },
@@ -108,77 +110,118 @@ const ReportsPage = () => {
     const handleDownload = (report: any) => {
         setLoadingReport(`${report.id}-download`);
         setTimeout(() => {
-            toast.success(`${report.name} downloaded successfully!`, { position: 'top-right', icon: '📥' });
+            toast.success(`${report.name} transmitted to storage`, { position: 'top-right', icon: '📥' });
             setLoadingReport(null);
         }, 1500);
     };
 
-    const handleView = (report: any) => {
-        setSelectedReport(report);
-    };
-
     return (
-        <>
-            <Navbar title="Management Reports" breadcrumb={["Engineer", "Reports"]} />
+        <div className="engineer-module text-slate-900">
+            <Navbar title="Executive Intelligence" breadcrumb={["InfraPilot", "Dashboard", "Engineer", "BI", "Reports"]} />
 
-            <PageTransition className="p-6 bg-slate-50 min-h-screen">
+            <PageTransition className="p-8 bg-slate-50 min-h-screen relative font-inter">
                 <div className="max-w-7xl mx-auto">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-16">
+                        <div>
+                            <h1 className="text-2xl font-black text-slate-800 tracking-tighter  mb-2">Management Intelligence Dash</h1>
+                            <p className="text-slate-500 font-medium tracking-tight">Business intelligence, PDF generation, and operational performance reports.</p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <button
+                                onClick={() => toast.success("Retrieving archival data...", { position: "top-right" })}
+                                className="flex items-center gap-3 px-8 py-4 bg-white border border-slate-100 text-slate-400 rounded-2xl text-[10px] font-black  tracking-[0.25em] hover:text-primary transition-all active:scale-95 shadow-xl shadow-slate-200/50"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+                                Filter Registry
+                            </button>
+                        </div>
+                    </div>
+                    {/* Top Widgets */}
                     <div className="mb-10">
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Analytics & Summaries</h1>
-                        <p className="text-slate-500 text-sm">Generate and export detailed data for management review and site audits.</p>
+                        <h2 className="text-[10px] font-black text-slate-400  tracking-[0.3em] mb-6 flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+                            BI Intelligence Vitals
+                        </h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                            <StatCard
+                                title="Total Reports"
+                                value="42"
+                                sub="Strategic intelligence"
+                                accent="text-primary"
+                                icon="📑"
+                            />
+                            <StatCard
+                                title="Audit Pass Rate"
+                                value="96%"
+                                sub="Compliance baseline"
+                                accent="text-emerald-500"
+                                icon="🛡️"
+                            />
+                            <StatCard
+                                title="Query Latency"
+                                value="1.2s"
+                                sub="Intelligence response"
+                                accent="text-blue-500"
+                                icon="⚡"
+                            />
+                            <StatCard
+                                title="Data Storage"
+                                value="15.4GB"
+                                sub="Archival footprint"
+                                accent="text-rose-500"
+                                icon="💾"
+                            />
+                        </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
                         {reportTypes.map(report => (
-                            <div key={report.id} className="bg-white rounded-[40px] p-8 shadow-sm border border-slate-100 group hover:shadow-2xl hover:shadow-slate-200/50 transition-all duration-500 flex flex-col h-full relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-full -translate-y-1/2 translate-x-1/2 opacity-50 group-hover:scale-150 transition-transform duration-700"></div>
+                            <div key={report.id} className="relative bg-white rounded-[40px] p-8 shadow-sm border border-slate-100 flex flex-col gap-8 hover:shadow-2xl hover:shadow-slate-200/50 transition-all group overflow-hidden">
+                                <div className={`absolute left-0 top-10 bottom-10 w-2 rounded-r-full transition-all bg-blue-600 shadow-[0_0_20px_rgba(37,99,235,0.3)]`} />
 
-                                <div className="flex items-start justify-between mb-8 relative z-10">
-                                    <div className={`w-16 h-16 rounded-[22px] flex items-center justify-center text-3xl shadow-sm ${report.color} transform group-hover:rotate-12 transition-transform`}>
-                                        {report.icon}
+                                <div className="flex items-start justify-between">
+                                    <div className="flex items-center gap-6">
+                                        <div className={`w-16 h-16 rounded-[24px] flex items-center justify-center text-2xl transition-all group-hover:bg-slate-900 group-hover:text-white group-hover:rotate-6 shadow-sm ${report.color}`}>
+                                            {report.icon}
+                                        </div>
+                                        <div>
+                                            <span className="text-[9px] font-black text-slate-400 tracking-[0.2em] uppercase mb-1 block">REPORT TYPE: {report.id}</span>
+                                            <h3 className="text-xl font-black text-slate-800 tracking-tighter group-hover:text-blue-600 transition-colors uppercase leading-tight">{report.name}</h3>
+                                        </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">File Size</p>
-                                        <p className="text-xs font-bold text-slate-500">{report.size}</p>
+                                    <div className="text-right flex flex-col">
+                                        <span className="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-1">Payload</span>
+                                        <span className="text-sm font-black text-slate-800 tracking-tighter">{report.size}</span>
                                     </div>
                                 </div>
 
-                                <div className="relative z-10 mb-8 flex-1">
-                                    <h3 className="font-black text-slate-800 text-xl mb-3 tracking-tight group-hover:text-primary transition-colors leading-tight">{report.name}</h3>
-                                    <p className="text-sm font-medium text-slate-400 leading-relaxed line-clamp-2">{report.description}</p>
+                                <div className="p-8 bg-slate-50/50 rounded-[32px] border border-slate-100 flex-1">
+                                    <span className="text-[10px] font-black text-slate-400 tracking-widest uppercase block mb-3">Strategy Directive</span>
+                                    <p className="text-sm font-bold text-slate-500 leading-relaxed italic">"{report.description}"</p>
                                 </div>
 
-                                <div className="space-y-6 relative z-10">
-                                    <div className="pt-6 border-t border-slate-50">
-                                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-2">Last Generated</p>
-                                        <p className="text-xs font-bold text-slate-500 flex items-center gap-2">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                            {report.lastGenerated}
-                                        </p>
+                                <div className="space-y-4 px-4 pt-2 border-t border-slate-50 mt-auto">
+                                    <div className="flex flex-col">
+                                        <span className="text-[9px] font-black text-slate-400 tracking-widest uppercase mb-2">Protocol Integrity</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]"></span>
+                                            <span className="text-[11px] font-black text-slate-500 tracking-tight">{report.lastGenerated}</span>
+                                        </div>
                                     </div>
 
-                                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                                    <div className="flex items-center gap-4">
                                         <button
-                                            onClick={() => handleView(report)}
-                                            className="w-full sm:flex-1 py-4 bg-slate-50 text-slate-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all order-2 sm:order-1"
-                                        >
-                                            View Report
-                                        </button>
+                                            onClick={() => setSelectedReport(report)}
+                                            className="flex-1 py-4 bg-slate-100 text-slate-800 rounded-2xl text-[10px] font-black tracking-widest hover:bg-slate-900 hover:text-white transition-all shadow-sm"
+                                        >INSPECT</button>
                                         <button
                                             onClick={() => handleDownload(report)}
                                             disabled={!!loadingReport}
-                                            className="w-full sm:flex-1 py-4 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 order-1 sm:order-2"
+                                            className="flex-1 py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black tracking-widest shadow-lg shadow-blue-500/20 hover:bg-blue-700 active:scale-95 transition-all flex items-center justify-center gap-2"
                                         >
-                                            {loadingReport === `${report.id}-download` ? (
-                                                <>
-                                                    <svg className="animate-spin h-3.5 w-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                                                    Download
-                                                </>
-                                            )}
+                                            {loadingReport === `${report.id}-download` ? '...' : 'EXPORT'}
                                         </button>
                                     </div>
                                 </div>
@@ -187,58 +230,61 @@ const ReportsPage = () => {
                     </div>
                 </div>
 
-                {/* Report Viewer Modal */}
-                {selectedReport && (
-                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-                        <div
-                            className="absolute inset-0 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300"
-                            onClick={() => setSelectedReport(null)}
-                        ></div>
-                        <div className="bg-white w-full max-w-2xl rounded-[40px] shadow-2xl relative z-10 overflow-hidden animate-in zoom-in-95 duration-300">
-                            <div className="p-10">
-                                <div className="flex justify-between items-start mb-10">
-                                    <div>
-                                        <div className="flex items-center gap-3 mb-2">
-                                            <span className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest ${selectedReport.color}`}>{selectedReport.name}</span>
-                                            <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest italic">{selectedReport.data.date}</span>
-                                        </div>
-                                        <h2 className="text-3xl font-black text-slate-800 tracking-tight leading-tight">{selectedReport.data.title}</h2>
+                {/* Intelligent Report Viewer Modal */}
+                <Modal
+                    isOpen={!!selectedReport}
+                    onClose={() => setSelectedReport(null)}
+                    title={selectedReport?.name || "Report Detail"}
+                    maxWidth="max-w-2xl"
+                >
+                    {selectedReport && (
+                        <div className="p-12 bg-white">
+                            <div className="mb-12">
+                                <div className="admin-pulse-form-section-header mb-4">
+                                    <div className={`admin-pulse-form-section-indicator ${selectedReport.color.split(' ')[0]}`} />
+                                    <h3 className="admin-pulse-form-section-title">{selectedReport.name}</h3>
+                                </div>
+                                <h2 className="text-3xl font-black text-slate-800 tracking-tighter leading-none mb-4">{selectedReport.data.title}</h2>
+                                <p className="text-slate-400 text-xs font-medium italic">Verified site data encapsulated for executive transmission.</p>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+                                {selectedReport.data.metrics.map((m: any, i: number) => (
+                                    <div key={i} className="p-8 bg-slate-50/50 rounded-[32px] border border-slate-50 flex flex-col gap-2 group hover:bg-white hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300">
+                                        <p className="text-[9px] font-black text-slate-300 tracking-[0.2em] group-hover:text-blue-600 transition-colors uppercase">{m.label}</p>
+                                        <p className="text-2xl font-black text-slate-800 tracking-tighter group-hover:scale-105 transition-transform origin-left">{m.value}</p>
                                     </div>
-                                    <button
-                                        onClick={() => setSelectedReport(null)}
-                                        className="w-12 h-12 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center hover:bg-slate-100 transition-colors"
-                                    >
-                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
-                                    </button>
-                                </div>
+                                ))}
+                            </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 mb-12">
-                                    {selectedReport.data.metrics.map((m: any, i: number) => (
-                                        <div key={i} className="p-5 md:p-6 bg-slate-50 rounded-3xl border border-slate-100 flex flex-col gap-1">
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">{m.label}</p>
-                                            <p className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">{m.value}</p>
-                                        </div>
-                                    ))}
+                            <div className="admin-pulse-form-summary mb-12">
+                                <div>
+                                    <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Report Temporal Meta</span>
+                                    <p className="text-2xl font-black text-slate-800 tracking-tighter mt-1">{selectedReport.data.date.toUpperCase()}</p>
                                 </div>
-
-                                <div className="flex gap-4">
-                                    <button
-                                        onClick={() => {
-                                            handleDownload(selectedReport);
-                                            setSelectedReport(null);
-                                        }}
-                                        className="flex-1 bg-primary text-white py-5 rounded-3xl text-xs font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 flex items-center justify-center gap-3"
-                                    >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                                        Export to PDF
-                                    </button>
+                                <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 00-2 2z" /></svg>
                                 </div>
                             </div>
+
+                            <div className="flex flex-col sm:flex-row gap-4">
+                                <button
+                                    onClick={() => {
+                                        handleDownload(selectedReport);
+                                        setSelectedReport(null);
+                                    }}
+                                    className="admin-pulse-btn-primary !w-full"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                    Transmit PDF Manifest
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
+                </Modal>
+
             </PageTransition>
-        </>
+        </div>
     );
 };
 

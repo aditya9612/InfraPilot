@@ -29,13 +29,6 @@ const activities = [
 ];
 
 // ─── Styling Helpers ──────────────────────────────────────────────────────────
-const statusBadge: Record<ProjectStatus, string> = {
-  Planned: "bg-slate-100 text-slate-500",
-  Active: "bg-green-100 text-success",
-  Delayed: "bg-red-100 text-danger",
-  Completed: "bg-blue-100 text-primary",
-  "On Hold": "bg-amber-100 text-warning",
-};
 
 const statusDot: Record<ProjectStatus, string> = {
   Planned: "bg-slate-400",
@@ -83,64 +76,73 @@ const AdminDashboard = () => {
         breadcrumb={["InfraPilot", "Dashboard", "Admin"]}
       />
 
-      <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
+      <PageTransition className="p-8 bg-slate-50 min-h-screen font-inter">
         {/* Header Actions */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Project Pulse</h1>
-            <p className="text-slate-500 text-sm">Real-time infrastructure health and budget monitoring.</p>
+            <h1 className="text-3xl font-black text-slate-800 tracking-tighter uppercase mb-2">Project Pulse</h1>
+            <p className="text-slate-500 text-sm font-medium">Real-time infrastructure health and budget monitoring.</p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-3">
             <button
               onClick={() => setIsNewProjectModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
+              className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 shadow-sm transition-all active:scale-95"
             >
               + New Project
             </button>
             <button
               onClick={() => setIsUserModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
+              className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 shadow-sm transition-all active:scale-95"
             >
               + Add User
             </button>
-            <button 
+            <button
               onClick={() => setIsBOQModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
+              className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 shadow-sm transition-all active:scale-95"
             >
               + Create BOQ
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all">Create Report</button>
+            <button className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">Create Report</button>
           </div>
         </div>
 
         {/* Top Feature Stats - Project Overview */}
-        <div className="mb-6">
-          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Project Overview</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <StatCard title="Total Projects" value={String(stats.total)} sub="+3 this month" accent="text-primary" />
-            <StatCard title="Active Projects" value={String(stats.active)} sub="On-going sites" accent="text-blue-500" />
-            <StatCard title="Completed Projects" value={String(stats.completed)} sub="Handed over" accent="text-emerald-500" />
-            <StatCard title="Delayed Projects" value={String(stats.delayed)} sub="At high risk" accent="text-rose-500" />
+        <div className="mb-10">
+          <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+            Project Overview
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <StatCard title="Total Projects" value={String(stats.total)} sub="+3 this month" accent="text-primary" icon="📊" />
+            <StatCard title="Active Projects" value={String(stats.active)} sub="On-going sites" accent="text-blue-500" icon="🏗️" />
+            <StatCard title="Completed Projects" value={String(stats.completed)} sub="Handed over" accent="text-emerald-500" icon="✅" />
+            <StatCard title="Delayed Projects" value={String(stats.delayed)} sub="At high risk" accent="text-rose-500" icon="⚠️" />
           </div>
         </div>
 
         {/* Financial Overview */}
-        <div className="mb-6">
-          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Financial Status</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <StatCard title="Total Revenue" value="₹12.8Cr" sub="FY 2025-26" accent="text-indigo-500" />
-            <StatCard title="Total Expenses" value="₹8.4Cr" sub="Payments & Wages" accent="text-orange-500" />
-            <StatCard title="Profit / Loss" value="+ ₹4.4Cr" sub="Net Margin" accent="text-green-600" />
+        <div className="mb-10">
+          <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
+            Financial Status
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <StatCard title="Total Revenue" value="₹12.8Cr" sub="FY 2025-26" accent="text-indigo-500" icon="💰" />
+            <StatCard title="Total Expenses" value="₹8.4Cr" sub="Payments & Wages" accent="text-orange-500" icon="📉" />
+            <StatCard title="Profit / Loss" value="+ ₹4.4Cr" sub="Net Margin" accent="text-green-600" icon="📈" />
           </div>
         </div>
 
         {/* Operations & Alerts */}
-        <div className="mb-8">
-          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Operations & Health</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <StatCard title="Active Users" value="138" sub="Across 12 sites" accent="text-sky-500" />
-            <StatCard title="Pending Approvals" value="12" sub="5 Awaiting Admin" accent="text-amber-500" />
-            <StatCard title="Active Alerts" value="4" sub="Low stock / Over budget" accent="text-danger" />
+        <div className="mb-12">
+          <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse"></span>
+            Operations & Health
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <StatCard title="Active Users" value="138" sub="Across 12 sites" accent="text-sky-500" icon="👥" />
+            <StatCard title="Pending Approvals" value="12" sub="5 Awaiting Admin" accent="text-amber-500" icon="⏳" />
+            <StatCard title="Active Alerts" value="4" sub="Low stock / Over budget" accent="text-rose-500" icon="🚨" />
           </div>
         </div>
 
@@ -352,7 +354,10 @@ const AdminDashboard = () => {
                       <span className="text-slate-800 font-bold">92.4</span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${statusBadge[p.status]}`}>{p.status}</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`w-1.5 h-1.5 rounded-full ${statusDot[p.status]} ${p.status === 'Active' ? 'animate-pulse' : ''}`} />
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest translate-y-px">{p.status}</span>
+                      </div>
                     </td>
                   </tr>
                 ))}

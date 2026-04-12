@@ -57,8 +57,6 @@ const UsersPage = () => {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [viewingUser, setViewingUser] = useState<User | null>(null);
-  const [limit] = useState(20);
-  const [offset] = useState(0);
 
   const handleCreateOrUpdateUser = (userData: any) => {
     if (editingUser) {
@@ -107,27 +105,27 @@ const UsersPage = () => {
       <Navbar title="User Management" breadcrumb={["Admin", "Users"]} />
 
       <PageTransition className="p-6 bg-slate-50 min-h-screen">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+            <h1 className="text-3xl font-black text-slate-800 tracking-tighter uppercase mb-2">
               System Users
             </h1>
-            <p className="text-slate-500 text-sm">
+            <p className="text-slate-500 text-sm font-medium">
               Manage user access, roles, and project assignments.
             </p>
           </div>
           <button
             onClick={() => setIsModalOpen(true)}
-            className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
+            className="px-6 py-2.5 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
           >
             + Add New User
           </button>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row md:items-center gap-4">
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="p-6 border-b border-slate-50 flex flex-col md:flex-row md:items-center gap-6 bg-slate-50/20">
             <div className="relative flex-1 max-w-md">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                 <svg
                   className="w-4 h-4"
                   fill="none"
@@ -144,14 +142,14 @@ const UsersPage = () => {
               </span>
               <input
                 type="text"
-                placeholder="Search by name, email or role..."
+                placeholder="Search name, email or role..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                className="w-full pl-12 pr-4 py-3 bg-white border border-slate-100 rounded-2xl text-xs font-bold text-slate-600 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all shadow-sm"
               />
             </div>
-            <div className="flex items-center gap-2">
-              <select className="bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 px-3 py-2 outline-none">
+            <div className="flex items-center gap-3">
+              <select className="bg-white border border-slate-100 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 px-4 py-2.5 outline-none shadow-sm focus:border-primary transition-all">
                 <option>All Roles</option>
                 <option>Admin</option>
                 <option>Engineer</option>
@@ -164,24 +162,24 @@ const UsersPage = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-                  <th className="px-6 py-4">User Details</th>
-                  <th className="px-6 py-4">Role / Designation</th>
-                  <th className="px-6 py-4">PAN / Aadhaar</th>
-                  <th className="px-6 py-4">Joined On</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
+                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] border-b border-slate-50">
+                  <th className="px-8 py-5">User Details</th>
+                  <th className="px-8 py-5">Role / Designation</th>
+                  <th className="px-8 py-5">Credentials</th>
+                  <th className="px-8 py-5">Joined</th>
+                  <th className="px-8 py-5">Status</th>
+                  <th className="px-8 py-5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {filteredUsers.map((user) => (
                   <tr
                     key={user.user_id}
-                    className="hover:bg-slate-50/50 transition-colors group"
+                    className="hover:bg-slate-50/50 transition-colors group cursor-pointer"
                   >
-                    <td className="px-6 py-4 text-sm">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-blue-50 text-primary border border-blue-100 flex items-center justify-center font-bold text-xs shadow-sm overflow-hidden">
+                    <td className="px-8 py-5 text-sm">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-slate-50 text-primary border border-slate-100 flex items-center justify-center font-black text-xs shadow-sm overflow-hidden group-hover:scale-105 transition-transform">
                           {user.profile_image ? (
                             <img src={user.profile_image} alt={user.full_name} className="w-full h-full object-cover" />
                           ) : (
@@ -189,73 +187,70 @@ const UsersPage = () => {
                           )}
                         </div>
                         <div>
-                          <p className="font-bold text-slate-700 group-hover:text-primary transition-colors">
+                          <p className="font-black text-slate-800 group-hover:text-primary transition-colors text-sm tracking-tight">
                             {user.full_name}
                           </p>
-                          <p className="text-slate-400 text-xs font-medium">
+                          <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">
                             {user.email}
-                          </p>
-                          <p className="text-slate-400 text-[10px] font-medium tracking-tight">
-                            {user.mobile_number}
                           </p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col gap-1">
-                        <span className="w-fit px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md text-[9px] font-black uppercase tracking-wider">
+                    <td className="px-8 py-5">
+                      <div className="flex flex-col gap-1.5">
+                        <span className="w-fit px-2.5 py-1 bg-primary/5 text-primary rounded-lg text-[9px] font-black uppercase tracking-widest border border-primary/10">
                           {user.role}
                         </span>
-                        <p className="text-xs text-slate-500 font-medium">{user.designation}</p>
+                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{user.designation}</p>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-[10px] text-slate-500 font-mono">
-                      <p>PAN: {user.pan_number}</p>
-                      <p>UID: {user.aadhaar_number}</p>
+                    <td className="px-8 py-5 text-[10px] text-slate-400 font-bold tracking-widest uppercase">
+                      <p className="mb-1">PAN: <span className="text-slate-600 font-black">{user.pan_number}</span></p>
+                      <p>UID: <span className="text-slate-600 font-black">{user.aadhaar_number}</span></p>
                     </td>
-                    <td className="px-6 py-4 text-xs text-slate-500 font-medium">
+                    <td className="px-8 py-5 text-[10px] text-slate-400 font-black uppercase tracking-widest">
                       {user.joining_date}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-8 py-5">
                       <div className="flex items-center gap-2">
                         <div
-                          className={`w-2 h-2 rounded-full ${user.is_active ? "bg-emerald-500" : "bg-slate-300"}`}
+                          className={`w-1.5 h-1.5 rounded-full ${user.is_active ? "bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.4)]" : "bg-slate-300"}`}
                         />
                         <span
-                          className={`text-xs font-bold ${user.is_active ? "text-emerald-600" : "text-slate-400"}`}
+                          className={`text-[10px] font-black uppercase tracking-widest ${user.is_active ? "text-emerald-600" : "text-slate-400"}`}
                         >
-                          {user.is_active ? "Active" : "Inactive"}
+                          {user.is_active ? "Active" : "Offline"}
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-8 py-5 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => handleViewDetails(user)}
                           title="View Details"
-                          className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
+                          className="w-10 h-10 flex items-center justify-center bg-slate-50 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-xl transition-all active:scale-95"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                           </svg>
                         </button>
                         <button
                           onClick={() => handleEditClick(user)}
                           title="Update User"
-                          className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
+                          className="w-10 h-10 flex items-center justify-center bg-slate-50 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-xl transition-all active:scale-95"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                           </svg>
                         </button>
                         <button
                           onClick={() => handleDeleteClick(user.user_id)}
                           title="Delete User"
-                          className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                          className="w-10 h-10 flex items-center justify-center bg-slate-50 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all active:scale-95"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                           </svg>
                         </button>
                       </div>
@@ -279,19 +274,19 @@ const UsersPage = () => {
             </div>
           )}
 
-          <div className="p-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-              Showing {filteredUsers.length} of {users.length} Users (Limit: {limit}, Offset: {offset})
+          <div className="px-8 py-5 border-t border-slate-50 bg-slate-50/50 flex items-center justify-between">
+            <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em]">
+              Showing {filteredUsers.length} of {users.length} Records
             </p>
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <button
-                className="px-3 py-1 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-400 hover:bg-slate-50 disabled:opacity-50"
+                className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black text-slate-300 uppercase tracking-widest cursor-not-allowed"
                 disabled
               >
                 Previous
               </button>
-              <button className="px-3 py-1 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 hover:bg-slate-50 transition-all active:scale-95">
-                Next
+              <button className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black text-primary uppercase tracking-widest hover:bg-primary hover:text-white transition-all shadow-sm active:scale-95">
+                Next Page →
               </button>
             </div>
           </div>

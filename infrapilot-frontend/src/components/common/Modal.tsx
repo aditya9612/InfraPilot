@@ -25,7 +25,7 @@ const Modal = ({ isOpen, onClose, title, children, footer, maxWidth = "max-w-3xl
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -34,24 +34,23 @@ const Modal = ({ isOpen, onClose, title, children, footer, maxWidth = "max-w-3xl
         >
           {/* Click outside to close */}
           <div className="absolute inset-0" onClick={onClose} />
-          
-          {/* Modal Content */}
-          <motion.div 
+
+          <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ type: "spring", stiffness: 350, damping: 30 }}
             className={`relative w-full ${maxWidth} max-h-full bg-white shadow-2xl rounded-2xl flex flex-col overflow-hidden`}
           >
-            
+
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-white shrink-0">
               <div>
-                <h2 className="text-xl font-bold text-slate-800">{title}</h2>
+                <h2 className="text-xl font-bold text-slate-800 tracking-tight leading-none">{title}</h2>
               </div>
               <button
                 onClick={onClose}
-                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
                 aria-label="Close modal"
               >
                 <svg
@@ -60,13 +59,13 @@ const Modal = ({ isOpen, onClose, title, children, footer, maxWidth = "max-w-3xl
                   stroke="currentColor"
                   viewBox="0 0 24 24"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
             {/* Body */}
-            <div className="p-6 overflow-y-auto bg-slate-50/50 flex-1 custom-scrollbar">
+            <div className="p-6 overflow-y-auto bg-white flex-1 custom-scrollbar">
               {children}
             </div>
 
@@ -77,7 +76,7 @@ const Modal = ({ isOpen, onClose, title, children, footer, maxWidth = "max-w-3xl
               </div>
             )}
           </motion.div>
-          
+
           <style>{`
             .custom-scrollbar::-webkit-scrollbar {
               width: 6px;

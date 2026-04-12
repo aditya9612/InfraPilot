@@ -16,11 +16,14 @@
 }
 
 @layer base {
-  html, body {
+
+  html,
+  body {
     font-family: var(--font-inter);
     background-color: var(--color-background);
     font-size: var(--text-body);
-    color: #1F2937; /* Tailwind Gray 800 for better readability */
+    color: #1F2937;
+    /* Tailwind Gray 800 for better readability */
   }
 
   h1 {
@@ -39,14 +42,85 @@
     width: 6px;
     height: 6px;
   }
+
   ::-webkit-scrollbar-track {
     background: transparent;
   }
+
   ::-webkit-scrollbar-thumb {
     background: #cbd5e1;
     border-radius: 10px;
   }
+
   ::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
+  }
+}
+
+@layer components {
+  .admin-pulse-form-group {
+    @apply mb-6;
+  }
+
+  .admin-pulse-form-label {
+    @apply block text-[11px] font-bold text-[#5C728D] uppercase tracking-wider mb-2 antialiased;
+  }
+
+  .admin-pulse-form-required {
+    @apply after:content-['_*'] after:text-rose-500 after:font-bold;
+  }
+
+  .admin-pulse-form-input {
+    @apply w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 placeholder:text-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 outline-none transition-all duration-200 antialiased h-[48px];
+  }
+
+  select.admin-pulse-form-input {
+    @apply appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%22%2394a3b8%22%20stroke-width%3D%222%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20d%3D%22M19%209l-7%207-7-7%22%20%2F%3E%3C%2Fsvg%3E')] bg-[length:20px_20px] bg-[right_1rem_center] bg-no-repeat pr-12;
+  }
+
+  .admin-pulse-form-summary {
+    @apply bg-[#F0F7FF] rounded-xl p-6 mt-8 border border-blue-100/50 flex items-center justify-between;
+  }
+
+  .admin-pulse-btn-primary {
+    @apply px-8 py-3 bg-[#2563EB] text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-600 hover:shadow-xl hover:shadow-blue-500/30 active:scale-95 transition-all duration-200 antialiased disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .admin-pulse-btn-text {
+    @apply px-8 py-3 text-sm font-bold text-slate-500 hover:text-slate-700 transition-colors antialiased cursor-pointer;
+  }
+
+  /* Details View Utilities */
+  .admin-pulse-details-banner {
+    @apply bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] rounded-[24px] p-8 mb-8 flex items-center gap-8 shadow-lg shadow-blue-500/20 text-white antialiased;
+  }
+
+  .admin-pulse-details-icon-container {
+    @apply w-[100px] h-[100px] bg-white/10 backdrop-blur-md rounded-[32px] flex items-center justify-center text-3xl font-black text-white shadow-inner border border-white/20;
+  }
+
+  .admin-pulse-details-section-header {
+    @apply flex items-center gap-2 mb-6 border-b border-slate-100 pb-2;
+  }
+
+  .admin-pulse-details-section-title {
+    @apply text-[11px] font-black text-[#8E99AF] uppercase tracking-[0.2em] antialiased;
+  }
+
+  .admin-pulse-details-group {
+    @apply mb-6;
+  }
+
+  .admin-pulse-details-label {
+    @apply text-[10px] font-black text-[#8E99AF] uppercase tracking-widest mb-1.5 antialiased block;
+  }
+
+  .admin-pulse-details-value {
+    @apply text-base font-black text-[#1E293B] tracking-tight antialiased leading-tight;
+  }
+
+  /* Status Badge in Details */
+  .admin-pulse-status-badge {
+    @apply px-3 py-1 rounded-lg text-[10px] font-black tracking-widest uppercase antialiased;
   }
 }
