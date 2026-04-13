@@ -54,26 +54,33 @@ import ClientSettingsPage from "../pages/client/ClientSettingsPage";
 // Engineer Pages
 import EngineerDashboard from "../pages/engineer/EngineerDashboard";
 import DSRPage from "../pages/engineer/DSRPage";
+
+
+import SitePhotosPage from "../pages/engineer/SitePhotosPage";
+
+import ReportsPage from "../pages/engineer/ReportsPage";
+import SettingsPage from "../pages/engineer/SettingsPage";
 import ActivityListPage from "../pages/engineer/WorkProgress/ActivityListPage";
 import DailyProgressEntryPage from "../pages/engineer/WorkProgress/DailyProgressEntryPage";
-import AttendancePage from "../pages/engineer/LaborManagement/AttendancePage";
+import LaborAttendancePage from "../pages/engineer/LaborManagement/LaborAttendancePage";
 import LaborDetailsPage from "../pages/engineer/LaborManagement/LaborDetailsPage";
 import MaterialReceiptPage from "../pages/engineer/MaterialManagement/MaterialReceiptPage";
 import MaterialConsumptionPage from "../pages/engineer/MaterialManagement/MaterialConsumptionPage";
-import StockListPage from "../pages/engineer/MaterialManagement/StockListPage";
-import MachineryPage from "../pages/engineer/MachineryPage";
-import InspectionPage from "../pages/engineer/QualityControl/InspectionPage";
-import TestReportsPage from "../pages/engineer/QualityControl/TestReportsPage";
-import SafetyChecklistPage from "../pages/engineer/SafetyManagement/SafetyChecklistPage";
-import IncidentReportPage from "../pages/engineer/SafetyManagement/IncidentReportPage";
-import IssueTrackerPage from "../pages/engineer/IssueTrackerPage";
-import SitePhotosPage from "../pages/engineer/SitePhotosPage";
-import DrawingsPage from "../pages/engineer/DrawingsPage";
-import ChecklistsPage from "../pages/engineer/ChecklistsPage";
+import MaterialStockPage from "../pages/engineer/MaterialManagement/MaterialStockPage";
+import QCInspectionPage from "../pages/engineer/QC/QCInspectionPage";
+import QCTestReportsPage from "../pages/engineer/QC/QCTestReportsPage";
+import MachineryPage from "../pages/engineer/MachineryManagement/MachineryPage";
+import SafetyChecklistPage from "../pages/engineer/Safety/SafetyChecklistPage";
+import IncidentReportPage from "../pages/engineer/Safety/IncidentReportPage";
+import IssueTrackerPage from "../pages/engineer/IssueTracker/IssueTrackerPage";
+import DrawingsDocumentsPage from "../pages/engineer/Drawings/DrawingsDocumentsPage";
+import ChecklistsPage from "../pages/engineer/Checklists/ChecklistsPage";
 import MaterialRequestPage from "../pages/engineer/Approvals/MaterialRequestPage";
 import WorkApprovalPage from "../pages/engineer/Approvals/WorkApprovalPage";
-import ReportsPage from "../pages/engineer/ReportsPage";
-import SettingsPage from "../pages/engineer/SettingsPage";
+
+
+
+
 
 const RootRedirect = () => {
   const { user, isAuthenticated } = useAuth();
@@ -152,32 +159,26 @@ function AppRoutes() {
             <Route element={<ProtectedRoute allowedRoles={["Site Engineer"]} />}>
               <Route path="/engineer" element={<EngineerDashboard />} />
               <Route path="/engineer/dsr" element={<DSRPage />} />
-              <Route path="/engineer/progress" element={<Navigate to="/engineer/progress/activities" replace />} />
+              <Route path="/engineer/photos" element={<SitePhotosPage />} />
+              <Route path="/engineer/reports" element={<ReportsPage />} />
+              <Route path="/engineer/settings" element={<SettingsPage />} />
               <Route path="/engineer/progress/activities" element={<ActivityListPage />} />
               <Route path="/engineer/progress/entry" element={<DailyProgressEntryPage />} />
-              <Route path="/engineer/labor" element={<Navigate to="/engineer/labor/attendance" replace />} />
-              <Route path="/engineer/labor/attendance" element={<AttendancePage />} />
+              <Route path="/engineer/labor/attendance" element={<LaborAttendancePage />} />
               <Route path="/engineer/labor/details" element={<LaborDetailsPage />} />
-              <Route path="/engineer/material" element={<Navigate to="/engineer/material/receipt" replace />} />
               <Route path="/engineer/material/receipt" element={<MaterialReceiptPage />} />
               <Route path="/engineer/material/consumption" element={<MaterialConsumptionPage />} />
-              <Route path="/engineer/material/stock" element={<StockListPage />} />
+              <Route path="/engineer/material/stock" element={<MaterialStockPage />} />
+              <Route path="/engineer/qc/inspection" element={<QCInspectionPage />} />
+              <Route path="/engineer/qc/reports" element={<QCTestReportsPage />} />
               <Route path="/engineer/machinery" element={<MachineryPage />} />
-              <Route path="/engineer/qc" element={<Navigate to="/engineer/qc/inspection" replace />} />
-              <Route path="/engineer/qc/inspection" element={<InspectionPage />} />
-              <Route path="/engineer/qc/reports" element={<TestReportsPage />} />
-              <Route path="/engineer/safety" element={<Navigate to="/engineer/safety/checklist" replace />} />
               <Route path="/engineer/safety/checklist" element={<SafetyChecklistPage />} />
               <Route path="/engineer/safety/incident" element={<IncidentReportPage />} />
               <Route path="/engineer/issues" element={<IssueTrackerPage />} />
-              <Route path="/engineer/photos" element={<SitePhotosPage />} />
-              <Route path="/engineer/drawings" element={<DrawingsPage />} />
+              <Route path="/engineer/drawings" element={<DrawingsDocumentsPage />} />
               <Route path="/engineer/checklists" element={<ChecklistsPage />} />
-              <Route path="/engineer/approvals" element={<Navigate to="/engineer/approvals/material" replace />} />
               <Route path="/engineer/approvals/material" element={<MaterialRequestPage />} />
               <Route path="/engineer/approvals/work" element={<WorkApprovalPage />} />
-              <Route path="/engineer/reports" element={<ReportsPage />} />
-              <Route path="/engineer/settings" element={<SettingsPage />} />
             </Route>
 
             {/* Contractor Routes */}

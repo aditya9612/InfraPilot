@@ -1,290 +1,450 @@
 import { useState } from "react";
 import Navbar from "../../components/common/Navbar";
-import StatCard from "../../components/common/StatCard";
 import PageTransition from "../../components/common/PageTransition";
 import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
 
-const reportTypes = [
+// ─── Types ──────────────────────────────────────────────────────────────────────
+
+interface ReportMetric {
+    label: string;
+    value: string;
+    accent?: string;
+}
+
+interface ReportType {
+    id: string;
+    name: string;
+    description: string;
+    icon: string;
+    badgeColor: string;       // badge background + text
+    accentBar: string;        // left accent bar colour
+    lastGenerated: string;
+    size: string;
+    frequency: string;
+    metrics: ReportMetric[];
+}
+
+// ─── Report Definitions ─────────────────────────────────────────────────────────
+
+const reportTypes: ReportType[] = [
     {
         id: "daily",
-        name: "Daily Intelligence Ledger",
-        description: "High-fidelity summary of operational throughput, personnel deployment, and site logistics.",
+        name: "Daily Report",
+        description: "Full summary of today's site operations — labor deployed, work completed, materials consumed, and any issues logged.",
         icon: "📋",
-        color: "bg-blue-50 text-blue-600",
-        lastGenerated: "2026-04-08 08:30 AM",
+        badgeColor: "bg-blue-50 text-blue-600",
+        accentBar: "bg-blue-600",
+        lastGenerated: "Today, 08:30 AM",
         size: "1.2 MB",
-        data: {
-            title: "Operational Velocity Log",
-            date: "April 08, 2026",
-            metrics: [
-                { label: "Mobilization", value: "142 Personnel" },
-                { label: "Concrete Volume", value: "120 m³" },
-                { label: "Steel Fixation", value: "8.5 Tons" },
-                { label: "Safety Variance", value: "0 Delta" }
-            ]
-        }
+        frequency: "Daily",
+        metrics: [
+            { label: "Total Labor", value: "142 Workers", accent: "text-blue-600" },
+            { label: "Concrete Poured", value: "120 m³" },
+            { label: "Steel Fixed", value: "8.5 Tons" },
+            { label: "Safety Incidents", value: "0", accent: "text-emerald-600" },
+        ],
     },
     {
         id: "weekly",
-        name: "Weekly Strategy Audit",
-        description: "Advanced trend analysis and milestone synchronization benchmarks for the current cycle.",
+        name: "Weekly Progress",
+        description: "7-day performance summary covering milestone achievements, planned vs actual progress, and workforce trends.",
         icon: "📈",
-        color: "bg-emerald-50 text-emerald-600",
-        lastGenerated: "2026-04-06 10:00 AM",
+        badgeColor: "bg-emerald-50 text-emerald-600",
+        accentBar: "bg-emerald-500",
+        lastGenerated: "Mon, 10:00 AM",
         size: "4.5 MB",
-        data: {
-            title: "Performance Trajectory Summary",
-            date: "Week 14, 2026",
-            metrics: [
-                { label: "Planned Uptime", value: "85%" },
-                { label: "Actual Throughput", value: "82%" },
-                { label: "Human Equity Consumed", value: "4,800 hrs" },
-                { label: "Financial Exposure", value: "₹45.2 Lakhs" }
-            ]
-        }
+        frequency: "Weekly",
+        metrics: [
+            { label: "Planned Progress", value: "85%" },
+            { label: "Actual Progress", value: "82%", accent: "text-amber-600" },
+            { label: "Labor Hours", value: "4,800 hrs" },
+            { label: "Cost This Week", value: "₹45.2 L", accent: "text-rose-500" },
+        ],
     },
     {
         id: "labor",
-        name: "Human Resource Analytics",
-        description: "Comprehensive breakdown of workforce stratification, overheads, and shift efficiency.",
+        name: "Labor Report",
+        description: "Workforce breakdown by skill category, attendance, overtime, and contractor-wise deployment summary.",
         icon: "👷",
-        color: "bg-amber-50 text-amber-600",
-        lastGenerated: "2026-04-08 07:15 AM",
+        badgeColor: "bg-amber-50 text-amber-600",
+        accentBar: "bg-amber-500",
+        lastGenerated: "Today, 07:15 AM",
         size: "0.8 MB",
-        data: {
-            title: "Workforce Deployment Audit",
-            date: "April 08, 2026",
-            metrics: [
-                { label: "Skilled Force", value: "45 Units" },
-                { label: "General Support", value: "88 Units" },
-                { label: "Tech Operators", value: "9 Units" },
-                { label: "Overtime Delta", value: "24 hrs" }
-            ]
-        }
+        frequency: "Daily",
+        metrics: [
+            { label: "Skilled Labor", value: "45", accent: "text-blue-600" },
+            { label: "Unskilled Labor", value: "88" },
+            { label: "Supervisors", value: "9" },
+            { label: "Overtime Hours", value: "24 hrs", accent: "text-amber-600" },
+        ],
     },
     {
         id: "material",
-        name: "Inventory Reconciliation",
-        description: "Real-time stock equilibrium report covering acquisition, consumption, and closing reserves.",
+        name: "Material Consumption",
+        description: "Inflow vs outflow reconciliation for all materials — cement, steel, aggregates — with stock closing balances.",
         icon: "🏗️",
-        color: "bg-indigo-50 text-indigo-600",
-        lastGenerated: "2026-04-07 05:45 PM",
+        badgeColor: "bg-indigo-50 text-indigo-600",
+        accentBar: "bg-indigo-500",
+        lastGenerated: "Yesterday, 05:45 PM",
         size: "2.1 MB",
-        data: {
-            title: "Material Flux Audit",
-            date: "April 07, 2026",
-            metrics: [
-                { label: "Cement Outflow", value: "450 Bags" },
-                { label: "Steel Outflow", value: "12 Tons" },
-                { label: "Aggregate Flow", value: "320 m³" },
-                { label: "Asset Valuation", value: "₹1.2 Cr" }
-            ]
-        }
+        frequency: "Daily",
+        metrics: [
+            { label: "Cement Consumed", value: "450 Bags", accent: "text-rose-500" },
+            { label: "Steel Used", value: "12 Tons", accent: "text-rose-500" },
+            { label: "Aggregate Used", value: "320 m³" },
+            { label: "Closing Stock Value", value: "₹1.2 Cr", accent: "text-emerald-600" },
+        ],
     },
     {
         id: "issue",
-        name: "Constraint Risk Analytics",
-        description: "Deep-dive into site dependencies, blockade durations, and mitigation effectiveness.",
+        name: "Issue Report",
+        description: "Logged site issues, safety observations, delays, and their current resolution status and priority levels.",
         icon: "⚠️",
-        color: "bg-rose-50 text-rose-600",
-        lastGenerated: "2026-04-08 11:30 AM",
+        badgeColor: "bg-rose-50 text-rose-600",
+        accentBar: "bg-rose-500",
+        lastGenerated: "Today, 11:30 AM",
         size: "0.5 MB",
-        data: {
-            title: "Structural Risk Breakdown",
-            date: "April 08, 2026",
-            metrics: [
-                { label: "Active Blockades", value: "3 Critical" },
-                { label: "Supply Gaps", value: "2 Lines" },
-                { label: "Weather Impact", value: "4 hrs" },
-                { label: "Manpower Variance", value: "6% Short" }
-            ]
-        }
+        frequency: "As needed",
+        metrics: [
+            { label: "Open Issues", value: "3", accent: "text-rose-500" },
+            { label: "Resolved Today", value: "2", accent: "text-emerald-600" },
+            { label: "Weather Delay", value: "4 hrs", accent: "text-amber-600" },
+            { label: "Manpower Gap", value: "6%", accent: "text-amber-600" },
+        ],
     },
 ];
 
-const ReportsPage = () => {
-    const [loadingReport, setLoadingReport] = useState<string | null>(null);
-    const [selectedReport, setSelectedReport] = useState<any | null>(null);
+// ─── Stat Summary ───────────────────────────────────────────────────────────────
 
-    const handleDownload = (report: any) => {
-        setLoadingReport(`${report.id}-download`);
+const statCards = [
+    { label: "Total Reports", value: "42", sub: "+3 this week", accent: "text-primary" },
+    { label: "Generated Today", value: "5", sub: "All 5 types", accent: "text-emerald-500" },
+    { label: "Avg. Report Size", value: "1.8 MB", sub: "Across all types", accent: "text-amber-500" },
+    { label: "Open Issues", value: "3", sub: "2 High Priority", accent: "text-rose-500" },
+];
+
+// ─── ProfileField Helper ────────────────────────────────────────────────────────
+
+const ProfileField = ({
+    label,
+    value,
+    accent,
+}: {
+    label: string;
+    value: string;
+    accent?: string;
+}) => (
+    <div>
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] block mb-1">
+            {label}
+        </span>
+        <p className={`text-sm font-bold text-slate-800 leading-snug ${accent ?? ""}`}>
+            {value || "—"}
+        </p>
+    </div>
+);
+
+// ─── Main Component ─────────────────────────────────────────────────────────────
+
+const ReportsPage = () => {
+    const [selectedReport, setSelectedReport] = useState<ReportType | null>(null);
+    const [loadingId, setLoadingId] = useState<string | null>(null);
+    const [activeFilter, setActiveFilter] = useState("All");
+
+    const handleExport = (report: ReportType) => {
+        setLoadingId(report.id);
+        toast.loading(`Generating ${report.name}…`, { id: `exp-${report.id}` });
         setTimeout(() => {
-            toast.success(`${report.name} transmitted to storage`, { position: 'top-right', icon: '📥' });
-            setLoadingReport(null);
-        }, 1500);
+            toast.success(`${report.name} exported successfully!`, { id: `exp-${report.id}` });
+            setLoadingId(null);
+        }, 1800);
     };
 
+    const frequencyFilters = ["All", "Daily", "Weekly", "As needed"];
+    const filtered = activeFilter === "All"
+        ? reportTypes
+        : reportTypes.filter(r => r.frequency === activeFilter);
+
     return (
-        <div className="engineer-module text-slate-900">
-            <Navbar title="Executive Intelligence" breadcrumb={["InfraPilot", "Dashboard", "Engineer", "BI", "Reports"]} />
+        <>
+            <Navbar
+                title="Reports"
+                breadcrumb={["InfraPilot", "Engineer", "Reports"]}
+            />
 
-            <PageTransition className="p-8 bg-slate-50 min-h-screen relative font-inter">
-                <div className="max-w-7xl mx-auto">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-16">
-                        <div>
-                            <h1 className="text-2xl font-black text-slate-800 tracking-tighter  mb-2">Management Intelligence Dash</h1>
-                            <p className="text-slate-500 font-medium tracking-tight">Business intelligence, PDF generation, and operational performance reports.</p>
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <button
-                                onClick={() => toast.success("Retrieving archival data...", { position: "top-right" })}
-                                className="flex items-center gap-3 px-8 py-4 bg-white border border-slate-100 text-slate-400 rounded-2xl text-[10px] font-black  tracking-[0.25em] hover:text-primary transition-all active:scale-95 shadow-xl shadow-slate-200/50"
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
-                                Filter Registry
-                            </button>
-                        </div>
-                    </div>
-                    {/* Top Widgets */}
-                    <div className="mb-10">
-                        <h2 className="text-[10px] font-black text-slate-400  tracking-[0.3em] mb-6 flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
-                            BI Intelligence Vitals
-                        </h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                            <StatCard
-                                title="Total Reports"
-                                value="42"
-                                sub="Strategic intelligence"
-                                accent="text-primary"
-                                icon="📑"
-                            />
-                            <StatCard
-                                title="Audit Pass Rate"
-                                value="96%"
-                                sub="Compliance baseline"
-                                accent="text-emerald-500"
-                                icon="🛡️"
-                            />
-                            <StatCard
-                                title="Query Latency"
-                                value="1.2s"
-                                sub="Intelligence response"
-                                accent="text-blue-500"
-                                icon="⚡"
-                            />
-                            <StatCard
-                                title="Data Storage"
-                                value="15.4GB"
-                                sub="Archival footprint"
-                                accent="text-rose-500"
-                                icon="💾"
-                            />
-                        </div>
+            <PageTransition className="p-8 bg-slate-50 min-h-screen font-inter">
+
+                {/* ── Header ──────────────────────────────────────────────── */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+                    <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">
+                            Site Engineer
+                        </p>
+                        <h1 className="text-3xl font-black text-slate-800 tracking-tighter mb-1">
+                            Reports
+                        </h1>
+                        <p className="text-slate-500 text-sm font-medium">
+                            Generate, view, and export daily, weekly, labor, material, and issue reports.
+                        </p>
                     </div>
 
+                    <button
+                        onClick={() => toast.success("Refreshing all reports…")}
+                        className="flex items-center gap-2 px-5 py-3 bg-white border border-slate-200 text-slate-600 rounded-2xl text-sm font-bold shadow-sm hover:border-slate-300 transition-all"
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Refresh Reports
+                    </button>
+                </div>
 
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-                        {reportTypes.map(report => (
-                            <div key={report.id} className="relative bg-white rounded-[40px] p-8 shadow-sm border border-slate-100 flex flex-col gap-8 hover:shadow-2xl hover:shadow-slate-200/50 transition-all group overflow-hidden">
-                                <div className={`absolute left-0 top-10 bottom-10 w-2 rounded-r-full transition-all bg-blue-600 shadow-[0_0_20px_rgba(37,99,235,0.3)]`} />
-
-                                <div className="flex items-start justify-between">
-                                    <div className="flex items-center gap-6">
-                                        <div className={`w-16 h-16 rounded-[24px] flex items-center justify-center text-2xl transition-all group-hover:bg-slate-900 group-hover:text-white group-hover:rotate-6 shadow-sm ${report.color}`}>
-                                            {report.icon}
-                                        </div>
-                                        <div>
-                                            <span className="text-[9px] font-black text-slate-400 tracking-[0.2em] uppercase mb-1 block">REPORT TYPE: {report.id}</span>
-                                            <h3 className="text-xl font-black text-slate-800 tracking-tighter group-hover:text-blue-600 transition-colors uppercase leading-tight">{report.name}</h3>
-                                        </div>
-                                    </div>
-                                    <div className="text-right flex flex-col">
-                                        <span className="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-1">Payload</span>
-                                        <span className="text-sm font-black text-slate-800 tracking-tighter">{report.size}</span>
-                                    </div>
-                                </div>
-
-                                <div className="p-8 bg-slate-50/50 rounded-[32px] border border-slate-100 flex-1">
-                                    <span className="text-[10px] font-black text-slate-400 tracking-widest uppercase block mb-3">Strategy Directive</span>
-                                    <p className="text-sm font-bold text-slate-500 leading-relaxed italic">"{report.description}"</p>
-                                </div>
-
-                                <div className="space-y-4 px-4 pt-2 border-t border-slate-50 mt-auto">
-                                    <div className="flex flex-col">
-                                        <span className="text-[9px] font-black text-slate-400 tracking-widest uppercase mb-2">Protocol Integrity</span>
-                                        <div className="flex items-center gap-2">
-                                            <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]"></span>
-                                            <span className="text-[11px] font-black text-slate-500 tracking-tight">{report.lastGenerated}</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-4">
-                                        <button
-                                            onClick={() => setSelectedReport(report)}
-                                            className="flex-1 py-4 bg-slate-100 text-slate-800 rounded-2xl text-[10px] font-black tracking-widest hover:bg-slate-900 hover:text-white transition-all shadow-sm"
-                                        >INSPECT</button>
-                                        <button
-                                            onClick={() => handleDownload(report)}
-                                            disabled={!!loadingReport}
-                                            className="flex-1 py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black tracking-widest shadow-lg shadow-blue-500/20 hover:bg-blue-700 active:scale-95 transition-all flex items-center justify-center gap-2"
-                                        >
-                                            {loadingReport === `${report.id}-download` ? '...' : 'EXPORT'}
-                                        </button>
-                                    </div>
-                                </div>
+                {/* ── Stat Cards ───────────────────────────────────────────── */}
+                <div className="mb-8">
+                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">
+                        Report Overview
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {statCards.map((s) => (
+                            <div key={s.label} className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
+                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">{s.label}</p>
+                                <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
+                                <p className="text-[10px] text-slate-400 mt-1.5 font-medium">{s.sub}</p>
                             </div>
                         ))}
                     </div>
                 </div>
 
-                {/* Intelligent Report Viewer Modal */}
-                <Modal
-                    isOpen={!!selectedReport}
-                    onClose={() => setSelectedReport(null)}
-                    title={selectedReport?.name || "Report Detail"}
-                    maxWidth="max-w-2xl"
-                >
-                    {selectedReport && (
-                        <div className="p-12 bg-white">
-                            <div className="mb-12">
-                                <div className="admin-pulse-form-section-header mb-4">
-                                    <div className={`admin-pulse-form-section-indicator ${selectedReport.color.split(' ')[0]}`} />
-                                    <h3 className="admin-pulse-form-section-title">{selectedReport.name}</h3>
-                                </div>
-                                <h2 className="text-3xl font-black text-slate-800 tracking-tighter leading-none mb-4">{selectedReport.data.title}</h2>
-                                <p className="text-slate-400 text-xs font-medium italic">Verified site data encapsulated for executive transmission.</p>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-                                {selectedReport.data.metrics.map((m: any, i: number) => (
-                                    <div key={i} className="p-8 bg-slate-50/50 rounded-[32px] border border-slate-50 flex flex-col gap-2 group hover:bg-white hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300">
-                                        <p className="text-[9px] font-black text-slate-300 tracking-[0.2em] group-hover:text-blue-600 transition-colors uppercase">{m.label}</p>
-                                        <p className="text-2xl font-black text-slate-800 tracking-tighter group-hover:scale-105 transition-transform origin-left">{m.value}</p>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div className="admin-pulse-form-summary mb-12">
-                                <div>
-                                    <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Report Temporal Meta</span>
-                                    <p className="text-2xl font-black text-slate-800 tracking-tighter mt-1">{selectedReport.data.date.toUpperCase()}</p>
-                                </div>
-                                <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
-                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 00-2 2z" /></svg>
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col sm:flex-row gap-4">
+                {/* ── Filter Tabs + Report Cards ───────────────────────────── */}
+                <div>
+                    {/* Section header + filter */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">
+                            Available Reports
+                        </h2>
+                        <div className="flex gap-2">
+                            {frequencyFilters.map(tab => (
                                 <button
-                                    onClick={() => {
-                                        handleDownload(selectedReport);
-                                        setSelectedReport(null);
-                                    }}
-                                    className="admin-pulse-btn-primary !w-full"
+                                    key={tab}
+                                    onClick={() => setActiveFilter(tab)}
+                                    className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${activeFilter === tab
+                                            ? "bg-slate-800 text-white shadow-sm"
+                                            : "bg-white text-slate-500 border border-slate-200 hover:border-slate-300"
+                                        }`}
                                 >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                                    Transmit PDF Manifest
+                                    {tab}
                                 </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Cards Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {filtered.map((report) => (
+                            <div
+                                key={report.id}
+                                className="relative bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hover:shadow-md hover:border-slate-200 transition-all flex flex-col gap-5 group"
+                            >
+                                {/* Accent bar */}
+                                <div className={`absolute left-0 top-5 bottom-5 w-1 ${report.accentBar} rounded-r-full opacity-0 group-hover:opacity-100 transition-opacity`} />
+
+                                {/* Card header */}
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl ${report.badgeColor}`}>
+                                            {report.icon}
+                                        </div>
+                                        <div>
+                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">
+                                                {report.frequency}
+                                            </p>
+                                            <h3 className="text-base font-black text-slate-800 leading-tight">
+                                                {report.name}
+                                            </h3>
+                                        </div>
+                                    </div>
+                                    <span className="text-[10px] font-bold text-slate-400 shrink-0">{report.size}</span>
+                                </div>
+
+                                {/* Description */}
+                                <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                                    {report.description}
+                                </p>
+
+                                {/* Metrics preview */}
+                                <div className="grid grid-cols-2 gap-3 py-4 border-y border-slate-50">
+                                    {report.metrics.map((m, i) => (
+                                        <div key={i}>
+                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">{m.label}</p>
+                                            <p className={`text-sm font-black text-slate-800 ${m.accent ?? ""}`}>{m.value}</p>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Footer: last generated + buttons */}
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="w-2 h-2 bg-emerald-500 rounded-full" />
+                                        <span className="text-[10px] font-bold text-slate-400">{report.lastGenerated}</span>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        {/* View button */}
+                                        <button
+                                            title="View Report"
+                                            onClick={() => setSelectedReport(report)}
+                                            className="p-2 text-slate-400 hover:text-primary hover:bg-blue-50 rounded-lg transition-all"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                            </svg>
+                                        </button>
+                                        {/* Export button */}
+                                        <button
+                                            onClick={() => handleExport(report)}
+                                            disabled={loadingId === report.id}
+                                            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-xs font-bold rounded-xl transition-all shadow-sm shadow-blue-200"
+                                        >
+                                            {loadingId === report.id ? (
+                                                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            ) : (
+                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                </svg>
+                                            )}
+                                            Export
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+
+                        {filtered.length === 0 && (
+                            <div className="col-span-3 bg-white rounded-2xl p-12 text-center border border-slate-100 shadow-sm">
+                                <p className="text-slate-400 text-sm font-medium">No reports match this filter.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </PageTransition>
+
+            {/* ═══════════════════════════════════════════════════════════════
+                REPORT DETAIL MODAL  (matches DSR / User Profile style)
+            ═══════════════════════════════════════════════════════════════ */}
+            <Modal
+                isOpen={!!selectedReport}
+                onClose={() => setSelectedReport(null)}
+                title="Report Details"
+                maxWidth="max-w-2xl"
+            >
+                {selectedReport && (
+                    <div className="bg-white">
+
+                        {/* Blue Banner */}
+                        <div className="bg-gradient-to-br from-blue-500 to-blue-700 mx-6 mt-6 rounded-2xl p-6 flex items-center gap-5">
+                            <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center text-2xl shrink-0">
+                                {selectedReport.icon}
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-3 mb-1.5">
+                                    <h2 className="text-xl font-black text-white tracking-tight leading-none">
+                                        {selectedReport.name}
+                                    </h2>
+                                    <span className="px-3 py-0.5 bg-white/20 text-white text-[10px] font-bold rounded-full border border-white/30 uppercase tracking-wider">
+                                        {selectedReport.frequency}
+                                    </span>
+                                </div>
+                                <p className="text-blue-100 text-sm font-semibold mb-0.5">
+                                    Last generated: {selectedReport.lastGenerated}
+                                </p>
+                                <p className="text-blue-200 text-[10px] font-bold uppercase tracking-[0.2em]">
+                                    File size: {selectedReport.size}
+                                </p>
                             </div>
                         </div>
-                    )}
-                </Modal>
 
-            </PageTransition>
-        </div>
+                        {/* Body */}
+                        <div className="px-8 py-6 space-y-7">
+
+                            {/* Section: Description */}
+                            <div>
+                                <div className="flex items-center gap-2.5 mb-4">
+                                    <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span className="text-[11px] font-black text-slate-500 uppercase tracking-[0.18em]">
+                                        Report Overview
+                                    </span>
+                                </div>
+                                <p className="text-sm font-medium text-slate-600 leading-relaxed">
+                                    {selectedReport.description}
+                                </p>
+                            </div>
+
+                            <hr className="border-slate-100" />
+
+                            {/* Section: Key Metrics */}
+                            <div>
+                                <div className="flex items-center gap-2.5 mb-4">
+                                    <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                    </svg>
+                                    <span className="text-[11px] font-black text-slate-500 uppercase tracking-[0.18em]">
+                                        Key Metrics
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+                                    {selectedReport.metrics.map((m, i) => (
+                                        <ProfileField key={i} label={m.label} value={m.value} accent={m.accent} />
+                                    ))}
+                                </div>
+                            </div>
+
+                            <hr className="border-slate-100" />
+
+                            {/* Section: Report Info */}
+                            <div>
+                                <div className="flex items-center gap-2.5 mb-4">
+                                    <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    <span className="text-[11px] font-black text-slate-500 uppercase tracking-[0.18em]">
+                                        Report Details
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+                                    <ProfileField label="Report Type" value={selectedReport.name} />
+                                    <ProfileField label="Frequency" value={selectedReport.frequency} />
+                                    <ProfileField label="Last Generated" value={selectedReport.lastGenerated} />
+                                    <ProfileField label="File Size" value={selectedReport.size} />
+                                </div>
+                            </div>
+
+                        </div>
+
+                        {/* Footer */}
+                        <div className="px-8 pb-7 flex items-center justify-between gap-4">
+                            <button
+                                onClick={() => setSelectedReport(null)}
+                                className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:text-slate-700 transition-all"
+                            >
+                                Close
+                            </button>
+                            <button
+                                onClick={() => { handleExport(selectedReport); setSelectedReport(null); }}
+                                className="flex items-center gap-2 px-8 py-3 bg-slate-900 hover:bg-black text-white text-sm font-bold rounded-xl transition-all tracking-wide"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                                Export Report
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </Modal>
+        </>
     );
 };
 

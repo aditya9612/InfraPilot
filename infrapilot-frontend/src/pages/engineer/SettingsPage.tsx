@@ -1,250 +1,484 @@
 import { useState } from "react";
 import Navbar from "../../components/common/Navbar";
-import StatCard from "../../components/common/StatCard";
 import PageTransition from "../../components/common/PageTransition";
 import toast from "react-hot-toast";
 
-const SettingsPage = () => {
-    const [settings, setSettings] = useState({
-        currentProject: "Grand Residency Ph-1",
-        units: "SI Units (Metric)",
-        notifications: {
-            email: true,
-            sms: false,
-            app: true,
-            reminders: true
-        },
-        preferences: {
-            darkMode: false,
-            language: "English (Global)",
-            autoSave: true
-        }
-    });
+// ─── Toggle Switch ──────────────────────────────────────────────────────────────
 
+const Toggle = ({
+    enabled,
+    onChange,
+}: {
+    enabled: boolean;
+    onChange: () => void;
+}) => (
+    <button
+        type="button"
+        onClick={onChange}
+        className={`relative w-12 h-6 rounded-full transition-all duration-300 focus:outline-none ${enabled ? "bg-blue-600" : "bg-slate-200"}`}
+    >
+        <span
+            className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-300 ${enabled ? "translate-x-6" : "translate-x-0"}`}
+        />
+    </button>
+);
+
+// ─── Section Header ─────────────────────────────────────────────────────────────
+
+const SectionHeader = ({
+    icon,
+    title,
+}: {
+    icon: React.ReactNode;
+    title: string;
+}) => (
+    <div className="flex items-center gap-2.5 mb-6">
+        <span className="text-slate-500">{icon}</span>
+        <span className="text-[11px] font-black text-slate-500 uppercase tracking-[0.18em]">
+            {title}
+        </span>
+    </div>
+);
+
+// ─── Main Component ─────────────────────────────────────────────────────────────
+
+const SettingsPage = () => {
     const [isSaving, setIsSaving] = useState(false);
 
+    // ── 1. Project Selection ─────────────────────────────────────────────
+    const [selectedProject, setSelectedProject] = useState("Skyline Tower A");
+    const projects = [
+        "Skyline Tower A",
+        "Grand Residency Phase 1",
+        "Metro Station – Zone A",
+        "Industrial Shed Extension",
+        "Riverside Commercial Complex",
+    ];
+
+    // ── 2. Units ─────────────────────────────────────────────────────────
+    const [unitSystem, setUnitSystem] = useState("Metric");
+    const [massUnit, setMassUnit] = useState("Kg");
+    const [lengthUnit, setLengthUnit] = useState("Meter");
+
+    const unitOptions = {
+        system: ["Metric", "Imperial"],
+        mass: ["Kg", "Ton", "Lbs"],
+        length: ["Meter", "Feet", "Inch", "Cm"],
+    };
+
+    // ── 3. Notification Settings ─────────────────────────────────────────
+    const [notifications, setNotifications] = useState({
+        emailAlerts: true,
+        smsAlerts: false,
+        pushNotifications: true,
+        dsrReminders: true,
+        issueAlerts: true,
+        materialAlerts: false,
+    });
+
+    const toggleNotif = (key: keyof typeof notifications) => {
+        setNotifications(prev => ({ ...prev, [key]: !prev[key] }));
+    };
+
+    const notifItems = [
+        { key: "emailAlerts" as const, label: "Email Alerts", desc: "Receive daily summary via email", icon: "📧" },
+        { key: "smsAlerts" as const, label: "SMS Alerts", desc: "Critical site alerts via SMS", icon: "📱" },
+        { key: "pushNotifications" as const, label: "Push Notifications", desc: "Real-time app notifications", icon: "🔔" },
+        { key: "dsrReminders" as const, label: "DSR Reminders", desc: "Daily reminder to submit DSR", icon: "📋" },
+        { key: "issueAlerts" as const, label: "Issue Alerts", desc: "Notify on new high-priority issues", icon: "⚠️" },
+        { key: "materialAlerts" as const, label: "Material Alerts", desc: "Low stock threshold notifications", icon: "🏗️" },
+    ];
+
+    // ── 4. User Preferences ──────────────────────────────────────────────
+    const [preferences, setPreferences] = useState({
+        autoSave: true,
+        compactView: false,
+        showWeather: true,
+        showGPS: true,
+    });
+
+    const [language, setLanguage] = useState("English");
+    const [timezone, setTimezone] = useState("IST (UTC+5:30)");
+    const [dateFormat, setDateFormat] = useState("DD/MM/YYYY");
+
+    const togglePref = (key: keyof typeof preferences) => {
+        setPreferences(prev => ({ ...prev, [key]: !prev[key] }));
+    };
+
+    const prefItems = [
+        { key: "autoSave" as const, label: "Auto Save", desc: "Auto-save form drafts every 60s" },
+        { key: "compactView" as const, label: "Compact View", desc: "Reduce padding for denser layout" },
+        { key: "showWeather" as const, label: "Show Weather Widget", desc: "Display weather on dashboard" },
+        { key: "showGPS" as const, label: "Auto GPS Capture", desc: "Capture GPS on DSR form open" },
+    ];
+
+    // ── Save ─────────────────────────────────────────────────────────────
     const handleSave = () => {
         setIsSaving(true);
+        toast.loading("Saving settings…", { id: "settings-save" });
         setTimeout(() => {
-            toast.success("Protocol configurations synchronized", { position: 'top-right', icon: '⚙️' });
+            toast.success("Settings saved successfully!", { id: "settings-save" });
             setIsSaving(false);
-        }, 1200);
-    };
-
-    const toggleNotification = (key: keyof typeof settings.notifications) => {
-        setSettings(prev => ({
-            ...prev,
-            notifications: { ...prev.notifications, [key]: !prev.notifications[key] }
-        }));
-    };
-
-    const togglePreference = (key: keyof typeof settings.preferences) => {
-        setSettings(prev => {
-            const value = prev.preferences[key];
-            if (typeof value === "boolean") {
-                return {
-                    ...prev,
-                    preferences: { ...prev.preferences, [key]: !value }
-                };
-            }
-            return prev;
-        });
+        }, 1400);
     };
 
     return (
-        <div className="engineer-module text-slate-900">
-            <Navbar title="Identity & Protocols" breadcrumb={["InfraPilot", "Dashboard", "Engineer", "Account", "Settings"]} />
+        <>
+            <Navbar
+                title="Settings"
+                breadcrumb={["InfraPilot", "Engineer", "Settings"]}
+            />
 
-            <PageTransition className="p-8 bg-slate-50 min-h-screen relative font-inter pb-32">
-                <div className="max-w-6xl mx-auto">
-                    <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-8 mb-16">
-                        <div>
-                            <h1 className="text-2xl font-black text-slate-800 tracking-tighter  mb-2">Protocol Architecture</h1>
-                            <p className="text-slate-500 font-medium tracking-tight">Profile management, notification preferences, and security protocols.</p>
-                        </div>
-                        <button
-                            onClick={handleSave}
-                            disabled={isSaving}
-                            className="w-full xl:w-[160px] bg-primary text-white py-4 rounded-2xl text-[10px] font-black tracking-[0.4em] shadow-2xl shadow-primary/20 hover:bg-blue-600 hover:-translate-y-1 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
-                        >
-                            Sync Configuration
-                        </button>
+            <PageTransition className="p-8 bg-slate-50 min-h-screen font-inter">
+
+                {/* ── Header ──────────────────────────────────────────────── */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+                    <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">
+                            Preferences
+                        </p>
+                        <h1 className="text-3xl font-black text-slate-800 tracking-tighter mb-1">
+                            Settings
+                        </h1>
+                        <p className="text-slate-500 text-sm font-medium">
+                            Configure your project, units, notifications, and personal preferences.
+                        </p>
                     </div>
-                    {/* Top Widgets */}
-                    <div className="mb-10">
-                        <h2 className="text-[10px] font-black text-slate-400  tracking-[0.3em] mb-6 flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
-                            Protocol Health Vitals
-                        </h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                            <StatCard
-                                title="Config Drift"
-                                value="0%"
-                                sub="Protocol alignment"
-                                accent="text-emerald-500"
-                                icon="🛡️"
-                            />
-                            <StatCard
-                                title="Security Index"
-                                value="High"
-                                sub="Auth encryption"
-                                accent="text-primary"
-                                icon="🔒"
-                            />
-                            <StatCard
-                                title="Sync Frequency"
-                                value="120s"
-                                sub="Data buffering"
-                                accent="text-blue-500"
-                                icon="🔄"
-                            />
-                            <StatCard
-                                title="Session State"
-                                value="Active"
-                                sub="Identity verified"
-                                accent="text-slate-800"
-                                icon="🆔"
-                            />
+                    <button
+                        onClick={handleSave}
+                        disabled={isSaving}
+                        className="flex items-center gap-2 px-7 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm font-bold rounded-2xl shadow-md shadow-blue-200 transition-all"
+                    >
+                        {isSaving ? (
+                            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                            </svg>
+                        )}
+                        Save Settings
+                    </button>
+                </div>
+
+                {/* ── Stat Cards ───────────────────────────────────────────── */}
+                <div className="mb-8">
+                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">
+                        Current Configuration
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Active Project</p>
+                            <p className="text-base font-bold text-primary truncate">{selectedProject}</p>
+                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">Currently selected</p>
                         </div>
-                    </div>
-
-
-
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-                        {/* 1. Technical Context */}
-                        <div className="lg:col-span-12 xl:col-span-5 space-y-10">
-                            <div className="relative bg-white rounded-[40px] p-12 shadow-sm border border-slate-100 flex flex-col gap-10 group overflow-hidden">
-                                <div className={`absolute left-0 top-10 bottom-10 w-2 rounded-r-full transition-all bg-blue-600 shadow-[0_0_20px_rgba(37,99,235,0.3)]`} />
-
-                                <h2 className="text-[10px] font-black text-slate-400 tracking-[0.3em] uppercase flex items-center gap-3">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
-                                    Registry Context
-                                </h2>
-
-                                <div className="space-y-8">
-                                    <div>
-                                        <label className="admin-pulse-form-label">Active Deployment Environment</label>
-                                        <select
-                                            value={settings.currentProject}
-                                            onChange={(e) => setSettings(prev => ({ ...prev, currentProject: e.target.value }))}
-                                            className="admin-pulse-form-input cursor-pointer"
-                                        >
-                                            <option>Grand Residency Ph-1</option>
-                                            <option>Skyline Towers</option>
-                                            <option>Metro Station - Zone A</option>
-                                            <option>Industrial Shed Extension</option>
-                                        </select>
-                                    </div>
-
-                                    <div>
-                                        <label className="admin-pulse-form-label">Metrics Calibration</label>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            {['SI Units (Metric)', 'Imperial Systems'].map(unit => (
-                                                <button
-                                                    key={unit}
-                                                    onClick={() => setSettings(prev => ({ ...prev, units: unit }))}
-                                                    className={`py-5 rounded-2xl text-[10px] font-black tracking-widest transition-all border ${settings.units === unit ? 'bg-slate-900 text-white border-slate-900 shadow-xl shadow-slate-900/20' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-white hover:text-slate-600 hover:border-slate-200'}`}
-                                                >
-                                                    {unit.toUpperCase()}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* Summary-like detail within card */}
-                                    <div className="admin-pulse-form-summary mt-12">
-                                        <div>
-                                            <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Calibration State</span>
-                                            <p className="text-xl font-black text-slate-800 tracking-tighter mt-1">{settings.units.toUpperCase()}</p>
-                                        </div>
-                                        <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="relative bg-slate-900 rounded-[40px] p-12 shadow-2xl shadow-slate-900/20 text-white overflow-hidden">
-                                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/20 rounded-full blur-3xl -mr-32 -mt-32"></div>
-                                <h2 className="text-[10px] font-black text-blue-400 tracking-[0.3em] uppercase mb-10 relative z-10">Telemetry Engine</h2>
-                                <div className="space-y-6 relative z-10">
-                                    <div className="flex items-center justify-between p-8 bg-white/5 rounded-[32px] border border-white/10 group/item hover:bg-white/10 transition-all">
-                                        <div>
-                                            <p className="text-[10px] font-black text-white tracking-widest uppercase mb-1">Auto-Sync Ledger</p>
-                                            <p className="text-[10px] font-medium text-white/40 italic">Buffer DSR drafts locally every 120s</p>
-                                        </div>
-                                        <button
-                                            onClick={() => togglePreference('autoSave')}
-                                            className={`w-14 h-8 rounded-full relative p-1 transition-all ${settings.preferences.autoSave ? 'bg-blue-600' : 'bg-white/10'}`}
-                                        >
-                                            <div className={`w-6 h-6 bg-white rounded-full shadow-lg transition-all absolute top-1 ${settings.preferences.autoSave ? 'left-7' : 'left-1'}`}></div>
-                                        </button>
-                                    </div>
-
-                                    <div className="flex items-center justify-between p-8 bg-white/5 rounded-[32px] border border-white/10 opacity-40 cursor-not-allowed">
-                                        <div>
-                                            <p className="text-[10px] font-black text-white tracking-widest uppercase mb-1">Low-Light Interface</p>
-                                            <p className="text-[10px] font-medium text-white/40 italic">High-contrast dark mode protocols</p>
-                                        </div>
-                                        <div className="w-14 h-8 bg-white/10 rounded-full relative p-1">
-                                            <div className="w-6 h-6 bg-white/40 rounded-full absolute left-1 top-1"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Unit System</p>
+                            <p className="text-base font-bold text-emerald-500">{unitSystem}</p>
+                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">{massUnit} · {lengthUnit}</p>
                         </div>
-
-                        {/* 2. Notification Architecture */}
-                        <div className="lg:col-span-12 xl:col-span-7 relative bg-white rounded-[40px] p-12 shadow-sm border border-slate-100 flex flex-col group overflow-hidden">
-                            <div className={`absolute left-0 top-10 bottom-10 w-2 rounded-r-full transition-all bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)]`} />
-
-                            <h2 className="text-[10px] font-black text-slate-400 tracking-[0.3em] uppercase mb-12 flex items-center gap-3">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                Communication Thresholds
-                            </h2>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                {[
-                                    { key: 'email', label: 'Email Stream', sub: 'Weekly Intelligence Briefing', icon: '📧' },
-                                    { key: 'sms', label: 'Terminal SMS', sub: 'Critical Structural Blockades', icon: '📱' },
-                                    { key: 'app', label: 'Native Push', sub: 'Real-time DSR Sync Feedback', icon: '🔔' },
-                                    { key: 'reminders', label: 'Protocol Reminders', sub: 'Deployment Log Deadlines', icon: '⏰' }
-                                ].map((notif) => {
-                                    const key = notif.key as keyof typeof settings.notifications;
-                                    const isActive = settings.notifications[key];
-                                    return (
-                                        <div
-                                            key={key}
-                                            onClick={() => toggleNotification(key)}
-                                            className={`p-10 rounded-[40px] flex flex-col items-center text-center gap-4 transition-all duration-500 cursor-pointer group border ${isActive ? 'bg-emerald-50/50 border-emerald-100 shadow-xl shadow-emerald-500/5' : 'bg-slate-50 border-slate-50 grayscale opacity-60'}`}
-                                        >
-                                            <div className="text-4xl mb-4 group-hover:scale-110 group-hover:rotate-6 transition-transform">{notif.icon}</div>
-                                            <div>
-                                                <p className="text-sm font-black text-slate-800 tracking-tighter uppercase mb-1">{notif.label}</p>
-                                                <p className="text-[10px] font-bold text-slate-400 italic max-w-[160px] mx-auto leading-relaxed">"{notif.sub}"</p>
-                                            </div>
-                                            <div className={`mt-4 px-8 py-2 rounded-2xl text-[9px] font-black tracking-widest uppercase transition-all ${isActive ? 'bg-emerald-600 text-white shadow-[0_0_20px_rgba(5,150,105,0.3)]' : 'bg-slate-200 text-slate-400'}`}>
-                                                {isActive ? 'SYNCHRONIZED' : 'DISABLED'}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-
-                            <div className="mt-16 p-8 bg-rose-50/50 rounded-[32px] border border-rose-100 flex items-start gap-6">
-                                <div className="w-14 h-14 bg-rose-600 rounded-[20px] flex items-center justify-center text-white shrink-0 shadow-lg shadow-rose-500/20">
-                                    <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                                </div>
-                                <div className="pt-1">
-                                    <p className="text-sm font-black text-rose-800 tracking-tight uppercase mb-1">Administrative Privileges Restricted</p>
-                                    <p className="text-[11px] font-bold text-rose-600/80 leading-relaxed italic">System-level updates and global personnel configurations are restricted to the Project Director. Engineers can only modify localized site context and individual notification streams.</p>
-                                </div>
-                            </div>
+                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Notifications</p>
+                            <p className="text-base font-bold text-amber-500">
+                                {Object.values(notifications).filter(Boolean).length} / {Object.keys(notifications).length}
+                            </p>
+                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">Channels active</p>
+                        </div>
+                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Language</p>
+                            <p className="text-base font-bold text-slate-700">{language}</p>
+                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">{timezone}</p>
                         </div>
                     </div>
                 </div>
+
+                {/* ── Main Settings Grid ───────────────────────────────────── */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                    {/* ─ 1. Project Selection ──────────────────────────────── */}
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                        <SectionHeader
+                            title="Project Selection"
+                            icon={
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                </svg>
+                            }
+                        />
+
+                        <div className="space-y-4">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                    Active Project
+                                </label>
+                                <select
+                                    value={selectedProject}
+                                    onChange={e => setSelectedProject(e.target.value)}
+                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none cursor-pointer"
+                                >
+                                    {projects.map(p => (
+                                        <option key={p} value={p}>{p}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Project cards */}
+                            <div className="space-y-2 mt-2">
+                                {projects.map(p => (
+                                    <button
+                                        key={p}
+                                        onClick={() => setSelectedProject(p)}
+                                        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold transition-all ${selectedProject === p
+                                                ? "bg-blue-50 border-blue-200 text-blue-700"
+                                                : "bg-slate-50 border-slate-100 text-slate-600 hover:border-slate-200"
+                                            }`}
+                                    >
+                                        <span className="flex items-center gap-2.5">
+                                            <span className={`w-2 h-2 rounded-full ${selectedProject === p ? "bg-blue-500" : "bg-slate-300"}`} />
+                                            {p}
+                                        </span>
+                                        {selectedProject === p && (
+                                            <span className="text-[9px] font-bold text-blue-500 uppercase tracking-widest">Active</span>
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ─ 2. Units ──────────────────────────────────────────── */}
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                        <SectionHeader
+                            title="Units"
+                            icon={
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                                </svg>
+                            }
+                        />
+
+                        <div className="space-y-5">
+                            {/* Unit System */}
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Unit System</label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {unitOptions.system.map(u => (
+                                        <button
+                                            key={u}
+                                            onClick={() => setUnitSystem(u)}
+                                            className={`py-3 rounded-xl text-xs font-bold border transition-all ${unitSystem === u
+                                                    ? "bg-slate-800 text-white border-slate-800 shadow-sm"
+                                                    : "bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-300"
+                                                }`}
+                                        >
+                                            {u}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Mass Unit */}
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                    Mass / Weight
+                                </label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {unitOptions.mass.map(u => (
+                                        <button
+                                            key={u}
+                                            onClick={() => setMassUnit(u)}
+                                            className={`py-3 rounded-xl text-xs font-bold border transition-all ${massUnit === u
+                                                    ? "bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-200"
+                                                    : "bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-300"
+                                                }`}
+                                        >
+                                            {u}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Length Unit */}
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                    Length / Distance
+                                </label>
+                                <div className="grid grid-cols-4 gap-2">
+                                    {unitOptions.length.map(u => (
+                                        <button
+                                            key={u}
+                                            onClick={() => setLengthUnit(u)}
+                                            className={`py-3 rounded-xl text-xs font-bold border transition-all ${lengthUnit === u
+                                                    ? "bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-200"
+                                                    : "bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-300"
+                                                }`}
+                                        >
+                                            {u}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Live summary */}
+                            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 mt-2">
+                                <div>
+                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Current Units</p>
+                                    <p className="text-sm font-black text-slate-800">{unitSystem} · {massUnit} · {lengthUnit}</p>
+                                </div>
+                                <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 text-base">⚖️</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ─ 3. Notification Settings ──────────────────────────── */}
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                        <SectionHeader
+                            title="Notification Settings"
+                            icon={
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                </svg>
+                            }
+                        />
+
+                        <div className="space-y-3">
+                            {notifItems.map(item => (
+                                <div
+                                    key={item.key}
+                                    className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-200 transition-all group"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-lg">{item.icon}</span>
+                                        <div>
+                                            <p className="text-sm font-bold text-slate-700">{item.label}</p>
+                                            <p className="text-[10px] text-slate-400 font-medium">{item.desc}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <span className={`text-[9px] font-bold uppercase tracking-widest ${notifications[item.key] ? "text-emerald-600" : "text-slate-400"}`}>
+                                            {notifications[item.key] ? "On" : "Off"}
+                                        </span>
+                                        <Toggle
+                                            enabled={notifications[item.key]}
+                                            onChange={() => toggleNotif(item.key)}
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* ─ 4. User Preferences ───────────────────────────────── */}
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col gap-6">
+                        <SectionHeader
+                            title="User Preferences"
+                            icon={
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                            }
+                        />
+
+                        {/* Dropdown prefs */}
+                        <div className="grid grid-cols-1 gap-4">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Language</label>
+                                <select
+                                    value={language}
+                                    onChange={e => setLanguage(e.target.value)}
+                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none cursor-pointer"
+                                >
+                                    {["English", "Hindi", "Marathi", "Tamil", "Telugu"].map(l => (
+                                        <option key={l}>{l}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Timezone</label>
+                                    <select
+                                        value={timezone}
+                                        onChange={e => setTimezone(e.target.value)}
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none cursor-pointer"
+                                    >
+                                        {["IST (UTC+5:30)", "UTC", "EST (UTC-5)", "GST (UTC+4)"].map(t => (
+                                            <option key={t}>{t}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Date Format</label>
+                                    <select
+                                        value={dateFormat}
+                                        onChange={e => setDateFormat(e.target.value)}
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none cursor-pointer"
+                                    >
+                                        {["DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"].map(d => (
+                                            <option key={d}>{d}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Toggle prefs */}
+                        <div className="space-y-3">
+                            {prefItems.map(item => (
+                                <div
+                                    key={item.key}
+                                    className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-200 transition-all"
+                                >
+                                    <div>
+                                        <p className="text-sm font-bold text-slate-700">{item.label}</p>
+                                        <p className="text-[10px] text-slate-400 font-medium">{item.desc}</p>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <span className={`text-[9px] font-bold uppercase tracking-widest ${preferences[item.key] ? "text-emerald-600" : "text-slate-400"}`}>
+                                            {preferences[item.key] ? "On" : "Off"}
+                                        </span>
+                                        <Toggle
+                                            enabled={preferences[item.key]}
+                                            onChange={() => togglePref(item.key)}
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Info notice */}
+                        <div className="flex items-start gap-3 p-4 bg-amber-50 rounded-xl border border-amber-100 mt-auto">
+                            <span className="text-lg shrink-0">⚠️</span>
+                            <div>
+                                <p className="text-xs font-bold text-amber-700 mb-0.5">Admin-Restricted Settings</p>
+                                <p className="text-[10px] text-amber-600 font-medium leading-relaxed">
+                                    Global project configuration and security settings are restricted to Admin/Project Director roles. Contact your administrator for changes.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                {/* ── Bottom Save Bar ──────────────────────────────────────── */}
+                <div className="mt-8 flex justify-end">
+                    <button
+                        onClick={handleSave}
+                        disabled={isSaving}
+                        className="flex items-center gap-2 px-10 py-3.5 bg-slate-900 hover:bg-black disabled:opacity-60 text-white text-sm font-bold rounded-2xl tracking-wide transition-all shadow-md"
+                    >
+                        {isSaving ? (
+                            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                            </svg>
+                        )}
+                        Save All Settings
+                    </button>
+                </div>
+
             </PageTransition>
-        </div>
+        </>
     );
 };
 

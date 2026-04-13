@@ -1,305 +1,362 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import Navbar from "../../../components/common/Navbar";
-import StatCard from "../../../components/common/StatCard";
 import PageTransition from "../../../components/common/PageTransition";
+import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
 
-const initialActivities = [
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+interface Activity {
+    id: number;
+    activityName: string;
+    boqCode: string;
+    plannedQty: number;
+    unit: string;
+    todayProgress: number;
+    totalCompleted: number;
+    remainingQty: number;
+    percentCompletion: number;
+    startDate: string;
+    endDate: string;
+    status: "On Track" | "Delay";
+}
+
+// ─── Mock Data ───────────────────────────────────────────────────────────────
+
+const mockActivities: Activity[] = [
     {
         id: 1,
-        name: "Excavation",
-        boqCode: "EX-001",
-        plannedQty: "1200 m³",
-        todayProgress: "85 m³",
-        totalCompleted: "950 m³",
-        remainingQty: "250 m³",
-        percentage: 79,
-        startDate: "2024-03-01",
-        endDate: "2024-04-15",
+        activityName: "Excavation",
+        boqCode: "BOQ-STR-001",
+        plannedQty: 5000,
+        unit: "Cu.m",
+        todayProgress: 120,
+        totalCompleted: 3800,
+        remainingQty: 1200,
+        percentCompletion: 76,
+        startDate: "2026-03-01",
+        endDate: "2026-04-20",
         status: "On Track",
     },
     {
         id: 2,
-        name: "RCC",
-        boqCode: "CV-102",
-        plannedQty: "450 m³",
-        todayProgress: "0 m³",
-        totalCompleted: "450 m³",
-        remainingQty: "0 m³",
-        percentage: 100,
-        startDate: "2024-03-10",
-        endDate: "2024-03-25",
-        status: "Completed",
+        activityName: "RCC Work - Footing",
+        boqCode: "BOQ-STR-002",
+        plannedQty: 1500,
+        unit: "Cu.m",
+        todayProgress: 45,
+        totalCompleted: 600,
+        remainingQty: 900,
+        percentCompletion: 40,
+        startDate: "2026-03-15",
+        endDate: "2026-05-30",
+        status: "Delay",
     },
     {
         id: 3,
-        name: "Brickwork",
-        boqCode: "CV-201",
-        plannedQty: "180 m³",
-        todayProgress: "12 m³",
-        totalCompleted: "45 m³",
-        remainingQty: "135 m³",
-        percentage: 25,
-        startDate: "2024-03-20",
-        endDate: "2024-04-30",
-        status: "Delay",
+        activityName: "Brickwork",
+        boqCode: "BOQ-ARC-005",
+        plannedQty: 2500,
+        unit: "Sq.m",
+        todayProgress: 0,
+        totalCompleted: 0,
+        remainingQty: 2500,
+        percentCompletion: 0,
+        startDate: "2026-05-01",
+        endDate: "2026-06-15",
+        status: "On Track",
     },
 ];
 
-const ActivityListPage = () => {
-    const [searchTerm, setSearchTerm] = useState("");
-    const activities = initialActivities;
-    const [selectedActivity, setSelectedActivity] = useState<any | null>(null);
+// ─── Profile Field Helper (matches reference image style) ─────────────────────
 
-    const filteredActivities = activities.filter(
-        (a) => a.name.toLowerCase().includes(searchTerm.toLowerCase()) || a.boqCode.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+const ProfileField = ({
+    label,
+    value,
+    accent,
+    mono = false,
+}: {
+    label: string;
+    value: string;
+    accent?: string;
+    mono?: boolean;
+}) => (
+    <div>
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] block mb-1">
+            {label}
+        </span>
+        <p className={`text-sm font-bold text-slate-800 leading-snug ${mono ? "font-mono tracking-tight" : ""} ${accent ?? ""}`}>
+            {value || "—"}
+        </p>
+    </div>
+);
+
+// ─── Main Component ────────────────────────────────────────────────────────────
+
+const ActivityListPage = () => {
+    const [activities] = useState<Activity[]>(mockActivities);
+    const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
+    const [filterStatus, setFilterStatus] = useState("All");
+
+    // Summary stats
+    const totalActivities = activities.length;
+    const delayedActivities = activities.filter(a => a.status === "Delay").length;
+    const avgCompletion = Math.round(activities.reduce((sum, a) => sum + a.percentCompletion, 0) / (totalActivities || 1));
+
+    const filteredActivities = filterStatus === "All"
+        ? activities
+        : activities.filter(a => a.status === filterStatus);
+
+    const filterTabs = ["All", "On Track", "Delay"];
 
     return (
         <>
-            <Navbar title="Project Velocity Dashboard" breadcrumb={["InfraPilot", "Dashboard", "Engineer", "Work Progress", "Activities"]} />
+            <Navbar
+                title="Work Progress"
+                breadcrumb={["InfraPilot", "Engineer", "Progress", "Activities"]}
+            />
 
-            <PageTransition className="p-8 bg-slate-50 min-h-screen font-inter pb-24">
-                <div className="max-w-7xl mx-auto">
-                    {/* Header Section */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-                        <div>
-                            <h1 className="text-2xl font-black text-slate-800 tracking-tighter  mb-2">Project Execution Logic</h1>
-                            <p className="text-slate-500 text-sm font-medium">Monitor and synchronize field progress with central project milestones.</p>
+            <PageTransition className="p-8 bg-slate-50 min-h-screen font-inter">
+
+                {/* ── Header ──────────────────────────────────────────────── */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+                    <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">
+                            Project Milestones
+                        </p>
+                        <h1 className="text-3xl font-black text-slate-800 tracking-tighter mb-1">
+                            Activity List
+                        </h1>
+                        <p className="text-slate-500 text-sm font-medium">
+                            Track and manage site activities, BOQ quantities, and real-time execution status.
+                        </p>
+                    </div>
+                </div>
+
+                {/* ── Summary Stat Cards ───────────────────────────────────── */}
+                <div className="mb-8">
+                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">
+                        Progress Overview
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Total Activities</p>
+                            <p className="text-2xl font-bold text-blue-600">{totalActivities}</p>
+                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">Synced with BOQ</p>
+                        </div>
+                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Delayed</p>
+                            <p className="text-2xl font-bold text-rose-500">{delayedActivities}</p>
+                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">Requires attention</p>
+                        </div>
+                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Avg. Completion</p>
+                            <p className="text-2xl font-bold text-emerald-500">{avgCompletion}%</p>
+                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">Across all tasks</p>
+                        </div>
+                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Project Health</p>
+                            <p className="text-2xl font-bold text-blue-600">Stable</p>
+                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">Updated 2h ago</p>
                         </div>
                     </div>
+                </div>
 
-                    {/* Top Widgets */}
-                    <div className="mb-10">
-                        <h2 className="text-[10px] font-black text-slate-400  tracking-[0.3em] mb-6 flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
-                            Velocity Vitals
-                        </h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                            <StatCard
-                                title="Active Tasks"
-                                value="12"
-                                sub="Concurrent field activities"
-                                accent="text-primary"
-                            />
-                            <StatCard
-                                title="Progress Index"
-                                value="68%"
-                                sub="Aggregate completion"
-                                accent="text-emerald-500" />
-                            <StatCard
-                                title="Critical Path"
-                                value="04"
-                                sub="Priority interventions"
-                                accent="text-rose-500" />
-                            <StatCard
-                                title="Daily Vol"
-                                value="450m³"
-                                sub="Material deployment yield"
-                                accent="text-blue-500" />
-                        </div>
-                    </div>
-
-
-                    {/* Features Section */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                        {[
-                            {
-                                name: "Resource Drift",
-                                label: "Variance Analysis",
-                                icon: (
-                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                ),
-                                color: "text-blue-600",
-                                bg: "bg-blue-50"
-                            },
-                            {
-                                name: "Critical Path",
-                                label: "Chronology Audit",
-                                icon: (
-                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                ),
-                                color: "text-emerald-600",
-                                bg: "bg-emerald-50"
-                            },
-                            {
-                                name: "Real-time Delta",
-                                label: "Velocity Tracking",
-                                icon: (
-                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
-                                ),
-                                color: "text-purple-600",
-                                bg: "bg-purple-50"
-                            }
-                        ].map((feature, i) => (
-                            <div key={i} className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-100 transition-all hover:shadow-xl hover:translate-y-[-4px] group cursor-pointer active:scale-95">
-                                <div className="flex items-center gap-6">
-                                    <div className={`w-16 h-16 ${feature.bg} ${feature.color} rounded-[24px] flex items-center justify-center group-hover:scale-110 transition-transform shadow-inner`}>
-                                        {feature.icon}
-                                    </div>
-                                    <div className="space-y-1">
-                                        <h3 className="font-black text-slate-800  text-[10px] tracking-[0.2em]">{feature.name}</h3>
-                                        <p className="text-xs font-bold text-slate-400  tracking-tight">{feature.label}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Navigation Tabs & Search */}
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-10">
-                        <div className="flex gap-2 p-1.5 bg-slate-100/50 rounded-2xl w-fit overflow-x-auto">
-                            <button className="px-8 py-3 bg-white text-[10px] font-black  tracking-widest text-primary shadow-sm rounded-xl whitespace-nowrap">
-                                Activity Ledger
-                            </button>
-                            <Link to="/engineer/progress/entry" className="px-8 py-3 text-[10px] font-black  tracking-widest text-slate-400 hover:text-slate-600 transition-colors whitespace-nowrap">
-                                Progress Synchronization
-                            </Link>
-                        </div>
-
-                        <div className="relative w-full lg:w-96">
-                            <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                            </span>
-                            <input
-                                type="text"
-                                placeholder="Search activity or BOQ protocol..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-14 pr-6 py-4 bg-white border border-slate-100 rounded-2xl text-[10px] font-black  tracking-widest focus:outline-none focus:ring-4 focus:ring-primary/5 transition-all shadow-sm placeholder:text-slate-300"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-6">
-                        {filteredActivities.map((a) => (
-                            <div
-                                key={a.id}
-                                className="relative bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col md:flex-row gap-8 items-start md:items-center hover:shadow-xl hover:shadow-slate-200/50 cursor-pointer group transition-all"
-                                onClick={() => setSelectedActivity(a)}
+                {/* ── Activity Ledger ────────────────────────────────────────── */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">
+                        Activity Ledger
+                    </h2>
+                    <div className="flex bg-white p-1 rounded-xl border border-slate-100 shadow-sm">
+                        {filterTabs.map(tab => (
+                            <button
+                                key={tab}
+                                onClick={() => setFilterStatus(tab)}
+                                className={`px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${filterStatus === tab ? "bg-slate-800 text-white shadow-md" : "text-slate-400 hover:text-slate-600"}`}
                             >
-                                <div className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl transition-all ${a.status === "Completed" ? "bg-emerald-500" :
-                                    a.status === "On Track" ? "bg-blue-600" :
-                                        "bg-rose-500"
-                                    }`} />
-
-                                <div className="flex-1 space-y-4">
-                                    <div className="flex items-center gap-4 mb-2">
-                                        <div className="flex flex-col">
-                                            <span className="text-[9px] font-black text-slate-400 tracking-[0.2em] uppercase mb-1">BOQ Protocol {a.boqCode}</span>
-                                            <span className="text-xl font-black text-slate-800 tracking-tighter group-hover:text-blue-600 transition-colors">{a.name}</span>
-                                        </div>
-                                        <span className={`px-3 py-1 text-[10px] font-bold rounded-lg ml-auto ${a.status === "Completed" ? "bg-emerald-50 text-emerald-600" :
-                                            a.status === "On Track" ? "bg-blue-50 text-blue-600" :
-                                                "bg-rose-50 text-rose-600"
-                                            }`}>{a.status}</span>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 py-4 border-y border-slate-50">
-                                        <div>
-                                            <span className="text-[8px] font-black text-slate-400 tracking-widest uppercase mb-1 block">Planned Quantity</span>
-                                            <p className="text-[11px] font-black text-slate-700">{a.plannedQty}</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-[8px] font-black text-slate-400 tracking-widest uppercase mb-1 block">Execution Window</span>
-                                            <p className="text-[10px] font-black text-slate-500 italic">{a.startDate} → {a.endDate}</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-[8px] font-black text-slate-400 tracking-widest uppercase mb-1 block">Today's Progress</span>
-                                            <p className="text-[11px] font-black text-primary">{a.todayProgress}</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-[8px] font-black text-slate-400 tracking-widest uppercase mb-1 block">Remaining</span>
-                                            <p className="text-[11px] font-black text-rose-500">{a.remainingQty}</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="pt-2">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <span className="text-[8px] font-black text-slate-400 tracking-widest uppercase">Completion Trajectory</span>
-                                            <span className="text-[10px] font-black text-slate-700">{a.percentage}%</span>
-                                        </div>
-                                        <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                            <div
-                                                className={`h-full transition-all duration-1000 ${a.percentage === 100 ? "bg-emerald-500" :
-                                                    a.status === "Delay" ? "bg-rose-500" :
-                                                        "bg-blue-600"
-                                                    }`}
-                                                style={{ width: `${a.percentage}%` }}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                                <button className="w-12 h-12 rounded-2xl bg-slate-900 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all shadow-xl shadow-slate-200">
-                                    →
-                                </button>
-                            </div>
+                                {tab}
+                            </button>
                         ))}
                     </div>
+                </div>
 
-                    {/* Detail Modal */}
-                    <Modal
-                        isOpen={!!selectedActivity}
-                        onClose={() => setSelectedActivity(null)}
-                        title="Activity Lifecycle Intelligence"
-                        maxWidth="max-w-2xl"
-                    >
-                        {selectedActivity && (
-                            <div className="p-12 space-y-10">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <span className="text-[9px] font-black text-slate-300 tracking-[0.3em] uppercase mb-1 block">Core Identification</span>
-                                        <h2 className="text-3xl font-black text-slate-800 tracking-tighter">{selectedActivity.name}</h2>
-                                        <p className="text-xs font-bold text-slate-400 mt-1 italic">BOQ System Identification: {selectedActivity.boqCode}</p>
-                                    </div>
-                                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-lg ${selectedActivity.status === "Completed" ? "bg-emerald-50 text-emerald-600" :
-                                        selectedActivity.status === "On Track" ? "bg-blue-50 text-blue-600" :
-                                            "bg-rose-50 text-rose-600"
-                                        }`}>
-                                        {selectedActivity.status === "Completed" ? "✅" : selectedActivity.status === "Delay" ? "⚠️" : "⚡"}
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-6 pb-10 border-b border-slate-100">
-                                    <div className="p-8 bg-slate-50 rounded-[32px] space-y-2">
-                                        <p className="text-[9px] font-black text-slate-400 tracking-widest uppercase">Start Milestone</p>
-                                        <p className="text-xl font-black text-slate-800">{selectedActivity.startDate}</p>
-                                    </div>
-                                    <div className="p-8 bg-slate-900 rounded-[32px] space-y-2 text-white">
-                                        <p className="text-[9px] font-black text-white/40 tracking-widest uppercase">Projected Exit</p>
-                                        <p className="text-xl font-black">{selectedActivity.endDate}</p>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-6">
-                                    <p className="text-[10px] font-black text-slate-400 tracking-widest uppercase">Operational Metrics</p>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        {[
-                                            { label: "Planned", value: selectedActivity.plannedQty },
-                                            { label: "Completed", value: selectedActivity.totalCompleted },
-                                            { label: "Differential", value: selectedActivity.remainingQty },
-                                            { label: "Today's Yield", value: selectedActivity.todayProgress }
-                                        ].map((stat, i) => (
-                                            <div key={i} className="flex justify-between items-center p-5 bg-white border border-slate-100 rounded-2xl">
-                                                <span className="text-[10px] font-black text-slate-400 tracking-tight">{stat.label}</span>
-                                                <span className="text-xs font-black text-slate-800">{stat.value}</span>
+                <div className="grid grid-cols-1 gap-6">
+                    {filteredActivities.map((activity) => (
+                        <div
+                            key={activity.id}
+                            className="group bg-white rounded-3xl p-8 shadow-sm border border-slate-100 hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300"
+                        >
+                            <div className="flex flex-col gap-8">
+                                {/* Row 1: Identity & Status */}
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                                    <div className="flex items-center gap-4">
+                                        <div>
+                                            <div className="flex items-center gap-3 mb-1">
+                                                <h3 className="text-xl font-black text-slate-900 tracking-tight">
+                                                    {activity.activityName}
+                                                </h3>
+                                                <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${activity.status === "On Track"
+                                                    ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                                                    : "bg-rose-50 text-rose-600 border-rose-100"}`}
+                                                >
+                                                    {activity.status}
+                                                </span>
                                             </div>
-                                        ))}
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                                    BOQ: {activity.boqCode}
+                                                </span>
+                                                <span className="w-1 h-1 bg-slate-300 rounded-full" />
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                                    ID: ACT-{activity.id.toString().padStart(4, '0')}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-col items-end">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Timeline Status</p>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                                            <span className="text-xs font-black text-slate-800">{activity.percentCompletion}% Completed</span>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <button
-                                    onClick={() => setSelectedActivity(null)}
-                                    className="w-full py-6 bg-slate-900 text-white rounded-[24px] text-[11px] font-black tracking-[0.3em] hover:bg-black transition-all shadow-2xl active:scale-95 uppercase"
-                                >
-                                    Deactivate Intelligence View
-                                </button>
+                                {/* Row 2: Metrics Grid */}
+                                <div className="grid grid-cols-2 lg:grid-cols-5 gap-y-8 gap-x-12 py-8 border-y border-slate-50 italic-none">
+                                    <ProfileField label="Planned Quantity" value={`${activity.plannedQty} ${activity.unit}`} />
+                                    <ProfileField label="Today's Progress" value={`+${activity.todayProgress} ${activity.unit}`} accent="text-blue-600" />
+                                    <ProfileField label="Total Completed" value={`${activity.totalCompleted} ${activity.unit}`} accent="text-emerald-600" />
+                                    <ProfileField label="Remaining Quantity" value={`${activity.remainingQty} ${activity.unit}`} accent="text-rose-600" />
+                                    <ProfileField label="Execution %" value={`${activity.percentCompletion}%`} />
+                                </div>
+
+                                {/* Row 3: Timelines & Schedule */}
+                                <div className="flex flex-wrap items-center justify-between gap-6">
+                                    <div className="flex items-center gap-12">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-slate-50 rounded-lg text-slate-400 uppercase text-[8px] font-bold tracking-widest leading-none">START</div>
+                                            <ProfileField label="Start Date" value={activity.startDate} />
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-slate-50 rounded-lg text-slate-400 uppercase text-[8px] font-bold tracking-widest leading-none">FINISH</div>
+                                            <ProfileField label="Planned End" value={activity.endDate} />
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        onClick={() => setSelectedActivity(activity)}
+                                        className="flex items-center gap-2 text-[10px] font-black text-blue-600 hover:text-blue-700 uppercase tracking-widest transition-colors group"
+                                    >
+                                        View Full Metrics
+                                        <svg className="w-3 h-3 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
-                        )}
-                    </Modal>
+                        </div>
+                    ))}
                 </div>
             </PageTransition>
+
+            {/* ── Activity Detail Modal ────────────────────────────────────── */}
+            <Modal
+                isOpen={!!selectedActivity}
+                onClose={() => setSelectedActivity(null)}
+                title="Activity Full Metrics"
+                maxWidth="max-w-4xl"
+            >
+                {selectedActivity && (
+                    <div className="bg-white p-0 italic-none">
+                        {/* ── Gradient Banner ────────────────────────────────── */}
+                        <div className="mx-8 mt-8 mb-10 p-10 rounded-[2.5rem] bg-gradient-to-r from-blue-600 via-blue-500 to-blue-600 shadow-2xl shadow-blue-200 relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-20 -mt-20 blur-3xl" />
+                            <div className="flex items-center gap-8 relative z-10">
+                                {/* Square Initials Card */}
+                                <div className="w-24 h-24 flex items-center justify-center bg-white/20 backdrop-blur-md rounded-3xl border border-white/30 shadow-inner">
+                                    <span className="text-3xl font-black text-white tracking-widest uppercase">
+                                        {selectedActivity.activityName.substring(0, 2)}
+                                    </span>
+                                </div>
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-4 mb-2">
+                                        <h3 className="text-2xl font-black text-white tracking-tight">
+                                            {selectedActivity.activityName}
+                                        </h3>
+                                        <span className="px-4 py-1.5 rounded-xl bg-white/20 backdrop-blur-md text-[10px] font-black text-white uppercase tracking-widest border border-white/20">
+                                            {selectedActivity.status}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <div className="flex items-center gap-1.5 px-3 py-1 bg-white/10 rounded-lg">
+                                            <span className="text-amber-400 text-sm">★</span>
+                                            <span className="text-xs font-black text-white tracking-wide">{selectedActivity.percentCompletion}% Performance</span>
+                                        </div>
+                                        <p className="text-xs font-bold text-blue-100 uppercase tracking-widest">
+                                            ID: ACT-{selectedActivity.id.toString().padStart(4, '0')}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* ── Content Sections ────────────────────────────────── */}
+                        <div className="px-12 pb-12 space-y-12">
+
+                            {/* Section 1: Activity Context */}
+                            <div>
+                                <div className="flex items-center gap-3 mb-6 border-b border-slate-50 pb-3">
+                                    <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                                    <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em]">Activity Context</h4>
+                                </div>
+                                <div className="grid grid-cols-2 gap-y-8 gap-x-12">
+                                    <ProfileField label="LEGAL BOQ CODE" value={selectedActivity.boqCode} />
+                                    <ProfileField label="UNIT OF MEASURE" value={selectedActivity.unit} />
+                                    <ProfileField label="PLANNED QUANTITY" value={`${selectedActivity.plannedQty} ${selectedActivity.unit}`} />
+                                    <ProfileField label="REMAINING BALANCE" value={`${selectedActivity.remainingQty} ${selectedActivity.unit}`} />
+                                </div>
+                            </div>
+
+                            {/* Section 2: Execution Metrics */}
+                            <div>
+                                <div className="flex items-center gap-3 mb-6 border-b border-slate-50 pb-3">
+                                    <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                                    <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em]">Execution & Timing</h4>
+                                </div>
+                                <div className="grid grid-cols-2 gap-y-8 gap-x-12">
+                                    <ProfileField label="TOTAL COMPLETED" value={`${selectedActivity.totalCompleted} ${selectedActivity.unit}`} />
+                                    <ProfileField label="EXECUTION SCORE" value={`${selectedActivity.percentCompletion}%`} />
+                                    <ProfileField label="KICK-OFF DATE" value={selectedActivity.startDate} />
+                                    <ProfileField label="TARGET FINISH" value={selectedActivity.endDate} />
+                                </div>
+                            </div>
+
+                            {/* Section 3: Outreach / Meta */}
+                            <div>
+                                <div className="flex items-center gap-3 mb-6 border-b border-slate-50 pb-3">
+                                    <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                                    <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em]">Progress Outreach</h4>
+                                </div>
+                                <div className="grid grid-cols-2 gap-y-8 gap-x-12">
+                                    <ProfileField label="LAST RECORDED" value={`+${selectedActivity.todayProgress} ${selectedActivity.unit}`} accent="text-blue-600" />
+                                    <ProfileField label="SYSTEM STATUS" value="ACTIVE / SYNCED" accent="text-emerald-600" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* ── Footer ────────────────────────────────────────── */}
+                        <div className="bg-slate-50 px-12 py-6 border-t border-slate-100 flex justify-end">
+                            <button
+                                onClick={() => setSelectedActivity(null)}
+                                className="px-10 py-3 bg-[#0f172a] hover:bg-black text-white text-[11px] font-black rounded-xl shadow-lg transition-all active:scale-95"
+                            >
+                                Close Details
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </Modal>
         </>
     );
 };

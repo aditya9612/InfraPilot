@@ -1,375 +1,399 @@
 import React, { useState } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
-import StatCard from "../../../components/common/StatCard";
 import Modal from "../../../components/common/Modal";
 import toast from "react-hot-toast";
 
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+interface MaterialRequestRecord {
+    id: string;
+    requestType: string;
+    description: string;
+    quantity: string;
+    requestedBy: string;
+    approvedBy: string;
+    status: "Pending" | "Approved" | "Rejected";
+    date: string;
+}
+
+// ─── Mock Data ───────────────────────────────────────────────────────────────
+
+const materialRequests: MaterialRequestRecord[] = [
+    {
+        id: "REQ-101",
+        requestType: "Structural Steel",
+        description: "TMT bars for 2nd floor slab reinforcement.",
+        quantity: "5 Tons",
+        requestedBy: "Eng. Amit Sharma",
+        approvedBy: "PM - Vikram Singh",
+        status: "Approved",
+        date: "2026-04-10",
+    },
+    {
+        id: "REQ-102",
+        requestType: "Cement",
+        description: "OPC 53 Grade cement for masonry work.",
+        quantity: "200 Bags",
+        requestedBy: "Eng. Sunil Dutt",
+        approvedBy: "Pending",
+        status: "Pending",
+        date: "2026-04-12",
+    },
+];
+
+// ─── Badge Colors ────────────────────────────────────────────────────────────
+
+const statusColors: Record<string, string> = {
+    Approved: "border border-emerald-200 text-emerald-500 bg-emerald-50/50",
+    Pending: "border border-amber-200 text-amber-500 bg-amber-50/50",
+    Rejected: "border border-rose-200 text-rose-500 bg-rose-50/50",
+};
+
+// ─── Profile Field Helper ──────────────────────────────────────────────────────
+
+const ProfileField = ({
+    label,
+    value,
+    accent,
+    mono = false,
+}: {
+    label: string;
+    value: string;
+    accent?: string;
+    mono?: boolean;
+}) => (
+    <div>
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] block mb-1">
+            {label}
+        </span>
+        <p className={`text-sm font-bold text-slate-800 leading-snug ${mono ? "font-mono tracking-tight" : ""} ${accent ?? ""}`}>
+            {value || "—"}
+        </p>
+    </div>
+);
+
+// ─── Main Component ─────────────────────────────────────────────────────────────
+
 const MaterialRequestPage = () => {
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
-    const [selectedRequest, setSelectedRequest] = useState<any>(null);
-    const [requests, setRequests] = useState([
-        { id: 1, type: "Construction Material", description: "Grade 43 OPC Cement for Block A foundation", quantity: "500 Bags", requestedBy: "Karan Singh", approvedBy: "Project Manager", status: "Approved", date: "2024-03-15", remarks: "Urgent procurement for next phase." },
-        { id: 2, type: "Electrical Supplies", description: "16mm TMT Reinforcement Bars", quantity: "12 Tons", requestedBy: "Karan Singh", approvedBy: "Procurement Head", status: "Pending", date: "2024-03-20", remarks: "Standard replenishment." },
-        { id: 3, type: "Plumbing Fixtures", description: "PVC Conduit Pipes - 25mm", quantity: "800 Meters", requestedBy: "Karan Singh", approvedBy: "MEP Lead", status: "Rejected", date: "2024-04-01", remarks: "Budget constraints." },
-    ]);
+    const [selectedRequest, setSelectedRequest] = useState<MaterialRequestRecord | null>(null);
+    const [requestData, setRequestData] = useState<MaterialRequestRecord[]>(materialRequests);
 
     const [formData, setFormData] = useState({
-        type: "Construction Material",
+        requestType: "",
         description: "",
         quantity: "",
-        requestedBy: "Karan Singh",
-        approvedBy: "",
-        status: "Pending",
-        remarks: ""
+        requestedBy: "Eng. Site User", // Mocked user
+        status: "Pending" as any,
+        date: new Date().toISOString().split("T")[0],
     });
+
     const [errors, setErrors] = useState<Record<string, string>>({});
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setFormData((prev) => ({ ...prev, [name]: value }));
         if (errors[name]) {
-            setErrors(prev => {
-                const upd = { ...prev };
-                delete upd[name];
-                return upd;
+            setErrors((prev) => {
+                const newErrs = { ...prev };
+                delete newErrs[name];
+                return newErrs;
             });
         }
     };
 
-    const validateForm = () => {
+    const validate = () => {
         const newErrors: Record<string, string> = {};
-        if (!formData.description.trim()) newErrors.description = "Required";
-        if (!formData.quantity.trim()) newErrors.quantity = "Required";
-        if (!formData.approvedBy.trim()) newErrors.approvedBy = "Required";
-
+        if (!formData.requestType) newErrors.requestType = "Type is required";
+        if (!formData.quantity) newErrors.quantity = "Quantity is required";
+        if (!formData.description) newErrors.description = "Description is required";
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!validateForm()) {
-            toast.error("Please fill all required fields.");
+        if (!validate()) {
+            toast.error("Please provide all required requisition details.");
             return;
         }
 
-        const newRequest = {
-            id: Date.now(),
+        const newEntry: MaterialRequestRecord = {
+            id: `REQ-${100 + requestData.length + 1}`,
             ...formData,
-            date: new Date().toISOString().split("T")[0]
+            approvedBy: "Pending",
         };
 
-        toast.loading("Broadcasting requisition protocol...");
-        setTimeout(() => {
-            setRequests([newRequest, ...requests]);
-            toast.dismiss();
-            toast.success("Requisition Logged!");
-            setIsFormModalOpen(false);
-            setFormData({
-                type: "Construction Material",
-                description: "",
-                quantity: "",
-                requestedBy: "Karan Singh",
-                approvedBy: "",
-                status: "Pending",
-                remarks: ""
-            });
-        }, 1200);
+        setRequestData((prev) => [newEntry, ...prev]);
+        toast.success("Material Request Submitted Successfully!");
+        setIsFormModalOpen(false);
+        setFormData({
+            requestType: "",
+            description: "",
+            quantity: "",
+            requestedBy: "Eng. Site User",
+            status: "Pending",
+            date: new Date().toISOString().split("T")[0],
+        });
     };
 
     return (
         <>
             <Navbar
-                title="Logistics Vault"
-                breadcrumb={["InfraPilot", "Dashboard", "Engineer", "Approvals"]}
+                title="Material Requests"
+                breadcrumb={["InfraPilot", "Engineer", "Approvals", "Material"]}
             />
 
-            <PageTransition className="p-8 bg-slate-50 min-h-screen font-inter pb-24">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+            <PageTransition className="p-8 bg-slate-50 min-h-screen font-inter italic-none">
+
+                {/* Header */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
                     <div>
-                        <h1 className="text-2xl font-black text-slate-800 tracking-tighter mb-2">Supply Chain Intel</h1>
-                        <p className="text-slate-500 text-sm font-medium">Inventory replenishment and logistical material tracking across all active project zones.</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">
+                            Procurement Workflow
+                        </p>
+                        <h1 className="text-3xl font-black text-slate-800 tracking-tighter mb-1">
+                            Material Procurement Requisitions
+                        </h1>
+                        <p className="text-slate-500 text-sm font-medium">
+                            Submit and track material requests for site execution and inventory replenishment.
+                        </p>
                     </div>
-                    <div>
-                        <button
-                            onClick={() => setIsFormModalOpen(true)}
-                            className="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-md hover:bg-blue-700 transition-all flex items-center gap-2"
-                        >
-                            + FILE REQUISITION
-                        </button>
-                    </div>
+
+                    <button
+                        onClick={() => setIsFormModalOpen(true)}
+                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-bold text-sm shadow-md shadow-blue-200 transition-all active:scale-95"
+                    >
+                        <span className="text-lg leading-none">+</span>
+                        Create Requisition
+                    </button>
                 </div>
 
-                <section className="mb-12">
-                    <h2 className="text-[10px] font-black text-slate-400 tracking-[0.3em] mb-6 flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
-                        Logistical Vitals
-                    </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <StatCard
-                            title="Active Filings"
-                            value="42"
-                            sub="+4 Today"
-                            accent="text-primary"
-                        />
-                        <StatCard
-                            title="Pending PM"
-                            value="08"
-                            sub="In Review"
-                            accent="text-amber-500"
-                        />
-                        <StatCard
-                            title="Authorized"
-                            value="28"
-                            sub="Procured"
-                            accent="text-emerald-500"
-                        />
-                        <StatCard
-                            title="Disputed"
-                            value="03"
-                            sub="Clarify"
-                            accent="text-rose-600"
-                        />
-                    </div>
-                </section>
-
-                <div className="grid grid-cols-1 gap-6 mb-24">
-                    {requests.map((request) => (
+                {/* Request Ledger */}
+                <div className="grid grid-cols-1 gap-5">
+                    {requestData.map((item) => (
                         <div
-                            key={request.id}
-                            className="relative bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col md:flex-row gap-8 items-start md:items-center hover:shadow-xl hover:shadow-slate-200/50 cursor-pointer group transition-all"
-                            onClick={() => setSelectedRequest(request)}
+                            key={item.id}
+                            className="relative bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hover:shadow-md hover:border-slate-200 cursor-pointer group transition-all"
+                            onClick={() => setSelectedRequest(item)}
                         >
-                            <div className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl opacity-0 group-hover:opacity-100 transition-opacity ${request.status === 'Approved' ? 'bg-emerald-600' : request.status === 'Rejected' ? 'bg-rose-600' : 'bg-amber-500'}`} />
+                            <div className={`absolute left-0 top-4 bottom-4 w-1 rounded-r-full opacity-0 group-hover:opacity-100 transition-opacity ${item.status === "Approved" ? "bg-emerald-500" : item.status === "Pending" ? "bg-amber-500" : "bg-rose-500"}`} />
 
-                            <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 font-black text-xs shadow-sm group-hover:bg-blue-600 group-hover:text-white transition-all">
-                                📦
-                            </div>
-
-                            <div className="flex-1 space-y-2">
-                                <div className="flex items-center gap-4 mb-2">
-                                    <span className="text-xl font-black text-slate-800 tracking-tighter uppercase">REQ-{request.id}</span>
-                                    <span className={`px-2 py-0.5 text-[10px] font-bold rounded uppercase tracking-widest ${request.status === 'Approved' ? 'bg-emerald-100 text-emerald-600' : request.status === 'Rejected' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600 animate-pulse'}`}>
-                                        {request.status}
+                            <div className="flex flex-col gap-4">
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 font-bold text-[10px] border border-slate-100 group-hover:bg-blue-600 group-hover:text-white transition-all uppercase">
+                                            {item.requestType.substring(0, 2)}
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-3">
+                                                <h3 className="text-lg font-black text-slate-800 tracking-tight">{item.requestType}</h3>
+                                                <span className={`px-2 py-0.5 text-[10px] font-bold rounded ${item.status === "Approved" ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"}`}>
+                                                    {item.status}
+                                                </span>
+                                            </div>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                                                ID: {item.id} | Requested: {item.date}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${statusColors[item.status]}`}>
+                                        {item.status}
                                     </span>
-                                    <span className="text-[10px] font-black text-slate-400 ml-auto tracking-widest uppercase">{request.date}</span>
                                 </div>
 
-                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 py-4 border-y border-slate-50">
-                                    <div>
-                                        <span className="text-[8px] font-black text-slate-400 tracking-widest uppercase mb-1 block">Requisition Specification</span>
-                                        <p className="text-[11px] font-black text-slate-700 uppercase">{request.description}</p>
-                                    </div>
-                                    <div>
-                                        <span className="text-[8px] font-black text-slate-400 tracking-widest uppercase mb-1 block">Logistical Category</span>
-                                        <p className="text-[11px] font-black text-blue-600 uppercase">{request.type}</p>
-                                    </div>
-                                    <div>
-                                        <span className="text-[8px] font-black text-slate-400 tracking-widest uppercase mb-1 block">Volume / Volume</span>
-                                        <p className="text-[11px] font-black text-slate-700 uppercase">{request.quantity}</p>
-                                    </div>
-                                    <div>
-                                        <span className="text-[8px] font-black text-slate-400 tracking-widest uppercase mb-1 block">Initiating Actor</span>
-                                        <p className="text-[11px] font-black text-slate-700 uppercase">{request.requestedBy}</p>
-                                    </div>
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 py-4 border-y border-slate-50">
+                                    <ProfileField label="QUANTITY" value={item.quantity} accent="text-blue-600" />
+                                    <ProfileField label="REQUESTED BY" value={item.requestedBy} />
+                                    <ProfileField label="APPROVED BY" value={item.approvedBy} />
+                                    <ProfileField label="ENTITY ID" value={item.id} mono />
                                 </div>
 
-                                <div className="pt-2">
-                                    <span className="text-[8px] font-black text-slate-400 tracking-widest uppercase mb-1 block">Authorization Artifact</span>
-                                    <p className="text-[11px] font-medium text-slate-500 line-clamp-1 italic text-balance lowercase">"Auth: {request.approvedBy} | {request.remarks}"</p>
+                                <div className="flex items-center justify-between mt-2">
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic opacity-60">
+                                        Procurement Audit Trace • Active
+                                    </span>
+                                    <button
+                                        className="text-[10px] font-black text-blue-600 hover:text-blue-800 uppercase tracking-[0.2em] transition-all"
+                                    >
+                                        Inspect Requisition Detail →
+                                    </button>
                                 </div>
                             </div>
-
-                            <button className="w-12 h-12 rounded-2xl bg-slate-900 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all shadow-xl shadow-slate-200">
-                                →
-                            </button>
                         </div>
                     ))}
                 </div>
+            </PageTransition>
 
-                <Modal
-                    isOpen={isFormModalOpen}
-                    onClose={() => setIsFormModalOpen(false)}
-                    title="Requisition Initialization"
-                    maxWidth="max-w-4xl"
-                >
-                    <div className="admin-pulse-modal-body p-12 bg-white">
-                        <form id="requisition-form" onSubmit={handleSubmit} className="space-y-10">
-                            <div className="grid grid-cols-2 gap-6">
-                                <div className="admin-pulse-form-group">
-                                    <label className="admin-pulse-form-label admin-pulse-form-label-required">Request Category</label>
-                                    <select name="type" value={formData.type} onChange={handleChange} className="admin-pulse-form-input font-black appearance-none cursor-pointer">
-                                        <option>Construction Material</option>
-                                        <option>Electrical Supplies</option>
-                                        <option>Plumbing Fixtures</option>
-                                        <option>Mechanical Tooling</option>
-                                        <option>Safety Infrastructure</option>
-                                    </select>
-                                </div>
-                                <div className="admin-pulse-form-group">
-                                    <label className="admin-pulse-form-label admin-pulse-form-label-required">Quantity / Volume</label>
-                                    <input type="text" name="quantity" value={formData.quantity} onChange={handleChange} placeholder="e.g. 500 Bags / 12 Tons" className="admin-pulse-form-input font-black" />
-                                    {errors.quantity && <p className="text-[10px] font-bold text-red-500 px-1">{errors.quantity}</p>}
-                                </div>
-                                <div className="col-span-2 admin-pulse-form-group">
-                                    <label className="admin-pulse-form-label admin-pulse-form-label-required">Scope Description</label>
-                                    <textarea name="description" value={formData.description} onChange={handleChange} rows={2} placeholder="DETAILED REQUISITION SPECIFICATIONS..." className="admin-pulse-form-input font-black  resize-none" />
-                                    {errors.description && <p className="text-[10px] font-bold text-red-500 px-1">{errors.description}</p>}
-                                </div>
-                                <div className="admin-pulse-form-group">
-                                    <label className="admin-pulse-form-label admin-pulse-form-label-required">Verifying Authority</label>
-                                    <input type="text" name="approvedBy" value={formData.approvedBy} onChange={handleChange} placeholder="e.g. Project Manager" className="admin-pulse-form-input font-black" />
-                                    {errors.approvedBy && <p className="text-[10px] font-bold text-red-500 px-1">{errors.approvedBy}</p>}
-                                </div>
-                                <div className="admin-pulse-form-group">
-                                    <label className="admin-pulse-form-label">Authorization State</label>
-                                    <select name="status" value={formData.status} onChange={handleChange} className="admin-pulse-form-input font-black appearance-none cursor-pointer">
-                                        <option value="Pending">Awaiting Sign-off</option>
-                                        <option value="Approved">Fully Authorized</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </form>
-                    </div>
-
-                    <div className="admin-pulse-modal-footer bg-slate-50/50 p-12 border-t border-slate-100 flex items-center justify-end gap-4">
-                        <button
-                            type="button"
-                            onClick={() => setIsFormModalOpen(false)}
-                            className="px-8 py-5 text-[11px] font-black text-slate-400  tracking-[0.2em] hover:text-slate-800 transition-all"
-                        >
-                            Discard Protocol
-                        </button>
-                        <button
-                            type="submit"
-                            form="requisition-form"
-                            className="px-14 py-5 bg-primary text-white text-[11px] font-black  tracking-[0.3em] rounded-[24px] shadow-2xl shadow-primary/30 hover:bg-slate-800 active:scale-95 transition-all"
-                        >
-                            Register Protocol
-                        </button>
-                    </div>
-                </Modal>
-
+            {/* Inspect Detail Modal */}
+            <Modal
+                isOpen={!!selectedRequest}
+                onClose={() => setSelectedRequest(null)}
+                title="Requisition Audit Profile"
+                maxWidth="max-w-[1000px]"
+            >
                 {selectedRequest && (
-                    <Modal
-                        isOpen={!!selectedRequest}
-                        onClose={() => setSelectedRequest(null)}
-                        title="Material Requisition Intelligence"
-                        maxWidth="max-w-4xl"
-                    >
-                        <div className="p-10 bg-white">
-                            {/* Premium Banner */}
-                            <div className="admin-pulse-details-banner">
-                                <div className="admin-pulse-details-icon-container bg-blue-600">
-                                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                    <div className="bg-white p-0 italic-none">
+                        <div className="mx-8 mt-8 mb-10 p-10 rounded-[2.5rem] bg-gradient-to-r from-blue-600 to-blue-800 shadow-xl relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl" />
+                            <div className="flex items-center gap-8 relative z-10">
+                                <div className="w-24 h-24 flex items-center justify-center bg-white/20 backdrop-blur-md rounded-[2.25rem] border border-white/30 shadow-inner">
+                                    <span className="text-3xl font-black text-white tracking-widest uppercase">{selectedRequest.requestType.substring(0, 1)}R</span>
                                 </div>
-                                <div>
-                                    <div className="flex items-center gap-3 mb-3">
-                                        <h2 className="text-3xl font-black tracking-tight leading-none uppercase">{selectedRequest.type}</h2>
-                                        <span className={`admin-pulse-status-badge ${selectedRequest.status === 'Approved' ? 'bg-emerald-500/20 text-emerald-100 border-emerald-500/30' :
-                                            selectedRequest.status === 'Rejected' ? 'bg-rose-500/20 text-rose-100 border-rose-500/30' :
-                                                'bg-amber-500/20 text-amber-100 border-amber-500/30 animate-pulse'
-                                            } backdrop-blur-md border`}>
-                                            {selectedRequest.status.toUpperCase()}
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-4 mb-2">
+                                        <h3 className="text-3xl font-black text-white tracking-tight">{selectedRequest.requestType}</h3>
+                                        <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] border border-white/20 bg-white/10 text-white backdrop-blur-sm`}>
+                                            {selectedRequest.status}
                                         </span>
                                     </div>
-                                    <div className="flex items-center gap-4">
-                                        <h3 className="text-xl font-black text-white tracking-tight uppercase">Supply Chain Requisition</h3>
-                                        <span className="px-3 py-1 bg-slate-800 text-blue-400 rounded-lg text-[9px] font-black tracking-[0.2em] border border-slate-700">
-                                            {selectedRequest.quantity.toUpperCase()} VOLUME
-                                        </span>
-                                    </div>
-                                    <p className="text-blue-200/60 text-[10px] font-black uppercase tracking-[0.2em] mt-3">Requisition Hash: REQ-{selectedRequest.id}-LOGISTICS</p>
+                                    <p className="text-sm font-bold text-white tracking-wide">Quantity: {selectedRequest.quantity}</p>
+                                    <p className="text-sm font-semibold text-white/80 mt-1">Requested By: <span className="text-white">{selectedRequest.requestedBy}</span></p>
                                 </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-12">
-                                {/* Left Column: Intelligence Matrix */}
-                                <div className="space-y-10">
-                                    <div>
-                                        <div className="admin-pulse-details-section-header">
-                                            <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                            <h3 className="admin-pulse-details-section-title">Requisition Intelligence</h3>
-                                        </div>
-                                        <div className="bg-slate-50 rounded-[32px] p-8 border border-slate-100 mb-8 font-black uppercase">
-                                            <div className="admin-pulse-details-group">
-                                                <span className="admin-pulse-details-label uppercase">Volume Analytics</span>
-                                                <p className="text-5xl font-black text-slate-800 tracking-tighter italic">{selectedRequest.quantity}</p>
-                                            </div>
-                                            <div className="admin-pulse-details-group border-t border-slate-200 pt-6 mt-6">
-                                                <span className="admin-pulse-details-label uppercase mb-2 block">Protocol Identification</span>
-                                                <div className="flex items-center justify-between">
-                                                    <p className="text-xl font-black text-blue-600 tracking-tighter italic">{selectedRequest.type.toUpperCase()}</p>
-                                                    <span className="text-[10px] font-bold text-slate-400 italic">Verified Log</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <div className="admin-pulse-details-section-header">
-                                            <svg className="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 6h16M4 12h16M4 18h7" /></svg>
-                                            <h3 className="admin-pulse-details-section-title">Operational Specification</h3>
-                                        </div>
-                                        <div className="p-8 bg-blue-50/30 rounded-[32px] border border-blue-100 font-black uppercase">
-                                            <span className="admin-pulse-details-label mb-4 block underline underline-offset-4 decoration-blue-200 uppercase font-black">Intellectual Description</span>
-                                            <p className="text-sm font-bold text-slate-700 leading-relaxed italic uppercase font-black">"{selectedRequest.description}"</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Right Column: Logistical Narrative */}
-                                <div className="space-y-10 font-black uppercase">
-                                    <div>
-                                        <div className="admin-pulse-details-section-header">
-                                            <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                                            <h3 className="admin-pulse-details-section-title">Logistical Narrative</h3>
-                                        </div>
-                                        <div className="p-8 bg-slate-900 rounded-[32px] border border-slate-800 min-h-[300px] font-black uppercase shadow-2xl shadow-slate-900/40 relative overflow-hidden group">
-                                            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-blue-600/20 transition-all"></div>
-                                            <div className="space-y-8 relative z-10">
-                                                <div>
-                                                    <span className="admin-pulse-details-label mb-2 block text-slate-400">Initiating Actor</span>
-                                                    <p className="text-2xl font-black text-white tracking-tighter italic">{selectedRequest.requestedBy}</p>
-                                                </div>
-                                                <div className="pt-8 border-t border-slate-800">
-                                                    <span className="admin-pulse-details-label mb-2 block text-slate-400">Verifying Authority</span>
-                                                    <p className="text-2xl font-black text-blue-400 tracking-tighter italic">{selectedRequest.approvedBy}</p>
-                                                </div>
-                                            </div>
-                                            <div className="absolute bottom-8 left-8 flex items-center gap-3">
-                                                <div className={`w-3 h-3 rounded-full ${selectedRequest.status === 'Approved' ? 'bg-emerald-500 shadow-emerald-500/20' : 'bg-amber-500 animate-pulse'}`}></div>
-                                                <span className="text-[10px] font-black text-slate-500 tracking-[0.2em]">FILING DATE: {selectedRequest.date}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="p-8 bg-blue-50/50 rounded-[32px] border border-blue-100 flex items-center justify-between font-black uppercase">
-                                        <div className="flex flex-col gap-1">
-                                            <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest font-black">Authorization Integrity</span>
-                                            <p className="text-2xl font-black text-slate-800 tracking-tighter italic font-black">{selectedRequest.status.toUpperCase()}</p>
-                                        </div>
-                                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg ${selectedRequest.status === 'Approved' ? 'bg-emerald-600 shadow-emerald-500/20' :
-                                            selectedRequest.status === 'Rejected' ? 'bg-rose-600 shadow-rose-500/20' :
-                                                'bg-amber-600 shadow-amber-500/20'
-                                            }`}>
-                                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="mt-12 pt-10 border-t border-slate-100 flex items-center justify-between font-black uppercase">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] italic font-black">REQUISITION PROTOCOL ARCHIVED IN LOGISTICS VAULT</span>
-                                <button onClick={() => setSelectedRequest(null)} className="admin-pulse-btn-primary bg-slate-900 shadow-slate-900/20 hover:bg-black px-12 font-black uppercase">
-                                    Archive Dossier
-                                </button>
                             </div>
                         </div>
-                    </Modal>
+
+                        <div className="px-12 pb-12 space-y-12">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                                <div>
+                                    <div className="flex items-center gap-3 mb-8 border-b border-slate-50 pb-4">
+                                        <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 font-bold text-xs">P</div>
+                                        <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em]">Request Parameters</h4>
+                                    </div>
+                                    <div className="space-y-10">
+                                        <ProfileField label="REQUEST TYPE" value={selectedRequest.requestType} />
+                                        <ProfileField label="ORDER QUANTITY" value={selectedRequest.quantity} accent="text-blue-600" />
+                                        <ProfileField label="TRACKING ID" value={selectedRequest.id} mono />
+                                    </div>
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-3 mb-8 border-b border-slate-50 pb-4">
+                                        <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 font-bold text-xs">A</div>
+                                        <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em]">Approval Audit</h4>
+                                    </div>
+                                    <div className="space-y-10">
+                                        <ProfileField label="REQUESTED BY" value={selectedRequest.requestedBy} />
+                                        <ProfileField label="APPROVED BY" value={selectedRequest.approvedBy || "Verification Pending"} />
+                                        <ProfileField label="PROCESS DATE" value={selectedRequest.date} />
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-3 mb-8 border-b border-slate-50 pb-4">
+                                    <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-600 font-bold text-xs">N</div>
+                                    <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em]">Narrative Description</h4>
+                                </div>
+                                <ProfileField label="REQUISITION PURPOSE" value={selectedRequest.description} />
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-50 px-12 py-8 border-t border-slate-100 flex justify-end">
+                            <button
+                                onClick={() => setSelectedRequest(null)}
+                                className="px-12 py-4 bg-black text-white text-[13px] font-black rounded-2xl shadow-lg transition-all active:scale-95 uppercase"
+                            >Close Audit</button>
+                        </div>
+                    </div>
                 )}
-            </PageTransition>
+            </Modal>
+
+            {/* Requisition Form Modal */}
+            <Modal
+                isOpen={isFormModalOpen}
+                onClose={() => { setIsFormModalOpen(false); setErrors({}); }}
+                title="Material Procurement Requisition"
+                maxWidth="max-w-5xl"
+            >
+                <div className="bg-white p-8 italic-none">
+                    <form id="request-form" onSubmit={handleSubmit} className="space-y-12">
+                        {/* Section 1: Item Identity */}
+                        <div>
+                            <div className="flex items-center gap-3 mb-8">
+                                <div className="w-1.5 h-6 bg-blue-600 rounded-full" />
+                                <h3 className="text-sm font-black text-slate-800 tracking-wide uppercase">Request Identity</h3>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Request Type *</label>
+                                    <input
+                                        name="requestType"
+                                        value={formData.requestType}
+                                        onChange={handleInputChange}
+                                        placeholder="e.g. Steel / Cement / Pipes"
+                                        className={`w-full px-5 py-3.5 bg-slate-50 border rounded-xl text-sm font-bold text-slate-800 focus:outline-none transition-all ${errors.requestType ? "border-rose-300 bg-rose-50" : "border-slate-200"}`}
+                                    />
+                                    {errors.requestType && <p className="text-[10px] text-rose-500 font-bold">{errors.requestType}</p>}
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Quantity *</label>
+                                    <input
+                                        name="quantity"
+                                        value={formData.quantity}
+                                        onChange={handleInputChange}
+                                        placeholder="e.g. 100 Bags / 5 Tons"
+                                        className={`w-full px-5 py-3.5 bg-slate-50 border rounded-xl text-sm font-bold text-slate-800 focus:outline-none transition-all ${errors.quantity ? "border-rose-300 bg-rose-50" : "border-slate-200"}`}
+                                    />
+                                    {errors.quantity && <p className="text-[10px] text-rose-500 font-bold">{errors.quantity}</p>}
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Requested By</label>
+                                    <input
+                                        name="requestedBy"
+                                        value={formData.requestedBy}
+                                        readOnly
+                                        className="w-full px-5 py-3.5 bg-slate-100 border border-slate-200 rounded-xl text-sm font-bold text-slate-400 focus:outline-none cursor-not-allowed"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Section 2: Details */}
+                        <div>
+                            <div className="flex items-center gap-3 mb-8">
+                                <div className="w-1.5 h-6 bg-slate-900 rounded-full" />
+                                <h3 className="text-sm font-black text-slate-800 tracking-wide uppercase">Diagnostics & Narrative</h3>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Requisition Description *</label>
+                                    <textarea
+                                        name="description"
+                                        rows={4}
+                                        value={formData.description}
+                                        onChange={handleInputChange}
+                                        placeholder="Briefly describe the purpose of this procurement…"
+                                        className={`w-full px-5 py-3.5 bg-slate-50 border rounded-xl text-sm font-bold text-slate-800 focus:outline-none resize-none transition-all ${errors.description ? "border-rose-300 bg-rose-50" : "border-slate-200"}`}
+                                    />
+                                    {errors.description && <p className="text-[10px] text-rose-500 font-bold">{errors.description}</p>}
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Submission Date</label>
+                                    <input
+                                        name="date"
+                                        type="date"
+                                        value={formData.date}
+                                        onChange={handleInputChange}
+                                        className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <div className="bg-slate-50 px-8 py-6 border-t border-slate-100 flex items-center justify-between">
+                    <button
+                        onClick={() => setIsFormModalOpen(false)}
+                        className="text-sm font-bold text-slate-400 hover:text-slate-800 transition-all font-inter"
+                    >Discard Draft</button>
+                    <button
+                        type="submit"
+                        form="request-form"
+                        className="px-12 py-4 bg-slate-900 hover:bg-black text-white text-sm font-black rounded-2xl shadow-xl transition-all active:scale-95 uppercase tracking-widest"
+                    >Submit Requisition</button>
+                </div>
+            </Modal>
         </>
     );
 };
