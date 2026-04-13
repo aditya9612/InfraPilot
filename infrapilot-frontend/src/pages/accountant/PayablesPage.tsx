@@ -1,0 +1,38 @@
+import Navbar from "../../components/common/Navbar";
+import PageTransition from "../../components/common/PageTransition";
+
+const PayablesPage = () => {
+  return (
+    <>
+      <Navbar 
+        title="Payables (Vendors)" 
+        breadcrumb={["Accountant", "Ledger", "Payables"]} 
+      />
+      <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Vendor Payables</h1>
+            <p className="text-slate-500 text-sm">Manage dues for contractors, material suppliers, and service providers.</p>
+          </div>
+          <button className="px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all">
+            + Record Invoice
+          </button>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden min-h-[400px] flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+            <p className="font-bold text-slate-400">Vendor Dues & Ledger Placeholder</p>
+            <p className="text-xs text-slate-400 mt-1">Ready for Payable Management integration.</p>
+          </div>
+        </div>
+      </PageTransition>
+    </>
+  );
+};
+
+export default PayablesPage;

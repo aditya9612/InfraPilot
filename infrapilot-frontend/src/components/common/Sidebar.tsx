@@ -294,6 +294,50 @@ const icons: Record<string, JSX.Element> = {
       <polyline points="17 6 23 6 23 12" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
     </svg>
   ),
+  "trending-down": (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <polyline points="23 18 13.5 8.5 8.5 13.5 1 6" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+      <polyline points="17 18 23 18 23 12" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+    </svg>
+  ),
+  "book-open": (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" strokeWidth="1.8" />
+      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" strokeWidth="1.8" />
+    </svg>
+  ),
+  percent: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <line x1="19" y1="5" x2="5" y2="19" strokeWidth="1.8" />
+      <circle cx="6.5" cy="6.5" r="2.5" strokeWidth="1.8" />
+      <circle cx="17.5" cy="17.5" r="2.5" strokeWidth="1.8" />
+    </svg>
+  ),
+  home: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" strokeWidth="1.8" />
+      <polyline points="9 22 9 12 15 12 15 22" strokeWidth="1.8" />
+    </svg>
+  ),
+  "edit-3": (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path d="M12 20h9" strokeWidth="1.8" />
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" strokeWidth="1.8" />
+    </svg>
+  ),
+  layers: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <polygon points="12 2 2 7 12 12 22 7 12 2" strokeWidth="1.8" />
+      <polyline points="2 17 12 22 22 17" strokeWidth="1.8" />
+      <polyline points="2 12 12 17 22 12" strokeWidth="1.8" />
+    </svg>
+  ),
+  "rotate-ccw": (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <polyline points="1 4 1 10 7 10" strokeWidth="1.8" />
+      <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" strokeWidth="1.8" />
+    </svg>
+  ),
   clock: (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <circle cx="12" cy="12" r="10" strokeWidth="1.8" />

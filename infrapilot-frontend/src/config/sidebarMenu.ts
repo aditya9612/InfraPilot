@@ -184,10 +184,27 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
   ],
   Accountant: [
     { label: "Dashboard", path: "/accountant", icon: "grid" },
-    { label: "Budget", path: "/accountant/budget", icon: "dollar-sign" },
-    { label: "Invoices", path: "/accountant/invoices", icon: "file-text" },
-    { label: "Payments", path: "/accountant/payments", icon: "credit-card" },
+    { label: "Chart of Accounts", path: "/accountant/chart-of-accounts", icon: "book-open" },
+    { 
+      label: "Receivables", 
+      path: "/accountant/receivables", 
+      icon: "trending-up",
+      subNav: [
+        { label: "Invoices", path: "/accountant/receivables/invoices", icon: "file-text" },
+        { label: "RA Bills", path: "/accountant/receivables/ra-bills", icon: "activity" },
+        { label: "Credit Notes", path: "/accountant/receivables/credit-notes", icon: "rotate-ccw" },
+      ]
+    },
+    { label: "Payables", path: "/accountant/payables", icon: "trending-down" },
+    { label: "Expenses", path: "/accountant/expenses", icon: "dollar-sign" },
+    { label: "Payments & Receipts", path: "/accountant/payments", icon: "credit-card" },
+    { label: "GST & Taxation", path: "/accountant/taxation", icon: "percent" },
+    { label: "Payroll", path: "/accountant/payroll", icon: "users" },
+    { label: "Bank & Cash", path: "/accountant/banking", icon: "home" },
+    { label: "Journal Entries", path: "/accountant/journal", icon: "edit-3" },
+    { label: "Fixed Assets", path: "/accountant/assets", icon: "layers" },
     { label: "Reports", path: "/accountant/reports", icon: "bar-chart" },
+    { label: "Settings", path: "/accountant/settings", icon: "settings" },
   ],
   Client: [
     { label: "Dashboard", path: "/client", icon: "grid" },

@@ -79,7 +79,7 @@ const INITIAL_CONTRACTORS = [
 
 const ContractorsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [contractors, setContractors] = useState(INITIAL_CONTRACTORS);
+  const [contractors, setContractors] = useState<any[]>(INITIAL_CONTRACTORS);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [viewingContractor, setViewingContractor] = useState<any | null>(null);
