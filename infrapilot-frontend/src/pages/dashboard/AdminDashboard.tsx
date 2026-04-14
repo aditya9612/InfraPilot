@@ -16,6 +16,7 @@ import NewProjectModal from "../../components/dashboard/NewProjectModal";
 import CreateUserModal from "../../components/forms/CreateUserModal";
 import PageTransition from "../../components/common/PageTransition";
 import CreateBOQModal from "../../components/forms/CreateBOQModal";
+import CreateReportModal from "../../components/dashboard/CreateReportModal";
 import { PROJECTS } from "../../config/projectSeed";
 import type { ProjectStatus } from "../../types/project";
 
@@ -87,6 +88,7 @@ const AdminDashboard = () => {
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
   const [isBOQModalOpen, setIsBOQModalOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   const handleCreateUser = (userData: any) => {
     console.log("New User Data:", userData);
@@ -141,7 +143,10 @@ const AdminDashboard = () => {
             >
               + Create BOQ
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all">
+            <button
+              onClick={() => setIsReportModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+            >
               Create Report
             </button>
           </div>
@@ -575,6 +580,10 @@ const AdminDashboard = () => {
         isOpen={isBOQModalOpen}
         onClose={() => setIsBOQModalOpen(false)}
         onSubmit={handleCreateBOQ}
+      />
+      <CreateReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
       />
     </>
   );

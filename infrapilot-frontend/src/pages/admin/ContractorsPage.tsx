@@ -160,6 +160,13 @@ const ContractorsPage = () => {
   };
 
   const handleExportCSV = () => {
+    if (filteredContractors.length === 0) {
+      toast.error("No contractors found to export", {
+        style: { borderRadius: '12px', background: '#333', color: '#fff' }
+      });
+      return;
+    }
+
     const data = filteredContractors.map((c) => ({
       ID: c.id,
       Name: c.name,
@@ -175,7 +182,11 @@ const ContractorsPage = () => {
       "Payment Given (₹)": c.payment_given,
       "Outstanding Dues (₹)": calculateOutstanding(c),
     }));
-    exportToCSV(data, "contractors_export");
+    
+    exportToCSV(data, "contractors_directory_export.csv");
+    toast.success("CSV Exported successfully!", {
+      style: { borderRadius: '12px', background: '#333', color: '#fff' }
+    });
   };
 
   return (
@@ -198,8 +209,11 @@ const ContractorsPage = () => {
           <div className="flex gap-2">
             <button
               onClick={handleExportCSV}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all active:scale-95"
             >
+              <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
               Export CSV
             </button>
             <button
@@ -270,7 +284,7 @@ const ContractorsPage = () => {
                   <th className="px-6 py-4">Assigned Site</th>
                   <th className="px-6 py-4 text-center">Pending Dues</th>
                   <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
+                  <th className="px-6 py-4 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -344,8 +358,8 @@ const ContractorsPage = () => {
                         {c.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="px-6 py-4 text-center">
+                      <div className="flex items-center justify-center gap-2">
                         <button 
                           onClick={() => handleViewDetails(c)}
                           title="View Details"

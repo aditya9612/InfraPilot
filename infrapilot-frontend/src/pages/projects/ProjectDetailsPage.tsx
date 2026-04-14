@@ -16,6 +16,8 @@ import TeamMembersList from "../../components/projects/TeamMembersList";
 import ProfitLossCard from "../../components/projects/ProfitLossCard";
 import ProjectExpensesTable from "../../components/projects/ProjectExpensesTable";
 import EditProjectModal from "../../components/dashboard/EditProjectModal";
+import toast from "react-hot-toast";
+import ConfirmModal from "../../components/common/ConfirmModal";
 
 const ProjectDetailsPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -34,13 +36,87 @@ const ProjectDetailsPage = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const members = useMemo(() => PROJECT_MEMBERS[projectId] || [], [projectId]);
-  const milestones = useMemo(() => MILESTONES[projectId] || [], [projectId]);
-  const tasks = useMemo(() => TASKS[projectId] || [], [projectId]);
+  const [milestones, setMilestones] = useState(() => MILESTONES[projectId] || []);
+  const [tasks, setTasks] = useState(() => TASKS[projectId] || []);
+  const [isDeleteMilestoneModalOpen, setIsDeleteMilestoneModalOpen] = useState(false);
+  const [milestoneToDelete, setMilestoneToDelete] = useState<number | null>(null);
+  
   const profitLoss = useMemo(() => PROFIT_LOSS_DATA[projectId], [projectId]);
   const expenses = useMemo(
     () => PROJECT_EXPENSES[projectId] || [],
     [projectId],
   );
+
+  const handleCreateMilestone = (milestoneData: any) => {
+    const newMilestone = {
+      ...milestoneData,
+      id: Math.max(...milestones.map((m) => m.id), 0) + 1,
+      status: "Pending",
+    };
+    setMilestones(prev => [...prev, newMilestone]);
+  };
+
+  const handleCreateTask = (taskData: any) => {
+    const newTask = {
+      ...taskData,
+      id: Math.max(...tasks.map((t) => t.id), 0) + 1,
+      completion_percentage: 0,
+      is_delayed: false,
+    };
+    setTasks(prev => [...prev, newTask]);
+  };
+
+  const handleUpdateTask = (updatedData: any) => {
+    setTasks(prev => prev.map(t => 
+      t.id === updatedData.task_id 
+        ? { ...t, ...updatedData } 
+        : t
+    ));
+  };
+
+  const handleDeleteTask = (id: number) => {
+    setTasks(prev => prev.filter(t => t.id !== id));
+    toast.success("Task deleted successfully", {
+      style: { borderRadius: '12px', background: '#333', color: '#fff' }
+    });
+  };
+
+  const handleTaskProgressUpdate = (taskId: number, percentage: number, remarks: string) => {
+    setTasks(prev => prev.map(t => 
+      t.id === taskId 
+        ? { ...t, completion_percentage: percentage, is_delayed: percentage < 100 && new Date(t.end_date) < new Date() } 
+        : t
+    ));
+    console.log(`Progress Update for Task ${taskId}: ${percentage}% - ${remarks}`);
+  };
+
+  const handleTaskCommentAdd = (taskId: number, content: string) => {
+    console.log(`New Comment for Task ${taskId}: ${content}`);
+  };
+
+  const handleEditMilestone = (updatedData: any) => {
+    setMilestones(prev => prev.map(m => 
+      m.id === updatedData.milestone_id 
+        ? { ...m, ...updatedData } 
+        : m
+    ));
+  };
+
+  const handleDeleteMilestoneClick = (id: number) => {
+    setMilestoneToDelete(id);
+    setIsDeleteMilestoneModalOpen(true);
+  };
+
+  const handleDeleteMilestoneConfirm = () => {
+    if (milestoneToDelete) {
+      setMilestones(prev => prev.filter(m => m.id !== milestoneToDelete));
+      setIsDeleteMilestoneModalOpen(false);
+      setMilestoneToDelete(null);
+      toast.success("Milestone removed successfully", {
+        style: { borderRadius: '12px', background: '#333', color: '#fff' }
+      });
+    }
+  };
 
   // Dynamic Progress Calculation
   const calculatedProgress = useMemo(() => {
@@ -233,13 +309,28 @@ const ProjectDetailsPage = () => {
 
           {activeTab === "Tasks" && (
             <div className="h-[calc(100vh-280px)]">
-              <KanbanBoard tasks={tasks} />
+              <KanbanBoard 
+                tasks={tasks} 
+                projectId={projectId}
+                members={members}
+                onCreateTask={handleCreateTask}
+                onUpdateTask={handleUpdateTask}
+                onDeleteTask={handleDeleteTask}
+                onUpdateProgress={handleTaskProgressUpdate}
+                onAddComment={handleTaskCommentAdd}
+              />
             </div>
           )}
 
           {activeTab === "Milestones" && (
-            <div className="max-w-4xl mx-auto">
-              <MilestoneTimeline milestones={milestones} />
+            <div className="w-full">
+              <MilestoneTimeline 
+                milestones={milestones} 
+                projectId={projectId}
+                onCreateMilestone={handleCreateMilestone}
+                onEditMilestone={handleEditMilestone}
+                onDeleteMilestone={handleDeleteMilestoneClick}
+              />
             </div>
           )}
 
@@ -276,7 +367,7 @@ const ProjectDetailsPage = () => {
           )}
 
           {activeTab === "Members" && (
-            <div className="max-w-4xl mx-auto">
+            <div className="w-full">
               <TeamMembersList members={members} />
             </div>
           )}
@@ -288,6 +379,19 @@ const ProjectDetailsPage = () => {
         onClose={() => setIsEditModalOpen(false)}
         project={project || null}
         onSubmit={handleUpdateProject}
+      />
+
+      <ConfirmModal
+        isOpen={isDeleteMilestoneModalOpen}
+        onClose={() => {
+          setIsDeleteMilestoneModalOpen(false);
+          setMilestoneToDelete(null);
+        }}
+        onConfirm={handleDeleteMilestoneConfirm}
+        title="Remove Milestone"
+        message="Are you sure you want to remove this milestone from the project schedule? This action cannot be undone."
+        confirmText="Remove"
+        type="danger"
       />
     </>
   );

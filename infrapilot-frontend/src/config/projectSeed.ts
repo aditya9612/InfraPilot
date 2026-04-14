@@ -10,6 +10,7 @@ export const PROJECTS: Project[] = [
     end_date: "2027-12-31",
     status: "Active",
     completion_percentage: 15,
+    budget: 45000000,
   },
   {
     id: 2,
@@ -20,6 +21,7 @@ export const PROJECTS: Project[] = [
     end_date: "2028-06-30",
     status: "Delayed",
     completion_percentage: 45,
+    budget: 82000000,
   },
   {
     id: 3,
@@ -30,6 +32,7 @@ export const PROJECTS: Project[] = [
     end_date: "2027-05-01",
     status: "Planned",
     completion_percentage: 0,
+    budget: 25000000,
   }
 ];
 

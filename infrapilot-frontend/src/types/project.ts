@@ -1,6 +1,11 @@
 import type { UserRole } from "./user";
 
-export type ProjectStatus = "Planned" | "Active" | "Delayed" | "Completed" | "On Hold";
+export type ProjectStatus =
+  | "Planned"
+  | "Active"
+  | "Delayed"
+  | "Completed"
+  | "On Hold";
 export type TaskStatus = "Planned" | "In Progress" | "Completed" | "Delayed";
 export type MilestoneStatus = "Pending" | "In Progress" | "Completed";
 
@@ -13,6 +18,7 @@ export interface Project {
   end_date: string;
   status: ProjectStatus;
   completion_percentage: number;
+  budget?: number;
 }
 
 export interface ProjectMember {

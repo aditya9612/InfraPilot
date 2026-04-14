@@ -2,6 +2,7 @@ import { useState } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import CreateRoleModal from "../../components/forms/CreateRoleModal";
+import ConfirmModal from "../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 import type { Role } from "../../types/user";
 
@@ -61,6 +62,8 @@ const RolesPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [roleToDelete, setRoleToDelete] = useState<{ id: string, name: string } | null>(null);
 
   const handleCreateOrUpdateRole = (roleData: any) => {
     if (editingRole) {
@@ -78,9 +81,16 @@ const RolesPage = () => {
   };
 
   const handleDeleteClick = (id: string, name: string) => {
-    if (window.confirm(`Are you sure you want to delete the "${name}" role? This will remove access for all associated users.`)) {
-      setRoles(roles.filter(role => role.id !== id));
-      toast.success(`Role "${name}" deleted successfully!`);
+    setRoleToDelete({ id, name });
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDeleteRole = () => {
+    if (roleToDelete) {
+      setRoles(roles.filter(role => role.id !== roleToDelete.id));
+      toast.success(`Role "${roleToDelete.name}" deleted successfully!`);
+      setIsDeleteModalOpen(false);
+      setRoleToDelete(null);
     }
   };
 
@@ -244,6 +254,19 @@ const RolesPage = () => {
         }}
         onSubmit={handleCreateOrUpdateRole}
         initialData={editingRole}
+      />
+
+      <ConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setRoleToDelete(null);
+        }}
+        onConfirm={confirmDeleteRole}
+        title="Delete Role"
+        message={`Are you sure you want to delete the "${roleToDelete?.name}" role? This action cannot be undone and will affect all associated users.`}
+        confirmText="Yes, Delete Role"
+        type="danger"
       />
     </>
   );

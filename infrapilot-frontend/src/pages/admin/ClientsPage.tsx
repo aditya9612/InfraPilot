@@ -131,7 +131,7 @@ const ClientsPage = () => {
                   <th className="px-6 py-4">Billing Status</th>
                   <th className="px-6 py-4">Financial History</th>
                   <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
+                  <th className="px-6 py-4 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -177,8 +177,8 @@ const ClientsPage = () => {
                         {c.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="px-6 py-4 text-center">
+                      <div className="flex items-center justify-center gap-2">
                         <button className="p-2 text-slate-400 hover:text-primary hover:bg-blue-50 rounded-lg transition-all" title="View Profile">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
