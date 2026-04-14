@@ -14,7 +14,10 @@ export interface User {
   name: string;
   mobile: string;
   role: Role;
-  token: string;
+  token: {
+    access_token: string;
+    token_type: string;
+  };
 }
 
 interface AuthContextType {
@@ -29,7 +32,19 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(() => {
     const stored = localStorage.getItem("infrapilot_user");
-    return stored ? JSON.parse(stored) : null;
+    if (stored) return JSON.parse(stored);
+    
+    // TEMPORARY: Auto-login as Admin for development when backend is down
+    return {
+      id: "mock-admin-id",
+      name: "Mock Admin",
+      mobile: "0000000000",
+      role: "Admin",
+      token: {
+        access_token: "mock-token",
+        token_type: "Bearer",
+      },
+    };
   });
 
   const login = (userData: User) => {

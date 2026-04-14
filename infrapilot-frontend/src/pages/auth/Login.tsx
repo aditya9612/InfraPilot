@@ -3,55 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import type { Role, User } from "../../context/AuthContext";
 import logo from "../../assets/logo.png";
+import { authService } from "../../services/authService";
+import toast from "react-hot-toast";
 
 type Step = "mobile" | "otp";
-
-const MOCK_OTP = "123456";
-
-const MOCK_USERS: Record<string, User> = {
-  "9999999999": {
-    id: "1",
-    name: "Arjun Mehta",
-    mobile: "9999999999",
-    role: "Admin",
-    token: "tok_admin",
-  },
-  "8888888888": {
-    id: "2",
-    name: "Priya Nair",
-    mobile: "8888888888",
-    role: "Project Manager",
-    token: "tok_pm",
-  },
-  "7777777777": {
-    id: "3",
-    name: "Ravi Kumar",
-    mobile: "7777777777",
-    role: "Site Engineer",
-    token: "tok_eng",
-  },
-  "6666666666": {
-    id: "4",
-    name: "Suresh Patel",
-    mobile: "6666666666",
-    role: "Contractor",
-    token: "tok_con",
-  },
-  "5555555555": {
-    id: "5",
-    name: "Neha Sharma",
-    mobile: "5555555555",
-    role: "Accountant",
-    token: "tok_acc",
-  },
-  "4444444444": {
-    id: "6",
-    name: "Mr. Sharma",
-    mobile: "4444444444",
-    role: "Client",
-    token: "tok_client",
-  },
-};
 
 const ROLE_PATHS: Record<Role, string> = {
   Admin: "/admin",
@@ -93,10 +48,16 @@ const Login = () => {
     }
     setError("");
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    setLoading(false);
-    setStep("otp");
-    startResendTimer();
+    try {
+      await authService.login(mobile);
+      toast.success("Demanded OTP sent!");
+      setStep("otp");
+      startResendTimer();
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to send OTP. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleOtpChange = (index: number, value: string) => {
@@ -113,27 +74,42 @@ const Login = () => {
   };
 
   const handleVerifyOtp = async () => {
-    if (otp.join("").length < 6) {
+    const otpValue = otp.join("");
+    if (otpValue.length < 6) {
       setError("Please enter the complete 6-digit OTP.");
-      return;
-    }
-    if (otp.join("") !== MOCK_OTP) {
-      setError("Invalid OTP. Use 123456 for demo.");
       return;
     }
     setError("");
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    const user = MOCK_USERS[mobile] ?? {
-      id: "99",
-      name: "Guest User",
-      mobile,
-      role: "Site Engineer" as Role,
-      token: "tok_guest",
-    };
-    login(user);
-    setLoading(false);
-    navigate(ROLE_PATHS[user.role]);
+    try {
+      const verifyData = await authService.verifyOtp(mobile, otpValue);
+      
+      // Temporary store to allow fetch profile
+      const tempUser = { 
+        id: String(verifyData.user_id), 
+        token: verifyData.token 
+      } as any;
+      localStorage.setItem("infrapilot_user", JSON.stringify(tempUser));
+
+      const profile = await authService.getMe();
+      
+      const fullUser: User = {
+        id: String(verifyData.user_id),
+        name: profile.full_name || "User",
+        mobile: mobile,
+        role: (profile.role as Role) || "Admin",
+        token: verifyData.token,
+      };
+
+      login(fullUser);
+      toast.success(`Welcome, ${fullUser.name}!`);
+      navigate(ROLE_PATHS[fullUser.role]);
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Invalid OTP or verification failed.");
+      localStorage.removeItem("infrapilot_user");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleResend = async () => {
@@ -310,23 +286,6 @@ const Login = () => {
                   +91 {mobile}
                 </span>
               </p>
-              <div className="inline-flex items-center gap-1.5 bg-blue-50 border border-blue-200 text-primary text-xs font-medium px-3 py-1.5 rounded-lg mb-5">
-                <svg
-                  className="w-3 h-3"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                Demo OTP: <span className="font-mono font-bold">123456</span>
-              </div>
-
               <button
                 onClick={() => {
                   setStep("mobile");

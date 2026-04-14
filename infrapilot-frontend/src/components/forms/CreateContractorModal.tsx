@@ -153,7 +153,7 @@ const CreateContractorModal = ({ isOpen, onClose, onSubmit, initialData }: Creat
       title={initialData ? "Update Contractor" : "Add New Contractor"}
       footer={modalFooter}
     >
-      <form id="contractor-form" onSubmit={handleSubmit} className="space-y-6">
+      <form id="contractor-form" onSubmit={handleSubmit} noValidate className="space-y-6">
         {/* Basic Information */}
         <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
           <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Basic Info</h3>

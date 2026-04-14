@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 import ContractorDetailsModal from "../../components/dashboard/ContractorDetailsModal";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import { PROJECTS } from "../../config/projectSeed";
+import { exportToCSV } from "../../utils/csvExport";
 
 const INITIAL_CONTRACTORS = [
   {
@@ -158,6 +159,25 @@ const ContractorsPage = () => {
     }
   };
 
+  const handleExportCSV = () => {
+    const data = filteredContractors.map((c) => ({
+      ID: c.id,
+      Name: c.name,
+      Company: c.company,
+      Email: c.email,
+      Mobile: c.mobile,
+      GST: c.gst,
+      "Work Type": c.projects,
+      "Assigned Project": PROJECTS.find((p) => p.id === c.project_id)?.project_name || "N/A",
+      Status: c.status,
+      Rating: c.rating,
+      "Total Work Assigned (₹)": c.total_work_assigned,
+      "Payment Given (₹)": c.payment_given,
+      "Outstanding Dues (₹)": calculateOutstanding(c),
+    }));
+    exportToCSV(data, "contractors_export");
+  };
+
   return (
     <>
       <Navbar
@@ -176,7 +196,10 @@ const ContractorsPage = () => {
             </p>
           </div>
           <div className="flex gap-2">
-            <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all">
+            <button
+              onClick={handleExportCSV}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
+            >
               Export CSV
             </button>
             <button

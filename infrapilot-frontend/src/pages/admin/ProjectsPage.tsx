@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { exportToCSV } from "../../utils/csvExport";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import NewProjectModal from "../../components/dashboard/NewProjectModal";
@@ -104,6 +105,26 @@ const ProjectsPage = () => {
     }
   };
 
+  const handleDownloadCSV = () => {
+    const csvData = filtered.map(p => ({
+      id: `PRJ-${p.id}`,
+      project_name: p.project_name,
+      start_date: p.start_date,
+      end_date: p.end_date,
+      status: p.status,
+      percentage: `${p.completion_percentage}%`
+    }));
+
+    exportToCSV(csvData, "projects_export.csv", {
+      id: "Project ID",
+      project_name: "Project Name",
+      start_date: "Start Date",
+      end_date: "End Date",
+      status: "Status",
+      percentage: "Completion (%)"
+    });
+  };
+
   return (
     <>
       <Navbar title="Projects" breadcrumb={["InfraPilot", "Projects"]} />
@@ -119,7 +140,10 @@ const ProjectsPage = () => {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all">
+            <button 
+              onClick={handleDownloadCSV}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
+            >
               Download CSV
             </button>
             <button
