@@ -87,7 +87,8 @@ const Login = () => {
       // Temporary store to allow fetch profile
       const tempUser = { 
         id: String(verifyData.user_id), 
-        token: verifyData.token 
+        token: verifyData.token,
+        mobile: mobile
       } as any;
       localStorage.setItem("infrapilot_user", JSON.stringify(tempUser));
 

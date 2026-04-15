@@ -12,29 +12,52 @@ export interface VerifyOtpResponse {
 export const authService = {
   /**
    * Sending OTP request
-   * POST /api/v1/auth/login
+   * MOCK: Always succeeds
    */
   async login(mobile: string) {
-    const response = await api.post('/auth/login', { mobile });
-    return response.data;
+    console.log('MOCK LOGIN: Sending OTP to', mobile);
+    return { status: 'success', message: 'MOCK: OTP sent successfully' };
   },
 
   /**
    * Final Verify OTP request
-   * POST /api/v1/auth/verify_otp
+   * MOCK: Always succeeds with a mock token
    */
   async verifyOtp(mobile: string, otp: string): Promise<VerifyOtpResponse> {
-    const response = await api.post('/auth/verify_otp', { mobile, otp });
-    return response.data;
+    console.log('MOCK VERIFY: Verifying OTP', otp, 'for', mobile);
+    return {
+      token: {
+        access_token: 'mock-access-token',
+        token_type: 'Bearer',
+      },
+      user_id: 1,
+    };
   },
 
   /**
    * Fetching the full user profile after verification
-   * GET /api/v1/users/me
+   * MOCK: Returns a profile based on the mobile number last digit
    */
   async getMe(): Promise<{ full_name: string; role: string; email?: string; mobile_number?: string }> {
-    const response = await api.get('/users/me');
-    return response.data;
+    const userString = localStorage.getItem('infrapilot_user');
+    const user = userString ? JSON.parse(userString) : null;
+    const mobile = user?.mobile || '0000000000';
+    
+    let role = 'Admin';
+    if (mobile === '9999999999') role = 'Admin';
+    else if (mobile.endsWith('1')) role = 'Project Manager';
+    else if (mobile.endsWith('2')) role = 'Site Engineer';
+    else if (mobile.endsWith('3')) role = 'Contractor';
+    else if (mobile.endsWith('4')) role = 'Accountant';
+    else if (mobile.endsWith('5')) role = 'Client';
+    else role = 'Admin'; // Default
+
+    return {
+      full_name: `Mock ${role}`,
+      role: role,
+      email: `${role.toLowerCase().replace(' ', '.')}@infrapilot.ai`,
+      mobile_number: mobile,
+    };
   },
 
   logout() {

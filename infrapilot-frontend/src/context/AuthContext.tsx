@@ -33,18 +33,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(() => {
     const stored = localStorage.getItem("infrapilot_user");
     if (stored) return JSON.parse(stored);
-    
-    // TEMPORARY: Auto-login as Admin for development when backend is down
-    return {
-      id: "mock-admin-id",
-      name: "Mock Admin",
-      mobile: "0000000000",
-      role: "Admin",
-      token: {
-        access_token: "mock-token",
-        token_type: "Bearer",
-      },
-    };
+    return null;
   });
 
   const login = (userData: User) => {
