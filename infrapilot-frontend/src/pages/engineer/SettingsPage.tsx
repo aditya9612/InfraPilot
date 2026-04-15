@@ -129,7 +129,7 @@ const SettingsPage = () => {
                 breadcrumb={["InfraPilot", "Engineer", "Settings"]}
             />
 
-            <PageTransition className="p-8 bg-slate-50 min-h-screen font-inter">
+            <PageTransition className="p-4 md:p-8 bg-slate-50 min-h-screen font-inter">
 
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
@@ -137,7 +137,7 @@ const SettingsPage = () => {
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">
                             Preferences
                         </p>
-                        <h1 className="text-3xl font-black text-slate-800 tracking-tighter mb-1">
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
                             Settings
                         </h1>
                         <p className="text-slate-500 text-sm font-medium">
@@ -147,7 +147,7 @@ const SettingsPage = () => {
                     <button
                         onClick={handleSave}
                         disabled={isSaving}
-                        className="flex items-center gap-2 px-7 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm font-bold rounded-2xl shadow-md shadow-blue-200 transition-all"
+                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all font-inter"
                     >
                         {isSaving ? (
                             <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -165,7 +165,7 @@ const SettingsPage = () => {
                     <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">
                         Current Configuration
                     </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                         <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
                             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Active Project</p>
                             <p className="text-base font-bold text-primary truncate">{selectedProject}</p>
@@ -228,8 +228,8 @@ const SettingsPage = () => {
                                         key={p}
                                         onClick={() => setSelectedProject(p)}
                                         className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold transition-all ${selectedProject === p
-                                                ? "bg-blue-50 border-blue-200 text-blue-700"
-                                                : "bg-slate-50 border-slate-100 text-slate-600 hover:border-slate-200"
+                                            ? "bg-blue-50 border-blue-200 text-blue-700"
+                                            : "bg-slate-50 border-slate-100 text-slate-600 hover:border-slate-200"
                                             }`}
                                     >
                                         <span className="flex items-center gap-2.5">
@@ -266,8 +266,8 @@ const SettingsPage = () => {
                                             key={u}
                                             onClick={() => setUnitSystem(u)}
                                             className={`py-3 rounded-xl text-xs font-bold border transition-all ${unitSystem === u
-                                                    ? "bg-slate-800 text-white border-slate-800 shadow-sm"
-                                                    : "bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-300"
+                                                ? "bg-slate-800 text-white border-slate-800 shadow-sm"
+                                                : "bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-300"
                                                 }`}
                                         >
                                             {u}
@@ -281,14 +281,14 @@ const SettingsPage = () => {
                                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                                     Mass / Weight
                                 </label>
-                                <div className="grid grid-cols-3 gap-2">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                     {unitOptions.mass.map(u => (
                                         <button
                                             key={u}
                                             onClick={() => setMassUnit(u)}
                                             className={`py-3 rounded-xl text-xs font-bold border transition-all ${massUnit === u
-                                                    ? "bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-200"
-                                                    : "bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-300"
+                                                ? "bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-200"
+                                                : "bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-300"
                                                 }`}
                                         >
                                             {u}
@@ -302,14 +302,14 @@ const SettingsPage = () => {
                                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                                     Length / Distance
                                 </label>
-                                <div className="grid grid-cols-4 gap-2">
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                     {unitOptions.length.map(u => (
                                         <button
                                             key={u}
                                             onClick={() => setLengthUnit(u)}
                                             className={`py-3 rounded-xl text-xs font-bold border transition-all ${lengthUnit === u
-                                                    ? "bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-200"
-                                                    : "bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-300"
+                                                ? "bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-200"
+                                                : "bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-300"
                                                 }`}
                                         >
                                             {u}
@@ -446,7 +446,7 @@ const SettingsPage = () => {
                         </div>
 
                         {/* Info notice */}
-                        <div className="flex items-start gap-3 p-4 bg-amber-50 rounded-xl border border-amber-100 mt-auto">
+                        <div className="flex items-start gap-3 p-4 bg-amber-50 rounded-xl border border-amber-100 lg:mt-auto">
                             <span className="text-lg shrink-0">⚠️</span>
                             <div>
                                 <p className="text-xs font-bold text-amber-700 mb-0.5">Admin-Restricted Settings</p>
@@ -464,7 +464,7 @@ const SettingsPage = () => {
                     <button
                         onClick={handleSave}
                         disabled={isSaving}
-                        className="flex items-center gap-2 px-10 py-3.5 bg-slate-900 hover:bg-black disabled:opacity-60 text-white text-sm font-bold rounded-2xl tracking-wide transition-all shadow-md"
+                        className="w-full sm:w-auto flex items-center justify-center gap-2 px-10 py-4 bg-slate-900 hover:bg-black disabled:opacity-60 text-white text-[11px] font-black rounded-2xl tracking-[0.1em] transition-all shadow-xl uppercase active:scale-95"
                     >
                         {isSaving ? (
                             <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

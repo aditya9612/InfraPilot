@@ -63,6 +63,7 @@ import SettingsPage from "../pages/engineer/SettingsPage";
 import ActivityListPage from "../pages/engineer/WorkProgress/ActivityListPage";
 import DailyProgressEntryPage from "../pages/engineer/WorkProgress/DailyProgressEntryPage";
 import LaborAttendancePage from "../pages/engineer/LaborManagement/LaborAttendancePage";
+import LaborReportsPage from "../pages/engineer/LaborManagement/LaborReportsPage";
 import LaborDetailsPage from "../pages/engineer/LaborManagement/LaborDetailsPage";
 import MaterialReceiptPage from "../pages/engineer/MaterialManagement/MaterialReceiptPage";
 import MaterialConsumptionPage from "../pages/engineer/MaterialManagement/MaterialConsumptionPage";
@@ -165,6 +166,7 @@ function AppRoutes() {
               <Route path="/engineer/progress/activities" element={<ActivityListPage />} />
               <Route path="/engineer/progress/entry" element={<DailyProgressEntryPage />} />
               <Route path="/engineer/labor/attendance" element={<LaborAttendancePage />} />
+              <Route path="/engineer/labor/reports" element={<LaborReportsPage />} />
               <Route path="/engineer/labor/details" element={<LaborDetailsPage />} />
               <Route path="/engineer/material/receipt" element={<MaterialReceiptPage />} />
               <Route path="/engineer/material/consumption" element={<MaterialConsumptionPage />} />

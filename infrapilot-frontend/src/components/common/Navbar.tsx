@@ -46,11 +46,11 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
   ];
 
   return (
-    <div className="sticky top-0 z-[100] shadow-sm bg-primary px-8 py-5 flex items-center justify-between">
-      <div>
-        <h1 className="text-xl font-bold text-white">{title}</h1>
+    <div className="sticky top-0 z-[100] shadow-sm bg-primary px-4 md:px-8 py-4 md:py-5 flex items-center justify-between">
+      <div className="min-w-0">
+        <h1 className="text-lg md:text-xl font-bold text-white truncate">{title}</h1>
         {breadcrumb && (
-          <nav className="flex items-center gap-1 text-blue-100 text-[10px] mt-1 font-black uppercase tracking-widest" aria-label="Breadcrumb">
+          <nav className="hidden md:flex items-center gap-1 text-blue-100 text-[10px] mt-1 font-black uppercase tracking-widest" aria-label="Breadcrumb">
             {breadcrumb.map((item, index) => {
               const isLast = index === breadcrumb.length - 1;
               const label = typeof item === "string" ? item : item.label;

@@ -116,6 +116,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       icon: "users",
       subNav: [
         { label: "Attendance", path: "/engineer/labor/attendance", icon: "user-check" },
+        { label: "Wage Reports", path: "/engineer/labor/reports", icon: "file-text" },
         { label: "Labor Details", path: "/engineer/labor/details", icon: "users" },
       ],
     },
