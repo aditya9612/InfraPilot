@@ -1,14 +1,23 @@
 import { createContext, useContext, useState } from "react";
 import type { ReactNode } from "react";
 
-export type Role = "Admin" | "Project Manager" | "Site Engineer" | "Contractor" | "Accountant" | "Client";
+export type Role =
+  | "Admin"
+  | "Project Manager"
+  | "Site Engineer"
+  | "Contractor"
+  | "Accountant"
+  | "Client";
 
 export interface User {
   id: string;
   name: string;
   mobile: string;
   role: Role;
-  token: string;
+  token: {
+    access_token: string;
+    token_type: string;
+  };
 }
 
 interface AuthContextType {
@@ -23,7 +32,8 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(() => {
     const stored = localStorage.getItem("infrapilot_user");
-    return stored ? JSON.parse(stored) : null;
+    if (stored) return JSON.parse(stored);
+    return null;
   });
 
   const login = (userData: User) => {
@@ -37,7 +47,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider
+      value={{ user, login, logout, isAuthenticated: !!user }}
+    >
       {children}
     </AuthContext.Provider>
   );

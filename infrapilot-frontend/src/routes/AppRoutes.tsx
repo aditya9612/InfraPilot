@@ -48,6 +48,22 @@ import ClientFinancialReportPage from "../pages/client/reports/ClientFinancialRe
 import ClientWorkSummaryPage from "../pages/client/reports/ClientWorkSummaryPage";
 import ClientSettingsPage from "../pages/client/ClientSettingsPage";
 
+// Accountant Pages
+import ChartOfAccountsPage from "../pages/accountant/ChartOfAccountsPage";
+import ReceivablesPage from "../pages/accountant/ReceivablesPage";
+import ReceivablesRABillsPage from "../pages/accountant/ReceivablesRABillsPage";
+import ReceivablesCreditNotesPage from "../pages/accountant/ReceivablesCreditNotesPage";
+import PayablesPage from "../pages/accountant/PayablesPage";
+import ExpensesPage from "../pages/accountant/ExpensesPage";
+import PaymentsReceiptsPage from "../pages/accountant/PaymentsReceiptsPage";
+import TaxationPage from "../pages/accountant/TaxationPage";
+import PayrollPage from "../pages/accountant/PayrollPage";
+import BankingPage from "../pages/accountant/BankingPage";
+import JournalEntriesPage from "../pages/accountant/JournalEntriesPage";
+import FixedAssetsPage from "../pages/accountant/FixedAssetsPage";
+import AccountantReportsPage from "../pages/accountant/AccountantReportsPage";
+import AccountantSettingsPage from "../pages/accountant/AccountantSettingsPage";
+
 const RootRedirect = () => {
   const { user, isAuthenticated } = useAuth();
   if (!isAuthenticated) return <Login />;
@@ -131,6 +147,21 @@ function AppRoutes() {
             {/* Accountant Specific Routes */}
             <Route element={<ProtectedRoute allowedRoles={["Accountant"]} />}>
               <Route path="/accountant" element={<AccountantDashboard />} />
+              <Route path="/accountant/chart-of-accounts" element={<ChartOfAccountsPage />} />
+              <Route path="/accountant/receivables" element={<Navigate to="/accountant/receivables/invoices" replace />} />
+              <Route path="/accountant/receivables/invoices" element={<ReceivablesPage />} />
+              <Route path="/accountant/receivables/ra-bills" element={<ReceivablesRABillsPage />} />
+              <Route path="/accountant/receivables/credit-notes" element={<ReceivablesCreditNotesPage />} />
+              <Route path="/accountant/payables" element={<PayablesPage />} />
+              <Route path="/accountant/expenses" element={<ExpensesPage />} />
+              <Route path="/accountant/payments" element={<PaymentsReceiptsPage />} />
+              <Route path="/accountant/taxation" element={<TaxationPage />} />
+              <Route path="/accountant/payroll" element={<PayrollPage />} />
+              <Route path="/accountant/banking" element={<BankingPage />} />
+              <Route path="/accountant/journal" element={<JournalEntriesPage />} />
+              <Route path="/accountant/assets" element={<FixedAssetsPage />} />
+              <Route path="/accountant/reports" element={<AccountantReportsPage />} />
+              <Route path="/accountant/settings" element={<AccountantSettingsPage />} />
             </Route>
             {/* Client Specific Routes */}
             <Route element={<ProtectedRoute allowedRoles={["Client"]} />}>

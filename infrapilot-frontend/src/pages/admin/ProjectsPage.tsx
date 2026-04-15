@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { exportToCSV } from "../../utils/csvExport";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import NewProjectModal from "../../components/dashboard/NewProjectModal";
+import EditProjectModal from "../../components/dashboard/EditProjectModal";
+import ConfirmModal from "../../components/common/ConfirmModal";
 import { PROJECTS } from "../../config/projectSeed";
 import type { Project, ProjectStatus } from "../../types/project";
 
@@ -42,6 +45,12 @@ const ProjectsPage = () => {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [actTab, setActTab] = useState("All");
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<number | null>(null);
+  
+  // Edit State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
 
   const handleCreateProject = (projectData: any) => {
     const np: Project = {
@@ -55,6 +64,21 @@ const ProjectsPage = () => {
       completion_percentage: 0,
     };
     setProjects((prev) => [np, ...prev]);
+  };
+
+  const handleEditClick = (project: Project) => {
+    setEditingProject(project);
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditProject = (updatedData: any) => {
+    setProjects(prev => prev.map(p => 
+      p.id === updatedData.project_id 
+        ? { ...p, ...updatedData } 
+        : p
+    ));
+    setIsEditModalOpen(false);
+    setEditingProject(null);
   };
 
   useEffect(() => {
@@ -88,6 +112,39 @@ const ProjectsPage = () => {
     navigate(`${basePath}/projects/${id}`);
   };
 
+  const handleDeleteClick = (id: number) => {
+    setProjectToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (projectToDelete) {
+      setProjects(prev => prev.filter(p => p.id !== projectToDelete));
+      setIsDeleteModalOpen(false);
+      setProjectToDelete(null);
+    }
+  };
+
+  const handleDownloadCSV = () => {
+    const csvData = filtered.map(p => ({
+      id: `PRJ-${p.id}`,
+      project_name: p.project_name,
+      start_date: p.start_date,
+      end_date: p.end_date,
+      status: p.status,
+      percentage: `${p.completion_percentage}%`
+    }));
+
+    exportToCSV(csvData, "projects_export.csv", {
+      id: "Project ID",
+      project_name: "Project Name",
+      start_date: "Start Date",
+      end_date: "End Date",
+      status: "Status",
+      percentage: "Completion (%)"
+    });
+  };
+
   return (
     <>
       <Navbar title="Projects" breadcrumb={["InfraPilot", "Projects"]} />
@@ -103,7 +160,10 @@ const ProjectsPage = () => {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all">
+            <button 
+              onClick={handleDownloadCSV}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
+            >
               Download CSV
             </button>
             <button
@@ -361,7 +421,7 @@ const ProjectsPage = () => {
                   <th className="px-6 py-4">Dates</th>
                   <th className="px-6 py-4">Progress</th>
                   <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4">Action</th>
+                  <th className="px-6 py-4 text-center">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -400,12 +460,36 @@ const ProjectsPage = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <button
-                        onClick={() => handleViewProject(p.id)}
-                        className="text-xs font-bold text-primary hover:underline"
-                      >
-                        View Details
-                      </button>
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => handleViewProject(p.id)}
+                          className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
+                          title="View Details"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleEditClick(p)}
+                          className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
+                          title="Edit Project"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteClick(p.id)}
+                          className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                          title="Delete Project"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -418,6 +502,29 @@ const ProjectsPage = () => {
           isOpen={showForm}
           onClose={() => setShowForm(false)}
           onSubmit={handleCreateProject}
+        />
+
+        <EditProjectModal
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setEditingProject(null);
+          }}
+          project={editingProject}
+          onSubmit={handleEditProject}
+        />
+
+        <ConfirmModal
+          isOpen={isDeleteModalOpen}
+          onClose={() => {
+            setIsDeleteModalOpen(false);
+            setProjectToDelete(null);
+          }}
+          onConfirm={handleDeleteConfirm}
+          title="Delete Project"
+          message="Are you sure you want to delete this project? This will permanently remove all associated data including tasks and finance records."
+          confirmText="Delete"
+          type="danger"
         />
       </PageTransition>
     </>

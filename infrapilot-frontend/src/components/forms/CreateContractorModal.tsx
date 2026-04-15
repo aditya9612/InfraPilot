@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import Modal from "../common/Modal";
 import toast from "react-hot-toast";
 import type { RateType } from "../../types/project";
+import { PROJECTS } from "../../config/projectSeed";
 
 interface CreateContractorModalProps {
   isOpen: boolean;
@@ -23,6 +24,7 @@ const CreateContractorModal = ({ isOpen, onClose, onSubmit, initialData }: Creat
     total_work_assigned: 0,
     payment_given: 0,
     bank_details: "",
+    project_id: "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -42,6 +44,7 @@ const CreateContractorModal = ({ isOpen, onClose, onSubmit, initialData }: Creat
         total_work_assigned: initialData.total_work_assigned || 0,
         payment_given: initialData.payment_given || 0,
         bank_details: initialData.bank || "",
+        project_id: initialData.project_id?.toString() || "",
       });
     } else {
       setFormData({
@@ -56,6 +59,7 @@ const CreateContractorModal = ({ isOpen, onClose, onSubmit, initialData }: Creat
         total_work_assigned: 0,
         payment_given: 0,
         bank_details: "",
+        project_id: "",
       });
     }
   }, [initialData, isOpen]);
@@ -149,7 +153,7 @@ const CreateContractorModal = ({ isOpen, onClose, onSubmit, initialData }: Creat
       title={initialData ? "Update Contractor" : "Add New Contractor"}
       footer={modalFooter}
     >
-      <form id="contractor-form" onSubmit={handleSubmit} className="space-y-6">
+      <form id="contractor-form" onSubmit={handleSubmit} noValidate className="space-y-6">
         {/* Basic Information */}
         <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
           <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Basic Info</h3>
@@ -201,6 +205,18 @@ const CreateContractorModal = ({ isOpen, onClose, onSubmit, initialData }: Creat
                 className={`w-full px-3 py-2 bg-slate-50 border ${errors.gst_number ? 'border-red-500 focus:ring-red-200' : 'border-slate-200 focus:ring-primary focus:border-primary'} rounded-lg text-sm outline-none transition-all placeholder:text-slate-300`}
               />
               {errors.gst_number && <p className="text-[10px] text-red-500 mt-1">{errors.gst_number}</p>}
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-slate-500 mb-1">Assign to Project <span className="text-red-500">*</span></label>
+              <select
+                name="project_id" value={formData.project_id} onChange={handleChange}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+              >
+                <option value="">Select a project...</option>
+                {PROJECTS.map(p => (
+                  <option key={p.id} value={p.id}>{p.project_name}</option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
