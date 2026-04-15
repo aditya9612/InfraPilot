@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import CreateUserModal from "../../components/forms/CreateUserModal";
@@ -55,14 +55,12 @@ const INITIAL_USERS: User[] = [
 const UsersPage = () => {
   const [users, setUsers] = useState<User[]>(INITIAL_USERS);
   const [searchTerm, setSearchTerm] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [userToDelete, setUserToDelete] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [viewingUser, setViewingUser] = useState<User | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [userToDelete, setUserToDelete] = useState<number | null>(null);
-  const [limit] = useState(20);
   const handleCreateOrUpdateUser = (userData: any) => {
     if (editingUser) {
       setUsers(prev => prev.map(u => u.user_id === editingUser.user_id ? { ...u, ...userData } : u));

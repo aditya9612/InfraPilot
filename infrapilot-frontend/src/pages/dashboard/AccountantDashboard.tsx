@@ -1,7 +1,6 @@
 import Navbar from "../../components/common/Navbar";
 import StatCard from "../../components/common/StatCard";
 import InvoiceTable from "../../components/dashboard/InvoiceTable";
-import ExpenseTable from "../../components/dashboard/ExpenseTable";
 import FinanceChart from "../../components/dashboard/FinanceChart";
 import BOQSummary from "../../components/dashboard/BOQSummary";
 import TransactionFeed from "../../components/dashboard/TransactionFeed";

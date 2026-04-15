@@ -1,5 +1,3 @@
-import api from './api';
-import type { User } from '../context/AuthContext';
 
 export interface VerifyOtpResponse {
   token: {
