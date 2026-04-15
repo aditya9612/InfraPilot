@@ -70,7 +70,7 @@ const CreateContractorModal = ({ isOpen, onClose, onSubmit, initialData }: Creat
       ...prev,
       [name]: ["total_work_assigned", "payment_given"].includes(name) ? parseFloat(value) || 0 : value
     }));
-    
+
     // Clear error when user types
     if (errors[name]) {
       setErrors(prev => {
@@ -91,7 +91,7 @@ const CreateContractorModal = ({ isOpen, onClose, onSubmit, initialData }: Creat
     if (!/^\d{10}$/.test(formData.contact_number)) newErrors.contact_number = "Enter a valid 10-digit number.";
     if (!formData.gst_number.trim()) newErrors.gst_number = "GST number is required.";
     if (!formData.bank_details.trim()) newErrors.bank_details = "Bank details are required.";
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -108,10 +108,10 @@ const CreateContractorModal = ({ isOpen, onClose, onSubmit, initialData }: Creat
         total_work_assigned: Number(formData.total_work_assigned),
         payment_given: Number(formData.payment_given)
       };
-      
+
       console.log("Creating new contractor:", payload);
       if (onSubmit) onSubmit(payload);
-      
+
       setIsLoading(false);
       toast.success(`Contractor "${formData.name}" created successfully!`, {
         style: {
@@ -267,7 +267,7 @@ const CreateContractorModal = ({ isOpen, onClose, onSubmit, initialData }: Creat
           <div>
             <label className="block text-xs font-bold text-slate-500 mb-1">Bank Information <span className="text-red-500">*</span></label>
             <textarea
-              required name="bank_details" value={formData.bank_details} onChange={handleChange} 
+              required name="bank_details" value={formData.bank_details} onChange={handleChange}
               placeholder="e.g. SBI Bank, A/C: 9876543210, IFSC: SBIN0005678" rows={2}
               className={`w-full px-3 py-2 bg-slate-50 border ${errors.bank_details ? 'border-red-500 focus:ring-red-200' : 'border-slate-200 focus:ring-primary focus:border-primary'} rounded-lg text-sm outline-none transition-all placeholder:text-slate-300 resize-none`}
             />

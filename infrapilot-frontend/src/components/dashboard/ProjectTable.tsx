@@ -107,13 +107,12 @@ const ProjectTable = () => {
                   <div className="flex items-center gap-3">
                     <div className="flex-1 bg-slate-100 h-1.5 rounded-full overflow-hidden">
                       <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          project.status === "On Track"
+                        className={`h-full rounded-full transition-all duration-500 ${project.status === "On Track"
                             ? "bg-emerald-500"
                             : project.status === "At Risk"
                               ? "bg-amber-500"
                               : "bg-rose-500"
-                        }`}
+                          }`}
                         style={{ width: `${project.progress}%` }}
                       />
                     </div>
@@ -124,13 +123,12 @@ const ProjectTable = () => {
                 </td>
                 <td className="px-5 py-4">
                   <span
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                      project.status === "On Track"
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${project.status === "On Track"
                         ? "bg-emerald-50 text-emerald-600 border border-emerald-100"
                         : project.status === "At Risk"
                           ? "bg-amber-50 text-amber-600 border border-amber-100"
                           : "bg-rose-50 text-rose-600 border border-rose-100"
-                    }`}
+                      }`}
                   >
                     {project.status}
                   </span>

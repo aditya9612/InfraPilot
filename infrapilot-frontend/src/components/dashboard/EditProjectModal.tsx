@@ -63,7 +63,7 @@ const EditProjectModal = ({ isOpen, onClose, project, onSubmit }: EditProjectMod
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!validate() || !project) return;
-        
+
         setIsLoading(true);
         // Simulate API call based on USER provided request/response
         setTimeout(() => {
@@ -71,12 +71,12 @@ const EditProjectModal = ({ isOpen, onClose, project, onSubmit }: EditProjectMod
                 project_id: project.id, // required field as per user
                 ...formData
             };
-            
+
             console.log("Updating project (Request Body):", requestBody);
-            
+
             if (onSubmit) onSubmit(requestBody);
             setIsLoading(false);
-            
+
             toast.success(`Project "${formData.project_name}" updated successfully!`, {
                 style: {
                     borderRadius: '12px',
@@ -130,7 +130,7 @@ const EditProjectModal = ({ isOpen, onClose, project, onSubmit }: EditProjectMod
                             />
                             {errors.project_name && <p className="text-[10px] text-red-500 mt-1">{errors.project_name}</p>}
                         </div>
-                        
+
                         <div className="md:col-span-2">
                             <label className="block text-xs font-bold text-slate-500 mb-1">Project Status</label>
                             <select
@@ -144,7 +144,7 @@ const EditProjectModal = ({ isOpen, onClose, project, onSubmit }: EditProjectMod
                                 <option value="On Hold">On Hold</option>
                             </select>
                         </div>
-                        
+
                         <div className="md:col-span-2">
                             <label className="block text-xs font-bold text-slate-500 mb-1">Description <span className="text-red-500">*</span></label>
                             <textarea

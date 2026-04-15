@@ -172,9 +172,70 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
   ],
   "Site Engineer": [
     { label: "Dashboard", path: "/engineer", icon: "grid" },
-    { label: "Tasks", path: "/engineer/tasks", icon: "check-square" },
-    { label: "Equipment", path: "/engineer/equipment", icon: "tool" },
-    { label: "Reports", path: "/engineer/reports", icon: "file-text" },
+    { label: "Daily Site Report (DSR)", path: "/engineer/dsr", icon: "clipboard" },
+    {
+      label: "Work Progress",
+      path: "/engineer/progress",
+      icon: "bar-chart",
+      subNav: [
+        { label: "Activity List", path: "/engineer/progress/activities", icon: "list" },
+        { label: "Daily Progress Entry", path: "/engineer/progress/entry", icon: "clipboard" },
+      ],
+    },
+    {
+      label: "Labor Management",
+      path: "/engineer/labor",
+      icon: "users",
+      subNav: [
+        { label: "Attendance", path: "/engineer/labor/attendance", icon: "user-check" },
+        { label: "Wage Reports", path: "/engineer/labor/reports", icon: "file-text" },
+        { label: "Labor Details", path: "/engineer/labor/details", icon: "users" },
+      ],
+    },
+    {
+      label: "Material Management",
+      path: "/engineer/material",
+      icon: "package",
+      subNav: [
+        { label: "Material Receipt", path: "/engineer/material/receipt", icon: "package" },
+        { label: "Material Consumption", path: "/engineer/material/consumption", icon: "tool" },
+        { label: "Stock", path: "/engineer/material/stock", icon: "database" },
+      ],
+    },
+    { label: "Machinery & Equipment", path: "/engineer/machinery", icon: "tool" },
+    {
+      label: "Quality Control (QC)",
+      path: "/engineer/qc",
+      icon: "check-circle",
+      subNav: [
+        { label: "Inspection", path: "/engineer/qc/inspection", icon: "search" },
+        { label: "Test Reports", path: "/engineer/qc/reports", icon: "file-text" },
+      ],
+    },
+    {
+      label: "Safety Management",
+      path: "/engineer/safety",
+      icon: "alert-triangle",
+      subNav: [
+        { label: "Safety Checklist", path: "/engineer/safety/checklist", icon: "check-square" },
+        { label: "Incident Report", path: "/engineer/safety/incident", icon: "file-text" },
+      ],
+    },
+    { label: "Issue / Delay Tracker", path: "/engineer/issues", icon: "alert-triangle" },
+    { label: "Site Photos", path: "/engineer/photos", icon: "camera" },
+    { label: "Drawings & Documents", path: "/engineer/drawings", icon: "folder" },
+    { label: "Checklists", path: "/engineer/checklists", icon: "list" },
+    {
+      label: "Approvals & Requests",
+      path: "/engineer/approvals",
+      icon: "check-circle",
+      subNav: [
+        { label: "Material Request", path: "/engineer/approvals/material", icon: "package" },
+        { label: "Work Approval", path: "/engineer/approvals/work", icon: "check-circle" },
+      ],
+    },
+    { label: "Reports", path: "/engineer/reports", icon: "bar-chart" },
+    { label: "Settings", path: "/engineer/settings", icon: "settings" },
   ],
   Contractor: [
     { label: "Dashboard", path: "/contractor", icon: "grid" },

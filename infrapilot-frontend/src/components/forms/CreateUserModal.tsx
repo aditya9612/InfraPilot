@@ -258,10 +258,12 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                 placeholder="John Doe"
                 className={`w-full px-4 py-2 bg-gray-50 border ${errors.full_name ? "border-rose-500 focus:ring-rose-100" : "border-gray-200 focus:ring-primary/20"} rounded-xl transition-all outline-none`}
               />
-              {errors.full_name && (
-                <p className="mt-1 text-xs text-rose-500">{errors.full_name}</p>
-              )}
-            </div>
+              {
+                errors.full_name && (
+                  <p className="mt-1 text-xs text-rose-500">{errors.full_name}</p>
+                )
+              }
+            </div >
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">
                 Mobile Number <span className="text-rose-500">*</span>
@@ -379,7 +381,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                 placeholder="1234-1234-1234"
                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 focus:ring-primary/20 rounded-xl outline-none"
               />
-            </div>
+            </div >
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-600 mb-1">
                 Full Address
@@ -392,9 +394,9 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                 placeholder="Enter full residential address"
                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 focus:ring-primary/20 rounded-xl outline-none resize-none"
               />
-            </div>
-          </div>
-        </div>
+            </div >
+          </div >
+        </div >
 
         {formData.role && formData.role !== "Admin" && (
           <div className="mb-8 p-5 bg-slate-50 border border-slate-100 rounded-2xl relative">
@@ -453,11 +455,11 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                         </option>
                       ))}
                     </select>
-                  </div>
+                  </div >
                 </>
               )}
-            </div>
-          </div>
+            </div >
+          </div >
         )}
 
         <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -497,21 +499,21 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                   </div>
                 )}
               </div>
-              <input
-                type="file"
-                id="photo-upload"
-                className="hidden"
-                accept="image/*"
-                onChange={handlePhotoChange}
-              />
-              <button
-                type="button"
-                onClick={() => document.getElementById("photo-upload")?.click()}
-                className="px-4 py-2 text-xs font-bold text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-all"
-              >
-                {photoUrl || photo ? "Change Photo" : "Upload Photo"}
-              </button>
             </div>
+            <input
+              type="file"
+              id="photo-upload"
+              className="hidden"
+              accept="image/*"
+              onChange={handlePhotoChange}
+            />
+            <button
+              type="button"
+              onClick={() => document.getElementById("photo-upload")?.click()}
+              className="px-4 py-2 text-xs font-bold text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-all"
+            >
+              {photoUrl || photo ? "Change Photo" : "Upload Photo"}
+            </button>
           </div>
 
           <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 h-full">

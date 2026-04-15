@@ -41,10 +41,10 @@ const ContractorDetailsModal: React.FC<ContractorDetailsModalProps> = ({ isOpen,
         {/* Premium Company Header */}
         <div className="relative overflow-hidden bg-primary rounded-2xl p-6 text-white shadow-2xl">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32" />
-          
+
           <div className="flex flex-col md:flex-row items-center gap-6 relative z-10">
             <div className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-md border border-white/20 flex items-center justify-center font-bold text-2xl shadow-xl overflow-hidden shrink-0">
-               <span className="bg-gradient-to-br from-white to-white/60 bg-clip-text text-transparent italic">
+              <span className="bg-gradient-to-br from-white to-white/60 bg-clip-text text-transparent italic">
                 {contractor.company.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
               </span>
             </div>
