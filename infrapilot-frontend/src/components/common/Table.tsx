@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import type { ReactNode } from "react";
 
 export interface Column<T> {
@@ -47,6 +48,10 @@ const Table = <T extends { id: string | number }>({ columns, data, className = "
       </table>
     </div>
   );
+=======
+const Table = () => {
+  return <table>Table</table>;
+>>>>>>> testing
 };
 
 export default Table;

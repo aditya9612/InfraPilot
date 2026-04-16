@@ -16,6 +16,7 @@
 }
 
 @layer base {
+<<<<<<< HEAD
 
   html,
   body {
@@ -24,6 +25,13 @@
     font-size: var(--text-body);
     color: #1F2937;
     /* Tailwind Gray 800 for better readability */
+=======
+  html, body {
+    font-family: var(--font-inter);
+    background-color: var(--color-background);
+    font-size: var(--text-body);
+    color: #1F2937; /* Tailwind Gray 800 for better readability */
+>>>>>>> testing
   }
 
   h1 {
@@ -42,17 +50,30 @@
     width: 6px;
     height: 6px;
   }
+<<<<<<< HEAD
 
   ::-webkit-scrollbar-track {
     background: transparent;
   }
 
+=======
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+>>>>>>> testing
   ::-webkit-scrollbar-thumb {
     background: #cbd5e1;
     border-radius: 10px;
   }
+<<<<<<< HEAD
 
   ::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
   }
 }
+=======
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+}
+>>>>>>> testing

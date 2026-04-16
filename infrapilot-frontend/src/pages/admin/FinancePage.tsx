@@ -5,7 +5,12 @@ import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
 import CreateInvoiceModal from "../../components/forms/CreateInvoiceModal";
+<<<<<<< HEAD
 import InvoiceDetailsModal from "../../components/dashboard/InvoiceDetailModal";
+=======
+import InvoiceDetailsModal from "../../components/dashboard/InvoiceDetailsModal";
+import ConfirmModal from "../../components/common/ConfirmModal";
+>>>>>>> testing
 import type { Invoice, InvoiceStatus } from "../../types/invoice";
 import { PROJECTS } from "../../config/projectSeed";
 
@@ -64,17 +69,30 @@ const initialInvoices: Invoice[] = [
 const FinancePage = () => {
   const location = useLocation();
   const subPage = location.pathname.split("/").pop() || "invoices";
+<<<<<<< HEAD
 
+=======
+  
+>>>>>>> testing
   // States
   const [invoices, setInvoices] = useState<Invoice[]>(initialInvoices);
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+<<<<<<< HEAD
 
+=======
+  
+>>>>>>> testing
   // Modals
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+<<<<<<< HEAD
+=======
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [invoiceToDelete, setInvoiceToDelete] = useState<number | null>(null);
+>>>>>>> testing
 
   // Handlers
   const handleCreateOrUpdate = (data: any) => {
@@ -92,10 +110,24 @@ const FinancePage = () => {
     setSelectedInvoice(null);
   };
 
+<<<<<<< HEAD
   const handleDelete = (id: number) => {
     if (confirm("Are you sure you want to delete this invoice?")) {
       setInvoices(prev => prev.filter(inv => inv.id !== id));
       toast.success("Invoice deleted");
+=======
+  const handleDeleteClick = (id: number) => {
+    setInvoiceToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleDeleteInvoice = () => {
+    if (invoiceToDelete) {
+      setInvoices(invoices.filter(inv => inv.id !== invoiceToDelete));
+      toast.success("Invoice deleted");
+      setIsDeleteModalOpen(false);
+      setInvoiceToDelete(null);
+>>>>>>> testing
     }
   };
 
@@ -116,11 +148,19 @@ const FinancePage = () => {
   const filteredInvoices = useMemo(() => {
     return invoices.filter(inv => {
       const project = PROJECTS.find(p => p.id === inv.project_id);
+<<<<<<< HEAD
       const matchSearch = (project?.project_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         inv.description.toLowerCase().includes(searchTerm.toLowerCase());
       const matchType = typeFilter === "all" || inv.type === typeFilter;
       const matchStatus = statusFilter === "all" || inv.status === statusFilter;
 
+=======
+      const matchSearch = (project?.project_name || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          inv.description.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchType = typeFilter === "all" || inv.type === typeFilter;
+      const matchStatus = statusFilter === "all" || inv.status === statusFilter;
+      
+>>>>>>> testing
       return matchSearch && matchType && matchStatus;
     });
   }, [invoices, searchTerm, typeFilter, statusFilter]);
@@ -137,8 +177,13 @@ const FinancePage = () => {
   return (
     <>
       <Navbar title="Finance & Accounts" breadcrumb={["Admin", "Finance", subPage.charAt(0).toUpperCase() + subPage.slice(1)]} />
+<<<<<<< HEAD
 
       <PageTransition className="p-6 bg-slate-50 min-h-screen">
+=======
+      
+      <PageTransition key={location.pathname} className="p-6 bg-slate-50 min-h-screen">
+>>>>>>> testing
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{subPage.charAt(0).toUpperCase() + subPage.slice(1)} Management</h1>
@@ -146,7 +191,11 @@ const FinancePage = () => {
           </div>
           <div className="flex gap-2">
             <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all">Sync Ledger</button>
+<<<<<<< HEAD
             <button
+=======
+            <button 
+>>>>>>> testing
               onClick={() => { setSelectedInvoice(null); setIsModalOpen(true); }}
               className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
             >
@@ -166,7 +215,11 @@ const FinancePage = () => {
           <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               {["invoices", "payments", "expenses", "profit"].map((tab) => (
+<<<<<<< HEAD
                 <button
+=======
+                <button 
+>>>>>>> testing
                   key={tab}
                   className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all capitalize ${subPage === tab ? "bg-primary text-white shadow-md shadow-primary/20" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}
                   onClick={() => window.history.pushState(null, "", `/admin/finance/${tab}`)}
@@ -190,7 +243,11 @@ const FinancePage = () => {
                 />
               </div>
 
+<<<<<<< HEAD
               <select
+=======
+              <select 
+>>>>>>> testing
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}
                 className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-600"
@@ -201,7 +258,11 @@ const FinancePage = () => {
                 <option value="material">Material</option>
               </select>
 
+<<<<<<< HEAD
               <select
+=======
+              <select 
+>>>>>>> testing
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-600"
@@ -224,7 +285,11 @@ const FinancePage = () => {
                   <th className="px-6 py-4">Tax / GST</th>
                   <th className="px-6 py-4">Total Amount</th>
                   <th className="px-6 py-4">Status</th>
+<<<<<<< HEAD
                   <th className="px-6 py-4 text-right">Actions</th>
+=======
+                  <th className="px-6 py-4 text-center">Actions</th>
+>>>>>>> testing
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -255,6 +320,7 @@ const FinancePage = () => {
                     </td>
                     <td className="px-6 py-4 text-sm font-bold text-primary">₹{inv.total_amount.toLocaleString()}</td>
                     <td className="px-6 py-4">
+<<<<<<< HEAD
                       <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${inv.status === 'paid' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'
                         }`}>
                         {inv.status}
@@ -270,6 +336,31 @@ const FinancePage = () => {
                         </button>
                         <button onClick={() => handleDelete(inv.id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Delete Invoice">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+=======
+                      <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${
+                        inv.status === 'paid' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'
+                      }`}>
+                        {inv.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <div className="flex items-center justify-center gap-1 transition-opacity">
+                        <button onClick={() => { setSelectedInvoice(inv); setIsDetailsModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all" title="View Details">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        </button>
+                        <button onClick={() => { setSelectedInvoice(inv); setIsModalOpen(true); }} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Edit Invoice">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                          </svg>
+                        </button>
+                        <button onClick={() => handleDeleteClick(inv.id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Delete Invoice">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+>>>>>>> testing
                         </button>
                       </div>
                     </td>
@@ -281,9 +372,15 @@ const FinancePage = () => {
         </div>
       </PageTransition>
 
+<<<<<<< HEAD
       <CreateInvoiceModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
+=======
+      <CreateInvoiceModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+>>>>>>> testing
         onSubmit={handleCreateOrUpdate}
         initialData={selectedInvoice}
       />
@@ -294,6 +391,22 @@ const FinancePage = () => {
         onMarkPaid={handleMarkPaid}
         onDownloadPDF={handleDownloadPDF}
       />
+<<<<<<< HEAD
+=======
+
+      <ConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setInvoiceToDelete(null);
+        }}
+        onConfirm={handleDeleteInvoice}
+        title="Delete Invoice"
+        message="Are you sure you want to delete this invoice? This action will remove the financial record from the system."
+        confirmText="Delete"
+        type="danger"
+      />
+>>>>>>> testing
     </>
   );
 };

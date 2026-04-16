@@ -1,12 +1,31 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+<<<<<<< HEAD
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import NewProjectModal from "../../components/dashboard/NewProjectModal";
+=======
+import { exportToCSV } from "../../utils/csvExport";
+import Navbar from "../../components/common/Navbar";
+import PageTransition from "../../components/common/PageTransition";
+import NewProjectModal from "../../components/dashboard/NewProjectModal";
+import EditProjectModal from "../../components/dashboard/EditProjectModal";
+import ConfirmModal from "../../components/common/ConfirmModal";
+>>>>>>> testing
 import { PROJECTS } from "../../config/projectSeed";
 import type { Project, ProjectStatus } from "../../types/project";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+<<<<<<< HEAD
+=======
+const statusBadge: Record<ProjectStatus, string> = {
+  Planned: "bg-slate-100 text-slate-500",
+  Active: "bg-green-100 text-success",
+  Delayed: "bg-red-100 text-red-600",
+  Completed: "bg-blue-100 text-primary",
+  "On Hold": "bg-amber-100 text-warning",
+};
+>>>>>>> testing
 
 const progressFill: Record<ProjectStatus, string> = {
   Planned: "bg-slate-300",
@@ -34,6 +53,16 @@ const ProjectsPage = () => {
   );
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+<<<<<<< HEAD
+=======
+  const [actTab, setActTab] = useState("All");
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<number | null>(null);
+  
+  // Edit State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+>>>>>>> testing
 
   const handleCreateProject = (projectData: any) => {
     const np: Project = {
@@ -49,6 +78,24 @@ const ProjectsPage = () => {
     setProjects((prev) => [np, ...prev]);
   };
 
+<<<<<<< HEAD
+=======
+  const handleEditClick = (project: Project) => {
+    setEditingProject(project);
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditProject = (updatedData: any) => {
+    setProjects(prev => prev.map(p => 
+      p.id === updatedData.project_id 
+        ? { ...p, ...updatedData } 
+        : p
+    ));
+    setIsEditModalOpen(false);
+    setEditingProject(null);
+  };
+
+>>>>>>> testing
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(search);
@@ -80,11 +127,48 @@ const ProjectsPage = () => {
     navigate(`${basePath}/projects/${id}`);
   };
 
+<<<<<<< HEAD
+=======
+  const handleDeleteClick = (id: number) => {
+    setProjectToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (projectToDelete) {
+      setProjects(prev => prev.filter(p => p.id !== projectToDelete));
+      setIsDeleteModalOpen(false);
+      setProjectToDelete(null);
+    }
+  };
+
+  const handleDownloadCSV = () => {
+    const csvData = filtered.map(p => ({
+      id: `PRJ-${p.id}`,
+      project_name: p.project_name,
+      start_date: p.start_date,
+      end_date: p.end_date,
+      status: p.status,
+      percentage: `${p.completion_percentage}%`
+    }));
+
+    exportToCSV(csvData, "projects_export.csv", {
+      id: "Project ID",
+      project_name: "Project Name",
+      start_date: "Start Date",
+      end_date: "End Date",
+      status: "Status",
+      percentage: "Completion (%)"
+    });
+  };
+
+>>>>>>> testing
   return (
     <>
       <Navbar title="Projects" breadcrumb={["InfraPilot", "Projects"]} />
 
       <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
+<<<<<<< HEAD
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
           <div>
             <h1 className="text-3xl font-black text-slate-800 tracking-tighter uppercase mb-2">
@@ -96,50 +180,87 @@ const ProjectsPage = () => {
           </div>
           <div className="flex flex-wrap gap-3">
             <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 shadow-sm transition-all active:scale-95">
+=======
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+              Site / Project Management
+            </h1>
+            <p className="text-slate-500 text-sm">
+              Real-time infrastructure projects and budget monitoring.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button 
+              onClick={handleDownloadCSV}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
+            >
+>>>>>>> testing
               Download CSV
             </button>
             <button
               onClick={() => setShowForm(true)}
+<<<<<<< HEAD
               className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+=======
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
+>>>>>>> testing
             >
               + New Project
             </button>
           </div>
         </div>
 
+<<<<<<< HEAD
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
+=======
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+>>>>>>> testing
           {[
             {
               title: "Total Projects",
               value: String(stats.total),
               sub: `Across all locations`,
               accent: "text-primary",
+<<<<<<< HEAD
               icon: "📁"
+=======
+>>>>>>> testing
             },
             {
               title: "Active Sites",
               value: String(stats.active),
               sub: "Currently in progress",
               accent: "text-success",
+<<<<<<< HEAD
               icon: "🏗️"
+=======
+>>>>>>> testing
             },
             {
               title: "Completed",
               value: String(stats.completed),
               sub: "Successfully delivered",
               accent: "text-blue-500",
+<<<<<<< HEAD
               icon: "✅"
+=======
+>>>>>>> testing
             },
             {
               title: "Delayed",
               value: String(stats.delayed),
               sub: "Needs urgent attention",
               accent: "text-red-500",
+<<<<<<< HEAD
               icon: "⚠️"
+=======
+>>>>>>> testing
             },
           ].map((s) => (
             <div
               key={s.title}
+<<<<<<< HEAD
               className="bg-white rounded-[24px] p-6 shadow-sm border border-slate-100 transition-all hover:shadow-xl hover:shadow-slate-200/50 group"
             >
               <div className="flex justify-between items-start mb-4">
@@ -151,6 +272,16 @@ const ProjectsPage = () => {
               <p className={`text-3xl font-black ${s.accent} tracking-tighter`}>{s.value}</p>
               {s.sub && (
                 <p className="text-[10px] text-slate-400 mt-2 font-bold tracking-tight uppercase">
+=======
+              className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all hover:shadow-md"
+            >
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                {s.title}
+              </p>
+              <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
+              {s.sub && (
+                <p className="text-[10px] text-slate-400 mt-1.5 font-medium">
+>>>>>>> testing
                   {s.sub}
                 </p>
               )}
@@ -160,11 +291,19 @@ const ProjectsPage = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
           <div className="lg:col-span-2 space-y-4">
+<<<<<<< HEAD
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
               <div className="flex flex-wrap gap-4 items-center">
                 <div className="flex items-center gap-3 bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 flex-1">
                   <svg
                     className="w-4 h-4 text-slate-400"
+=======
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+              <div className="flex flex-wrap gap-3 items-center">
+                <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2 flex-1">
+                  <svg
+                    className="w-3.5 h-3.5 text-slate-400"
+>>>>>>> testing
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -181,7 +320,11 @@ const ProjectsPage = () => {
                     placeholder="Search project name or description..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
+<<<<<<< HEAD
                     className="bg-transparent text-xs font-bold text-slate-600 outline-none w-full placeholder:text-slate-400 placeholder:font-medium"
+=======
+                    className="bg-transparent text-xs text-slate-500 outline-none w-full placeholder:text-slate-400"
+>>>>>>> testing
                   />
                 </div>
                 <div className="flex gap-2">
@@ -197,10 +340,18 @@ const ProjectsPage = () => {
                     <button
                       key={s}
                       onClick={() => setFilterStatus(s)}
+<<<<<<< HEAD
                       className={`px-4 py-2 rounded-xl text-[10px] font-black tracking-widest transition-all ${filterStatus === s
                         ? "bg-primary text-white shadow-md shadow-primary/20"
                         : "bg-slate-50 text-slate-500 hover:bg-slate-100"
                         }`}
+=======
+                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                        filterStatus === s
+                          ? "bg-primary text-white shadow-md shadow-primary/20"
+                          : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                      }`}
+>>>>>>> testing
                     >
                       {s.toUpperCase()}
                     </button>
@@ -209,6 +360,7 @@ const ProjectsPage = () => {
               </div>
             </div>
 
+<<<<<<< HEAD
             <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
               <div className="flex items-center justify-between mb-8">
                 <h2 className="text-[10px] font-black text-slate-800 uppercase tracking-[0.3em] flex items-center gap-2">
@@ -216,6 +368,12 @@ const ProjectsPage = () => {
                   Project Progress
                 </h2>
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-3 py-1 bg-slate-50 rounded-lg">
+=======
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="font-bold text-slate-800">Project Progress</h2>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+>>>>>>> testing
                   {filtered.length} of {projects.length} Projects
                 </span>
               </div>
@@ -285,7 +443,16 @@ const ProjectsPage = () => {
                 {["All", "Finance", "Site"].map((tab) => (
                   <button
                     key={tab}
+<<<<<<< HEAD
                     className={`px-4 py-2 rounded-xl text-[10px] font-black tracking-widest transition-all bg-slate-50 text-slate-500 hover:bg-slate-100`}
+=======
+                    onClick={() => setActTab(tab)}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                      actTab === tab
+                        ? "bg-primary text-white shadow-md shadow-primary/20"
+                        : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                    }`}
+>>>>>>> testing
                   >
                     {tab.toUpperCase()}
                   </button>
@@ -351,6 +518,7 @@ const ProjectsPage = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
+<<<<<<< HEAD
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] border-b border-slate-50">
                   <th className="px-8 py-5">Project ID</th>
                   <th className="px-8 py-5">Project Name</th>
@@ -358,12 +526,22 @@ const ProjectsPage = () => {
                   <th className="px-8 py-5">Progress</th>
                   <th className="px-8 py-5">Status</th>
                   <th className="px-8 py-5 text-right">Action</th>
+=======
+                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] border-b border-slate-50">
+                  <th className="px-6 py-4">Project ID</th>
+                  <th className="px-6 py-4">Project Name</th>
+                  <th className="px-6 py-4">Dates</th>
+                  <th className="px-6 py-4">Progress</th>
+                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4 text-center">Action</th>
+>>>>>>> testing
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {filtered.map((p) => (
                   <tr
                     key={p.id}
+<<<<<<< HEAD
                     className="hover:bg-slate-50/50 transition-colors group cursor-pointer"
                   >
                     <td className="px-8 py-5 font-mono text-[10px] font-black text-slate-400">
@@ -373,6 +551,17 @@ const ProjectsPage = () => {
                       {p.project_name}
                     </td>
                     <td className="px-8 py-5 text-slate-400 font-bold text-[10px] uppercase tracking-wider">
+=======
+                    className="hover:bg-slate-50/50 transition-colors group"
+                  >
+                    <td className="px-6 py-4 font-mono text-xs font-bold text-slate-500">
+                      PRJ-{p.id}
+                    </td>
+                    <td className="px-6 py-4 font-bold text-slate-700 group-hover:text-primary transition-colors">
+                      {p.project_name}
+                    </td>
+                    <td className="px-6 py-4 text-slate-500 text-xs">
+>>>>>>> testing
                       {p.start_date} to {p.end_date}
                     </td>
                     <td className="px-6 py-4 min-w-[200px]">
@@ -388,6 +577,7 @@ const ProjectsPage = () => {
                         </span>
                       </div>
                     </td>
+<<<<<<< HEAD
                     <td className="px-8 py-5">
                       <div className="flex items-center gap-2">
                         <span
@@ -405,6 +595,46 @@ const ProjectsPage = () => {
                       >
                         View Details
                       </button>
+=======
+                    <td className="px-6 py-4">
+                      <span
+                        className={`px-3 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${statusBadge[p.status]}`}
+                      >
+                        {p.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => handleViewProject(p.id)}
+                          className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
+                          title="View Details"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleEditClick(p)}
+                          className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
+                          title="Edit Project"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteClick(p.id)}
+                          className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                          title="Delete Project"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+>>>>>>> testing
                     </td>
                   </tr>
                 ))}
@@ -418,6 +648,32 @@ const ProjectsPage = () => {
           onClose={() => setShowForm(false)}
           onSubmit={handleCreateProject}
         />
+<<<<<<< HEAD
+=======
+
+        <EditProjectModal
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setEditingProject(null);
+          }}
+          project={editingProject}
+          onSubmit={handleEditProject}
+        />
+
+        <ConfirmModal
+          isOpen={isDeleteModalOpen}
+          onClose={() => {
+            setIsDeleteModalOpen(false);
+            setProjectToDelete(null);
+          }}
+          onConfirm={handleDeleteConfirm}
+          title="Delete Project"
+          message="Are you sure you want to delete this project? This will permanently remove all associated data including tasks and finance records."
+          confirmText="Delete"
+          type="danger"
+        />
+>>>>>>> testing
       </PageTransition>
     </>
   );

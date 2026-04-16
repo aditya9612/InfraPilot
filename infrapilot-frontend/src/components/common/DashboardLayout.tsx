@@ -56,9 +56,13 @@ const DashboardLayout = ({ children }: Props) => {
           />
         </div>
 
+<<<<<<< HEAD
         <main className="flex-1 overflow-y-auto">
           {children || <Outlet />}
         </main>
+=======
+        <main className="flex-1 overflow-y-auto">{children || <Outlet />}</main>
+>>>>>>> testing
       </div>
     </div>
   );

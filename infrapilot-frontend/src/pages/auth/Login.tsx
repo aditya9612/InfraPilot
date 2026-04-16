@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import type { Role, User } from "../../context/AuthContext";
 import logo from "../../assets/logo.png";
+<<<<<<< HEAD
 
 type Step = "mobile" | "otp";
 
@@ -53,6 +54,13 @@ const MOCK_USERS: Record<string, User> = {
   },
 };
 
+=======
+import { authService } from "../../services/authService";
+import toast from "react-hot-toast";
+
+type Step = "mobile" | "otp";
+
+>>>>>>> testing
 const ROLE_PATHS: Record<Role, string> = {
   Admin: "/admin",
   "Project Manager": "/manager",
@@ -93,10 +101,23 @@ const Login = () => {
     }
     setError("");
     setLoading(true);
+<<<<<<< HEAD
     await new Promise((r) => setTimeout(r, 1500));
     setLoading(false);
     setStep("otp");
     startResendTimer();
+=======
+    try {
+      await authService.login(mobile);
+      toast.success("Demanded OTP sent!");
+      setStep("otp");
+      startResendTimer();
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to send OTP. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+>>>>>>> testing
   };
 
   const handleOtpChange = (index: number, value: string) => {
@@ -113,6 +134,7 @@ const Login = () => {
   };
 
   const handleVerifyOtp = async () => {
+<<<<<<< HEAD
     if (otp.join("").length < 6) {
       setError("Please enter the complete 6-digit OTP.");
       return;
@@ -134,6 +156,45 @@ const Login = () => {
     login(user);
     setLoading(false);
     navigate(ROLE_PATHS[user.role]);
+=======
+    const otpValue = otp.join("");
+    if (otpValue.length < 6) {
+      setError("Please enter the complete 6-digit OTP.");
+      return;
+    }
+    setError("");
+    setLoading(true);
+    try {
+      const verifyData = await authService.verifyOtp(mobile, otpValue);
+      
+      // Temporary store to allow fetch profile
+      const tempUser = { 
+        id: String(verifyData.user_id), 
+        token: verifyData.token,
+        mobile: mobile
+      } as any;
+      localStorage.setItem("infrapilot_user", JSON.stringify(tempUser));
+
+      const profile = await authService.getMe();
+      
+      const fullUser: User = {
+        id: String(verifyData.user_id),
+        name: profile.full_name || "User",
+        mobile: mobile,
+        role: (profile.role as Role) || "Admin",
+        token: verifyData.token,
+      };
+
+      login(fullUser);
+      toast.success(`Welcome, ${fullUser.name}!`);
+      navigate(ROLE_PATHS[fullUser.role]);
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Invalid OTP or verification failed.");
+      localStorage.removeItem("infrapilot_user");
+    } finally {
+      setLoading(false);
+    }
+>>>>>>> testing
   };
 
   const handleResend = async () => {
@@ -310,6 +371,7 @@ const Login = () => {
                   +91 {mobile}
                 </span>
               </p>
+<<<<<<< HEAD
               <div className="inline-flex items-center gap-1.5 bg-blue-50 border border-blue-200 text-primary text-xs font-medium px-3 py-1.5 rounded-lg mb-5">
                 <svg
                   className="w-3 h-3"
@@ -327,6 +389,8 @@ const Login = () => {
                 Demo OTP: <span className="font-mono font-bold">123456</span>
               </div>
 
+=======
+>>>>>>> testing
               <button
                 onClick={() => {
                   setStep("mobile");

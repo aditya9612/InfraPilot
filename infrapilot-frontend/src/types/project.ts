@@ -1,6 +1,15 @@
 import type { UserRole } from "./user";
 
+<<<<<<< HEAD
 export type ProjectStatus = "Planned" | "Active" | "Delayed" | "Completed" | "On Hold";
+=======
+export type ProjectStatus =
+  | "Planned"
+  | "Active"
+  | "Delayed"
+  | "Completed"
+  | "On Hold";
+>>>>>>> testing
 export type TaskStatus = "Planned" | "In Progress" | "Completed" | "Delayed";
 export type MilestoneStatus = "Pending" | "In Progress" | "Completed";
 
@@ -13,6 +22,10 @@ export interface Project {
   end_date: string;
   status: ProjectStatus;
   completion_percentage: number;
+<<<<<<< HEAD
+=======
+  budget?: number;
+>>>>>>> testing
 }
 
 export interface ProjectMember {
@@ -63,6 +76,21 @@ export interface TaskComment {
   created_at?: string;
 }
 
+<<<<<<< HEAD
+=======
+export type RateType = "lumpsum" | "measured" | "others";
+
+export interface ProjectExpense {
+  id: number;
+  project_id: number;
+  date: string;
+  category: "Labour" | "Material" | "Permits" | "Tools" | "Other";
+  amount: number;
+  description: string;
+  status: "Paid" | "Pending";
+}
+
+>>>>>>> testing
 export interface ProfitLoss {
   project_id: number;
   total_invoice: number;
@@ -71,12 +99,39 @@ export interface ProfitLoss {
   status: "profit" | "loss";
 }
 
+<<<<<<< HEAD
 export type RateType = "lumpsum" | "measured" | "others";
 
 export interface Contractor {
   id: number;
   contractor_id: string;
   name: string;
+=======
+export interface ContractorBill {
+  id: number;
+  contractor_id: number;
+  memo: string;
+  amount: number;
+  date: string;
+  status: "pending" | "approved" | "rejected";
+}
+
+export interface ContractorPayment {
+  id: number;
+  contractor_id: number;
+  amount: number;
+  date: string;
+  method: string;
+  reference?: string;
+}
+
+export interface Contractor {
+  id: number;
+  contractor_id: string; // Internal system ID
+  name: string;
+  company: string;
+  email: string;
+>>>>>>> testing
   work_type: string;
   contact_number: string;
   gst_number: string;
@@ -84,4 +139,12 @@ export interface Contractor {
   total_work_assigned: number;
   payment_given: number;
   bank_details: string;
+<<<<<<< HEAD
+=======
+  project_id?: number;
+  rating?: number;
+  status?: "Active" | "Delayed" | "Inactive";
+  bills?: ContractorBill[];
+  payments?: ContractorPayment[];
+>>>>>>> testing
 }

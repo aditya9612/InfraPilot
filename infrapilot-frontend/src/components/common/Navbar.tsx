@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 import { useState } from "react";
+=======
+>>>>>>> testing
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
@@ -37,6 +40,7 @@ const routeMap: Record<string, string> = {
 
 const Navbar = ({ title, breadcrumb, action }: Props) => {
   const { user } = useAuth();
+<<<<<<< HEAD
   const [showNotifications, setShowNotifications] = useState(false);
 
   const notifications = [
@@ -51,6 +55,15 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
         <h1 className="text-lg md:text-xl font-bold text-white truncate">{title}</h1>
         {breadcrumb && (
           <nav className="hidden md:flex items-center gap-1 text-blue-100 text-[10px] mt-1 font-black uppercase tracking-widest" aria-label="Breadcrumb">
+=======
+
+  return (
+    <div className="sticky top-0 z-40 shadow-sm bg-primary px-6 py-4 flex items-center justify-between">
+      <div>
+        <h1 className="text-xl font-bold text-white">{title}</h1>
+        {breadcrumb && (
+          <nav className="flex items-center gap-1 text-blue-100 text-[10px] mt-0.5 font-medium" aria-label="Breadcrumb">
+>>>>>>> testing
             {breadcrumb.map((item, index) => {
               const isLast = index === breadcrumb.length - 1;
               const label = typeof item === "string" ? item : item.label;
@@ -59,8 +72,13 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
               return (
                 <div key={index} className="flex items-center gap-1">
                   {path && !isLast ? (
+<<<<<<< HEAD
                     <Link
                       to={path}
+=======
+                    <Link 
+                      to={path} 
+>>>>>>> testing
                       className="hover:text-white transition-colors hover:underline decoration-blue-300/50 underline-offset-2"
                     >
                       {label}
@@ -79,15 +97,24 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
           </nav>
         )}
       </div>
+<<<<<<< HEAD
       <div className="flex items-center gap-3 relative">
         {action && (
           <button
             onClick={action.onClick}
             className="px-5 py-2.5 bg-white text-primary text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-blue-50 transition-all shadow-sm active:scale-95 mr-3"
+=======
+      <div className="flex items-center gap-3">
+        {action && (
+          <button
+            onClick={action.onClick}
+            className="px-4 py-2 bg-white text-primary text-xs font-semibold rounded-lg hover:bg-blue-50 transition-colors shadow-sm"
+>>>>>>> testing
           >
             {action.label}
           </button>
         )}
+<<<<<<< HEAD
 
         {/* Notification section */}
         <div className="relative">
@@ -147,6 +174,26 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
         </div>
 
         <div className="w-10 h-10 rounded-xl bg-blue-600 border-2 border-white/20 flex items-center justify-center text-white text-sm font-black shadow-lg shadow-blue-900/20 active:scale-95 cursor-pointer">
+=======
+        {/* Notification icons */}
+        <button className="relative w-8 h-8 flex items-center justify-center text-white hover:bg-blue-600 rounded-lg transition-colors">
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+            />
+          </svg>
+          <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-success rounded-full" />
+        </button>
+        <div className="w-8 h-8 rounded-full bg-blue-600 border-2 border-white flex items-center justify-center text-white text-xs font-bold">
+>>>>>>> testing
           {user?.name.charAt(0)}
         </div>
       </div>

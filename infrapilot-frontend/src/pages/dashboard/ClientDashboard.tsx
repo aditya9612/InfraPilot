@@ -50,7 +50,11 @@ const ClientDashboard = () => {
             { label: "Days Remaining", value: "188 Days", sub: "Operational Runway", icon: "⏳", color: "text-orange-600 bg-orange-50" },
             { label: "Open Issues", value: "3 Open", sub: "Variation Approvals", icon: "⚠️", color: "text-red-600 bg-red-50" },
             { label: "Latest Update", value: "Slab Reinforcement", sub: "Today's Execution", icon: "🚀", color: "text-purple-600 bg-purple-50" },
+<<<<<<< HEAD
             { label: "Client Account", value: user?.name || "Client", sub: "Premium Access", icon: "👤", color: "text-slate-600 bg-slate-50" },
+=======
+            { label: "Client Account", value: user?.name || "Mr. Sharma", sub: `${user?.role || "Premium"} Access`, icon: "👤", color: "text-slate-600 bg-slate-50" },
+>>>>>>> testing
           ].map((card, i) => (
             <div key={i} className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 transition-all hover:shadow-2xl hover:shadow-blue-500/5 group">
               <div className={`w-12 h-12 ${card.color} rounded-2xl flex items-center justify-center text-xl mb-6 shadow-inner group-hover:scale-110 transition-transform`}>{card.icon}</div>
@@ -113,7 +117,11 @@ const ClientDashboard = () => {
                 </div>
               </div>
               <div className="h-72 w-full">
+<<<<<<< HEAD
                 <ResponsiveContainer width="100%" height="100%">
+=======
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+>>>>>>> testing
                   <BarChart data={costData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} />

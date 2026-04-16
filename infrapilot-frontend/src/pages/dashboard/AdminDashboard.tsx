@@ -1,6 +1,18 @@
 import { useState } from "react";
 import {
+<<<<<<< HEAD
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceArea
+=======
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+  ReferenceArea,
+>>>>>>> testing
 } from "recharts";
 import Navbar from "../../components/common/Navbar";
 import StatCard from "../../components/common/StatCard";
@@ -8,6 +20,10 @@ import NewProjectModal from "../../components/dashboard/NewProjectModal";
 import CreateUserModal from "../../components/forms/CreateUserModal";
 import PageTransition from "../../components/common/PageTransition";
 import CreateBOQModal from "../../components/forms/CreateBOQModal";
+<<<<<<< HEAD
+=======
+import CreateReportModal from "../../components/dashboard/CreateReportModal";
+>>>>>>> testing
 import { PROJECTS } from "../../config/projectSeed";
 import type { ProjectStatus } from "../../types/project";
 
@@ -22,6 +38,7 @@ const budgetData = [
 ];
 
 const activities = [
+<<<<<<< HEAD
   { user: "Rahul S.", action: "completed Foundation Paving", time: "12m ago", type: "task" },
   { user: "Priya N.", action: "submitted Invoice #882", time: "45m ago", type: "money" },
   { user: "Site Bot", action: "uploaded 12 site photos", time: "2h ago", type: "photo" },
@@ -29,6 +46,42 @@ const activities = [
 ];
 
 // ─── Styling Helpers ──────────────────────────────────────────────────────────
+=======
+  {
+    user: "Rahul S.",
+    action: "completed Foundation Paving",
+    time: "12m ago",
+    type: "task",
+  },
+  {
+    user: "Priya N.",
+    action: "submitted Invoice #882",
+    time: "45m ago",
+    type: "money",
+  },
+  {
+    user: "Site Bot",
+    action: "uploaded 12 site photos",
+    time: "2h ago",
+    type: "photo",
+  },
+  {
+    user: "Amit K.",
+    action: "reported Material Shortage",
+    time: "4h ago",
+    type: "alert",
+  },
+];
+
+// ─── Styling Helpers ──────────────────────────────────────────────────────────
+const statusBadge: Record<ProjectStatus, string> = {
+  Planned: "bg-slate-100 text-slate-500",
+  Active: "bg-green-100 text-success",
+  Delayed: "bg-red-100 text-danger",
+  Completed: "bg-blue-100 text-primary",
+  "On Hold": "bg-amber-100 text-warning",
+};
+>>>>>>> testing
 
 const statusDot: Record<ProjectStatus, string> = {
   Planned: "bg-slate-400",
@@ -52,6 +105,10 @@ const AdminDashboard = () => {
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
   const [isBOQModalOpen, setIsBOQModalOpen] = useState(false);
+<<<<<<< HEAD
+=======
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+>>>>>>> testing
 
   const handleCreateUser = (userData: any) => {
     console.log("New User Data:", userData);
@@ -64,9 +121,15 @@ const AdminDashboard = () => {
   // Dynamic Statistics
   const stats = {
     total: PROJECTS.length,
+<<<<<<< HEAD
     active: PROJECTS.filter(p => p.status === "Active").length,
     completed: PROJECTS.filter(p => p.status === "Completed").length,
     delayed: PROJECTS.filter(p => p.status === "Delayed").length,
+=======
+    active: PROJECTS.filter((p) => p.status === "Active").length,
+    completed: PROJECTS.filter((p) => p.status === "Completed").length,
+    delayed: PROJECTS.filter((p) => p.status === "Delayed").length,
+>>>>>>> testing
   };
 
   return (
@@ -76,6 +139,7 @@ const AdminDashboard = () => {
         breadcrumb={["InfraPilot", "Dashboard", "Admin"]}
       />
 
+<<<<<<< HEAD
       <PageTransition className="p-8 bg-slate-50 min-h-screen font-inter">
         {/* Header Actions */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
@@ -87,26 +151,61 @@ const AdminDashboard = () => {
             <button
               onClick={() => setIsNewProjectModalOpen(true)}
               className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 shadow-sm transition-all active:scale-95"
+=======
+      <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
+        {/* Header Actions */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+              Project Pulse
+            </h1>
+            <p className="text-slate-500 text-sm">
+              Real-time infrastructure health and budget monitoring.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setIsNewProjectModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
+>>>>>>> testing
             >
               + New Project
             </button>
             <button
               onClick={() => setIsUserModalOpen(true)}
+<<<<<<< HEAD
               className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 shadow-sm transition-all active:scale-95"
+=======
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
+>>>>>>> testing
             >
               + Add User
             </button>
             <button
               onClick={() => setIsBOQModalOpen(true)}
+<<<<<<< HEAD
               className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 shadow-sm transition-all active:scale-95"
             >
               + Create BOQ
             </button>
             <button className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">Create Report</button>
+=======
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
+            >
+              + Create BOQ
+            </button>
+            <button
+              onClick={() => setIsReportModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+            >
+              Create Report
+            </button>
+>>>>>>> testing
           </div>
         </div>
 
         {/* Top Feature Stats - Project Overview */}
+<<<<<<< HEAD
         <div className="mb-10">
           <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
@@ -117,10 +216,42 @@ const AdminDashboard = () => {
             <StatCard title="Active Projects" value={String(stats.active)} sub="On-going sites" accent="text-blue-500" icon="🏗️" />
             <StatCard title="Completed Projects" value={String(stats.completed)} sub="Handed over" accent="text-emerald-500" icon="✅" />
             <StatCard title="Delayed Projects" value={String(stats.delayed)} sub="At high risk" accent="text-rose-500" icon="⚠️" />
+=======
+        <div className="mb-6">
+          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">
+            Project Overview
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <StatCard
+              title="Total Projects"
+              value={String(stats.total)}
+              sub="+3 this month"
+              accent="text-primary"
+            />
+            <StatCard
+              title="Active Projects"
+              value={String(stats.active)}
+              sub="On-going sites"
+              accent="text-blue-500"
+            />
+            <StatCard
+              title="Completed Projects"
+              value={String(stats.completed)}
+              sub="Handed over"
+              accent="text-emerald-500"
+            />
+            <StatCard
+              title="Delayed Projects"
+              value={String(stats.delayed)}
+              sub="At high risk"
+              accent="text-rose-500"
+            />
+>>>>>>> testing
           </div>
         </div>
 
         {/* Financial Overview */}
+<<<<<<< HEAD
         <div className="mb-10">
           <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
@@ -130,10 +261,36 @@ const AdminDashboard = () => {
             <StatCard title="Total Revenue" value="₹12.8Cr" sub="FY 2025-26" accent="text-indigo-500" icon="💰" />
             <StatCard title="Total Expenses" value="₹8.4Cr" sub="Payments & Wages" accent="text-orange-500" icon="📉" />
             <StatCard title="Profit / Loss" value="+ ₹4.4Cr" sub="Net Margin" accent="text-green-600" icon="📈" />
+=======
+        <div className="mb-6">
+          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">
+            Financial Status
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <StatCard
+              title="Total Revenue"
+              value="₹12.8Cr"
+              sub="FY 2025-26"
+              accent="text-indigo-500"
+            />
+            <StatCard
+              title="Total Expenses"
+              value="₹8.4Cr"
+              sub="Payments & Wages"
+              accent="text-orange-500"
+            />
+            <StatCard
+              title="Profit / Loss"
+              value="+ ₹4.4Cr"
+              sub="Net Margin"
+              accent="text-green-600"
+            />
+>>>>>>> testing
           </div>
         </div>
 
         {/* Operations & Alerts */}
+<<<<<<< HEAD
         <div className="mb-12">
           <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse"></span>
@@ -143,6 +300,31 @@ const AdminDashboard = () => {
             <StatCard title="Active Users" value="138" sub="Across 12 sites" accent="text-sky-500" icon="👥" />
             <StatCard title="Pending Approvals" value="12" sub="5 Awaiting Admin" accent="text-amber-500" icon="⏳" />
             <StatCard title="Active Alerts" value="4" sub="Low stock / Over budget" accent="text-rose-500" icon="🚨" />
+=======
+        <div className="mb-8">
+          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">
+            Operations & Health
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <StatCard
+              title="Active Users"
+              value="138"
+              sub="Across 12 sites"
+              accent="text-sky-500"
+            />
+            <StatCard
+              title="Pending Approvals"
+              value="12"
+              sub="5 Awaiting Admin"
+              accent="text-amber-500"
+            />
+            <StatCard
+              title="Active Alerts"
+              value="4"
+              sub="Low stock / Over budget"
+              accent="text-danger"
+            />
+>>>>>>> testing
           </div>
         </div>
 
@@ -151,8 +333,17 @@ const AdminDashboard = () => {
           <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
             <div className="flex items-center justify-between mb-8">
               <div>
+<<<<<<< HEAD
                 <h2 className="text-lg font-bold text-slate-800">Cost Tracking</h2>
                 <p className="text-xs text-slate-400">Budget vs Actual expenditure across all projects</p>
+=======
+                <h2 className="text-lg font-bold text-slate-800">
+                  Cost Tracking
+                </h2>
+                <p className="text-xs text-slate-400">
+                  Budget vs Actual expenditure across all projects
+                </p>
+>>>>>>> testing
               </div>
               <select className="text-xs font-bold text-slate-500 bg-slate-50 border-none rounded-lg px-3 py-1.5 focus:ring-0">
                 <option>This Year</option>
@@ -160,9 +351,22 @@ const AdminDashboard = () => {
               </select>
             </div>
             <div className="h-[300px] w-full">
+<<<<<<< HEAD
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={budgetData} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+=======
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                <LineChart
+                  data={budgetData}
+                  margin={{ top: 5, right: 10, left: 10, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="#f1f5f9"
+                  />
+>>>>>>> testing
                   <XAxis
                     dataKey="month"
                     axisLine={false}
@@ -176,9 +380,22 @@ const AdminDashboard = () => {
                     tick={{ fill: "#94a3b8", fontSize: 12 }}
                   />
                   <Tooltip
+<<<<<<< HEAD
                     contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)" }}
                   />
                   <Legend iconType="circle" wrapperStyle={{ paddingTop: "20px" }} />
+=======
+                    contentStyle={{
+                      borderRadius: "12px",
+                      border: "none",
+                      boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
+                    }}
+                  />
+                  <Legend
+                    iconType="circle"
+                    wrapperStyle={{ paddingTop: "20px" }}
+                  />
+>>>>>>> testing
                   <Line
                     type="monotone"
                     dataKey="budget"
@@ -198,7 +415,23 @@ const AdminDashboard = () => {
                     name="Actual Cost"
                   />
                   {/* Highlight Over Budget Areas in Red */}
+<<<<<<< HEAD
                   <ReferenceArea x1="Feb" x2="Apr" fill="#fee2e2" fillOpacity={0.3} label={{ position: 'top', value: 'Over Budget', fill: '#ef4444', fontSize: 10, fontWeight: 'bold' }} />
+=======
+                  <ReferenceArea
+                    x1="Feb"
+                    x2="Apr"
+                    fill="#fee2e2"
+                    fillOpacity={0.3}
+                    label={{
+                      position: "top",
+                      value: "Over Budget",
+                      fill: "#ef4444",
+                      fontSize: 10,
+                      fontWeight: "bold",
+                    }}
+                  />
+>>>>>>> testing
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -209,12 +442,24 @@ const AdminDashboard = () => {
             <div className="px-6 py-5 border-b border-slate-50">
               <h2 className="font-bold text-slate-800 mb-4">Activity Pulse</h2>
               <div className="flex gap-2">
+<<<<<<< HEAD
                 {["All", "Issues", "Updates"].map(tab => (
                   <button
                     key={tab}
                     onClick={() => setActivityFilter(tab)}
                     className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${activityFilter === tab ? "bg-primary text-white shadow-md shadow-primary/20" : "bg-slate-50 text-slate-500 hover:bg-slate-100"
                       }`}
+=======
+                {["All", "Issues", "Updates"].map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActivityFilter(tab)}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                      activityFilter === tab
+                        ? "bg-primary text-white shadow-md shadow-primary/20"
+                        : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                    }`}
+>>>>>>> testing
                   >
                     {tab.toUpperCase()}
                   </button>
@@ -224,8 +469,20 @@ const AdminDashboard = () => {
             <div className="flex-1 p-6 space-y-6 overflow-y-auto max-h-[400px]">
               {activities.map((act, i) => (
                 <div key={i} className="flex gap-4 group">
+<<<<<<< HEAD
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${act.type === "alert" ? "bg-red-50 text-red-500" : act.type === "money" ? "bg-green-50 text-green-500" : "bg-blue-50 text-blue-500"
                     }`}>
+=======
+                  <div
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                      act.type === "alert"
+                        ? "bg-red-50 text-red-500"
+                        : act.type === "money"
+                          ? "bg-green-50 text-green-500"
+                          : "bg-blue-50 text-blue-500"
+                    }`}
+                  >
+>>>>>>> testing
                     {act.type === "task" && "✔"}
                     {act.type === "money" && "₹"}
                     {act.type === "photo" && "📷"}
@@ -235,7 +492,13 @@ const AdminDashboard = () => {
                     <p className="text-xs text-slate-800 leading-snug">
                       <span className="font-bold">{act.user}</span> {act.action}
                     </p>
+<<<<<<< HEAD
                     <p className="text-[10px] text-slate-400 mt-1">{act.time}</p>
+=======
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      {act.time}
+                    </p>
+>>>>>>> testing
                   </div>
                 </div>
               ))}
@@ -255,15 +518,33 @@ const AdminDashboard = () => {
               <div className="p-3 bg-red-50 rounded-xl flex items-start gap-3">
                 <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5" />
                 <div className="flex-1">
+<<<<<<< HEAD
                   <p className="text-xs font-bold text-red-900">Budget Exceeded: SARA CITY</p>
                   <p className="text-[10px] text-red-600">Material costs spiking by 12% in current phase.</p>
+=======
+                  <p className="text-xs font-bold text-red-900">
+                    Budget Exceeded: SARA CITY
+                  </p>
+                  <p className="text-[10px] text-red-600">
+                    Material costs spiking by 12% in current phase.
+                  </p>
+>>>>>>> testing
                 </div>
               </div>
               <div className="p-3 bg-amber-50 rounded-xl flex items-start gap-3">
                 <div className="w-2 h-2 rounded-full bg-amber-500 mt-1.5" />
                 <div className="flex-1">
+<<<<<<< HEAD
                   <p className="text-xs font-bold text-amber-900">Pending Safety Approval</p>
                   <p className="text-[10px] text-amber-600">Site Engineer Ravi awaiting signature for BOQ-22.</p>
+=======
+                  <p className="text-xs font-bold text-amber-900">
+                    Pending Safety Approval
+                  </p>
+                  <p className="text-[10px] text-amber-600">
+                    Site Engineer Ravi awaiting signature for BOQ-22.
+                  </p>
+>>>>>>> testing
                 </div>
               </div>
             </div>
@@ -273,12 +554,19 @@ const AdminDashboard = () => {
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 lg:col-span-2">
             <div className="flex items-center justify-between mb-6">
               <h2 className="font-bold text-slate-800">Project Progress</h2>
+<<<<<<< HEAD
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ongoing Modules</span>
+=======
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                Ongoing Modules
+              </span>
+>>>>>>> testing
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {PROJECTS.slice(0, 4).map((p, i) => (
                 <div key={i} className="group cursor-pointer">
                   <div className="flex justify-between items-center mb-2">
+<<<<<<< HEAD
                     <p className="text-xs font-bold text-slate-700 group-hover:text-primary transition-colors">{p.project_name}</p>
                     <span className="text-[10px] font-bold text-slate-400">{p.completion_percentage}%</span>
                   </div>
@@ -288,6 +576,28 @@ const AdminDashboard = () => {
                   <div className="flex items-center gap-2 mt-2">
                     <span className={`w-1.5 h-1.5 rounded-full ${statusDot[p.status]}`} />
                     <span className="text-[9px] font-bold text-slate-400 uppercase translate-y-px">{p.status}</span>
+=======
+                    <p className="text-xs font-bold text-slate-700 group-hover:text-primary transition-colors">
+                      {p.project_name}
+                    </p>
+                    <span className="text-[10px] font-bold text-slate-400">
+                      {p.completion_percentage}%
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-slate-50 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full ${progressPulse[p.status]} transition-all duration-1000`}
+                      style={{ width: `${p.completion_percentage}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${statusDot[p.status]}`}
+                    />
+                    <span className="text-[9px] font-bold text-slate-400 uppercase translate-y-px">
+                      {p.status}
+                    </span>
+>>>>>>> testing
                   </div>
                 </div>
               ))}
@@ -298,6 +608,7 @@ const AdminDashboard = () => {
         {/* Construction Specific Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-4">
+<<<<<<< HEAD
             <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-500 flex items-center justify-center font-bold">👷</div>
             <div>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Labor Today</p>
@@ -316,6 +627,53 @@ const AdminDashboard = () => {
             <div>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Site Issues</p>
               <p className="text-lg font-bold text-slate-800">32 <span className="text-[10px] font-medium text-slate-400">Tickets Open</span></p>
+=======
+            <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-500 flex items-center justify-center font-bold">
+              👷
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                Labor Today
+              </p>
+              <p className="text-lg font-bold text-slate-800">
+                1,240{" "}
+                <span className="text-[10px] font-medium text-slate-400">
+                  Personnel
+                </span>
+              </p>
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center font-bold">
+              🏗️
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                Material Used
+              </p>
+              <p className="text-lg font-bold text-slate-800">
+                42{" "}
+                <span className="text-[10px] font-medium text-slate-400">
+                  Truckloads
+                </span>
+              </p>
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-500 flex items-center justify-center font-bold">
+              🚧
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                Site Issues
+              </p>
+              <p className="text-lg font-bold text-slate-800">
+                32{" "}
+                <span className="text-[10px] font-medium text-slate-400">
+                  Tickets Open
+                </span>
+              </p>
+>>>>>>> testing
             </div>
           </div>
         </div>
@@ -323,8 +681,17 @@ const AdminDashboard = () => {
         {/* Projects Overview Table */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="px-6 py-5 border-b border-slate-50 flex items-center justify-between">
+<<<<<<< HEAD
             <h2 className="font-bold text-slate-800">Master Projects Overview</h2>
             <button className="text-xs text-primary font-bold hover:underline">Download CSV</button>
+=======
+            <h2 className="font-bold text-slate-800">
+              Master Projects Overview
+            </h2>
+            <button className="text-xs text-primary font-bold hover:underline">
+              Download CSV
+            </button>
+>>>>>>> testing
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left">
@@ -339,6 +706,7 @@ const AdminDashboard = () => {
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {PROJECTS.map((p, i) => (
+<<<<<<< HEAD
                   <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
                     <td className="px-6 py-4 font-bold text-slate-700">{p.project_name}</td>
                     <td className="px-6 py-4 text-slate-500 font-medium text-xs">{p.start_date} - {p.end_date}</td>
@@ -348,16 +716,47 @@ const AdminDashboard = () => {
                           <div className={`h-full ${progressPulse[p.status]}`} style={{ width: `${p.completion_percentage}%` }} />
                         </div>
                         <span className="text-xs font-bold text-slate-400">{p.completion_percentage}%</span>
+=======
+                  <tr
+                    key={i}
+                    className="hover:bg-slate-50/50 transition-colors group"
+                  >
+                    <td className="px-6 py-4 font-bold text-slate-700">
+                      {p.project_name}
+                    </td>
+                    <td className="px-6 py-4 text-slate-500 font-medium text-xs">
+                      {p.start_date} - {p.end_date}
+                    </td>
+                    <td className="px-6 py-4 min-w-[200px]">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full ${progressPulse[p.status]}`}
+                            style={{ width: `${p.completion_percentage}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-bold text-slate-400">
+                          {p.completion_percentage}%
+                        </span>
+>>>>>>> testing
                       </div>
                     </td>
                     <td className="px-6 py-4 text-center">
                       <span className="text-slate-800 font-bold">92.4</span>
                     </td>
                     <td className="px-6 py-4">
+<<<<<<< HEAD
                       <div className="flex items-center gap-2">
                         <span className={`w-1.5 h-1.5 rounded-full ${statusDot[p.status]} ${p.status === 'Active' ? 'animate-pulse' : ''}`} />
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest translate-y-px">{p.status}</span>
                       </div>
+=======
+                      <span
+                        className={`px-3 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${statusBadge[p.status]}`}
+                      >
+                        {p.status}
+                      </span>
+>>>>>>> testing
                     </td>
                   </tr>
                 ))}
@@ -381,6 +780,13 @@ const AdminDashboard = () => {
         onClose={() => setIsBOQModalOpen(false)}
         onSubmit={handleCreateBOQ}
       />
+<<<<<<< HEAD
+=======
+      <CreateReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+      />
+>>>>>>> testing
     </>
   );
 };
