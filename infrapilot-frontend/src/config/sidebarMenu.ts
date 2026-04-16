@@ -25,7 +25,6 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
         },
       ],
     },
-    { label: "Contractors", path: "/admin/contractors", icon: "briefcase" },
     { label: "Clients", path: "/admin/clients", icon: "user-check" },
     { label: "Site Engineers", path: "/admin/engineers", icon: "tool" },
     {
@@ -128,11 +127,6 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
           path: "/admin/reports/consumption",
           icon: "package",
         },
-        {
-          label: "Contractor Performance",
-          path: "/admin/reports/performance",
-          icon: "briefcase",
-        },
       ],
     },
     { label: "Notifications", path: "/admin/notifications", icon: "bell" },
@@ -175,12 +169,6 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     { label: "Tasks", path: "/engineer/tasks", icon: "check-square" },
     { label: "Equipment", path: "/engineer/equipment", icon: "tool" },
     { label: "Reports", path: "/engineer/reports", icon: "file-text" },
-  ],
-  Contractor: [
-    { label: "Dashboard", path: "/contractor", icon: "grid" },
-    { label: "Work Orders", path: "/contractor/orders", icon: "clipboard" },
-    { label: "Invoices", path: "/contractor/invoices", icon: "file" },
-    { label: "Documents", path: "/contractor/documents", icon: "folder" },
   ],
   Accountant: [
     { label: "Dashboard", path: "/accountant", icon: "grid" },

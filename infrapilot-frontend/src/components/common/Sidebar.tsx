@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../../context/AuthContext";
 import { sidebarMenus, type MenuItem } from "../../config/sidebarMenu";
@@ -470,18 +470,31 @@ const Sidebar = ({ onClose }: SidebarProps) => {
   if (!user) return null;
   const menu = sidebarMenus[user.role];
 
+  const rolePaths: Record<string, string> = {
+    Admin: "/admin",
+    "Project Manager": "/manager",
+    "Site Engineer": "/engineer",
+    Accountant: "/accountant",
+    Client: "/client",
+  };
+
   return (
     <aside className="w-full h-full bg-white border-r border-slate-100 flex flex-col shadow-sm shrink-0">
       {/* Logo container */}
-      <div className="px-2 pt-1 pb-0 border-b border-slate-100 flex justify-center lg:items-center relative">
-        <img
-          src={logo}
-          alt="InfraPilot Logo"
-          className="w-full h-16 object-contain"
-        />
+      <div className="px-6 py-3 border-b border-slate-100 flex items-center justify-center relative">
+        <Link 
+          to={rolePaths[user.role]} 
+          className="flex items-center justify-center transition-transform hover:scale-[1.02] active:scale-[0.98]"
+        >
+          <img
+            src={logo}
+            alt="InfraPilot Logo"
+            className="h-16 w-auto object-contain"
+          />
+        </Link>
         {onClose && (
-          <button onClick={onClose} className="lg:hidden absolute right-2 text-slate-500 p-2 hover:bg-slate-50 rounded-lg">
-             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          <button onClick={onClose} className="lg:hidden absolute right-4 text-slate-500 p-2 hover:bg-slate-50 rounded-lg">
+             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         )}
       </div>

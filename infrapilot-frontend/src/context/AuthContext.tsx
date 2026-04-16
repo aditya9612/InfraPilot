@@ -5,7 +5,6 @@ export type Role =
   | "Admin"
   | "Project Manager"
   | "Site Engineer"
-  | "Contractor"
   | "Accountant"
   | "Client";
 

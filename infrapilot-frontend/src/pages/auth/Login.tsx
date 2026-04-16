@@ -12,7 +12,6 @@ const ROLE_PATHS: Record<Role, string> = {
   Admin: "/admin",
   "Project Manager": "/manager",
   "Site Engineer": "/engineer",
-  Contractor: "/contractor",
   Accountant: "/accountant",
   Client: "/client",
 };
@@ -138,7 +137,7 @@ const Login = () => {
             <img
               src={logo}
               alt="InfraPilot Logo"
-              className="h-48 w-auto object-contain"
+              className="h-48 w-auto object-contain drop-shadow-2xl"
             />
           </div>
 
@@ -191,11 +190,11 @@ const Login = () => {
       {/* Right Panel — white form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center px-6 py-12 bg-white">
         <div className="w-full max-w-sm">
-          <div className="flex items-center gap-2 mb-8 lg:hidden">
+          <div className="flex items-center justify-center gap-2 mb-10 lg:hidden">
             <img
               src={logo}
               alt="InfraPilot Logo"
-              className="h-24 w-auto object-contain"
+              className="h-32 md:h-36 w-auto object-contain drop-shadow-lg"
             />
           </div>
 

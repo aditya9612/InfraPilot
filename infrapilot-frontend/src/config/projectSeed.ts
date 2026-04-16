@@ -33,6 +33,17 @@ export const PROJECTS: Project[] = [
     status: "Planned",
     completion_percentage: 0,
     budget: 25000000,
+  },
+  {
+    id: 4,
+    project_name: "SKYLINE TOWERS",
+    owner_id: 2,
+    description: "Multi-storey residential project - Phase 2",
+    start_date: "2026-06-15",
+    end_date: "2029-12-31",
+    status: "On Hold",
+    completion_percentage: 10,
+    budget: 120000000,
   }
 ];
 

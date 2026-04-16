@@ -182,31 +182,36 @@ const ProjectsPage = () => {
               value: String(stats.total),
               sub: `Across all locations`,
               accent: "text-primary",
+              status: "All",
             },
             {
               title: "Active Sites",
               value: String(stats.active),
               sub: "Currently in progress",
               accent: "text-success",
+              status: "Active",
             },
             {
               title: "Completed",
               value: String(stats.completed),
               sub: "Successfully delivered",
               accent: "text-blue-500",
+              status: "Completed",
             },
             {
               title: "Delayed",
               value: String(stats.delayed),
               sub: "Needs urgent attention",
               accent: "text-red-500",
+              status: "Delayed",
             },
           ].map((s) => (
             <div
               key={s.title}
-              className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all hover:shadow-md"
+              onClick={() => s.status && setFilterStatus(s.status as any)}
+              className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all hover:shadow-md cursor-pointer active:scale-95 group hover:border-primary/20"
             >
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 group-hover:text-primary transition-colors">
                 {s.title}
               </p>
               <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
@@ -253,6 +258,7 @@ const ProjectsPage = () => {
                       "Planned",
                       "Delayed",
                       "Completed",
+                      "On Hold",
                     ] as const
                   ).map((s) => (
                     <button
@@ -362,46 +368,53 @@ const ProjectsPage = () => {
                   user: "Ravi K.",
                   action: "completed Foundation — SARA CITY",
                   time: "12m ago",
-                  type: "task",
+                  type: "Site",
+                  icon: "✔",
+                  color: "bg-blue-50 text-blue-500",
                 },
                 {
                   user: "Priya N.",
                   action: "submitted Invoice #882 for METRO HEIGHTS",
                   time: "45m ago",
-                  type: "money",
+                  type: "Finance",
+                  icon: "₹",
+                  color: "bg-green-50 text-green-500",
                 },
                 {
                   user: "Site Bot",
                   action: "uploaded 12 site photos",
                   time: "2h ago",
-                  type: "photo",
+                  type: "Site",
+                  icon: "📷",
+                  color: "bg-blue-50 text-blue-500",
                 },
                 {
                   user: "Amit K.",
                   action: "reported Material Shortage at Hadapsar",
                   time: "4h ago",
-                  type: "alert",
+                  type: "Site",
+                  icon: "⚠️",
+                  color: "bg-red-50 text-red-500",
                 },
-              ].map((act, i) => (
-                <div key={i} className="flex gap-4 group">
-                  <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${act.type === "alert" ? "bg-red-50 text-red-500" : act.type === "money" ? "bg-green-50 text-green-500" : "bg-blue-50 text-blue-500"}`}
-                  >
-                    {act.type === "task" && "✔"}
-                    {act.type === "money" && "₹"}
-                    {act.type === "photo" && "📷"}
-                    {act.type === "alert" && "⚠️"}
+              ]
+                .filter((act) => actTab === "All" || act.type === actTab)
+                .map((act, i) => (
+                  <div key={i} className="flex gap-4 group animate-in fade-in duration-300">
+                    <div
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${act.color}`}
+                    >
+                      {act.icon}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-slate-800 leading-snug">
+                        <span className="font-bold">{act.user}</span> {act.action}
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        {act.time}
+                      </p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-xs text-slate-800 leading-snug">
-                      <span className="font-bold">{act.user}</span> {act.action}
-                    </p>
-                    <p className="text-[10px] text-slate-400 mt-1">
-                      {act.time}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                ))}
             </div>
           </div>
         </div>

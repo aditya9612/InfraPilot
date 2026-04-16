@@ -10,14 +10,7 @@ interface CreateUserModalProps {
   initialData?: User | null;
 }
 
-const ROLES: UserRole[] = [
-  "Admin",
-  "Project Manager",
-  "Site Engineer",
-  "Contractor",
-  "Accountant",
-  "Client",
-];
+const ROLES: UserRole[] = ["Admin", "Project Manager", "Site Engineer", "Accountant", "Client"];
 
 const MOCK_PROJECTS = [
   "Skyline Residency",
@@ -421,40 +414,6 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                     ))}
                   </select>
                 </div>
-              )}
-              {formData.role === "Contractor" && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-600 mb-1">
-                      Company Name
-                    </label>
-                    <input
-                      type="text"
-                      name="companyName"
-                      value={formData.companyName}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-600 mb-1">
-                      Work Type
-                    </label>
-                    <select
-                      name="workType"
-                      value={formData.workType}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl outline-none"
-                    >
-                      <option value="">Select Type</option>
-                      {WORK_TYPES.map((w) => (
-                        <option key={w} value={w}>
-                          {w}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </>
               )}
             </div>
           </div>

@@ -16,6 +16,8 @@ import TeamMembersList from "../../components/projects/TeamMembersList";
 import ProfitLossCard from "../../components/projects/ProfitLossCard";
 import ProjectExpensesTable from "../../components/projects/ProjectExpensesTable";
 import EditProjectModal from "../../components/dashboard/EditProjectModal";
+import AssignMemberModal from "../../components/projects/AssignMemberModal";
+import { generateProjectReport } from "../../utils/reportGenerator";
 import toast from "react-hot-toast";
 import ConfirmModal from "../../components/common/ConfirmModal";
 
@@ -34,8 +36,9 @@ const ProjectDetailsPage = () => {
     PROJECTS.find((p) => p.id === projectId),
   );
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
 
-  const members = useMemo(() => PROJECT_MEMBERS[projectId] || [], [projectId]);
+  const [members, setMembers] = useState(() => PROJECT_MEMBERS[projectId] || []);
   const [milestones, setMilestones] = useState(() => MILESTONES[projectId] || []);
   const [tasks, setTasks] = useState(() => TASKS[projectId] || []);
   const [isDeleteMilestoneModalOpen, setIsDeleteMilestoneModalOpen] = useState(false);
@@ -146,6 +149,29 @@ const ProjectDetailsPage = () => {
     );
   };
 
+  const handleAssignMember = (newMembers: any[]) => {
+    setMembers(prev => [...prev, ...newMembers]);
+    if (newMembers.length === 1) {
+      toast.success(`${newMembers[0].full_name} assigned to project!`, {
+        icon: '👤',
+        style: { borderRadius: '12px', background: '#333', color: '#fff' }
+      });
+    } else {
+      toast.success(`${newMembers.length} team members assigned!`, {
+        icon: '👥',
+        style: { borderRadius: '12px', background: '#333', color: '#fff' }
+      });
+    }
+  };
+
+  const handleRemoveMember = (memberId: number) => {
+    const member = members.find(m => m.user_id === memberId);
+    setMembers(prev => prev.filter(m => m.user_id !== memberId));
+    toast.success(`${member?.full_name || 'Member'} removed from project`, {
+      style: { borderRadius: '12px', background: '#333', color: '#fff' }
+    });
+  };
+
   if (!project) {
     return (
       <>
@@ -211,7 +237,16 @@ const ProjectDetailsPage = () => {
             >
               Edit Project
             </button>
-            <button className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all">
+            <button 
+              onClick={() => {
+                const toastId = toast.loading("Generating comprehensive site report...");
+                setTimeout(() => {
+                  generateProjectReport(project, members, milestones, expenses, tasks);
+                  toast.success("Site Report downloaded successfully!", { id: toastId });
+                }, 1000);
+              }}
+              className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+            >
               Generate Report
             </button>
           </div>
@@ -302,7 +337,11 @@ const ProjectDetailsPage = () => {
               </div>
 
               <div className="space-y-8">
-                <TeamMembersList members={members} />
+                <TeamMembersList 
+                  members={members} 
+                  onAssignClick={() => setIsAssignModalOpen(true)}
+                  onRemoveMember={handleRemoveMember}
+                />
               </div>
             </div>
           )}
@@ -368,7 +407,11 @@ const ProjectDetailsPage = () => {
 
           {activeTab === "Members" && (
             <div className="w-full">
-              <TeamMembersList members={members} />
+              <TeamMembersList 
+                members={members} 
+                onAssignClick={() => setIsAssignModalOpen(true)}
+                onRemoveMember={handleRemoveMember}
+              />
             </div>
           )}
         </div>
@@ -392,6 +435,13 @@ const ProjectDetailsPage = () => {
         message="Are you sure you want to remove this milestone from the project schedule? This action cannot be undone."
         confirmText="Remove"
         type="danger"
+      />
+
+      <AssignMemberModal
+        isOpen={isAssignModalOpen}
+        onClose={() => setIsAssignModalOpen(false)}
+        onAssign={handleAssignMember}
+        existingMemberIds={members.map(m => m.user_id)}
       />
     </>
   );

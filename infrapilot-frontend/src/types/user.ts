@@ -1,4 +1,4 @@
-export type UserRole = "Admin" | "Project Manager" | "Site Engineer" | "Contractor" | "Accountant" | "Client";
+export type UserRole = "Admin" | "Project Manager" | "Site Engineer" | "Accountant" | "Client";
 
 export interface User {
   user_id: number;

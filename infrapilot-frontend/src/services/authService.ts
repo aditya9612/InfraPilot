@@ -45,7 +45,6 @@ export const authService = {
     if (mobile === '9999999999') role = 'Admin';
     else if (mobile.endsWith('1')) role = 'Project Manager';
     else if (mobile.endsWith('2')) role = 'Site Engineer';
-    else if (mobile.endsWith('3')) role = 'Contractor';
     else if (mobile.endsWith('4')) role = 'Accountant';
     else if (mobile.endsWith('5')) role = 'Client';
     else role = 'Admin'; // Default

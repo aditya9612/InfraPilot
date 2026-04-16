@@ -6,13 +6,11 @@ import Login from "../pages/auth/Login";
 import AdminDashboard from "../pages/dashboard/AdminDashboard";
 import ManagerDashboard from "../pages/dashboard/ManagerDashboard";
 import EngineerDashboard from "../pages/dashboard/EngineerDashboard";
-import ContractorDashboard from "../pages/dashboard/ContractorDashboard";
 import AccountantDashboard from "../pages/dashboard/AccountantDashboard";
 import ClientDashboard from "../pages/dashboard/ClientDashboard";
 import Unauthorized from "../pages/Unauthorized";
 import ProjectsPage from "../pages/admin/ProjectsPage";
 import UsersPage from "../pages/admin/UsersPage";
-import ContractorsPage from "../pages/admin/ContractorsPage";
 import ClientsPage from "../pages/admin/ClientsPage";
 import EngineersPage from "../pages/admin/EngineersPage";
 import BOQPage from "../pages/admin/BOQPage";
@@ -71,7 +69,6 @@ const RootRedirect = () => {
     Admin: "/admin",
     "Project Manager": "/manager",
     "Site Engineer": "/engineer",
-    Contractor: "/contractor",
     Accountant: "/accountant",
     Client: "/client",
   };
@@ -96,7 +93,6 @@ function AppRoutes() {
               <Route path="/admin/users" element={<UsersPage />} />
               <Route path="/admin/users/roles" element={<RolesPage />} />
               <Route path="/admin/users/permissions" element={<PermissionsPage />} />
-              <Route path="/admin/contractors" element={<ContractorsPage />} />
               <Route path="/admin/clients" element={<ClientsPage />} />
               <Route path="/admin/engineers" element={<EngineersPage />} />
               <Route path="/admin/boq" element={<BOQPage />} />
@@ -139,10 +135,6 @@ function AppRoutes() {
             {/* Engineer Specific Routes */}
             <Route element={<ProtectedRoute allowedRoles={["Site Engineer"]} />}>
               <Route path="/engineer" element={<EngineerDashboard />} />
-            </Route>
-            {/* Contractor Specific Routes */}
-            <Route element={<ProtectedRoute allowedRoles={["Contractor"]} />}>
-              <Route path="/contractor" element={<ContractorDashboard />} />
             </Route>
             {/* Accountant Specific Routes */}
             <Route element={<ProtectedRoute allowedRoles={["Accountant"]} />}>

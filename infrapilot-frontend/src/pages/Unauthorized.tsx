@@ -6,7 +6,6 @@ const ROLE_PATHS: Record<Role, string> = {
   Admin: "/admin",
   "Project Manager": "/manager",
   "Site Engineer": "/engineer",
-  Contractor: "/contractor",
   Accountant: "/accountant",
   Client: "/client",
 };
