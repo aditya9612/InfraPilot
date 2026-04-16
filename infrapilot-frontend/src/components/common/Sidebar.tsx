@@ -3,10 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../../context/AuthContext";
 import { sidebarMenus, type MenuItem } from "../../config/sidebarMenu";
-<<<<<<< HEAD
-=======
 import ConfirmModal from "./ConfirmModal";
->>>>>>> testing
 import type { JSX } from "react";
 import logo from "../../assets/logo.png";
 
@@ -279,8 +276,6 @@ const icons: Record<string, JSX.Element> = {
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
     </svg>
   ),
-<<<<<<< HEAD
-=======
   box: (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
@@ -363,7 +358,6 @@ const icons: Record<string, JSX.Element> = {
       <line x1="3" y1="10" x2="21" y2="10" strokeWidth="1.8" />
     </svg>
   ),
->>>>>>> testing
 };
 
 const Chevron = ({ isOpen }: { isOpen?: boolean }) => (
@@ -471,10 +465,7 @@ const SidebarItem = ({
 
 const Sidebar = ({ onClose }: SidebarProps) => {
   const { user, logout } = useAuth();
-<<<<<<< HEAD
-=======
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
->>>>>>> testing
 
   if (!user) return null;
   const menu = sidebarMenus[user.role];
@@ -516,11 +507,7 @@ const Sidebar = ({ onClose }: SidebarProps) => {
           </div>
         </div>
         <button
-<<<<<<< HEAD
-          onClick={logout}
-=======
           onClick={() => setIsLogoutModalOpen(true)}
->>>>>>> testing
           className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors group"
         >
           <svg
@@ -539,8 +526,6 @@ const Sidebar = ({ onClose }: SidebarProps) => {
           Logout
         </button>
       </div>
-<<<<<<< HEAD
-=======
 
       <ConfirmModal
         isOpen={isLogoutModalOpen}
@@ -551,7 +536,6 @@ const Sidebar = ({ onClose }: SidebarProps) => {
         confirmText="Logout"
         type="warning"
       />
->>>>>>> testing
     </aside>
   );
 };

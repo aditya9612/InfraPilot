@@ -1,8 +1,3 @@
-<<<<<<< HEAD
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
-
-export default API_BASE_URL;
-=======
 import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://51.21.247.48/api/v1";
@@ -46,4 +41,3 @@ api.interceptors.response.use(
 );
 
 export default api;
->>>>>>> testing

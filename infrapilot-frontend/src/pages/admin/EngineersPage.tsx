@@ -135,11 +135,7 @@ const EngineersPage = () => {
                   <th className="px-6 py-4">Daily Report</th>
                   <th className="px-6 py-4">Performance</th>
                   <th className="px-6 py-4">Status</th>
-<<<<<<< HEAD
-                  <th className="px-6 py-4 text-right">Actions</th>
-=======
                   <th className="px-6 py-4 text-center">Actions</th>
->>>>>>> testing
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -198,24 +194,6 @@ const EngineersPage = () => {
                         {e.status}
                       </span>
                     </td>
-<<<<<<< HEAD
-                    <td className="px-6 py-4 text-right">
-                      <button className="p-1 text-slate-400 hover:text-primary transition-colors">
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
-                          />
-                        </svg>
-                      </button>
-=======
                     <td className="px-6 py-4 text-center">
                       <div className="flex items-center justify-center gap-2">
                         <button className="p-2 text-slate-400 hover:text-primary hover:bg-blue-50 rounded-lg transition-all" title="View Profile">
@@ -235,7 +213,6 @@ const EngineersPage = () => {
                           </svg>
                         </button>
                       </div>
->>>>>>> testing
                     </td>
                   </tr>
                 ))}

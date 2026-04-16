@@ -25,11 +25,7 @@ const ApprovalsPage = () => {
     <>
       <Navbar title="Approvals & Workflow" breadcrumb={["Admin", "Approvals", subPage.charAt(0).toUpperCase() + subPage.slice(1)]} />
       
-<<<<<<< HEAD
-      <PageTransition className="p-6 bg-slate-50 min-h-screen">
-=======
       <PageTransition key={location.pathname} className="p-6 bg-slate-50 min-h-screen">
->>>>>>> testing
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{subPage.charAt(0).toUpperCase() + subPage.slice(1)} Approvals</h1>

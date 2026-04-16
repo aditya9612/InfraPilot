@@ -3,17 +3,11 @@ import type { Task } from "../../types/project";
 interface TaskCardProps {
   task: Task;
   onClick: (task: Task) => void;
-<<<<<<< HEAD
-}
-
-const TaskCard = ({ task, onClick }: TaskCardProps) => {
-=======
   onEdit?: (task: Task) => void;
   onDelete?: (id: number) => void;
 }
 
 const TaskCard = ({ task, onClick, onEdit, onDelete }: TaskCardProps) => {
->>>>>>> testing
   const isDelayed = task.is_delayed;
   
   const priorityColors: Record<number, string> = {
@@ -37,11 +31,6 @@ const TaskCard = ({ task, onClick, onEdit, onDelete }: TaskCardProps) => {
         <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider ${priorityColors[task.priority] || priorityColors[3]}`}>
           {priorityLabels[task.priority] || "Low"}
         </span>
-<<<<<<< HEAD
-        <div className="flex -space-x-2">
-            <div className="w-6 h-6 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-[8px] font-bold text-slate-500">
-                U{task.assigned_user_id}
-=======
         <div className="flex items-center gap-2">
             <div className="flex items-center gap-1">
                 <button 
@@ -67,7 +56,6 @@ const TaskCard = ({ task, onClick, onEdit, onDelete }: TaskCardProps) => {
                 <div className="w-6 h-6 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-[8px] font-bold text-slate-500 ring-2 ring-slate-50 shadow-sm" title={`User ID: ${task.assigned_user_id}`}>
                     U{task.assigned_user_id}
                 </div>
->>>>>>> testing
             </div>
         </div>
       </div>
@@ -95,11 +83,7 @@ const TaskCard = ({ task, onClick, onEdit, onDelete }: TaskCardProps) => {
       <div className="mt-4 pt-3 border-t border-slate-50 flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase">
           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-<<<<<<< HEAD
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-=======
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
->>>>>>> testing
           </svg>
           {new Date(task.end_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
         </div>

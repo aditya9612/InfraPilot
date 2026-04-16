@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-import type { Project, ProjectMember, Milestone, Task, TaskComment, TaskProgress, ProfitLoss } from "../types/project";
-=======
 import type { Project, ProjectMember, Milestone, Task, TaskComment, TaskProgress, ProfitLoss, ProjectExpense } from "../types/project";
->>>>>>> testing
 
 export const PROJECTS: Project[] = [
   {
@@ -14,10 +10,7 @@ export const PROJECTS: Project[] = [
     end_date: "2027-12-31",
     status: "Active",
     completion_percentage: 15,
-<<<<<<< HEAD
-=======
     budget: 45000000,
->>>>>>> testing
   },
   {
     id: 2,
@@ -28,10 +21,7 @@ export const PROJECTS: Project[] = [
     end_date: "2028-06-30",
     status: "Delayed",
     completion_percentage: 45,
-<<<<<<< HEAD
-=======
     budget: 82000000,
->>>>>>> testing
   },
   {
     id: 3,
@@ -42,10 +32,7 @@ export const PROJECTS: Project[] = [
     end_date: "2027-05-01",
     status: "Planned",
     completion_percentage: 0,
-<<<<<<< HEAD
-=======
     budget: 25000000,
->>>>>>> testing
   }
 ];
 
@@ -76,8 +63,6 @@ export const TASKS: Record<number, Task[]> = {
     { id: 3, project_id: 1, title: "Excavation Work", description: "Primary trenching for foundation", priority: 1, status: "Completed", start_date: "2026-04-05", end_date: "2026-04-10", assigned_user_id: 4, completion_percentage: 100, is_delayed: false },
     { id: 4, project_id: 1, title: "PCC Laying", description: "Plain Cement Concrete for base", priority: 2, status: "In Progress", start_date: "2026-04-11", end_date: "2026-04-15", assigned_user_id: 4, completion_percentage: 60, is_delayed: false },
     { id: 5, project_id: 1, title: "Reinforcement Tying", description: "Steel bar placement for footing", priority: 1, status: "Planned", start_date: "2026-04-16", end_date: "2026-04-20", assigned_user_id: 4, completion_percentage: 0, is_delayed: false }
-<<<<<<< HEAD
-=======
   ],
   2: [
     { id: 6, project_id: 2, title: "Market Survey", description: "Analyze competitor commercial spaces", priority: 2, status: "Completed", start_date: "2026-01-15", end_date: "2026-01-25", assigned_user_id: 3, completion_percentage: 100, is_delayed: false },
@@ -86,7 +71,6 @@ export const TASKS: Record<number, Task[]> = {
   ],
   3: [
     { id: 9, project_id: 3, title: "Land Survey", description: "Topographical mapping of villa land", priority: 1, status: "Planned", start_date: "2026-05-01", end_date: "2026-05-10", assigned_user_id: 1, completion_percentage: 0, is_delayed: false }
->>>>>>> testing
   ]
 };
 
@@ -108,8 +92,6 @@ export const PROFIT_LOSS_DATA: Record<number, ProfitLoss> = {
   1: { project_id: 1, total_invoice: 15000000, total_expense: 12000000, profit: 3000000, status: "profit" },
   2: { project_id: 2, total_invoice: 8000000, total_expense: 9500000, profit: 1500000, status: "loss" }
 };
-<<<<<<< HEAD
-=======
 
 export const PROJECT_EXPENSES: Record<number, ProjectExpense[]> = {
   1: [
@@ -123,4 +105,3 @@ export const PROJECT_EXPENSES: Record<number, ProjectExpense[]> = {
     { id: 6, project_id: 2, date: "2026-02-15", category: "Other", amount: 55000, description: "Architectural consultation fee", status: "Paid" }
   ]
 };
->>>>>>> testing

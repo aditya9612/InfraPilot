@@ -14,8 +14,6 @@ export interface User {
   joining_date: string;
   is_active: boolean;
 }
-<<<<<<< HEAD
-=======
 
 export interface Role {
   id: string;
@@ -25,4 +23,3 @@ export interface Role {
   color: string;
   is_active: boolean;
 }
->>>>>>> testing

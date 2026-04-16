@@ -1,23 +1,15 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-<<<<<<< HEAD
-import Navbar from "../../components/common/Navbar";
-import PageTransition from "../../components/common/PageTransition";
-import NewProjectModal from "../../components/dashboard/NewProjectModal";
-=======
 import { exportToCSV } from "../../utils/csvExport";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import NewProjectModal from "../../components/dashboard/NewProjectModal";
 import EditProjectModal from "../../components/dashboard/EditProjectModal";
 import ConfirmModal from "../../components/common/ConfirmModal";
->>>>>>> testing
 import { PROJECTS } from "../../config/projectSeed";
 import type { Project, ProjectStatus } from "../../types/project";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-<<<<<<< HEAD
-=======
 const statusBadge: Record<ProjectStatus, string> = {
   Planned: "bg-slate-100 text-slate-500",
   Active: "bg-green-100 text-success",
@@ -25,7 +17,6 @@ const statusBadge: Record<ProjectStatus, string> = {
   Completed: "bg-blue-100 text-primary",
   "On Hold": "bg-amber-100 text-warning",
 };
->>>>>>> testing
 
 const progressFill: Record<ProjectStatus, string> = {
   Planned: "bg-slate-300",
@@ -53,8 +44,6 @@ const ProjectsPage = () => {
   );
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-<<<<<<< HEAD
-=======
   const [actTab, setActTab] = useState("All");
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<number | null>(null);
@@ -62,7 +51,6 @@ const ProjectsPage = () => {
   // Edit State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
->>>>>>> testing
 
   const handleCreateProject = (projectData: any) => {
     const np: Project = {
@@ -78,8 +66,6 @@ const ProjectsPage = () => {
     setProjects((prev) => [np, ...prev]);
   };
 
-<<<<<<< HEAD
-=======
   const handleEditClick = (project: Project) => {
     setEditingProject(project);
     setIsEditModalOpen(true);
@@ -95,7 +81,6 @@ const ProjectsPage = () => {
     setEditingProject(null);
   };
 
->>>>>>> testing
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(search);
@@ -127,8 +112,6 @@ const ProjectsPage = () => {
     navigate(`${basePath}/projects/${id}`);
   };
 
-<<<<<<< HEAD
-=======
   const handleDeleteClick = (id: number) => {
     setProjectToDelete(id);
     setIsDeleteModalOpen(true);
@@ -162,25 +145,11 @@ const ProjectsPage = () => {
     });
   };
 
->>>>>>> testing
   return (
     <>
       <Navbar title="Projects" breadcrumb={["InfraPilot", "Projects"]} />
 
       <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
-<<<<<<< HEAD
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-          <div>
-            <h1 className="text-3xl font-black text-slate-800 tracking-tighter uppercase mb-2">
-              Site / Project Management
-            </h1>
-            <p className="text-slate-500 text-sm font-medium">
-              Real-time infrastructure projects and budget monitoring.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 shadow-sm transition-all active:scale-95">
-=======
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
@@ -195,84 +164,46 @@ const ProjectsPage = () => {
               onClick={handleDownloadCSV}
               className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
             >
->>>>>>> testing
               Download CSV
             </button>
             <button
               onClick={() => setShowForm(true)}
-<<<<<<< HEAD
-              className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
-=======
               className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
->>>>>>> testing
             >
               + New Project
             </button>
           </div>
         </div>
 
-<<<<<<< HEAD
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
-=======
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
->>>>>>> testing
           {[
             {
               title: "Total Projects",
               value: String(stats.total),
               sub: `Across all locations`,
               accent: "text-primary",
-<<<<<<< HEAD
-              icon: "📁"
-=======
->>>>>>> testing
             },
             {
               title: "Active Sites",
               value: String(stats.active),
               sub: "Currently in progress",
               accent: "text-success",
-<<<<<<< HEAD
-              icon: "🏗️"
-=======
->>>>>>> testing
             },
             {
               title: "Completed",
               value: String(stats.completed),
               sub: "Successfully delivered",
               accent: "text-blue-500",
-<<<<<<< HEAD
-              icon: "✅"
-=======
->>>>>>> testing
             },
             {
               title: "Delayed",
               value: String(stats.delayed),
               sub: "Needs urgent attention",
               accent: "text-red-500",
-<<<<<<< HEAD
-              icon: "⚠️"
-=======
->>>>>>> testing
             },
           ].map((s) => (
             <div
               key={s.title}
-<<<<<<< HEAD
-              className="bg-white rounded-[24px] p-6 shadow-sm border border-slate-100 transition-all hover:shadow-xl hover:shadow-slate-200/50 group"
-            >
-              <div className="flex justify-between items-start mb-4">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] group-hover:text-primary transition-colors">
-                  {s.title}
-                </p>
-                <span className="text-lg opacity-20 group-hover:opacity-100 transition-opacity">{s.icon}</span>
-              </div>
-              <p className={`text-3xl font-black ${s.accent} tracking-tighter`}>{s.value}</p>
-              {s.sub && (
-                <p className="text-[10px] text-slate-400 mt-2 font-bold tracking-tight uppercase">
-=======
               className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all hover:shadow-md"
             >
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
@@ -281,7 +212,6 @@ const ProjectsPage = () => {
               <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
               {s.sub && (
                 <p className="text-[10px] text-slate-400 mt-1.5 font-medium">
->>>>>>> testing
                   {s.sub}
                 </p>
               )}
@@ -291,19 +221,11 @@ const ProjectsPage = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
           <div className="lg:col-span-2 space-y-4">
-<<<<<<< HEAD
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-              <div className="flex flex-wrap gap-4 items-center">
-                <div className="flex items-center gap-3 bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 flex-1">
-                  <svg
-                    className="w-4 h-4 text-slate-400"
-=======
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
               <div className="flex flex-wrap gap-3 items-center">
                 <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2 flex-1">
                   <svg
                     className="w-3.5 h-3.5 text-slate-400"
->>>>>>> testing
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -320,11 +242,7 @@ const ProjectsPage = () => {
                     placeholder="Search project name or description..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-<<<<<<< HEAD
-                    className="bg-transparent text-xs font-bold text-slate-600 outline-none w-full placeholder:text-slate-400 placeholder:font-medium"
-=======
                     className="bg-transparent text-xs text-slate-500 outline-none w-full placeholder:text-slate-400"
->>>>>>> testing
                   />
                 </div>
                 <div className="flex gap-2">
@@ -340,18 +258,11 @@ const ProjectsPage = () => {
                     <button
                       key={s}
                       onClick={() => setFilterStatus(s)}
-<<<<<<< HEAD
-                      className={`px-4 py-2 rounded-xl text-[10px] font-black tracking-widest transition-all ${filterStatus === s
-                        ? "bg-primary text-white shadow-md shadow-primary/20"
-                        : "bg-slate-50 text-slate-500 hover:bg-slate-100"
-                        }`}
-=======
                       className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
                         filterStatus === s
                           ? "bg-primary text-white shadow-md shadow-primary/20"
                           : "bg-slate-50 text-slate-500 hover:bg-slate-100"
                       }`}
->>>>>>> testing
                     >
                       {s.toUpperCase()}
                     </button>
@@ -360,20 +271,10 @@ const ProjectsPage = () => {
               </div>
             </div>
 
-<<<<<<< HEAD
-            <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-              <div className="flex items-center justify-between mb-8">
-                <h2 className="text-[10px] font-black text-slate-800 uppercase tracking-[0.3em] flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
-                  Project Progress
-                </h2>
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-3 py-1 bg-slate-50 rounded-lg">
-=======
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="font-bold text-slate-800">Project Progress</h2>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
->>>>>>> testing
                   {filtered.length} of {projects.length} Projects
                 </span>
               </div>
@@ -443,16 +344,12 @@ const ProjectsPage = () => {
                 {["All", "Finance", "Site"].map((tab) => (
                   <button
                     key={tab}
-<<<<<<< HEAD
-                    className={`px-4 py-2 rounded-xl text-[10px] font-black tracking-widest transition-all bg-slate-50 text-slate-500 hover:bg-slate-100`}
-=======
                     onClick={() => setActTab(tab)}
                     className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
                       actTab === tab
                         ? "bg-primary text-white shadow-md shadow-primary/20"
                         : "bg-slate-50 text-slate-500 hover:bg-slate-100"
                     }`}
->>>>>>> testing
                   >
                     {tab.toUpperCase()}
                   </button>
@@ -518,15 +415,6 @@ const ProjectsPage = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-<<<<<<< HEAD
-                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] border-b border-slate-50">
-                  <th className="px-8 py-5">Project ID</th>
-                  <th className="px-8 py-5">Project Name</th>
-                  <th className="px-8 py-5">Dates</th>
-                  <th className="px-8 py-5">Progress</th>
-                  <th className="px-8 py-5">Status</th>
-                  <th className="px-8 py-5 text-right">Action</th>
-=======
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] border-b border-slate-50">
                   <th className="px-6 py-4">Project ID</th>
                   <th className="px-6 py-4">Project Name</th>
@@ -534,24 +422,12 @@ const ProjectsPage = () => {
                   <th className="px-6 py-4">Progress</th>
                   <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4 text-center">Action</th>
->>>>>>> testing
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {filtered.map((p) => (
                   <tr
                     key={p.id}
-<<<<<<< HEAD
-                    className="hover:bg-slate-50/50 transition-colors group cursor-pointer"
-                  >
-                    <td className="px-8 py-5 font-mono text-[10px] font-black text-slate-400">
-                      PRJ-{p.id}
-                    </td>
-                    <td className="px-8 py-5 font-black text-slate-800 group-hover:text-primary transition-colors text-sm tracking-tight">
-                      {p.project_name}
-                    </td>
-                    <td className="px-8 py-5 text-slate-400 font-bold text-[10px] uppercase tracking-wider">
-=======
                     className="hover:bg-slate-50/50 transition-colors group"
                   >
                     <td className="px-6 py-4 font-mono text-xs font-bold text-slate-500">
@@ -561,7 +437,6 @@ const ProjectsPage = () => {
                       {p.project_name}
                     </td>
                     <td className="px-6 py-4 text-slate-500 text-xs">
->>>>>>> testing
                       {p.start_date} to {p.end_date}
                     </td>
                     <td className="px-6 py-4 min-w-[200px]">
@@ -577,25 +452,6 @@ const ProjectsPage = () => {
                         </span>
                       </div>
                     </td>
-<<<<<<< HEAD
-                    <td className="px-8 py-5">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${statusDot[p.status]} ${p.status === 'Active' ? 'animate-pulse' : ''}`}
-                        />
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest translate-y-px">
-                          {p.status}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-8 py-5 text-right">
-                      <button
-                        onClick={() => handleViewProject(p.id)}
-                        className="px-4 py-2 bg-slate-50 text-[10px] font-black text-primary uppercase tracking-widest rounded-xl hover:bg-primary hover:text-white transition-all shadow-sm active:scale-95"
-                      >
-                        View Details
-                      </button>
-=======
                     <td className="px-6 py-4">
                       <span
                         className={`px-3 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${statusBadge[p.status]}`}
@@ -634,7 +490,6 @@ const ProjectsPage = () => {
                           </svg>
                         </button>
                       </div>
->>>>>>> testing
                     </td>
                   </tr>
                 ))}
@@ -648,8 +503,6 @@ const ProjectsPage = () => {
           onClose={() => setShowForm(false)}
           onSubmit={handleCreateProject}
         />
-<<<<<<< HEAD
-=======
 
         <EditProjectModal
           isOpen={isEditModalOpen}
@@ -673,7 +526,6 @@ const ProjectsPage = () => {
           confirmText="Delete"
           type="danger"
         />
->>>>>>> testing
       </PageTransition>
     </>
   );

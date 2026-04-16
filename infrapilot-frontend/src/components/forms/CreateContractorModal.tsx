@@ -2,10 +2,7 @@ import React, { useState, useEffect } from "react";
 import Modal from "../common/Modal";
 import toast from "react-hot-toast";
 import type { RateType } from "../../types/project";
-<<<<<<< HEAD
-=======
 import { PROJECTS } from "../../config/projectSeed";
->>>>>>> testing
 
 interface CreateContractorModalProps {
   isOpen: boolean;
@@ -27,10 +24,7 @@ const CreateContractorModal = ({ isOpen, onClose, onSubmit, initialData }: Creat
     total_work_assigned: 0,
     payment_given: 0,
     bank_details: "",
-<<<<<<< HEAD
-=======
     project_id: "",
->>>>>>> testing
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -50,10 +44,7 @@ const CreateContractorModal = ({ isOpen, onClose, onSubmit, initialData }: Creat
         total_work_assigned: initialData.total_work_assigned || 0,
         payment_given: initialData.payment_given || 0,
         bank_details: initialData.bank || "",
-<<<<<<< HEAD
-=======
         project_id: initialData.project_id?.toString() || "",
->>>>>>> testing
       });
     } else {
       setFormData({
@@ -68,10 +59,7 @@ const CreateContractorModal = ({ isOpen, onClose, onSubmit, initialData }: Creat
         total_work_assigned: 0,
         payment_given: 0,
         bank_details: "",
-<<<<<<< HEAD
-=======
         project_id: "",
->>>>>>> testing
       });
     }
   }, [initialData, isOpen]);
@@ -165,11 +153,7 @@ const CreateContractorModal = ({ isOpen, onClose, onSubmit, initialData }: Creat
       title={initialData ? "Update Contractor" : "Add New Contractor"}
       footer={modalFooter}
     >
-<<<<<<< HEAD
-      <form id="contractor-form" onSubmit={handleSubmit} className="space-y-6">
-=======
       <form id="contractor-form" onSubmit={handleSubmit} noValidate className="space-y-6">
->>>>>>> testing
         {/* Basic Information */}
         <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
           <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Basic Info</h3>
@@ -222,8 +206,6 @@ const CreateContractorModal = ({ isOpen, onClose, onSubmit, initialData }: Creat
               />
               {errors.gst_number && <p className="text-[10px] text-red-500 mt-1">{errors.gst_number}</p>}
             </div>
-<<<<<<< HEAD
-=======
             <div className="md:col-span-2">
               <label className="block text-xs font-bold text-slate-500 mb-1">Assign to Project <span className="text-red-500">*</span></label>
               <select
@@ -236,7 +218,6 @@ const CreateContractorModal = ({ isOpen, onClose, onSubmit, initialData }: Creat
                 ))}
               </select>
             </div>
->>>>>>> testing
           </div>
         </div>
 

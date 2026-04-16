@@ -1,15 +1,11 @@
 import type { UserRole } from "./user";
 
-<<<<<<< HEAD
-export type ProjectStatus = "Planned" | "Active" | "Delayed" | "Completed" | "On Hold";
-=======
 export type ProjectStatus =
   | "Planned"
   | "Active"
   | "Delayed"
   | "Completed"
   | "On Hold";
->>>>>>> testing
 export type TaskStatus = "Planned" | "In Progress" | "Completed" | "Delayed";
 export type MilestoneStatus = "Pending" | "In Progress" | "Completed";
 
@@ -22,10 +18,7 @@ export interface Project {
   end_date: string;
   status: ProjectStatus;
   completion_percentage: number;
-<<<<<<< HEAD
-=======
   budget?: number;
->>>>>>> testing
 }
 
 export interface ProjectMember {
@@ -76,8 +69,6 @@ export interface TaskComment {
   created_at?: string;
 }
 
-<<<<<<< HEAD
-=======
 export type RateType = "lumpsum" | "measured" | "others";
 
 export interface ProjectExpense {
@@ -90,7 +81,6 @@ export interface ProjectExpense {
   status: "Paid" | "Pending";
 }
 
->>>>>>> testing
 export interface ProfitLoss {
   project_id: number;
   total_invoice: number;
@@ -99,14 +89,6 @@ export interface ProfitLoss {
   status: "profit" | "loss";
 }
 
-<<<<<<< HEAD
-export type RateType = "lumpsum" | "measured" | "others";
-
-export interface Contractor {
-  id: number;
-  contractor_id: string;
-  name: string;
-=======
 export interface ContractorBill {
   id: number;
   contractor_id: number;
@@ -131,7 +113,6 @@ export interface Contractor {
   name: string;
   company: string;
   email: string;
->>>>>>> testing
   work_type: string;
   contact_number: string;
   gst_number: string;
@@ -139,12 +120,9 @@ export interface Contractor {
   total_work_assigned: number;
   payment_given: number;
   bank_details: string;
-<<<<<<< HEAD
-=======
   project_id?: number;
   rating?: number;
   status?: "Active" | "Delayed" | "Inactive";
   bills?: ContractorBill[];
   payments?: ContractorPayment[];
->>>>>>> testing
 }
