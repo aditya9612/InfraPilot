@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
@@ -11,6 +12,7 @@ const masterDataItems = [
 ];
 
 const MasterDataPage = () => {
+  const location = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("All");
 
@@ -24,7 +26,7 @@ const MasterDataPage = () => {
     <>
       <Navbar title="Master Data Console" breadcrumb={["Admin", "Master Data"]} />
       
-      <PageTransition className="p-6 bg-slate-50 min-h-screen">
+      <PageTransition key={location.pathname} className="p-6 bg-slate-50 min-h-screen">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">System Master Data</h1>

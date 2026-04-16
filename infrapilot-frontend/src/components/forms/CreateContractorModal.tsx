@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import Modal from "../common/Modal";
 import toast from "react-hot-toast";
 import type { RateType } from "../../types/project";
+import { PROJECTS } from "../../config/projectSeed";
 
 interface CreateContractorModalProps {
   isOpen: boolean;
@@ -23,6 +24,7 @@ const CreateContractorModal = ({ isOpen, onClose, onSubmit, initialData }: Creat
     total_work_assigned: 0,
     payment_given: 0,
     bank_details: "",
+    project_id: "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -42,6 +44,7 @@ const CreateContractorModal = ({ isOpen, onClose, onSubmit, initialData }: Creat
         total_work_assigned: initialData.total_work_assigned || 0,
         payment_given: initialData.payment_given || 0,
         bank_details: initialData.bank || "",
+        project_id: initialData.project_id?.toString() || "",
       });
     } else {
       setFormData({
@@ -56,6 +59,7 @@ const CreateContractorModal = ({ isOpen, onClose, onSubmit, initialData }: Creat
         total_work_assigned: 0,
         payment_given: 0,
         bank_details: "",
+        project_id: "",
       });
     }
   }, [initialData, isOpen]);
@@ -66,7 +70,7 @@ const CreateContractorModal = ({ isOpen, onClose, onSubmit, initialData }: Creat
       ...prev,
       [name]: ["total_work_assigned", "payment_given"].includes(name) ? parseFloat(value) || 0 : value
     }));
-    
+
     // Clear error when user types
     if (errors[name]) {
       setErrors(prev => {
@@ -87,7 +91,7 @@ const CreateContractorModal = ({ isOpen, onClose, onSubmit, initialData }: Creat
     if (!/^\d{10}$/.test(formData.contact_number)) newErrors.contact_number = "Enter a valid 10-digit number.";
     if (!formData.gst_number.trim()) newErrors.gst_number = "GST number is required.";
     if (!formData.bank_details.trim()) newErrors.bank_details = "Bank details are required.";
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -104,10 +108,10 @@ const CreateContractorModal = ({ isOpen, onClose, onSubmit, initialData }: Creat
         total_work_assigned: Number(formData.total_work_assigned),
         payment_given: Number(formData.payment_given)
       };
-      
+
       console.log("Creating new contractor:", payload);
       if (onSubmit) onSubmit(payload);
-      
+
       setIsLoading(false);
       toast.success(`Contractor "${formData.name}" created successfully!`, {
         style: {
@@ -149,7 +153,7 @@ const CreateContractorModal = ({ isOpen, onClose, onSubmit, initialData }: Creat
       title={initialData ? "Update Contractor" : "Add New Contractor"}
       footer={modalFooter}
     >
-      <form id="contractor-form" onSubmit={handleSubmit} className="space-y-6">
+      <form id="contractor-form" onSubmit={handleSubmit} noValidate className="space-y-6">
         {/* Basic Information */}
         <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
           <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Basic Info</h3>
@@ -202,6 +206,18 @@ const CreateContractorModal = ({ isOpen, onClose, onSubmit, initialData }: Creat
               />
               {errors.gst_number && <p className="text-[10px] text-red-500 mt-1">{errors.gst_number}</p>}
             </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-slate-500 mb-1">Assign to Project <span className="text-red-500">*</span></label>
+              <select
+                name="project_id" value={formData.project_id} onChange={handleChange}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+              >
+                <option value="">Select a project...</option>
+                {PROJECTS.map(p => (
+                  <option key={p.id} value={p.id}>{p.project_name}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -251,7 +267,7 @@ const CreateContractorModal = ({ isOpen, onClose, onSubmit, initialData }: Creat
           <div>
             <label className="block text-xs font-bold text-slate-500 mb-1">Bank Information <span className="text-red-500">*</span></label>
             <textarea
-              required name="bank_details" value={formData.bank_details} onChange={handleChange} 
+              required name="bank_details" value={formData.bank_details} onChange={handleChange}
               placeholder="e.g. SBI Bank, A/C: 9876543210, IFSC: SBIN0005678" rows={2}
               className={`w-full px-3 py-2 bg-slate-50 border ${errors.bank_details ? 'border-red-500 focus:ring-red-200' : 'border-slate-200 focus:ring-primary focus:border-primary'} rounded-lg text-sm outline-none transition-all placeholder:text-slate-300 resize-none`}
             />

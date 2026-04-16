@@ -14,3 +14,12 @@ export interface User {
   joining_date: string;
   is_active: boolean;
 }
+
+export interface Role {
+  id: string;
+  name: string;
+  description: string;
+  userCount: number;
+  color: string;
+  is_active: boolean;
+}

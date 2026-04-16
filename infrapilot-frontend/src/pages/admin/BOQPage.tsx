@@ -4,7 +4,9 @@ import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
 import CreateBOQModal from "../../components/forms/CreateBOQModal";
+import toast from "react-hot-toast";
 import BOQDetailsModal from "../../components/dashboard/BOQDetailsModal";
+import ConfirmModal from "../../components/common/ConfirmModal";
 
 // Mock Project Mapper
 const projectMap: Record<number, string> = {
@@ -134,6 +136,8 @@ const BOQPage = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [viewingItem, setViewingItem] = useState<any | null>(null);
   const [editingItem, setEditingItem] = useState<any | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<number | null>(null);
 
   const handleCreateOrUpdateBOQ = (data: any) => {
     if (editingItem) {
@@ -179,9 +183,17 @@ const BOQPage = () => {
     setIsModalOpen(true);
   };
 
-  const handleDeleteBOQ = (id: number) => {
-    if (window.confirm("Are you sure you want to delete this BOQ item?")) {
-      setBoqData(prev => prev.filter(item => item.id !== id));
+  const handleDeleteClick = (id: number) => {
+    setItemToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (itemToDelete) {
+      setBoqData(prev => prev.filter(item => item.id !== itemToDelete));
+      toast.success("BOQ item deleted successfully!");
+      setIsDeleteModalOpen(false);
+      setItemToDelete(null);
     }
   };
 
@@ -202,7 +214,7 @@ const BOQPage = () => {
     <>
       <Navbar title="Work & BOQ Management" breadcrumb={["Admin", "Work & BOQ", isSetup ? "BOQ Setup" : "Activity List"]} />
       
-      <PageTransition className="p-6 bg-slate-50 min-h-screen">
+      <PageTransition key={location.pathname} className="p-6 bg-slate-50 min-h-screen">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{isSetup ? "BOQ Master Setup" : "Project Activity List"}</h1>
@@ -370,7 +382,7 @@ const BOQPage = () => {
                             </svg>
                           </button>
                           <button 
-                            onClick={() => handleDeleteBOQ(item.id)}
+                            onClick={() => handleDeleteClick(item.id)}
                             title="Delete BOQ"
                             className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
                           >
@@ -448,6 +460,19 @@ const BOQPage = () => {
         }}
         boqItem={viewingItem}
         projectName={viewingItem ? projectMap[viewingItem.project_id] : ""}
+      />
+
+      <ConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setItemToDelete(null);
+        }}
+        onConfirm={handleDeleteConfirm}
+        title="Delete BOQ Item"
+        message="Are you sure you want to delete this BOQ item? This will remove the cost estimation for this specific item."
+        confirmText="Delete"
+        type="danger"
       />
     </>
   );

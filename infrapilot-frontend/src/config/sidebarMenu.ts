@@ -18,7 +18,11 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       subNav: [
         { label: "Users", path: "/admin/users", icon: "users" },
         { label: "Roles", path: "/admin/users/roles", icon: "user-check" },
-        { label: "Permissions", path: "/admin/users/permissions", icon: "check-circle" },
+        {
+          label: "Permissions",
+          path: "/admin/users/permissions",
+          icon: "check-circle",
+        },
       ],
     },
     { label: "Contractors", path: "/admin/contractors", icon: "briefcase" },
@@ -30,7 +34,11 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       icon: "clipboard",
       subNav: [
         { label: "BOQ Setup", path: "/admin/boq/setup", icon: "list" },
-        { label: "Activity List", path: "/admin/boq/activities", icon: "activity" },
+        {
+          label: "Activity List",
+          path: "/admin/boq/activities",
+          icon: "activity",
+        },
       ],
     },
     {
@@ -38,8 +46,16 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       path: "/admin/inventory",
       icon: "package",
       subNav: [
-        { label: "Material Master", path: "/admin/inventory/master", icon: "database" },
-        { label: "Stock Management", path: "/admin/inventory/stock", icon: "box" },
+        {
+          label: "Material Master",
+          path: "/admin/inventory/master",
+          icon: "database",
+        },
+        {
+          label: "Inventory Management",
+          path: "/admin/inventory/stock",
+          icon: "box",
+        },
       ],
     },
     {
@@ -47,10 +63,26 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       path: "/admin/finance",
       icon: "dollar-sign",
       subNav: [
-        { label: "Invoices", path: "/admin/finance/invoices", icon: "file-text" },
-        { label: "Payments", path: "/admin/finance/payments", icon: "credit-card" },
-        { label: "Expenses", path: "/admin/finance/expenses", icon: "dollar-sign" },
-        { label: "Profit Tracking", path: "/admin/finance/profit", icon: "trending-up" },
+        {
+          label: "Invoices",
+          path: "/admin/finance/invoices",
+          icon: "file-text",
+        },
+        {
+          label: "Payments",
+          path: "/admin/finance/payments",
+          icon: "credit-card",
+        },
+        {
+          label: "Expenses",
+          path: "/admin/finance/expenses",
+          icon: "dollar-sign",
+        },
+        {
+          label: "Profit Tracking",
+          path: "/admin/finance/profit",
+          icon: "trending-up",
+        },
       ],
     },
     {
@@ -58,9 +90,21 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       path: "/admin/approvals",
       icon: "check-circle",
       subNav: [
-        { label: "Material Approval", path: "/admin/approvals/material", icon: "package" },
-        { label: "Billing Approval", path: "/admin/approvals/billing", icon: "file-text" },
-        { label: "Expense Approval", path: "/admin/approvals/expense", icon: "dollar-sign" },
+        {
+          label: "Material Approval",
+          path: "/admin/approvals/material",
+          icon: "package",
+        },
+        {
+          label: "Billing Approval",
+          path: "/admin/approvals/billing",
+          icon: "file-text",
+        },
+        {
+          label: "Expense Approval",
+          path: "/admin/approvals/expense",
+          icon: "dollar-sign",
+        },
       ],
     },
     {
@@ -68,11 +112,27 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       path: "/admin/reports",
       icon: "bar-chart",
       subNav: [
-        { label: "Progress Report", path: "/admin/reports/progress", icon: "trending-up" },
-        { label: "Financial Report", path: "/admin/reports/financial", icon: "dollar-sign" },
+        {
+          label: "Progress Report",
+          path: "/admin/reports/progress",
+          icon: "trending-up",
+        },
+        {
+          label: "Financial Report",
+          path: "/admin/reports/financial",
+          icon: "dollar-sign",
+        },
         { label: "Labor Report", path: "/admin/reports/labor", icon: "users" },
-        { label: "Material Consumption", path: "/admin/reports/consumption", icon: "package" },
-        { label: "Contractor Performance", path: "/admin/reports/performance", icon: "briefcase" },
+        {
+          label: "Material Consumption",
+          path: "/admin/reports/consumption",
+          icon: "package",
+        },
+        {
+          label: "Contractor Performance",
+          path: "/admin/reports/performance",
+          icon: "briefcase",
+        },
       ],
     },
     { label: "Notifications", path: "/admin/notifications", icon: "bell" },
@@ -82,9 +142,21 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       path: "/admin/master-data",
       icon: "database",
       subNav: [
-        { label: "Material Master", path: "/admin/master-data/materials", icon: "package" },
-        { label: "Labor Types", path: "/admin/master-data/labor", icon: "users" },
-        { label: "Activity Types", path: "/admin/master-data/activities", icon: "list" },
+        {
+          label: "Material Master",
+          path: "/admin/master-data/materials",
+          icon: "package",
+        },
+        {
+          label: "Labor Types",
+          path: "/admin/master-data/labor",
+          icon: "users",
+        },
+        {
+          label: "Activity Types",
+          path: "/admin/master-data/activities",
+          icon: "list",
+        },
         { label: "Units", path: "/admin/master-data/units", icon: "tool" },
       ],
     },
@@ -173,10 +245,27 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
   ],
   Accountant: [
     { label: "Dashboard", path: "/accountant", icon: "grid" },
-    { label: "Budget", path: "/accountant/budget", icon: "dollar-sign" },
-    { label: "Invoices", path: "/accountant/invoices", icon: "file-text" },
-    { label: "Payments", path: "/accountant/payments", icon: "credit-card" },
+    { label: "Chart of Accounts", path: "/accountant/chart-of-accounts", icon: "book-open" },
+    { 
+      label: "Receivables", 
+      path: "/accountant/receivables", 
+      icon: "trending-up",
+      subNav: [
+        { label: "Invoices", path: "/accountant/receivables/invoices", icon: "file-text" },
+        { label: "RA Bills", path: "/accountant/receivables/ra-bills", icon: "activity" },
+        { label: "Credit Notes", path: "/accountant/receivables/credit-notes", icon: "rotate-ccw" },
+      ]
+    },
+    { label: "Payables", path: "/accountant/payables", icon: "trending-down" },
+    { label: "Expenses", path: "/accountant/expenses", icon: "dollar-sign" },
+    { label: "Payments & Receipts", path: "/accountant/payments", icon: "credit-card" },
+    { label: "GST & Taxation", path: "/accountant/taxation", icon: "percent" },
+    { label: "Payroll", path: "/accountant/payroll", icon: "users" },
+    { label: "Bank & Cash", path: "/accountant/banking", icon: "home" },
+    { label: "Journal Entries", path: "/accountant/journal", icon: "edit-3" },
+    { label: "Fixed Assets", path: "/accountant/assets", icon: "layers" },
     { label: "Reports", path: "/accountant/reports", icon: "bar-chart" },
+    { label: "Settings", path: "/accountant/settings", icon: "settings" },
   ],
   Client: [
     { label: "Dashboard", path: "/client", icon: "grid" },
@@ -187,9 +276,21 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       path: "/client/financials",
       icon: "dollar-sign",
       subNav: [
-        { label: "Invoices", path: "/client/financials/invoices", icon: "file-text" },
-        { label: "Payments", path: "/client/financials/payments", icon: "credit-card" },
-        { label: "Summary", path: "/client/financials/summary", icon: "bar-chart" },
+        {
+          label: "Invoices",
+          path: "/client/financials/invoices",
+          icon: "file-text",
+        },
+        {
+          label: "Payments",
+          path: "/client/financials/payments",
+          icon: "credit-card",
+        },
+        {
+          label: "Summary",
+          path: "/client/financials/summary",
+          icon: "bar-chart",
+        },
       ],
     },
     {
@@ -197,19 +298,39 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       path: "/client/site-updates",
       icon: "camera",
       subNav: [
-        { label: "DSR Summary", path: "/client/site-updates/dsr", icon: "clipboard" },
-        { label: "Photos", path: "/client/site-updates/photos", icon: "package" },
+        {
+          label: "DSR Summary",
+          path: "/client/site-updates/dsr",
+          icon: "clipboard",
+        },
+        {
+          label: "Photos",
+          path: "/client/site-updates/photos",
+          icon: "package",
+        },
       ],
     },
     { label: "Issues & Risks", path: "/client/issues", icon: "alert-triangle" },
-    { label: "Documents & Drawings", path: "/client/documents", icon: "file-text" },
+    {
+      label: "Documents & Drawings",
+      path: "/client/documents",
+      icon: "file-text",
+    },
     {
       label: "Approvals",
       path: "/client/approvals",
       icon: "check-circle",
       subNav: [
-        { label: "Pending Approvals", path: "/client/approvals/pending", icon: "clock" },
-        { label: "Approved Items", path: "/client/approvals/approved", icon: "check-circle" },
+        {
+          label: "Pending Approvals",
+          path: "/client/approvals/pending",
+          icon: "clock",
+        },
+        {
+          label: "Approved Items",
+          path: "/client/approvals/approved",
+          icon: "check-circle",
+        },
       ],
     },
     {
@@ -217,8 +338,16 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       path: "/client/communication",
       icon: "message-circle",
       subNav: [
-        { label: "Messages", path: "/client/communication/messages", icon: "mail" },
-        { label: "Announcements", path: "/client/communication/announcements", icon: "bell" },
+        {
+          label: "Messages",
+          path: "/client/communication/messages",
+          icon: "mail",
+        },
+        {
+          label: "Announcements",
+          path: "/client/communication/announcements",
+          icon: "bell",
+        },
       ],
     },
     {
@@ -226,9 +355,21 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       path: "/client/reports",
       icon: "clipboard",
       subNav: [
-        { label: "Monthly Progress Report", path: "/client/reports/monthly", icon: "calendar" },
-        { label: "Financial Report", path: "/client/reports/financial", icon: "dollar-sign" },
-        { label: "Work Summary", path: "/client/reports/work-summary", icon: "activity" },
+        {
+          label: "Monthly Progress Report",
+          path: "/client/reports/monthly",
+          icon: "calendar",
+        },
+        {
+          label: "Financial Report",
+          path: "/client/reports/financial",
+          icon: "dollar-sign",
+        },
+        {
+          label: "Work Summary",
+          path: "/client/reports/work-summary",
+          icon: "activity",
+        },
       ],
     },
     { label: "Settings", path: "/client/settings", icon: "settings" },

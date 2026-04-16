@@ -3,7 +3,11 @@ import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
 import CreateContractorModal from "../../components/forms/CreateContractorModal";
+import toast from "react-hot-toast";
 import ContractorDetailsModal from "../../components/dashboard/ContractorDetailsModal";
+import ConfirmModal from "../../components/common/ConfirmModal";
+import { PROJECTS } from "../../config/projectSeed";
+import { exportToCSV } from "../../utils/csvExport";
 
 const INITIAL_CONTRACTORS = [
   {
@@ -14,9 +18,21 @@ const INITIAL_CONTRACTORS = [
     mobile: "+91 91234 56789",
     gst: "27AAACV1234A1Z1",
     bank: "HDFC Bank - **** 8821",
-    projects: "Skyline Tower A, Metro Ph-II",
+    projects: "Electrical & HVAC",
+    project_id: 1,
     rating: 4.8,
     status: "Active",
+    total_work_assigned: 2500000,
+    payment_given: 1200000,
+    bills: [
+      { id: 1, contractor_id: 1, memo: "Phase 1 Electrical Wiring", amount: 800000, date: "2026-04-05", status: "approved" },
+      { id: 2, contractor_id: 1, memo: "HVAC Unit Installation", amount: 1200000, date: "2026-04-10", status: "approved" },
+      { id: 3, contractor_id: 1, memo: "Maintenance Kit", amount: 50000, date: "2026-04-12", status: "pending" }
+    ],
+    payments: [
+      { id: 1, contractor_id: 1, amount: 500000, date: "2026-04-06", method: "Bank Transfer", reference: "TXN100293" },
+      { id: 2, contractor_id: 1, amount: 700000, date: "2026-04-11", method: "Cheque", reference: "CHQ99201" }
+    ]
   },
   {
     id: 2,
@@ -26,9 +42,18 @@ const INITIAL_CONTRACTORS = [
     mobile: "+91 99887 76655",
     gst: "27BBBCG5678B1Z2",
     bank: "SBI - **** 4432",
-    projects: "Grand Vista Residency",
+    projects: "Structural Steel Work",
+    project_id: 2,
     rating: 4.2,
     status: "Active",
+    total_work_assigned: 4500000,
+    payment_given: 3000000,
+    bills: [
+      { id: 4, contractor_id: 2, memo: "Foundation Steel Reinforcement", amount: 3000000, date: "2026-03-20", status: "approved" }
+    ],
+    payments: [
+      { id: 3, contractor_id: 2, amount: 3000000, date: "2026-03-25", method: "NEFT", reference: "NEF98201" }
+    ]
   },
   {
     id: 3,
@@ -38,19 +63,30 @@ const INITIAL_CONTRACTORS = [
     mobile: "+91 98221 12233",
     gst: "27CCCDS9012C1Z3",
     bank: "ICICI Bank - **** 1190",
-    projects: "Bridge Overpass Site",
+    projects: "Plumbing & Sanitary",
+    project_id: 1,
     rating: 3.9,
     status: "Delayed",
+    total_work_assigned: 1500000,
+    payment_given: 500000,
+    bills: [
+      { id: 5, contractor_id: 3, memo: "Piping Network Ph-1", amount: 700000, date: "2026-04-01", status: "approved" }
+    ],
+    payments: [
+      { id: 4, contractor_id: 3, amount: 500000, date: "2026-04-05", method: "UPI", reference: "UPI55291" }
+    ]
   },
 ];
 
 const ContractorsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [contractors, setContractors] = useState(INITIAL_CONTRACTORS);
+  const [contractors, setContractors] = useState<any[]>(INITIAL_CONTRACTORS);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [viewingContractor, setViewingContractor] = useState<any | null>(null);
   const [editingContractor, setEditingContractor] = useState<any | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [contractorToDelete, setContractorToDelete] = useState<number | null>(null);
 
   const filteredContractors = contractors.filter(
     (c) =>
@@ -58,9 +94,23 @@ const ContractorsPage = () => {
       c.company.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
+  const calculateOutstanding = (contractor: any) => {
+    const totalBilled = contractor.bills?.reduce((acc: number, bill: any) => acc + (bill.status === 'approved' ? bill.amount : 0), 0) || 0;
+    const totalPaid = contractor.payments?.reduce((acc: number, pay: any) => acc + pay.amount, 0) || 0;
+    return totalBilled - totalPaid;
+  };
+
   const handleAddContractor = (data: any) => {
     if (editingContractor) {
-      setContractors(prev => prev.map(c => c.id === editingContractor.id ? { ...c, ...data, mobile: data.contact_number, gst: data.gst_number, bank: data.bank_details, projects: data.work_type } : c));
+      setContractors(prev => prev.map(c => c.id === editingContractor.id ? { 
+        ...c, 
+        ...data, 
+        mobile: data.contact_number, 
+        gst: data.gst_number, 
+        bank: data.bank_details, 
+        projects: data.work_type,
+        project_id: data.project_id ? parseInt(data.project_id) : undefined
+      } : c));
     } else {
       const newContractor = {
         id: contractors.length + 1,
@@ -71,8 +121,13 @@ const ContractorsPage = () => {
         gst: data.gst_number,
         bank: data.bank_details,
         projects: data.work_type,
+        project_id: data.project_id ? parseInt(data.project_id) : undefined,
         rating: 5.0,
         status: "Active",
+        total_work_assigned: data.total_work_assigned || 0,
+        payment_given: data.payment_given || 0,
+        bills: [],
+        payments: []
       };
       setContractors([newContractor, ...contractors]);
     }
@@ -90,10 +145,48 @@ const ContractorsPage = () => {
     setIsViewModalOpen(true);
   };
 
-  const handleDeleteContractor = (id: number) => {
-    if (window.confirm("Are you sure you want to delete this contractor?")) {
-      setContractors(prev => prev.filter(c => c.id !== id));
+  const handleDeleteClick = (id: number) => {
+    setContractorToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (contractorToDelete) {
+      setContractors(contractors.filter(c => c.id !== contractorToDelete));
+      toast.success("Contractor deleted successfully!");
+      setIsDeleteModalOpen(false);
+      setContractorToDelete(null);
     }
+  };
+
+  const handleExportCSV = () => {
+    if (filteredContractors.length === 0) {
+      toast.error("No contractors found to export", {
+        style: { borderRadius: '12px', background: '#333', color: '#fff' }
+      });
+      return;
+    }
+
+    const data = filteredContractors.map((c) => ({
+      ID: c.id,
+      Name: c.name,
+      Company: c.company,
+      Email: c.email,
+      Mobile: c.mobile,
+      GST: c.gst,
+      "Work Type": c.projects,
+      "Assigned Project": PROJECTS.find((p) => p.id === c.project_id)?.project_name || "N/A",
+      Status: c.status,
+      Rating: c.rating,
+      "Total Work Assigned (₹)": c.total_work_assigned,
+      "Payment Given (₹)": c.payment_given,
+      "Outstanding Dues (₹)": calculateOutstanding(c),
+    }));
+    
+    exportToCSV(data, "contractors_directory_export.csv");
+    toast.success("CSV Exported successfully!", {
+      style: { borderRadius: '12px', background: '#333', color: '#fff' }
+    });
   };
 
   return (
@@ -104,34 +197,32 @@ const ContractorsPage = () => {
       />
 
       <PageTransition className="p-6 bg-slate-50 min-h-screen">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Contractor Directory</h1>
-            <p className="text-slate-500 text-sm">Manage construction partners, ratings, and site assignments.</p>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+              Contractor Directory
+            </h1>
+            <p className="text-slate-500 text-sm">
+              Manage construction partners, ratings, and site assignments.
+            </p>
           </div>
           <div className="flex gap-2">
-            <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all">Export CSV</button>
-            <button onClick={() => setIsModalOpen(true)} className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all">+ New Contractor</button>
+            <button
+              onClick={handleExportCSV}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all active:scale-95"
+            >
+              <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Export CSV
+            </button>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
+            >
+              + New Contractor
+            </button>
           </div>
-        </div>
-
-        {/* Features Section */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          {[
-            { title: "Assign Contractor to Project", desc: "Map contractor to specific project", behavior: "Should link Contractor ID with Project ID.", icon: "🤝", color: "text-blue-600", bg: "bg-blue-50" },
-            { title: "Track Contractor Bills", desc: "Maintain contractor work bill details", behavior: "Should store bill amount, date, and work description.", icon: "🧾", color: "text-emerald-600", bg: "bg-emerald-50" },
-            { title: "Payment History", desc: "Record all payments made to contractor", behavior: "Should show date-wise payment records.", icon: "💰", color: "text-amber-600", bg: "bg-amber-50" },
-            { title: "Pending Payment Report", desc: "Generate contractor pending dues report", behavior: "Should display contractor-wise outstanding amount.", icon: "📊", color: "text-purple-600", bg: "bg-purple-50" }
-          ].map((f, i) => (
-            <div key={i} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm transition-all hover:shadow-md">
-              <div className={`w-10 h-10 ${f.bg} ${f.color} rounded-lg flex items-center justify-center mb-3 text-lg`}>{f.icon}</div>
-              <h3 className="font-bold text-slate-800 mb-1">{f.title}</h3>
-              <p className="text-xs text-slate-500 mb-3">{f.desc}</p>
-              <div className="pt-2 border-t border-slate-50">
-                <p className="text-[10px] font-bold text-slate-400 uppercase">Behavior: <span className="text-slate-600 lowercase font-medium italic">"{f.behavior}"</span></p>
-              </div>
-            </div>
-          ))}
         </div>
 
         {/* Stats Summary */}
@@ -189,11 +280,11 @@ const ContractorsPage = () => {
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
                   <th className="px-6 py-4">Contractor & Company</th>
-                  <th className="px-6 py-4">GST & Bank Details</th>
-                  <th className="px-6 py-4">Assigned Projects</th>
-                  <th className="px-6 py-4 text-center">Performance Rating</th>
+                  <th className="px-6 py-4">Financial Overview</th>
+                  <th className="px-6 py-4">Assigned Site</th>
+                  <th className="px-6 py-4 text-center">Pending Dues</th>
                   <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
+                  <th className="px-6 py-4 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -216,34 +307,37 @@ const ContractorsPage = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <p className="text-[10px] font-bold text-slate-400 mb-1">
-                        GST:{" "}
-                        <span className="text-slate-600 font-medium">
-                          {c.gst}
-                        </span>
-                      </p>
-                      <p className="text-[10px] font-bold text-slate-400">
-                        BANK:{" "}
-                        <span className="text-slate-600 font-medium">
-                          {c.bank}
-                        </span>
-                      </p>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[10px]">
+                          <span className="text-slate-400 font-bold uppercase">Billed:</span>
+                          <span className="text-slate-600 font-bold">₹{(c.bills?.reduce((acc: number, b: any) => acc + (b.status === 'approved' ? b.amount : 0), 0) || 0).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-[10px]">
+                          <span className="text-slate-400 font-bold uppercase">Paid:</span>
+                          <span className="text-emerald-600 font-bold">₹{(c.payments?.reduce((acc: number, p: any) => acc + p.amount, 0) || 0).toLocaleString()}</span>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-6 py-4">
-                      <p className="text-xs text-slate-600 font-medium line-clamp-2 max-w-[200px]">
-                        {c.projects}
-                      </p>
+                      {c.project_id ? (
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold text-primary">{PROJECTS.find(p => p.id === c.project_id)?.project_name}</span>
+                          <span className="text-[10px] text-slate-400 font-medium italic">{c.projects}</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400 italic">No project assigned</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex flex-col items-center">
-                        <span className="text-sm font-bold text-slate-800">
-                          {c.rating} / 5.0
+                        <span className={`text-sm font-black ${calculateOutstanding(c) > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                          ₹{calculateOutstanding(c).toLocaleString()}
                         </span>
                         <div className="flex gap-0.5 mt-1">
                           {[1, 2, 3, 4, 5].map((star) => (
                             <svg
                               key={star}
-                              className={`w-3 h-3 ${star <= Math.round(c.rating) ? "text-amber-400" : "text-slate-200"}`}
+                              className={`w-2 h-2 ${star <= Math.round(c.rating || 5) ? "text-amber-400" : "text-slate-200"}`}
                               fill="currentColor"
                               viewBox="0 0 20 20"
                             >
@@ -255,17 +349,18 @@ const ContractorsPage = () => {
                     </td>
                     <td className="px-6 py-4">
                       <span
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${c.status === "Active"
-                          ? "bg-emerald-100 text-emerald-600"
-                          : "bg-rose-100 text-rose-600"
-                          }`}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${
+                          c.status === "Active"
+                            ? "bg-emerald-100 text-emerald-600"
+                            : "bg-rose-100 text-rose-600"
+                        }`}
                       >
                         {c.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
+                    <td className="px-6 py-4 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <button 
                           onClick={() => handleViewDetails(c)}
                           title="View Details"
                           className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
@@ -275,7 +370,7 @@ const ContractorsPage = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                           </svg>
                         </button>
-                        <button
+                        <button 
                           onClick={() => handleEditClick(c)}
                           title="Update Contractor"
                           className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
@@ -284,8 +379,8 @@ const ContractorsPage = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                           </svg>
                         </button>
-                        <button
-                          onClick={() => handleDeleteContractor(c.id)}
+                        <button 
+                          onClick={() => handleDeleteClick(c.id)}
                           title="Delete Contractor"
                           className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
                         >
@@ -320,6 +415,19 @@ const ContractorsPage = () => {
           setViewingContractor(null);
         }}
         contractor={viewingContractor}
+      />
+
+      <ConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setContractorToDelete(null);
+        }}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Contractor"
+        message="Are you sure you want to delete this contractor? This will remove all their data from the directory."
+        confirmText="Delete"
+        type="danger"
       />
     </>
   );
