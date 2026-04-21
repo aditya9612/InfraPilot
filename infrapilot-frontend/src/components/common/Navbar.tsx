@@ -41,10 +41,9 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
   const { toggleSidebar } = useSidebar();
   const rolePaths: Record<string, string> = {
     Admin: "/admin",
-    "Project Manager": "/manager",
-    "Site Engineer": "/engineer",
+    ProjectManager: "/manager",
+    SiteEngineer: "/engineer",
     Accountant: "/accountant",
-    Client: "/client",
   };
 
   return (

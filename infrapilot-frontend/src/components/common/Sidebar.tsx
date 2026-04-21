@@ -472,10 +472,9 @@ const Sidebar = ({ onClose }: SidebarProps) => {
 
   const rolePaths: Record<string, string> = {
     Admin: "/admin",
-    "Project Manager": "/manager",
-    "Site Engineer": "/engineer",
+    ProjectManager: "/manager",
+    SiteEngineer: "/engineer",
     Accountant: "/accountant",
-    Client: "/client",
   };
 
   return (

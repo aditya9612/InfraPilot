@@ -21,7 +21,6 @@ const EditMilestoneModal = ({
     description: "",
     start_date: "",
     end_date: "",
-    status: "" as any,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -33,7 +32,6 @@ const EditMilestoneModal = ({
         description: milestone.description,
         start_date: milestone.start_date,
         end_date: milestone.end_date,
-        status: milestone.status || "Pending",
       });
     }
   }, [milestone]);
@@ -140,17 +138,7 @@ const EditMilestoneModal = ({
               {errors.title && <p className="text-[10px] text-red-500 mt-1">{errors.title}</p>}
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1">Status</label>
-              <select
-                name="status" value={formData.status} onChange={handleChange}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
-              >
-                <option value="Pending">Pending</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Completed">Completed</option>
-              </select>
-            </div>
+
             
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">Description <span className="text-red-500">*</span></label>

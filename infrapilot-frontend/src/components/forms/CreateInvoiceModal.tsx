@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import Modal from '../common/Modal';
-import { PROJECTS } from '../../config/projectSeed';
 import type { Invoice, InvoiceType, InvoiceStatus } from '../../types/invoice';
+import type { Project } from '../../types/project';
 
 interface CreateInvoiceModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (invoiceData: any) => void;
+  projects: Project[];
   initialData?: Invoice | null;
 }
 
-const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({ isOpen, onClose, onSubmit, initialData }) => {
+const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({ isOpen, onClose, onSubmit, projects, initialData }) => {
   const [formData, setFormData] = useState({
     project_id: '',
     type: 'labour' as InvoiceType,
@@ -112,7 +113,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({ isOpen, onClose
               className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl text-sm text-slate-600 focus:ring-2 focus:ring-primary/10 transition-all outline-none appearance-none"
             >
               <option value="">Select Project</option>
-              {PROJECTS.map(p => <option key={p.id} value={p.id}>{p.project_name}</option>)}
+              {projects.map(p => <option key={p.id} value={p.id}>{p.project_name}</option>)}
             </select>
           </div>
 

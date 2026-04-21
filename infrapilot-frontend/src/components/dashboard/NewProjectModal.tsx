@@ -59,34 +59,23 @@ const NewProjectModal = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
 
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+    try {
       const requestBody = {
         ...formData,
         owner_id: Number(formData.owner_id),
       };
-      console.log("Submitting new project:", requestBody);
-      if (onSubmit) onSubmit(requestBody);
-      setIsLoading(false);
-      toast.success(
-        `Project "${formData.project_name}" created successfully!`,
-        {
-          style: {
-            borderRadius: "12px",
-            background: "#333",
-            color: "#fff",
-            fontSize: "14px",
-            fontWeight: "600",
-          },
-        },
-      );
+      if (onSubmit) await onSubmit(requestBody);
       onClose();
-    }, 1000);
+    } catch (error) {
+      console.error("Project creation error:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const modalFooter = (

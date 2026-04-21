@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Modal from "../common/Modal";
-import { INITIAL_USERS } from "../../config/userSeed";
+import { userService } from "../../services/userService";
 import type { ProjectMember } from "../../types/project";
+import toast from "react-hot-toast";
 
 interface AssignMemberModalProps {
   isOpen: boolean;
@@ -18,12 +19,34 @@ const AssignMemberModal: React.FC<AssignMemberModalProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const availableUsers = INITIAL_USERS.filter(
+  const fetchUsers = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const data = await userService.getAllUsers(100, 0);
+      const items = Array.isArray(data) ? data : (data.items || data.data || []);
+      setAllUsers(items);
+    } catch (error) {
+      console.error("Failed to fetch available users:", error);
+      toast.error("Failed to load user list");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchUsers();
+    }
+  }, [isOpen, fetchUsers]);
+
+  const availableUsers = allUsers.filter(
     (user) =>
       !existingMemberIds.includes(user.user_id) &&
-      (user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.role.toLowerCase().includes(searchTerm.toLowerCase())),
+      ((user.full_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (user.role || "").toLowerCase().includes(searchTerm.toLowerCase())),
   );
 
   const toggleUserSelection = (userId: number) => {
@@ -35,7 +58,7 @@ const AssignMemberModal: React.FC<AssignMemberModalProps> = ({
   };
 
   const handleAssignClick = () => {
-    const membersToAssign: ProjectMember[] = INITIAL_USERS.filter((u) =>
+    const membersToAssign: ProjectMember[] = allUsers.filter((u) =>
       selectedUserIds.includes(u.user_id),
     ).map((u) => ({
       user_id: u.user_id,
@@ -101,7 +124,12 @@ const AssignMemberModal: React.FC<AssignMemberModalProps> = ({
         </div>
 
         <div className="max-h-[300px] overflow-y-auto pr-2 custom-scrollbar space-y-2">
-          {availableUsers.length === 0 ? (
+          {isLoading ? (
+             <div className="flex flex-col items-center justify-center py-10 gap-3">
+               <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Loading Users...</p>
+             </div>
+          ) : availableUsers.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-2xl mb-2">👤</p>
               <p className="text-sm font-medium text-slate-400 font-inter">

@@ -8,7 +8,9 @@ import CreateInvoiceModal from "../../components/forms/CreateInvoiceModal";
 import InvoiceDetailsModal from "../../components/dashboard/InvoiceDetailsModal";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import type { Invoice, InvoiceStatus } from "../../types/invoice";
-import { PROJECTS } from "../../config/projectSeed";
+import { projectService } from "../../services/projectService";
+import type { Project } from "../../types/project";
+import { useEffect, useCallback } from "react";
 
 // Expanded Mock Data following API spec
 const initialInvoices: Invoice[] = [
@@ -72,12 +74,33 @@ const FinancePage = () => {
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
   // Modals
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [invoiceToDelete, setInvoiceToDelete] = useState<number | null>(null);
+
+  // Fetch Projects
+  const fetchProjects = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const res = await projectService.getProjects(100, 0);
+      const projectList = Array.isArray(res) ? res : (res.items || res.data || []);
+      setProjects(projectList);
+    } catch (error) {
+      console.error("Finance: Failed to fetch projects", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchProjects();
+  }, [fetchProjects]);
 
   // Handlers
   const handleCreateOrUpdate = (data: any) => {
@@ -125,7 +148,7 @@ const FinancePage = () => {
   // Filtered Data
   const filteredInvoices = useMemo(() => {
     return invoices.filter(inv => {
-      const project = PROJECTS.find(p => p.id === inv.project_id);
+      const project = projects.find(p => p.id === inv.project_id);
       const matchSearch = (project?.project_name || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
                           inv.description.toLowerCase().includes(searchTerm.toLowerCase());
       const matchType = typeFilter === "all" || inv.type === typeFilter;
@@ -246,7 +269,7 @@ const FinancePage = () => {
                     <td className="px-6 py-4">
                       <div>
                         <p className="text-xs font-bold text-slate-700 uppercase">
-                          {PROJECTS.find(p => p.id === inv.project_id)?.project_name}
+                          {projects.find(p => p.id === inv.project_id)?.project_name || "Unknown Project"}
                         </p>
                         <p className="text-[10px] text-slate-400 font-medium line-clamp-1">{inv.description}</p>
                       </div>
@@ -302,6 +325,7 @@ const FinancePage = () => {
       <CreateInvoiceModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
+        projects={projects}
         onSubmit={handleCreateOrUpdate}
         initialData={selectedInvoice}
       />

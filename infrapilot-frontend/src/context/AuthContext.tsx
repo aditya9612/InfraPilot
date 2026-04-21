@@ -3,10 +3,9 @@ import type { ReactNode } from "react";
 
 export type Role =
   | "Admin"
-  | "Project Manager"
-  | "Site Engineer"
-  | "Accountant"
-  | "Client";
+  | "ProjectManager"
+  | "SiteEngineer"
+  | "Accountant";
 
 export interface User {
   id: string;

@@ -3,21 +3,24 @@ import toast from "react-hot-toast";
 import Modal from "../common/Modal";
 import type { User, UserRole } from "../../types/user";
 
+import type { Project } from "../../types/project";
+
 interface CreateUserModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (userData: any) => void;
+  projects: Project[];
   initialData?: User | null;
 }
 
-const ROLES: UserRole[] = ["Admin", "Project Manager", "Site Engineer", "Accountant", "Client"];
-
-const MOCK_PROJECTS = [
-  "Skyline Residency",
-  "Metro Extension Phase II",
-  "Green Valley Infrastructure",
-  "Oceanic Bridge Project",
+const ROLES: { value: UserRole; label: string }[] = [
+  { value: "Admin", label: "Admin" },
+  { value: "ProjectManager", label: "Project Manager" },
+  { value: "SiteEngineer", label: "Site Engineer" },
+  { value: "Accountant", label: "Accountant" },
 ];
+
+
 
 const WORK_TYPES = ["Civil", "Electrical", "Plumbing"];
 
@@ -25,6 +28,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
+  projects,
   initialData,
 }) => {
   const [formData, setFormData] = useState({
@@ -54,6 +58,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [photo, setPhoto] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>("");
   const [photoUrl, setPhotoUrl] = useState<string>("");
 
   useEffect(() => {
@@ -97,15 +102,30 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     }
   }, [isOpen, initialData]);
 
+  // Handle preview URL cleanup to prevent memory leaks
+  useEffect(() => {
+    let url = "";
+    if (photo) {
+      url = URL.createObjectURL(photo);
+      setPreviewUrl(url);
+    } else {
+      setPreviewUrl("");
+    }
+
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [photo]);
+
   const validate = () => {
     const newErrors: Record<string, string> = {};
     if (!formData.full_name || formData.full_name.length < 3)
       newErrors.full_name = "Full Name must be at least 3 characters.";
     if (
       !formData.mobile_number ||
-      !/^\+91\s\d{10}$/.test(formData.mobile_number)
+      !/^\+?\d[\d\s]{9,14}$/.test(formData.mobile_number.trim())
     )
-      newErrors.mobile_number = "Enter a valid mobile number (+91 9876543210).";
+      newErrors.mobile_number = "Enter a valid mobile number.";
     if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
       newErrors.email = "Enter a valid email address.";
 
@@ -119,7 +139,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
       newErrors.designation = "Designation is required.";
 
     if (
-      ["Site Engineer", "Project Manager"].includes(formData.role) &&
+      ["SiteEngineer", "ProjectManager"].includes(formData.role) &&
       !formData.assignedProject
     ) {
       newErrors.assignedProject = "Project is required.";
@@ -136,9 +156,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
   ) => {
     let { name, value } = e.target;
     if (name === "mobile_number") {
-      const numeric = value.replace(/[^\d]/g, "");
-      const digits = numeric.startsWith("91") ? numeric.slice(2) : numeric;
-      value = digits ? `+91 ${digits.slice(0, 10)}` : "";
+      value = value;
     } else if (name === "pan_number") {
       value = value.toUpperCase().slice(0, 10);
     } else if (name === "aadhaar_number") {
@@ -156,23 +174,40 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (validate()) {
       setIsLoading(true);
-      setTimeout(() => {
+      try {
+        let finalProfileImage = photoUrl;
+        
+        // If a new photo is selected, convert it to Base64 for persistence
+        if (photo) {
+          finalProfileImage = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(photo);
+          });
+        }
+
         const payload = {
           ...formData,
-          profile_image: photo ? URL.createObjectURL(photo) : photoUrl,
+          profile_image: finalProfileImage,
         };
+        
         onSubmit(payload);
-        setIsLoading(false);
         const action = initialData ? "updated" : "created";
         toast.success(`User ${formData.full_name} ${action} successfully!`, {
           style: { borderRadius: "12px", background: "#333", color: "#fff" },
         });
         onClose();
-      }, 1000);
+      } catch (error) {
+        console.error("Image processing failed:", error);
+        toast.error("Failed to process profile image");
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -319,9 +354,9 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                 className={`w-full px-4 py-2 bg-gray-50 border ${errors.role ? "border-rose-500 focus:ring-rose-100" : "border-gray-200 focus:ring-primary/20"} rounded-xl transition-all outline-none appearance-none`}
               >
                 <option value="">Select Role</option>
-                {ROLES.map((role) => (
-                  <option key={role} value={role}>
-                    {role}
+                {ROLES.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
                   </option>
                 ))}
               </select>
@@ -395,7 +430,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
               {formData.role} Exclusive Fields
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-              {["Site Engineer", "Project Manager"].includes(formData.role) && (
+              {["SiteEngineer", "ProjectManager"].includes(formData.role) && (
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-600 mb-1">
                     Assigned Project <span className="text-rose-500">*</span>
@@ -407,9 +442,9 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                     className={`w-full px-4 py-2 bg-white border ${errors.assignedProject ? "border-rose-500" : "border-gray-200"} rounded-xl outline-none`}
                   >
                     <option value="">Select Project</option>
-                    {MOCK_PROJECTS.map((p) => (
-                      <option key={p} value={p}>
-                        {p}
+                    {projects.map((p) => (
+                      <option key={p.id} value={p.project_name}>
+                        {p.project_name}
                       </option>
                     ))}
                   </select>
@@ -426,13 +461,13 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
             </label>
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-full bg-slate-200 overflow-hidden flex-shrink-0 border-2 border-white shadow-sm">
-                {photo ? (
+                {previewUrl ? (
                   <img
-                    src={URL.createObjectURL(photo)}
+                    src={previewUrl}
                     alt="Preview"
                     className="w-full h-full object-cover"
                   />
-                ) : photoUrl ? (
+                ) : photoUrl && !photoUrl.startsWith('blob:') ? (
                   <img
                     src={photoUrl}
                     alt="Profile"

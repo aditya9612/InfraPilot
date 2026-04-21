@@ -10,10 +10,9 @@ type Step = "mobile" | "otp";
 
 const ROLE_PATHS: Record<Role, string> = {
   Admin: "/admin",
-  "Project Manager": "/manager",
-  "Site Engineer": "/engineer",
+  ProjectManager: "/manager",
+  SiteEngineer: "/engineer",
   Accountant: "/accountant",
-  Client: "/client",
 };
 
 const Login = () => {
