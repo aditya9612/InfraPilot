@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../../context/AuthContext";
 import { sidebarMenus, type MenuItem } from "../../config/sidebarMenu";
@@ -162,6 +162,14 @@ const icons: Record<string, JSX.Element> = {
       <line x1="16" y1="17" x2="8" y2="17" strokeWidth="1.8" />
     </svg>
   ),
+  "file-plus": (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeWidth="1.8" />
+      <polyline points="14 2 14 8 20 8" strokeWidth="1.8" />
+      <line x1="12" y1="18" x2="12" y2="12" strokeWidth="1.8" />
+      <line x1="9" y1="15" x2="15" y2="15" strokeWidth="1.8" />
+    </svg>
+  ),
   clipboard: (
     <svg
       className="w-4 h-4"
@@ -306,6 +314,14 @@ const icons: Record<string, JSX.Element> = {
       <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" strokeWidth="1.8" />
     </svg>
   ),
+  truck: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path d="M1 3h15v13H1z" strokeWidth="1.8" />
+      <path d="M16 8h4l3 3v5h-7V8z" strokeWidth="1.8" />
+      <circle cx="5.5" cy="18.5" r="2.5" strokeWidth="1.8" />
+      <circle cx="18.5" cy="18.5" r="2.5" strokeWidth="1.8" />
+    </svg>
+  ),
   percent: (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <line x1="19" y1="5" x2="5" y2="19" strokeWidth="1.8" />
@@ -336,6 +352,13 @@ const icons: Record<string, JSX.Element> = {
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <polyline points="1 4 1 10 7 10" strokeWidth="1.8" />
       <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" strokeWidth="1.8" />
+    </svg>
+  ),
+  "refresh-cw": (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <polyline points="23 4 23 10 17 10" strokeWidth="1.8" />
+      <polyline points="1 20 1 14 7 14" strokeWidth="1.8" />
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" strokeWidth="1.8" />
     </svg>
   ),
   clock: (
@@ -470,18 +493,30 @@ const Sidebar = ({ onClose }: SidebarProps) => {
   if (!user) return null;
   const menu = sidebarMenus[user.role];
 
+  const rolePaths: Record<string, string> = {
+    Admin: "/admin",
+    ProjectManager: "/manager",
+    SiteEngineer: "/engineer",
+    Accountant: "/accountant",
+  };
+
   return (
     <aside className="w-full h-full bg-white border-r border-slate-100 flex flex-col shadow-sm shrink-0">
       {/* Logo container */}
-      <div className="px-2 pt-1 pb-0 border-b border-slate-100 flex justify-center lg:items-center relative">
-        <img
-          src={logo}
-          alt="InfraPilot Logo"
-          className="w-full h-16 object-contain"
-        />
+      <div className="px-6 py-3 border-b border-slate-100 flex items-center justify-center relative">
+        <Link 
+          to={rolePaths[user.role]} 
+          className="flex items-center justify-center transition-transform hover:scale-[1.02] active:scale-[0.98]"
+        >
+          <img
+            src={logo}
+            alt="InfraPilot Logo"
+            className="h-16 w-auto object-contain"
+          />
+        </Link>
         {onClose && (
-          <button onClick={onClose} className="lg:hidden absolute right-2 text-slate-500 p-2 hover:bg-slate-50 rounded-lg">
-             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          <button onClick={onClose} className="lg:hidden absolute right-4 text-slate-500 p-2 hover:bg-slate-50 rounded-lg">
+             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         )}
       </div>

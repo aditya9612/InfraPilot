@@ -10,6 +10,8 @@ import {
   Legend,
   ReferenceArea,
 } from "recharts";
+import { useEffect, useCallback } from "react";
+import toast from "react-hot-toast";
 import Navbar from "../../components/common/Navbar";
 import StatCard from "../../components/common/StatCard";
 import NewProjectModal from "../../components/dashboard/NewProjectModal";
@@ -17,8 +19,9 @@ import CreateUserModal from "../../components/forms/CreateUserModal";
 import PageTransition from "../../components/common/PageTransition";
 import CreateBOQModal from "../../components/forms/CreateBOQModal";
 import CreateReportModal from "../../components/dashboard/CreateReportModal";
-import { PROJECTS } from "../../config/projectSeed";
-import type { ProjectStatus } from "../../types/project";
+import { projectService } from "../../services/projectService";
+import { boqService } from "../../services/boqService";
+import type { Project, ProjectStatus } from "../../types/project";
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 const budgetData = [
@@ -28,33 +31,6 @@ const budgetData = [
   { month: "Apr", budget: 61, actual: 58 },
   { month: "May", budget: 55, actual: 60 },
   { month: "Jun", budget: 67, actual: 72 },
-];
-
-const activities = [
-  {
-    user: "Rahul S.",
-    action: "completed Foundation Paving",
-    time: "12m ago",
-    type: "task",
-  },
-  {
-    user: "Priya N.",
-    action: "submitted Invoice #882",
-    time: "45m ago",
-    type: "money",
-  },
-  {
-    user: "Site Bot",
-    action: "uploaded 12 site photos",
-    time: "2h ago",
-    type: "photo",
-  },
-  {
-    user: "Amit K.",
-    action: "reported Material Shortage",
-    time: "4h ago",
-    type: "alert",
-  },
 ];
 
 // ─── Styling Helpers ──────────────────────────────────────────────────────────
@@ -89,21 +65,73 @@ const AdminDashboard = () => {
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
   const [isBOQModalOpen, setIsBOQModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [alerts, setAlerts] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const [pData, pAlerts, tAlerts] = await Promise.all([
+        projectService.getProjects(10, 0),
+        projectService.getProjectAlerts().catch(() => []),
+        projectService.getTaskAlerts().catch(() => []),
+      ]);
+
+      const projectsList = Array.isArray(pData)
+        ? pData
+        : pData.items || pData.data || [];
+      setProjects(projectsList);
+
+      // Combine alerts for activity feed
+      const combinedAlerts = [
+        ...(Array.isArray(pAlerts) ? pAlerts : []),
+        ...(Array.isArray(tAlerts) ? tAlerts : []),
+      ].map((a: any) => ({
+        user: a.user_name || "System",
+        action: a.message || a.detail || "Alert reported",
+        time: a.created_at
+          ? new Date(a.created_at).toLocaleTimeString()
+          : "Recent",
+        type: a.type || "alert",
+      }));
+      setAlerts(combinedAlerts);
+    } catch (error) {
+      console.error("Dashboard: Data Sync Error", error);
+      toast.error("Failed to sync dashboard data");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
   const handleCreateUser = (userData: any) => {
     console.log("New User Data:", userData);
   };
 
-  const handleCreateBOQ = (boqData: any) => {
-    console.log("New BOQ Item from Dashboard:", boqData);
+  const handleCreateProject = () => {
+    fetchDashboardData();
+  };
+
+  const handleCreateBOQ = async (boqData: any) => {
+    try {
+      await boqService.createBoq(boqData);
+      toast.success("BOQ item created successfully!");
+      setIsBOQModalOpen(false);
+    } catch (error) {
+      toast.error("Failed to create BOQ item");
+    }
   };
 
   // Dynamic Statistics
   const stats = {
-    total: PROJECTS.length,
-    active: PROJECTS.filter((p) => p.status === "Active").length,
-    completed: PROJECTS.filter((p) => p.status === "Completed").length,
-    delayed: PROJECTS.filter((p) => p.status === "Delayed").length,
+    total: projects.length,
+    active: projects.filter((p) => p.status === "Active").length,
+    completed: projects.filter((p) => p.status === "Completed").length,
+    delayed: projects.filter((p) => p.status === "Delayed").length,
   };
 
   return (
@@ -257,11 +285,12 @@ const AdminDashboard = () => {
               </select>
             </div>
             <div className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                <LineChart
-                  data={budgetData}
-                  margin={{ top: 5, right: 10, left: 10, bottom: 0 }}
-                >
+              {!isLoading ? (
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={100}>
+                  <LineChart
+                    data={budgetData}
+                    margin={{ top: 5, right: 10, left: 10, bottom: 0 }}
+                  >
                   <CartesianGrid
                     strokeDasharray="3 3"
                     vertical={false}
@@ -324,6 +353,12 @@ const AdminDashboard = () => {
                   />
                 </LineChart>
               </ResponsiveContainer>
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
+                  <div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin mb-4" />
+                  <p className="text-xs font-bold uppercase tracking-widest">Loading Analytics...</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -348,32 +383,42 @@ const AdminDashboard = () => {
               </div>
             </div>
             <div className="flex-1 p-6 space-y-6 overflow-y-auto max-h-[400px]">
-              {activities.map((act, i) => (
-                <div key={i} className="flex gap-4 group">
-                  <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                      act.type === "alert"
-                        ? "bg-red-50 text-red-500"
-                        : act.type === "money"
-                          ? "bg-green-50 text-green-500"
-                          : "bg-blue-50 text-blue-500"
-                    }`}
-                  >
-                    {act.type === "task" && "✔"}
-                    {act.type === "money" && "₹"}
-                    {act.type === "photo" && "📷"}
-                    {act.type === "alert" && "⚠️"}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs text-slate-800 leading-snug">
-                      <span className="font-bold">{act.user}</span> {act.action}
-                    </p>
-                    <p className="text-[10px] text-slate-400 mt-1">
-                      {act.time}
-                    </p>
-                  </div>
+              {alerts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 opacity-50">
+                  <span className="text-2xl mb-2">✨</span>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    No Alerts
+                  </p>
                 </div>
-              ))}
+              ) : (
+                alerts.map((act, i) => (
+                  <div key={i} className="flex gap-4 group">
+                    <div
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                        act.type === "alert"
+                          ? "bg-red-50 text-red-500"
+                          : act.type === "money"
+                            ? "bg-green-50 text-green-500"
+                            : "bg-blue-50 text-blue-500"
+                      }`}
+                    >
+                      {act.type === "task" && "✔"}
+                      {act.type === "money" && "₹"}
+                      {act.type === "photo" && "📷"}
+                      {act.type === "alert" && "⚠️"}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-slate-800 leading-snug">
+                        <span className="font-bold">{act.user}</span>{" "}
+                        {act.action}
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        {act.time}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -421,32 +466,42 @@ const AdminDashboard = () => {
               </span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {PROJECTS.slice(0, 4).map((p, i) => (
-                <div key={i} className="group cursor-pointer">
-                  <div className="flex justify-between items-center mb-2">
-                    <p className="text-xs font-bold text-slate-700 group-hover:text-primary transition-colors">
-                      {p.project_name}
-                    </p>
-                    <span className="text-[10px] font-bold text-slate-400">
-                      {p.completion_percentage}%
-                    </span>
-                  </div>
-                  <div className="w-full h-2 bg-slate-50 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full ${progressPulse[p.status]} transition-all duration-1000`}
-                      style={{ width: `${p.completion_percentage}%` }}
-                    />
-                  </div>
-                  <div className="flex items-center gap-2 mt-2">
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full ${statusDot[p.status]}`}
-                    />
-                    <span className="text-[9px] font-bold text-slate-400 uppercase translate-y-px">
-                      {p.status}
-                    </span>
-                  </div>
+              {isLoading ? (
+                <div className="col-span-2 py-8 text-center text-slate-400 italic text-sm">
+                  Loading progress...
                 </div>
-              ))}
+              ) : projects.length === 0 ? (
+                <div className="col-span-2 py-8 text-center text-slate-400 italic text-sm">
+                  No projects available.
+                </div>
+              ) : (
+                projects.slice(0, 4).map((p, i) => (
+                  <div key={i} className="group cursor-pointer">
+                    <div className="flex justify-between items-center mb-2">
+                      <p className="text-xs font-bold text-slate-700 group-hover:text-primary transition-colors">
+                        {p.project_name}
+                      </p>
+                      <span className="text-[10px] font-bold text-slate-400">
+                        {p.completion_percentage}%
+                      </span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-50 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${progressPulse[p.status] || "bg-slate-300"} transition-all duration-1000`}
+                        style={{ width: `${p.completion_percentage}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${statusDot[p.status] || "bg-slate-400"}`}
+                      />
+                      <span className="text-[9px] font-bold text-slate-400 uppercase translate-y-px">
+                        {p.status}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -525,42 +580,62 @@ const AdminDashboard = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {PROJECTS.map((p, i) => (
-                  <tr
-                    key={i}
-                    className="hover:bg-slate-50/50 transition-colors group"
-                  >
-                    <td className="px-6 py-4 font-bold text-slate-700">
-                      {p.project_name}
-                    </td>
-                    <td className="px-6 py-4 text-slate-500 font-medium text-xs">
-                      {p.start_date} - {p.end_date}
-                    </td>
-                    <td className="px-6 py-4 min-w-[200px]">
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full ${progressPulse[p.status]}`}
-                            style={{ width: `${p.completion_percentage}%` }}
-                          />
-                        </div>
-                        <span className="text-xs font-bold text-slate-400">
-                          {p.completion_percentage}%
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <span className="text-slate-800 font-bold">92.4</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`px-3 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${statusBadge[p.status]}`}
-                      >
-                        {p.status}
-                      </span>
+                {isLoading ? (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="px-6 py-8 text-center text-slate-400 italic text-sm"
+                    >
+                      Loading projects...
                     </td>
                   </tr>
-                ))}
+                ) : projects.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="px-6 py-8 text-center text-slate-400 italic text-sm"
+                    >
+                      No projects found.
+                    </td>
+                  </tr>
+                ) : (
+                  projects.map((p, i) => (
+                    <tr
+                      key={i}
+                      className="hover:bg-slate-50/50 transition-colors group"
+                    >
+                      <td className="px-6 py-4 font-bold text-slate-700">
+                        {p.project_name}
+                      </td>
+                      <td className="px-6 py-4 text-slate-500 font-medium text-xs">
+                        {p.start_date} - {p.end_date}
+                      </td>
+                      <td className="px-6 py-4 min-w-[200px]">
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full ${progressPulse[p.status] || "bg-slate-300"}`}
+                              style={{ width: `${p.completion_percentage}%` }}
+                            />
+                          </div>
+                          <span className="text-xs font-bold text-slate-400">
+                            {p.completion_percentage}%
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="text-slate-800 font-bold">92.4</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`px-3 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${statusBadge[p.status] || "bg-slate-100 text-slate-500"}`}
+                        >
+                          {p.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -569,20 +644,24 @@ const AdminDashboard = () => {
 
       <CreateUserModal
         isOpen={isUserModalOpen}
+        projects={projects}
         onClose={() => setIsUserModalOpen(false)}
         onSubmit={handleCreateUser}
       />
       <NewProjectModal
         isOpen={isNewProjectModalOpen}
         onClose={() => setIsNewProjectModalOpen(false)}
+        onSubmit={handleCreateProject}
       />
       <CreateBOQModal
         isOpen={isBOQModalOpen}
+        projects={projects}
         onClose={() => setIsBOQModalOpen(false)}
         onSubmit={handleCreateBOQ}
       />
       <CreateReportModal
         isOpen={isReportModalOpen}
+        projects={projects}
         onClose={() => setIsReportModalOpen(false)}
       />
     </>

@@ -25,8 +25,31 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
         },
       ],
     },
-    { label: "Contractors", path: "/admin/contractors", icon: "briefcase" },
     { label: "Clients", path: "/admin/clients", icon: "user-check" },
+    {
+      label: "Owner Management",
+      path: "/admin/owners",
+      icon: "briefcase",
+      subNav: [
+        { label: "Owners List", path: "/admin/owners/list", icon: "list" },
+        {
+          label: "Agreements",
+          path: "/admin/owners/agreements",
+          icon: "file-text",
+        },
+        {
+          label: "Track Payments",
+          path: "/admin/owners/payments",
+          icon: "credit-card",
+        },
+        {
+          label: "Owner Ledger",
+          path: "/admin/owners/ledger",
+          icon: "book-open",
+        },
+      ],
+    },
+    { label: "AutoCAD Viewer", path: "/admin/autocad", icon: "layers" },
     { label: "Site Engineers", path: "/admin/engineers", icon: "tool" },
     {
       label: "Work & BOQ",
@@ -128,11 +151,6 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
           path: "/admin/reports/consumption",
           icon: "package",
         },
-        {
-          label: "Contractor Performance",
-          path: "/admin/reports/performance",
-          icon: "briefcase",
-        },
       ],
     },
     { label: "Notifications", path: "/admin/notifications", icon: "bell" },
@@ -163,14 +181,14 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     { label: "Integrations", path: "/admin/integrations", icon: "link" },
     { label: "Settings", path: "/admin/settings", icon: "settings" },
   ],
-  "Project Manager": [
+  ProjectManager: [
     { label: "Dashboard", path: "/manager", icon: "grid" },
     { label: "Projects", path: "/manager/projects", icon: "folder" },
     { label: "BOQ", path: "/manager/boq", icon: "list" },
     { label: "Labour", path: "/manager/labour", icon: "users" },
     { label: "Materials", path: "/manager/materials", icon: "package" },
   ],
-  "Site Engineer": [
+  SiteEngineer: [
     { label: "Dashboard", path: "/engineer", icon: "grid" },
     { label: "Daily Site Report (DSR)", path: "/engineer/dsr", icon: "clipboard" },
     {
@@ -237,141 +255,109 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     { label: "Reports", path: "/engineer/reports", icon: "bar-chart" },
     { label: "Settings", path: "/engineer/settings", icon: "settings" },
   ],
-  Contractor: [
-    { label: "Dashboard", path: "/contractor", icon: "grid" },
-    { label: "Work Orders", path: "/contractor/orders", icon: "clipboard" },
-    { label: "Invoices", path: "/contractor/invoices", icon: "file" },
-    { label: "Documents", path: "/contractor/documents", icon: "folder" },
-  ],
   Accountant: [
     { label: "Dashboard", path: "/accountant", icon: "grid" },
-    { label: "Chart of Accounts", path: "/accountant/chart-of-accounts", icon: "book-open" },
-    { 
-      label: "Receivables", 
-      path: "/accountant/receivables", 
-      icon: "trending-up",
-      subNav: [
-        { label: "Invoices", path: "/accountant/receivables/invoices", icon: "file-text" },
-        { label: "RA Bills", path: "/accountant/receivables/ra-bills", icon: "activity" },
-        { label: "Credit Notes", path: "/accountant/receivables/credit-notes", icon: "rotate-ccw" },
-      ]
-    },
-    { label: "Payables", path: "/accountant/payables", icon: "trending-down" },
-    { label: "Expenses", path: "/accountant/expenses", icon: "dollar-sign" },
-    { label: "Payments & Receipts", path: "/accountant/payments", icon: "credit-card" },
-    { label: "GST & Taxation", path: "/accountant/taxation", icon: "percent" },
-    { label: "Payroll", path: "/accountant/payroll", icon: "users" },
-    { label: "Bank & Cash", path: "/accountant/banking", icon: "home" },
-    { label: "Journal Entries", path: "/accountant/journal", icon: "edit-3" },
-    { label: "Fixed Assets", path: "/accountant/assets", icon: "layers" },
-    { label: "Reports", path: "/accountant/reports", icon: "bar-chart" },
-    { label: "Settings", path: "/accountant/settings", icon: "settings" },
-  ],
-  Client: [
-    { label: "Dashboard", path: "/client", icon: "grid" },
-    { label: "Project Overview", path: "/client/overview", icon: "folder" },
-    { label: "Work Progress", path: "/client/progress", icon: "bar-chart" },
     {
-      label: "Financials",
-      path: "/client/financials",
-      icon: "dollar-sign",
+      label: "Chart of Accounts",
+      path: "/accountant/chart-of-accounts",
+      icon: "book-open",
+      subNav: [
+        { label: "Assets", path: "/accountant/chart-of-accounts/assets", icon: "dollar-sign" },
+        { label: "Liabilities", path: "/accountant/chart-of-accounts/liabilities", icon: "activity" },
+        { label: "Income", path: "/accountant/chart-of-accounts/income", icon: "trending-up" },
+        { label: "Expenses", path: "/accountant/chart-of-accounts/expenses", icon: "trending-down" },
+      ],
+    },
+    {
+      label: "Receivables",
+      path: "/accountant/receivables",
+      icon: "trending-up",
       subNav: [
         {
           label: "Invoices",
-          path: "/client/financials/invoices",
+          path: "/accountant/receivables/invoices",
           icon: "file-text",
         },
         {
-          label: "Payments",
-          path: "/client/financials/payments",
-          icon: "credit-card",
-        },
-        {
-          label: "Summary",
-          path: "/client/financials/summary",
-          icon: "bar-chart",
-        },
-      ],
-    },
-    {
-      label: "Site Updates",
-      path: "/client/site-updates",
-      icon: "camera",
-      subNav: [
-        {
-          label: "DSR Summary",
-          path: "/client/site-updates/dsr",
-          icon: "clipboard",
-        },
-        {
-          label: "Photos",
-          path: "/client/site-updates/photos",
-          icon: "package",
-        },
-      ],
-    },
-    { label: "Issues & Risks", path: "/client/issues", icon: "alert-triangle" },
-    {
-      label: "Documents & Drawings",
-      path: "/client/documents",
-      icon: "file-text",
-    },
-    {
-      label: "Approvals",
-      path: "/client/approvals",
-      icon: "check-circle",
-      subNav: [
-        {
-          label: "Pending Approvals",
-          path: "/client/approvals/pending",
-          icon: "clock",
-        },
-        {
-          label: "Approved Items",
-          path: "/client/approvals/approved",
-          icon: "check-circle",
-        },
-      ],
-    },
-    {
-      label: "Communication",
-      path: "/client/communication",
-      icon: "message-circle",
-      subNav: [
-        {
-          label: "Messages",
-          path: "/client/communication/messages",
-          icon: "mail",
-        },
-        {
-          label: "Announcements",
-          path: "/client/communication/announcements",
-          icon: "bell",
-        },
-      ],
-    },
-    {
-      label: "Reports",
-      path: "/client/reports",
-      icon: "clipboard",
-      subNav: [
-        {
-          label: "Monthly Progress Report",
-          path: "/client/reports/monthly",
-          icon: "calendar",
-        },
-        {
-          label: "Financial Report",
-          path: "/client/reports/financial",
-          icon: "dollar-sign",
-        },
-        {
-          label: "Work Summary",
-          path: "/client/reports/work-summary",
+          label: "RA Bills",
+          path: "/accountant/receivables/ra-bills",
           icon: "activity",
         },
+        {
+          label: "Credit Notes",
+          path: "/accountant/receivables/credit-notes",
+          icon: "rotate-ccw",
+        },
       ],
     },
-    { label: "Settings", path: "/client/settings", icon: "settings" },
+    {
+      label: "Payables",
+      path: "/accountant/payables",
+      icon: "shopping-cart",
+      subNav: [
+        { label: "Vendor Bills", path: "/accountant/payables/vendor", icon: "truck" },
+        { label: "Contractor Bills", path: "/accountant/payables/contractor", icon: "tool" },
+      ],
+    },
+    {
+      label: "Expenses",
+      path: "/accountant/expenses",
+      icon: "dollar-sign",
+      subNav: [
+        { label: "Direct Expenses", path: "/accountant/expenses/direct", icon: "activity" },
+        { label: "Indirect Expenses", path: "/accountant/expenses/indirect", icon: "briefcase" },
+      ],
+    },
+    {
+      label: "Payments & Receipts",
+      path: "/accountant/payments",
+      icon: "credit-card",
+      subNav: [
+        { label: "Receive Payment", path: "/accountant/payments/receipt", icon: "trending-up" },
+        { label: "Make Payment", path: "/accountant/payments/payment", icon: "trending-down" },
+      ],
+    },
+    {
+      label: "GST & Taxation",
+      path: "/accountant/taxation",
+      icon: "percent",
+      subNav: [
+        { label: "GST Invoices", path: "/accountant/taxation/gst-invoices", icon: "file-text" },
+        { label: "GST Returns", path: "/accountant/taxation/gst-returns", icon: "bar-chart" },
+        { label: "TDS", path: "/accountant/taxation/tds", icon: "dollar-sign" },
+      ],
+    },
+    {
+      label: "Payroll",
+      path: "/accountant/payroll",
+      icon: "users",
+      subNav: [
+        { label: "Salary", path: "/accountant/payroll/salary", icon: "briefcase" },
+        { label: "Wages", path: "/accountant/payroll/wages", icon: "activity" },
+        { label: "Contractor Payment", path: "/accountant/payroll/contractor", icon: "tool" },
+      ],
+    },
+    {
+      label: "Bank & Cash",
+      path: "/accountant/banking",
+      icon: "home",
+      subNav: [
+        { label: "Bank Accounts", path: "/accountant/banking/accounts", icon: "briefcase" },
+        { label: "Cash Book", path: "/accountant/banking/cash", icon: "dollar-sign" },
+        { label: "Bank Reconciliation", path: "/accountant/banking/reconciliation", icon: "refresh-cw" },
+      ],
+    },
+    { label: "Journal Entries", path: "/accountant/journal", icon: "edit-3" },
+    {
+      label: "Fixed Assets",
+      path: "/accountant/assets",
+      icon: "layers",
+      subNav: [
+        { label: "Asset Register", path: "/accountant/assets/register", icon: "box" },
+        { label: "Depreciation", path: "/accountant/assets/depreciation", icon: "trending-down" },
+      ],
+    },
+    { label: "Reports", path: "/accountant/reports", icon: "bar-chart" },
+    { label: "Settings", path: "/accountant/settings", icon: "settings" },
   ],
 };

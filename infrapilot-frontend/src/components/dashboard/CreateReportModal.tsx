@@ -1,12 +1,14 @@
 import { useState } from "react";
 import Modal from "../common/Modal";
 import toast from "react-hot-toast";
-import { PROJECTS, PROJECT_EXPENSES, MILESTONES } from "../../config/projectSeed";
+import { PROJECT_EXPENSES, MILESTONES } from "../../config/projectSeed";
 import { exportToCSV } from "../../utils/csvExport";
+import type { Project } from "../../types/project";
 
 interface CreateReportModalProps {
   isOpen: boolean;
   onClose: () => void;
+  projects: Project[];
   onReportCreated?: (report: any) => void;
 }
 
@@ -53,7 +55,7 @@ const REPORT_TYPES = [
   },
 ];
 
-const CreateReportModal = ({ isOpen, onClose, onReportCreated }: CreateReportModalProps) => {
+const CreateReportModal = ({ isOpen, onClose, projects, onReportCreated }: CreateReportModalProps) => {
   const [selectedType, setSelectedType] = useState("");
   const [projectScope, setProjectScope] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
@@ -77,7 +79,7 @@ const CreateReportModal = ({ isOpen, onClose, onReportCreated }: CreateReportMod
   };
 
   const downloadReport = (type: string, scope: string, name: string) => {
-    const scopeProjects = scope === "all" ? PROJECTS : PROJECTS.filter((p) => p.id === parseInt(scope));
+    const scopeProjects = scope === "all" ? projects : projects.filter((p) => p.id === parseInt(scope));
     const filename = name.toLowerCase().replace(/\s+/g, "_");
 
     if (type === "financial") {
@@ -172,7 +174,7 @@ const CreateReportModal = ({ isOpen, onClose, onReportCreated }: CreateReportMod
         name: reportName,
         type: selectedTypeObj?.label || selectedType,
         date: new Date().toISOString().split("T")[0],
-        project: projectScope === "all" ? "All Projects" : PROJECTS.find((p) => p.id === parseInt(projectScope))?.project_name || "N/A",
+        project: projectScope === "all" ? "All Projects" : projects.find((p) => p.id === parseInt(projectScope))?.project_name || "N/A",
         status: "Generated",
         dateFrom,
         dateTo,
@@ -339,7 +341,7 @@ const CreateReportModal = ({ isOpen, onClose, onReportCreated }: CreateReportMod
               className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
             >
               <option value="all">All Projects</option>
-              {PROJECTS.map((p) => (
+              {projects.map((p) => (
                 <option key={p.id} value={p.id}>{p.project_name}</option>
               ))}
             </select>

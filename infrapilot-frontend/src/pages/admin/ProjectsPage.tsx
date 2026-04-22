@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { exportToCSV } from "../../utils/csvExport";
 import Navbar from "../../components/common/Navbar";
@@ -6,7 +6,8 @@ import PageTransition from "../../components/common/PageTransition";
 import NewProjectModal from "../../components/dashboard/NewProjectModal";
 import EditProjectModal from "../../components/dashboard/EditProjectModal";
 import ConfirmModal from "../../components/common/ConfirmModal";
-import { PROJECTS } from "../../config/projectSeed";
+import toast from "react-hot-toast";
+import { projectService } from "../../services/projectService";
 import type { Project, ProjectStatus } from "../../types/project";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -37,7 +38,8 @@ const statusDot: Record<ProjectStatus, string> = {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 const ProjectsPage = () => {
   const navigate = useNavigate();
-  const [projects, setProjects] = useState<Project[]>(PROJECTS);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [filterStatus, setFilterStatus] = useState<"All" | ProjectStatus>(
     "All",
@@ -52,18 +54,34 @@ const ProjectsPage = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
 
-  const handleCreateProject = (projectData: any) => {
-    const np: Project = {
-      id: Math.floor(1000 + Math.random() * 9000),
-      project_name: projectData.project_name,
-      owner_id: projectData.owner_id,
-      description: projectData.description,
-      start_date: projectData.start_date,
-      end_date: projectData.end_date,
-      status: projectData.status as ProjectStatus,
-      completion_percentage: 0,
-    };
-    setProjects((prev) => [np, ...prev]);
+  const fetchProjects = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const res = await projectService.getProjects(100, 0, debouncedSearch, filterStatus);
+      const projectList = Array.isArray(res) ? res : (res.items || res.data || []);
+      setProjects(projectList);
+    } catch (error) {
+      toast.error("Failed to fetch projects");
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [debouncedSearch, filterStatus]);
+
+  useEffect(() => {
+    fetchProjects();
+  }, [fetchProjects]);
+
+  const handleCreateProject = async (projectData: any) => {
+    try {
+      await projectService.createProject(projectData);
+      toast.success("Project created successfully!");
+      setShowForm(false);
+      fetchProjects();
+    } catch (error) {
+      toast.error("Failed to create project");
+      console.error(error);
+    }
   };
 
   const handleEditClick = (project: Project) => {
@@ -71,14 +89,18 @@ const ProjectsPage = () => {
     setIsEditModalOpen(true);
   };
 
-  const handleEditProject = (updatedData: any) => {
-    setProjects(prev => prev.map(p => 
-      p.id === updatedData.project_id 
-        ? { ...p, ...updatedData } 
-        : p
-    ));
-    setIsEditModalOpen(false);
-    setEditingProject(null);
+  const handleEditProject = async (updatedData: any) => {
+    if (!editingProject) return;
+    try {
+      await projectService.updateProject(editingProject.id, updatedData);
+      toast.success("Project updated successfully!");
+      setIsEditModalOpen(false);
+      setEditingProject(null);
+      fetchProjects();
+    } catch (error) {
+      toast.error("Failed to update project");
+      console.error(error);
+    }
   };
 
   useEffect(() => {
@@ -88,14 +110,7 @@ const ProjectsPage = () => {
     return () => clearTimeout(handler);
   }, [search]);
 
-  const filtered = projects.filter((p) => {
-    const ms = filterStatus === "All" || p.status === filterStatus;
-    const mq =
-      !debouncedSearch ||
-      p.project_name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-      p.description.toLowerCase().includes(debouncedSearch.toLowerCase());
-    return ms && mq;
-  });
+  const filtered = projects;
 
   const stats = {
     total: projects.length,
@@ -117,11 +132,18 @@ const ProjectsPage = () => {
     setIsDeleteModalOpen(true);
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (projectToDelete) {
-      setProjects(prev => prev.filter(p => p.id !== projectToDelete));
-      setIsDeleteModalOpen(false);
-      setProjectToDelete(null);
+      try {
+        await projectService.deleteProject(projectToDelete);
+        toast.success("Project deleted successfully!");
+        setIsDeleteModalOpen(false);
+        setProjectToDelete(null);
+        fetchProjects();
+      } catch (error) {
+        toast.error("Failed to delete project");
+        console.error(error);
+      }
     }
   };
 
@@ -182,31 +204,36 @@ const ProjectsPage = () => {
               value: String(stats.total),
               sub: `Across all locations`,
               accent: "text-primary",
+              status: "All",
             },
             {
               title: "Active Sites",
               value: String(stats.active),
               sub: "Currently in progress",
               accent: "text-success",
+              status: "Active",
             },
             {
               title: "Completed",
               value: String(stats.completed),
               sub: "Successfully delivered",
               accent: "text-blue-500",
+              status: "Completed",
             },
             {
               title: "Delayed",
               value: String(stats.delayed),
               sub: "Needs urgent attention",
               accent: "text-red-500",
+              status: "Delayed",
             },
           ].map((s) => (
             <div
               key={s.title}
-              className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all hover:shadow-md"
+              onClick={() => s.status && setFilterStatus(s.status as any)}
+              className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all hover:shadow-md cursor-pointer active:scale-95 group hover:border-primary/20"
             >
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 group-hover:text-primary transition-colors">
                 {s.title}
               </p>
               <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
@@ -253,6 +280,7 @@ const ProjectsPage = () => {
                       "Planned",
                       "Delayed",
                       "Completed",
+                      "On Hold",
                     ] as const
                   ).map((s) => (
                     <button
@@ -279,7 +307,12 @@ const ProjectsPage = () => {
                 </span>
               </div>
 
-              {filtered.length === 0 ? (
+              {isLoading ? (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-400 italic text-sm">
+                   <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin mb-3"></div>
+                   Loading project progress...
+                </div>
+              ) : filtered.length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-3xl mb-2">🏗️</p>
                   <p className="font-bold text-slate-500 text-sm">
@@ -310,7 +343,7 @@ const ProjectsPage = () => {
 
                       <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden mt-3 mb-2">
                         <div
-                          className={`h-full ${progressFill[p.status]} transition-all duration-1000`}
+                          className={`h-full ${progressFill[p.status] || "bg-slate-300"} transition-all duration-1000`}
                           style={{ width: `${p.completion_percentage}%` }}
                         />
                       </div>
@@ -318,7 +351,7 @@ const ProjectsPage = () => {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span
-                            className={`w-1.5 h-1.5 rounded-full ${statusDot[p.status]}`}
+                            className={`w-1.5 h-1.5 rounded-full ${statusDot[p.status] || "bg-slate-400"}`}
                           />
                           <span className="text-[9px] font-bold text-slate-400 uppercase translate-y-px">
                             {p.status}
@@ -362,46 +395,53 @@ const ProjectsPage = () => {
                   user: "Ravi K.",
                   action: "completed Foundation — SARA CITY",
                   time: "12m ago",
-                  type: "task",
+                  type: "Site",
+                  icon: "✔",
+                  color: "bg-blue-50 text-blue-500",
                 },
                 {
                   user: "Priya N.",
                   action: "submitted Invoice #882 for METRO HEIGHTS",
                   time: "45m ago",
-                  type: "money",
+                  type: "Finance",
+                  icon: "₹",
+                  color: "bg-green-50 text-green-500",
                 },
                 {
                   user: "Site Bot",
                   action: "uploaded 12 site photos",
                   time: "2h ago",
-                  type: "photo",
+                  type: "Site",
+                  icon: "📷",
+                  color: "bg-blue-50 text-blue-500",
                 },
                 {
                   user: "Amit K.",
                   action: "reported Material Shortage at Hadapsar",
                   time: "4h ago",
-                  type: "alert",
+                  type: "Site",
+                  icon: "⚠️",
+                  color: "bg-red-50 text-red-500",
                 },
-              ].map((act, i) => (
-                <div key={i} className="flex gap-4 group">
-                  <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${act.type === "alert" ? "bg-red-50 text-red-500" : act.type === "money" ? "bg-green-50 text-green-500" : "bg-blue-50 text-blue-500"}`}
-                  >
-                    {act.type === "task" && "✔"}
-                    {act.type === "money" && "₹"}
-                    {act.type === "photo" && "📷"}
-                    {act.type === "alert" && "⚠️"}
+              ]
+                .filter((act) => actTab === "All" || act.type === actTab)
+                .map((act, i) => (
+                  <div key={i} className="flex gap-4 group animate-in fade-in duration-300">
+                    <div
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${act.color}`}
+                    >
+                      {act.icon}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-slate-800 leading-snug">
+                        <span className="font-bold">{act.user}</span> {act.action}
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        {act.time}
+                      </p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-xs text-slate-800 leading-snug">
-                      <span className="font-bold">{act.user}</span> {act.action}
-                    </p>
-                    <p className="text-[10px] text-slate-400 mt-1">
-                      {act.time}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                ))}
             </div>
           </div>
         </div>
@@ -425,74 +465,90 @@ const ProjectsPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {filtered.map((p) => (
-                  <tr
-                    key={p.id}
-                    className="hover:bg-slate-50/50 transition-colors group"
-                  >
-                    <td className="px-6 py-4 font-mono text-xs font-bold text-slate-500">
-                      PRJ-{p.id}
-                    </td>
-                    <td className="px-6 py-4 font-bold text-slate-700 group-hover:text-primary transition-colors">
-                      {p.project_name}
-                    </td>
-                    <td className="px-6 py-4 text-slate-500 text-xs">
-                      {p.start_date} to {p.end_date}
-                    </td>
-                    <td className="px-6 py-4 min-w-[200px]">
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full ${progressFill[p.status]}`}
-                            style={{ width: `${p.completion_percentage}%` }}
-                          />
-                        </div>
-                        <span className="text-xs font-bold text-slate-400">
-                          {p.completion_percentage}%
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`px-3 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${statusBadge[p.status]}`}
-                      >
-                        {p.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic text-sm">
                       <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => handleViewProject(p.id)}
-                          className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
-                          title="View Details"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleEditClick(p)}
-                          className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
-                          title="Edit Project"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleDeleteClick(p.id)}
-                          className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
-                          title="Delete Project"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
+                         <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+                         Loading projects...
                       </div>
                     </td>
                   </tr>
-                ))}
+                ) : filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic text-sm">
+                      No projects found.
+                    </td>
+                  </tr>
+                ) : (
+                  filtered.map((p) => (
+                    <tr
+                      key={p.id}
+                      className="hover:bg-slate-50/50 transition-colors group"
+                    >
+                      <td className="px-6 py-4 font-mono text-xs font-bold text-slate-500">
+                        PRJ-{p.id}
+                      </td>
+                      <td className="px-6 py-4 font-bold text-slate-700 group-hover:text-primary transition-colors">
+                        {p.project_name}
+                      </td>
+                      <td className="px-6 py-4 text-slate-500 text-xs">
+                        {p.start_date} to {p.end_date}
+                      </td>
+                      <td className="px-6 py-4 min-w-[200px]">
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full ${progressFill[p.status] || "bg-slate-300"}`}
+                              style={{ width: `${p.completion_percentage}%` }}
+                            />
+                          </div>
+                          <span className="text-xs font-bold text-slate-400">
+                            {p.completion_percentage}%
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`px-3 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${statusBadge[p.status] || "bg-slate-100 text-slate-500"}`}
+                        >
+                          {p.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => handleViewProject(p.id)}
+                            className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
+                            title="View Details"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleEditClick(p)}
+                            className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
+                            title="Edit Project"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteClick(p.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                            title="Delete Project"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )))}
               </tbody>
             </table>
           </div>

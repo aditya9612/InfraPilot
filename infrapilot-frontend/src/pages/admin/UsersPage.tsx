@@ -1,59 +1,19 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import CreateUserModal from "../../components/forms/CreateUserModal";
 import toast from "react-hot-toast";
 import UserDetailsModal from "../../components/dashboard/UserDetailsModal";
 import ConfirmModal from "../../components/common/ConfirmModal";
+import { userService } from "../../services/userService";
+import { projectService } from "../../services/projectService";
 import type { User } from "../../types/user";
-
-const INITIAL_USERS: User[] = [
-  {
-    user_id: 1,
-    full_name: "Rahul Sharma",
-    email: "rahul.s@infrapilot.com",
-    mobile_number: "+91 98765 43210",
-    role: "Admin",
-    designation: "System Administrator",
-    pan_number: "ABCDE1234F",
-    aadhaar_number: "1234 5678 9012",
-    joining_date: "12 Jan 2024",
-    address: "Pune, Maharashtra",
-    is_active: true,
-    profile_image: "https://i.pravatar.cc/150?u=rahul",
-  },
-  {
-    user_id: 2,
-    full_name: "Priya Patel",
-    email: "priya.p@infrapilot.com",
-    mobile_number: "+91 98765 43211",
-    role: "Project Manager",
-    designation: "Senior Project Manager",
-    pan_number: "FGHIJ5678K",
-    aadhaar_number: "2345 6789 0123",
-    joining_date: "15 Feb 2024",
-    address: "Mumbai, Maharashtra",
-    is_active: true,
-    profile_image: "https://i.pravatar.cc/150?u=priya",
-  },
-  {
-    user_id: 3,
-    full_name: "Amit Kumar",
-    email: "amit.k@infrapilot.com",
-    mobile_number: "+91 98765 43212",
-    role: "Site Engineer",
-    designation: "Civil Engineer",
-    pan_number: "KLMNO9012P",
-    aadhaar_number: "3456 7890 1234",
-    joining_date: "10 Mar 2024",
-    address: "Delhi, India",
-    is_active: true,
-    profile_image: "https://i.pravatar.cc/150?u=amit",
-  },
-];
+import type { Project } from "../../types/project";
+import { useCallback } from "react";
 
 const UsersPage = () => {
-  const [users, setUsers] = useState<User[]>(INITIAL_USERS);
+  const [users, setUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [userToDelete, setUserToDelete] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -61,22 +21,54 @@ const UsersPage = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [viewingUser, setViewingUser] = useState<User | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const handleCreateOrUpdateUser = (userData: any) => {
-    if (editingUser) {
-      setUsers(prev => prev.map(u => u.user_id === editingUser.user_id ? { ...u, ...userData } : u));
-      toast.success("User updated successfully!");
-    } else {
-      const newUser = {
-        ...userData,
-        user_id: Math.floor(Math.random() * 10000),
-        joining_date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-        is_active: true,
-      };
-      setUsers(prev => [newUser, ...prev]);
-      toast.success("User created successfully!");
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [roleFilter, setRoleFilter] = useState("All Roles");
+
+  const fetchProjects = useCallback(async () => {
+    try {
+      const res = await projectService.getProjects(10, 0);
+      const projectList = Array.isArray(res) ? res : (res.items || res.data || []);
+      setProjects(projectList);
+    } catch (error) {
+      console.error("UsersPage: Failed to fetch projects", error);
     }
-    setIsModalOpen(false);
-    setEditingUser(null);
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      setIsLoading(true);
+      const res = await userService.getAllUsers(100, 0);
+      const userList = Array.isArray(res) ? res : (res.items || res.data || []);
+      setUsers(userList);
+    } catch (error) {
+      toast.error("Failed to fetch users");
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+    fetchProjects();
+  }, [fetchProjects]);
+
+  const handleCreateOrUpdateUser = async (userData: any) => {
+    try {
+      if (editingUser) {
+        await userService.updateUser(editingUser.user_id, userData);
+        toast.success("User updated successfully!");
+      } else {
+        await userService.createUser(userData);
+        toast.success("User created successfully!");
+      }
+      setIsModalOpen(false);
+      setEditingUser(null);
+      fetchUsers();
+    } catch (error) {
+      toast.error(editingUser ? "Failed to update user" : "Failed to create user");
+      console.error(error);
+    }
   };
 
   const handleEditClick = (user: User) => {
@@ -89,12 +81,18 @@ const UsersPage = () => {
     setIsDeleteModalOpen(true);
   };
 
-  const handleDeleteUser = () => {
+  const handleDeleteUser = async () => {
     if (userToDelete) {
-      setUsers(prev => prev.filter(u => u.user_id !== userToDelete));
-      toast.success("User deleted successfully!");
-      setIsDeleteModalOpen(false);
-      setUserToDelete(null);
+      try {
+        await userService.deleteUser(userToDelete);
+        toast.success("User deleted successfully!");
+        setIsDeleteModalOpen(false);
+        setUserToDelete(null);
+        fetchUsers();
+      } catch (error) {
+        toast.error("Failed to delete user");
+        console.error(error);
+      }
     }
   };
 
@@ -108,12 +106,20 @@ const UsersPage = () => {
     setEditingUser(null);
   };
 
-  const filteredUsers = users.filter(
-    (user) =>
-      user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.role.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  const filteredUsers = users.filter((user) => {
+    const term = searchTerm.toLowerCase();
+    const nameStr = user.full_name || "";
+    const emailStr = user.email || "";
+    const roleStr = user.role || "";
+    
+    const matchesSearch = nameStr.toLowerCase().includes(term) ||
+                         emailStr.toLowerCase().includes(term) ||
+                         roleStr.toLowerCase().includes(term);
+    
+    const matchesRole = roleFilter === "All Roles" || roleStr === roleFilter;
+
+    return matchesSearch && matchesRole;
+  });
 
   return (
     <>
@@ -164,12 +170,17 @@ const UsersPage = () => {
               />
             </div>
             <div className="flex items-center gap-2">
-              <select className="bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 px-3 py-2 outline-none">
-                <option>All Roles</option>
-                <option>Admin</option>
-                <option>Engineer</option>
-                <option>Contractor</option>
-                <option>Client</option>
+              <select 
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 px-3 py-2 outline-none cursor-pointer hover:bg-slate-100 transition-colors"
+              >
+                <option value="All Roles">All Roles</option>
+                <option value="Admin">Admin</option>
+                <option value="ProjectManager">Project Manager</option>
+                <option value="SiteEngineer">Site Engineer</option>
+                <option value="Accountant">Accountant</option>
+                <option value="Client">Client</option>
               </select>
             </div>
           </div>
@@ -187,7 +198,16 @@ const UsersPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {filteredUsers.length === 0 ? (
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic text-sm">
+                      <div className="flex items-center justify-center gap-2">
+                         <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+                         Loading users...
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredUsers.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic text-sm">
                       No users found.
@@ -202,25 +222,34 @@ const UsersPage = () => {
                     <td className="px-6 py-4 text-sm">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-blue-50 text-primary border border-blue-100 flex items-center justify-center font-bold text-xs shadow-sm overflow-hidden">
-                          {user.profile_image ? (
+                          {user.profile_image && !user.profile_image.startsWith('blob:') ? (
                             <img
                               src={user.profile_image}
                               alt={user.full_name}
                               className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                                (e.target as HTMLImageElement).parentElement!.innerHTML = (user.full_name || "Unknown")
+                                  .split(" ")
+                                  .map((n) => n[0])
+                                  .join("")
+                                  .toUpperCase();
+                              }}
                             />
                           ) : (
-                            user.full_name
+                            (user.full_name || "Unknown")
                               .split(" ")
                               .map((n) => n[0])
                               .join("")
+                              .toUpperCase()
                           )}
                         </div>
                         <div>
                           <p className="font-bold text-slate-700 group-hover:text-primary transition-colors">
-                            {user.full_name}
+                            {user.full_name || "Unknown"}
                           </p>
                           <p className="text-slate-400 text-xs font-medium">
-                            {user.email}
+                            {user.email || "No Email"}
                           </p>
                           <p className="text-slate-400 text-[10px] font-medium tracking-tight">
                             {user.mobile_number}
@@ -340,6 +369,7 @@ const UsersPage = () => {
 
       <CreateUserModal
         isOpen={isModalOpen}
+        projects={projects}
         onClose={closeModal}
         onSubmit={handleCreateOrUpdateUser}
         initialData={editingUser}

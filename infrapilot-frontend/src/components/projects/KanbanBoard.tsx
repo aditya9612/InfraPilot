@@ -33,6 +33,7 @@ const KanbanBoard = ({
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<number | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const handleEditClick = (task: Task) => {
     setEditingTask(task);
@@ -81,6 +82,8 @@ const KanbanBoard = ({
             <input
               type="text"
               placeholder="Search activities..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
               className="bg-transparent text-xs outline-none w-40 placeholder:text-slate-300"
             />
           </div>
@@ -95,7 +98,10 @@ const KanbanBoard = ({
 
       <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
         <TaskListView
-          tasks={tasks}
+          tasks={tasks.filter(t => 
+            t.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+            t.description.toLowerCase().includes(searchTerm.toLowerCase())
+          )}
           members={members}
           onEdit={handleEditClick}
           onDelete={handleDeleteClick}

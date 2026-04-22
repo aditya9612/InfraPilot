@@ -78,30 +78,31 @@ const EditTaskModal = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate() || !task) return;
 
     setIsLoading(true);
-    setTimeout(() => {
+    try {
       const requestBody = {
+        ...formData,
         task_id: task.id,
         project_id: task.project_id,
-        ...formData,
+        // The backend expects 'percentage' for progress updates
+        percentage: formData.completion_percentage,
       };
       
-      if (onSubmit) onSubmit(requestBody);
-      setIsLoading(false);
+      if (onSubmit) {
+        await onSubmit(requestBody);
+      }
       
-      toast.success("Task updated successfully!", {
-        style: {
-          borderRadius: '12px',
-          background: '#333',
-          color: '#fff',
-        },
-      });
+      toast.success("Task updated successfully!");
       onClose();
-    }, 800);
+    } catch (error) {
+      toast.error("Failed to update task");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const modalFooter = (
@@ -190,7 +191,8 @@ const EditTaskModal = ({
                 <div className="flex items-center gap-3">
                   <input
                     type="range" name="completion_percentage" min="0" max="100" value={formData.completion_percentage} onChange={handleChange}
-                    className="flex-1 accent-primary h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer"
+                    disabled={isLoading}
+                    className="flex-1 h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer disabled:cursor-not-allowed"
                   />
                   <span className="text-xs font-bold text-slate-700 min-w-[30px]">{formData.completion_percentage}%</span>
                 </div>

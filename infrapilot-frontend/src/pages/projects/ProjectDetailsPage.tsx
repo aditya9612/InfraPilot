@@ -2,22 +2,19 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useState, useMemo } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
-import {
-  PROJECTS,
-  PROJECT_MEMBERS,
-  MILESTONES,
-  TASKS,
-  PROFIT_LOSS_DATA,
-  PROJECT_EXPENSES,
-} from "../../config/projectSeed";
+import { projectService } from "../../services/projectService";
+import type { Project } from "../../types/project";
 import KanbanBoard from "../../components/projects/KanbanBoard";
 import MilestoneTimeline from "../../components/projects/MilestoneTimeline";
 import TeamMembersList from "../../components/projects/TeamMembersList";
 import ProfitLossCard from "../../components/projects/ProfitLossCard";
 import ProjectExpensesTable from "../../components/projects/ProjectExpensesTable";
 import EditProjectModal from "../../components/dashboard/EditProjectModal";
+import AssignMemberModal from "../../components/projects/AssignMemberModal";
+import { generateProjectReport } from "../../utils/reportGenerator";
 import toast from "react-hot-toast";
 import ConfirmModal from "../../components/common/ConfirmModal";
+import { useEffect, useCallback } from "react";
 
 const ProjectDetailsPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -29,77 +26,162 @@ const ProjectDetailsPage = () => {
     "Overview" | "Tasks" | "Milestones" | "Finance" | "Members"
   >("Overview");
 
-  // Fetch data from seed
-  const [project, setProject] = useState(() =>
-    PROJECTS.find((p) => p.id === projectId),
-  );
+  // State for data
+  const [project, setProject] = useState<Project | null>(null);
+  const [members, setMembers] = useState<any[]>([]);
+  const [milestones, setMilestones] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-
-  const members = useMemo(() => PROJECT_MEMBERS[projectId] || [], [projectId]);
-  const [milestones, setMilestones] = useState(() => MILESTONES[projectId] || []);
-  const [tasks, setTasks] = useState(() => TASKS[projectId] || []);
-  const [isDeleteMilestoneModalOpen, setIsDeleteMilestoneModalOpen] = useState(false);
-  const [milestoneToDelete, setMilestoneToDelete] = useState<number | null>(null);
-  
-  const profitLoss = useMemo(() => PROFIT_LOSS_DATA[projectId], [projectId]);
-  const expenses = useMemo(
-    () => PROJECT_EXPENSES[projectId] || [],
-    [projectId],
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [isDeleteMilestoneModalOpen, setIsDeleteMilestoneModalOpen] =
+    useState(false);
+  const [milestoneToDelete, setMilestoneToDelete] = useState<number | null>(
+    null,
   );
 
-  const handleCreateMilestone = (milestoneData: any) => {
-    const newMilestone = {
-      ...milestoneData,
-      id: Math.max(...milestones.map((m) => m.id), 0) + 1,
-      status: "Pending",
-    };
-    setMilestones(prev => [...prev, newMilestone]);
+  // Profit & Loss and Expenses (Still partially mock/local for and, but connected to stats)
+  const [profitLoss, setProfitLoss] = useState<any>(null);
+  const [expenses, setExpenses] = useState<any[]>([]);
+
+  const fetchProjectData = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      setLoading(true);
+      const [pData, mData, msData, tData, plData] = await Promise.all([
+        projectService.getProjectById(projectId),
+        projectService.getProjectMembers(projectId),
+        projectService.getMilestones(projectId),
+        projectService.getTasks(projectId),
+        projectService.getProjectProfitLoss(projectId).catch(() => null),
+      ]);
+
+      setProject(pData);
+      setMembers(
+        Array.isArray(mData) ? mData : mData.items || mData.data || [],
+      );
+      setMilestones(
+        Array.isArray(msData) ? msData : msData.items || msData.data || [],
+      );
+      setTasks(Array.isArray(tData) ? tData : tData.items || tData.data || []);
+      setProfitLoss(plData);
+
+      // Expenses could be fetched from finance API if available,
+      // but for now we'll rely on the project data or separate logs
+    } catch (error) {
+      console.error("Failed to fetch project details:", error);
+      toast.error("Failed to load project data");
+    } finally {
+      setLoading(false);
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    fetchProjectData();
+  }, [fetchProjectData]);
+
+  const handleCreateMilestone = async (milestoneData: any) => {
+    try {
+      await projectService.createMilestone(projectId, milestoneData);
+      toast.success("Milestone created successfully");
+      fetchProjectData();
+    } catch (error) {
+      toast.error("Failed to create milestone");
+    }
   };
 
-  const handleCreateTask = (taskData: any) => {
-    const newTask = {
-      ...taskData,
-      id: Math.max(...tasks.map((t) => t.id), 0) + 1,
-      completion_percentage: 0,
-      is_delayed: false,
-    };
-    setTasks(prev => [...prev, newTask]);
+  const handleCreateTask = async (taskData: any) => {
+    try {
+      await projectService.createTask(projectId, taskData);
+      toast.success("Task created successfully");
+      fetchProjectData();
+    } catch (error) {
+      toast.error("Failed to create task");
+    }
   };
 
-  const handleUpdateTask = (updatedData: any) => {
-    setTasks(prev => prev.map(t => 
-      t.id === updatedData.task_id 
-        ? { ...t, ...updatedData } 
-        : t
-    ));
+  const handleUpdateTask = async (updatedData: any) => {
+    try {
+      const { task_id, project_id: _pid, ...cleanData } = updatedData;
+
+      // Data scrubbing: Ensure we don't send IDs in the body as they are already in the URL
+      // This prevents payload bloat and potential 422/Network errors on strict backends
+      const payload = { ...cleanData };
+      delete (payload as any).task_id;
+      delete (payload as any).project_id;
+
+      // 1. Update core task info (title, description, etc)
+      await projectService.updateTask(projectId, task_id, payload);
+
+      // 2. Explicitly update progress history if percentage is provided.
+      if (payload.percentage !== undefined) {
+        await projectService
+          .updateTaskProgress(projectId, task_id, {
+            task_id: task_id,
+            percentage: payload.percentage,
+            completion_percentage: payload.percentage,
+            remarks: "Updated via edit modal",
+          })
+          .catch((err) =>
+            console.warn("Task progress history sync skipped:", err),
+          );
+      }
+
+      toast.success("Task updated successfully");
+      fetchProjectData();
+    } catch (error) {
+      console.error("Task Update Failed:", error);
+      toast.error("Failed to update task");
+    }
   };
 
-  const handleDeleteTask = (id: number) => {
-    setTasks(prev => prev.filter(t => t.id !== id));
-    toast.success("Task deleted successfully", {
-      style: { borderRadius: '12px', background: '#333', color: '#fff' }
-    });
+  const handleDeleteTask = async (taskId: number) => {
+    try {
+      await projectService.deleteTask(projectId, taskId);
+      toast.success("Task deleted");
+      fetchProjectData();
+    } catch (error) {
+      toast.error("Failed to delete task");
+    }
   };
 
-  const handleTaskProgressUpdate = (taskId: number, percentage: number, remarks: string) => {
-    setTasks(prev => prev.map(t => 
-      t.id === taskId 
-        ? { ...t, completion_percentage: percentage, is_delayed: percentage < 100 && new Date(t.end_date) < new Date() } 
-        : t
-    ));
-    console.log(`Progress Update for Task ${taskId}: ${percentage}% - ${remarks}`);
+  const handleTaskProgressUpdate = async (
+    taskId: number,
+    percentage: number,
+    remarks: string,
+  ) => {
+    try {
+      await projectService.updateTaskProgress(projectId, taskId, {
+        percentage,
+        remarks,
+      });
+      toast.success("Progress updated");
+      fetchProjectData();
+    } catch (error) {
+      toast.error("Failed to update progress");
+    }
   };
 
-  const handleTaskCommentAdd = (taskId: number, content: string) => {
-    console.log(`New Comment for Task ${taskId}: ${content}`);
+  const handleTaskCommentAdd = async (taskId: number, content: string) => {
+    try {
+      await projectService.createTaskComment(projectId, taskId, { content });
+      toast.success("Comment added");
+      fetchProjectData();
+    } catch (error) {
+      toast.error("Failed to add comment");
+    }
   };
 
-  const handleEditMilestone = (updatedData: any) => {
-    setMilestones(prev => prev.map(m => 
-      m.id === updatedData.milestone_id 
-        ? { ...m, ...updatedData } 
-        : m
-    ));
+  const handleEditMilestone = async (updatedData: any) => {
+    try {
+      const { milestone_id, ...data } = updatedData;
+      await projectService.updateMilestone(projectId, milestone_id, data);
+      toast.success("Milestone updated");
+      fetchProjectData();
+    } catch (error) {
+      toast.error("Failed to update milestone");
+    }
   };
 
   const handleDeleteMilestoneClick = (id: number) => {
@@ -107,26 +189,31 @@ const ProjectDetailsPage = () => {
     setIsDeleteMilestoneModalOpen(true);
   };
 
-  const handleDeleteMilestoneConfirm = () => {
+  const handleDeleteMilestoneConfirm = async () => {
     if (milestoneToDelete) {
-      setMilestones(prev => prev.filter(m => m.id !== milestoneToDelete));
-      setIsDeleteMilestoneModalOpen(false);
-      setMilestoneToDelete(null);
-      toast.success("Milestone removed successfully", {
-        style: { borderRadius: '12px', background: '#333', color: '#fff' }
-      });
+      try {
+        await projectService.deleteMilestone(projectId, milestoneToDelete);
+        toast.success("Milestone removed");
+        setIsDeleteMilestoneModalOpen(false);
+        setMilestoneToDelete(null);
+        fetchProjectData();
+      } catch (error) {
+        toast.error("Failed to remove milestone");
+      }
     }
   };
 
-  // Dynamic Progress Calculation
+  // Dynamic Progress Calculation (Fallback to frontend calculation if API progress isn't fetched)
   const calculatedProgress = useMemo(() => {
+    if (project?.completion_percentage !== undefined)
+      return project.completion_percentage;
     if (!tasks || tasks.length === 0) return 0;
     const totalTasks = tasks.length;
     const completedTasksCount = tasks.filter(
       (t) => t.status === "Completed",
     ).length;
     return Math.round((completedTasksCount / totalTasks) * 100);
-  }, [tasks]);
+  }, [tasks, project]);
 
   // Timeline Phase Logic
   const currentPhase = useMemo(() => {
@@ -140,11 +227,51 @@ const ProjectDetailsPage = () => {
     return milestones[completedCount]?.title || "Executing";
   }, [milestones]);
 
-  const handleUpdateProject = (updatedData: any) => {
-    setProject((prev) =>
-      prev ? { ...prev, ...updatedData, id: updatedData.project_id } : prev,
-    );
+  const handleUpdateProject = async (updatedData: any) => {
+    try {
+      await projectService.updateProject(projectId, updatedData);
+      toast.success("Project updated");
+      fetchProjectData();
+    } catch (error) {
+      toast.error("Failed to update project");
+    }
   };
+
+  const handleAssignMember = async (newMembers: any[]) => {
+    try {
+      // API currently takes one member at a time
+      await Promise.all(
+        newMembers.map((m) =>
+          projectService.assignMember(projectId, m.user_id),
+        ),
+      );
+      toast.success("Team member(s) assigned!");
+      fetchProjectData();
+    } catch (error) {
+      toast.error("Failed to assign members");
+    }
+  };
+
+  const handleRemoveMember = async (memberId: number) => {
+    try {
+      await projectService.removeMember(projectId, memberId);
+      toast.success("Member removed from project");
+      fetchProjectData();
+    } catch (error) {
+      toast.error("Failed to remove member");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50">
+        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-slate-500 font-medium animate-pulse">
+          Syncing site data...
+        </p>
+      </div>
+    );
+  }
 
   if (!project) {
     return (
@@ -156,11 +283,11 @@ const ProjectDetailsPage = () => {
         <div className="flex flex-col items-center justify-center min-h-[60vh]">
           <h1 className="text-4xl font-bold text-slate-300 mb-4">404</h1>
           <p className="text-slate-500 mb-6">
-            The project you are looking for does not exist.
+            The project you are looking for does not exist or has been removed.
           </p>
           <button
             onClick={() => navigate(-1)}
-            className="px-6 py-2 bg-primary text-white rounded-xl font-bold"
+            className="px-6 py-2 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
           >
             Go Back
           </button>
@@ -205,14 +332,90 @@ const ProjectDetailsPage = () => {
           </div>
 
           <div className="flex gap-3">
+            <div className="flex bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+              <button
+                onClick={() => setIsEditModalOpen(true)}
+                className="px-4 py-2.5 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-all border-r border-slate-100"
+              >
+                Edit
+              </button>
+              <button
+                onClick={async () => {
+                  const toastId = toast.loading("Downloading PDF report...");
+                  try {
+                    const blob =
+                      await projectService.exportProjectPdf(projectId);
+                    const url = window.URL.createObjectURL(new Blob([blob]));
+                    const link = document.createElement("a");
+                    link.href = url;
+                    link.setAttribute(
+                      "download",
+                      `Project_${projectId}_Report.pdf`,
+                    );
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    toast.success("PDF Downloaded", { id: toastId });
+                  } catch (error) {
+                    toast.error("PDF export failed");
+                    toast.dismiss(toastId);
+                  }
+                }}
+                className="px-4 py-2.5 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-all border-r border-slate-100"
+                title="Download PDF"
+              >
+                PDF
+              </button>
+              <button
+                onClick={async () => {
+                  const toastId = toast.loading("Downloading Excel report...");
+                  try {
+                    const blob =
+                      await projectService.exportProjectExcel(projectId);
+                    const url = window.URL.createObjectURL(new Blob([blob]));
+                    const link = document.createElement("a");
+                    link.href = url;
+                    link.setAttribute(
+                      "download",
+                      `Project_${projectId}_Report.xlsx`,
+                    );
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    toast.success("Excel Downloaded", { id: toastId });
+                  } catch (error) {
+                    toast.error("Excel export failed");
+                    toast.dismiss(toastId);
+                  }
+                }}
+                className="px-4 py-2.5 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-all"
+                title="Download Excel"
+              >
+                XLSX
+              </button>
+            </div>
+
             <button
-              onClick={() => setIsEditModalOpen(true)}
-              className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
+              onClick={() => {
+                const toastId = toast.loading(
+                  "Generating comprehensive site report (CSV)...",
+                );
+                setTimeout(() => {
+                  generateProjectReport(
+                    project,
+                    members,
+                    milestones,
+                    expenses,
+                    tasks,
+                  );
+                  toast.success("Site Report downloaded successfully!", {
+                    id: toastId,
+                  });
+                }, 1000);
+              }}
+              className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
             >
-              Edit Project
-            </button>
-            <button className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all">
-              Generate Report
+              Site Report (CSV)
             </button>
           </div>
         </div>
@@ -302,15 +505,19 @@ const ProjectDetailsPage = () => {
               </div>
 
               <div className="space-y-8">
-                <TeamMembersList members={members} />
+                <TeamMembersList
+                  members={members}
+                  onAssignClick={() => setIsAssignModalOpen(true)}
+                  onRemoveMember={handleRemoveMember}
+                />
               </div>
             </div>
           )}
 
           {activeTab === "Tasks" && (
             <div className="h-[calc(100vh-280px)]">
-              <KanbanBoard 
-                tasks={tasks} 
+              <KanbanBoard
+                tasks={tasks}
                 projectId={projectId}
                 members={members}
                 onCreateTask={handleCreateTask}
@@ -324,8 +531,8 @@ const ProjectDetailsPage = () => {
 
           {activeTab === "Milestones" && (
             <div className="w-full">
-              <MilestoneTimeline 
-                milestones={milestones} 
+              <MilestoneTimeline
+                milestones={milestones}
                 projectId={projectId}
                 onCreateMilestone={handleCreateMilestone}
                 onEditMilestone={handleEditMilestone}
@@ -368,7 +575,11 @@ const ProjectDetailsPage = () => {
 
           {activeTab === "Members" && (
             <div className="w-full">
-              <TeamMembersList members={members} />
+              <TeamMembersList
+                members={members}
+                onAssignClick={() => setIsAssignModalOpen(true)}
+                onRemoveMember={handleRemoveMember}
+              />
             </div>
           )}
         </div>
@@ -392,6 +603,13 @@ const ProjectDetailsPage = () => {
         message="Are you sure you want to remove this milestone from the project schedule? This action cannot be undone."
         confirmText="Remove"
         type="danger"
+      />
+
+      <AssignMemberModal
+        isOpen={isAssignModalOpen}
+        onClose={() => setIsAssignModalOpen(false)}
+        onAssign={handleAssignMember}
+        existingMemberIds={members.map((m) => m.user_id)}
       />
     </>
   );
