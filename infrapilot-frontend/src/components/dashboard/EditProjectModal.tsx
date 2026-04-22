@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import Modal from "../common/Modal";
-import toast from "react-hot-toast";
 import type { Project } from "../../types/project";
 
 interface EditProjectModalProps {

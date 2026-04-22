@@ -35,18 +35,21 @@ export const ownerService = {
     try {
       const response = await api.get("/owners", { params: { search } });
       const data = response.data;
-      
+
       return (data || []).map((o: any) => ({
         id: String(o.id),
         name: o.owner_name,
-        mobile: String(o.mobile || o.mobile_number || ""), 
+        mobile: String(o.mobile || o.mobile_number || ""),
         email: o.email,
         address: o.address,
         pan: o.pan,
-        owner_code: o.owner_code
+        owner_code: o.owner_code,
       }));
     } catch (error: any) {
-      console.error("Fetch Owners API Error:", error.response?.data || error.message);
+      console.error(
+        "Fetch Owners API Error:",
+        error.response?.data || error.message,
+      );
       throw error;
     }
   },
@@ -66,10 +69,13 @@ export const ownerService = {
         email: o.email,
         address: o.address,
         pan: o.pan,
-        owner_code: o.owner_code
+        owner_code: o.owner_code,
       };
     } catch (error: any) {
-      console.error(`Fetch Owner ${id} Error:`, error.response?.data || error.message);
+      console.error(
+        `Fetch Owner ${id} Error:`,
+        error.response?.data || error.message,
+      );
       throw error;
     }
   },
@@ -90,7 +96,10 @@ export const ownerService = {
       const response = await api.put(`/owners/${id}`, body);
       return response.data;
     } catch (error: any) {
-      console.error(`Update Owner ${id} Error:`, error.response?.data || error.message);
+      console.error(
+        `Update Owner ${id} Error:`,
+        error.response?.data || error.message,
+      );
       throw error;
     }
   },
@@ -104,7 +113,10 @@ export const ownerService = {
       const response = await api.delete(`/owners/${id}`);
       return response.data;
     } catch (error: any) {
-      console.error(`Delete Owner ${id} Error:`, error.response?.data || error.message);
+      console.error(
+        `Delete Owner ${id} Error:`,
+        error.response?.data || error.message,
+      );
       throw error;
     }
   },
@@ -118,7 +130,10 @@ export const ownerService = {
       const response = await api.get(`/owners/${ownerId}/payments`);
       return response.data;
     } catch (error: any) {
-      console.error(`Fetch Owner Payments Error:`, error.response?.data || error.message);
+      console.error(
+        `Fetch Owner Payments Error:`,
+        error.response?.data || error.message,
+      );
       throw error;
     }
   },
@@ -132,7 +147,10 @@ export const ownerService = {
       const response = await api.get(`/owners/${ownerId}/ledger`);
       return response.data;
     } catch (error: any) {
-      console.error(`Fetch Owner Ledger Error:`, error.response?.data || error.message);
+      console.error(
+        `Fetch Owner Ledger Error:`,
+        error.response?.data || error.message,
+      );
       throw error;
     }
   },
@@ -154,7 +172,10 @@ export const ownerService = {
       link.click();
       link.remove();
     } catch (error: any) {
-      console.error(`Export Ledger PDF Error:`, error.response?.data || error.message);
+      console.error(
+        `Export Ledger PDF Error:`,
+        error.response?.data || error.message,
+      );
       throw error;
     }
   },
@@ -176,8 +197,11 @@ export const ownerService = {
       link.click();
       link.remove();
     } catch (error: any) {
-      console.error(`Export Ledger Excel Error:`, error.response?.data || error.message);
+      console.error(
+        `Export Ledger Excel Error:`,
+        error.response?.data || error.message,
+      );
       throw error;
     }
-  }
+  },
 };

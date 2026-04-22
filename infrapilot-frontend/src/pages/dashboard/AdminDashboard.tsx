@@ -286,7 +286,7 @@ const AdminDashboard = () => {
             </div>
             <div className="h-[300px] w-full">
               {!isLoading ? (
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={100}>
                   <LineChart
                     data={budgetData}
                     margin={{ top: 5, right: 10, left: 10, bottom: 0 }}

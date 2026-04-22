@@ -50,12 +50,12 @@ export const PROJECTS: Project[] = [
 export const PROJECT_MEMBERS: Record<number, ProjectMember[]> = {
   1: [
     { user_id: 1, full_name: "Admin User", email: "admin@test.com", role: "Admin" },
-    { user_id: 2, full_name: "Rajesh Kumar", email: "rajesh@infraservices.com", role: "Project Manager" },
-    { user_id: 4, full_name: "Anil Sharma", email: "anil.s@site.com", role: "Site Engineer" }
+    { user_id: 2, full_name: "Rajesh Kumar", email: "rajesh@infraservices.com", role: "ProjectManager" },
+    { user_id: 4, full_name: "Anil Sharma", email: "anil.s@site.com", role: "SiteEngineer" }
   ],
   2: [
     { user_id: 1, full_name: "Admin User", email: "admin@test.com", role: "Admin" },
-    { user_id: 3, full_name: "Priya Singh", email: "priya@manager.com", role: "Project Manager" }
+    { user_id: 3, full_name: "Priya Singh", email: "priya@manager.com", role: "ProjectManager" }
   ]
 };
 

@@ -30,6 +30,7 @@ import IntegrationsPage from "../pages/admin/IntegrationsPage";
 import SettingsPage from "../pages/admin/SettingsPage";
 import RolesPage from "../pages/admin/RolesPage";
 import PermissionsPage from "../pages/admin/PermissionsPage";
+import MeasurementPage from "../pages/admin/MeasurementPage";
 import ProjectDetailsPage from "../pages/projects/ProjectDetailsPage";
 
 // Client Pages
@@ -171,6 +172,7 @@ function AppRoutes() {
                 element={<NotificationsPage />}
               />
               <Route path="/admin/documents" element={<DocumentsPage />} />
+              <Route path="/admin/measurements" element={<MeasurementPage />} />
               <Route path="/admin/master-data" element={<MasterDataPage />} />
               <Route
                 path="/admin/master-data/materials"
@@ -217,6 +219,10 @@ function AppRoutes() {
                 element={<ChartOfAccountsPage />}
               />
               <Route
+                path="/accountant/chart-of-accounts/:category"
+                element={<ChartOfAccountsPage />}
+              />
+              <Route
                 path="/accountant/receivables"
                 element={
                   <Navigate to="/accountant/receivables/invoices" replace />
@@ -234,22 +240,42 @@ function AppRoutes() {
                 path="/accountant/receivables/credit-notes"
                 element={<ReceivablesCreditNotesPage />}
               />
-              <Route path="/accountant/payables" element={<PayablesPage />} />
               <Route path="/accountant/expenses" element={<ExpensesPage />} />
+              <Route path="/accountant/expenses/:category" element={<ExpensesPage />} />
+              <Route
+                path="/accountant/payables"
+                element={<PayablesPage />}
+              />
+              <Route
+                path="/accountant/payables/:category"
+                element={<PayablesPage />}
+              />
               <Route
                 path="/accountant/payments"
                 element={<PaymentsReceiptsPage />}
               />
+              <Route
+                path="/accountant/payments/:category"
+                element={<PaymentsReceiptsPage />}
+              />
               <Route path="/accountant/taxation" element={<TaxationPage />} />
+              <Route path="/accountant/taxation/:category" element={<TaxationPage />} />
               <Route path="/accountant/payroll" element={<PayrollPage />} />
+              <Route path="/accountant/payroll/:category" element={<PayrollPage />} />
               <Route path="/accountant/banking" element={<BankingPage />} />
+              <Route path="/accountant/banking/:category" element={<BankingPage />} />
               <Route
                 path="/accountant/journal"
                 element={<JournalEntriesPage />}
               />
               <Route path="/accountant/assets" element={<FixedAssetsPage />} />
+              <Route path="/accountant/assets/:category" element={<FixedAssetsPage />} />
               <Route
                 path="/accountant/reports"
+                element={<AccountantReportsPage />}
+              />
+              <Route
+                path="/accountant/reports/:reportId"
                 element={<AccountantReportsPage />}
               />
               <Route

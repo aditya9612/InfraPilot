@@ -200,6 +200,12 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       label: "Chart of Accounts",
       path: "/accountant/chart-of-accounts",
       icon: "book-open",
+      subNav: [
+        { label: "Assets", path: "/accountant/chart-of-accounts/assets", icon: "dollar-sign" },
+        { label: "Liabilities", path: "/accountant/chart-of-accounts/liabilities", icon: "activity" },
+        { label: "Income", path: "/accountant/chart-of-accounts/income", icon: "trending-up" },
+        { label: "Expenses", path: "/accountant/chart-of-accounts/expenses", icon: "trending-down" },
+      ],
     },
     {
       label: "Receivables",
@@ -223,18 +229,73 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
         },
       ],
     },
-    { label: "Payables", path: "/accountant/payables", icon: "trending-down" },
-    { label: "Expenses", path: "/accountant/expenses", icon: "dollar-sign" },
+    {
+      label: "Payables",
+      path: "/accountant/payables",
+      icon: "shopping-cart",
+      subNav: [
+        { label: "Vendor Bills", path: "/accountant/payables/vendor", icon: "truck" },
+        { label: "Contractor Bills", path: "/accountant/payables/contractor", icon: "tool" },
+      ],
+    },
+    {
+      label: "Expenses",
+      path: "/accountant/expenses",
+      icon: "dollar-sign",
+      subNav: [
+        { label: "Direct Expenses", path: "/accountant/expenses/direct", icon: "activity" },
+        { label: "Indirect Expenses", path: "/accountant/expenses/indirect", icon: "briefcase" },
+      ],
+    },
     {
       label: "Payments & Receipts",
       path: "/accountant/payments",
       icon: "credit-card",
+      subNav: [
+        { label: "Receive Payment", path: "/accountant/payments/receipt", icon: "trending-up" },
+        { label: "Make Payment", path: "/accountant/payments/payment", icon: "trending-down" },
+      ],
     },
-    { label: "GST & Taxation", path: "/accountant/taxation", icon: "percent" },
-    { label: "Payroll", path: "/accountant/payroll", icon: "users" },
-    { label: "Bank & Cash", path: "/accountant/banking", icon: "home" },
+    {
+      label: "GST & Taxation",
+      path: "/accountant/taxation",
+      icon: "percent",
+      subNav: [
+        { label: "GST Invoices", path: "/accountant/taxation/gst-invoices", icon: "file-text" },
+        { label: "GST Returns", path: "/accountant/taxation/gst-returns", icon: "bar-chart" },
+        { label: "TDS", path: "/accountant/taxation/tds", icon: "dollar-sign" },
+      ],
+    },
+    {
+      label: "Payroll",
+      path: "/accountant/payroll",
+      icon: "users",
+      subNav: [
+        { label: "Salary", path: "/accountant/payroll/salary", icon: "briefcase" },
+        { label: "Wages", path: "/accountant/payroll/wages", icon: "activity" },
+        { label: "Contractor Payment", path: "/accountant/payroll/contractor", icon: "tool" },
+      ],
+    },
+    {
+      label: "Bank & Cash",
+      path: "/accountant/banking",
+      icon: "home",
+      subNav: [
+        { label: "Bank Accounts", path: "/accountant/banking/accounts", icon: "briefcase" },
+        { label: "Cash Book", path: "/accountant/banking/cash", icon: "dollar-sign" },
+        { label: "Bank Reconciliation", path: "/accountant/banking/reconciliation", icon: "refresh-cw" },
+      ],
+    },
     { label: "Journal Entries", path: "/accountant/journal", icon: "edit-3" },
-    { label: "Fixed Assets", path: "/accountant/assets", icon: "layers" },
+    {
+      label: "Fixed Assets",
+      path: "/accountant/assets",
+      icon: "layers",
+      subNav: [
+        { label: "Asset Register", path: "/accountant/assets/register", icon: "box" },
+        { label: "Depreciation", path: "/accountant/assets/depreciation", icon: "trending-down" },
+      ],
+    },
     { label: "Reports", path: "/accountant/reports", icon: "bar-chart" },
     { label: "Settings", path: "/accountant/settings", icon: "settings" },
   ],

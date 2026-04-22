@@ -1,6 +1,5 @@
 import { useState } from "react";
 import Modal from "../common/Modal";
-import toast from "react-hot-toast";
 
 interface NewProjectModalProps {
   isOpen: boolean;

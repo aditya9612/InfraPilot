@@ -20,8 +20,6 @@ const ROLES: { value: UserRole; label: string }[] = [
   { value: "Accountant", label: "Accountant" },
 ];
 
-
-
 const WORK_TYPES = ["Civil", "Electrical", "Plumbing"];
 
 const CreateUserModal: React.FC<CreateUserModalProps> = ({
@@ -180,7 +178,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
       setIsLoading(true);
       try {
         let finalProfileImage = photoUrl;
-        
+
         // If a new photo is selected, convert it to Base64 for persistence
         if (photo) {
           finalProfileImage = await new Promise((resolve, reject) => {
@@ -195,7 +193,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
           ...formData,
           profile_image: finalProfileImage,
         };
-        
+
         onSubmit(payload);
         const action = initialData ? "updated" : "created";
         toast.success(`User ${formData.full_name} ${action} successfully!`, {
@@ -467,7 +465,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                     alt="Preview"
                     className="w-full h-full object-cover"
                   />
-                ) : photoUrl && !photoUrl.startsWith('blob:') ? (
+                ) : photoUrl && !photoUrl.startsWith("blob:") ? (
                   <img
                     src={photoUrl}
                     alt="Profile"

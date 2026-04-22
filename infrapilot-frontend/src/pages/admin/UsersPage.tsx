@@ -22,6 +22,7 @@ const UsersPage = () => {
   const [viewingUser, setViewingUser] = useState<User | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [roleFilter, setRoleFilter] = useState("All Roles");
 
   const fetchProjects = useCallback(async () => {
     try {
@@ -111,9 +112,13 @@ const UsersPage = () => {
     const emailStr = user.email || "";
     const roleStr = user.role || "";
     
-    return nameStr.toLowerCase().includes(term) ||
-           emailStr.toLowerCase().includes(term) ||
-           roleStr.toLowerCase().includes(term);
+    const matchesSearch = nameStr.toLowerCase().includes(term) ||
+                         emailStr.toLowerCase().includes(term) ||
+                         roleStr.toLowerCase().includes(term);
+    
+    const matchesRole = roleFilter === "All Roles" || roleStr === roleFilter;
+
+    return matchesSearch && matchesRole;
   });
 
   return (
@@ -165,12 +170,17 @@ const UsersPage = () => {
               />
             </div>
             <div className="flex items-center gap-2">
-              <select className="bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 px-3 py-2 outline-none">
-                <option>All Roles</option>
-                <option>Admin</option>
-                <option>Engineer</option>
-                <option>Contractor</option>
-                <option>Client</option>
+              <select 
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 px-3 py-2 outline-none cursor-pointer hover:bg-slate-100 transition-colors"
+              >
+                <option value="All Roles">All Roles</option>
+                <option value="Admin">Admin</option>
+                <option value="ProjectManager">Project Manager</option>
+                <option value="SiteEngineer">Site Engineer</option>
+                <option value="Accountant">Accountant</option>
+                <option value="Client">Client</option>
               </select>
             </div>
           </div>
