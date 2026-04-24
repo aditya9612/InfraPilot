@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import type { Task, TaskProgress, TaskComment } from "../../types/project";
-import { TASK_PROGRESS, TASK_COMMENTS } from "../../config/projectSeed";
+import { projectService } from "../../services/projectService";
 import toast from "react-hot-toast";
 
 interface TaskDetailsModalProps {
@@ -11,53 +11,69 @@ interface TaskDetailsModalProps {
 }
 
 const TaskDetailsModal = ({ task, onClose, onUpdateProgress, onAddComment }: TaskDetailsModalProps) => {
-  const [history, setHistory] = useState<TaskProgress[]>(() => TASK_PROGRESS[task.id] || []);
-  const [comments, setComments] = useState<TaskComment[]>(() => TASK_COMMENTS[task.id] || []);
+  const [history, setHistory] = useState<TaskProgress[]>([]);
+  const [comments, setComments] = useState<TaskComment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
   const [newComment, setNewComment] = useState("");
   const [updatePercentage, setUpdatePercentage] = useState(task.completion_percentage);
   const [updateRemarks, setUpdateRemarks] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handlePostComment = () => {
+  const fetchData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const [hData, cData] = await Promise.all([
+        projectService.getTaskProgressHistory(task.project_id, task.id),
+        projectService.getTaskComments(task.project_id, task.id)
+      ]);
+      setHistory(Array.isArray(hData) ? hData : (hData.items || hData.data || []));
+      setComments(Array.isArray(cData) ? cData : (cData.items || cData.data || []));
+    } catch (error) {
+      console.error("Failed to fetch task details:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [task.id, task.project_id]);
+
+  useEffect(() => {
+    fetchData();
+    // Sync local state if task details change (e.g., after an update)
+    setUpdatePercentage(task.completion_percentage);
+  }, [fetchData, task.completion_percentage]);
+
+  const handlePostComment = async () => {
     if (!newComment.trim()) return;
     setIsSubmitting(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      const comment: TaskComment = {
-        id: Math.max(...comments.map(c => c.id), 0) + 1,
-        task_id: task.id,
-        author_user_id: 1, // Current user
-        author_name: "Admin",
-        content: newComment,
-        created_at: new Date().toISOString()
-      };
-      setComments(prev => [comment, ...prev]);
+    try {
+      await projectService.createTaskComment(task.project_id, task.id, { content: newComment });
       setNewComment("");
-      setIsSubmitting(false);
       if (onAddComment) onAddComment(newComment);
       toast.success("Comment posted");
-    }, 600);
+      fetchData();
+    } catch (error) {
+      toast.error("Failed to post comment");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleUpdateProgress = () => {
+  const handleUpdateProgress = async () => {
     setIsSubmitting(true);
-    // Simulate API call
-    setTimeout(() => {
-      const progress: TaskProgress = {
-        id: Math.max(...history.map(h => h.id), 0) + 1,
-        task_id: task.id,
-        percentage: updatePercentage,
-        remarks: updateRemarks || "Status update",
-        created_at: new Date().toISOString()
-      };
-      setHistory(prev => [progress, ...prev]);
+    try {
+      await projectService.updateTaskProgress(task.project_id, task.id, { 
+        percentage: updatePercentage, 
+        remarks: updateRemarks || "Status update" 
+      });
       setUpdateRemarks("");
-      setIsSubmitting(false);
       if (onUpdateProgress) onUpdateProgress(updatePercentage, updateRemarks);
       toast.success(`Progress updated to ${updatePercentage}%`);
-    }, 600);
+      fetchData();
+    } catch (error) {
+      toast.error("Failed to update progress");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -86,7 +102,8 @@ const TaskDetailsModal = ({ task, onClose, onUpdateProgress, onAddComment }: Tas
                   <input 
                     type="range" min="0" max="100" value={updatePercentage} 
                     onChange={(e) => setUpdatePercentage(parseInt(e.target.value))}
-                    className="flex-1 accent-primary h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer" 
+                    disabled={isSubmitting}
+                    className="flex-1 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer disabled:cursor-not-allowed" 
                   />
                   <span className="text-sm font-bold text-slate-700 min-w-[40px]">{updatePercentage}%</span>
                </div>

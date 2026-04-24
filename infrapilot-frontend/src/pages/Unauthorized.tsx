@@ -4,11 +4,9 @@ import type { Role } from "../context/AuthContext";
 
 const ROLE_PATHS: Record<Role, string> = {
   Admin: "/admin",
-  "Project Manager": "/manager",
-  "Site Engineer": "/engineer",
-  Contractor: "/contractor",
+  ProjectManager: "/manager",
+  SiteEngineer: "/engineer",
   Accountant: "/accountant",
-  Client: "/client",
 };
 
 const Unauthorized = () => {

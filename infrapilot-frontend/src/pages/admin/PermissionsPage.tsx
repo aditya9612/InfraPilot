@@ -20,7 +20,7 @@ interface PermissionCategory {
 }
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
-const ROLES: UserRole[] = ["Admin", "Project Manager", "Site Engineer", "Contractor", "Accountant", "Client"];
+const ROLES: UserRole[] = ["Admin", "ProjectManager", "SiteEngineer", "Accountant"];
 
 const INITIAL_CATEGORIES: PermissionCategory[] = [
   {
@@ -57,10 +57,8 @@ const INITIAL_ROLE_PERMISSIONS = ROLES.reduce((acc, role) => {
   acc[role] = JSON.parse(JSON.stringify(INITIAL_CATEGORIES));
   
   // Custom presets for specific roles
-  if (role === "Client") {
+  if (role === "Accountant") {
     acc[role].forEach((cat: any) => cat.permissions.forEach((p: any) => p.enabled = p.name.toLowerCase().includes("view")));
-  } else if (role === "Contractor") {
-    acc[role].forEach((cat: any) => cat.permissions.forEach((p: any) => p.enabled = (p.id === "i1" || p.id === "f3")));
   } else if (role === "Admin") {
     acc[role].forEach((cat: any) => cat.permissions.forEach((p: any) => p.enabled = true));
   }

@@ -33,18 +33,29 @@ export const PROJECTS: Project[] = [
     status: "Planned",
     completion_percentage: 0,
     budget: 25000000,
+  },
+  {
+    id: 4,
+    project_name: "SKYLINE TOWERS",
+    owner_id: 2,
+    description: "Multi-storey residential project - Phase 2",
+    start_date: "2026-06-15",
+    end_date: "2029-12-31",
+    status: "On Hold",
+    completion_percentage: 10,
+    budget: 120000000,
   }
 ];
 
 export const PROJECT_MEMBERS: Record<number, ProjectMember[]> = {
   1: [
     { user_id: 1, full_name: "Admin User", email: "admin@test.com", role: "Admin" },
-    { user_id: 2, full_name: "Rajesh Kumar", email: "rajesh@infraservices.com", role: "Project Manager" },
-    { user_id: 4, full_name: "Anil Sharma", email: "anil.s@site.com", role: "Site Engineer" }
+    { user_id: 2, full_name: "Rajesh Kumar", email: "rajesh@infraservices.com", role: "ProjectManager" },
+    { user_id: 4, full_name: "Anil Sharma", email: "anil.s@site.com", role: "SiteEngineer" }
   ],
   2: [
     { user_id: 1, full_name: "Admin User", email: "admin@test.com", role: "Admin" },
-    { user_id: 3, full_name: "Priya Singh", email: "priya@manager.com", role: "Project Manager" }
+    { user_id: 3, full_name: "Priya Singh", email: "priya@manager.com", role: "ProjectManager" }
   ]
 };
 
