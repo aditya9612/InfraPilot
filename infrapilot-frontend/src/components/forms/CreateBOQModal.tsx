@@ -2,10 +2,15 @@ import React, { useState } from 'react';
 import toast from 'react-hot-toast';
 import Modal from '../common/Modal';
 
+import type { Project } from '../../types/project';
+import type { BoqItem } from '../../types/boq';
+
 interface CreateBOQModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (boqData: any) => void;
+  onSubmit: (boqData: any) => Promise<void>;
+  projects: Project[];
+  initialData?: BoqItem | null;
 }
 
 const CATEGORIES = [
@@ -18,19 +23,12 @@ const CATEGORIES = [
   'Finishing',
 ];
 
-const PROJECTS = [
-  { id: 1, name: 'Skyline Residency' },
-  { id: 2, name: 'Metro Expansion Phase II' },
-  { id: 3, name: 'Green Valley Infrastructure' },
-  { id: 4, name: 'Oceanic Bridge Project' },
-];
-
 const UNITS = ['Bags', 'Cum', 'Sqm', 'MT', 'Kg', 'Ft', 'Nos', 'Ltr'];
 
 const STATUSES = ['Active', 'Draft', 'Under Review', 'Completed'];
 
-const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubmit }) => {
-  const [formData, setFormData] = useState({
+const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubmit, projects, initialData }) => {
+  const [formData, setFormData] = React.useState({
     project_id: '',
     item_name: '',
     category: '',
@@ -40,6 +38,32 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
     unit_cost: '',
     status: 'Active',
   });
+
+  React.useEffect(() => {
+    if (initialData) {
+      setFormData({
+        project_id: initialData.project_id?.toString() || '',
+        item_name: initialData.item_name || '',
+        category: initialData.category || '',
+        description: initialData.description || '',
+        quantity: initialData.quantity?.toString() || '',
+        unit: initialData.unit || '',
+        unit_cost: initialData.unit_cost?.toString() || '',
+        status: initialData.status || 'Active',
+      });
+    } else {
+      setFormData({
+        project_id: '',
+        item_name: '',
+        category: '',
+        description: '',
+        quantity: '',
+        unit: '',
+        unit_cost: '',
+        status: 'Active',
+      });
+    }
+  }, [initialData, isOpen]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -94,23 +118,19 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (validateAll()) {
       setIsLoading(true);
-      setTimeout(() => {
+      try {
         const submissionData = {
           ...formData,
           project_id: Number(formData.project_id),
           quantity: Number(formData.quantity),
           unit_cost: Number(formData.unit_cost),
         };
-        onSubmit(submissionData);
-        setIsLoading(false);
-        toast.success(`BOQ Item "${formData.item_name}" created successfully!`, {
-          style: { borderRadius: '12px', background: '#333', color: '#fff' },
-        });
-        onClose();
+        await onSubmit(submissionData);
+        // Successful toast is handled by parent, but we can clean up here
         setFormData({
           project_id: '',
           item_name: '',
@@ -121,7 +141,11 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
           unit_cost: '',
           status: 'Active',
         });
-      }, 1500);
+      } catch (error) {
+        // Error handling is mostly in parent via toast, but we stop loading here
+      } finally {
+        setIsLoading(false);
+      }
     } else {
       toast.error("Please fix the errors in the form.");
     }
@@ -152,7 +176,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
             Processing...
           </>
         ) : (
-          'Add BOQ Item'
+          initialData ? 'Update BOQ Item' : 'Add BOQ Item'
         )}
       </button>
     </>
@@ -162,7 +186,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Create New BOQ Item"
+      title={initialData ? "Update BOQ Item" : "Create New BOQ Item"}
       footer={modalFooter}
       maxWidth="max-w-2xl"
     >
@@ -177,7 +201,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
               className={`w-full px-4 py-2.5 bg-white border ${errors.project_id ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all appearance-none`}
             >
               <option value="">Select a Project</option>
-              {PROJECTS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              {projects?.map(p => <option key={p.id} value={p.id}>{p.project_name}</option>)}
             </select>
             {errors.project_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.project_id}</p>}
           </div>
@@ -204,7 +228,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
               className={`w-full px-4 py-2.5 bg-white border ${errors.category ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all appearance-none`}
             >
               <option value="">Select Category</option>
-              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              {CATEGORIES?.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
             {errors.category && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.category}</p>}
           </div>
@@ -245,7 +269,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
               className={`w-full px-4 py-2.5 bg-white border ${errors.unit ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all appearance-none`}
             >
               <option value="">Select Unit</option>
-              {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+              {UNITS?.map(u => <option key={u} value={u}>{u}</option>)}
             </select>
             {errors.unit && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.unit}</p>}
           </div>
@@ -272,7 +296,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
               onChange={handleChange}
               className={`w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all appearance-none`}
             >
-              {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+              {STATUSES?.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
 

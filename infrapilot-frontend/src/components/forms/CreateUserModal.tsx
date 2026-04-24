@@ -1,61 +1,62 @@
-import React, { useState, useEffect } from 'react';
-import toast from 'react-hot-toast';
-import Modal from '../common/Modal';
-import type { User, UserRole } from '../../types/user';
+import React, { useState, useEffect } from "react";
+import toast from "react-hot-toast";
+import Modal from "../common/Modal";
+import type { User, UserRole } from "../../types/user";
+
+import type { Project } from "../../types/project";
 
 interface CreateUserModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (userData: any) => void;
+  projects: Project[];
   initialData?: User | null;
 }
 
-const ROLES: UserRole[] = [
-  'Admin',
-  'Project Manager',
-  'Site Engineer',
-  'Contractor',
-  'Accountant',
-  'Client',
+const ROLES: { value: UserRole; label: string }[] = [
+  { value: "Admin", label: "Admin" },
+  { value: "ProjectManager", label: "Project Manager" },
+  { value: "SiteEngineer", label: "Site Engineer" },
+  { value: "Accountant", label: "Accountant" },
 ];
 
-const MOCK_PROJECTS = [
-  'Skyline Residency',
-  'Metro Extension Phase II',
-  'Green Valley Infrastructure',
-  'Oceanic Bridge Project',
-];
+const WORK_TYPES = ["Civil", "Electrical", "Plumbing"];
 
-const WORK_TYPES = ['Civil', 'Electrical', 'Plumbing'];
-
-const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSubmit, initialData }) => {
+const CreateUserModal: React.FC<CreateUserModalProps> = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  projects,
+  initialData,
+}) => {
   const [formData, setFormData] = useState({
     user_id: 0,
-    full_name: '',
-    mobile_number: '',
-    email: '',
-    password: '',
-    role: '' as UserRole | '',
-    designation: '',
-    joining_date: new Date().toISOString().split('T')[0],
-    pan_number: '',
-    aadhaar_number: '',
-    address: '',
+    full_name: "",
+    mobile_number: "",
+    email: "",
+    password: "",
+    role: "" as UserRole | "",
+    designation: "",
+    joining_date: new Date().toISOString().split("T")[0],
+    pan_number: "",
+    aadhaar_number: "",
+    address: "",
     is_active: true,
-    assignedProject: '',
-    experience: '',
-    qualification: '',
-    companyName: '',
-    workType: '',
-    gstNumber: '',
-    department: '',
-    projectLinked: '',
-    notes: '',
+    assignedProject: "",
+    experience: "",
+    qualification: "",
+    companyName: "",
+    workType: "",
+    gstNumber: "",
+    department: "",
+    projectLinked: "",
+    notes: "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [photo, setPhoto] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>("");
   const [photoUrl, setPhotoUrl] = useState<string>("");
 
   useEffect(() => {
@@ -64,33 +65,33 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
         setFormData({
           ...formData, // default structure
           ...initialData,
-          password: '', // Don't populate password
-          assignedProject: (initialData as any).assignedProject || '',
+          password: "", // Don't populate password
+          assignedProject: (initialData as any).assignedProject || "",
         } as any);
         setPhotoUrl(initialData.profile_image || "");
       } else {
         setFormData({
           user_id: 0,
-          full_name: '',
-          mobile_number: '',
-          email: '',
-          password: '',
-          role: '',
-          designation: '',
-          joining_date: new Date().toISOString().split('T')[0],
-          pan_number: '',
-          aadhaar_number: '',
-          address: '',
+          full_name: "",
+          mobile_number: "",
+          email: "",
+          password: "",
+          role: "",
+          designation: "",
+          joining_date: new Date().toISOString().split("T")[0],
+          pan_number: "",
+          aadhaar_number: "",
+          address: "",
           is_active: true,
-          assignedProject: '',
-          experience: '',
-          qualification: '',
-          companyName: '',
-          workType: '',
-          gstNumber: '',
-          department: '',
-          projectLinked: '',
-          notes: '',
+          assignedProject: "",
+          experience: "",
+          qualification: "",
+          companyName: "",
+          workType: "",
+          gstNumber: "",
+          department: "",
+          projectLinked: "",
+          notes: "",
         });
         setPhotoUrl("");
       }
@@ -99,43 +100,70 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
     }
   }, [isOpen, initialData]);
 
+  // Handle preview URL cleanup to prevent memory leaks
+  useEffect(() => {
+    let url = "";
+    if (photo) {
+      url = URL.createObjectURL(photo);
+      setPreviewUrl(url);
+    } else {
+      setPreviewUrl("");
+    }
+
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [photo]);
+
   const validate = () => {
     const newErrors: Record<string, string> = {};
-    if (!formData.full_name || formData.full_name.length < 3) newErrors.full_name = 'Full Name must be at least 3 characters.';
-    if (!formData.mobile_number || !/^\+91\s\d{10}$/.test(formData.mobile_number)) newErrors.mobile_number = 'Enter a valid mobile number (+91 9876543210).';
-    if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = 'Enter a valid email address.';
-    
+    if (!formData.full_name || formData.full_name.length < 3)
+      newErrors.full_name = "Full Name must be at least 3 characters.";
+    if (
+      !formData.mobile_number ||
+      !/^\+?\d[\d\s]{9,14}$/.test(formData.mobile_number.trim())
+    )
+      newErrors.mobile_number = "Enter a valid mobile number.";
+    if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
+      newErrors.email = "Enter a valid email address.";
+
     // Only validate password on create
     if (!initialData && (!formData.password || formData.password.length < 6)) {
-      newErrors.password = 'Password must be at least 6 characters.';
+      newErrors.password = "Password must be at least 6 characters.";
     }
-    
-    if (!formData.role) newErrors.role = 'Please select a role.';
-    if (!formData.designation) newErrors.designation = 'Designation is required.';
-    
-    if (['Site Engineer', 'Project Manager'].includes(formData.role) && !formData.assignedProject) {
-      newErrors.assignedProject = 'Project is required.';
+
+    if (!formData.role) newErrors.role = "Please select a role.";
+    if (!formData.designation)
+      newErrors.designation = "Designation is required.";
+
+    if (
+      ["SiteEngineer", "ProjectManager"].includes(formData.role) &&
+      !formData.assignedProject
+    ) {
+      newErrors.assignedProject = "Project is required.";
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
+  ) => {
     let { name, value } = e.target;
-    if (name === 'mobile_number') {
-      const numeric = value.replace(/[^\d]/g, "");
-      const digits = numeric.startsWith("91") ? numeric.slice(2) : numeric;
-      value = digits ? `+91 ${digits.slice(0, 10)}` : "";
-    } else if (name === 'pan_number') {
+    if (name === "mobile_number") {
+      value = value;
+    } else if (name === "pan_number") {
       value = value.toUpperCase().slice(0, 10);
-    } else if (name === 'aadhaar_number') {
+    } else if (name === "aadhaar_number") {
       const numeric = value.replace(/[^\d]/g, "").slice(0, 12);
       const parts = numeric.match(/.{1,4}/g);
       value = parts ? parts.join("-") : "";
     }
     setFormData((prev) => ({ ...prev, [name]: value }));
-    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -144,23 +172,40 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (validate()) {
       setIsLoading(true);
-      setTimeout(() => {
-        const payload = { 
-          ...formData, 
-          profile_image: photo ? URL.createObjectURL(photo) : photoUrl 
+      try {
+        let finalProfileImage = photoUrl;
+
+        // If a new photo is selected, convert it to Base64 for persistence
+        if (photo) {
+          finalProfileImage = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(photo);
+          });
+        }
+
+        const payload = {
+          ...formData,
+          profile_image: finalProfileImage,
         };
+
         onSubmit(payload);
-        setIsLoading(false);
-        const action = initialData ? 'updated' : 'created';
+        const action = initialData ? "updated" : "created";
         toast.success(`User ${formData.full_name} ${action} successfully!`, {
-          style: { borderRadius: '12px', background: '#333', color: '#fff' },
+          style: { borderRadius: "12px", background: "#333", color: "#fff" },
         });
         onClose();
-      }, 1000);
+      } catch (error) {
+        console.error("Image processing failed:", error);
+        toast.error("Failed to process profile image");
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -177,19 +222,36 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
       <button
         form="user-form"
         type="submit"
-        disabled={isLoading || !formData.full_name || !formData.mobile_number || !formData.role || !formData.designation || (!initialData && !formData.password)}
-        className={`px-8 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center gap-2 ${isLoading || !formData.full_name || !formData.mobile_number || !formData.role || !formData.designation || (!initialData && !formData.password) ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}
+        disabled={isLoading}
+        className={`px-8 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center gap-2 ${isLoading ? "opacity-70 cursor-not-allowed" : "active:scale-95"}`}
       >
         {isLoading ? (
           <>
-            <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            <svg
+              className="animate-spin h-4 w-4 text-white"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              ></circle>
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              ></path>
             </svg>
             Processing...
           </>
+        ) : initialData ? (
+          "Update User"
         ) : (
-          initialData ? 'Update User' : 'Create User'
+          "Create User"
         )}
       </button>
     </>
@@ -203,7 +265,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
       footer={modalFooter}
       maxWidth="max-w-3xl"
     >
-      <form id="user-form" onSubmit={handleSubmit}>
+      <form id="user-form" onSubmit={handleSubmit} noValidate>
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-4">
             <div className="w-1 h-6 bg-primary rounded-full"></div>
@@ -211,82 +273,117 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">Full Name <span className="text-rose-500">*</span></label>
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Full Name <span className="text-rose-500">*</span>
+              </label>
               <input
                 type="text"
                 name="full_name"
                 value={formData.full_name}
                 onChange={handleChange}
                 placeholder="John Doe"
-                className={`w-full px-4 py-2 bg-gray-50 border ${errors.full_name ? 'border-rose-500 focus:ring-rose-100' : 'border-gray-200 focus:ring-primary/20'} rounded-xl transition-all outline-none`}
+                className={`w-full px-4 py-2 bg-gray-50 border ${errors.full_name ? "border-rose-500 focus:ring-rose-100" : "border-gray-200 focus:ring-primary/20"} rounded-xl transition-all outline-none`}
               />
-              {errors.full_name && <p className="mt-1 text-xs text-rose-500">{errors.full_name}</p>}
+              {errors.full_name && (
+                <p className="mt-1 text-xs text-rose-500">{errors.full_name}</p>
+              )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">Mobile Number <span className="text-rose-500">*</span></label>
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Mobile Number <span className="text-rose-500">*</span>
+              </label>
               <input
                 type="text"
                 name="mobile_number"
                 value={formData.mobile_number}
                 onChange={handleChange}
                 placeholder="+91 9876543210"
-                className={`w-full px-4 py-2 bg-gray-50 border ${errors.mobile_number ? 'border-rose-500 focus:ring-rose-100' : 'border-gray-200 focus:ring-primary/20'} rounded-xl transition-all outline-none`}
+                className={`w-full px-4 py-2 bg-gray-50 border ${errors.mobile_number ? "border-rose-500 focus:ring-rose-100" : "border-gray-200 focus:ring-primary/20"} rounded-xl transition-all outline-none`}
               />
-              {errors.mobile_number && <p className="mt-1 text-xs text-rose-500">{errors.mobile_number}</p>}
+              {errors.mobile_number && (
+                <p className="mt-1 text-xs text-rose-500">
+                  {errors.mobile_number}
+                </p>
+              )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">Email <span className="text-rose-500">*</span></label>
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Email <span className="text-rose-500">*</span>
+              </label>
               <input
                 type="email"
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
                 placeholder="john@example.com"
-                className={`w-full px-4 py-2 bg-gray-50 border ${errors.email ? 'border-rose-500 focus:ring-rose-100' : 'border-gray-200 focus:ring-primary/20'} rounded-xl transition-all outline-none`}
+                className={`w-full px-4 py-2 bg-gray-50 border ${errors.email ? "border-rose-500 focus:ring-rose-100" : "border-gray-200 focus:ring-primary/20"} rounded-xl transition-all outline-none`}
               />
-              {errors.email && <p className="mt-1 text-xs text-rose-500">{errors.email}</p>}
+              {errors.email && (
+                <p className="mt-1 text-xs text-rose-500">{errors.email}</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">
-                Password {!initialData && <span className="text-rose-500">*</span>}
+                Password{" "}
+                {!initialData && <span className="text-rose-500">*</span>}
               </label>
               <input
                 type="password"
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
-                placeholder={initialData ? "Leave empty to keep current" : "••••••••"}
-                className={`w-full px-4 py-2 bg-gray-50 border ${errors.password ? 'border-rose-500 focus:ring-rose-100' : 'border-gray-200 focus:ring-primary/20'} rounded-xl transition-all outline-none`}
+                placeholder={
+                  initialData ? "Leave empty to keep current" : "••••••••"
+                }
+                className={`w-full px-4 py-2 bg-gray-50 border ${errors.password ? "border-rose-500 focus:ring-rose-100" : "border-gray-200 focus:ring-primary/20"} rounded-xl transition-all outline-none`}
               />
-              {errors.password && <p className="mt-1 text-xs text-rose-500">{errors.password}</p>}
+              {errors.password && (
+                <p className="mt-1 text-xs text-rose-500">{errors.password}</p>
+              )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">Role <span className="text-rose-500">*</span></label>
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Role <span className="text-rose-500">*</span>
+              </label>
               <select
                 name="role"
                 value={formData.role}
                 onChange={handleChange}
-                className={`w-full px-4 py-2 bg-gray-50 border ${errors.role ? 'border-rose-500 focus:ring-rose-100' : 'border-gray-200 focus:ring-primary/20'} rounded-xl transition-all outline-none appearance-none`}
+                className={`w-full px-4 py-2 bg-gray-50 border ${errors.role ? "border-rose-500 focus:ring-rose-100" : "border-gray-200 focus:ring-primary/20"} rounded-xl transition-all outline-none appearance-none`}
               >
                 <option value="">Select Role</option>
-                {ROLES.map(role => <option key={role} value={role}>{role}</option>)}
+                {ROLES.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
+                  </option>
+                ))}
               </select>
-              {errors.role && <p className="mt-1 text-xs text-rose-500">{errors.role}</p>}
+              {errors.role && (
+                <p className="mt-1 text-xs text-rose-500">{errors.role}</p>
+              )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">Designation <span className="text-rose-500">*</span></label>
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Designation <span className="text-rose-500">*</span>
+              </label>
               <input
                 type="text"
                 name="designation"
                 value={formData.designation}
                 onChange={handleChange}
                 placeholder="Project Admin"
-                className={`w-full px-4 py-2 bg-gray-50 border ${errors.designation ? 'border-rose-500 focus:ring-rose-100' : 'border-gray-200 focus:ring-primary/20'} rounded-xl transition-all outline-none`}
+                className={`w-full px-4 py-2 bg-gray-50 border ${errors.designation ? "border-rose-500 focus:ring-rose-100" : "border-gray-200 focus:ring-primary/20"} rounded-xl transition-all outline-none`}
               />
-              {errors.designation && <p className="mt-1 text-xs text-rose-500">{errors.designation}</p>}
+              {errors.designation && (
+                <p className="mt-1 text-xs text-rose-500">
+                  {errors.designation}
+                </p>
+              )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">PAN Number</label>
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                PAN Number
+              </label>
               <input
                 type="text"
                 name="pan_number"
@@ -297,7 +394,9 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">Aadhaar Number</label>
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Aadhaar Number
+              </label>
               <input
                 type="text"
                 name="aadhaar_number"
@@ -308,7 +407,9 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
               />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-600 mb-1">Full Address</label>
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Full Address
+              </label>
               <textarea
                 name="address"
                 rows={2}
@@ -321,51 +422,31 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
           </div>
         </div>
 
-        {formData.role && formData.role !== 'Admin' && (
+        {formData.role && formData.role !== "Admin" && (
           <div className="mb-8 p-5 bg-slate-50 border border-slate-100 rounded-2xl relative">
             <div className="absolute -top-3 left-4 px-2 bg-white text-[10px] font-bold text-primary uppercase tracking-widest border border-slate-100 rounded-lg shadow-sm">
-               {formData.role} Exclusive Fields
+              {formData.role} Exclusive Fields
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-              {['Site Engineer', 'Project Manager'].includes(formData.role) && (
+              {["SiteEngineer", "ProjectManager"].includes(formData.role) && (
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-600 mb-1">Assigned Project <span className="text-rose-500">*</span></label>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">
+                    Assigned Project <span className="text-rose-500">*</span>
+                  </label>
                   <select
                     name="assignedProject"
                     value={formData.assignedProject}
                     onChange={handleChange}
-                    className={`w-full px-4 py-2 bg-white border ${errors.assignedProject ? 'border-rose-500' : 'border-gray-200'} rounded-xl outline-none`}
+                    className={`w-full px-4 py-2 bg-white border ${errors.assignedProject ? "border-rose-500" : "border-gray-200"} rounded-xl outline-none`}
                   >
                     <option value="">Select Project</option>
-                    {MOCK_PROJECTS.map(p => <option key={p} value={p}>{p}</option>)}
+                    {projects.map((p) => (
+                      <option key={p.id} value={p.project_name}>
+                        {p.project_name}
+                      </option>
+                    ))}
                   </select>
                 </div>
-              )}
-              {formData.role === 'Contractor' && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-600 mb-1">Company Name</label>
-                    <input
-                      type="text"
-                      name="companyName"
-                      value={formData.companyName}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-600 mb-1">Work Type</label>
-                    <select
-                      name="workType"
-                      value={formData.workType}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl outline-none"
-                    >
-                      <option value="">Select Type</option>
-                      {WORK_TYPES.map(w => <option key={w} value={w}>{w}</option>)}
-                    </select>
-                  </div>
-                </>
               )}
             </div>
           </div>
@@ -373,16 +454,38 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
 
         <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-            <label className="block text-sm font-medium text-gray-600 mb-3">Profile Photo</label>
+            <label className="block text-sm font-medium text-gray-600 mb-3">
+              Profile Photo
+            </label>
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-full bg-slate-200 overflow-hidden flex-shrink-0 border-2 border-white shadow-sm">
-                {photo ? (
-                  <img src={URL.createObjectURL(photo)} alt="Preview" className="w-full h-full object-cover" />
-                ) : photoUrl ? (
-                   <img src={photoUrl} alt="Profile" className="w-full h-full object-cover" />
+                {previewUrl ? (
+                  <img
+                    src={previewUrl}
+                    alt="Preview"
+                    className="w-full h-full object-cover"
+                  />
+                ) : photoUrl && !photoUrl.startsWith("blob:") ? (
+                  <img
+                    src={photoUrl}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-slate-400">
-                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                    <svg
+                      className="w-8 h-8"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                      />
+                    </svg>
                   </div>
                 )}
               </div>
@@ -395,7 +498,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
               />
               <button
                 type="button"
-                onClick={() => document.getElementById('photo-upload')?.click()}
+                onClick={() => document.getElementById("photo-upload")?.click()}
                 className="px-4 py-2 text-xs font-bold text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-all"
               >
                 {photoUrl || photo ? "Change Photo" : "Upload Photo"}
@@ -406,14 +509,20 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onSu
           <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 h-full">
             <div>
               <p className="font-semibold text-gray-700">Account Status</p>
-              <p className="text-[10px] text-gray-500 uppercase font-black tracking-tighter">Login Access Enabled</p>
+              <p className="text-[10px] text-gray-500 uppercase font-black tracking-tighter">
+                Login Access Enabled
+              </p>
             </div>
             <button
               type="button"
-              onClick={() => setFormData(p => ({ ...p, is_active: !p.is_active }))}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${formData.is_active ? 'bg-emerald-500' : 'bg-gray-300'}`}
+              onClick={() =>
+                setFormData((p) => ({ ...p, is_active: !p.is_active }))
+              }
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${formData.is_active ? "bg-emerald-500" : "bg-gray-300"}`}
             >
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${formData.is_active ? 'translate-x-6' : 'translate-x-1'}`} />
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${formData.is_active ? "translate-x-6" : "translate-x-1"}`}
+              />
             </button>
           </div>
         </div>

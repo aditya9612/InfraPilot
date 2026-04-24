@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import Modal from "../common/Modal";
-import toast from "react-hot-toast";
 import type { Project } from "../../types/project";
 
 interface EditProjectModalProps {
@@ -60,34 +59,22 @@ const EditProjectModal = ({ isOpen, onClose, project, onSubmit }: EditProjectMod
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!validate() || !project) return;
         
         setIsLoading(true);
-        // Simulate API call based on USER provided request/response
-        setTimeout(() => {
+        try {
             const requestBody = {
-                project_id: project.id, // required field as per user
                 ...formData
             };
-            
-            console.log("Updating project (Request Body):", requestBody);
-            
-            if (onSubmit) onSubmit(requestBody);
-            setIsLoading(false);
-            
-            toast.success(`Project "${formData.project_name}" updated successfully!`, {
-                style: {
-                    borderRadius: '12px',
-                    background: '#333',
-                    color: '#fff',
-                    fontSize: '14px',
-                    fontWeight: '600'
-                },
-            });
+            if (onSubmit) await onSubmit(requestBody);
             onClose();
-        }, 1000);
+        } catch (error) {
+            console.error("Project update error:", error);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const modalFooter = (
@@ -117,7 +104,7 @@ const EditProjectModal = ({ isOpen, onClose, project, onSubmit }: EditProjectMod
             title="Edit Project"
             footer={modalFooter}
         >
-            <form id="edit-project-form" onSubmit={handleSubmit} className="space-y-6">
+            <form id="edit-project-form" onSubmit={handleSubmit} noValidate className="space-y-6">
                 {/* Basic Info */}
                 <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
                     <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Project Details</h3>

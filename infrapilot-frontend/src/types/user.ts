@@ -1,4 +1,8 @@
-export type UserRole = "Admin" | "Project Manager" | "Site Engineer" | "Contractor" | "Accountant" | "Client";
+export type UserRole =
+  | "Admin"
+  | "ProjectManager"
+  | "SiteEngineer"
+  | "Accountant";
 
 export interface User {
   user_id: number;
@@ -12,5 +16,14 @@ export interface User {
   profile_image: string;
   designation: string;
   joining_date: string;
+  is_active: boolean;
+}
+
+export interface Role {
+  id: string;
+  name: string;
+  description: string;
+  userCount: number;
+  color: string;
   is_active: boolean;
 }
