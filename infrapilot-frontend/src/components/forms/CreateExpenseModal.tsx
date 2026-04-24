@@ -7,7 +7,7 @@ import type { Project } from "../../types/project";
 interface CreateExpenseModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (expenseData: any) => void;
+  onSubmit: (expenseData: any) => void | Promise<void>;
   projects: Project[];
   initialData?: Expense | null;
 }
@@ -47,7 +47,7 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
     }
   }, [initialData, isOpen]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.amount || !formData.category) {
       toast.error("Please fill in required fields (Amount, Category)");
@@ -60,8 +60,8 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
       description: formData.remarks,
     };
 
-    onSubmit(submissionData);
-    onClose();
+    // Await the parent handler — it controls closing the modal on success/failure
+    await onSubmit(submissionData);
   };
 
   const categories = formData.expense_type === "Direct" 
