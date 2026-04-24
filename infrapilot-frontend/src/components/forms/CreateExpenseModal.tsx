@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import Modal from "../common/Modal";
-import type { Expense, ExpenseCreateData } from "../../types/expense";
+import type { Expense } from "../../types/expense";
 import type { Project } from "../../types/project";
 
 interface CreateExpenseModalProps {

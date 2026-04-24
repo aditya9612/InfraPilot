@@ -43,7 +43,7 @@ const ProjectDetailsPage = () => {
 
   // Profit & Loss and Expenses (Still partially mock/local for and, but connected to stats)
   const [profitLoss, setProfitLoss] = useState<any>(null);
-  const [expenses, setExpenses] = useState<any[]>([]);
+  const [expenses, _setExpenses] = useState<any[]>([]);
 
   const fetchProjectData = useCallback(async () => {
     if (!projectId) return;

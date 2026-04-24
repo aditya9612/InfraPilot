@@ -32,7 +32,7 @@ const MOCK_TRANSACTIONS = [
 
 const PaymentsReceiptsPage = () => {
   const { category } = useParams<{ category: string }>();
-  const [transactions, setTransactions] = useState(MOCK_TRANSACTIONS);
+  const [transactions, _setTransactions] = useState(MOCK_TRANSACTIONS);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("All");
 

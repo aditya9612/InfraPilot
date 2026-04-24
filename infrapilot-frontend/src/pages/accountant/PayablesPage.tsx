@@ -51,7 +51,7 @@ const MOCK_PAYABLES = [
 
 const PayablesPage = () => {
   const { category } = useParams<{ category: string }>();
-  const [bills, setBills] = useState(MOCK_PAYABLES);
+  const [bills, _setBills] = useState(MOCK_PAYABLES);
   const [activeTab, setActiveTab] = useState<string>("All");
 
   useEffect(() => {

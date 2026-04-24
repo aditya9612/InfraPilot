@@ -5,10 +5,8 @@ import DashboardLayout from "../components/common/DashboardLayout";
 import Login from "../pages/auth/Login";
 import AdminDashboard from "../pages/dashboard/AdminDashboard";
 import ManagerDashboard from "../pages/dashboard/ManagerDashboard";
-import EngineerDashboard from "../pages/dashboard/EngineerDashboard";
-import ContractorDashboard from "../pages/dashboard/ContractorDashboard";
+import EngineerDashboard from "../pages/engineer/EngineerDashboard";
 import AccountantDashboard from "../pages/dashboard/AccountantDashboard";
-import ClientDashboard from "../pages/dashboard/ClientDashboard";
 import Unauthorized from "../pages/Unauthorized";
 import ProjectsPage from "../pages/admin/ProjectsPage";
 import UsersPage from "../pages/admin/UsersPage";
@@ -34,27 +32,9 @@ import PermissionsPage from "../pages/admin/PermissionsPage";
 import MeasurementPage from "../pages/admin/MeasurementPage";
 import ProjectDetailsPage from "../pages/projects/ProjectDetailsPage";
 
-// Client Pages
-import ClientOverviewPage from "../pages/client/ClientOverviewPage";
-import ClientProgressPage from "../pages/client/ClientProgressPage";
-import ClientFinancialsSummaryPage from "../pages/client/financials/ClientFinancialsSummaryPage";
-import ClientInvoicesPage from "../pages/client/financials/ClientInvoicesPage";
-import ClientPaymentsPage from "../pages/client/financials/ClientPaymentsPage";
-import ClientPhotosPage from "../pages/client/site-updates/ClientPhotosPage";
-import ClientDSRSummaryPage from "../pages/client/site-updates/ClientDSRSummaryPage";
-import ClientIssuesPage from "../pages/client/ClientIssuesPage";
-import ClientDocumentsPage from "../pages/client/ClientDocumentsPage";
-import ClientPendingApprovalsPage from "../pages/client/approvals/ClientPendingApprovalsPage";
-import ClientApprovedItemsPage from "../pages/client/approvals/ClientApprovedItemsPage";
-import ClientMessagesPage from "../pages/client/communication/ClientMessagesPage";
-import ClientAnnouncementsPage from "../pages/client/communication/ClientAnnouncementsPage";
-import ClientMonthlyProgressReportPage from "../pages/client/reports/ClientMonthlyProgressReportPage";
-import ClientFinancialReportPage from "../pages/client/reports/ClientFinancialReportPage";
-import ClientWorkSummaryPage from "../pages/client/reports/ClientWorkSummaryPage";
-import ClientSettingsPage from "../pages/client/ClientSettingsPage";
+
 
 // Engineer Pages
-import EngineerDashboard from "../pages/engineer/EngineerDashboard";
 import DSRPage from "../pages/engineer/DSRPage";
 import SitePhotosPage from "../pages/engineer/SitePhotosPage";
 import ReportsPage from "../pages/engineer/ReportsPage";
@@ -238,7 +218,7 @@ function AppRoutes() {
             </Route>
 
             {/* Engineer Routes */}
-            <Route element={<ProtectedRoute allowedRoles={["Site Engineer"]} />}>
+            <Route element={<ProtectedRoute allowedRoles={["SiteEngineer"]} />}>
               <Route path="/engineer" element={<EngineerDashboard />} />
               <Route path="/engineer/dsr" element={<DSRPage />} />
               <Route path="/engineer/photos" element={<SitePhotosPage />} />
@@ -264,21 +244,11 @@ function AppRoutes() {
               <Route path="/engineer/approvals/work" element={<WorkApprovalPage />} />
             </Route>
 
-            {/* Contractor Routes */}
-            <Route element={<ProtectedRoute allowedRoles={["Contractor"]} />}>
+            {/* Contractor Routes - Temporarily commented out as Contractor is not in UserRole type */}
+            {/* <Route element={<ProtectedRoute allowedRoles={["Contractor"]} />}>
               <Route path="/contractor" element={<ContractorDashboard />} />
-            </Route>
+            </Route> */}
 
-            {/* Accountant Routes */}
-            <Route element={<ProtectedRoute allowedRoles={["Accountant"]} />}>
-              <Route path="/accountant" element={<AccountantDashboard />} />
-            </Route>
-
-            {/* Client Routes */}
-            {/* Engineer Specific Routes */}
-            <Route element={<ProtectedRoute allowedRoles={["SiteEngineer"]} />}>
-              <Route path="/engineer" element={<EngineerDashboard />} />
-            </Route>
             {/* Accountant Specific Routes */}
             <Route element={<ProtectedRoute allowedRoles={["Accountant"]} />}>
               <Route path="/accountant" element={<AccountantDashboard />} />

@@ -17,6 +17,11 @@ export interface Invoice {
   description: string;
   created_at: string;
   invoice_date?: string;
+  quantity?: number;
+  rate?: number;
+  invoice_number?: string;
+  client_name?: string;
+  due_date?: string;
 }
 
 export interface InvoiceCreateData {

@@ -13,7 +13,7 @@ const REPORTS = [
   { id: "gst", title: "GST Report", description: "Consolidated report for GSTR-1 and GSTR-3B filings.", icon: "percent" },
 ];
 
-const ReportIcon = ({ name }: { name: string }) => {
+const ReportIcon = () => {
   // A simple mapping to render an icon based on the name string.
   // In a real app, you would reuse your existing icon components.
   return (
@@ -74,7 +74,7 @@ const AccountantReportsPage = () => {
                     to={`/accountant/reports/${report.id}`}
                     className="group bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-primary/5 hover:border-primary/20 transition-all cursor-pointer flex flex-col h-full"
                 >
-                    <ReportIcon name={report.icon} />
+                    <ReportIcon />
                     <h3 className="text-lg font-black text-slate-800 mb-2 group-hover:text-primary transition-colors">{report.title}</h3>
                     <p className="text-xs text-slate-500 font-medium leading-relaxed flex-grow">{report.description}</p>
                     

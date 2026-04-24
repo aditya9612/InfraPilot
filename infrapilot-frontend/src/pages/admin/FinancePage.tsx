@@ -7,7 +7,7 @@ import StatCard from "../../components/common/StatCard";
 import CreateInvoiceModal from "../../components/forms/CreateInvoiceModal";
 import InvoiceDetailsModal from "../../components/dashboard/InvoiceDetailsModal";
 import ConfirmModal from "../../components/common/ConfirmModal";
-import type { Invoice, InvoiceStatus } from "../../types/invoice";
+import type { Invoice } from "../../types/invoice";
 import { projectService } from "../../services/projectService";
 import { financeService } from "../../services/financeService";
 import { expenseService } from "../../services/expenseService";
@@ -34,7 +34,7 @@ const FinancePage = () => {
   const [dateTo, setDateTo] = useState("");
 
   const [projects, setProjects] = useState<Project[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [_isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [showTypeSelector, setShowTypeSelector] = useState(false);
 
