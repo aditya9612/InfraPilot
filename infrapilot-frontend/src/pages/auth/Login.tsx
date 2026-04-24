@@ -47,6 +47,15 @@ const Login = () => {
     setError("");
     setLoading(true);
     try {
+      // Mock for development testing
+      if (mobile === "4444444444") {
+        await new Promise((r) => setTimeout(r, 800));
+        toast.success("Test OTP: 444444");
+        setStep("otp");
+        startResendTimer();
+        return;
+      }
+
       await authService.login(mobile);
       toast.success("Demanded OTP sent!");
       setStep("otp");
@@ -80,29 +89,46 @@ const Login = () => {
     setError("");
     setLoading(true);
     try {
-      const verifyData = await authService.verifyOtp(mobile, otpValue);
-      
-      // Temporary store to allow fetch profile
-      const tempUser = { 
-        id: String(verifyData.user_id), 
-        token: verifyData.token,
-        mobile: mobile
-      } as any;
-      localStorage.setItem("infrapilot_user", JSON.stringify(tempUser));
+      let fullUser: User;
 
-      const profile = await authService.getMe();
-      
-      const fullUser: User = {
-        id: String(verifyData.user_id),
-        name: profile.full_name || "User",
-        mobile: mobile,
-        role: (profile.role as Role) || "Admin",
-        token: verifyData.token,
-      };
+      // Mock for development testing
+      if (mobile === "4444444444") {
+        await new Promise((r) => setTimeout(r, 800));
+        fullUser = {
+          id: "mock-client-id",
+          name: "Test Client",
+          mobile: "4444444444",
+          role: "Client",
+          token: { access_token: "mock-token", token_type: "Bearer" }
+        };
+      } else {
+        const verifyData = await authService.verifyOtp(mobile, otpValue);
+        
+        // Temporary store to allow fetch profile
+        const tempUser = { 
+          id: String(verifyData.user_id), 
+          token: verifyData.token,
+          mobile: mobile
+        } as any;
+        localStorage.setItem("infrapilot_user", JSON.stringify(tempUser));
+
+        const profile = await authService.getMe();
+        
+        fullUser = {
+          id: String(verifyData.user_id),
+          name: profile.full_name || "User",
+          mobile: mobile,
+          role: (profile.role as Role) || "Admin",
+          token: verifyData.token,
+        };
+      }
 
       login(fullUser);
       toast.success(`Welcome, ${fullUser.name}!`);
-      navigate(ROLE_PATHS[fullUser.role]);
+      
+      // Redirect based on role
+      const redirectPath = ROLE_PATHS[fullUser.role] || "/client";
+      navigate(redirectPath);
     } catch (err: any) {
       setError(err.response?.data?.message || "Invalid OTP or verification failed.");
       localStorage.removeItem("infrapilot_user");

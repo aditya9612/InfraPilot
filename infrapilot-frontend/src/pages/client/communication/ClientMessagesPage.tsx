@@ -60,6 +60,18 @@ const ClientMessagesPage = () => {
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  // Use query params to select thread on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const contactId = params.get("contactId");
+    if (contactId) {
+      const idNum = parseInt(contactId);
+      if (contacts.some(c => c.id === idNum)) {
+        setSelectedId(idNum);
+      }
+    }
+  }, []);
+
   const selected = threads.find((t) => t.id === selectedId)!;
   const messages = threadMessages[selectedId] ?? [];
 

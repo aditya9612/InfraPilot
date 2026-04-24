@@ -360,4 +360,59 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     { label: "Reports", path: "/accountant/reports", icon: "bar-chart" },
     { label: "Settings", path: "/accountant/settings", icon: "settings" },
   ],
+  Client: [
+    { label: "Dashboard", path: "/client/overview", icon: "grid" },
+    { label: "Project Overview", path: "/client/project-overview", icon: "folder" },
+    { label: "Work Progress", path: "/client/progress", icon: "bar-chart" },
+    {
+      label: "Financials",
+      path: "/client/financials",
+      icon: "dollar-sign",
+      subNav: [
+        { label: "Invoices", path: "/client/financials/invoices", icon: "file-text" },
+        { label: "Payments", path: "/client/financials/payments", icon: "credit-card" },
+        { label: "Summary", path: "/client/financials/summary", icon: "bar-chart" },
+      ],
+    },
+    {
+      label: "Site Updates",
+      path: "/client/site-updates",
+      icon: "camera",
+      subNav: [
+        { label: "DSR Summary", path: "/client/site-updates/dsr", icon: "clipboard" },
+        { label: "Photos", path: "/client/site-updates/photos", icon: "camera" },
+      ],
+    },
+    { label: "Issues & Risks", path: "/client/issues", icon: "alert-triangle" },
+    { label: "Documents & Drawings", path: "/client/documents", icon: "folder" },
+    {
+      label: "Approvals",
+      path: "/client/approvals",
+      icon: "check-circle",
+      subNav: [
+        { label: "Pending Approvals", path: "/client/approvals/pending", icon: "clock" },
+        { label: "Approved Items", path: "/client/approvals/approved", icon: "check-circle" },
+      ],
+    },
+    {
+      label: "Communication",
+      path: "/client/communication",
+      icon: "message-circle",
+      subNav: [
+        { label: "Messages", path: "/client/communication/messages", icon: "mail" },
+        { label: "Announcements", path: "/client/communication/announcements", icon: "bell" },
+      ],
+    },
+    {
+      label: "Reports",
+      path: "/client/reports",
+      icon: "bar-chart",
+      subNav: [
+        { label: "Monthly Report", path: "/client/reports/monthly", icon: "file-text" },
+        { label: "Financial Summary", path: "/client/reports/financial", icon: "dollar-sign" },
+        { label: "Work Summary", path: "/client/reports/work", icon: "activity" },
+      ],
+    },
+    { label: "Settings", path: "/client/settings", icon: "settings" },
+  ],
 };
