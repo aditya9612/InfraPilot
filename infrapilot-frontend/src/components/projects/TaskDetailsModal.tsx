@@ -13,7 +13,7 @@ interface TaskDetailsModalProps {
 const TaskDetailsModal = ({ task, onClose, onUpdateProgress, onAddComment }: TaskDetailsModalProps) => {
   const [history, setHistory] = useState<TaskProgress[]>([]);
   const [comments, setComments] = useState<TaskComment[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [_isLoading, setIsLoading] = useState(true);
   
   const [newComment, setNewComment] = useState("");
   const [updatePercentage, setUpdatePercentage] = useState(task.completion_percentage);

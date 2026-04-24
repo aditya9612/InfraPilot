@@ -5,7 +5,11 @@ import DashboardLayout from "../components/common/DashboardLayout";
 import Login from "../pages/auth/Login";
 import AdminDashboard from "../pages/dashboard/AdminDashboard";
 import ManagerDashboard from "../pages/dashboard/ManagerDashboard";
+<<<<<<< HEAD
 
+=======
+import EngineerDashboard from "../pages/engineer/EngineerDashboard";
+>>>>>>> f0b3fade6c37f0464e316a2a7a6f305ba49344c5
 import AccountantDashboard from "../pages/dashboard/AccountantDashboard";
 import Unauthorized from "../pages/Unauthorized";
 import ProjectsPage from "../pages/admin/ProjectsPage";
@@ -32,6 +36,7 @@ import PermissionsPage from "../pages/admin/PermissionsPage";
 import MeasurementPage from "../pages/admin/MeasurementPage";
 import ProjectDetailsPage from "../pages/projects/ProjectDetailsPage";
 
+<<<<<<< HEAD
 // // Client Pages
 // import ClientOverviewPage from "../pages/client/ClientOverviewPage";
 // import ClientProgressPage from "../pages/client/ClientProgressPage";
@@ -50,9 +55,11 @@ import ProjectDetailsPage from "../pages/projects/ProjectDetailsPage";
 // import ClientFinancialReportPage from "../pages/client/reports/ClientFinancialReportPage";
 // import ClientWorkSummaryPage from "../pages/client/reports/ClientWorkSummaryPage";
 // import ClientSettingsPage from "../pages/client/ClientSettingsPage";
+=======
+
+>>>>>>> f0b3fade6c37f0464e316a2a7a6f305ba49344c5
 
 // Engineer Pages
-import EngineerDashboard from "../pages/engineer/EngineerDashboard";
 import DSRPage from "../pages/engineer/DSRPage";
 import SitePhotosPage from "../pages/engineer/SitePhotosPage";
 import ReportsPage from "../pages/engineer/ReportsPage";
@@ -262,21 +269,15 @@ function AppRoutes() {
               <Route path="/engineer/approvals/work" element={<WorkApprovalPage />} />
             </Route>
 
+<<<<<<< HEAD
             {/* Contractor Routes */}
+=======
+            {/* Contractor Routes - Temporarily commented out as Contractor is not in UserRole type */}
+>>>>>>> f0b3fade6c37f0464e316a2a7a6f305ba49344c5
             {/* <Route element={<ProtectedRoute allowedRoles={["Contractor"]} />}>
               <Route path="/contractor" element={<ContractorDashboard />} />
             </Route> */}
 
-            {/* Accountant Routes */}
-            <Route element={<ProtectedRoute allowedRoles={["Accountant"]} />}>
-              <Route path="/accountant" element={<AccountantDashboard />} />
-            </Route>
-
-            {/* Client Routes */}
-            {/* Engineer Specific Routes */}
-            <Route element={<ProtectedRoute allowedRoles={["SiteEngineer"]} />}>
-              <Route path="/engineer" element={<EngineerDashboard />} />
-            </Route>
             {/* Accountant Specific Routes */}
             <Route element={<ProtectedRoute allowedRoles={["Accountant"]} />}>
               <Route path="/accountant" element={<AccountantDashboard />} />

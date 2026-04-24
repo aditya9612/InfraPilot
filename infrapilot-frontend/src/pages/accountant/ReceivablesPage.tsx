@@ -55,7 +55,6 @@ const MOCK_INVOICES = [
 const ReceivablesPage = () => {
   const [invoices, setInvoices] = useState(MOCK_INVOICES);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isLoading] = useState(false);
 
   const handleCreateInvoice = (data: any) => {
     const newInvoice = {

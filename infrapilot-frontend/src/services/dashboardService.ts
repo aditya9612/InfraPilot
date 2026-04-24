@@ -1,5 +1,3 @@
-import api from "./api";
-
 export const dashboardService = {
   /**
    * Get Accountant Dashboard stats

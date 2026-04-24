@@ -38,12 +38,6 @@ const routeMap: Record<string, string> = {
 const Navbar = ({ title, breadcrumb, action }: Props) => {
   const { user } = useAuth();
   const { toggleSidebar } = useSidebar();
-  const rolePaths: Record<string, string> = {
-    Admin: "/admin",
-    ProjectManager: "/manager",
-    SiteEngineer: "/engineer",
-    Accountant: "/accountant",
-  };
 
   return (
     <div className="sticky top-0 z-40 shadow-sm bg-primary px-6 py-4 flex items-center justify-between">

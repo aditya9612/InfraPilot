@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import Modal from "../common/Modal";
 import type { User, UserRole } from "../../types/user";
-
 import type { Project } from "../../types/project";
 
 interface CreateUserModalProps {
@@ -19,8 +18,6 @@ const ROLES: { value: UserRole; label: string }[] = [
   { value: "SiteEngineer", label: "Site Engineer" },
   { value: "Accountant", label: "Accountant" },
 ];
-
-const WORK_TYPES = ["Civil", "Electrical", "Plumbing"];
 
 const CreateUserModal: React.FC<CreateUserModalProps> = ({
   isOpen,
@@ -63,9 +60,9 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     if (isOpen) {
       if (initialData) {
         setFormData({
-          ...formData, // default structure
+          ...formData,
           ...initialData,
-          password: "", // Don't populate password
+          password: "",
           assignedProject: (initialData as any).assignedProject || "",
         } as any);
         setPhotoUrl(initialData.profile_image || "");
@@ -100,7 +97,6 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     }
   }, [isOpen, initialData]);
 
-  // Handle preview URL cleanup to prevent memory leaks
   useEffect(() => {
     let url = "";
     if (photo) {
@@ -127,7 +123,6 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
       newErrors.email = "Enter a valid email address.";
 
-    // Only validate password on create
     if (!initialData && (!formData.password || formData.password.length < 6)) {
       newErrors.password = "Password must be at least 6 characters.";
     }
@@ -153,9 +148,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     >,
   ) => {
     let { name, value } = e.target;
-    if (name === "mobile_number") {
-      value = value;
-    } else if (name === "pan_number") {
+    if (name === "pan_number") {
       value = value.toUpperCase().slice(0, 10);
     } else if (name === "aadhaar_number") {
       const numeric = value.replace(/[^\d]/g, "").slice(0, 12);
@@ -179,7 +172,6 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
       try {
         let finalProfileImage = photoUrl;
 
-        // If a new photo is selected, convert it to Base64 for persistence
         if (photo) {
           finalProfileImage = await new Promise((resolve, reject) => {
             const reader = new FileReader();
