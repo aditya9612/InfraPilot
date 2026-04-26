@@ -15,24 +15,19 @@ export default function SupplierModal({
 }: SupplierModalProps) {
   const [formData, setFormData] = useState({
     name: "",
-    contactPerson: "",
-    phone: "",
-    email: "",
-    gst: "",
-    address: "",
+    contact: "",
   });
 
   useEffect(() => {
     if (initialData) {
-      setFormData(initialData);
+      setFormData({
+        name: initialData.name || "",
+        contact: initialData.contact || initialData.phone || "",
+      });
     } else {
       setFormData({
         name: "",
-        contactPerson: "",
-        phone: "",
-        email: "",
-        gst: "",
-        address: "",
+        contact: "",
       });
     }
   }, [initialData, isOpen]);
@@ -53,7 +48,7 @@ export default function SupplierModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm transition-opacity">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <h2 className="text-xl font-bold text-slate-800">
             {initialData ? "Edit Supplier" : "Add New Supplier"}
@@ -79,10 +74,10 @@ export default function SupplierModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-1 md:col-span-2">
+          <div className="space-y-5">
+            <div className="space-y-1">
               <label className="block text-sm font-semibold text-slate-700">
-                Company Name *
+                Supplier Name *
               </label>
               <input
                 required
@@ -90,79 +85,23 @@ export default function SupplierModal({
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
-                placeholder="e.g. UltraTech Cement Ltd"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm outline-none"
+                placeholder="e.g. Aman patil"
               />
             </div>
 
             <div className="space-y-1">
               <label className="block text-sm font-semibold text-slate-700">
-                Contact Person
-              </label>
-              <input
-                type="text"
-                name="contactPerson"
-                value={formData.contactPerson}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
-                placeholder="John Doe"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="block text-sm font-semibold text-slate-700">
-                Phone *
+                Contact Number *
               </label>
               <input
                 required
                 type="tel"
-                name="phone"
-                value={formData.phone}
+                name="contact"
+                value={formData.contact}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
-                placeholder="+91 98765 43210"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="block text-sm font-semibold text-slate-700">
-                Email
-              </label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
-                placeholder="contact@company.com"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="block text-sm font-semibold text-slate-700">
-                GST Number
-              </label>
-              <input
-                type="text"
-                name="gst"
-                value={formData.gst}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
-                placeholder="22AAAAA0000A1Z5"
-              />
-            </div>
-
-            <div className="space-y-1 md:col-span-2">
-              <label className="block text-sm font-semibold text-slate-700">
-                Registered Address
-              </label>
-              <textarea
-                name="address"
-                value={formData.address}
-                onChange={handleChange}
-                rows={3}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
-                placeholder="Full address"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm outline-none"
+                placeholder="e.g. 9876543210"
               />
             </div>
           </div>
@@ -171,15 +110,15 @@ export default function SupplierModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+              className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-5 py-2.5 text-sm font-semibold text-white bg-primary hover:bg-blue-600 rounded-xl shadow-lg shadow-primary/20 transition-all"
+              className="px-8 py-2.5 text-sm font-bold text-white bg-primary hover:bg-blue-600 rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-95"
             >
-              {initialData ? "Update Supplier" : "Add Supplier"}
+              {initialData ? "Update Supplier" : "Create Supplier"}
             </button>
           </div>
         </form>
