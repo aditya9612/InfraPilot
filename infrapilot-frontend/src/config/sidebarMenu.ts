@@ -299,4 +299,29 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     { label: "Reports", path: "/accountant/reports", icon: "bar-chart" },
     { label: "Settings", path: "/accountant/settings", icon: "settings" },
   ],
+  Client: [
+    { label: "Dashboard", path: "/client", icon: "grid" },
+    { label: "Progress Tracking", path: "/client/progress", icon: "activity" },
+    {
+      label: "Financials",
+      path: "/client/financials",
+      icon: "dollar-sign",
+      subNav: [
+        { label: "Summary", path: "/client/financials", icon: "list" },
+        { label: "Invoices", path: "/client/financials/invoices", icon: "file-text" },
+        { label: "Payments", path: "/client/financials/payments", icon: "credit-card" },
+      ],
+    },
+    {
+      label: "Site Updates",
+      path: "/client/site-updates",
+      icon: "camera",
+      subNav: [
+        { label: "Photo Gallery", path: "/client/site-updates/photos", icon: "camera" },
+        { label: "Daily Reports", path: "/client/site-updates/dsr", icon: "file-text" },
+      ],
+    },
+    { label: "Communication", path: "/client/communication", icon: "message-circle" },
+    { label: "Settings", path: "/client/settings", icon: "settings" },
+  ],
 };

@@ -76,6 +76,7 @@ const RootRedirect = () => {
     ProjectManager: "/manager",
     SiteEngineer: "/engineer",
     Accountant: "/accountant",
+    Client: "/client",
   };
   return <Navigate to={paths[user!.role] || "/admin"} replace />;
 };
@@ -282,6 +283,40 @@ function AppRoutes() {
                 path="/accountant/settings"
                 element={<AccountantSettingsPage />}
               />
+            </Route>
+
+            {/* Client Specific Routes */}
+            <Route element={<ProtectedRoute allowedRoles={["Client"]} />}>
+              <Route path="/client" element={<ClientOverviewPage />} />
+              <Route path="/client/dashboard" element={<ClientDashboard />} />
+              <Route path="/client/progress" element={<ClientProgressPage />} />
+              
+              {/* Financials */}
+              <Route path="/client/financials" element={<ClientFinancialsSummaryPage />} />
+              <Route path="/client/financials/invoices" element={<ClientInvoicesPage />} />
+              <Route path="/client/financials/payments" element={<ClientPaymentsPage />} />
+              
+              {/* Site Updates */}
+              <Route path="/client/site-updates/photos" element={<ClientPhotosPage />} />
+              <Route path="/client/site-updates/dsr" element={<ClientDSRSummaryPage />} />
+              
+              {/* Others */}
+              <Route path="/client/issues" element={<ClientIssuesPage />} />
+              <Route path="/client/documents" element={<ClientDocumentsPage />} />
+              <Route path="/client/approvals/pending" element={<ClientPendingApprovalsPage />} />
+              <Route path="/client/approvals/approved" element={<ClientApprovedItemsPage />} />
+              
+              {/* Communication */}
+              <Route path="/client/communication" element={<ClientMessagesPage />} />
+              <Route path="/client/communication/messages" element={<ClientMessagesPage />} />
+              <Route path="/client/communication/announcements" element={<ClientAnnouncementsPage />} />
+              
+              {/* Reports */}
+              <Route path="/client/reports/progress" element={<ClientMonthlyProgressReportPage />} />
+              <Route path="/client/reports/financial" element={<ClientFinancialReportPage />} />
+              <Route path="/client/reports/work" element={<ClientWorkSummaryPage />} />
+              
+              <Route path="/client/settings" element={<ClientSettingsPage />} />
             </Route>
           </Route>
         </Route>

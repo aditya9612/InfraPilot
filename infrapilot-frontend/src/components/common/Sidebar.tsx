@@ -498,6 +498,7 @@ const Sidebar = ({ onClose }: SidebarProps) => {
     ProjectManager: "/manager",
     SiteEngineer: "/engineer",
     Accountant: "/accountant",
+    Client: "/client",
   };
 
   return (
