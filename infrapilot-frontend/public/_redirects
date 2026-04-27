@@ -1,2 +1,2 @@
-/api/*  https://infrapilot.in/api/:splat  200!
-/*  /index.html  200
+/api/*  http://13.60.128.36/api/:splat  200
+/*      /index.html                     200

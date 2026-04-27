@@ -11,6 +11,7 @@ import PurchaseActionModal from "../../components/inventory/PurchaseActionModal"
 import MaterialCostReportModal from "../../components/inventory/MaterialCostReportModal";
 import toast from "react-hot-toast";
 import ConfirmModal from "../../components/common/ConfirmModal";
+import { materialService } from "../../services/materialService";
 
 // --- Mock Data (Exact API Schema) ---
 const initialInventory = [
@@ -135,10 +136,15 @@ const InventoryPage = () => {
   );
 
   // Handlers
-  const handleSupplierSubmit = (data: any) => {
-    setSuppliers((prev) => [...prev, { ...data, id: `s${prev.length + 1}` }]);
-    setSupplierModalOpen(false);
-    toast.success("Supplier added successfully!");
+  const handleSupplierSubmit = async (data: any) => {
+    try {
+      await materialService.createSupplier(data);
+      setSuppliers((prev) => [...prev, { ...data, id: `s${prev.length + 1}` }]);
+      setSupplierModalOpen(false);
+      toast.success("Supplier added successfully!");
+    } catch (error) {
+      toast.error("Failed to add supplier");
+    }
   };
 
   const handleCreateOrUpdateMaterial = (data: any) => {
