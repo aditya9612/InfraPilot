@@ -8,12 +8,17 @@ export interface VerifyOtpResponse {
   user_id: number;
 }
 
+export interface LoginResponse {
+  message: string;
+  mobile: string;
+}
+
 export const authService = {
   /**
    * Sending OTP request
    * POST /api/v1/auth/login
    */
-  async login(mobile: string) {
+  async login(mobile: string): Promise<LoginResponse> {
     const response = await api.post('/auth/login', { mobile });
     return response.data;
   },

@@ -190,9 +190,70 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
   ],
   SiteEngineer: [
     { label: "Dashboard", path: "/engineer", icon: "grid" },
-    { label: "Tasks", path: "/engineer/tasks", icon: "check-square" },
-    { label: "Equipment", path: "/engineer/equipment", icon: "tool" },
-    { label: "Reports", path: "/engineer/reports", icon: "file-text" },
+    { label: "Daily Site Report (DSR)", path: "/engineer/dsr", icon: "clipboard" },
+    {
+      label: "Work Progress",
+      path: "/engineer/progress",
+      icon: "bar-chart",
+      subNav: [
+        { label: "Activity List", path: "/engineer/progress/activities", icon: "list" },
+        { label: "Daily Progress Entry", path: "/engineer/progress/entry", icon: "clipboard" },
+      ],
+    },
+    {
+      label: "Labor Management",
+      path: "/engineer/labor",
+      icon: "users",
+      subNav: [
+        { label: "Attendance", path: "/engineer/labor/attendance", icon: "user-check" },
+        { label: "Wage Reports", path: "/engineer/labor/reports", icon: "file-text" },
+        { label: "Labor Details", path: "/engineer/labor/details", icon: "users" },
+      ],
+    },
+    {
+      label: "Material Management",
+      path: "/engineer/material",
+      icon: "package",
+      subNav: [
+        { label: "Material Receipt", path: "/engineer/material/receipt", icon: "package" },
+        { label: "Material Consumption", path: "/engineer/material/consumption", icon: "tool" },
+        { label: "Stock", path: "/engineer/material/stock", icon: "database" },
+      ],
+    },
+    { label: "Machinery & Equipment", path: "/engineer/machinery", icon: "tool" },
+    {
+      label: "Quality Control (QC)",
+      path: "/engineer/qc",
+      icon: "check-circle",
+      subNav: [
+        { label: "Inspection", path: "/engineer/qc/inspection", icon: "search" },
+        { label: "Test Reports", path: "/engineer/qc/reports", icon: "file-text" },
+      ],
+    },
+    {
+      label: "Safety Management",
+      path: "/engineer/safety",
+      icon: "alert-triangle",
+      subNav: [
+        { label: "Safety Checklist", path: "/engineer/safety/checklist", icon: "check-square" },
+        { label: "Incident Report", path: "/engineer/safety/incident", icon: "file-text" },
+      ],
+    },
+    { label: "Issue / Delay Tracker", path: "/engineer/issues", icon: "alert-triangle" },
+    { label: "Site Photos", path: "/engineer/photos", icon: "camera" },
+    { label: "Drawings & Documents", path: "/engineer/drawings", icon: "folder" },
+    { label: "Checklists", path: "/engineer/checklists", icon: "list" },
+    {
+      label: "Approvals & Requests",
+      path: "/engineer/approvals",
+      icon: "check-circle",
+      subNav: [
+        { label: "Material Request", path: "/engineer/approvals/material", icon: "package" },
+        { label: "Work Approval", path: "/engineer/approvals/work", icon: "check-circle" },
+      ],
+    },
+    { label: "Reports", path: "/engineer/reports", icon: "bar-chart" },
+    { label: "Settings", path: "/engineer/settings", icon: "settings" },
   ],
   Accountant: [
     { label: "Dashboard", path: "/accountant", icon: "grid" },
@@ -301,13 +362,13 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
   ],
   Client: [
     { label: "Dashboard", path: "/client", icon: "grid" },
-    { label: "Progress Tracking", path: "/client/progress", icon: "activity" },
+    { label: "Work Progress", path: "/client/progress", icon: "bar-chart" },
     {
       label: "Financials",
       path: "/client/financials",
       icon: "dollar-sign",
       subNav: [
-        { label: "Summary", path: "/client/financials", icon: "list" },
+        { label: "Summary", path: "/client/financials", icon: "bar-chart" },
         { label: "Invoices", path: "/client/financials/invoices", icon: "file-text" },
         { label: "Payments", path: "/client/financials/payments", icon: "credit-card" },
       ],
@@ -317,11 +378,40 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       path: "/client/site-updates",
       icon: "camera",
       subNav: [
-        { label: "Photo Gallery", path: "/client/site-updates/photos", icon: "camera" },
-        { label: "Daily Reports", path: "/client/site-updates/dsr", icon: "file-text" },
+        { label: "Daily reports", path: "/client/site-updates/dsr", icon: "clipboard" },
+        { label: "Photos", path: "/client/site-updates/photos", icon: "camera" },
       ],
     },
-    { label: "Communication", path: "/client/communication", icon: "message-circle" },
+    { label: "Issues & Risks", path: "/client/issues", icon: "alert-triangle" },
+    { label: "Documents & Drawings", path: "/client/documents", icon: "folder" },
+    {
+      label: "Approvals",
+      path: "/client/approvals",
+      icon: "check-circle",
+      subNav: [
+        { label: "Pending Approvals", path: "/client/approvals/pending", icon: "clock" },
+        { label: "Approved Items", path: "/client/approvals/approved", icon: "check-circle" },
+      ],
+    },
+    {
+      label: "Communication",
+      path: "/client/communication",
+      icon: "message-circle",
+      subNav: [
+        { label: "Messages", path: "/client/communication/messages", icon: "mail" },
+        { label: "Announcements", path: "/client/communication/announcements", icon: "bell" },
+      ],
+    },
+    {
+      label: "Reports",
+      path: "/client/reports",
+      icon: "bar-chart",
+      subNav: [
+        { label: "Monthly Report", path: "/client/reports/progress", icon: "file-text" },
+        { label: "Financial Summary", path: "/client/reports/financial", icon: "dollar-sign" },
+        { label: "Work Summary", path: "/client/reports/work", icon: "activity" },
+      ],
+    },
     { label: "Settings", path: "/client/settings", icon: "settings" },
   ],
 };
