@@ -30,9 +30,9 @@ const executionFeed = [
 ];
 
 const siteEvidence = [
-  { title: "Slab reinforcement check", date: "TODAY", img: "https://images.unsplash.com/photo-1541888946425-d81bb19480c5?auto=format&fit=crop&q=80&w=400" },
-  { title: "Foundation concrete pour", date: "29 MAR 2026", img: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&q=80&w=400" },
-  { title: "Brickwork progress - L1", date: "30 MAR 2026", img: "https://images.unsplash.com/photo-1590069230005-db3937392997?auto=format&fit=crop&q=80&w=400" },
+  { title: "Slab reinforcement check", date: "TODAY", img: "/photos/slab_reinforcement.png" },
+  { title: "Foundation concrete pour", date: "29 MAR 2026", img: "/photos/foundation.png" },
+  { title: "Brickwork progress - L1", date: "30 MAR 2026", img: "/photos/masonry.png" },
 ];
 
 const ClientOverviewPage = () => {

@@ -12,9 +12,9 @@ const costData = [
 ];
 
 const sitePhotos = [
-  { id: 1, url: "https://images.unsplash.com/photo-1541888946425-d81bb19480c5?w=400&h=300&fit=crop", date: "Today", desc: "Slab reinforcement check" },
-  { id: 2, url: "https://images.unsplash.com/photo-1503387762-592dea58ef21?w=400&h=300&fit=crop", date: "29 Mar 2026", desc: "Foundation concrete pour" },
-  { id: 3, url: "https://images.unsplash.com/photo-1590486803833-ffc45744a3ae?w=400&h=300&fit=crop", date: "30 Mar 2026", desc: "Brickwork progress - L1" },
+  { id: 1, url: "/photos/slab_reinforcement.png", date: "Today", desc: "Slab reinforcement check" },
+  { id: 2, url: "/photos/foundation.png", date: "29 Mar 2026", desc: "Foundation concrete pour" },
+  { id: 3, url: "/photos/masonry.png", date: "30 Mar 2026", desc: "Brickwork progress - L1" },
 ];
 
 const updates = [

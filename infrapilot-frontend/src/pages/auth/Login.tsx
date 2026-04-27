@@ -13,6 +13,7 @@ const ROLE_PATHS: Record<Role, string> = {
   ProjectManager: "/manager",
   SiteEngineer: "/engineer",
   Accountant: "/accountant",
+  Client: "/client",
 };
 
 const Login = () => {
@@ -56,8 +57,8 @@ const Login = () => {
         return;
       }
 
-      await authService.login(mobile);
-      toast.success("Demanded OTP sent!");
+      const response = await authService.login(mobile);
+      toast.success(response.message || "OTP sent successfully!");
       setStep("otp");
       startResendTimer();
     } catch (err: any) {
@@ -142,9 +143,15 @@ const Login = () => {
     setOtp(["", "", "", "", "", ""]);
     setError("");
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    setLoading(false);
-    startResendTimer();
+    try {
+      const response = await authService.login(mobile);
+      toast.success(response.message || "OTP resent successfully!");
+      startResendTimer();
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to resend OTP.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
