@@ -264,43 +264,7 @@ function AppRoutes() {
               <Route path="/engineer/approvals/work" element={<WorkApprovalPage />} />
             </Route>
 
-            {/* Contractor Routes */}
-            {/* <Route element={<ProtectedRoute allowedRoles={["Contractor"]} />}>
-              <Route path="/contractor" element={<ContractorDashboard />} />
-            </Route> */}
-
             {/* Accountant Routes */}
-            <Route element={<ProtectedRoute allowedRoles={["Accountant"]} />}>
-              <Route path="/accountant" element={<AccountantDashboard />} />
-            </Route>
-
-            {/* Client Routes */}
-            <Route element={<ProtectedRoute allowedRoles={["Client", "Admin"]} />}>
-              <Route path="/client" element={<ClientOverviewPage />} />
-              <Route path="/client/overview" element={<ClientOverviewPage />} />
-              <Route path="/client/project-overview" element={<ClientProjectOverviewPage />} />
-              <Route path="/client/progress" element={<ClientProgressPage />} />
-              <Route path="/client/financials/summary" element={<ClientFinancialsSummaryPage />} />
-              <Route path="/client/financials/invoices" element={<ClientInvoicesPage />} />
-              <Route path="/client/financials/payments" element={<ClientPaymentsPage />} />
-              <Route path="/client/site-updates/photos" element={<ClientPhotosPage />} />
-              <Route path="/client/site-updates/dsr" element={<ClientDSRSummaryPage />} />
-              <Route path="/client/issues" element={<ClientIssuesPage />} />
-              <Route path="/client/documents" element={<ClientDocumentsPage />} />
-              <Route path="/client/approvals/pending" element={<ClientPendingApprovalsPage />} />
-              <Route path="/client/approvals/approved" element={<ClientApprovedItemsPage />} />
-              <Route path="/client/communication/messages" element={<ClientMessagesPage />} />
-              <Route path="/client/communication/announcements" element={<ClientAnnouncementsPage />} />
-              <Route path="/client/reports/monthly" element={<ClientMonthlyProgressReportPage />} />
-              <Route path="/client/reports/financial" element={<ClientFinancialReportPage />} />
-              <Route path="/client/reports/work" element={<ClientWorkSummaryPage />} />
-              <Route path="/client/settings" element={<ClientSettingsPage />} />
-            </Route>
-            {/* Engineer Specific Routes */}
-            <Route element={<ProtectedRoute allowedRoles={["SiteEngineer"]} />}>
-              <Route path="/engineer" element={<EngineerDashboard />} />
-            </Route>
-            {/* Accountant Specific Routes */}
             <Route element={<ProtectedRoute allowedRoles={["Accountant"]} />}>
               <Route path="/accountant" element={<AccountantDashboard />} />
               <Route
@@ -385,37 +349,26 @@ function AppRoutes() {
               />
             </Route>
 
-            {/* Client Specific Routes */}
-            <Route element={<ProtectedRoute allowedRoles={["Client"]} />}>
+            {/* Client Routes */}
+            <Route element={<ProtectedRoute allowedRoles={["Client", "Admin"]} />}>
               <Route path="/client" element={<ClientOverviewPage />} />
-              <Route path="/client/dashboard" element={<ClientDashboard />} />
+              <Route path="/client/overview" element={<ClientOverviewPage />} />
+              <Route path="/client/project-overview" element={<ClientProjectOverviewPage />} />
               <Route path="/client/progress" element={<ClientProgressPage />} />
-              
-              {/* Financials */}
-              <Route path="/client/financials" element={<ClientFinancialsSummaryPage />} />
+              <Route path="/client/financials/summary" element={<ClientFinancialsSummaryPage />} />
               <Route path="/client/financials/invoices" element={<ClientInvoicesPage />} />
               <Route path="/client/financials/payments" element={<ClientPaymentsPage />} />
-              
-              {/* Site Updates */}
               <Route path="/client/site-updates/photos" element={<ClientPhotosPage />} />
               <Route path="/client/site-updates/dsr" element={<ClientDSRSummaryPage />} />
-              
-              {/* Others */}
               <Route path="/client/issues" element={<ClientIssuesPage />} />
               <Route path="/client/documents" element={<ClientDocumentsPage />} />
               <Route path="/client/approvals/pending" element={<ClientPendingApprovalsPage />} />
               <Route path="/client/approvals/approved" element={<ClientApprovedItemsPage />} />
-              
-              {/* Communication */}
-              <Route path="/client/communication" element={<ClientMessagesPage />} />
               <Route path="/client/communication/messages" element={<ClientMessagesPage />} />
               <Route path="/client/communication/announcements" element={<ClientAnnouncementsPage />} />
-              
-              {/* Reports */}
-              <Route path="/client/reports/progress" element={<ClientMonthlyProgressReportPage />} />
+              <Route path="/client/reports/monthly" element={<ClientMonthlyProgressReportPage />} />
               <Route path="/client/reports/financial" element={<ClientFinancialReportPage />} />
               <Route path="/client/reports/work" element={<ClientWorkSummaryPage />} />
-              
               <Route path="/client/settings" element={<ClientSettingsPage />} />
             </Route>
           </Route>
