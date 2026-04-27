@@ -16,11 +16,14 @@
 }
 
 @layer base {
-  html, body {
+
+  html,
+  body {
     font-family: var(--font-inter);
     background-color: var(--color-background);
     font-size: var(--text-body);
-    color: #1F2937; /* Tailwind Gray 800 for better readability */
+    color: #1F2937;
+    /* Tailwind Gray 800 for better readability */
   }
 
   h1 {
@@ -39,13 +42,16 @@
     width: 6px;
     height: 6px;
   }
+
   ::-webkit-scrollbar-track {
     background: transparent;
   }
+
   ::-webkit-scrollbar-thumb {
     background: #cbd5e1;
     border-radius: 10px;
   }
+
   ::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
   }

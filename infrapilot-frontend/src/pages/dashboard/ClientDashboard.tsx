@@ -1,6 +1,9 @@
 import Navbar from "../../components/common/Navbar";
 import { useAuth } from "../../context/AuthContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import Modal from "../../components/common/Modal";
 
 const costData = [
   { name: "Phase 1", budget: 1.2, actual: 1.1 },
@@ -9,9 +12,9 @@ const costData = [
 ];
 
 const sitePhotos = [
-  { id: 1, url: "https://images.unsplash.com/photo-1541888946425-d81bb19480c5?w=400&h=300&fit=crop", date: "Today", desc: "Slab reinforcement check" },
-  { id: 2, url: "https://images.unsplash.com/photo-1503387762-592dea58ef21?w=400&h=300&fit=crop", date: "29 Mar 2026", desc: "Foundation concrete pour" },
-  { id: 3, url: "https://images.unsplash.com/photo-1590486803833-ffc45744a3ae?w=400&h=300&fit=crop", date: "30 Mar 2026", desc: "Brickwork progress - L1" },
+  { id: 1, url: "/photos/slab_reinforcement.png", date: "Today", desc: "Slab reinforcement check" },
+  { id: 2, url: "/photos/foundation.png", date: "29 Mar 2026", desc: "Foundation concrete pour" },
+  { id: 3, url: "/photos/masonry.png", date: "30 Mar 2026", desc: "Brickwork progress - L1" },
 ];
 
 const updates = [
@@ -22,6 +25,14 @@ const updates = [
 
 const ClientDashboard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const [isBotOpen, setIsBotOpen] = useState(false);
+
+  const botMessages = [
+    { role: "assistant", text: "Hello! I am your InfraPilot AI assistant. How can I help you today?", time: "Just now" },
+    { role: "user", text: "What is the current status of Phase 3?", time: "Just now" },
+    { role: "assistant", text: "Phase 3 (Roof Slab & MEP Hookups) is currently 42% complete. Rebar arrangement is the current focus today.", time: "Just now" },
+  ];
 
   return (
     <>
@@ -181,14 +192,20 @@ const ClientDashboard = () => {
               <div className="relative z-10">
                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400 mb-6 italic">Support Access</p>
                 <div className="space-y-4">
-                  <button className="w-full flex items-center justify-between p-5 bg-white/5 border border-white/10 rounded-3xl hover:bg-white/10 transition-all group">
+                  <button 
+                    onClick={() => navigate("/client/communication/messages")}
+                    className="w-full flex items-center justify-between p-5 bg-white/5 border border-white/10 rounded-3xl hover:bg-white/10 transition-all group"
+                  >
                     <div className="text-left">
                       <p className="text-sm font-black tracking-tight">Site Engineer Chat</p>
                       <p className="text-[9px] text-white/50 font-bold uppercase tracking-widest">Available Now</p>
                     </div>
                     <span className="text-xl group-hover:translate-x-1 transition-transform">→</span>
                   </button>
-                  <button className="w-full flex items-center justify-between p-5 bg-primary rounded-3xl shadow-2xl shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all group">
+                  <button 
+                    onClick={() => setIsBotOpen(true)}
+                    className="w-full flex items-center justify-between p-5 bg-primary rounded-3xl shadow-2xl shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all group"
+                  >
                     <div className="text-left">
                       <p className="text-sm font-black tracking-tight text-white">Instant Portal Bot</p>
                       <p className="text-[9px] text-white/70 font-bold uppercase tracking-widest">AI Assistance</p>
@@ -201,6 +218,43 @@ const ClientDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* AI Assistant Modal */}
+      <Modal 
+        isOpen={isBotOpen} 
+        onClose={() => setIsBotOpen(false)} 
+        title="InfraPilot AI Assistant"
+        maxWidth="max-w-md"
+      >
+        <div className="flex flex-col h-[500px]">
+          <div className="flex-1 overflow-y-auto space-y-4 p-2 custom-scrollbar">
+            {botMessages.map((msg, i) => (
+              <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div className={`max-w-[80%] p-4 rounded-2xl ${msg.role === "user" ? "bg-blue-600 text-white rounded-br-none" : "bg-white text-slate-800 rounded-bl-none border border-slate-100 shadow-sm"}`}>
+                  <p className="text-sm font-medium leading-relaxed">{msg.text}</p>
+                  <p className={`text-[9px] mt-1 font-black uppercase tracking-widest ${msg.role === "user" ? "text-blue-200" : "text-slate-400"}`}>{msg.time}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 pt-4 border-t border-slate-100">
+            <div className="flex items-center gap-3 bg-slate-50 rounded-2xl px-4 py-3 border border-slate-200 focus-within:border-primary transition-all">
+              <input 
+                placeholder="Ask anything about your project..." 
+                className="flex-1 text-sm outline-none bg-transparent placeholder:text-slate-400 font-bold"
+                onKeyPress={(e) => e.key === "Enter" && setIsBotOpen(false)}
+              />
+              <button 
+                onClick={() => setIsBotOpen(false)}
+                className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white shadow-xl shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 12h14M12 5l7 7-7 7" /></svg>
+              </button>
+            </div>
+            <p className="text-[9px] text-slate-400 text-center mt-4 font-black uppercase tracking-[0.2em]">Powered by InfraPilot AI Core</p>
+          </div>
+        </div>
+      </Modal>
     </>
   );
 };
