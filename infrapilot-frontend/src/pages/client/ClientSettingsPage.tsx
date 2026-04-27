@@ -23,7 +23,7 @@ const ClientSettingsPage = () => {
           <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">Customize your profile, notifications, and security preferences</p>
         </div>
 
-        <div className="max-w-5xl grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column: Profile & Language */}
           <div className="lg:col-span-2 space-y-8">
             

@@ -23,7 +23,7 @@ const TeamMembersList = ({ members, onAssignClick, onRemoveMember }: TeamMembers
         {members.map((member) => (
           <div key={member.user_id} className="flex items-center gap-4 p-3 rounded-xl bg-slate-50/50 border border-slate-50 hover:border-slate-100 transition-all group">
             <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm group-hover:scale-105 transition-transform">
-              {member.full_name.split(" ").map(n => n[0]).join("")}
+              {(member.full_name || "Unknown").split(" ").map(n => n[0]).join("")}
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold text-slate-700 truncate">{member.full_name}</p>

@@ -32,7 +32,25 @@ import PermissionsPage from "../pages/admin/PermissionsPage";
 import MeasurementPage from "../pages/admin/MeasurementPage";
 import ProjectDetailsPage from "../pages/projects/ProjectDetailsPage";
 
-
+// Client Pages
+import ClientOverviewPage from "../pages/client/ClientOverviewPage";
+import ClientProjectOverviewPage from "../pages/client/ClientProjectOverviewPage";
+import ClientProgressPage from "../pages/client/ClientProgressPage";
+import ClientFinancialsSummaryPage from "../pages/client/financials/ClientFinancialsSummaryPage";
+import ClientInvoicesPage from "../pages/client/financials/ClientInvoicesPage";
+import ClientPaymentsPage from "../pages/client/financials/ClientPaymentsPage";
+import ClientPhotosPage from "../pages/client/site-updates/ClientPhotosPage";
+import ClientDSRSummaryPage from "../pages/client/site-updates/ClientDSRSummaryPage";
+import ClientIssuesPage from "../pages/client/ClientIssuesPage";
+import ClientDocumentsPage from "../pages/client/ClientDocumentsPage";
+import ClientPendingApprovalsPage from "../pages/client/approvals/ClientPendingApprovalsPage";
+import ClientApprovedItemsPage from "../pages/client/approvals/ClientApprovedItemsPage";
+import ClientMessagesPage from "../pages/client/communication/ClientMessagesPage";
+import ClientAnnouncementsPage from "../pages/client/communication/ClientAnnouncementsPage";
+import ClientMonthlyProgressReportPage from "../pages/client/reports/ClientMonthlyProgressReportPage";
+import ClientFinancialReportPage from "../pages/client/reports/ClientFinancialReportPage";
+import ClientWorkSummaryPage from "../pages/client/reports/ClientWorkSummaryPage";
+import ClientSettingsPage from "../pages/client/ClientSettingsPage";
 
 // Engineer Pages
 import DSRPage from "../pages/engineer/DSRPage";
@@ -85,6 +103,7 @@ const RootRedirect = () => {
     ProjectManager: "/manager",
     SiteEngineer: "/engineer",
     Accountant: "/accountant",
+    Client: "/client",
   };
   return <Navigate to={paths[user!.role] || "/admin"} replace />;
 };
@@ -279,11 +298,11 @@ function AppRoutes() {
                 element={<ReceivablesCreditNotesPage />}
               />
               <Route path="/accountant/expenses" element={<ExpensesPage />} />
-              <Route path="/accountant/expenses/:category" element={<ExpensesPage />} />
               <Route
-                path="/accountant/payables"
-                element={<PayablesPage />}
+                path="/accountant/expenses/:category"
+                element={<ExpensesPage />}
               />
+              <Route path="/accountant/payables" element={<PayablesPage />} />
               <Route
                 path="/accountant/payables/:category"
                 element={<PayablesPage />}
@@ -297,17 +316,29 @@ function AppRoutes() {
                 element={<PaymentsReceiptsPage />}
               />
               <Route path="/accountant/taxation" element={<TaxationPage />} />
-              <Route path="/accountant/taxation/:category" element={<TaxationPage />} />
+              <Route
+                path="/accountant/taxation/:category"
+                element={<TaxationPage />}
+              />
               <Route path="/accountant/payroll" element={<PayrollPage />} />
-              <Route path="/accountant/payroll/:category" element={<PayrollPage />} />
+              <Route
+                path="/accountant/payroll/:category"
+                element={<PayrollPage />}
+              />
               <Route path="/accountant/banking" element={<BankingPage />} />
-              <Route path="/accountant/banking/:category" element={<BankingPage />} />
+              <Route
+                path="/accountant/banking/:category"
+                element={<BankingPage />}
+              />
               <Route
                 path="/accountant/journal"
                 element={<JournalEntriesPage />}
               />
               <Route path="/accountant/assets" element={<FixedAssetsPage />} />
-              <Route path="/accountant/assets/:category" element={<FixedAssetsPage />} />
+              <Route
+                path="/accountant/assets/:category"
+                element={<FixedAssetsPage />}
+              />
               <Route
                 path="/accountant/reports"
                 element={<AccountantReportsPage />}
@@ -320,6 +351,29 @@ function AppRoutes() {
                 path="/accountant/settings"
                 element={<AccountantSettingsPage />}
               />
+            </Route>
+
+            {/* Client Routes */}
+            <Route element={<ProtectedRoute allowedRoles={["Client", "Admin"]} />}>
+              <Route path="/client" element={<ClientOverviewPage />} />
+              <Route path="/client/overview" element={<ClientOverviewPage />} />
+              <Route path="/client/project-overview" element={<ClientProjectOverviewPage />} />
+              <Route path="/client/progress" element={<ClientProgressPage />} />
+              <Route path="/client/financials/summary" element={<ClientFinancialsSummaryPage />} />
+              <Route path="/client/financials/invoices" element={<ClientInvoicesPage />} />
+              <Route path="/client/financials/payments" element={<ClientPaymentsPage />} />
+              <Route path="/client/site-updates/photos" element={<ClientPhotosPage />} />
+              <Route path="/client/site-updates/dsr" element={<ClientDSRSummaryPage />} />
+              <Route path="/client/issues" element={<ClientIssuesPage />} />
+              <Route path="/client/documents" element={<ClientDocumentsPage />} />
+              <Route path="/client/approvals/pending" element={<ClientPendingApprovalsPage />} />
+              <Route path="/client/approvals/approved" element={<ClientApprovedItemsPage />} />
+              <Route path="/client/communication/messages" element={<ClientMessagesPage />} />
+              <Route path="/client/communication/announcements" element={<ClientAnnouncementsPage />} />
+              <Route path="/client/reports/monthly" element={<ClientMonthlyProgressReportPage />} />
+              <Route path="/client/reports/financial" element={<ClientFinancialReportPage />} />
+              <Route path="/client/reports/work" element={<ClientWorkSummaryPage />} />
+              <Route path="/client/settings" element={<ClientSettingsPage />} />
             </Route>
           </Route>
         </Route>

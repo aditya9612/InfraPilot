@@ -28,26 +28,17 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
 }) => {
   const [formData, setFormData] = useState({
     user_id: 0,
-    full_name: "",
-    mobile_number: "",
-    email: "",
-    password: "",
-    role: "" as UserRole | "",
-    designation: "",
-    joining_date: new Date().toISOString().split("T")[0],
-    pan_number: "",
-    aadhaar_number: "",
-    address: "",
+    full_name: "Admin User",
+    mobile_number: "9999999990",
+    email: "admin@test.com",
+    password: "Admin@123",
+    role: "Admin" as UserRole,
+    designation: "Admin",
+    joining_date: "2026-03-30",
+    pan_number: "ABCDE1234F",
+    aadhaar_number: "123412341234",
+    address: "Pune",
     is_active: true,
-    assignedProject: "",
-    experience: "",
-    qualification: "",
-    companyName: "",
-    workType: "",
-    gstNumber: "",
-    department: "",
-    projectLinked: "",
-    notes: "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -69,26 +60,17 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
       } else {
         setFormData({
           user_id: 0,
-          full_name: "",
-          mobile_number: "",
-          email: "",
-          password: "",
-          role: "",
-          designation: "",
-          joining_date: new Date().toISOString().split("T")[0],
-          pan_number: "",
-          aadhaar_number: "",
-          address: "",
+          full_name: "Admin User",
+          mobile_number: "9999999990",
+          email: "admin@test.com",
+          password: "Admin@123",
+          role: "Admin",
+          designation: "Admin",
+          joining_date: "2026-03-30",
+          pan_number: "ABCDE1234F",
+          aadhaar_number: "123412341234",
+          address: "Pune",
           is_active: true,
-          assignedProject: "",
-          experience: "",
-          qualification: "",
-          companyName: "",
-          workType: "",
-          gstNumber: "",
-          department: "",
-          projectLinked: "",
-          notes: "",
         });
         setPhotoUrl("");
       }
@@ -131,13 +113,6 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     if (!formData.designation)
       newErrors.designation = "Designation is required.";
 
-    if (
-      ["SiteEngineer", "ProjectManager"].includes(formData.role) &&
-      !formData.assignedProject
-    ) {
-      newErrors.assignedProject = "Project is required.";
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -170,21 +145,31 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     if (validate()) {
       setIsLoading(true);
       try {
-        let finalProfileImage = photoUrl;
+        const payload: any = {
+          user_id: formData.user_id,
+          full_name: formData.full_name,
+          mobile_number: formData.mobile_number,
+          email: formData.email,
+          role: formData.role,
+          address: formData.address,
+          pan_number: formData.pan_number,
+          aadhaar_number: formData.aadhaar_number.replace(/-/g, ""),
+          designation: formData.designation,
+          joining_date: formData.joining_date || null,
+          is_active: formData.is_active,
+        };
 
-        if (photo) {
-          finalProfileImage = await new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(photo);
-          });
+        if (formData.password) {
+          payload.password = formData.password;
         }
 
-        const payload = {
-          ...formData,
-          profile_image: finalProfileImage,
-        };
+        // Pass the actual File object to the service, or the existing URL string
+        if (photo) {
+          payload.profile_image = photo;
+        } else if (photoUrl && !photoUrl.startsWith('blob:')) {
+           // We might not want to send the string URL if the backend expects a File. 
+           // It's safer to just omit profile_image if it hasn't changed.
+        }
 
         onSubmit(payload);
         const action = initialData ? "updated" : "created";
@@ -193,8 +178,8 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
         });
         onClose();
       } catch (error) {
-        console.error("Image processing failed:", error);
-        toast.error("Failed to process profile image");
+        console.error("Submission failed:", error);
+        toast.error("Failed to process user data");
       } finally {
         setIsLoading(false);
       }
@@ -398,6 +383,18 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 focus:ring-primary/20 rounded-xl outline-none"
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Joining Date
+              </label>
+              <input
+                type="date"
+                name="joining_date"
+                value={formData.joining_date}
+                onChange={handleChange}
+                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 focus:ring-primary/20 rounded-xl outline-none text-gray-600"
+              />
+            </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-600 mb-1">
                 Full Address
@@ -414,35 +411,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
           </div>
         </div>
 
-        {formData.role && formData.role !== "Admin" && (
-          <div className="mb-8 p-5 bg-slate-50 border border-slate-100 rounded-2xl relative">
-            <div className="absolute -top-3 left-4 px-2 bg-white text-[10px] font-bold text-primary uppercase tracking-widest border border-slate-100 rounded-lg shadow-sm">
-              {formData.role} Exclusive Fields
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-              {["SiteEngineer", "ProjectManager"].includes(formData.role) && (
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-600 mb-1">
-                    Assigned Project <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    name="assignedProject"
-                    value={formData.assignedProject}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-2 bg-white border ${errors.assignedProject ? "border-rose-500" : "border-gray-200"} rounded-xl outline-none`}
-                  >
-                    <option value="">Select Project</option>
-                    {projects.map((p) => (
-                      <option key={p.id} value={p.project_name}>
-                        {p.project_name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+
 
         <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">

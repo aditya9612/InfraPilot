@@ -11,7 +11,9 @@
   },
   "dependencies": {
     "axios": "^1.13.6",
+    "dxf": "^5.3.1",
     "dxf-parser": "^1.1.2",
+    "exceljs": "^4.4.0",
     "framer-motion": "^12.38.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
