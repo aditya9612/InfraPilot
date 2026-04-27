@@ -1,1 +1,4 @@
-/* /index.html 200
+/api/*    http://13.60.128.36/api/:splat   200
+/docs     http://13.60.128.36/docs         200
+/openapi.json  http://13.60.128.36/openapi.json  200
+/*        /index.html                      200

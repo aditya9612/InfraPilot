@@ -21,6 +21,7 @@ import CreateBOQModal from "../../components/forms/CreateBOQModal";
 import CreateReportModal from "../../components/dashboard/CreateReportModal";
 import { projectService } from "../../services/projectService";
 import { boqService } from "../../services/boqService";
+import { userService } from "../../services/userService";
 import type { Project, ProjectStatus } from "../../types/project";
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
@@ -108,12 +109,26 @@ const AdminDashboard = () => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  const handleCreateUser = (userData: any) => {
-    console.log("New User Data:", userData);
+  const handleCreateUser = async (userData: any) => {
+    try {
+      await userService.createUser(userData);
+      toast.success("User created successfully!");
+      setIsUserModalOpen(false);
+      fetchDashboardData(); // Refresh stats
+    } catch (error) {
+      toast.error("Failed to create user");
+    }
   };
 
-  const handleCreateProject = () => {
-    fetchDashboardData();
+  const handleCreateProject = async (projectData: any) => {
+    try {
+      await projectService.createProject(projectData);
+      toast.success("Project created successfully!");
+      setIsNewProjectModalOpen(false);
+      fetchDashboardData();
+    } catch (error) {
+      toast.error("Failed to create project");
+    }
   };
 
   const handleCreateBOQ = async (boqData: any) => {
