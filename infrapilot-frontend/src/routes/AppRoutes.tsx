@@ -241,11 +241,11 @@ function AppRoutes() {
                 element={<ReceivablesCreditNotesPage />}
               />
               <Route path="/accountant/expenses" element={<ExpensesPage />} />
-              <Route path="/accountant/expenses/:category" element={<ExpensesPage />} />
               <Route
-                path="/accountant/payables"
-                element={<PayablesPage />}
+                path="/accountant/expenses/:category"
+                element={<ExpensesPage />}
               />
+              <Route path="/accountant/payables" element={<PayablesPage />} />
               <Route
                 path="/accountant/payables/:category"
                 element={<PayablesPage />}
@@ -259,17 +259,29 @@ function AppRoutes() {
                 element={<PaymentsReceiptsPage />}
               />
               <Route path="/accountant/taxation" element={<TaxationPage />} />
-              <Route path="/accountant/taxation/:category" element={<TaxationPage />} />
+              <Route
+                path="/accountant/taxation/:category"
+                element={<TaxationPage />}
+              />
               <Route path="/accountant/payroll" element={<PayrollPage />} />
-              <Route path="/accountant/payroll/:category" element={<PayrollPage />} />
+              <Route
+                path="/accountant/payroll/:category"
+                element={<PayrollPage />}
+              />
               <Route path="/accountant/banking" element={<BankingPage />} />
-              <Route path="/accountant/banking/:category" element={<BankingPage />} />
+              <Route
+                path="/accountant/banking/:category"
+                element={<BankingPage />}
+              />
               <Route
                 path="/accountant/journal"
                 element={<JournalEntriesPage />}
               />
               <Route path="/accountant/assets" element={<FixedAssetsPage />} />
-              <Route path="/accountant/assets/:category" element={<FixedAssetsPage />} />
+              <Route
+                path="/accountant/assets/:category"
+                element={<FixedAssetsPage />}
+              />
               <Route
                 path="/accountant/reports"
                 element={<AccountantReportsPage />}

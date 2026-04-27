@@ -96,9 +96,21 @@ const UsersPage = () => {
     }
   };
 
-  const handleViewDetails = (user: User) => {
-    setViewingUser(user);
-    setIsViewModalOpen(true);
+  const handleViewDetails = async (user: User) => {
+    try {
+      const toastId = toast.loading("Loading user details...");
+      const freshUser = await userService.getUserById(user.user_id);
+      toast.dismiss(toastId);
+      setViewingUser(freshUser);
+      setIsViewModalOpen(true);
+    } catch (error) {
+      toast.dismiss();
+      toast.error("Failed to fetch latest details");
+      console.error("Failed to fetch user by ID", error);
+      // Fallback to table row data
+      setViewingUser(user);
+      setIsViewModalOpen(true);
+    }
   };
 
   const closeModal = () => {
