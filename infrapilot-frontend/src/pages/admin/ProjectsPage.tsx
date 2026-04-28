@@ -225,7 +225,7 @@ const ProjectsPage = () => {
               value: String(stats.active),
               sub: "Currently in progress",
               accent: "text-success",
-              status: "Active",
+              status: "Ongoing",
             },
             {
               title: "Completed",
@@ -290,7 +290,7 @@ const ProjectsPage = () => {
                   {(
                     [
                       "All",
-                      "Active",
+                      "Ongoing",
                       "Planned",
                       "Delayed",
                       "Completed",

@@ -49,24 +49,28 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
       const json = XLSX.utils.sheet_to_json(sheet);
-      
+
       // Basic mapping/validation
-      const items = json.map((row: any) => ({
-        project_id: projectId,
-        item_name: row["Item Name"] || row["item_name"] || row["Name"],
-        category: row["Category"] || row["category"] || "Construction",
-        description: row["Description"] || row["description"] || "",
-        quantity: Number(row["Quantity"] || row["qty"] || 0),
-        unit: row["Unit"] || row["unit"] || "Unit",
-        unit_cost: Number(row["Unit Cost"] || row["rate"] || 0),
-        status: "Active",
-      })).filter(item => item.item_name);
+      const items = json
+        .map((row: any) => ({
+          project_id: projectId,
+          item_name: row["Item Name"] || row["item_name"] || row["Name"],
+          category: row["Category"] || row["category"] || "Construction",
+          description: row["Description"] || row["description"] || "",
+          quantity: Number(row["Quantity"] || row["qty"] || 0),
+          unit: row["Unit"] || row["unit"] || "Unit",
+          unit_cost: Number(row["Unit Cost"] || row["rate"] || 0),
+          status: "Active",
+        }))
+        .filter((item) => item.item_name);
 
       setParsedItems(items);
       if (items.length > 0) {
         setStep(2);
       } else {
-        toast.error("No valid items found in the file. Ensure columns match 'Item Name', 'Category', 'Quantity', etc.");
+        toast.error(
+          "No valid items found in the file. Ensure columns match 'Item Name', 'Category', 'Quantity', etc.",
+        );
       }
     };
     reader.readAsBinaryString(file);
@@ -76,12 +80,12 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
     setIsUploading(true);
     try {
       // We assume the first item's ID or similar context for bulk addition if the API requires a boq_id
-      // However, the sample showed /api/v1/boq/{boq_id}/items/bulk. 
+      // However, the sample showed /api/v1/boq/{boq_id}/items/bulk.
       // If we don't have a specific boq_id, we might need to create one or use a generic one.
       // Based on the user sample, let's use the first project item's ID or similar.
-      // For now, let's assume we use the first item to get the boq_id context, 
+      // For now, let's assume we use the first item to get the boq_id context,
       // or we just call the bulk API if it's project-indexed.
-      
+
       // Fetch current BOQs to get a reference ID if needed
       const currentBoqs = await boqService.getBoqsByProject(projectId);
       const referenceId = currentBoqs[0]?.id || 1; // Fallback to 1 if empty
@@ -98,10 +102,11 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
   };
 
   const downloadTemplate = () => {
-    const headers = "Item Name,Category,Description,Quantity,Unit,Unit Cost\n" +
-                   "Cement OPC 53 Grade,Material,UltraTech OPC cement,500,bags,380\n" +
-                   "River Sand,Material,Fine aggregate,20,tons,1200\n" +
-                   "Steel TMT Bars,Material,Fe500 grade steel,2000,kg,65";
+    const headers =
+      "Item Name,Category,Description,Quantity,Unit,Unit Cost\n" +
+      "Cement OPC 53 Grade,Material,UltraTech OPC cement,500,bags,380\n" +
+      "River Sand,Material,Fine aggregate,20,tons,1200\n" +
+      "Steel TMT Bars,Material,Fe500 grade steel,2000,kg,65";
     const blob = new Blob([headers], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -121,8 +126,12 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200">
         <div className="px-6 py-4 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
           <div>
-            <h3 className="text-xl font-bold text-slate-800 tracking-tight">Bulk Import BOQ</h3>
-            <p className="text-xs text-slate-500 font-medium">Upload Excel or CSV to populate your project</p>
+            <h3 className="text-xl font-bold text-slate-800 tracking-tight">
+              Bulk Import BOQ
+            </h3>
+            <p className="text-xs text-slate-500 font-medium">
+              Upload Excel or CSV to populate your project
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -135,32 +144,42 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
         <div className="p-8">
           {step === 1 ? (
             <div className="space-y-6">
-              <div 
+              <div
                 className="border-2 border-dashed border-slate-200 rounded-3xl p-12 flex flex-col items-center justify-center bg-slate-50/50 hover:bg-slate-50 hover:border-primary/50 transition-all cursor-pointer group"
-                onClick={() => document.getElementById('file-upload')?.click()}
+                onClick={() => document.getElementById("file-upload")?.click()}
               >
-                <input 
+                <input
                   id="file-upload"
-                  type="file" 
-                  className="hidden" 
+                  type="file"
+                  className="hidden"
                   accept=".xlsx, .xls, .csv"
                   onChange={handleFileChange}
                 />
                 <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center text-primary mb-4 group-hover:scale-110 transition-transform">
                   <Upload className="w-8 h-8" />
                 </div>
-                <h4 className="text-sm font-bold text-slate-700">Drop your file here or click to browse</h4>
-                <p className="text-xs text-slate-400 mt-1">Supports XLSX, XLS, and CSV formats</p>
+                <h4 className="text-sm font-bold text-slate-700">
+                  Drop your file here or click to browse
+                </h4>
+                <p className="text-xs text-slate-400 mt-1">
+                  Supports XLSX, XLS, and CSV formats
+                </p>
               </div>
 
               <div className="bg-amber-50 rounded-2xl p-4 border border-amber-100 flex gap-3">
                 <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
                 <div>
-                  <h5 className="text-xs font-bold text-amber-800 uppercase tracking-wider mb-1">Column Requirements</h5>
+                  <h5 className="text-xs font-bold text-amber-800 uppercase tracking-wider mb-1">
+                    Column Requirements
+                  </h5>
                   <p className="text-xs text-amber-700 leading-relaxed font-medium">
-                    Ensure your file contains following headers: <span className="font-bold">Item Name, Category, Quantity, Unit, Unit Cost</span>. Values will be mapped automatically.
+                    Ensure your file contains following headers:{" "}
+                    <span className="font-bold">
+                      Item Name, Category, Quantity, Unit, Unit Cost
+                    </span>
+                    . Values will be mapped automatically.
                   </p>
-                  <button 
+                  <button
                     onClick={downloadTemplate}
                     className="mt-3 text-[10px] font-bold text-amber-800 bg-amber-200/50 hover:bg-amber-200 px-3 py-1 rounded-lg transition-all uppercase tracking-wider"
                   >
@@ -176,10 +195,14 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
                   <FileText className="w-6 h-6" />
                 </div>
                 <div className="flex-1">
-                  <h4 className="text-sm font-bold text-emerald-800">{file?.name}</h4>
-                  <p className="text-xs text-emerald-600 font-medium">{parsedItems.length} valid items detected</p>
+                  <h4 className="text-sm font-bold text-emerald-800">
+                    {file?.name}
+                  </h4>
+                  <p className="text-xs text-emerald-600 font-medium">
+                    {parsedItems.length} valid items detected
+                  </p>
                 </div>
-                <button 
+                <button
                   onClick={reset}
                   className="text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors"
                 >
@@ -199,14 +222,23 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
                   <tbody className="divide-y divide-slate-50">
                     {parsedItems.slice(0, 10).map((item, i) => (
                       <tr key={i}>
-                        <td className="px-4 py-3 font-bold text-slate-700">{item.item_name}</td>
-                        <td className="px-4 py-3 text-right font-medium text-slate-600">{item.quantity} {item.unit}</td>
-                        <td className="px-4 py-3 text-right font-bold text-primary">₹{item.unit_cost}</td>
+                        <td className="px-4 py-3 font-bold text-slate-700">
+                          {item.item_name}
+                        </td>
+                        <td className="px-4 py-3 text-right font-medium text-slate-600">
+                          {item.quantity} {item.unit}
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold text-primary">
+                          ₹{item.unit_cost}
+                        </td>
                       </tr>
                     ))}
                     {parsedItems.length > 10 && (
                       <tr>
-                        <td colSpan={3} className="px-4 py-2 text-center text-slate-400 italic">
+                        <td
+                          colSpan={3}
+                          className="px-4 py-2 text-center text-slate-400 italic"
+                        >
                           ... and {parsedItems.length - 10} more items
                         </td>
                       </tr>
