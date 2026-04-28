@@ -39,10 +39,10 @@ const UserDetailsModal: React.FC<UserDetailsModalProps> = ({ isOpen, onClose, us
             <div className="relative group">
               <div className="w-28 h-28 rounded-3xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center font-bold text-3xl shadow-2xl overflow-hidden shrink-0 transition-transform group-hover:scale-105 duration-500">
                 {user.profile_image ? (
-                  <img src={user.profile_image} alt={user.full_name} className="w-full h-full object-cover" />
+                  <img src={user.profile_image} alt={user.full_name || "Unknown"} className="w-full h-full object-cover" />
                 ) : (
                   <span className="bg-gradient-to-br from-white to-white/70 bg-clip-text text-transparent">
-                    {user.full_name.split(' ').map(n => n[0]).join('')}
+                    {(user.full_name || "Unknown").split(' ').map(n => n[0]).join('')}
                   </span>
                 )}
               </div>

@@ -57,7 +57,9 @@ const ProjectsPage = () => {
   const fetchProjects = useCallback(async () => {
     try {
       setIsLoading(true);
-      const res = await projectService.getProjects(100, 0, debouncedSearch, filterStatus);
+      // Fetch all projects; status filtering is applied client-side to avoid
+      // backend validation errors on certain status values (e.g. Active, Delayed).
+      const res = await projectService.getProjects(100, 0, debouncedSearch);
       const projectList = Array.isArray(res) ? res : (res.items || res.data || []);
       setProjects(projectList);
     } catch (error) {
@@ -66,7 +68,7 @@ const ProjectsPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [debouncedSearch, filterStatus]);
+  }, [debouncedSearch]);
 
   useEffect(() => {
     fetchProjects();
@@ -110,7 +112,9 @@ const ProjectsPage = () => {
     return () => clearTimeout(handler);
   }, [search]);
 
-  const filtered = projects;
+  const filtered = filterStatus === "All"
+    ? projects
+    : projects.filter((p) => p.status === filterStatus);
 
   const stats = {
     total: projects.length,
