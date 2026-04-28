@@ -1,5 +1,6 @@
 import Navbar from "../../../components/common/Navbar";
-import { useState, useRef, useEffect, KeyboardEvent } from "react";
+import { useState, useRef, useEffect } from "react";
+import type { KeyboardEvent } from "react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface Message {
