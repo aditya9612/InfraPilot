@@ -109,7 +109,10 @@ export const projectService = {
   // === Scheduling & Monitoring ===
 
   async scheduleProject(projectId: number, scheduleData: any) {
-    const response = await api.post(`/projects/${projectId}/schedule`, scheduleData);
+    const { start_date, end_date } = scheduleData;
+    const response = await api.post(`/projects/${projectId}/schedule`, null, {
+      params: { start_date, end_date }
+    });
     return response.data;
   },
 

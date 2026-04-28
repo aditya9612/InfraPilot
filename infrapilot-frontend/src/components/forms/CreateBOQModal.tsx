@@ -77,6 +77,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
       case 'item_name':
         if (!value.trim()) error = 'Item name is required.';
         else if (value.trim().length < 2) error = 'Item name must be at least 2 characters.';
+        else if (!/^[a-zA-Z\s]+$/.test(value)) error = 'Item name can only contain letters and spaces.';
         break;
       case 'category':
         if (!value) error = 'Please select a category.';
@@ -102,7 +103,13 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
+    let { name, value } = e.target;
+
+    // Restriction: Only alphabets and spaces for item_name
+    if (name === 'item_name') {
+      value = value.replace(/[^a-zA-Z\s]/g, '');
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }));
     const fieldError = validateField(name, value);
     setErrors((prev) => ({ ...prev, [name]: fieldError }));

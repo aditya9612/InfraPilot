@@ -25,16 +25,16 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
 }) => {
   const [formData, setFormData] = useState({
     user_id: 0,
-    full_name: "Admin User",
-    mobile_number: "9999999990",
-    email: "admin@test.com",
-    password: "Admin@123",
-    role: "Admin" as UserRole,
-    designation: "Admin",
-    joining_date: "2026-03-30",
-    pan_number: "ABCDE1234F",
-    aadhaar_number: "123412341234",
-    address: "Pune",
+    full_name: "",
+    mobile_number: "",
+    email: "",
+    password: "",
+    role: "" as UserRole,
+    designation: "",
+    joining_date: new Date().toISOString().split('T')[0],
+    pan_number: "",
+    aadhaar_number: "",
+    address: "",
     is_active: true,
   });
 
@@ -57,16 +57,16 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
       } else {
         setFormData({
           user_id: 0,
-          full_name: "Admin User",
-          mobile_number: "9999999990",
-          email: "admin@test.com",
-          password: "Admin@123",
-          role: "Admin",
-          designation: "Admin",
-          joining_date: "2026-03-30",
-          pan_number: "ABCDE1234F",
-          aadhaar_number: "123412341234",
-          address: "Pune",
+          full_name: "",
+          mobile_number: "",
+          email: "",
+          password: "",
+          role: "" as any,
+          designation: "",
+          joining_date: new Date().toISOString().split('T')[0],
+          pan_number: "",
+          aadhaar_number: "",
+          address: "",
           is_active: true,
         });
         setPhotoUrl("");
@@ -96,7 +96,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
       newErrors.full_name = "Full Name must be at least 3 characters.";
     if (
       !formData.mobile_number ||
-      !/^\+?\d[\d\s]{9,14}$/.test(formData.mobile_number.trim())
+      !/^\d{10}$/.test(formData.mobile_number.trim())
     )
       newErrors.mobile_number = "Enter a valid mobile number.";
     if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
@@ -121,7 +121,17 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
   ) => {
     let { name, value } = e.target;
     if (name === "pan_number") {
-      value = value.toUpperCase().slice(0, 10);
+      const val = value.toUpperCase();
+      let filtered = "";
+      for (let i = 0; i < Math.min(val.length, 10); i++) {
+        const char = val[i];
+        if (i < 5 && /[A-Z]/.test(char)) filtered += char;
+        else if (i >= 5 && i < 9 && /[0-9]/.test(char)) filtered += char;
+        else if (i === 9 && /[A-Z]/.test(char)) filtered += char;
+      }
+      value = filtered;
+    } else if (name === "mobile_number") {
+      value = value.replace(/[^\d]/g, "").slice(0, 10);
     } else if (name === "aadhaar_number") {
       const numeric = value.replace(/[^\d]/g, "").slice(0, 12);
       const parts = numeric.match(/.{1,4}/g);
