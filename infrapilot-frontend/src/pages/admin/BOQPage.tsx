@@ -795,13 +795,8 @@ const BOQPage = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right">
-<<<<<<< HEAD
                           <div className="flex items-center justify-end gap-3">
-                            <button 
-=======
-                          <div className="flex items-center justify-end gap-2">
                             <button
->>>>>>> 53d5f0d (fix: resolve BOQ export issues, sync status terminology to Ongoing, and improve user validation)
                               onClick={() => openActualsModal(item)}
                               className="p-1.5 text-slate-400 hover:text-emerald-500 transition-all duration-200"
                               title="Update Actuals"

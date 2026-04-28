@@ -105,11 +105,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     let { name, value } = e.target;
 
-<<<<<<< HEAD
-    // Filter non-alphabetic characters for item_name
-=======
     // Restriction: Only alphabets and spaces for item_name
->>>>>>> 53d5f0d (fix: resolve BOQ export issues, sync status terminology to Ongoing, and improve user validation)
     if (name === 'item_name') {
       value = value.replace(/[^a-zA-Z\s]/g, '');
     }
