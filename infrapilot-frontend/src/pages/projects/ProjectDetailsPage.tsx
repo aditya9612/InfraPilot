@@ -40,6 +40,8 @@ const ProjectDetailsPage = () => {
   const [milestoneToDelete, setMilestoneToDelete] = useState<number | null>(
     null,
   );
+  const [isDeleteMemberModalOpen, setIsDeleteMemberModalOpen] = useState(false);
+  const [memberToDelete, setMemberToDelete] = useState<number | null>(null);
 
   // Profit & Loss and Expenses (Still partially mock/local for and, but connected to stats)
   const [profitLoss, setProfitLoss] = useState<any>(null);
@@ -252,13 +254,22 @@ const ProjectDetailsPage = () => {
     }
   };
 
-  const handleRemoveMember = async (memberId: number) => {
-    try {
-      await projectService.removeMember(projectId, memberId);
-      toast.success("Member removed from project");
-      fetchProjectData();
-    } catch (error) {
-      toast.error("Failed to remove member");
+  const handleRemoveMemberClick = (memberId: number) => {
+    setMemberToDelete(memberId);
+    setIsDeleteMemberModalOpen(true);
+  };
+
+  const handleRemoveMemberConfirm = async () => {
+    if (memberToDelete) {
+      try {
+        await projectService.removeMember(projectId, memberToDelete);
+        toast.success("Member removed from project");
+        setIsDeleteMemberModalOpen(false);
+        setMemberToDelete(null);
+        fetchProjectData();
+      } catch (error) {
+        toast.error("Failed to remove member");
+      }
     }
   };
 
@@ -508,7 +519,7 @@ const ProjectDetailsPage = () => {
                 <TeamMembersList
                   members={members}
                   onAssignClick={() => setIsAssignModalOpen(true)}
-                  onRemoveMember={handleRemoveMember}
+                  onRemoveMember={handleRemoveMemberClick}
                 />
               </div>
             </div>
@@ -578,7 +589,7 @@ const ProjectDetailsPage = () => {
               <TeamMembersList
                 members={members}
                 onAssignClick={() => setIsAssignModalOpen(true)}
-                onRemoveMember={handleRemoveMember}
+                onRemoveMember={handleRemoveMemberClick}
               />
             </div>
           )}
@@ -601,6 +612,19 @@ const ProjectDetailsPage = () => {
         onConfirm={handleDeleteMilestoneConfirm}
         title="Remove Milestone"
         message="Are you sure you want to remove this milestone from the project schedule? This action cannot be undone."
+        confirmText="Remove"
+        type="danger"
+      />
+
+      <ConfirmModal
+        isOpen={isDeleteMemberModalOpen}
+        onClose={() => {
+          setIsDeleteMemberModalOpen(false);
+          setMemberToDelete(null);
+        }}
+        onConfirm={handleRemoveMemberConfirm}
+        title="Remove Team Member"
+        message="Are you sure you want to remove this member from the project? They will lose access to all project-related tasks and reports."
         confirmText="Remove"
         type="danger"
       />
