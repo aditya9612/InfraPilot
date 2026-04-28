@@ -2,13 +2,11 @@ import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import Modal from "../common/Modal";
 import type { User, UserRole } from "../../types/user";
-import type { Project } from "../../types/project";
 
 interface CreateUserModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (userData: any) => void;
-  projects: Project[];
   initialData?: User | null;
 }
 
@@ -23,7 +21,6 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
-  projects,
   initialData,
 }) => {
   const [formData, setFormData] = useState({

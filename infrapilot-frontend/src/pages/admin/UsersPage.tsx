@@ -6,10 +6,7 @@ import toast from "react-hot-toast";
 import UserDetailsModal from "../../components/dashboard/UserDetailsModal";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import { userService } from "../../services/userService";
-import { projectService } from "../../services/projectService";
 import type { User } from "../../types/user";
-import type { Project } from "../../types/project";
-import { useCallback } from "react";
 
 const UsersPage = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -21,18 +18,9 @@ const UsersPage = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [viewingUser, setViewingUser] = useState<User | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [projects, setProjects] = useState<Project[]>([]);
   const [roleFilter, setRoleFilter] = useState("All Roles");
 
-  const fetchProjects = useCallback(async () => {
-    try {
-      const res = await projectService.getProjects(10, 0);
-      const projectList = Array.isArray(res) ? res : (res.items || res.data || []);
-      setProjects(projectList);
-    } catch (error) {
-      console.error("UsersPage: Failed to fetch projects", error);
-    }
-  }, []);
+
 
   const fetchUsers = async () => {
     try {
@@ -50,8 +38,7 @@ const UsersPage = () => {
 
   useEffect(() => {
     fetchUsers();
-    fetchProjects();
-  }, [fetchProjects]);
+  }, []);
 
   const handleCreateOrUpdateUser = async (userData: any) => {
     try {
@@ -381,7 +368,6 @@ const UsersPage = () => {
 
       <CreateUserModal
         isOpen={isModalOpen}
-        projects={projects}
         onClose={closeModal}
         onSubmit={handleCreateOrUpdateUser}
         initialData={editingUser}
