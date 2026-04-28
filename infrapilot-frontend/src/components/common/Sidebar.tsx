@@ -587,7 +587,7 @@ const Sidebar = ({ onClose }: SidebarProps) => {
         title="Logout Account"
         message="Are you sure you want to log out of your account? You will need to sign in again to access the dashboard."
         confirmText="Logout"
-        type="warning"
+        type="danger"
       />
     </aside>
   );

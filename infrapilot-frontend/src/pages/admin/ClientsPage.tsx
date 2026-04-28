@@ -2,8 +2,13 @@ import { useState } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
+import CreateClientModal from "../../components/forms/CreateClientModal";
+import ViewClientModal from "../../components/forms/ViewClientModal";
+import toast from "react-hot-toast";
+import ConfirmModal from "../../components/common/ConfirmModal";
+import { Eye, Edit2, Trash2 } from "lucide-react";
 
-const clientsData = [
+const initialClients = [
   {
     id: 1,
     name: "Vikram Sethi",
@@ -40,13 +45,47 @@ const clientsData = [
 ];
 
 const ClientsPage = () => {
+  const [clients, setClients] = useState(initialClients);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingClient, setEditingClient] = useState<any>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [clientToDelete, setClientToDelete] = useState<number | null>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [viewingClient, setViewingClient] = useState<any>(null);
 
-  const filteredClients = clientsData.filter(
+  const filteredClients = clients.filter(
     (c) =>
       c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.company.toLowerCase().includes(searchTerm.toLowerCase()),
   );
+
+  const handleCreateOrUpdate = (data: any) => {
+    if (editingClient) {
+      setClients(prev => prev.map(c => c.id === editingClient.id ? { ...data, id: c.id, billing: c.billing, payments: c.payments } : c));
+      toast.success("Client profile updated.");
+    } else {
+      const newClient = {
+        ...data,
+        id: Date.now(),
+        billing: "₹0 Pending",
+        payments: "₹0 Received",
+      };
+      setClients(prev => [newClient, ...prev]);
+      toast.success("New client added to portfolio!");
+    }
+    setIsModalOpen(false);
+    setEditingClient(null);
+  };
+
+  const handleDelete = () => {
+    if (clientToDelete) {
+      setClients(prev => prev.filter(c => c.id !== clientToDelete));
+      toast.success("Client removed from database.");
+      setIsDeleteModalOpen(false);
+      setClientToDelete(null);
+    }
+  };
 
   return (
     <>
@@ -66,7 +105,13 @@ const ClientsPage = () => {
             <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all">
               Client Portal
             </button>
-            <button className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all">
+            <button 
+              onClick={() => {
+                setEditingClient(null);
+                setIsModalOpen(true);
+              }}
+              className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
+            >
               + Add Client
             </button>
           </div>
@@ -76,8 +121,8 @@ const ClientsPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <StatCard
             title="Total Clients"
-            value="24"
-            sub="5 Premium Accounts"
+            value={clients.length.toString()}
+            sub="Active relationships"
             accent="text-primary"
           />
           <StatCard
@@ -94,7 +139,7 @@ const ClientsPage = () => {
           />
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden min-h-[400px]">
           <div className="p-4 border-b border-slate-50">
             <div className="relative flex-1 max-w-md">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
@@ -131,7 +176,7 @@ const ClientsPage = () => {
                   <th className="px-6 py-4">Billing Status</th>
                   <th className="px-6 py-4">Financial History</th>
                   <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4 text-center">Actions</th>
+                  <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -177,23 +222,37 @@ const ClientsPage = () => {
                         {c.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <button className="p-2 text-slate-400 hover:text-primary hover:bg-blue-50 rounded-lg transition-all" title="View Profile">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-3">
+                        <button 
+                          onClick={() => {
+                            setViewingClient(c);
+                            setIsViewModalOpen(true);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-primary transition-all duration-200" 
+                          title="View Profile"
+                        >
+                          <Eye className="w-4.5 h-4.5" strokeWidth={1.5} />
                         </button>
-                        <button className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all" title="Edit Client">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                          </svg>
+                        <button 
+                          onClick={() => {
+                            setEditingClient(c);
+                            setIsModalOpen(true);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200" 
+                          title="Edit Client"
+                        >
+                          <Edit2 className="w-4.5 h-4.5" strokeWidth={1.5} />
                         </button>
-                        <button className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all" title="Delete Client">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
+                        <button 
+                          onClick={() => {
+                            setClientToDelete(c.id);
+                            setIsDeleteModalOpen(true);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-rose-500 transition-all duration-200" 
+                          title="Delete Client"
+                        >
+                          <Trash2 className="w-4.5 h-4.5" strokeWidth={1.5} />
                         </button>
                       </div>
                     </td>
@@ -202,8 +261,45 @@ const ClientsPage = () => {
               </tbody>
             </table>
           </div>
+          {filteredClients.length === 0 && (
+            <div className="p-20 text-center">
+              <p className="text-slate-400 font-medium">No clients found matching your search.</p>
+            </div>
+          )}
         </div>
       </PageTransition>
+
+      <CreateClientModal 
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingClient(null);
+        }}
+        onSubmit={handleCreateOrUpdate}
+        initialData={editingClient}
+      />
+
+      <ViewClientModal
+        isOpen={isViewModalOpen}
+        onClose={() => {
+          setIsViewModalOpen(false);
+          setViewingClient(null);
+        }}
+        client={viewingClient}
+      />
+
+      <ConfirmModal 
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setClientToDelete(null);
+        }}
+        onConfirm={handleDelete}
+        title="Delete Client Profile"
+        message="Are you sure you want to remove this client? This will delete their access to the client portal and all linked financial history."
+        confirmText="Delete Profile"
+        type="danger"
+      />
     </>
   );
 };
