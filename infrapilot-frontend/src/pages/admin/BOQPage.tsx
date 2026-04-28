@@ -11,14 +11,17 @@ import { boqService } from "../../services/boqService";
 import { projectService } from "../../services/projectService";
 import type { BoqItem, BoqSummary } from "../../types/boq";
 import type { Project } from "../../types/project";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+import { exportToCSV } from "../../utils/csvExport";
 import UpdateActualsModal from "../../components/forms/UpdateActualsModal";
 import BOQHistoryModal from "../../components/dashboard/BOQHistoryModal";
-import { 
-  FileJson, 
-  FileSpreadsheet, 
-  FileText, 
-  History, 
-  TrendingUp, 
+import {
+  FileJson,
+  FileSpreadsheet,
+  FileText,
+  History,
+  TrendingUp,
   Layers,
   Download,
   Sparkles,
@@ -84,11 +87,16 @@ const BOQPage = () => {
   // Advanced Feature States
   const [summaryData, setSummaryData] = useState<BoqSummary | null>(null);
   const [versionsList, setVersionsList] = useState<number[]>([]);
-  const [selectedVersion, setSelectedVersion] = useState<number | "latest">("latest");
+  const [selectedVersion, setSelectedVersion] = useState<number | "latest">(
+    "latest",
+  );
   const [isActualsModalOpen, setIsActualsModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
-  const [activeItemForModal, setActiveItemForModal] = useState<BoqItem | null>(null);
+  const [activeItemForModal, setActiveItemForModal] = useState<BoqItem | null>(
+    null,
+  );
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [isOptimizationModalOpen, setIsOptimizationModalOpen] = useState(false);
   const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
   const [isActivityViewModalOpen, setIsActivityViewModalOpen] = useState(false);
@@ -132,7 +140,8 @@ const BOQPage = () => {
         status: statusFilter === "all" ? null : statusFilter,
         category: categoryFilter === "all" ? null : categoryFilter,
         project_id: projectFilter === "all" ? null : Number(projectFilter),
-        version_no: selectedVersion === "latest" ? null : Number(selectedVersion),
+        version_no:
+          selectedVersion === "latest" ? null : Number(selectedVersion),
       };
 
       const res = await boqService.getBoqs(filters);
@@ -155,7 +164,9 @@ const BOQPage = () => {
     const fetchVersions = async () => {
       if (projectFilter !== "all") {
         try {
-          const versions = await boqService.getBoqVersions(Number(projectFilter));
+          const versions = await boqService.getBoqVersions(
+            Number(projectFilter),
+          );
           setVersionsList(versions);
         } catch (error) {
           console.error("Failed to fetch versions", error);
@@ -173,7 +184,13 @@ const BOQPage = () => {
     if (!isLoading) {
       refreshBoqs();
     }
-  }, [searchTerm, statusFilter, categoryFilter, projectFilter, selectedVersion]);
+  }, [
+    searchTerm,
+    statusFilter,
+    categoryFilter,
+    projectFilter,
+    selectedVersion,
+  ]);
 
   const handleCreateOrUpdateBOQ = async (data: any) => {
     try {
@@ -237,7 +254,10 @@ const BOQPage = () => {
     }
   };
 
-  const handleUpdateActualsSubmit = async (data: { actual_quantity: number; actual_cost: number }) => {
+  const handleUpdateActualsSubmit = async (data: {
+    actual_quantity: number;
+    actual_cost: number;
+  }) => {
     if (activeItemForModal) {
       try {
         await boqService.updateBoqActuals(activeItemForModal.id, data);
@@ -254,7 +274,7 @@ const BOQPage = () => {
       toast.error("Please select a project first");
       return;
     }
-    
+
     const firstItem = boqData[0];
     if (!firstItem) {
       toast.error("No items found to version");
@@ -274,36 +294,110 @@ const BOQPage = () => {
   };
 
   const handleExport = async (format: "excel" | "pdf" | "json") => {
+    if (isExporting) return;
+    
     if (boqData.length === 0) {
       toast.error("No data to export");
       return;
     }
 
     try {
-      const topBoqId = boqData[0]?.id; // Assuming we export based on the current context
-      if (!topBoqId) return;
-
-      const data = await boqService.exportBoq(topBoqId, format);
+      setIsExporting(true);
+      const firstItem = boqData[0];
+      const isProjectLevel = projectFilter !== "all";
       
+      const exportId = firstItem?.boq_group_id || 
+                      (isProjectLevel ? Number(projectFilter) : firstItem?.id);
+
+      if (!exportId) {
+        toast.error("Unable to determine export context");
+        return;
+      }
+
+      const filters = {
+        search: searchTerm || null,
+        status: statusFilter === "all" ? null : statusFilter,
+        category: categoryFilter === "all" ? null : categoryFilter,
+        version_no: selectedVersion === "latest" ? null : Number(selectedVersion),
+      };
+
+      toast.loading(`Preparing ${format.toUpperCase()}...`, { id: 'export' });
+      const data = await boqService.exportBoq(exportId, format, isProjectLevel, filters);
+
+      const fileName = isProjectLevel
+        ? `boq_project_${exportId}.${format === "json" ? "json" : format === "excel" ? "xlsx" : "pdf"}`
+        : `boq_export_${exportId}.${format === "json" ? "json" : format === "excel" ? "xlsx" : "pdf"}`;
+
       if (format === "json") {
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+        const blob = new Blob([JSON.stringify(data, null, 2)], {
+          type: "application/json",
+        });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `boq_export_${topBoqId}.json`;
+        a.download = fileName;
         a.click();
+        window.URL.revokeObjectURL(url);
       } else {
-        // Blob for excel/pdf
-        const url = window.URL.createObjectURL(new Blob([data]));
+        const blob = new Blob([data], { 
+          type: format === "excel" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : "application/pdf" 
+        });
+        const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `boq_export_${topBoqId}.${format === "excel" ? "xlsx" : "pdf"}`;
+        a.download = fileName;
         a.click();
+        window.URL.revokeObjectURL(url);
       }
-      toast.success(`Exporting as ${format.toUpperCase()}...`);
-    } catch (error) {
-      toast.error(`Failed to export as ${format.toUpperCase()}`);
+      toast.success(`${format.toUpperCase()} exported successfully!`, { id: 'export' });
+    } catch (apiError: any) {
+      console.warn("Backend export failed, falling back to client-side generation", apiError);
+      
+      const dateStr = new Date().toISOString().split('T')[0];
+      const projectName = projectFilter !== "all" ? projectMap[Number(projectFilter)] : "All_Projects";
+
+      if (format === "pdf") {
+        const doc = new jsPDF();
+        doc.setFontSize(18);
+        doc.text("BOQ Master Setup Report", 14, 22);
+        doc.setFontSize(11);
+        doc.text(`Project: ${projectName}`, 14, 30);
+        doc.text(`Date: ${new Date().toLocaleString()}`, 14, 37);
+
+        const tableData = boqData.map(item => [
+          item.item_name,
+          item.category,
+          `${item.quantity} ${item.unit}`,
+          `₹${Number(item.unit_cost).toLocaleString()}`,
+          `₹${Number(item.total_cost || 0).toLocaleString()}`,
+          (item.status === "Active" || item.status === "ACTIVE") ? "Ongoing" : item.status
+        ]);
+
+        autoTable(doc, {
+          startY: 45,
+          head: [['Item Name', 'Category', 'Qty & Unit', 'Unit Cost', 'Est. Total', 'Status']],
+          body: tableData,
+          headStyles: { fillColor: [37, 99, 235] }
+        });
+
+        doc.save(`BOQ_Report_${projectName}_${dateStr}.pdf`);
+        toast.success("PDF generated successfully", { id: 'export' });
+      } else if (format === "excel") {
+        exportToCSV(boqData, `BOQ_Report_${projectName}_${dateStr}.csv`, {
+          item_name: "Item Name",
+          category: "Category",
+          quantity: "Quantity",
+          unit: "Unit",
+          unit_cost: "Unit Cost",
+          total_cost: "Total Cost",
+          status: "Status"
+        });
+        toast.success("Excel/CSV generated successfully", { id: 'export' });
+      } else {
+        toast.error(`Export failed: ${apiError.response?.data?.detail || "Connection error"}`, { id: 'export' });
+      }
     } finally {
+      setIsExporting(false);
       setIsExportMenuOpen(false);
     }
   };
@@ -371,24 +465,28 @@ const BOQPage = () => {
             </p>
           </div>
           <div className="flex gap-2">
-            <button 
+            <button
               onClick={() => {
                 if (projectFilter === "all") {
-                  toast.error("Please select a project to analyze cost performance");
+                  toast.error(
+                    "Please select a project to analyze cost performance",
+                  );
                   return;
                 }
                 setIsOptimizationModalOpen(true);
               }}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold shadow-lg transition-all ${
-                projectFilter === "all" 
-                  ? "bg-slate-100 text-slate-400 cursor-not-allowed opacity-70" 
+                projectFilter === "all"
+                  ? "bg-slate-100 text-slate-400 cursor-not-allowed opacity-70"
                   : "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-amber-200 hover:scale-105"
               }`}
             >
               <Sparkles className="w-4 h-4" />
-              {projectFilter === "all" ? "Select Project for Analysis" : "Smart Analysis"}
+              {projectFilter === "all"
+                ? "Select Project for Analysis"
+                : "Smart Analysis"}
             </button>
-            <button 
+            <button
               onClick={() => setIsBulkImportModalOpen(true)}
               className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
             >
@@ -411,7 +509,11 @@ const BOQPage = () => {
           <StatCard
             title="Estimated Total"
             value={`₹${(summaryData?.estimated || filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.total_cost?.toString() || "0"), 0) / 10000000).toFixed(2)}Cr`}
-            sub={summaryData ? `${summaryData.total_items} items total` : "Across filtered items"}
+            sub={
+              summaryData
+                ? `${summaryData.total_items} items total`
+                : "Across filtered items"
+            }
             accent="text-primary"
             icon={<TrendingUp className="w-5 h-5" />}
           />
@@ -426,7 +528,11 @@ const BOQPage = () => {
             title="Variance/Difference"
             value={`₹${((summaryData?.difference || 0) / 10000000).toFixed(2)}Cr`}
             sub="Budget gap analysis"
-            accent={(summaryData?.difference || 0) < 0 ? "text-rose-500" : "text-emerald-500"}
+            accent={
+              (summaryData?.difference || 0) < 0
+                ? "text-rose-500"
+                : "text-emerald-500"
+            }
             icon={<TrendingUp className="w-5 h-5" />}
           />
           <StatCard
@@ -517,17 +623,25 @@ const BOQPage = () => {
                     <Layers className="w-3.5 h-3.5 text-slate-400" />
                     <select
                       value={selectedVersion}
-                      onChange={(e) => setSelectedVersion(e.target.value === "latest" ? "latest" : Number(e.target.value))}
+                      onChange={(e) =>
+                        setSelectedVersion(
+                          e.target.value === "latest"
+                            ? "latest"
+                            : Number(e.target.value),
+                        )
+                      }
                       className="bg-transparent text-xs font-bold text-slate-600 outline-none pr-1"
                     >
                       <option value="latest">Latest Ver.</option>
                       {versionsList.map((v) => (
-                        <option key={v} value={v}>Ver. {v}</option>
+                        <option key={v} value={v}>
+                          Ver. {v}
+                        </option>
                       ))}
                     </select>
                   </div>
                   <div className="w-px h-4 bg-slate-200 mx-1" />
-                  <button 
+                  <button
                     onClick={handleCreateVersion}
                     title="Create New Version"
                     className="p-1 hover:bg-slate-200 rounded text-slate-500 transition-colors"
@@ -539,32 +653,35 @@ const BOQPage = () => {
 
               <div className="relative">
                 <button
-                   onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
-                   className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-all"
+                  onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
+                  className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-all"
                 >
                   <Download className="w-3.5 h-3.5" />
                   Export
                 </button>
-                
+
                 {isExportMenuOpen && (
                   <div className="absolute right-0 mt-2 w-40 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <button 
+                    <button
                       onClick={() => handleExport("excel")}
-                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
+                      disabled={isExporting}
+                      className={`w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-colors ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
                       Excel (.xlsx)
                     </button>
-                    <button 
+                    <button
                       onClick={() => handleExport("pdf")}
-                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
+                      disabled={isExporting}
+                      className={`w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-all ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       <FileText className="w-4 h-4 text-rose-500" />
                       PDF Report
                     </button>
-                    <button 
+                    <button
                       onClick={() => handleExport("json")}
-                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
+                      disabled={isExporting}
+                      className={`w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-all ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       <FileJson className="w-4 h-4 text-amber-500" />
                       JSON Data
@@ -665,7 +782,7 @@ const BOQPage = () => {
                         <td className="px-6 py-4 text-center">
                           <span
                             className={`px-2 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${
-                              item.status === "Active"
+                              (item.status === "Active" || item.status === "ACTIVE" || item.status === "Ongoing")
                                 ? "bg-emerald-100 text-emerald-600"
                                 : item.status === "Completed"
                                   ? "bg-blue-100 text-blue-600"
@@ -674,12 +791,17 @@ const BOQPage = () => {
                                     : "bg-amber-100 text-amber-600"
                             }`}
                           >
-                            {item.status}
+                            {(item.status === "Active" || item.status === "ACTIVE") ? "Ongoing" : item.status}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right">
+<<<<<<< HEAD
                           <div className="flex items-center justify-end gap-3">
                             <button 
+=======
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+>>>>>>> 53d5f0d (fix: resolve BOQ export issues, sync status terminology to Ongoing, and improve user validation)
                               onClick={() => openActualsModal(item)}
                               className="p-1.5 text-slate-400 hover:text-emerald-500 transition-all duration-200"
                               title="Update Actuals"
@@ -869,14 +991,18 @@ const BOQPage = () => {
         isOpen={isActualsModalOpen}
         onClose={() => setIsActualsModalOpen(false)}
         onSubmit={handleUpdateActualsSubmit}
-        initialData={activeItemForModal ? {
-          item_name: activeItemForModal.item_name,
-          actual_quantity: activeItemForModal.actual_quantity,
-          actual_cost: activeItemForModal.actual_cost,
-          quantity: activeItemForModal.quantity,
-          unit: activeItemForModal.unit,
-          total_cost: activeItemForModal.total_cost || "0"
-        } : undefined}
+        initialData={
+          activeItemForModal
+            ? {
+                item_name: activeItemForModal.item_name,
+                actual_quantity: activeItemForModal.actual_quantity,
+                actual_cost: activeItemForModal.actual_cost,
+                quantity: activeItemForModal.quantity,
+                unit: activeItemForModal.unit,
+                total_cost: activeItemForModal.total_cost || "0",
+              }
+            : undefined
+        }
       />
 
       {activeItemForModal && (

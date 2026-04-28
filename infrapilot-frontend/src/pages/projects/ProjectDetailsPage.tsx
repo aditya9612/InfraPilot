@@ -14,6 +14,7 @@ import AssignMemberModal from "../../components/projects/AssignMemberModal";
 import { generateProjectReport } from "../../utils/reportGenerator";
 import toast from "react-hot-toast";
 import ConfirmModal from "../../components/common/ConfirmModal";
+import ScheduleProjectModal from "../../components/projects/ScheduleProjectModal";
 import { useEffect, useCallback } from "react";
 
 const ProjectDetailsPage = () => {
@@ -28,12 +29,15 @@ const ProjectDetailsPage = () => {
 
   // State for data
   const [project, setProject] = useState<Project | null>(null);
+  const [schedule, setSchedule] = useState<{ start_date: string; end_date: string } | null>(null);
+  const [progress, setProgress] = useState<{ completion_percentage: number; status: string } | null>(null);
   const [members, setMembers] = useState<any[]>([]);
   const [milestones, setMilestones] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [isDeleteMilestoneModalOpen, setIsDeleteMilestoneModalOpen] =
     useState(false);
@@ -51,15 +55,19 @@ const ProjectDetailsPage = () => {
     if (!projectId) return;
     try {
       setLoading(true);
-      const [pData, mData, msData, tData, plData] = await Promise.all([
+      const [pData, mData, msData, tData, sData, prData, plData] = await Promise.all([
         projectService.getProjectById(projectId),
         projectService.getProjectMembers(projectId),
         projectService.getMilestones(projectId),
         projectService.getTasks(projectId),
+        projectService.getProjectSchedule(projectId).catch(() => null),
+        projectService.getProjectProgress(projectId).catch(() => null),
         projectService.getProjectProfitLoss(projectId).catch(() => null),
       ]);
 
       setProject(pData);
+      setSchedule(sData);
+      setProgress(prData);
       setMembers(
         Array.isArray(mData) ? mData : mData.items || mData.data || [],
       );
@@ -206,7 +214,9 @@ const ProjectDetailsPage = () => {
   };
 
   // Dynamic Progress Calculation (Fallback to frontend calculation if API progress isn't fetched)
-  const calculatedProgress = useMemo(() => {
+  const displayProgress = useMemo(() => {
+    if (progress?.completion_percentage !== undefined)
+      return progress.completion_percentage;
     if (project?.completion_percentage !== undefined)
       return project.completion_percentage;
     if (!tasks || tasks.length === 0) return 0;
@@ -215,7 +225,7 @@ const ProjectDetailsPage = () => {
       (t) => t.status === "Completed",
     ).length;
     return Math.round((completedTasksCount / totalTasks) * 100);
-  }, [tasks, project]);
+  }, [tasks, project, progress]);
 
   // Timeline Phase Logic
   const currentPhase = useMemo(() => {
@@ -461,11 +471,19 @@ const ProjectDetailsPage = () => {
                     <h3 className="font-bold text-slate-800">
                       Site Schedule & Monitoring
                     </h3>
-                    <div className="flex items-center gap-2 px-3 py-1 bg-violet-50 border border-violet-100 rounded-lg">
-                      <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
-                      <span className="text-[10px] font-black text-violet-600 uppercase tracking-widest">
-                        Active Phase: {currentPhase}
-                      </span>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setIsScheduleModalOpen(true)}
+                        className="px-3 py-1 text-[10px] font-bold text-primary bg-primary/5 hover:bg-primary/10 rounded-lg transition-all border border-primary/10"
+                      >
+                        Update Schedule
+                      </button>
+                      <div className="flex items-center gap-2 px-3 py-1 bg-violet-50 border border-violet-100 rounded-lg">
+                        <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
+                        <span className="text-[10px] font-black text-violet-600 uppercase tracking-widest">
+                          Active Phase: {currentPhase}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
@@ -475,7 +493,7 @@ const ProjectDetailsPage = () => {
                         Start Date
                       </p>
                       <p className="text-sm font-bold text-slate-700 group-hover:text-primary transition-colors">
-                        {new Date(project.start_date).toLocaleDateString()}
+                        {new Date(schedule?.start_date || project.start_date).toLocaleDateString()}
                       </p>
                     </div>
                     <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-50 transition-all hover:bg-white hover:shadow-md group">
@@ -483,7 +501,7 @@ const ProjectDetailsPage = () => {
                         End Date
                       </p>
                       <p className="text-sm font-bold text-slate-700 group-hover:text-primary transition-colors">
-                        {new Date(project.end_date).toLocaleDateString()}
+                        {new Date(schedule?.end_date || project.end_date).toLocaleDateString()}
                       </p>
                     </div>
                     <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-50 transition-all hover:bg-white hover:shadow-md group">
@@ -491,7 +509,7 @@ const ProjectDetailsPage = () => {
                         Site Progress
                       </p>
                       <p className="text-sm font-bold text-slate-700 group-hover:text-primary transition-colors">
-                        {calculatedProgress}% Calculated
+                        {displayProgress}% Calculated
                       </p>
                     </div>
                   </div>
@@ -500,13 +518,13 @@ const ProjectDetailsPage = () => {
                     <div className="flex justify-between items-center text-[11px] font-bold uppercase tracking-wider text-slate-400">
                       <span>Task Completion Progress</span>
                       <span className="text-slate-700 font-black">
-                        {calculatedProgress}%
+                        {displayProgress}%
                       </span>
                     </div>
                     <div className="relative w-full h-3 bg-slate-50 rounded-full overflow-hidden border border-slate-100">
                       <div
                         className="absolute top-0 left-0 h-full bg-primary transition-all duration-1000 shadow-[0_0_10px_rgba(37,99,235,0.4)]"
-                        style={{ width: `${calculatedProgress}%` }}
+                        style={{ width: `${displayProgress}%` }}
                       />
                     </div>
                   </div>
@@ -634,6 +652,15 @@ const ProjectDetailsPage = () => {
         onClose={() => setIsAssignModalOpen(false)}
         onAssign={handleAssignMember}
         existingMemberIds={members.map((m) => m.user_id)}
+      />
+
+      <ScheduleProjectModal
+        isOpen={isScheduleModalOpen}
+        onClose={() => setIsScheduleModalOpen(false)}
+        projectId={projectId}
+        initialStartDate={schedule?.start_date || project?.start_date}
+        initialEndDate={schedule?.end_date || project?.end_date}
+        onSuccess={fetchProjectData}
       />
     </>
   );

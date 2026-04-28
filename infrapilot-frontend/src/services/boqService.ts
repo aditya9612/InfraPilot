@@ -227,18 +227,27 @@ export const boqService = {
    * format: excel | pdf | json
    */
   async exportBoq(
-    boqId: number,
+    id: number,
     format: "excel" | "pdf" | "json",
+    isProjectLevel: boolean = false,
+    filters: any = {}
   ): Promise<any> {
     try {
       const responseType = format === "json" ? "json" : "blob";
-      const response = await api.get(`/boq/${boqId}/export/${format}`, {
+      
+      // Use the project-specific endpoint if we have a project ID
+      const endpoint = isProjectLevel 
+        ? `/boq/project/${id}/export/${format}`
+        : `/boq/${id}/export/${format}`;
+
+      const response = await api.get(endpoint, {
         responseType,
+        params: filters
       });
       return response.data;
     } catch (error: any) {
       console.error(
-        `Export Boq ${boqId} as ${format} Error:`,
+        `Export Boq ${id} as ${format} Error:`,
         error.response?.data || error.message,
       );
       throw error;

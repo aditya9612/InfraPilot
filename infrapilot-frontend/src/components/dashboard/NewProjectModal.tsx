@@ -165,7 +165,7 @@ const NewProjectModal = ({
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
               >
                 <option value="Planned">Planned</option>
-                <option value="In Progress">In Progress</option>
+                <option value="Ongoing">Ongoing</option>
                 <option value="Completed">Completed</option>
                 <option value="On Hold">On Hold</option>
               </select>

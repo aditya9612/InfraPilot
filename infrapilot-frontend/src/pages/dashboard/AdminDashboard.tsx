@@ -39,7 +39,7 @@ const budgetData = [
 // ─── Styling Helpers ──────────────────────────────────────────────────────────
 const statusBadge: Record<ProjectStatus, string> = {
   Planned: "bg-slate-100 text-slate-500",
-  Active: "bg-green-100 text-success",
+  Ongoing: "bg-green-100 text-success",
   Delayed: "bg-red-100 text-danger",
   Completed: "bg-blue-100 text-primary",
   "On Hold": "bg-amber-100 text-warning",
@@ -47,7 +47,7 @@ const statusBadge: Record<ProjectStatus, string> = {
 
 const statusDot: Record<ProjectStatus, string> = {
   Planned: "bg-slate-400",
-  Active: "bg-success",
+  Ongoing: "bg-success",
   Delayed: "bg-danger",
   Completed: "bg-primary",
   "On Hold": "bg-warning",
@@ -55,7 +55,7 @@ const statusDot: Record<ProjectStatus, string> = {
 
 const progressPulse: Record<ProjectStatus, string> = {
   Planned: "bg-slate-300",
-  Active: "bg-success",
+  Ongoing: "bg-success",
   Delayed: "bg-danger",
   Completed: "bg-primary",
   "On Hold": "bg-warning",
@@ -70,6 +70,7 @@ const AdminDashboard = () => {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [alerts, setAlerts] = useState<any[]>([]);
+  const [projectAlertsData, setProjectAlertsData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchDashboardData = useCallback(async () => {
@@ -85,6 +86,7 @@ const AdminDashboard = () => {
         ? pData
         : pData.items || pData.data || [];
       setProjects(projectsList);
+      setProjectAlertsData(Array.isArray(pAlerts) ? pAlerts : []);
 
       // Combine alerts for activity feed
       const combinedAlerts = [
@@ -92,7 +94,7 @@ const AdminDashboard = () => {
         ...(Array.isArray(tAlerts) ? tAlerts : []),
       ].map((a: any) => ({
         user: a.user_name || "System",
-        action: a.message || a.detail || "Alert reported",
+        action: a.message || a.detail || (a.project_name ? `${a.project_name} is ${a.status}` : "Alert reported"),
         time: a.created_at
           ? new Date(a.created_at).toLocaleTimeString()
           : "Recent",
@@ -473,29 +475,32 @@ const AdminDashboard = () => {
               <span className="text-red-500 font-bold">⚠️</span>
               <h2 className="font-bold text-slate-800">Critical Alerts</h2>
             </div>
-            <div className="space-y-4">
-              <div className="p-3 bg-red-50 rounded-xl flex items-start gap-3">
-                <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5" />
-                <div className="flex-1">
-                  <p className="text-xs font-bold text-red-900">
-                    Budget Exceeded: SARA CITY
-                  </p>
-                  <p className="text-[10px] text-red-600">
-                    Material costs spiking by 12% in current phase.
+            <div className="space-y-4 max-h-[250px] overflow-y-auto pr-1 custom-scrollbar">
+              {projectAlertsData.length === 0 ? (
+                <div className="text-center py-6">
+                  <p className="text-2xl mb-1">✅</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    All Projects Healthy
                   </p>
                 </div>
-              </div>
-              <div className="p-3 bg-amber-50 rounded-xl flex items-start gap-3">
-                <div className="w-2 h-2 rounded-full bg-amber-500 mt-1.5" />
-                <div className="flex-1">
-                  <p className="text-xs font-bold text-amber-900">
-                    Pending Safety Approval
-                  </p>
-                  <p className="text-[10px] text-amber-600">
-                    Site Engineer Ravi awaiting signature for BOQ-22.
-                  </p>
-                </div>
-              </div>
+              ) : (
+                projectAlertsData.map((alert, i) => (
+                  <div key={i} className="p-3 bg-red-50 rounded-xl flex items-start gap-3 border border-red-100/50 hover:bg-red-100/50 transition-all cursor-pointer" onClick={() => handleViewProject(alert.project_id)}>
+                    <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5 animate-pulse" />
+                    <div className="flex-1">
+                      <p className="text-xs font-bold text-red-900 flex justify-between items-center">
+                        {alert.project_name}
+                        <span className="text-[8px] px-1.5 py-0.5 bg-red-100 text-red-600 rounded">
+                          {alert.status}
+                        </span>
+                      </p>
+                      <p className="text-[10px] text-red-600 mt-0.5">
+                        Delayed since: {alert.end_date ? new Date(alert.end_date).toLocaleDateString() : "TBD"}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
