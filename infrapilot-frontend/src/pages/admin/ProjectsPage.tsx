@@ -13,7 +13,7 @@ import type { Project, ProjectStatus } from "../../types/project";
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const statusBadge: Record<ProjectStatus, string> = {
   Planned: "bg-slate-100 text-slate-500",
-  Active: "bg-green-100 text-success",
+  Ongoing: "bg-green-100 text-success",
   Delayed: "bg-red-100 text-red-600",
   Completed: "bg-blue-100 text-primary",
   "On Hold": "bg-amber-100 text-warning",
@@ -21,7 +21,7 @@ const statusBadge: Record<ProjectStatus, string> = {
 
 const progressFill: Record<ProjectStatus, string> = {
   Planned: "bg-slate-300",
-  Active: "bg-success",
+  Ongoing: "bg-success",
   Delayed: "bg-red-500",
   Completed: "bg-primary",
   "On Hold": "bg-warning",
@@ -29,7 +29,7 @@ const progressFill: Record<ProjectStatus, string> = {
 
 const statusDot: Record<ProjectStatus, string> = {
   Planned: "bg-slate-400",
-  Active: "bg-success",
+  Ongoing: "bg-success",
   Delayed: "bg-red-500",
   Completed: "bg-primary",
   "On Hold": "bg-warning",
@@ -221,11 +221,11 @@ const ProjectsPage = () => {
               status: "All",
             },
             {
-              title: "Active Sites",
+              title: "Ongoing Sites",
               value: String(stats.active),
               sub: "Currently in progress",
               accent: "text-success",
-              status: "Active",
+              status: "Ongoing",
             },
             {
               title: "Completed",
@@ -290,7 +290,7 @@ const ProjectsPage = () => {
                   {(
                     [
                       "All",
-                      "Active",
+                      "Ongoing",
                       "Planned",
                       "Delayed",
                       "Completed",

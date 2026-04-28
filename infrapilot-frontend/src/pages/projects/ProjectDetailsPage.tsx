@@ -334,7 +334,7 @@ const ProjectDetailsPage = () => {
               </span>
               <span
                 className={`px-3 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${
-                  project.status === "Active"
+                  project.status === "Ongoing"
                     ? "bg-green-100 text-success"
                     : project.status === "Delayed"
                       ? "bg-red-100 text-red-600"

@@ -45,9 +45,7 @@ const NotificationsPage = () => {
     toast.success("Alert removed.");
   };
 
-  const toggleRead = (id: number) => {
-    setAlerts(prev => prev.map(a => a.id === id ? { ...a, isRead: !a.isRead } : a));
-  };
+
 
   return (
     <>
