@@ -94,7 +94,12 @@ const AdminDashboard = () => {
         ...(Array.isArray(tAlerts) ? tAlerts : []),
       ].map((a: any) => ({
         user: a.user_name || "System",
-        action: a.message || a.detail || (a.project_name ? `${a.project_name} is ${a.status}` : "Alert reported"),
+        action:
+          a.message ||
+          a.detail ||
+          (a.project_name
+            ? `${a.project_name} is ${a.status}`
+            : "Alert reported"),
         time: a.created_at
           ? new Date(a.created_at).toLocaleTimeString()
           : "Recent",
@@ -330,77 +335,84 @@ const AdminDashboard = () => {
             </div>
             <div className="h-[300px] w-full">
               {!isLoading ? (
-                <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={100}>
+                <ResponsiveContainer
+                  width="100%"
+                  height="100%"
+                  minWidth={0}
+                  debounce={100}
+                >
                   <LineChart
                     data={budgetData}
                     margin={{ top: 5, right: 10, left: 10, bottom: 0 }}
                   >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    vertical={false}
-                    stroke="#f1f5f9"
-                  />
-                  <XAxis
-                    dataKey="month"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: "#94a3b8", fontSize: 12 }}
-                    dy={10}
-                  />
-                  <YAxis
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: "#94a3b8", fontSize: 12 }}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: "12px",
-                      border: "none",
-                      boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
-                    }}
-                  />
-                  <Legend
-                    iconType="circle"
-                    wrapperStyle={{ paddingTop: "20px" }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="budget"
-                    stroke="#2563EB"
-                    strokeWidth={3}
-                    dot={{ fill: "#2563EB", strokeWidth: 2, r: 4 }}
-                    activeDot={{ r: 6, strokeWidth: 0 }}
-                    name="Planned Budget"
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="actual"
-                    stroke="#F43F5E"
-                    strokeWidth={3}
-                    dot={{ fill: "#F43F5E", strokeWidth: 2, r: 4 }}
-                    activeDot={{ r: 6, strokeWidth: 0 }}
-                    name="Actual Cost"
-                  />
-                  {/* Highlight Over Budget Areas in Red */}
-                  <ReferenceArea
-                    x1="Feb"
-                    x2="Apr"
-                    fill="#fee2e2"
-                    fillOpacity={0.3}
-                    label={{
-                      position: "top",
-                      value: "Over Budget",
-                      fill: "#ef4444",
-                      fontSize: 10,
-                      fontWeight: "bold",
-                    }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      stroke="#f1f5f9"
+                    />
+                    <XAxis
+                      dataKey="month"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: "#94a3b8", fontSize: 12 }}
+                      dy={10}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: "#94a3b8", fontSize: 12 }}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: "12px",
+                        border: "none",
+                        boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
+                      }}
+                    />
+                    <Legend
+                      iconType="circle"
+                      wrapperStyle={{ paddingTop: "20px" }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="budget"
+                      stroke="#2563EB"
+                      strokeWidth={3}
+                      dot={{ fill: "#2563EB", strokeWidth: 2, r: 4 }}
+                      activeDot={{ r: 6, strokeWidth: 0 }}
+                      name="Planned Budget"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="actual"
+                      stroke="#F43F5E"
+                      strokeWidth={3}
+                      dot={{ fill: "#F43F5E", strokeWidth: 2, r: 4 }}
+                      activeDot={{ r: 6, strokeWidth: 0 }}
+                      name="Actual Cost"
+                    />
+                    {/* Highlight Over Budget Areas in Red */}
+                    <ReferenceArea
+                      x1="Feb"
+                      x2="Apr"
+                      fill="#fee2e2"
+                      fillOpacity={0.3}
+                      label={{
+                        position: "top",
+                        value: "Over Budget",
+                        fill: "#ef4444",
+                        fontSize: 10,
+                        fontWeight: "bold",
+                      }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
                   <div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin mb-4" />
-                  <p className="text-xs font-bold uppercase tracking-widest">Loading Analytics...</p>
+                  <p className="text-xs font-bold uppercase tracking-widest">
+                    Loading Analytics...
+                  </p>
                 </div>
               )}
             </div>
@@ -485,7 +497,11 @@ const AdminDashboard = () => {
                 </div>
               ) : (
                 projectAlertsData.map((alert, i) => (
-                  <div key={i} className="p-3 bg-red-50 rounded-xl flex items-start gap-3 border border-red-100/50 hover:bg-red-100/50 transition-all cursor-pointer" onClick={() => handleViewProject(alert.project_id)}>
+                  <div
+                    key={i}
+                    className="p-3 bg-red-50 rounded-xl flex items-start gap-3 border border-red-100/50 hover:bg-red-100/50 transition-all cursor-pointer"
+                    onClick={() => handleViewProject(alert.project_id)}
+                  >
                     <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5 animate-pulse" />
                     <div className="flex-1">
                       <p className="text-xs font-bold text-red-900 flex justify-between items-center">
@@ -495,7 +511,10 @@ const AdminDashboard = () => {
                         </span>
                       </p>
                       <p className="text-[10px] text-red-600 mt-0.5">
-                        Delayed since: {alert.end_date ? new Date(alert.end_date).toLocaleDateString() : "TBD"}
+                        Delayed since:{" "}
+                        {alert.end_date
+                          ? new Date(alert.end_date).toLocaleDateString()
+                          : "TBD"}
                       </p>
                     </div>
                   </div>
@@ -615,8 +634,18 @@ const AdminDashboard = () => {
               onClick={handleDownloadCSV}
               className="flex items-center gap-1.5 text-xs text-primary font-bold hover:underline transition-colors"
             >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
               </svg>
               Download CSV
             </button>

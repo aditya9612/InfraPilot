@@ -169,8 +169,12 @@ const BOQPage = () => {
             Number(projectFilter),
           );
           setVersionsList(versions);
-        } catch (error) {
-          console.error("Failed to fetch versions", error);
+        } catch (error: any) {
+          if (error.response?.status === 404) {
+            setVersionsList([]);
+          } else {
+            console.error("Failed to fetch versions", error);
+          }
         }
       } else {
         setVersionsList([]);
@@ -538,7 +542,13 @@ const BOQPage = () => {
                 : "Smart Analysis"}
             </button>
             <button
-              onClick={() => setIsBulkImportModalOpen(true)}
+              onClick={() => {
+                if (projectFilter === "all") {
+                  toast.error("Please select a project before importing");
+                  return;
+                }
+                setIsBulkImportModalOpen(true);
+              }}
               className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
             >
               <Upload className="w-4 h-4 text-primary" />
@@ -1092,7 +1102,7 @@ const BOQPage = () => {
       <BulkImportBOQModal
         isOpen={isBulkImportModalOpen}
         onClose={() => setIsBulkImportModalOpen(false)}
-        projectId={projectFilter === "all" ? 1 : Number(projectFilter)}
+        projectId={projectFilter === "all" ? 0 : Number(projectFilter)}
         onSuccess={refreshBoqs}
       />
     </>

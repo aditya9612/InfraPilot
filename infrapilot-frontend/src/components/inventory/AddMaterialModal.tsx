@@ -20,11 +20,12 @@ export default function AddMaterialModal({
     material_name: "",
     category: "",
     unit: "",
-    supplier_name: "",
+    supplier_id: 0,
     purchase_rate: 0,
-    rate_type: "",
+    rate_type: "FIXED",
     quantity_purchased: 0,
     payment_given: 0,
+    minimum_stock_level: 10,
   });
 
   useEffect(() => {
@@ -39,14 +40,15 @@ export default function AddMaterialModal({
         material_name: "",
         category: "",
         unit: "",
-        supplier_name: "",
+        supplier_id: suppliers[0]?.id || 0,
         purchase_rate: 0,
-        rate_type: "",
+        rate_type: "FIXED",
         quantity_purchased: 0,
         payment_given: 0,
+        minimum_stock_level: 10,
       });
     }
-  }, [initialData, isOpen]);
+  }, [initialData, isOpen, suppliers]);
 
   if (!isOpen) return null;
 
@@ -60,7 +62,9 @@ export default function AddMaterialModal({
         name === "purchase_rate" ||
         name === "quantity_purchased" ||
         name === "payment_given" ||
-        name === "project_id"
+        name === "project_id" ||
+        name === "supplier_id" ||
+        name === "minimum_stock_level"
           ? Number(value)
           : value,
     }));
@@ -151,26 +155,23 @@ export default function AddMaterialModal({
 
             <div className="space-y-1 md:col-span-2">
               <label className="block text-sm font-semibold text-slate-700">
-                Supplier Name *
+                Supplier *
               </label>
               <select
                 required
-                name="supplier_name"
-                value={formData.supplier_name}
+                name="supplier_id"
+                value={formData.supplier_id}
                 onChange={handleChange}
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
               >
-                <option value="" disabled>
-                  -- Select from Supplier DB --
+                <option value={0} disabled>
+                  -- Select Supplier --
                 </option>
                 {suppliers.map((sup) => (
-                  <option key={sup.id} value={sup.name}>
+                  <option key={sup.id} value={sup.id}>
                     {sup.name}
                   </option>
                 ))}
-                <option value="Other">
-                  Other (Typing allowed in a real combobox)
-                </option>
               </select>
             </div>
 
@@ -198,14 +199,30 @@ export default function AddMaterialModal({
               <label className="block text-sm font-semibold text-slate-700">
                 Rate Type *
               </label>
-              <input
+              <select
                 required
-                type="text"
                 name="rate_type"
                 value={formData.rate_type}
                 onChange={handleChange}
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
-                placeholder="e.g. per bag"
+              >
+                <option value="FIXED">FIXED</option>
+                <option value="VARIABLE">VARIABLE</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="block text-sm font-semibold text-slate-700">
+                Min Stock Level *
+              </label>
+              <input
+                required
+                type="number"
+                name="minimum_stock_level"
+                value={formData.minimum_stock_level || ""}
+                onChange={handleChange}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                placeholder="Alert threshold"
               />
             </div>
 
@@ -213,7 +230,7 @@ export default function AddMaterialModal({
               <>
                 <div className="space-y-1 border-t border-slate-100 pt-4 mt-2">
                   <label className="block text-sm font-semibold text-slate-700">
-                    Initial Quantity Purchased *
+                    Initial Quantity *
                   </label>
                   <input
                     required
@@ -228,7 +245,7 @@ export default function AddMaterialModal({
 
                 <div className="space-y-1 border-t border-slate-100 pt-4 mt-2">
                   <label className="block text-sm font-semibold text-slate-700">
-                    Payment Given Upfront
+                    Upfront Payment
                   </label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">

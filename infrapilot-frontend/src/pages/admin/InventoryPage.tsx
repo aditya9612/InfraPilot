@@ -12,83 +12,39 @@ import MaterialCostReportModal from "../../components/inventory/MaterialCostRepo
 import toast from "react-hot-toast";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import { materialService } from "../../services/materialService";
-import { Edit2, PlusCircle, MinusCircle, Trash2 } from "lucide-react";
+import { Edit2, PlusCircle, MinusCircle, Trash2, FileText, History, ShoppingCart, Truck, LayoutDashboard } from "lucide-react";
+import type { Material, Supplier, PurchaseOrder, Transfer, InventoryLog, InventorySummary } from "../../types/material";
 
-// --- Mock Data (Exact API Schema) ---
-const initialInventory = [
-  {
-    id: 1,
-    project_id: 1,
-    material_name: "Paint",
-    category: "Finishing",
-    unit: "Liters",
-    supplier_name: "Asian Paints Dealer",
-    purchase_rate: 250,
-    rate_type: "per liter",
-    quantity_purchased: 200,
-    quantity_used: 50,
-    remaining_stock: 150,
-    total_amount: 50000,
-    payment_given: 40000,
-    payment_pending: 10000,
-  },
-  {
-    id: 2,
-    project_id: 2,
-    material_name: "Bricks",
-    category: "Construction",
-    unit: "Pieces",
-    supplier_name: "Sharma Bricks",
-    purchase_rate: 8,
-    rate_type: "per piece",
-    quantity_purchased: 5000,
-    quantity_used: 4995,
-    remaining_stock: 5, // Low Stock Alert
-    total_amount: 40000,
-    payment_given: 40000,
-    payment_pending: 0,
-  },
-];
+// New modular components
+import InventoryTable from "../../components/admin/inventory/InventoryTable";
+import SupplierTable from "../../components/admin/inventory/SupplierTable";
+import PurchaseOrderTable from "../../components/admin/inventory/PurchaseOrderTable";
+import TransferTable from "../../components/admin/inventory/TransferTable";
+import InventoryLogsTable from "../../components/admin/inventory/InventoryLogsTable";
 
-const initialSuppliers = [
-  {
-    id: "s1",
-    name: "Asian Paints Dealer",
-    contactPerson: "Rajesh Kumar",
-    phone: "+91 9876543210",
-    email: "",
-    gst: "",
-    address: "Mumbai",
-  },
-  {
-    id: "s2",
-    name: "Sharma Bricks",
-    contactPerson: "Amit Singh",
-    phone: "+91 8765432109",
-    email: "",
-    gst: "",
-    address: "Pune",
-  },
-];
-
-const projects = {
+const projects: Record<number, string> = {
   1: "Site A - City Center Complex",
   2: "Site B - Riverside Apartments",
 };
-// -----------------
 
 const InventoryPage = () => {
+  console.log("InventoryPage Rendered");
   const location = useLocation();
   const isMaster =
     location.pathname.includes("/master") ||
     location.pathname === "/admin/inventory";
 
-  const [inventory, setInventory] = useState(initialInventory);
-  const [suppliers, setSuppliers] = useState(initialSuppliers);
+  const [inventory, setInventory] = useState<Material[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [pos, setPos] = useState<PurchaseOrder[]>([]);
+  const [transfers, setTransfers] = useState<Transfer[]>([]);
+  const [logs, setLogs] = useState<InventoryLog[]>([]);
+  const [summary, setSummary] = useState<InventorySummary | null>(null);
+  const [valuation, setValuation] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Note: we're dropping the distinct 'pos' tab/state to streamline exactly with the API given which just logs purchases to the material directly.
-  const [activeTab, setActiveTab] = useState<"inventory" | "suppliers">(
-    isMaster ? "suppliers" : "inventory",
+  const [activeTab, setActiveTab] = useState<"overview" | "inventory" | "suppliers" | "pos" | "transfers" | "logs">(
+    isMaster ? "suppliers" : "overview",
   );
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -114,11 +70,45 @@ const InventoryPage = () => {
     type: "material" | "supplier";
   } | null>(null);
 
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      console.log("Fetching inventory data for Project 1...");
+      const [invData, supData, poData, trData, logData, summaryData, valData] = await Promise.all([
+        materialService.getMaterials(1), // Default to project 1
+        materialService.getSuppliers(),
+        materialService.getPOs(),
+        materialService.getTransfers(),
+        materialService.getLogs({ limit: 50, project_id: 1 }),
+        materialService.getSummary(),
+        materialService.getInventoryValuation()
+      ]);
+
+      setInventory(invData);
+      setSuppliers(supData);
+      setPos(poData);
+      setTransfers(trData);
+      setLogs(logData);
+      setSummary(summaryData);
+      setValuation(valData.total_value || 0);
+      console.log("Inventory data synchronized successfully.");
+    } catch (error: any) {
+      console.error("Critical API Error in InventoryPage:", error);
+      const errorMsg = error.response?.data?.detail || error.response?.data || error.message;
+      console.error("Error Detail:", errorMsg);
+      toast.error(`Sync Failed: ${typeof errorMsg === 'string' ? errorMsg : 'Check console'}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
   useEffect(() => {
     if (isMaster) {
-      if (activeTab !== "suppliers") setActiveTab("suppliers");
-    } else {
-      if (activeTab !== "inventory") setActiveTab("inventory");
+      if (activeTab === "overview" || activeTab === "inventory") setActiveTab("suppliers");
     }
   }, [isMaster]);
 
@@ -140,7 +130,7 @@ const InventoryPage = () => {
   const handleSupplierSubmit = async (data: any) => {
     try {
       await materialService.createSupplier(data);
-      setSuppliers((prev) => [...prev, { ...data, id: `s${prev.length + 1}` }]);
+      fetchData(); // Refresh all data
       setSupplierModalOpen(false);
       toast.success("Supplier added successfully!");
     } catch (error) {
@@ -148,122 +138,56 @@ const InventoryPage = () => {
     }
   };
 
-  const handleCreateOrUpdateMaterial = (data: any) => {
-    // Corresponds to POST /materials and PUT /materials/{id}
-    if (selectedMaterial) {
-      // Logic for PUT
-      setInventory((prev) =>
-        prev.map((m) => {
-          if (m.id === selectedMaterial.id) {
-            const newPaymentGiven = m.payment_given + (data.payment_given || 0);
-            return {
-              ...m,
-              material_name: data.material_name,
-              category: data.category,
-              unit: data.unit,
-              supplier_name: data.supplier_name,
-              purchase_rate: data.purchase_rate,
-              rate_type: data.rate_type,
-              payment_given: newPaymentGiven,
-              payment_pending: m.total_amount - newPaymentGiven,
-            };
-          }
-          return m;
-        }),
-      );
-    } else {
-      // Logic for POST
-      const totalAmount = data.quantity_purchased * data.purchase_rate;
-      const newMaterial = {
-        ...data,
-        id:
-          inventory.length > 0
-            ? Math.max(...inventory.map((m) => m.id)) + 1
-            : 1,
-        quantity_used: 0,
-        remaining_stock: data.quantity_purchased,
-        total_amount: totalAmount,
-        payment_pending: totalAmount - (data.payment_given || 0),
-      };
-      setInventory((prev) => [...prev, newMaterial]);
-    }
-    setMaterialFormOpen(false);
-    toast.success(
-      selectedMaterial
-        ? "Material updated successfully!"
-        : "Material created successfully!",
-    );
-  };
-
-  const handlePurchaseAction = (data: any) => {
-    // Corresponds to POST .../purchase or POST .../usage
-    setInventory((prev) =>
-      prev.map((m) => {
-        if (m.id === purchaseActionConfig.material.id) {
-          if (data.actionType === "usage") {
-            return {
-              ...m,
-              quantity_used: m.quantity_used + data.quantity,
-              remaining_stock: m.remaining_stock - data.quantity,
-              // The current api schema doesn't log payment directly to usage, but you could append data.payment logic if required.
-            };
-          } else {
-            // purchase action increases qty, stock, and total amount
-            const addedAmount = data.quantity * m.purchase_rate;
-            const newPaymentGiven = m.payment_given + data.payment;
-            const newTotalAmount = m.total_amount + addedAmount;
-
-            return {
-              ...m,
-              quantity_purchased: m.quantity_purchased + data.quantity,
-              remaining_stock: m.remaining_stock + data.quantity,
-              total_amount: newTotalAmount,
-              payment_given: newPaymentGiven,
-              payment_pending: newTotalAmount - newPaymentGiven,
-            };
-          }
-        }
-        return m;
-      }),
-    );
-    setPurchaseActionConfig({
-      isOpen: false,
-      type: "purchase",
-      material: null,
-    });
-    toast.success(
-      data.actionType === "usage"
-        ? "Usage logged successfully!"
-        : "Purchase added successfully!",
-    );
-  };
-
-  const handleTransferSubmit = (data: any) => {
-    // Custom simulated transfer
-    setInventory((prev) => {
-      const updated = [...prev];
-      const sourceIndex = updated.findIndex((i) => i.id === data.materialId);
-      if (sourceIndex >= 0) {
-        updated[sourceIndex].remaining_stock -= data.quantity;
-        updated[sourceIndex].quantity_used += data.quantity; // Technically transferred out, so it's "used" at site A
-
-        // Spawn destination material at Site B
-        updated.push({
-          ...updated[sourceIndex],
-          id: updated.length + 1,
-          project_id: data.toProjectId,
-          quantity_purchased: data.quantity,
-          quantity_used: 0,
-          remaining_stock: data.quantity,
-          payment_given: 0,
-          payment_pending: 0,
-          total_amount: 0, // Financials usually stay with the original site accounting, or adjust as needed.
-        });
+  const handleCreateOrUpdateMaterial = async (data: any) => {
+    try {
+      if (selectedMaterial) {
+        await materialService.updateMaterial(selectedMaterial.id, data);
+        toast.success("Material updated successfully!");
+      } else {
+        await materialService.createMaterial(data);
+        toast.success("Material created successfully!");
       }
-      return updated;
-    });
-    setTransferModalOpen(false);
-    toast.success("Material transferred successfully!");
+      fetchData();
+      setMaterialFormOpen(false);
+    } catch (error) {
+      toast.error("Failed to save material");
+    }
+  };
+
+  const handlePurchaseAction = async (data: any) => {
+    try {
+      if (data.actionType === "usage") {
+        await materialService.logUsage(purchaseActionConfig.material.id, {
+          quantity: data.quantity,
+          project_id: data.project_id,
+          issue_type: data.issue_type || "SITE"
+        });
+        toast.success("Usage logged successfully!");
+      } else {
+        await materialService.logPurchase(purchaseActionConfig.material.id, {
+          quantity: data.quantity,
+          amount_paid: data.payment,
+          project_id: data.project_id,
+          issue_type: data.issue_type || "SYSTEM"
+        });
+        toast.success("Purchase added successfully!");
+      }
+      fetchData();
+      setPurchaseActionConfig({ isOpen: false, type: "purchase", material: null });
+    } catch (error) {
+      toast.error("Failed to log action");
+    }
+  };
+
+  const handleTransferSubmit = async (data: any) => {
+    try {
+      await materialService.createTransfer(data);
+      fetchData();
+      setTransferModalOpen(false);
+      toast.success("Material transferred successfully!");
+    } catch (error) {
+      toast.error("Failed to transfer material");
+    }
   };
 
   const handleDeleteClick = (id: any, type: "material" | "supplier") => {
@@ -271,18 +195,22 @@ const InventoryPage = () => {
     setIsDeleteModalOpen(true);
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (!itemToDelete) return;
-
-    if (itemToDelete.type === "material") {
-      setInventory((prev) => prev.filter((m) => m.id !== itemToDelete.id));
-      toast.success("Material deleted successfully!");
-    } else {
-      setSuppliers((prev) => prev.filter((s) => s.id !== itemToDelete.id));
-      toast.success("Supplier deleted successfully!");
+    try {
+      if (itemToDelete.type === "material") {
+        await materialService.deleteMaterial(itemToDelete.id);
+        toast.success("Material deleted successfully!");
+      } else {
+        await materialService.deleteSupplier(itemToDelete.id);
+        toast.success("Supplier deleted successfully!");
+      }
+      fetchData();
+      setIsDeleteModalOpen(false);
+      setItemToDelete(null);
+    } catch (error) {
+      toast.error("Failed to delete item");
     }
-    setIsDeleteModalOpen(false);
-    setItemToDelete(null);
   };
 
   // Stats Calculation based on exact API schema fields
@@ -333,44 +261,44 @@ const InventoryPage = () => {
           </div>
 
           <div className="flex gap-2">
+            <div className="bg-white border border-slate-200 rounded-xl p-1 flex shadow-sm">
+              {[
+                { id: "overview", label: "Overview", icon: LayoutDashboard },
+                { id: "inventory", label: "Inventory", icon: FileText },
+                { id: "suppliers", label: "Suppliers", icon: Truck },
+                { id: "pos", label: "Orders", icon: ShoppingCart },
+                { id: "transfers", label: "Transfers", icon: Truck },
+                { id: "logs", label: "Logs", icon: History },
+              ].filter(tab => !isMaster || (tab.id === "suppliers" || tab.id === "logs")).map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    activeTab === tab.id 
+                      ? "bg-primary text-white shadow-md shadow-primary/20" 
+                      : "text-slate-500 hover:bg-slate-50"
+                  }`}
+                >
+                  <tab.icon size={14} />
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
             {activeTab === "inventory" && (
               <>
                 <button
                   onClick={() => setIsReportModalOpen(true)}
                   className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all flex items-center gap-2"
                 >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                    />
-                  </svg>
+                  <FileText className="w-4 h-4" />
                   Cost Report
                 </button>
                 <button
                   onClick={() => setTransferModalOpen(true)}
                   className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all flex items-center gap-2"
                 >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
-                    />
-                  </svg>
+                  <Truck className="w-4 h-4" />
                   Transfer
                 </button>
                 <button
@@ -380,19 +308,7 @@ const InventoryPage = () => {
                   }}
                   className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2"
                 >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                    />
-                  </svg>
+                  <PlusCircle className="w-4 h-4" />
                   New Material
                 </button>
               </>
@@ -409,10 +325,10 @@ const InventoryPage = () => {
         </div>
 
         {/* Dynamic Content based on Tab */}
-        {activeTab === "inventory" && (
+        {activeTab === "overview" && (
           <div className="flex flex-col gap-6 mb-8">
             {/* LOW STOCK ALERT BANNER */}
-            {lowStockCount > 0 && (
+            {inventory.filter(m => m.remaining_stock < m.minimum_stock_level).length > 0 && (
               <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex items-start gap-4 shadow-sm animate-in fade-in slide-in-from-top-2">
                 <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center shrink-0">
                   <span className="text-rose-500 font-bold text-xl block animate-pulse">
@@ -424,12 +340,11 @@ const InventoryPage = () => {
                     Critical Inventory Alert
                   </h3>
                   <p className="text-rose-600 text-xs mt-0.5 mb-2 font-medium">
-                    The following items have dropped below the minimum threshold
-                    (10 units) and require immediate procurement:
+                    The following items have dropped below their minimum threshold and require immediate procurement:
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {inventory
-                      .filter((m) => m.remaining_stock < 10)
+                      .filter((m) => m.remaining_stock < m.minimum_stock_level)
                       .map((lowItem) => (
                         <span
                           key={lowItem.id}
@@ -438,9 +353,7 @@ const InventoryPage = () => {
                           {lowItem.material_name}{" "}
                           <span className="text-rose-400 font-normal ml-1">
                             ({lowItem.remaining_stock} left @{" "}
-                            {(projects as any)[lowItem.project_id] ||
-                              "Unknown Site"}
-                            )
+                            {projects[lowItem.project_id] || "Unknown Site"})
                           </span>
                         </span>
                       ))}
@@ -452,21 +365,21 @@ const InventoryPage = () => {
             {/* STAT CARDS */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <StatCard
-                title="Total Inventory Value"
-                value={`₹${totalValuation.toLocaleString()}`}
+                title="Total Stock Valuation"
+                value={`₹${valuation.toLocaleString()}`}
                 sub="Across all sites"
                 accent="text-emerald-500"
               />
               <StatCard
-                title="Total Units in Inventory"
-                value={totalStockUnits.toLocaleString()}
-                sub="Sum of tracking units"
+                title="Total Materials"
+                value={summary?.total_materials.toLocaleString() || "0"}
+                sub="Active catalog items"
                 accent="text-primary"
               />
               <StatCard
-                title="Low Inventory Materials"
-                value={lowStockCount.toString()}
-                sub="Threshold < 10"
+                title="Pending Payments"
+                value={`₹${summary?.total_pending_payments.toLocaleString() || "0"}`}
+                sub="Supplier payables"
                 accent="text-rose-500"
               />
             </div>
@@ -502,205 +415,58 @@ const InventoryPage = () => {
           </div>
 
           <div className="overflow-x-auto min-h-[300px]">
-            {/* INVENTORY TABLE - ALIGNED TO API SCHEMA */}
-            {activeTab === "inventory" && (
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-                    <th className="px-6 py-4">Site & Material (ID)</th>
-                    <th className="px-6 py-4">
-                      Inventory Ledger (Bought/Used)
-                    </th>
-                    <th className="px-6 py-4">Rate & Value</th>
-                    <th className="px-6 py-4">Financials (Paid/Pending)</th>
-                    <th className="px-6 py-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50 text-sm">
-                  {filteredInventory.map((item) => (
-                    <tr
-                      key={item.id}
-                      className="hover:bg-slate-50/50 transition-colors"
-                    >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-primary/50"></span>
-                          <span className="font-semibold text-slate-600 text-xs">
-                            {(projects as any)[item.project_id] ||
-                              "Unknown Site"}
-                          </span>
-                        </div>
-                        <p className="font-bold text-slate-800">
-                          {item.material_name}{" "}
-                          <span className="text-slate-400 font-medium">
-                            #{item.id}
-                          </span>
-                        </p>
-                        <p className="text-slate-500 text-[10px] font-bold tracking-tight uppercase mt-0.5">
-                          {item.category} • {item.supplier_name}
-                        </p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span
-                            className={`text-base font-bold ${item.remaining_stock < 10 ? "text-rose-500" : "text-emerald-600"}`}
-                          >
-                            {item.remaining_stock.toLocaleString()} {item.unit}
-                          </span>
-                          {item.remaining_stock < 10 && (
-                            <span
-                              className="w-2 h-2 bg-rose-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.6)]"
-                              title="Low Inventory Alert"
-                            />
-                          )}
-                        </div>
-                        <div className="text-xs text-slate-400 font-medium flex gap-2">
-                          <span>Bought: {item.quantity_purchased}</span>
-                          <span>|</span>
-                          <span>Used: {item.quantity_used}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="font-bold text-slate-700">
-                          ₹{item.purchase_rate.toLocaleString()}{" "}
-                          <span className="text-xs font-normal text-slate-400">
-                            / {item.unit}
-                          </span>
-                        </p>
-                        <p className="text-xs font-semibold text-slate-500 mt-1">
-                          Total: ₹{item.total_amount.toLocaleString()}
-                        </p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="text-xs font-bold text-emerald-600 mb-1">
-                          Paid: ₹{item.payment_given.toLocaleString()}
-                        </p>
-                        <p
-                          className={`text-xs font-bold ${item.payment_pending > 0 ? "text-amber-500" : "text-slate-400"}`}
-                        >
-                          Pending: ₹{item.payment_pending.toLocaleString()}
-                        </p>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2.5">
-                          <button 
-                            onClick={() => { setSelectedMaterial(item); setMaterialFormOpen(true); }}
-                            className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200"
-                            title="Edit / Update Payments"
-                          >
-                            <Edit2 className="w-4.5 h-4.5" strokeWidth={1.5} />
-                          </button>
-                          <button 
-                            onClick={() => setPurchaseActionConfig({ isOpen: true, type: "purchase", material: item })}
-                            className="p-1.5 text-slate-400 hover:text-emerald-500 transition-all duration-200"
-                            title="Add Purchase"
-                          >
-                            <PlusCircle className="w-4.5 h-4.5" strokeWidth={1.5} />
-                          </button>
-                          <button 
-                            onClick={() => setPurchaseActionConfig({ isOpen: true, type: "usage", material: item })}
-                            className="p-1.5 text-slate-400 hover:text-primary transition-all duration-200"
-                            title="Log Usage"
-                          >
-                            <MinusCircle className="w-4.5 h-4.5" strokeWidth={1.5} />
-                          </button>
-                          <button 
-                            onClick={() => handleDeleteClick(item.id, "material")}
-                            className="p-1.5 text-slate-400 hover:text-rose-500 transition-all duration-200"
-                            title="Delete Record"
-                          >
-                            <Trash2 className="w-4.5 h-4.5" strokeWidth={1.5} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {filteredInventory.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={5}
-                        className="py-12 text-center text-slate-400"
-                      >
-                        No inventory matches search.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            )}
-
-            {/* SUPPLIERS TABLE */}
-            {activeTab === "suppliers" && (
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-                    <th className="px-6 py-4">Supplier Name</th>
-                    <th className="px-6 py-4">Contact Person</th>
-                    <th className="px-6 py-4">Phone / Email</th>
-                    <th className="px-6 py-4">GST Number</th>
-                    <th className="px-6 py-4">Address</th>
-                    <th className="px-6 py-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {filteredSuppliers.map((sup) => (
-                    <tr
-                      key={sup.id}
-                      className="hover:bg-slate-50/50 transition-colors"
-                    >
-                      <td className="px-6 py-4">
-                        <p className="font-bold text-slate-700">{sup.name}</p>
-                        <p className="text-xs text-slate-400 font-medium">
-                          ID: {sup.id.toUpperCase()}
-                        </p>
-                      </td>
-                      <td className="px-6 py-4 text-sm font-semibold text-slate-600">
-                        {sup.contactPerson}
-                      </td>
-                      <td className="px-6 py-4 text-sm font-semibold text-slate-600">
-                        <p className="text-slate-700">{sup.phone}</p>
-                        <p className="text-xs text-slate-400 font-normal">
-                          {sup.email || "N/A"}
-                        </p>
-                      </td>
-                      <td className="px-6 py-4 text-sm font-mono text-slate-500 uppercase">
-                        {sup.gst || "N/A"}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-500 max-w-[200px] truncate">
-                        {sup.address}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-3">
-                          <button 
-                            onClick={() => console.log("Edit supplier", sup.id)}
-                            className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200"
-                            title="Edit Supplier"
-                          >
-                            <Edit2 className="w-4.5 h-4.5" strokeWidth={1.5} />
-                          </button>
-                          <button 
-                            onClick={() => handleDeleteClick(sup.id, "supplier")}
-                            className="p-1.5 text-slate-400 hover:text-rose-500 transition-all duration-200"
-                            title="Delete Supplier"
-                          >
-                            <Trash2 className="w-4.5 h-4.5" strokeWidth={1.5} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {filteredSuppliers.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={5}
-                        className="py-12 text-center text-slate-400"
-                      >
-                        No suppliers match search.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center py-24 gap-4">
+                <div className="w-12 h-12 border-4 border-slate-100 border-t-primary rounded-full animate-spin" />
+                <p className="text-sm font-bold text-slate-400 animate-pulse">Synchronizing inventory data...</p>
+              </div>
+            ) : (
+              <>
+                {activeTab === "inventory" && (
+                  <InventoryTable 
+                    materials={filteredInventory}
+                    projects={projects}
+                    onEdit={(m) => { setSelectedMaterial(m); setMaterialFormOpen(true); }}
+                    onPurchase={(m) => setPurchaseActionConfig({ isOpen: true, type: "purchase", material: m })}
+                    onUsage={(m) => setPurchaseActionConfig({ isOpen: true, type: "usage", material: m })}
+                    onDelete={(id) => handleDeleteClick(id, "material")}
+                  />
+                )}
+                {activeTab === "suppliers" && (
+                  <SupplierTable 
+                    suppliers={filteredSuppliers}
+                    onEdit={(s) => { /* TODO: Add edit supplier modal if needed */ }}
+                    onDelete={(id) => handleDeleteClick(id, "supplier")}
+                  />
+                )}
+                {activeTab === "pos" && (
+                  <PurchaseOrderTable 
+                    pos={pos.filter(p => p.material_name.toLowerCase().includes(searchTerm.toLowerCase()))}
+                    onEdit={() => {}}
+                    onDelete={(id) => {}}
+                    onStatusUpdate={async (id, status) => {
+                      try {
+                        await materialService.updatePO(id, { ...pos.find(p => p.id === id)! }); // Simplistic update
+                        fetchData();
+                      } catch (error) { toast.error("Failed to update status"); }
+                    }}
+                  />
+                )}
+                {activeTab === "transfers" && (
+                  <TransferTable 
+                    transfers={transfers}
+                    onStatusUpdate={async (id, status) => {
+                      try {
+                        await materialService.updateTransferStatus(id, status);
+                        fetchData();
+                      } catch (error) { toast.error("Failed to update transfer"); }
+                    }}
+                  />
+                )}
+                {activeTab === "logs" && (
+                  <InventoryLogsTable logs={logs} />
+                )}
+              </>
             )}
           </div>
         </div>
