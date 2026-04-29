@@ -86,9 +86,19 @@ const ProjectsPage = () => {
     }
   };
 
-  const handleEditClick = (project: Project) => {
-    setEditingProject(project);
-    setIsEditModalOpen(true);
+  const handleEditClick = async (project: Project) => {
+    try {
+      const toastId = toast.loading("Fetching project details...");
+      const freshProject = await projectService.getProjectById(project.id);
+      setEditingProject(freshProject);
+      setIsEditModalOpen(true);
+      toast.dismiss(toastId);
+    } catch (error) {
+      toast.error("Failed to load project details");
+      // Fallback to existing project data if API fails
+      setEditingProject(project);
+      setIsEditModalOpen(true);
+    }
   };
 
   const handleEditProject = async (updatedData: any) => {
@@ -118,7 +128,7 @@ const ProjectsPage = () => {
 
   const stats = {
     total: projects.length,
-    active: projects.filter((p) => p.status === "Active").length,
+    active: projects.filter((p) => p.status === "Ongoing").length,
     completed: projects.filter((p) => p.status === "Completed").length,
     delayed: projects.filter((p) => p.status === "Delayed").length,
   };
@@ -215,7 +225,7 @@ const ProjectsPage = () => {
               value: String(stats.active),
               sub: "Currently in progress",
               accent: "text-success",
-              status: "Active",
+              status: "Ongoing",
             },
             {
               title: "Completed",
@@ -280,7 +290,7 @@ const ProjectsPage = () => {
                   {(
                     [
                       "All",
-                      "Active",
+                      "Ongoing",
                       "Planned",
                       "Delayed",
                       "Completed",

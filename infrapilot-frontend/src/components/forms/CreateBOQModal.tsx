@@ -105,7 +105,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     let { name, value } = e.target;
 
-    // Filter non-alphabetic characters for item_name
+    // Restriction: Only alphabets and spaces for item_name
     if (name === 'item_name') {
       value = value.replace(/[^a-zA-Z\s]/g, '');
     }

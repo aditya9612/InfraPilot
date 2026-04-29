@@ -2,7 +2,7 @@ import type { UserRole } from "./user";
 
 export type ProjectStatus =
   | "Planned"
-  | "Active"
+  | "Ongoing"
   | "Delayed"
   | "Completed"
   | "On Hold";

@@ -62,7 +62,9 @@ const Login = () => {
       setStep("otp");
       startResendTimer();
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to send OTP. Please try again.");
+      setError(
+        err.response?.data?.message || "Failed to send OTP. Please try again.",
+      );
     } finally {
       setLoading(false);
     }
@@ -100,21 +102,21 @@ const Login = () => {
           name: "Test Client",
           mobile: "4444444444",
           role: "Client",
-          token: { access_token: "mock-token", token_type: "Bearer" }
+          token: { access_token: "mock-token", token_type: "Bearer" },
         };
       } else {
         const verifyData = await authService.verifyOtp(mobile, otpValue);
-        
+
         // Temporary store to allow fetch profile
-        const tempUser = { 
-          id: String(verifyData.user_id), 
+        const tempUser = {
+          id: String(verifyData.user_id),
           token: verifyData.token,
-          mobile: mobile
+          mobile: mobile,
         } as any;
         localStorage.setItem("infrapilot_user", JSON.stringify(tempUser));
 
         const profile = await authService.getMe();
-        
+
         fullUser = {
           id: String(verifyData.user_id),
           name: profile.full_name || "User",
@@ -126,12 +128,14 @@ const Login = () => {
 
       login(fullUser);
       toast.success(`Welcome, ${fullUser.name}!`);
-      
+
       // Redirect based on role
       const redirectPath = ROLE_PATHS[fullUser.role] || "/client";
       navigate(redirectPath);
     } catch (err: any) {
-      setError(err.response?.data?.message || "Invalid OTP or verification failed.");
+      setError(
+        err.response?.data?.message || "Invalid OTP or verification failed.",
+      );
       localStorage.removeItem("infrapilot_user");
     } finally {
       setLoading(false);
