@@ -20,8 +20,6 @@ const UsersPage = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [roleFilter, setRoleFilter] = useState("All Roles");
 
-
-
   const fetchUsers = async () => {
     try {
       setIsLoading(true);

@@ -53,7 +53,6 @@ const FinancePage = () => {
   // Fetch Projects
   const fetchProjects = useCallback(async () => {
     try {
-      setIsLoading(true);
       const res = await projectService.getProjects(100, 0);
       const projectList = Array.isArray(res)
         ? res
@@ -62,7 +61,6 @@ const FinancePage = () => {
     } catch (error) {
       console.error("Finance: Failed to fetch projects", error);
     } finally {
-      setIsLoading(false);
     }
   }, []);
 
@@ -71,7 +69,6 @@ const FinancePage = () => {
   // Date filtering is handled client-side until backend routing is fixed.
   const fetchInvoices = useCallback(async (type?: string, status?: string) => {
     try {
-      setIsLoading(true);
       let data: Invoice[];
       
       if (status === "pending") {
@@ -86,14 +83,12 @@ const FinancePage = () => {
     } catch (error) {
       console.error("Finance: Failed to fetch invoices", error);
     } finally {
-      setIsLoading(false);
     }
   }, []);
 
   // Fetch Expenses
   const fetchExpenses = useCallback(async (category?: string) => {
     try {
-      setIsLoading(true);
       let data: Expense[];
       if (category && category !== "all") {
         data = await expenseService.getExpensesByCategory(category);
@@ -104,7 +99,6 @@ const FinancePage = () => {
     } catch (error) {
       console.error("Finance: Failed to fetch expenses", error);
     } finally {
-      setIsLoading(false);
     }
   }, []);
 
@@ -123,7 +117,6 @@ const FinancePage = () => {
   // Handlers
   const handleCreateOrUpdate = async (data: any) => {
     try {
-      setIsLoading(true);
       if (selectedInvoice) {
         const updated = await financeService.updateInvoice(
           selectedInvoice.id,
@@ -148,7 +141,6 @@ const FinancePage = () => {
           : "Failed to create invoice");
       toast.error(errorMessage);
     } finally {
-      setIsLoading(false);
     }
   };
 
@@ -160,8 +152,7 @@ const FinancePage = () => {
   const handleDeleteInvoice = async () => {
     if (invoiceToDelete) {
       try {
-        setIsLoading(true);
-        await financeService.deleteInvoice(invoiceToDelete);
+          await financeService.deleteInvoice(invoiceToDelete);
         setInvoices(invoices.filter((inv) => inv.id !== invoiceToDelete));
         fetchInvoices();
         toast.success("Invoice deleted");
@@ -170,14 +161,12 @@ const FinancePage = () => {
       } catch (error) {
         toast.error("Failed to delete invoice");
       } finally {
-        setIsLoading(false);
-      }
+        }
     }
   };
 
   const handleMarkPaid = async (id: number) => {
     try {
-      setIsLoading(true);
       const updated = await financeService.markInvoicePaid(id);
       setInvoices((prev) => prev.map((inv) => (inv.id === id ? updated : inv)));
       toast.success("Invoice marked as Paid");
@@ -185,7 +174,6 @@ const FinancePage = () => {
     } catch (error) {
       toast.error("Failed to mark invoice as paid");
     } finally {
-      setIsLoading(false);
     }
   };
 
@@ -224,7 +212,6 @@ const FinancePage = () => {
 
   const handleCreateOrUpdateExpense = async (data: any) => {
     try {
-      setIsLoading(true);
       if (selectedExpense) {
         const updated = await expenseService.updateExpense(selectedExpense.id, data);
         setExpenses((prev) =>
@@ -242,7 +229,6 @@ const FinancePage = () => {
     } catch (error: any) {
       toast.error(error.message || "Failed to process expense");
     } finally {
-      setIsLoading(false);
     }
   };
 
@@ -254,8 +240,7 @@ const FinancePage = () => {
   const handleDeleteExpense = async () => {
     if (expenseToDelete) {
       try {
-        setIsLoading(true);
-        await expenseService.deleteExpense(expenseToDelete);
+          await expenseService.deleteExpense(expenseToDelete);
         setExpenses(expenses.filter((e) => e.id !== expenseToDelete));
         toast.success("Expense deleted");
         setIsExpenseDeleteModalOpen(false);
@@ -263,8 +248,7 @@ const FinancePage = () => {
       } catch (error) {
         toast.error("Failed to delete expense");
       } finally {
-        setIsLoading(false);
-      }
+        }
     }
   };
 
@@ -457,19 +441,6 @@ const FinancePage = () => {
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              {["invoices", "payments", "expenses", "profit"].map((tab) => (
-                <button
-                  key={tab}
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all capitalize ${subPage === tab ? "bg-primary text-white shadow-md shadow-primary/20" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}
-                  onClick={() =>
-                    window.history.pushState(null, "", `/admin/finance/${tab}`)
-                  }
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
 
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative">
@@ -643,7 +614,6 @@ const FinancePage = () => {
                           <button
                             onClick={async () => {
                               try {
-                                setIsLoading(true);
                                 const detailedInvoice =
                                   await financeService.getInvoiceById(inv.id);
                                 setSelectedInvoice(detailedInvoice);
@@ -653,7 +623,6 @@ const FinancePage = () => {
                                 setSelectedInvoice(inv);
                                 setIsDetailsModalOpen(true);
                               } finally {
-                                setIsLoading(false);
                               }
                             }}
                             className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"

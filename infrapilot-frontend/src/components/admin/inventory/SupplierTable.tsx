@@ -33,7 +33,7 @@ const SupplierTable: React.FC<SupplierTableProps> = ({
               </td>
               <td className="px-6 py-4 text-sm font-semibold text-slate-600">
                 {/* Contact person isn't in the new simplified API but we can handle it if present in data */}
-                {(sup as any).contactPerson || "N/A"}
+                {sup.contactPerson || "N/A"}
               </td>
               <td className="px-6 py-4 text-sm font-semibold text-slate-600">
                 <p className="text-slate-700">{sup.contact}</p>

@@ -64,6 +64,7 @@ const InventoryPage = () => {
   });
 
   const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
+  const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{
     id: any;
@@ -123,18 +124,24 @@ const InventoryPage = () => {
   const filteredSuppliers = suppliers.filter(
     (s) =>
       s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.contactPerson.toLowerCase().includes(searchTerm.toLowerCase()),
+      (s.contactPerson || "").toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   // Handlers
   const handleSupplierSubmit = async (data: any) => {
     try {
-      await materialService.createSupplier(data);
-      fetchData(); // Refresh all data
+      if (selectedSupplier) {
+        setSuppliers(prev => prev.map(s => s.id === selectedSupplier.id ? { ...data, id: s.id } : s));
+        toast.success("Supplier updated successfully!");
+      } else {
+        await materialService.createSupplier(data);
+        setSuppliers((prev) => [...prev, { ...data, id: `s${prev.length + 1}` }]);
+        toast.success("Supplier added successfully!");
+      }
       setSupplierModalOpen(false);
-      toast.success("Supplier added successfully!");
+      setSelectedSupplier(null);
     } catch (error) {
-      toast.error("Failed to add supplier");
+      toast.error("Failed to save supplier");
     }
   };
 
@@ -234,26 +241,26 @@ const InventoryPage = () => {
 
       <PageTransition
         key={location.pathname}
-        className="p-6 bg-slate-50 min-h-screen pb-24"
+        className="p-6 bg-slate-50 min-h-screen pb-24 font-inter"
       >
         {/* Header Options */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 mt-2">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8 mt-2">
           <div>
             {isMaster ? (
               <>
-                <h1 className="text-[28px] leading-tight font-extrabold text-slate-900 tracking-tight">
+                <h1 className="text-3xl font-black text-slate-900 tracking-tight">
                   Supplier Database
                 </h1>
-                <p className="text-sm font-medium text-slate-500 mt-1">
-                  Manage all your material suppliers and contacts.
+                <p className="text-slate-500 text-sm font-medium mt-1">
+                  Manage all your material suppliers and strategic contacts.
                 </p>
               </>
             ) : (
               <>
-                <h1 className="text-[28px] leading-tight font-extrabold text-slate-900 tracking-tight">
+                <h1 className="text-3xl font-black text-slate-900 tracking-tight">
                   Project Site Inventory
                 </h1>
-                <p className="text-sm font-medium text-slate-500 mt-1">
+                <p className="text-slate-500 text-sm font-medium mt-1">
                   Track and secure inventory across multiple project sites.
                 </p>
               </>
@@ -315,8 +322,11 @@ const InventoryPage = () => {
             )}
             {activeTab === "suppliers" && (
               <button
-                onClick={() => setSupplierModalOpen(true)}
-                className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
+                onClick={() => {
+                  setSelectedSupplier(null);
+                  setSupplierModalOpen(true);
+                }}
+                className="px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
               >
                 + Add Supplier
               </button>
@@ -435,7 +445,7 @@ const InventoryPage = () => {
                 {activeTab === "suppliers" && (
                   <SupplierTable 
                     suppliers={filteredSuppliers}
-                    onEdit={(s) => { /* TODO: Add edit supplier modal if needed */ }}
+                    onEdit={(s) => { setSelectedSupplier(s); setSupplierModalOpen(true); }}
                     onDelete={(id) => handleDeleteClick(id, "supplier")}
                   />
                 )}
@@ -474,8 +484,12 @@ const InventoryPage = () => {
 
       <SupplierModal
         isOpen={isSupplierModalOpen}
-        onClose={() => setSupplierModalOpen(false)}
+        onClose={() => {
+            setSupplierModalOpen(false);
+            setSelectedSupplier(null);
+        }}
         onSubmit={handleSupplierSubmit}
+        initialData={selectedSupplier}
       />
       <AddMaterialModal
         isOpen={isMaterialFormOpen}

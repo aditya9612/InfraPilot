@@ -33,6 +33,7 @@ export default function AddMaterialModal({
       setFormData({
         ...initialData,
         project_id: initialData.project_id || 1,
+        payment_given: 0, // Reset for "Add Payment" logic in edit mode
       });
     } else {
       setFormData({
@@ -80,15 +81,18 @@ export default function AddMaterialModal({
   const paymentPending = totalAmount - (formData.payment_given || 0);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm transition-opacity">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h2 className="text-xl font-bold text-slate-800">
-            {initialData ? "Update Material Record" : "Register New Material"}
-          </h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm transition-opacity font-inter">
+      <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between px-8 py-6 border-b border-slate-100">
+          <div>
+            <h2 className="text-xl font-black text-slate-800 tracking-tight">
+                {initialData ? "Update Material Record" : "Register New Material"}
+            </h2>
+            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-1">Inventory Control Management</p>
+          </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
           >
             <svg
               className="w-5 h-5"
@@ -106,63 +110,55 @@ export default function AddMaterialModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6">
+        <form onSubmit={handleSubmit} className="p-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-1 md:col-span-2">
-              <label className="block text-sm font-semibold text-slate-700">
-                Material Name *
-              </label>
+            <div className="space-y-1.5 md:col-span-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Material Name *</label>
               <input
                 required
                 type="text"
                 name="material_name"
                 value={formData.material_name}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm font-bold outline-none"
                 placeholder="e.g. Premium Cement 53 Grade"
               />
             </div>
 
-            <div className="space-y-1">
-              <label className="block text-sm font-semibold text-slate-700">
-                Category *
-              </label>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Category *</label>
               <input
                 required
                 type="text"
                 name="category"
                 value={formData.category}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm font-bold outline-none"
                 placeholder="e.g. Masonry"
               />
             </div>
 
-            <div className="space-y-1">
-              <label className="block text-sm font-semibold text-slate-700">
-                Unit of Measurement *
-              </label>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Unit *</label>
               <input
                 required
                 type="text"
                 name="unit"
                 value={formData.unit}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm font-bold outline-none"
                 placeholder="e.g. Bags, Liters"
               />
             </div>
 
-            <div className="space-y-1 md:col-span-2">
-              <label className="block text-sm font-semibold text-slate-700">
-                Supplier *
-              </label>
+            <div className="space-y-1.5 md:col-span-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Assigned Supplier *</label>
               <select
                 required
                 name="supplier_id"
                 value={formData.supplier_id}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm font-bold outline-none appearance-none"
               >
                 <option value={0} disabled>
                   -- Select Supplier --
@@ -175,12 +171,10 @@ export default function AddMaterialModal({
               </select>
             </div>
 
-            <div className="space-y-1">
-              <label className="block text-sm font-semibold text-slate-700">
-                Purchase Rate *
-              </label>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Purchase Rate *</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">
                   ₹
                 </span>
                 <input
@@ -189,66 +183,58 @@ export default function AddMaterialModal({
                   name="purchase_rate"
                   value={formData.purchase_rate || ""}
                   onChange={handleChange}
-                  className="w-full pl-8 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm font-bold outline-none"
                   placeholder="0.00"
                 />
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="block text-sm font-semibold text-slate-700">
-                Rate Type *
-              </label>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Rate Type *</label>
               <select
                 required
                 name="rate_type"
                 value={formData.rate_type}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm font-bold outline-none appearance-none"
               >
                 <option value="FIXED">FIXED</option>
                 <option value="VARIABLE">VARIABLE</option>
               </select>
             </div>
 
-            <div className="space-y-1">
-              <label className="block text-sm font-semibold text-slate-700">
-                Min Stock Level *
-              </label>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Min Stock Level *</label>
               <input
                 required
                 type="number"
                 name="minimum_stock_level"
                 value={formData.minimum_stock_level || ""}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm font-bold outline-none"
                 placeholder="Alert threshold"
               />
             </div>
 
             {!initialData && (
               <>
-                <div className="space-y-1 border-t border-slate-100 pt-4 mt-2">
-                  <label className="block text-sm font-semibold text-slate-700">
-                    Initial Quantity *
-                  </label>
+                <div className="space-y-1.5 border-t border-slate-100 pt-6">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Opening Quantity *</label>
                   <input
                     required
                     type="number"
                     name="quantity_purchased"
                     value={formData.quantity_purchased || ""}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm font-bold outline-none"
                     placeholder="0"
                   />
                 </div>
 
-                <div className="space-y-1 border-t border-slate-100 pt-4 mt-2">
-                  <label className="block text-sm font-semibold text-slate-700">
-                    Upfront Payment
-                  </label>
+                <div className="space-y-1.5 border-t border-slate-100 pt-6">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Initial Payment</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">
                       ₹
                     </span>
                     <input
@@ -256,26 +242,27 @@ export default function AddMaterialModal({
                       name="payment_given"
                       value={formData.payment_given || ""}
                       onChange={handleChange}
-                      className="w-full pl-8 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm font-bold outline-none text-emerald-600"
                       placeholder="0.00"
                     />
                   </div>
                 </div>
 
                 {/* Financial Summary Box */}
-                <div className="md:col-span-2 bg-slate-50 border border-slate-200 rounded-xl p-4 mt-2">
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-slate-500">
-                      Total Purchase Amount:
+                <div className="md:col-span-2 bg-slate-900 rounded-[28px] p-6 mt-2 relative overflow-hidden shadow-2xl">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl -mr-16 -mt-16" />
+                  <div className="flex justify-between items-center mb-4 relative z-10">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                      Procurement Valuation
                     </span>
-                    <span className="font-bold text-slate-700">
+                    <span className="text-xl font-black text-white">
                       ₹{totalAmount.toLocaleString()}
                     </span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Pending Payables:</span>
+                  <div className="flex justify-between items-center pt-4 border-t border-white/10 relative z-10">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Initial Pending Balance</span>
                     <span
-                      className={`font-bold ${paymentPending > 0 ? "text-amber-500" : "text-emerald-600"}`}
+                      className={`text-sm font-black ${paymentPending > 0 ? "text-amber-400" : "text-emerald-400"}`}
                     >
                       ₹{paymentPending.toLocaleString()}
                     </span>
@@ -285,12 +272,10 @@ export default function AddMaterialModal({
             )}
 
             {initialData && (
-              <div className="space-y-1 md:col-span-2 border-t border-slate-100 pt-4 mt-2">
-                <label className="block text-sm font-semibold text-slate-700">
-                  Add Payment
-                </label>
+              <div className="space-y-1.5 md:col-span-2 border-t border-slate-100 pt-6 mt-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 text-primary">Record Additional Payment</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">
                     ₹
                   </span>
                   <input
@@ -298,12 +283,12 @@ export default function AddMaterialModal({
                     name="payment_given"
                     value={formData.payment_given || ""}
                     onChange={handleChange}
-                    className="w-full pl-8 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
-                    placeholder="Amount to add to current payment"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm font-black outline-none text-emerald-600 shadow-sm"
+                    placeholder="Enter amount to add to ledger"
                   />
                 </div>
-                <p className="text-xs text-slate-400 mt-1">
-                  Leaves this blank if you are only updating material details.
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight mt-2 ml-1 italic">
+                  * Only enter the amount being paid now. Existing payments are preserved.
                 </p>
               </div>
             )}
@@ -313,15 +298,15 @@ export default function AddMaterialModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+              className="flex-1 px-6 py-2.5 text-sm font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-5 py-2.5 text-sm font-semibold text-white bg-primary hover:bg-blue-600 rounded-xl shadow-lg shadow-primary/20 transition-all"
+              className="flex-1 px-8 py-2.5 text-sm font-bold text-white bg-primary hover:bg-blue-600 rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-95"
             >
-              {initialData ? "Save Changes" : "Register Material"}
+              {initialData ? "Save Record Updates" : "Register Material"}
             </button>
           </div>
         </form>
@@ -329,3 +314,4 @@ export default function AddMaterialModal({
     </div>
   );
 }
+

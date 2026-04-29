@@ -2,11 +2,21 @@ export interface Supplier {
   id: number;
   name: string;
   contact: string;
+  contactPerson?: string;
+  phone?: string;
+  email?: string;
+  gst?: string;
+  address?: string;
 }
 
 export interface SupplierCreate {
   name: string;
   contact: string;
+  contactPerson?: string;
+  phone?: string;
+  email?: string;
+  gst?: string;
+  address?: string;
 }
 
 export interface Material {
