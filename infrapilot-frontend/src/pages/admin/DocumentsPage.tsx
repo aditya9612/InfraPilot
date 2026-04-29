@@ -4,6 +4,7 @@ import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
 import { Eye, Download, Trash2, Folder, FileText } from "lucide-react";
 import CreateFolderModal from "../../components/forms/CreateFolderModal";
+import DocumentPreviewModal from "../../components/dashboard/DocumentPreviewModal";
 import toast from "react-hot-toast";
 
 const initialDocuments = [
@@ -16,6 +17,8 @@ const DocumentsPage = () => {
   const [documents, setDocuments] = useState(initialDocuments);
   const [searchTerm, setSearchTerm] = useState("");
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
+  const [viewingDoc, setViewingDoc] = useState<any>(null);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredDocs = documents.filter(d => 
@@ -63,6 +66,28 @@ const DocumentsPage = () => {
   const handleDelete = (id: number) => {
     setDocuments(prev => prev.filter(d => d.id !== id));
     toast.success("Document removed.");
+  };
+
+  const handleDownload = (doc: any) => {
+    if (doc.isFolder) {
+      toast.error("Cannot download a folder directly. Please download individual files.");
+      return;
+    }
+    
+    // Simulate a file download with mock content based on the metadata
+    const mockContent = `Document Name: ${doc.name}\nProject: ${doc.project}\nVersion: ${doc.version}\nType: ${doc.type}\nStatus: ${doc.status}\nDate Added: ${doc.date}\n\n[MOCK FILE CONTENT GENERATED FOR DEMONSTRATION]`;
+    const blob = new Blob([mockContent], { type: 'text/plain;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    // Sanitize filename
+    const safeName = doc.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    link.setAttribute("download", `${safeName}.txt`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success(`Started download for ${doc.name}`);
   };
 
   return (
@@ -166,14 +191,17 @@ const DocumentsPage = () => {
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-3">
                         <button 
-                          onClick={() => console.log("View", doc.id)}
+                          onClick={() => {
+                            setViewingDoc(doc);
+                            setIsPreviewModalOpen(true);
+                          }}
                           className="p-1.5 text-slate-400 hover:text-primary transition-all duration-200"
                           title="View Document"
                         >
                           <Eye className="w-4.5 h-4.5" strokeWidth={1.5} />
                         </button>
                         <button 
-                          onClick={() => console.log("Download", doc.id)}
+                          onClick={() => handleDownload(doc)}
                           className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200"
                           title="Download File"
                         >
@@ -205,6 +233,16 @@ const DocumentsPage = () => {
         isOpen={isFolderModalOpen}
         onClose={() => setIsFolderModalOpen(false)}
         onSubmit={handleNewFolder}
+      />
+
+      <DocumentPreviewModal
+        isOpen={isPreviewModalOpen}
+        onClose={() => {
+          setIsPreviewModalOpen(false);
+          setViewingDoc(null);
+        }}
+        document={viewingDoc}
+        onDownload={handleDownload}
       />
     </>
   );

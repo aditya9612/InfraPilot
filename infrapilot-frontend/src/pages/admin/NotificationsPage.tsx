@@ -4,7 +4,8 @@ import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
 import CreateAlertModal from "../../components/forms/CreateAlertModal";
 import toast from "react-hot-toast";
-import { Eye, Edit2, Trash2 } from "lucide-react";
+import { Eye, Trash2 } from "lucide-react";
+import AlertDetailsModal from "../../components/dashboard/AlertDetailsModal";
 
 const initialAlerts = [
   { id: 1, type: "Delay", message: "Excavation at Skyline Tower A is 3 days behind schedule.", target: "Project Manager, Admin", date: "2026-04-02", status: "Critical", isRead: false },
@@ -16,6 +17,8 @@ const NotificationsPage = () => {
   const [alerts, setAlerts] = useState(initialAlerts);
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [viewingAlert, setViewingAlert] = useState<any>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
   const filteredAlerts = alerts.filter(a => 
     a.message.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -133,11 +136,11 @@ const NotificationsPage = () => {
                             <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-primary border-2 border-white rounded-full"></span>
                           )}
                         </div>
-                        <span className={`font-bold transition-colors ${!alert.isRead ? "text-slate-900" : "text-slate-500"}`}>{alert.type}</span>
+                        <span className={`font-bold transition-colors group-hover:text-primary ${!alert.isRead ? "text-slate-900" : "text-slate-500"}`}>{alert.type}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <p className={`text-sm max-w-sm line-clamp-1 group-hover:line-clamp-none transition-all ${!alert.isRead ? "text-slate-800 font-semibold" : "text-slate-500 font-medium"}`}>{alert.message}</p>
+                      <p className={`text-sm max-w-sm line-clamp-1 group-hover:text-primary transition-colors ${!alert.isRead ? "text-slate-800 font-semibold" : "text-slate-500 font-medium"}`}>{alert.message}</p>
                     </td>
                     <td className="px-6 py-4 text-xs font-semibold text-slate-500">
                       {alert.target}
@@ -155,19 +158,16 @@ const NotificationsPage = () => {
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-3">
                         <button 
-                          onClick={() => console.log("View", alert.id)}
+                          onClick={() => {
+                            setViewingAlert(alert);
+                            setIsViewModalOpen(true);
+                          }}
                           className="p-1.5 text-slate-400 hover:text-primary transition-all duration-200"
                           title="View Details"
                         >
                           <Eye className="w-4.5 h-4.5" strokeWidth={1.5} />
                         </button>
-                        <button 
-                          onClick={() => console.log("Edit", alert.id)}
-                          className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200"
-                          title="Edit Alert"
-                        >
-                          <Edit2 className="w-4.5 h-4.5" strokeWidth={1.5} />
-                        </button>
+
                         <button 
                           onClick={() => handleDelete(alert.id)}
                           className="p-1.5 text-slate-400 hover:text-rose-500 transition-all duration-200"
@@ -194,6 +194,15 @@ const NotificationsPage = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleSendAlert}
+      />
+
+      <AlertDetailsModal
+        isOpen={isViewModalOpen}
+        onClose={() => {
+          setIsViewModalOpen(false);
+          setViewingAlert(null);
+        }}
+        alert={viewingAlert}
       />
     </>
   );
