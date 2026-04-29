@@ -1,6 +1,6 @@
 import React from "react";
 import Modal from "../common/Modal";
-import { FileText, Download, Info, Calendar, Tag, HardDrive } from "lucide-react";
+import { FileText, Download, Info, Calendar, HardDrive } from "lucide-react";
 
 interface DocumentPreviewModalProps {
   isOpen: boolean;

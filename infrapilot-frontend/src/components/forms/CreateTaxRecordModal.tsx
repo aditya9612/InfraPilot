@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import Modal from "../common/Modal";
 
@@ -6,12 +6,14 @@ interface CreateTaxRecordModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (recordData: any) => void;
+  initialData?: any | null;
 }
 
 const CreateTaxRecordModal: React.FC<CreateTaxRecordModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
+  initialData,
 }) => {
   const [formData, setFormData] = useState({
     type: "gst-invoices",
@@ -26,16 +28,22 @@ const CreateTaxRecordModal: React.FC<CreateTaxRecordModalProps> = ({
     date: new Date().toISOString().split('T')[0],
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.gstin || !formData.invoice_number) {
-      toast.error("Please fill in GSTIN and Document Number");
-      return;
-    }
-    onSubmit(formData);
-    onClose();
-    // Reset form
-    setFormData({
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        type: initialData.type || "gst-invoices",
+        gstin: initialData.gstin || "",
+        invoice_number: initialData.invoice_number || "",
+        taxable_amount: initialData.taxable_amount || 0,
+        cgst: initialData.cgst || 0,
+        sgst: initialData.sgst || 0,
+        igst: initialData.igst || 0,
+        tds: initialData.tds || 0,
+        status: initialData.status || "Draft",
+        date: initialData.date || new Date().toISOString().split('T')[0],
+      });
+    } else {
+      setFormData({
         type: "gst-invoices",
         gstin: "",
         invoice_number: "",
@@ -46,24 +54,36 @@ const CreateTaxRecordModal: React.FC<CreateTaxRecordModalProps> = ({
         tds: 0,
         status: "Draft",
         date: new Date().toISOString().split('T')[0],
-    });
+      });
+    }
+  }, [initialData, isOpen]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.gstin || !formData.invoice_number) {
+      toast.error("Please fill in GSTIN and Document Number");
+      return;
+    }
+    onSubmit(formData);
   };
+
+  const totalGST = formData.cgst + formData.sgst + formData.igst;
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Add New Tax Record"
+      title={initialData ? "Update Tax Record" : "Add New Tax Record"}
       maxWidth="max-w-3xl"
     >
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6 pt-2 font-inter">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Column 1 */}
           <div className="space-y-4">
             <div>
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Record Type</label>
               <select
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none font-bold"
                 value={formData.type}
                 onChange={e => setFormData({ ...formData, type: e.target.value })}
               >
@@ -77,7 +97,7 @@ const CreateTaxRecordModal: React.FC<CreateTaxRecordModalProps> = ({
               <input
                 type="text"
                 required
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none font-black tracking-wider uppercase"
                 placeholder="e.g. 27AADCB2230M1Z2"
                 value={formData.gstin}
                 onChange={e => setFormData({ ...formData, gstin: e.target.value })}
@@ -88,7 +108,7 @@ const CreateTaxRecordModal: React.FC<CreateTaxRecordModalProps> = ({
               <input
                 type="text"
                 required
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none font-bold"
                 placeholder="INV-2024-001"
                 value={formData.invoice_number}
                 onChange={e => setFormData({ ...formData, invoice_number: e.target.value })}
@@ -99,7 +119,7 @@ const CreateTaxRecordModal: React.FC<CreateTaxRecordModalProps> = ({
               <input
                 type="date"
                 required
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none font-bold"
                 value={formData.date}
                 onChange={e => setFormData({ ...formData, date: e.target.value })}
               />
@@ -113,7 +133,7 @@ const CreateTaxRecordModal: React.FC<CreateTaxRecordModalProps> = ({
               <input
                 type="number"
                 min="0"
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none font-bold"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none font-black"
                 value={formData.taxable_amount}
                 onChange={e => setFormData({ ...formData, taxable_amount: parseFloat(e.target.value) || 0 })}
               />
@@ -124,7 +144,7 @@ const CreateTaxRecordModal: React.FC<CreateTaxRecordModalProps> = ({
                 <input
                   type="number"
                   min="0"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none font-bold text-slate-600"
                   value={formData.cgst}
                   onChange={e => setFormData({ ...formData, cgst: parseFloat(e.target.value) || 0 })}
                 />
@@ -134,7 +154,7 @@ const CreateTaxRecordModal: React.FC<CreateTaxRecordModalProps> = ({
                 <input
                   type="number"
                   min="0"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none font-bold text-slate-600"
                   value={formData.sgst}
                   onChange={e => setFormData({ ...formData, sgst: parseFloat(e.target.value) || 0 })}
                 />
@@ -142,11 +162,11 @@ const CreateTaxRecordModal: React.FC<CreateTaxRecordModalProps> = ({
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">IGST (₹)</label>
+                <label className="text-[10px] font-black text-primary uppercase tracking-widest ml-1 mb-1.5 block">IGST (₹)</label>
                 <input
                   type="number"
                   min="0"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none font-bold text-primary"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none font-black text-primary"
                   value={formData.igst}
                   onChange={e => setFormData({ ...formData, igst: parseFloat(e.target.value) || 0 })}
                 />
@@ -156,7 +176,7 @@ const CreateTaxRecordModal: React.FC<CreateTaxRecordModalProps> = ({
                 <input
                   type="number"
                   min="0"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-rose-500/20 outline-none font-bold text-rose-600"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-rose-500/20 outline-none font-black text-rose-600"
                   value={formData.tds}
                   onChange={e => setFormData({ ...formData, tds: parseFloat(e.target.value) || 0 })}
                 />
@@ -165,7 +185,7 @@ const CreateTaxRecordModal: React.FC<CreateTaxRecordModalProps> = ({
             <div>
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Filing Status</label>
               <select
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none font-bold"
                 value={formData.status}
                 onChange={e => setFormData({ ...formData, status: e.target.value })}
               >
@@ -177,7 +197,20 @@ const CreateTaxRecordModal: React.FC<CreateTaxRecordModalProps> = ({
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 pt-6">
+        {totalGST > 0 && (
+            <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 flex items-center justify-between">
+                <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total GST Impact</p>
+                    <p className="text-lg font-black text-slate-800">₹{totalGST.toLocaleString()}</p>
+                </div>
+                <div className="text-right">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Gross Document Value</p>
+                    <p className="text-lg font-black text-primary">₹{(formData.taxable_amount + totalGST).toLocaleString()}</p>
+                </div>
+            </div>
+        )}
+
+        <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
           <button
             type="button"
             onClick={onClose}
@@ -187,9 +220,9 @@ const CreateTaxRecordModal: React.FC<CreateTaxRecordModalProps> = ({
           </button>
           <button
             type="submit"
-            className="flex-1 px-10 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
+            className="flex-1 px-10 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
           >
-            Record Tax Entry
+            {initialData ? "Save Record Changes" : "Record Tax Entry"}
           </button>
         </div>
       </form>

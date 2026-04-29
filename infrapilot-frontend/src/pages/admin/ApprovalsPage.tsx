@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
@@ -15,7 +15,6 @@ const initialApprovalsData = [
 
 const ApprovalsPage = () => {
   const location = useLocation();
-  const navigate = useNavigate();
   const subPage = location.pathname.split("/").pop() || "material";
   
   const [searchTerm, setSearchTerm] = useState("");
@@ -141,17 +140,6 @@ const ApprovalsPage = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
               />
-            </div>
-            <div className="flex gap-2">
-              {["material", "billing", "expense"].map((tab) => (
-                <button 
-                  key={tab}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all capitalize ${subPage === tab ? "bg-primary text-white shadow-md shadow-primary/20" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}
-                  onClick={() => navigate(`/admin/approvals/${tab}`)}
-                >
-                  {tab}
-                </button>
-              ))}
             </div>
           </div>
 

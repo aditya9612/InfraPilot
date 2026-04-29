@@ -6,12 +6,14 @@ interface CreateBillModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (billData: any) => void;
+  initialData?: any | null;
 }
 
 const CreateBillModal: React.FC<CreateBillModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
+  initialData,
 }) => {
   const [formData, setFormData] = useState({
     vendor_name: "",
@@ -30,6 +32,34 @@ const CreateBillModal: React.FC<CreateBillModalProps> = ({
     gst_amount: 0,
     payable_amount: 0,
   });
+
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        vendor_name: initialData.vendor_name || "",
+        bill_number: initialData.bill_number || "",
+        category: initialData.category || "vendor",
+        item: initialData.item || "",
+        quantity: initialData.quantity || 1,
+        rate: initialData.rate || 0,
+        gst_percent: initialData.gst_percent || 18,
+        status: initialData.status || "pending",
+        due_date: initialData.due_date || new Date().toISOString().split('T')[0],
+      });
+    } else {
+      setFormData({
+        vendor_name: "",
+        bill_number: "",
+        category: "vendor",
+        item: "",
+        quantity: 1,
+        rate: 0,
+        gst_percent: 18,
+        status: "pending",
+        due_date: new Date().toISOString().split('T')[0],
+      });
+    }
+  }, [initialData, isOpen]);
 
   useEffect(() => {
     const base = formData.quantity * formData.rate;
@@ -57,26 +87,13 @@ const CreateBillModal: React.FC<CreateBillModalProps> = ({
     };
 
     onSubmit(submissionData);
-    onClose();
-    // Reset form
-    setFormData({
-        vendor_name: "",
-        bill_number: "",
-        category: "vendor",
-        item: "",
-        quantity: 1,
-        rate: 0,
-        gst_percent: 18,
-        status: "pending",
-        due_date: new Date().toISOString().split('T')[0],
-    });
   };
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Record New Bill"
+      title={initialData ? "Update Payable Record" : "Record New Bill"}
       maxWidth="max-w-3xl"
     >
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -223,9 +240,9 @@ const CreateBillModal: React.FC<CreateBillModalProps> = ({
           </button>
           <button
             type="submit"
-            className="flex-1 px-10 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
+            className="flex-1 px-10 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
           >
-            Record Bill
+            {initialData ? "Save Bill Changes" : "Record Bill"}
           </button>
         </div>
       </form>

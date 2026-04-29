@@ -52,12 +52,6 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
 
-  const rolePaths: Record<string, string> = {
-    Admin: "/admin",
-    ProjectManager: "/manager",
-    SiteEngineer: "/engineer",
-    Accountant: "/accountant",
-  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

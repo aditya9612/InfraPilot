@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import Modal from "../common/Modal";
 
@@ -6,15 +6,17 @@ interface CreateRABillModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (billData: any) => void;
+  initialData?: any | null;
 }
 
 const CreateRABillModal: React.FC<CreateRABillModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
+  initialData,
 }) => {
   const [formData, setFormData] = useState({
-    bill_no: `RA/${new Date().getFullYear()}/00${Math.floor(Math.random() * 10)}`,
+    bill_no: "",
     project: "",
     client: "",
     date: new Date().toISOString().split('T')[0],
@@ -23,6 +25,30 @@ const CreateRABillModal: React.FC<CreateRABillModalProps> = ({
     certified_by: "",
   });
 
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        bill_no: initialData.bill_no || "",
+        project: initialData.project || "",
+        client: initialData.client || "",
+        date: initialData.date || new Date().toISOString().split('T')[0],
+        amount: initialData.amount || 0,
+        status: initialData.status || "Submitted",
+        certified_by: initialData.certified_by || "",
+      });
+    } else {
+      setFormData({
+        bill_no: `RA/${new Date().getFullYear()}/00${Math.floor(Math.random() * 100)}`,
+        project: "",
+        client: "",
+        date: new Date().toISOString().split('T')[0],
+        amount: 0,
+        status: "Submitted",
+        certified_by: "",
+      });
+    }
+  }, [initialData, isOpen]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.project || !formData.client || formData.amount <= 0) {
@@ -30,24 +56,13 @@ const CreateRABillModal: React.FC<CreateRABillModalProps> = ({
       return;
     }
     onSubmit(formData);
-    onClose();
-    // Reset form
-    setFormData({
-        bill_no: `RA/${new Date().getFullYear()}/00${Math.floor(Math.random() * 10)}`,
-        project: "",
-        client: "",
-        date: new Date().toISOString().split('T')[0],
-        amount: 0,
-        status: "Submitted",
-        certified_by: "",
-    });
   };
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Create New RA Bill"
+      title={initialData ? "Edit RA Bill" : "Create New RA Bill"}
       maxWidth="max-w-3xl"
     >
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -134,9 +149,9 @@ const CreateRABillModal: React.FC<CreateRABillModalProps> = ({
           </button>
           <button
             type="submit"
-            className="flex-1 px-10 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
+            className="flex-1 px-10 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
           >
-            Create RA Bill
+            {initialData ? "Save Record Updates" : "Create RA Bill"}
           </button>
         </div>
       </form>

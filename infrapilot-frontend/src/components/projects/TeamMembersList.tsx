@@ -1,4 +1,3 @@
-import toast from "react-hot-toast";
 import type { ProjectMember } from "../../types/project";
 
 interface TeamMembersListProps {

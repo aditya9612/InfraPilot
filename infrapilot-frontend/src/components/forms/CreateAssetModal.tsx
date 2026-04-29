@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import Modal from "../common/Modal";
 
@@ -6,12 +6,14 @@ interface CreateAssetModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (assetData: any) => void;
+  initialData?: any | null;
 }
 
 const CreateAssetModal: React.FC<CreateAssetModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
+  initialData,
 }) => {
   const [formData, setFormData] = useState({
     type: "register",
@@ -24,19 +26,20 @@ const CreateAssetModal: React.FC<CreateAssetModalProps> = ({
     location: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.asset_name || !formData.category || formData.cost <= 0) {
-      toast.error("Please fill in Asset Name, Category and Cost");
-      return;
-    }
-    onSubmit({
-        ...formData,
-        current_value: formData.cost // Initial current value is same as cost
-    });
-    onClose();
-    // Reset form
-    setFormData({
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        type: initialData.type || "register",
+        asset_name: initialData.asset_name || "",
+        category: initialData.category || "",
+        purchase_date: initialData.purchase_date || new Date().toISOString().split('T')[0],
+        cost: initialData.cost || 0,
+        depreciation_rate: initialData.depreciation_rate || 10,
+        current_value: initialData.current_value || 0,
+        location: initialData.location || "",
+      });
+    } else {
+      setFormData({
         type: "register",
         asset_name: "",
         category: "",
@@ -45,6 +48,19 @@ const CreateAssetModal: React.FC<CreateAssetModalProps> = ({
         depreciation_rate: 10,
         current_value: 0,
         location: "",
+      });
+    }
+  }, [initialData, isOpen]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.asset_name || !formData.category || formData.cost <= 0) {
+      toast.error("Please fill in Asset Name, Category and Cost");
+      return;
+    }
+    onSubmit({
+        ...formData,
+        current_value: initialData ? formData.current_value : formData.cost 
     });
   };
 
@@ -52,7 +68,7 @@ const CreateAssetModal: React.FC<CreateAssetModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Add New Fixed Asset"
+      title={initialData ? "Update Asset Record" : "Add New Fixed Asset"}
       maxWidth="max-w-3xl"
     >
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -158,9 +174,9 @@ const CreateAssetModal: React.FC<CreateAssetModalProps> = ({
           </button>
           <button
             type="submit"
-            className="flex-1 px-10 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
+            className="flex-1 px-10 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
           >
-            Register Asset
+            {initialData ? "Save Record Updates" : "Register Asset"}
           </button>
         </div>
       </form>

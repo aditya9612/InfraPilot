@@ -108,6 +108,7 @@ const InventoryPage = () => {
   });
 
   const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
+  const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{
     id: any;
@@ -139,12 +140,18 @@ const InventoryPage = () => {
   // Handlers
   const handleSupplierSubmit = async (data: any) => {
     try {
-      await materialService.createSupplier(data);
-      setSuppliers((prev) => [...prev, { ...data, id: `s${prev.length + 1}` }]);
+      if (selectedSupplier) {
+        setSuppliers(prev => prev.map(s => s.id === selectedSupplier.id ? { ...data, id: s.id } : s));
+        toast.success("Supplier updated successfully!");
+      } else {
+        await materialService.createSupplier(data);
+        setSuppliers((prev) => [...prev, { ...data, id: `s${prev.length + 1}` }]);
+        toast.success("Supplier added successfully!");
+      }
       setSupplierModalOpen(false);
-      toast.success("Supplier added successfully!");
+      setSelectedSupplier(null);
     } catch (error) {
-      toast.error("Failed to add supplier");
+      toast.error("Failed to save supplier");
     }
   };
 
@@ -306,26 +313,26 @@ const InventoryPage = () => {
 
       <PageTransition
         key={location.pathname}
-        className="p-6 bg-slate-50 min-h-screen pb-24"
+        className="p-6 bg-slate-50 min-h-screen pb-24 font-inter"
       >
         {/* Header Options */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 mt-2">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8 mt-2">
           <div>
             {isMaster ? (
               <>
-                <h1 className="text-[28px] leading-tight font-extrabold text-slate-900 tracking-tight">
+                <h1 className="text-3xl font-black text-slate-900 tracking-tight">
                   Supplier Database
                 </h1>
-                <p className="text-sm font-medium text-slate-500 mt-1">
-                  Manage all your material suppliers and contacts.
+                <p className="text-slate-500 text-sm font-medium mt-1">
+                  Manage all your material suppliers and strategic contacts.
                 </p>
               </>
             ) : (
               <>
-                <h1 className="text-[28px] leading-tight font-extrabold text-slate-900 tracking-tight">
+                <h1 className="text-3xl font-black text-slate-900 tracking-tight">
                   Project Site Inventory
                 </h1>
-                <p className="text-sm font-medium text-slate-500 mt-1">
+                <p className="text-slate-500 text-sm font-medium mt-1">
                   Track and secure inventory across multiple project sites.
                 </p>
               </>
@@ -399,8 +406,11 @@ const InventoryPage = () => {
             )}
             {activeTab === "suppliers" && (
               <button
-                onClick={() => setSupplierModalOpen(true)}
-                className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
+                onClick={() => {
+                  setSelectedSupplier(null);
+                  setSupplierModalOpen(true);
+                }}
+                className="px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
               >
                 + Add Supplier
               </button>
@@ -582,34 +592,34 @@ const InventoryPage = () => {
                         </p>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2.5">
+                        <div className="flex items-center justify-end gap-2">
                           <button 
                             onClick={() => { setSelectedMaterial(item); setMaterialFormOpen(true); }}
-                            className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200"
+                            className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-xl transition-all"
                             title="Edit / Update Payments"
                           >
-                            <Edit2 className="w-4.5 h-4.5" strokeWidth={1.5} />
+                            <Edit2 className="w-5 h-5" />
                           </button>
                           <button 
                             onClick={() => setPurchaseActionConfig({ isOpen: true, type: "purchase", material: item })}
-                            className="p-1.5 text-slate-400 hover:text-emerald-500 transition-all duration-200"
+                            className="p-2 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all"
                             title="Add Purchase"
                           >
-                            <PlusCircle className="w-4.5 h-4.5" strokeWidth={1.5} />
+                            <PlusCircle className="w-5 h-5" />
                           </button>
                           <button 
                             onClick={() => setPurchaseActionConfig({ isOpen: true, type: "usage", material: item })}
-                            className="p-1.5 text-slate-400 hover:text-primary transition-all duration-200"
+                            className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-xl transition-all"
                             title="Log Usage"
                           >
-                            <MinusCircle className="w-4.5 h-4.5" strokeWidth={1.5} />
+                            <MinusCircle className="w-5 h-5" />
                           </button>
                           <button 
                             onClick={() => handleDeleteClick(item.id, "material")}
-                            className="p-1.5 text-slate-400 hover:text-rose-500 transition-all duration-200"
+                            className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
                             title="Delete Record"
                           >
-                            <Trash2 className="w-4.5 h-4.5" strokeWidth={1.5} />
+                            <Trash2 className="w-5 h-5" />
                           </button>
                         </div>
                       </td>
@@ -670,20 +680,23 @@ const InventoryPage = () => {
                         {sup.address}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-3">
+                        <div className="flex items-center justify-end gap-2">
                           <button 
-                            onClick={() => console.log("Edit supplier", sup.id)}
-                            className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200"
+                            onClick={() => {
+                              setSelectedSupplier(sup);
+                              setSupplierModalOpen(true);
+                            }}
+                            className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-xl transition-all"
                             title="Edit Supplier"
                           >
-                            <Edit2 className="w-4.5 h-4.5" strokeWidth={1.5} />
+                            <Edit2 className="w-5 h-5" />
                           </button>
                           <button 
                             onClick={() => handleDeleteClick(sup.id, "supplier")}
-                            className="p-1.5 text-slate-400 hover:text-rose-500 transition-all duration-200"
+                            className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
                             title="Delete Supplier"
                           >
-                            <Trash2 className="w-4.5 h-4.5" strokeWidth={1.5} />
+                            <Trash2 className="w-5 h-5" />
                           </button>
                         </div>
                       </td>
@@ -708,8 +721,12 @@ const InventoryPage = () => {
 
       <SupplierModal
         isOpen={isSupplierModalOpen}
-        onClose={() => setSupplierModalOpen(false)}
+        onClose={() => {
+            setSupplierModalOpen(false);
+            setSelectedSupplier(null);
+        }}
         onSubmit={handleSupplierSubmit}
+        initialData={selectedSupplier}
       />
       <AddMaterialModal
         isOpen={isMaterialFormOpen}

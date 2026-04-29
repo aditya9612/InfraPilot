@@ -698,7 +698,6 @@ const AdminDashboard = () => {
 
       <CreateUserModal
         isOpen={isUserModalOpen}
-        projects={projects}
         onClose={() => setIsUserModalOpen(false)}
         onSubmit={handleCreateUser}
       />

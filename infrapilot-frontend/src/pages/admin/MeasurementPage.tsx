@@ -13,10 +13,6 @@ import {
   Trash2, 
   Plus, 
   Search,
-  Calculator,
-  Square,
-  Zap,
-  Layers,
   Edit3
 } from "lucide-react";
 
@@ -25,7 +21,6 @@ const MeasurementPage = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isProjectsLoading, setIsProjectsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [targetId, setTargetId] = useState<number | null>(null);
@@ -43,7 +38,7 @@ const MeasurementPage = () => {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        setIsProjectsLoading(true);
+        setIsLoading(true);
         const res = await projectService.getProjects(100);
         const items = Array.isArray(res) ? res : res.items || [];
         setProjects(items);
@@ -53,7 +48,7 @@ const MeasurementPage = () => {
       } catch (error) {
         toast.error("System offline: Project matrix inaccessible");
       } finally {
-        setIsProjectsLoading(false);
+        setIsLoading(false);
       }
     };
     fetchProjects();

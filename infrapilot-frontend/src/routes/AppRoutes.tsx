@@ -5,7 +5,6 @@ import DashboardLayout from "../components/common/DashboardLayout";
 import Login from "../pages/auth/Login";
 import AdminDashboard from "../pages/dashboard/AdminDashboard";
 import ManagerDashboard from "../pages/dashboard/ManagerDashboard";
-import ClientDashboard from "../pages/dashboard/ClientDashboard";
 import AccountantDashboard from "../pages/dashboard/AccountantDashboard";
 import Unauthorized from "../pages/Unauthorized";
 import ProjectsPage from "../pages/admin/ProjectsPage";

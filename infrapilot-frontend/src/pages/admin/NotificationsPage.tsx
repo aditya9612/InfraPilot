@@ -6,6 +6,7 @@ import CreateAlertModal from "../../components/forms/CreateAlertModal";
 import toast from "react-hot-toast";
 import { Eye, Trash2 } from "lucide-react";
 import AlertDetailsModal from "../../components/dashboard/AlertDetailsModal";
+import ConfirmModal from "../../components/common/ConfirmModal";
 
 const initialAlerts = [
   { id: 1, type: "Delay", message: "Excavation at Skyline Tower A is 3 days behind schedule.", target: "Project Manager, Admin", date: "2026-04-02", status: "Critical", isRead: false },
@@ -19,6 +20,8 @@ const NotificationsPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewingAlert, setViewingAlert] = useState<any>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [alertToDelete, setAlertToDelete] = useState<number | null>(null);
 
   const filteredAlerts = alerts.filter(a => 
     a.message.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -43,14 +46,15 @@ const NotificationsPage = () => {
     toast.success("Alert broadcasted successfully!");
   };
 
-  const handleDelete = (id: number) => {
-    setAlerts(prev => prev.filter(a => a.id !== id));
-    toast.success("Alert removed.");
+  const confirmDelete = () => {
+    if (alertToDelete) {
+      setAlerts(prev => prev.filter(a => a.id !== alertToDelete));
+      toast.success("Alert removed.");
+      setIsDeleteModalOpen(false);
+      setAlertToDelete(null);
+    }
   };
 
-  const toggleRead = (id: number) => {
-    setAlerts(prev => prev.map(a => a.id === id ? { ...a, isRead: !a.isRead } : a));
-  };
 
   return (
     <>
@@ -169,7 +173,10 @@ const NotificationsPage = () => {
                         </button>
 
                         <button 
-                          onClick={() => handleDelete(alert.id)}
+                          onClick={() => {
+                            setAlertToDelete(alert.id);
+                            setIsDeleteModalOpen(true);
+                          }}
                           className="p-1.5 text-slate-400 hover:text-rose-500 transition-all duration-200"
                           title="Delete Alert"
                         >
@@ -203,6 +210,19 @@ const NotificationsPage = () => {
           setViewingAlert(null);
         }}
         alert={viewingAlert}
+      />
+
+      <ConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setAlertToDelete(null);
+        }}
+        onConfirm={confirmDelete}
+        title="Delete Alert"
+        message="Are you sure you want to delete this alert? This action cannot be undone."
+        confirmText="Delete"
+        type="danger"
       />
     </>
   );

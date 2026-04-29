@@ -48,17 +48,29 @@ const ReceivablesCreditNotesPage = () => {
   const [recordToDelete, setRecordToDelete] = useState<number | null>(null);
 
   const handleCreateCN = (data: any) => {
-    const newRecord = {
-        ...data,
-        id: records.length + 1,
-    };
-    setRecords(prev => [newRecord, ...prev]);
-    toast.success("Credit Note issued successfully!");
+    if (selectedRecord && !isViewModalOpen) {
+        setRecords(prev => prev.map(r => r.id === selectedRecord.id ? { ...r, ...data } : r));
+        toast.success("Credit Note updated successfully!");
+    } else {
+        const newRecord = {
+            ...data,
+            id: records.length + 1,
+        };
+        setRecords(prev => [newRecord, ...prev]);
+        toast.success("Credit Note issued successfully!");
+    }
+    setIsModalOpen(false);
+    setSelectedRecord(null);
   };
 
   const handleViewRecord = (record: any) => {
     setSelectedRecord(record);
     setIsViewModalOpen(true);
+  };
+
+  const handleEditRecord = (record: any) => {
+    setSelectedRecord(record);
+    setIsModalOpen(true);
   };
 
   const handleDelete = (id: number) => {
@@ -82,14 +94,17 @@ const ReceivablesCreditNotesPage = () => {
         breadcrumb={["Accountant", "Receivables", "Credit Notes"]} 
       />
       <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8 mt-2">
           <div>
-            <h1 className="text-2xl font-black text-slate-800 tracking-tight">Financial Credit Notes</h1>
-            <p className="text-slate-500 text-sm font-medium">Issue and track credit notes for client bill adjustments or reversals.</p>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight">Financial Credit Notes</h1>
+            <p className="text-slate-500 text-sm font-medium mt-1">Issue and track credit notes for client bill adjustments or reversals.</p>
           </div>
           <button 
-            onClick={() => setIsModalOpen(true)}
-            className="px-6 py-2.5 bg-rose-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all text-nowrap"
+            onClick={() => {
+                setSelectedRecord(null);
+                setIsModalOpen(true);
+            }}
+            className="px-8 py-3 bg-rose-500 text-white rounded-2xl text-sm font-bold shadow-xl shadow-rose-500/20 hover:bg-rose-600 transition-all active:scale-95 text-nowrap"
           >
             + Issue Credit Note
           </button>
@@ -105,15 +120,20 @@ const ReceivablesCreditNotesPage = () => {
                             <th className="px-6 py-5">Reason</th>
                             <th className="px-6 py-5 text-right">Adjusted Amount</th>
                             <th className="px-6 py-5">Status</th>
-                            <th className="px-6 py-5 text-center">Actions</th>
+                            <th className="px-6 py-5 text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
                         {records.map(record => (
                             <tr key={record.id} className="hover:bg-slate-50/50 transition-colors group">
                                 <td className="px-6 py-5">
-                                    <p className="text-sm font-black text-slate-700">{record.cn_no}</p>
-                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Date: {record.date}</p>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-500 border border-rose-100 flex items-center justify-center font-black text-[10px] shadow-sm">CN</div>
+                                        <div>
+                                            <p className="text-sm font-black text-slate-700">{record.cn_no}</p>
+                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Date: {record.date}</p>
+                                        </div>
+                                    </div>
                                 </td>
                                 <td className="px-6 py-5">
                                     <p className="text-sm font-bold text-slate-700">{record.ref_invoice}</p>
@@ -132,17 +152,26 @@ const ReceivablesCreditNotesPage = () => {
                                         {record.status}
                                     </span>
                                 </td>
-                                <td className="px-6 py-5 text-center">
-                                    <div className="flex items-center justify-center gap-2">
+                                <td className="px-6 py-5 text-right">
+                                    <div className="flex items-center justify-end gap-2">
                                         <button 
                                           onClick={() => handleViewRecord(record)}
                                           className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-xl transition-all"
+                                          title="View Details"
                                         >
                                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                                         </button>
                                         <button 
+                                          onClick={() => handleEditRecord(record)}
+                                          className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-xl transition-all"
+                                          title="Edit Record"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                        </button>
+                                        <button 
                                           onClick={() => handleDelete(record.id)}
                                           className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                                          title="Delete Record"
                                         >
                                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                         </button>

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import Modal from "../common/Modal";
 
@@ -6,12 +6,14 @@ interface CreateJVModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (jvData: any) => void;
+  initialData?: any | null;
 }
 
 const CreateJVModal: React.FC<CreateJVModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
+  initialData,
 }) => {
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -22,6 +24,28 @@ const CreateJVModal: React.FC<CreateJVModalProps> = ({
     reference: `JV-${new Date().getFullYear().toString().slice(-2)}-00${Math.floor(Math.random() * 10)}`,
   });
 
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        date: initialData.date || new Date().toISOString().split('T')[0],
+        debit_account: initialData.debit_account || "",
+        credit_account: initialData.credit_account || "",
+        amount: initialData.amount || 0,
+        narration: initialData.narration || "",
+        reference: initialData.reference || `JV-${new Date().getFullYear().toString().slice(-2)}-00${Math.floor(Math.random() * 10)}`,
+      });
+    } else {
+      setFormData({
+        date: new Date().toISOString().split('T')[0],
+        debit_account: "",
+        credit_account: "",
+        amount: 0,
+        narration: "",
+        reference: `JV-${new Date().getFullYear().toString().slice(-2)}-00${Math.floor(Math.random() * 10)}`,
+      });
+    }
+  }, [initialData, isOpen]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.debit_account || !formData.credit_account || formData.amount <= 0) {
@@ -29,27 +53,17 @@ const CreateJVModal: React.FC<CreateJVModalProps> = ({
       return;
     }
     onSubmit(formData);
-    onClose();
-    // Reset form
-    setFormData({
-        date: new Date().toISOString().split('T')[0],
-        debit_account: "",
-        credit_account: "",
-        amount: 0,
-        narration: "",
-        reference: `JV-${new Date().getFullYear().toString().slice(-2)}-00${Math.floor(Math.random() * 10)}`,
-    });
   };
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Create Journal Voucher"
+      title={initialData ? "Update Journal Voucher" : "Create Journal Voucher"}
       maxWidth="max-w-2xl"
     >
       <form onSubmit={handleSubmit} className="space-y-6 pt-2">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">JV Date</label>
               <input
@@ -65,7 +79,7 @@ const CreateJVModal: React.FC<CreateJVModalProps> = ({
               <input
                 type="text"
                 required
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none font-bold"
                 value={formData.reference}
                 onChange={e => setFormData({ ...formData, reference: e.target.value })}
               />
@@ -79,7 +93,7 @@ const CreateJVModal: React.FC<CreateJVModalProps> = ({
                 <input
                     type="text"
                     required
-                    className="w-full px-4 py-2.5 bg-white border border-emerald-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="w-full px-4 py-2.5 bg-white border border-emerald-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 font-black"
                     placeholder="Search account head..."
                     value={formData.debit_account}
                     onChange={e => setFormData({ ...formData, debit_account: e.target.value })}
@@ -92,7 +106,7 @@ const CreateJVModal: React.FC<CreateJVModalProps> = ({
                 <input
                     type="text"
                     required
-                    className="w-full px-4 py-2.5 bg-white border border-rose-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-rose-500/20"
+                    className="w-full px-4 py-2.5 bg-white border border-rose-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-rose-500/20 font-black"
                     placeholder="Search account head..."
                     value={formData.credit_account}
                     onChange={e => setFormData({ ...formData, credit_account: e.target.value })}
@@ -110,6 +124,12 @@ const CreateJVModal: React.FC<CreateJVModalProps> = ({
                 value={formData.amount || ""}
                 onChange={e => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
             />
+            {formData.amount > 0 && (
+                <div className="flex items-center gap-2 mt-2 ml-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+                    <span className="text-[9px] text-emerald-600 font-black uppercase tracking-widest">Balanced Voucher</span>
+                </div>
+            )}
         </div>
 
         <div>
@@ -132,9 +152,9 @@ const CreateJVModal: React.FC<CreateJVModalProps> = ({
           </button>
           <button
             type="submit"
-            className="flex-1 px-10 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
+            className="flex-1 px-10 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
           >
-            Post Journal Entry
+            {initialData ? "Save JV Updates" : "Post Journal Entry"}
           </button>
         </div>
       </form>
