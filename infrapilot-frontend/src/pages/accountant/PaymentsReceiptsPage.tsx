@@ -3,6 +3,8 @@ import { useParams } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import Modal from "../../components/common/Modal";
+import ViewTransactionModal from "../../components/forms/ViewTransactionModal";
+import ConfirmModal from "../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 
 const MOCK_TRANSACTIONS = [
@@ -34,6 +36,10 @@ const PaymentsReceiptsPage = () => {
   const { category } = useParams<{ category: string }>();
   const [transactions, setTransactions] = useState(MOCK_TRANSACTIONS);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
+  const [transactionToDelete, setTransactionToDelete] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<string>("All");
 
   useEffect(() => {
@@ -47,6 +53,25 @@ const PaymentsReceiptsPage = () => {
         setActiveTab("All");
     }
   }, [category]);
+
+  const handleViewTransaction = (transaction: any) => {
+    setSelectedTransaction(transaction);
+    setIsViewModalOpen(true);
+  };
+
+  const handleDeleteTransaction = (id: number) => {
+    setTransactionToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (transactionToDelete) {
+      setTransactions(prev => prev.filter(t => t.id !== transactionToDelete));
+      toast.success("Transaction deleted successfully");
+      setIsDeleteModalOpen(false);
+      setTransactionToDelete(null);
+    }
+  };
 
   const filtered = activeTab === "All" 
     ? transactions 
@@ -113,9 +138,20 @@ const PaymentsReceiptsPage = () => {
                                     </p>
                                 </td>
                                 <td className="px-6 py-5 text-center">
-                                    <button className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-xl transition-all">
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
-                                    </button>
+                                    <div className="flex items-center justify-center gap-2">
+                                        <button 
+                                          onClick={() => handleViewTransaction(t)}
+                                          className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-xl transition-all"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                        </button>
+                                        <button 
+                                          onClick={() => handleDeleteTransaction(t.id)}
+                                          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}
@@ -185,6 +221,22 @@ const PaymentsReceiptsPage = () => {
              </div>
           </form>
       </Modal>
+
+      <ViewTransactionModal
+        isOpen={isViewModalOpen}
+        onClose={() => setIsViewModalOpen(false)}
+        transaction={selectedTransaction}
+      />
+
+      <ConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={confirmDelete}
+        title="Delete Transaction"
+        message="Are you sure you want to delete this transaction record? This action cannot be undone."
+        confirmText="Delete Transaction"
+        type="danger"
+      />
     </>
   );
 };

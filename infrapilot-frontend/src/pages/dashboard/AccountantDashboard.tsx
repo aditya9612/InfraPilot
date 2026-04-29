@@ -154,7 +154,7 @@ const AccountantDashboard = () => {
               }
             />
             <StatCard
-              title="Total Expense (खर्च)"
+              title="Total Expense"
               value={`₹${stats.total_expense.toLocaleString("en-IN")}`}
               sub="Overall Expenditure"
               accent="text-rose-600"

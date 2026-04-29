@@ -1,6 +1,9 @@
 import { useState } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
+import CreateJVModal from "../../components/forms/CreateJVModal";
+import ViewJVModal from "../../components/forms/ViewJVModal";
+import ConfirmModal from "../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 
 const MOCK_JOURNAL_ENTRIES = [
@@ -34,7 +37,40 @@ const MOCK_JOURNAL_ENTRIES = [
 ];
 
 const JournalEntriesPage = () => {
-  const [entries] = useState(MOCK_JOURNAL_ENTRIES);
+  const [entries, setEntries] = useState(MOCK_JOURNAL_ENTRIES);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState<any>(null);
+  const [entryToDelete, setEntryToDelete] = useState<number | null>(null);
+
+  const handleCreateJV = (data: any) => {
+    const newEntry = {
+        ...data,
+        id: entries.length + 1,
+    };
+    setEntries(prev => [newEntry, ...prev]);
+    toast.success("Journal Voucher posted successfully!");
+  };
+
+  const handleViewEntry = (entry: any) => {
+    setSelectedEntry(entry);
+    setIsViewModalOpen(true);
+  };
+
+  const handleDeleteEntry = (id: number) => {
+    setEntryToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (entryToDelete) {
+      setEntries(prev => prev.filter(e => e.id !== entryToDelete));
+      toast.success("Journal Entry deleted");
+      setIsDeleteModalOpen(false);
+      setEntryToDelete(null);
+    }
+  };
 
   return (
     <>
@@ -49,7 +85,7 @@ const JournalEntriesPage = () => {
             <p className="text-slate-500 text-sm font-medium">Record manual adjustments, depreciation, and complex multi-leg transactions.</p>
           </div>
           <button 
-            onClick={() => toast.success("JV creation modal coming soon!")}
+            onClick={() => setIsModalOpen(true)}
             className="px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2"
           >
             <span className="text-lg">+</span> Create JV
@@ -99,9 +135,20 @@ const JournalEntriesPage = () => {
                                     </div>
                                 </td>
                                 <td className="px-6 py-5 text-center">
-                                    <button className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-xl transition-all">
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                                    </button>
+                                    <div className="flex items-center justify-center gap-2">
+                                        <button 
+                                          onClick={() => handleViewEntry(entry)}
+                                          className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-xl transition-all"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                        </button>
+                                        <button 
+                                          onClick={() => handleDeleteEntry(entry.id)}
+                                          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}
@@ -110,6 +157,28 @@ const JournalEntriesPage = () => {
             </div>
         </div>
       </PageTransition>
+
+      <CreateJVModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleCreateJV}
+      />
+
+      <ViewJVModal
+        isOpen={isViewModalOpen}
+        onClose={() => setIsViewModalOpen(false)}
+        entry={selectedEntry}
+      />
+
+      <ConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={confirmDelete}
+        title="Delete Journal Entry"
+        message="Are you sure you want to delete this journal entry? This will impact your ledger balances."
+        confirmText="Delete Entry"
+        type="danger"
+      />
     </>
   );
 };
