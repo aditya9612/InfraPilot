@@ -1,6 +1,8 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useSidebar } from "../../context/SidebarContext";
+import { useState, useRef, useEffect } from "react";
+import { LogOut, User as UserIcon, Settings, Bell } from "lucide-react";
 
 interface BreadcrumbItem {
   label: string;
@@ -35,9 +37,45 @@ const routeMap: Record<string, string> = {
   BOQ: "/admin/boq",
 };
 
+const mockNotifications = [
+  { id: 1, type: "alert", title: "Low Stock Alert", desc: "Cement (Grade 53) is below minimum threshold at Site A.", time: "10m ago", read: false },
+  { id: 2, type: "approval", title: "Pending Approval", desc: "Arjun requested 500 Bags of Cement.", time: "1h ago", read: false },
+  { id: 3, type: "system", title: "System Update", desc: "Scheduled maintenance at 2:00 AM.", time: "5h ago", read: true },
+];
+
 const Navbar = ({ title, breadcrumb, action }: Props) => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { toggleSidebar } = useSidebar();
+  const navigate = useNavigate();
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  const rolePaths: Record<string, string> = {
+    Admin: "/admin",
+    ProjectManager: "/manager",
+    SiteEngineer: "/engineer",
+    Accountant: "/accountant",
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsProfileOpen(false);
+      }
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+        setIsNotificationOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
 
   return (
     <div className="sticky top-0 z-40 shadow-sm bg-primary px-6 py-4 flex items-center justify-between">
@@ -122,25 +160,89 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
             {action.label}
           </button>
         )}
-        {/* Notification icons */}
-        <button className="relative w-8 h-8 flex items-center justify-center text-white hover:bg-blue-600 rounded-lg transition-colors">
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+        {/* Notification Dropdown */}
+        <div className="relative" ref={notifRef}>
+          <button 
+            onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+            className={`relative w-8 h-8 flex items-center justify-center text-white rounded-lg transition-colors ${isNotificationOpen ? 'bg-blue-600' : 'hover:bg-blue-600'}`}
+            title="Notifications"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-            />
-          </svg>
-          <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-success rounded-full" />
-        </button>
-        <div className="w-8 h-8 rounded-full bg-blue-600 border-2 border-white flex items-center justify-center text-white text-xs font-bold">
-          {user?.name.charAt(0)}
+            <Bell className="w-4.5 h-4.5" strokeWidth={2.5} />
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 border border-primary rounded-full" />
+          </button>
+
+          {isNotificationOpen && (
+            <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                <h3 className="font-bold text-slate-800">Notifications</h3>
+                <span className="text-xs font-bold text-primary bg-blue-50 px-2 py-0.5 rounded-full">2 New</span>
+              </div>
+              <div className="max-h-80 overflow-y-auto">
+                {mockNotifications.map(notif => (
+                  <div key={notif.id} className={`p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer ${notif.read ? 'opacity-60' : ''}`}>
+                    <div className="flex justify-between items-start mb-1">
+                      <p className="text-sm font-bold text-slate-800">{notif.title}</p>
+                      <span className="text-[10px] font-bold text-slate-400">{notif.time}</span>
+                    </div>
+                    <p className="text-xs text-slate-500 line-clamp-2">{notif.desc}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="p-2 border-t border-slate-100 bg-slate-50">
+                <button 
+                  onClick={() => { setIsNotificationOpen(false); navigate(user?.role === "Admin" ? "/admin/notifications" : "#"); }}
+                  className="w-full py-2 text-xs font-bold text-primary hover:text-blue-700 transition-colors"
+                >
+                  View All Notifications
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Profile Dropdown */}
+        <div className="relative" ref={dropdownRef}>
+          <button 
+            onClick={() => setIsProfileOpen(!isProfileOpen)}
+            className="w-8 h-8 rounded-full bg-blue-600 border-2 border-white flex items-center justify-center text-white text-xs font-bold shadow-sm hover:scale-105 transition-transform"
+            title={user?.name || "Profile"}
+          >
+            {user?.name?.charAt(0) || "U"}
+          </button>
+
+          {isProfileOpen && (
+            <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="p-4 border-b border-slate-100 bg-slate-50">
+                <p className="font-bold text-slate-800 truncate">{user?.name}</p>
+                <p className="text-xs text-slate-500 mt-0.5 truncate capitalize">{user?.role}</p>
+              </div>
+              <div className="p-2 space-y-1">
+                <button 
+                  onClick={() => { setIsProfileOpen(false); navigate("/admin/settings"); }}
+                  className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 hover:text-primary transition-colors"
+                >
+                  <UserIcon className="w-4 h-4" />
+                  My Profile
+                </button>
+                <button 
+                  onClick={() => { setIsProfileOpen(false); navigate("/admin/settings"); }}
+                  className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 hover:text-primary transition-colors"
+                >
+                  <Settings className="w-4 h-4" />
+                  Account Settings
+                </button>
+              </div>
+              <div className="p-2 border-t border-slate-100">
+                <button 
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-3 px-3 py-2 text-sm font-bold text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Log Out
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

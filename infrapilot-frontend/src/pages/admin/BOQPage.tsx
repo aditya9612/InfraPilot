@@ -29,7 +29,7 @@ import {
   Upload,
   Eye,
   Edit2,
-  Trash2
+  Trash2,
 } from "lucide-react";
 import OptimizationModal from "../../components/dashboard/OptimizationModal";
 import BulkImportBOQModal from "../../components/forms/BulkImportBOQModal";
@@ -102,7 +102,8 @@ const BOQPage = () => {
   const [isActivityViewModalOpen, setIsActivityViewModalOpen] = useState(false);
   const [viewingActivity, setViewingActivity] = useState<any>(null);
   const [activitiesData, setActivitiesData] = useState(INITIAL_ACTIVITIES_DATA);
-  const [isActivityDeleteModalOpen, setIsActivityDeleteModalOpen] = useState(false);
+  const [isActivityDeleteModalOpen, setIsActivityDeleteModalOpen] =
+    useState(false);
   const [activityToDelete, setActivityToDelete] = useState<number | null>(null);
 
   // Fetch Projects and BOQs on mount
@@ -247,7 +248,9 @@ const BOQPage = () => {
 
   const handleDeleteActivityConfirm = () => {
     if (activityToDelete) {
-      setActivitiesData(prev => prev.filter(act => act.id !== activityToDelete));
+      setActivitiesData((prev) =>
+        prev.filter((act) => act.id !== activityToDelete),
+      );
       toast.success("Activity removed successfully!");
       setIsActivityDeleteModalOpen(false);
       setActivityToDelete(null);
@@ -295,7 +298,7 @@ const BOQPage = () => {
 
   const handleExport = async (format: "excel" | "pdf" | "json") => {
     if (isExporting) return;
-    
+
     if (boqData.length === 0) {
       toast.error("No data to export");
       return;
@@ -305,9 +308,10 @@ const BOQPage = () => {
       setIsExporting(true);
       const firstItem = boqData[0];
       const isProjectLevel = projectFilter !== "all";
-      
-      const exportId = firstItem?.boq_group_id || 
-                      (isProjectLevel ? Number(projectFilter) : firstItem?.id);
+
+      const exportId =
+        firstItem?.boq_group_id ||
+        (isProjectLevel ? Number(projectFilter) : firstItem?.id);
 
       if (!exportId) {
         toast.error("Unable to determine export context");
@@ -318,15 +322,21 @@ const BOQPage = () => {
         search: searchTerm || null,
         status: statusFilter === "all" ? null : statusFilter,
         category: categoryFilter === "all" ? null : categoryFilter,
-        version_no: selectedVersion === "latest" ? null : Number(selectedVersion),
+        version_no:
+          selectedVersion === "latest" ? null : Number(selectedVersion),
       };
 
-      toast.loading(`Preparing ${format.toUpperCase()}...`, { id: 'export' });
-      const data = await boqService.exportBoq(exportId, format, isProjectLevel, filters);
+      toast.loading(`Preparing ${format.toUpperCase()}...`, { id: "export" });
+      const data = await boqService.exportBoq(
+        exportId,
+        format,
+        isProjectLevel,
+        filters,
+      );
 
       const fileName = isProjectLevel
-        ? `boq_project_${exportId}.${format === "json" ? "json" : format === "excel" ? "xlsx" : "pdf"}`
-        : `boq_export_${exportId}.${format === "json" ? "json" : format === "excel" ? "xlsx" : "pdf"}`;
+        ? `boq_project_${exportId}.${format === "json" ? "json" : format === "excel" ? "csv" : "pdf"}`
+        : `boq_export_${exportId}.${format === "json" ? "json" : format === "excel" ? "csv" : "pdf"}`;
 
       if (format === "json") {
         const blob = new Blob([JSON.stringify(data, null, 2)], {
@@ -339,8 +349,11 @@ const BOQPage = () => {
         a.click();
         window.URL.revokeObjectURL(url);
       } else {
-        const blob = new Blob([data], { 
-          type: format === "excel" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : "application/pdf" 
+        const blob = new Blob([data], {
+          type:
+            format === "excel"
+              ? "text/csv;charset=utf-8;"
+              : "application/pdf",
         });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -349,12 +362,20 @@ const BOQPage = () => {
         a.click();
         window.URL.revokeObjectURL(url);
       }
-      toast.success(`${format.toUpperCase()} exported successfully!`, { id: 'export' });
+      toast.success(`${format.toUpperCase()} exported successfully!`, {
+        id: "export",
+      });
     } catch (apiError: any) {
-      console.warn("Backend export failed, falling back to client-side generation", apiError);
-      
-      const dateStr = new Date().toISOString().split('T')[0];
-      const projectName = projectFilter !== "all" ? projectMap[Number(projectFilter)] : "All_Projects";
+      console.warn(
+        "Backend export failed, falling back to client-side generation",
+        apiError,
+      );
+
+      const dateStr = new Date().toISOString().split("T")[0];
+      const projectName =
+        projectFilter !== "all"
+          ? projectMap[Number(projectFilter)]
+          : "All_Projects";
 
       if (format === "pdf") {
         const doc = new jsPDF();
@@ -364,24 +385,35 @@ const BOQPage = () => {
         doc.text(`Project: ${projectName}`, 14, 30);
         doc.text(`Date: ${new Date().toLocaleString()}`, 14, 37);
 
-        const tableData = boqData.map(item => [
+        const tableData = boqData.map((item) => [
           item.item_name,
           item.category,
           `${item.quantity} ${item.unit}`,
           `₹${Number(item.unit_cost).toLocaleString()}`,
           `₹${Number(item.total_cost || 0).toLocaleString()}`,
-          (item.status === "Active" || item.status === "ACTIVE") ? "Ongoing" : item.status
+          item.status === "Ongoing" || item.status === "ACTIVE"
+            ? "Ongoing"
+            : item.status,
         ]);
 
         autoTable(doc, {
           startY: 45,
-          head: [['Item Name', 'Category', 'Qty & Unit', 'Unit Cost', 'Est. Total', 'Status']],
+          head: [
+            [
+              "Item Name",
+              "Category",
+              "Qty & Unit",
+              "Unit Cost",
+              "Est. Total",
+              "Status",
+            ],
+          ],
           body: tableData,
-          headStyles: { fillColor: [37, 99, 235] }
+          headStyles: { fillColor: [37, 99, 235] },
         });
 
         doc.save(`BOQ_Report_${projectName}_${dateStr}.pdf`);
-        toast.success("PDF generated successfully", { id: 'export' });
+        toast.success("PDF generated successfully", { id: "export" });
       } else if (format === "excel") {
         exportToCSV(boqData, `BOQ_Report_${projectName}_${dateStr}.csv`, {
           item_name: "Item Name",
@@ -390,11 +422,14 @@ const BOQPage = () => {
           unit: "Unit",
           unit_cost: "Unit Cost",
           total_cost: "Total Cost",
-          status: "Status"
+          status: "Status",
         });
-        toast.success("Excel/CSV generated successfully", { id: 'export' });
+        toast.success("Excel/CSV generated successfully", { id: "export" });
       } else {
-        toast.error(`Export failed: ${apiError.response?.data?.detail || "Connection error"}`, { id: 'export' });
+        toast.error(
+          `Export failed: ${apiError.response?.data?.detail || "Connection error"}`,
+          { id: "export" },
+        );
       }
     } finally {
       setIsExporting(false);
@@ -421,22 +456,38 @@ const BOQPage = () => {
   // Filtered Activities Logic (Frontend filtering for mock/local data)
   const filteredActivities = useMemo(() => {
     return activitiesData.filter((act) => {
-      const matchesSearch = act.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                           act.project.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           act.type.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesStatus = statusFilter === "all" || act.status.toLowerCase() === statusFilter.toLowerCase();
-      
-      // Category mapping if necessary, or direct match
-      const matchesCategory = categoryFilter === "all" || act.type.toLowerCase().includes(categoryFilter.toLowerCase());
-      
-      // Project mapping (using projectMap or direct name match from mock)
-      const projectName = projectFilter === "all" ? null : projectMap[Number(projectFilter)];
-      const matchesProject = projectFilter === "all" || act.project === projectName;
+      const matchesSearch =
+        act.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        act.project.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        act.type.toLowerCase().includes(searchTerm.toLowerCase());
 
-      return matchesSearch && matchesStatus && matchesCategory && matchesProject;
+      const matchesStatus =
+        statusFilter === "all" ||
+        act.status.toLowerCase() === statusFilter.toLowerCase();
+
+      // Category mapping if necessary, or direct match
+      const matchesCategory =
+        categoryFilter === "all" ||
+        act.type.toLowerCase().includes(categoryFilter.toLowerCase());
+
+      // Project mapping (using projectMap or direct name match from mock)
+      const projectName =
+        projectFilter === "all" ? null : projectMap[Number(projectFilter)];
+      const matchesProject =
+        projectFilter === "all" || act.project === projectName;
+
+      return (
+        matchesSearch && matchesStatus && matchesCategory && matchesProject
+      );
     });
-  }, [activitiesData, searchTerm, statusFilter, categoryFilter, projectFilter, projectMap]);
+  }, [
+    activitiesData,
+    searchTerm,
+    statusFilter,
+    categoryFilter,
+    projectFilter,
+    projectMap,
+  ]);
 
   return (
     <>
@@ -665,15 +716,15 @@ const BOQPage = () => {
                     <button
                       onClick={() => handleExport("excel")}
                       disabled={isExporting}
-                      className={`w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-colors ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      className={`w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-colors ${isExporting ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
                       <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
-                      Excel (.xlsx)
+                      CSV (.csv)
                     </button>
                     <button
                       onClick={() => handleExport("pdf")}
                       disabled={isExporting}
-                      className={`w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-all ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      className={`w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-all ${isExporting ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
                       <FileText className="w-4 h-4 text-rose-500" />
                       PDF Report
@@ -681,7 +732,7 @@ const BOQPage = () => {
                     <button
                       onClick={() => handleExport("json")}
                       disabled={isExporting}
-                      className={`w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-all ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      className={`w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-all ${isExporting ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
                       <FileJson className="w-4 h-4 text-amber-500" />
                       JSON Data
@@ -782,7 +833,9 @@ const BOQPage = () => {
                         <td className="px-6 py-4 text-center">
                           <span
                             className={`px-2 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${
-                              (item.status === "Active" || item.status === "ACTIVE" || item.status === "Ongoing")
+                              item.status === "Ongoing" ||
+                              item.status === "ACTIVE" ||
+                              item.status === "Ongoing"
                                 ? "bg-emerald-100 text-emerald-600"
                                 : item.status === "Completed"
                                   ? "bg-blue-100 text-blue-600"
@@ -791,7 +844,10 @@ const BOQPage = () => {
                                     : "bg-amber-100 text-amber-600"
                             }`}
                           >
-                            {(item.status === "Active" || item.status === "ACTIVE") ? "Ongoing" : item.status}
+                            {item.status === "Ongoing" ||
+                            item.status === "ACTIVE"
+                              ? "Ongoing"
+                              : item.status}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right">
@@ -801,35 +857,47 @@ const BOQPage = () => {
                               className="p-1.5 text-slate-400 hover:text-emerald-500 transition-all duration-200"
                               title="Update Actuals"
                             >
-                              <TrendingUp className="w-4.5 h-4.5" strokeWidth={1.5} />
+                              <TrendingUp
+                                className="w-4.5 h-4.5"
+                                strokeWidth={1.5}
+                              />
                             </button>
-                            <button 
+                            <button
                               onClick={() => openHistoryModal(item)}
                               className="p-1.5 text-slate-400 hover:text-violet-500 transition-all duration-200"
                               title="View History"
                             >
-                              <History className="w-4.5 h-4.5" strokeWidth={1.5} />
+                              <History
+                                className="w-4.5 h-4.5"
+                                strokeWidth={1.5}
+                              />
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleViewDetails(item)}
                               className="p-1.5 text-slate-400 hover:text-primary transition-all duration-200"
                               title="View Details"
                             >
                               <Eye className="w-4.5 h-4.5" strokeWidth={1.5} />
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleEditClick(item)}
                               className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200"
                               title="Update BOQ"
                             >
-                              <Edit2 className="w-4.5 h-4.5" strokeWidth={1.5} />
+                              <Edit2
+                                className="w-4.5 h-4.5"
+                                strokeWidth={1.5}
+                              />
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleDeleteClick(item.id)}
                               className="p-1.5 text-slate-400 hover:text-rose-500 transition-all duration-200"
                               title="Delete BOQ"
                             >
-                              <Trash2 className="w-4.5 h-4.5" strokeWidth={1.5} />
+                              <Trash2
+                                className="w-4.5 h-4.5"
+                                strokeWidth={1.5}
+                              />
                             </button>
                           </div>
                         </td>
@@ -861,62 +929,68 @@ const BOQPage = () => {
                 <tbody className="divide-y divide-slate-50">
                   {filteredActivities.length > 0 ? (
                     filteredActivities.map((act) => (
-                    <tr
-                      key={act.id}
-                      className="hover:bg-slate-50/50 transition-colors group text-slate-800"
-                    >
-                      <td className="px-6 py-4 font-bold text-slate-700 group-hover:text-primary transition-colors">
-                        {act.name}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-500 font-medium">
-                        {act.type}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-500 font-medium">
-                        {act.project}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${
-                            act.status === "Completed"
-                              ? "bg-emerald-100 text-emerald-600"
-                              : act.status === "In Progress"
-                                ? "bg-blue-100 text-blue-600"
-                                : "bg-slate-100 text-slate-600"
-                          }`}
-                        >
-                          {act.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-3">
-                          <button 
-                            onClick={() => {
-                              setViewingActivity(act);
-                              setIsActivityViewModalOpen(true);
-                            }}
-                            className="p-1.5 text-slate-400 hover:text-primary transition-all duration-200"
-                            title="View Activity"
+                      <tr
+                        key={act.id}
+                        className="hover:bg-slate-50/50 transition-colors group text-slate-800"
+                      >
+                        <td className="px-6 py-4 font-bold text-slate-700 group-hover:text-primary transition-colors">
+                          {act.name}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-500 font-medium">
+                          {act.type}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-500 font-medium">
+                          {act.project}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span
+                            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${
+                              act.status === "Completed"
+                                ? "bg-emerald-100 text-emerald-600"
+                                : act.status === "In Progress"
+                                  ? "bg-blue-100 text-blue-600"
+                                  : "bg-slate-100 text-slate-600"
+                            }`}
                           >
-                            <Eye className="w-4.5 h-4.5" strokeWidth={1.5} />
-                          </button>
-                          <button 
-                            onClick={() => handleDeleteActivityClick(act.id)}
-                            className="p-1.5 text-slate-400 hover:text-rose-500 transition-all duration-200"
-                            title="Delete Activity"
-                          >
-                            <Trash2 className="w-4.5 h-4.5" strokeWidth={1.5} />
-                          </button>
-                        </div>
+                            {act.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-3">
+                            <button
+                              onClick={() => {
+                                setViewingActivity(act);
+                                setIsActivityViewModalOpen(true);
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-primary transition-all duration-200"
+                              title="View Activity"
+                            >
+                              <Eye className="w-4.5 h-4.5" strokeWidth={1.5} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteActivityClick(act.id)}
+                              className="p-1.5 text-slate-400 hover:text-rose-500 transition-all duration-200"
+                              title="Delete Activity"
+                            >
+                              <Trash2
+                                className="w-4.5 h-4.5"
+                                strokeWidth={1.5}
+                              />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        className="px-6 py-12 text-center text-slate-400 font-medium"
+                      >
+                        No activities found matching your filters.
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-slate-400 font-medium">
-                      No activities found matching your filters.
-                    </td>
-                  </tr>
-                )}
+                  )}
                 </tbody>
               </table>
             )}

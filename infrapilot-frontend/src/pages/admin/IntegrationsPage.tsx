@@ -2,6 +2,8 @@ import { useState } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import toast from "react-hot-toast";
+import RequestIntegrationModal from "../../components/admin/integrations/RequestIntegrationModal";
+import IntegrationDocsModal from "../../components/admin/integrations/IntegrationDocsModal";
 
 const IntegrationsPage = () => {
   const [integrations, setIntegrations] = useState([
@@ -12,7 +14,16 @@ const IntegrationsPage = () => {
     { id: "razorpay", name: "Razorpay", category: "Payments", description: "Direct payment integration for vendors and contractors.", status: "Disconnected", icon: "💳", color: "bg-indigo-600" },
   ]);
 
-  const toggleConnection = (id: string) => {
+  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+  const [isDocsModalOpen, setIsDocsModalOpen] = useState(false);
+  const [selectedIntegration, setSelectedIntegration] = useState<any>(null);
+  const [connectingId, setConnectingId] = useState<string | null>(null);
+
+  const toggleConnection = async (id: string) => {
+    setConnectingId(id);
+    // Simulate connection delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
     setIntegrations(prev => prev.map(int => {
       if (int.id === id) {
         const newStatus = int.status === "Connected" ? "Disconnected" : "Connected";
@@ -22,17 +33,18 @@ const IntegrationsPage = () => {
       }
       return int;
     }));
+    setConnectingId(null);
   };
 
   return (
     <>
       <Navbar title="External Integrations" breadcrumb={["Admin", "Configuration", "Integrations"]} />
       
-      <PageTransition className="p-6 bg-slate-50 min-h-screen">
-        <div className="max-w-6xl mx-auto">
-          <div className="mb-8">
-             <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">Ecosystem & Add-ons</h1>
-             <p className="text-slate-500 text-sm font-medium mt-1">Connect your existing tools to InfraPilot for a unified workflow.</p>
+      <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
+        <div>
+          <div className="mb-10">
+             <h1 className="text-3xl font-black text-slate-800 tracking-tight leading-none mb-2">Ecosystem & Add-ons</h1>
+             <p className="text-slate-500 text-sm font-medium">Connect your existing tools to InfraPilot for a unified workflow.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -56,16 +68,21 @@ const IntegrationsPage = () => {
                          {int.description}
                        </p>
                        <div className="flex items-center justify-between pt-4 border-t border-slate-50">
-                          <button className="text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors">Documentation</button>
+                          <button onClick={() => { setSelectedIntegration(int); setIsDocsModalOpen(true); }} className="text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors">Documentation</button>
                           <button 
                             onClick={() => toggleConnection(int.id)}
-                            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                            disabled={connectingId !== null}
+                            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all min-w-[100px] flex items-center justify-center ${
                               int.status === "Connected" 
                                 ? "bg-rose-50 text-rose-500 hover:bg-rose-100" 
                                 : "bg-primary/5 text-primary hover:bg-primary/10"
-                            }`}
+                            } ${connectingId === int.id ? "opacity-70" : ""}`}
                           >
-                            {int.status === "Connected" ? "Disconnect" : "Connect Now"}
+                            {connectingId === int.id ? (
+                              <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                            ) : (
+                              int.status === "Connected" ? "Disconnect" : "Connect Now"
+                            )}
                           </button>
                        </div>
                     </div>
@@ -74,7 +91,10 @@ const IntegrationsPage = () => {
             ))}
 
             {/* Custom Integration Request Card */}
-            <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl p-6 flex flex-col items-center justify-center text-center group cursor-pointer hover:border-primary/40 hover:bg-white transition-all">
+            <div 
+              onClick={() => setIsRequestModalOpen(true)}
+              className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl p-6 flex flex-col items-center justify-center text-center group cursor-pointer hover:border-primary/40 hover:bg-white transition-all"
+            >
                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-slate-400 shadow-sm mb-4 group-hover:bg-primary/10 group-hover:text-primary">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
                </div>
@@ -84,6 +104,17 @@ const IntegrationsPage = () => {
           </div>
         </div>
       </PageTransition>
+
+      <RequestIntegrationModal 
+        isOpen={isRequestModalOpen} 
+        onClose={() => setIsRequestModalOpen(false)} 
+      />
+
+      <IntegrationDocsModal 
+        isOpen={isDocsModalOpen}
+        onClose={() => setIsDocsModalOpen(false)}
+        integration={selectedIntegration}
+      />
     </>
   );
 };

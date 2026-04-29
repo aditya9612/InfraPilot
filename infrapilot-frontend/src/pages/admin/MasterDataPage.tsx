@@ -7,6 +7,7 @@ import CreateMasterDataModal from "../../components/forms/CreateMasterDataModal"
 import toast from "react-hot-toast";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import { Eye, Edit2, Trash2 } from "lucide-react";
+import MasterDataDetailsModal from "../../components/dashboard/MasterDataDetailsModal";
 
 const initialMasterData = [
   { id: 1, name: "Cement (OPC 53)", code: "MAT-CEM-01", category: "Construction Material", type: "Material" },
@@ -23,6 +24,8 @@ const MasterDataPage = () => {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
+  const [viewingItem, setViewingItem] = useState<any>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<number | null>(null);
 
@@ -175,6 +178,10 @@ const MasterDataPage = () => {
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-3">
                         <button 
+                          onClick={() => {
+                            setViewingItem(item);
+                            setIsViewModalOpen(true);
+                          }}
                           className="p-1.5 text-slate-400 hover:text-primary transition-all duration-200" 
                           title="View Details"
                         >
@@ -236,6 +243,15 @@ const MasterDataPage = () => {
         message="Are you sure you want to remove this entity from master data? This may affect linked projects and reports."
         confirmText="Remove Entity"
         type="danger"
+      />
+
+      <MasterDataDetailsModal
+        isOpen={isViewModalOpen}
+        onClose={() => {
+          setIsViewModalOpen(false);
+          setViewingItem(null);
+        }}
+        item={viewingItem}
       />
     </>
   );

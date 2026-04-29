@@ -29,8 +29,14 @@ const ProjectDetailsPage = () => {
 
   // State for data
   const [project, setProject] = useState<Project | null>(null);
-  const [schedule, setSchedule] = useState<{ start_date: string; end_date: string } | null>(null);
-  const [progress, setProgress] = useState<{ completion_percentage: number; status: string } | null>(null);
+  const [schedule, setSchedule] = useState<{
+    start_date: string;
+    end_date: string;
+  } | null>(null);
+  const [progress, setProgress] = useState<{
+    completion_percentage: number;
+    status: string;
+  } | null>(null);
   const [members, setMembers] = useState<any[]>([]);
   const [milestones, setMilestones] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
@@ -55,15 +61,16 @@ const ProjectDetailsPage = () => {
     if (!projectId) return;
     try {
       setLoading(true);
-      const [pData, mData, msData, tData, sData, prData, plData] = await Promise.all([
-        projectService.getProjectById(projectId),
-        projectService.getProjectMembers(projectId),
-        projectService.getMilestones(projectId),
-        projectService.getTasks(projectId),
-        projectService.getProjectSchedule(projectId).catch(() => null),
-        projectService.getProjectProgress(projectId).catch(() => null),
-        projectService.getProjectProfitLoss(projectId).catch(() => null),
-      ]);
+      const [pData, mData, msData, tData, sData, prData, plData] =
+        await Promise.all([
+          projectService.getProjectById(projectId),
+          projectService.getProjectMembers(projectId),
+          projectService.getMilestones(projectId),
+          projectService.getTasks(projectId),
+          projectService.getProjectSchedule(projectId).catch(() => null),
+          projectService.getProjectProgress(projectId).catch(() => null),
+          projectService.getProjectProfitLoss(projectId).catch(() => null),
+        ]);
 
       setProject(pData);
       setSchedule(sData);
@@ -364,9 +371,8 @@ const ProjectDetailsPage = () => {
                 onClick={async () => {
                   const toastId = toast.loading("Downloading PDF report...");
                   try {
-                    const blob =
-                      await projectService.exportProjectPdf(projectId);
-                    const url = window.URL.createObjectURL(new Blob([blob]));
+                    const blob = new Blob([await projectService.exportProjectPdf(projectId)], { type: "application/pdf" });
+                    const url = window.URL.createObjectURL(blob);
                     const link = document.createElement("a");
                     link.href = url;
                     link.setAttribute(
@@ -376,6 +382,7 @@ const ProjectDetailsPage = () => {
                     document.body.appendChild(link);
                     link.click();
                     link.remove();
+                    window.URL.revokeObjectURL(url);
                     toast.success("PDF Downloaded", { id: toastId });
                   } catch (error) {
                     toast.error("PDF export failed");
@@ -391,19 +398,19 @@ const ProjectDetailsPage = () => {
                 onClick={async () => {
                   const toastId = toast.loading("Downloading Excel report...");
                   try {
-                    const blob =
-                      await projectService.exportProjectExcel(projectId);
-                    const url = window.URL.createObjectURL(new Blob([blob]));
+                    const blob = new Blob([await projectService.exportProjectExcel(projectId)], { type: "text/csv;charset=utf-8;" });
+                    const url = window.URL.createObjectURL(blob);
                     const link = document.createElement("a");
                     link.href = url;
                     link.setAttribute(
                       "download",
-                      `Project_${projectId}_Report.xlsx`,
+                      `Project_${projectId}_Report.csv`,
                     );
                     document.body.appendChild(link);
                     link.click();
                     link.remove();
-                    toast.success("Excel Downloaded", { id: toastId });
+                    window.URL.revokeObjectURL(url);
+                    toast.success("CSV Downloaded", { id: toastId });
                   } catch (error) {
                     toast.error("Excel export failed");
                     toast.dismiss(toastId);
@@ -412,7 +419,7 @@ const ProjectDetailsPage = () => {
                 className="px-4 py-2.5 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-all"
                 title="Download Excel"
               >
-                XLSX
+                CSV
               </button>
             </div>
 
@@ -493,7 +500,9 @@ const ProjectDetailsPage = () => {
                         Start Date
                       </p>
                       <p className="text-sm font-bold text-slate-700 group-hover:text-primary transition-colors">
-                        {new Date(schedule?.start_date || project.start_date).toLocaleDateString()}
+                        {new Date(
+                          schedule?.start_date || project.start_date,
+                        ).toLocaleDateString()}
                       </p>
                     </div>
                     <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-50 transition-all hover:bg-white hover:shadow-md group">
@@ -501,7 +510,9 @@ const ProjectDetailsPage = () => {
                         End Date
                       </p>
                       <p className="text-sm font-bold text-slate-700 group-hover:text-primary transition-colors">
-                        {new Date(schedule?.end_date || project.end_date).toLocaleDateString()}
+                        {new Date(
+                          schedule?.end_date || project.end_date,
+                        ).toLocaleDateString()}
                       </p>
                     </div>
                     <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-50 transition-all hover:bg-white hover:shadow-md group">
