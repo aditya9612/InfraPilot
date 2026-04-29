@@ -24,14 +24,6 @@ const AlertDetailsModal: React.FC<AlertDetailsModalProps> = ({
     </button>
   );
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Critical": return "text-rose-500 bg-rose-50 border-rose-100";
-      case "Warning": return "text-amber-500 bg-amber-50 border-amber-100";
-      default: return "text-emerald-500 bg-emerald-50 border-emerald-100";
-    }
-  };
-
   return (
     <Modal
       isOpen={isOpen}
