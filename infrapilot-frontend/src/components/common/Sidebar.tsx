@@ -701,10 +701,11 @@ const SidebarItem = ({
   const isParentActive = hasSubNav && location.pathname.startsWith(item.path);
 
   if (hasSubNav) {
+    const isDisabled = item.disabled;
     return (
-      <div className="mb-0.5">
+      <div className={`mb-0.5 ${isDisabled ? "opacity-50 pointer-events-none" : ""}`}>
         <button
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={() => !isDisabled && setIsOpen(!isOpen)}
           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
             isParentActive
               ? "text-primary bg-blue-50/50 font-semibold"
@@ -739,6 +740,17 @@ const SidebarItem = ({
             </motion.div>
           )}
         </AnimatePresence>
+      </div>
+    );
+  }
+
+  if (item.disabled) {
+    return (
+      <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors mb-0.5 text-slate-500 cursor-not-allowed opacity-70 grayscale">
+        <span className="text-slate-500">
+          {icons[item.icon]}
+        </span>
+        <span className="flex-1">{item.label}</span>
       </div>
     );
   }

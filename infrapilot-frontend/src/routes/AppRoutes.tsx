@@ -31,6 +31,8 @@ import RolesPage from "../pages/admin/RolesPage";
 import PermissionsPage from "../pages/admin/PermissionsPage";
 import MeasurementPage from "../pages/admin/MeasurementPage";
 import ProjectDetailsPage from "../pages/projects/ProjectDetailsPage";
+import AllInvoicesPage from "../pages/admin/AllInvoicesPage";
+import CreateInvoicePage from "../pages/admin/CreateInvoicePage";
 
 // Client Pages
 import ClientOverviewPage from "../pages/client/ClientOverviewPage";
@@ -201,6 +203,8 @@ function AppRoutes() {
               />
               <Route path="/admin/documents" element={<DocumentsPage />} />
               <Route path="/admin/measurements" element={<MeasurementPage />} />
+              <Route path="/admin/invoices/all" element={<AllInvoicesPage />} />
+              <Route path="/admin/invoices/create" element={<CreateInvoicePage />} />
               <Route path="/admin/master-data" element={<MasterDataPage />} />
               <Route
                 path="/admin/master-data/materials"

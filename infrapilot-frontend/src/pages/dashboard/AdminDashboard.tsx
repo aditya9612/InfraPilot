@@ -77,7 +77,7 @@ const AdminDashboard = () => {
     try {
       setIsLoading(true);
       const [pData, pAlerts, tAlerts] = await Promise.all([
-        projectService.getProjects(10, 0),
+        projectService.getProjects(100, 0),
         projectService.getProjectAlerts().catch(() => []),
         projectService.getTaskAlerts().catch(() => []),
       ]);

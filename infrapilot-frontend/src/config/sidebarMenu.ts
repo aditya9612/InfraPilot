@@ -5,12 +5,19 @@ export interface MenuItem {
   path: string;
   icon: string;
   subNav?: MenuItem[];
+  disabled?: boolean;
 }
 
 export const sidebarMenus: Record<Role, MenuItem[]> = {
   Admin: [
     { label: "Dashboard", path: "/admin", icon: "grid" },
     { label: "Projects", path: "/admin/projects", icon: "folder" },
+    {
+      label: "(Coming Soon) Estimates / Invoices",
+      path: "#",
+      icon: "file-text",
+      disabled: true,
+    },
     {
       label: "User & Role Management",
       path: "/admin/users",
