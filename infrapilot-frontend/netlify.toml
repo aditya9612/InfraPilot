@@ -5,6 +5,7 @@
 [build.environment]
   NODE_OPTIONS = "--max-old-space-size=4096"
   CI = "false"
+  VITE_API_URL = "/api/v1"
 
 [[redirects]]
   from = "/api/*"
