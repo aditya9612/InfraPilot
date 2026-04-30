@@ -45,7 +45,7 @@ const Modal = ({ isOpen, onClose, title, children, footer, maxWidth = "max-w-3xl
             className={`relative w-full ${maxWidth} max-h-[90vh] bg-white shadow-2xl rounded-3xl flex flex-col overflow-hidden`}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-8 py-6 border-b border-slate-100 bg-white shrink-0">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-white shrink-0">
               <div>
                 <h2 className="text-xl font-bold text-slate-800">{title}</h2>
               </div>
@@ -71,13 +71,13 @@ const Modal = ({ isOpen, onClose, title, children, footer, maxWidth = "max-w-3xl
             </div>
 
             {/* Body */}
-            <div className="p-8 overflow-y-auto bg-slate-50/30 flex-1 custom-scrollbar">
+            <div className="p-6 overflow-y-auto bg-slate-50/30 flex-1 custom-scrollbar">
               {children}
             </div>
 
             {/* Footer */}
             {footer && (
-              <div className="px-8 py-5 border-t border-slate-100 bg-white shrink-0 flex items-center justify-end gap-4">
+              <div className="px-6 py-4 border-t border-slate-100 bg-white shrink-0 flex items-center justify-end gap-4">
                 {footer}
               </div>
             )}

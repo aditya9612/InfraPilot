@@ -5,6 +5,7 @@ import StatCard from "../../components/common/StatCard";
 import { Eye, Download, Trash2, Folder, FileText } from "lucide-react";
 import CreateFolderModal from "../../components/forms/CreateFolderModal";
 import DocumentPreviewModal from "../../components/dashboard/DocumentPreviewModal";
+import ConfirmModal from "../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 
 const initialDocuments = [
@@ -19,6 +20,8 @@ const DocumentsPage = () => {
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [viewingDoc, setViewingDoc] = useState<any>(null);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [docToDelete, setDocToDelete] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredDocs = documents.filter(d => 
@@ -63,9 +66,13 @@ const DocumentsPage = () => {
     }
   };
 
-  const handleDelete = (id: number) => {
-    setDocuments(prev => prev.filter(d => d.id !== id));
-    toast.success("Document removed.");
+  const handleDelete = () => {
+    if (docToDelete) {
+      setDocuments(prev => prev.filter(d => d.id !== docToDelete));
+      toast.success("Document removed.");
+      setIsDeleteModalOpen(false);
+      setDocToDelete(null);
+    }
   };
 
   const handleDownload = (doc: any) => {
@@ -208,7 +215,10 @@ const DocumentsPage = () => {
                           <Download className="w-4.5 h-4.5" strokeWidth={1.5} />
                         </button>
                         <button 
-                          onClick={() => handleDelete(doc.id)}
+                          onClick={() => {
+                            setDocToDelete(doc.id);
+                            setIsDeleteModalOpen(true);
+                          }}
                           className="p-1.5 text-slate-400 hover:text-rose-500 transition-all duration-200"
                           title="Delete"
                         >
@@ -243,6 +253,19 @@ const DocumentsPage = () => {
         }}
         document={viewingDoc}
         onDownload={handleDownload}
+      />
+
+      <ConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setDocToDelete(null);
+        }}
+        onConfirm={handleDelete}
+        title="Delete Document"
+        message="Are you sure you want to permanently delete this document? This action cannot be undone and the file will be removed from the repository."
+        confirmText="Delete Document"
+        type="danger"
       />
     </>
   );

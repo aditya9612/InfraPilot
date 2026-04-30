@@ -50,10 +50,15 @@ export default function AddMaterialModal({
     }
   }, [initialData, isOpen]);
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
-    const { name, value } = e.target;
+    let { name, value } = e.target;
+    if (name === "purchase_rate" || name === "quantity_purchased" || name === "payment_given") {
+      value = value.replace(/[^\d]/g, "");
+    }
     setFormData((prev) => ({
       ...prev,
       [name]:
@@ -64,23 +69,38 @@ export default function AddMaterialModal({
           ? Number(value)
           : value,
     }));
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.material_name.trim()) newErrors.material_name = "Material name is required.";
+    if (!formData.category.trim()) newErrors.category = "Category is required.";
+    if (!formData.unit.trim()) newErrors.unit = "Unit is required.";
+    if (!formData.supplier_name) newErrors.supplier_name = "Please select a supplier.";
+    if (!formData.purchase_rate || formData.purchase_rate <= 0) newErrors.purchase_rate = "Purchase rate must be greater than 0.";
+    if (!formData.rate_type.trim()) newErrors.rate_type = "Rate type is required.";
+    if (!initialData && (!formData.quantity_purchased || formData.quantity_purchased <= 0)) {
+      newErrors.quantity_purchased = "Opening quantity must be greater than 0.";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    setErrors({});
     onSubmit(formData);
   };
-
-  const totalAmount =
-    (formData.purchase_rate || 0) * (formData.quantity_purchased || 0);
-  const paymentPending = totalAmount - (formData.payment_given || 0);
 
   const modalFooter = (
     <div className="flex justify-end gap-3">
       <button
         type="button"
         onClick={onClose}
-        className="px-6 py-2.5 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
+        className="px-6 py-2.5 text-sm font-semibold text-gray-600 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors"
       >
         Cancel
       </button>
@@ -93,6 +113,10 @@ export default function AddMaterialModal({
       </button>
     </div>
   );
+
+  const totalAmount =
+    (formData.purchase_rate || 0) * (formData.quantity_purchased || 0);
+  const paymentPending = totalAmount - (formData.payment_given || 0);
 
   return (
     <Modal
@@ -115,14 +139,18 @@ export default function AddMaterialModal({
                 Material name <span className="text-rose-500">*</span>
               </label>
               <input
-                required
                 type="text"
                 name="material_name"
                 value={formData.material_name}
                 onChange={handleChange}
-                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none ${
+                  errors.material_name
+                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                    : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                }`}
                 placeholder="e.g. Premium Cement 53 Grade"
               />
+              {errors.material_name && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.material_name}</p>}
             </div>
 
             <div className="space-y-1">
@@ -130,14 +158,18 @@ export default function AddMaterialModal({
                 Category <span className="text-rose-500">*</span>
               </label>
               <input
-                required
                 type="text"
                 name="category"
                 value={formData.category}
                 onChange={handleChange}
-                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none ${
+                  errors.category
+                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                    : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                }`}
                 placeholder="e.g. Masonry"
               />
+              {errors.category && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.category}</p>}
             </div>
 
             <div className="space-y-1">
@@ -145,14 +177,18 @@ export default function AddMaterialModal({
                 Unit <span className="text-rose-500">*</span>
               </label>
               <input
-                required
                 type="text"
                 name="unit"
                 value={formData.unit}
                 onChange={handleChange}
-                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none ${
+                  errors.unit
+                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                    : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                }`}
                 placeholder="e.g. Bags, Liters"
               />
+              {errors.unit && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.unit}</p>}
             </div>
 
             <div className="md:col-span-2 space-y-1">
@@ -160,11 +196,14 @@ export default function AddMaterialModal({
                 Assigned supplier <span className="text-rose-500">*</span>
               </label>
               <select
-                required
                 name="supplier_name"
                 value={formData.supplier_name}
                 onChange={handleChange}
-                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-primary/20 focus:border-primary transition-all outline-none appearance-none"
+                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none appearance-none ${
+                  errors.supplier_name
+                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                    : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                }`}
               >
                 <option value="" disabled>
                   -- Select from Supplier DB --
@@ -175,6 +214,7 @@ export default function AddMaterialModal({
                   </option>
                 ))}
               </select>
+              {errors.supplier_name && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.supplier_name}</p>}
             </div>
 
             <div className="space-y-1">
@@ -186,15 +226,19 @@ export default function AddMaterialModal({
                   ₹
                 </span>
                 <input
-                  required
-                  type="number"
+                  type="text"
                   name="purchase_rate"
                   value={formData.purchase_rate || ""}
                   onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-primary/20 focus:border-primary transition-all outline-none"
-                  placeholder="0.00"
+                  className={`w-full pl-10 pr-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none ${
+                    errors.purchase_rate
+                      ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                      : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                  }`}
+                  placeholder="0"
                 />
               </div>
+              {errors.purchase_rate && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.purchase_rate}</p>}
             </div>
 
             <div className="space-y-1">
@@ -202,14 +246,18 @@ export default function AddMaterialModal({
                 Rate type <span className="text-rose-500">*</span>
               </label>
               <input
-                required
                 type="text"
                 name="rate_type"
                 value={formData.rate_type}
                 onChange={handleChange}
-                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none ${
+                  errors.rate_type
+                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                    : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                }`}
                 placeholder="e.g. per bag"
               />
+              {errors.rate_type && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.rate_type}</p>}
             </div>
 
             {!initialData && (
@@ -219,14 +267,18 @@ export default function AddMaterialModal({
                     Opening quantity <span className="text-rose-500">*</span>
                   </label>
                   <input
-                    required
-                    type="number"
+                    type="text"
                     name="quantity_purchased"
                     value={formData.quantity_purchased || ""}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                    className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none ${
+                      errors.quantity_purchased
+                        ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                        : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                    }`}
                     placeholder="0"
                   />
+                  {errors.quantity_purchased && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.quantity_purchased}</p>}
                 </div>
 
                 <div className="space-y-1 border-t border-slate-50 pt-4 mt-2">
@@ -238,12 +290,12 @@ export default function AddMaterialModal({
                       ₹
                     </span>
                     <input
-                      type="number"
+                      type="text"
                       name="payment_given"
                       value={formData.payment_given || ""}
                       onChange={handleChange}
                       className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-primary/20 focus:border-primary transition-all outline-none text-emerald-600 font-bold"
-                      placeholder="0.00"
+                      placeholder="0"
                     />
                   </div>
                 </div>
@@ -279,7 +331,7 @@ export default function AddMaterialModal({
                     ₹
                   </span>
                   <input
-                    type="number"
+                    type="text"
                     name="payment_given"
                     value={formData.payment_given || ""}
                     onChange={handleChange}
