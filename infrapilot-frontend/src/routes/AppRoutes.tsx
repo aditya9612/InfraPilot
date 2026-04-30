@@ -5,11 +5,7 @@ import DashboardLayout from "../components/common/DashboardLayout";
 import Login from "../pages/auth/Login";
 import AdminDashboard from "../pages/dashboard/AdminDashboard";
 import ManagerDashboard from "../pages/dashboard/ManagerDashboard";
-<<<<<<< HEAD
-
-=======
 import EngineerDashboard from "../pages/engineer/EngineerDashboard";
->>>>>>> f0b3fade6c37f0464e316a2a7a6f305ba49344c5
 import AccountantDashboard from "../pages/dashboard/AccountantDashboard";
 import Unauthorized from "../pages/Unauthorized";
 import ProjectsPage from "../pages/admin/ProjectsPage";
@@ -36,28 +32,24 @@ import PermissionsPage from "../pages/admin/PermissionsPage";
 import MeasurementPage from "../pages/admin/MeasurementPage";
 import ProjectDetailsPage from "../pages/projects/ProjectDetailsPage";
 
-<<<<<<< HEAD
-// // Client Pages
-// import ClientOverviewPage from "../pages/client/ClientOverviewPage";
-// import ClientProgressPage from "../pages/client/ClientProgressPage";
-// import ClientFinancialsSummaryPage from "../pages/client/financials/ClientFinancialsSummaryPage";
-// import ClientInvoicesPage from "../pages/client/financials/ClientInvoicesPage";
-// import ClientPaymentsPage from "../pages/client/financials/ClientPaymentsPage";
-// import ClientPhotosPage from "../pages/client/site-updates/ClientPhotosPage";
-// import ClientDSRSummaryPage from "../pages/client/site-updates/ClientDSRSummaryPage";
-// import ClientIssuesPage from "../pages/client/ClientIssuesPage";
-// import ClientDocumentsPage from "../pages/client/ClientDocumentsPage";
-// import ClientPendingApprovalsPage from "../pages/client/approvals/ClientPendingApprovalsPage";
-// import ClientApprovedItemsPage from "../pages/client/approvals/ClientApprovedItemsPage";
-// import ClientMessagesPage from "../pages/client/communication/ClientMessagesPage";
-// import ClientAnnouncementsPage from "../pages/client/communication/ClientAnnouncementsPage";
-// import ClientMonthlyProgressReportPage from "../pages/client/reports/ClientMonthlyProgressReportPage";
-// import ClientFinancialReportPage from "../pages/client/reports/ClientFinancialReportPage";
-// import ClientWorkSummaryPage from "../pages/client/reports/ClientWorkSummaryPage";
-// import ClientSettingsPage from "../pages/client/ClientSettingsPage";
-=======
-
->>>>>>> f0b3fade6c37f0464e316a2a7a6f305ba49344c5
+// Client Pages
+import ClientOverviewPage from "../pages/client/ClientOverviewPage";
+import ClientProgressPage from "../pages/client/ClientProgressPage";
+import ClientFinancialsSummaryPage from "../pages/client/financials/ClientFinancialsSummaryPage";
+import ClientInvoicesPage from "../pages/client/financials/ClientInvoicesPage";
+import ClientPaymentsPage from "../pages/client/financials/ClientPaymentsPage";
+import ClientPhotosPage from "../pages/client/site-updates/ClientPhotosPage";
+import ClientDSRSummaryPage from "../pages/client/site-updates/ClientDSRSummaryPage";
+import ClientIssuesPage from "../pages/client/ClientIssuesPage";
+import ClientDocumentsPage from "../pages/client/ClientDocumentsPage";
+import ClientPendingApprovalsPage from "../pages/client/approvals/ClientPendingApprovalsPage";
+import ClientApprovedItemsPage from "../pages/client/approvals/ClientApprovedItemsPage";
+import ClientMessagesPage from "../pages/client/communication/ClientMessagesPage";
+import ClientAnnouncementsPage from "../pages/client/communication/ClientAnnouncementsPage";
+import ClientMonthlyProgressReportPage from "../pages/client/reports/ClientMonthlyProgressReportPage";
+import ClientFinancialReportPage from "../pages/client/reports/ClientFinancialReportPage";
+import ClientWorkSummaryPage from "../pages/client/reports/ClientWorkSummaryPage";
+import ClientSettingsPage from "../pages/client/ClientSettingsPage";
 
 // Engineer Pages
 import DSRPage from "../pages/engineer/DSRPage";
@@ -101,6 +93,7 @@ import JournalEntriesPage from "../pages/accountant/JournalEntriesPage";
 import FixedAssetsPage from "../pages/accountant/FixedAssetsPage";
 import AccountantReportsPage from "../pages/accountant/AccountantReportsPage";
 import AccountantSettingsPage from "../pages/accountant/AccountantSettingsPage";
+import ClientDashboard from "../pages/dashboard/ClientDashboard";
 
 const RootRedirect = () => {
   const { user, isAuthenticated } = useAuth();
@@ -110,6 +103,7 @@ const RootRedirect = () => {
     ProjectManager: "/manager",
     SiteEngineer: "/engineer",
     Accountant: "/accountant",
+    Client: "/client",
   };
   return <Navigate to={paths[user!.role] || "/admin"} replace />;
 };
@@ -241,6 +235,100 @@ function AppRoutes() {
                 element={<ProjectDetailsPage />}
               />
             </Route>
+             
+              {/* Client Specific Routes */}
+            <Route
+              element={<ProtectedRoute allowedRoles={["Client"]} />}
+            >
+              {/* Dashboard */}
+              <Route path="/client" element={<ClientDashboard />} />
+
+              {/* Projects */}
+              <Route path="/client/projects" element={<ProjectsPage />} />
+              <Route path="/client/projects/:id" element={<ProjectDetailsPage />} />
+
+              {/* Overview */}
+              <Route path="/client/overview" element={<ClientOverviewPage />} />
+
+              {/* Progress */}
+              <Route path="/client/progress" element={<ClientProgressPage />} />
+
+              {/* Financials */}
+              <Route
+                path="/client/financial-summary"
+                element={<ClientFinancialsSummaryPage />}
+              />
+              <Route
+                path="/client/invoices"
+                element={<ClientInvoicesPage />}
+              />
+              <Route
+                path="/client/payments"
+                element={<ClientPaymentsPage />}
+              />
+
+              {/* Site Updates */}
+              <Route
+                path="/client/photos"
+                element={<ClientPhotosPage />}
+              />
+              <Route
+                path="/client/dsr-summary"
+                element={<ClientDSRSummaryPage />}
+              />
+
+              {/* Issues */}
+              <Route
+                path="/client/issues"
+                element={<ClientIssuesPage />}
+              />
+
+              {/* Documents */}
+              <Route
+                path="/client/documents"
+                element={<ClientDocumentsPage />}
+              />
+
+              {/* Approvals */}
+              <Route
+                path="/client/pending-approvals"
+                element={<ClientPendingApprovalsPage />}
+              />
+              <Route
+                path="/client/approved-items"
+                element={<ClientApprovedItemsPage />}
+              />
+
+              {/* Communication */}
+              <Route
+                path="/client/messages"
+                element={<ClientMessagesPage />}
+              />
+              <Route
+                path="/client/announcements"
+                element={<ClientAnnouncementsPage />}
+              />
+
+              {/* Reports */}
+              <Route
+                path="/client/monthly-progress-report"
+                element={<ClientMonthlyProgressReportPage />}
+              />
+              <Route
+                path="/client/financial-report"
+                element={<ClientFinancialReportPage />}
+              />
+              <Route
+                path="/client/work-summary"
+                element={<ClientWorkSummaryPage />}
+              />
+
+              {/* Settings */}
+              <Route
+                path="/client/settings"
+                element={<ClientSettingsPage />}
+              />
+            </Route>
 
             {/* Engineer Routes */}
             <Route element={<ProtectedRoute allowedRoles={["SiteEngineer"]} />}>
@@ -269,11 +357,7 @@ function AppRoutes() {
               <Route path="/engineer/approvals/work" element={<WorkApprovalPage />} />
             </Route>
 
-<<<<<<< HEAD
-            {/* Contractor Routes */}
-=======
             {/* Contractor Routes - Temporarily commented out as Contractor is not in UserRole type */}
->>>>>>> f0b3fade6c37f0464e316a2a7a6f305ba49344c5
             {/* <Route element={<ProtectedRoute allowedRoles={["Contractor"]} />}>
               <Route path="/contractor" element={<ContractorDashboard />} />
             </Route> */}

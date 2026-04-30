@@ -1,102 +1,133 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
+import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
+import { labourService } from "../../../services/labourService";
+import type { LabourItem, UpdateLabourRequest } from "../../../types/labour";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-interface LaborDetail {
-    id: number;
-    labour_id: number;
-    project_id: number;
-    worker_name: string; // labour_name
-    id_aadhaar: string;
-    contractor_name: string;
-    work_type: string; // skill_type
-    attendance: "Present" | "Absent";
-    in_out_time: string;
-    working_hours: number;
-    overtime_hours: number;
-    wage_rate: number; // daily_wage_rate
-    status: "Active" | "Inactive";
-    notes: string;
-    total_wage: number;
-}
-
-// ─── Mock Data ───────────────────────────────────────────────────────────────
-
-const mockLaborers: LaborDetail[] = [
-    {
-        id: 1,
-        labour_id: 101,
-        project_id: 1,
-        worker_name: "Ramesh Patil",
-        id_aadhaar: "xxxx-xxxx-1234",
-        contractor_name: "Varma Constructions",
-        work_type: "Mason",
-        attendance: "Present",
-        in_out_time: "08:30 AM - 05:30 PM",
-        working_hours: 8,
-        overtime_hours: 1,
-        wage_rate: 650,
-        status: "Active",
-        notes: "Experienced in brickwork and plastering",
-        total_wage: 731, // (8 * (650/8)) + (1 * (650/8) * 1.5) approx
-    },
-    {
-        id: 2,
-        labour_id: 102,
-        project_id: 1,
-        worker_name: "Suresh P.",
-        id_aadhaar: "xxxx-xxxx-5678",
-        contractor_name: "Varma Constructions",
-        work_type: "Helper",
-        attendance: "Present",
-        in_out_time: "08:15 AM - 06:00 PM",
-        working_hours: 8,
-        overtime_hours: 2,
-        wage_rate: 600,
-        status: "Active",
-        notes: "Hardworking and reliable",
-        total_wage: 750, // (8 * (600/8)) + (2 * (600/8) * 1.5)
-    },
-];
+// Using LabourItem from types/labour.ts (same pattern as DSR)
 
 const initialFormData = {
-    worker_name: "",
-    id_aadhaar: "",
-    contractor_name: "",
-    work_type: "",
-    attendance: "Present" as "Present" | "Absent",
-    in_time: "08:30",
-    out_time: "17:30",
-    working_hours: "8",
-    overtime_hours: "0",
-    wage_rate: "",
-    status: "Active" as "Active" | "Inactive",
+    labour_name: "",
+    aadhaar_number: "",
+    contractor_id: 1,
+    skill_type: "",
+    daily_wage_rate: "",
+    status: "Active",
     notes: "",
 };
 
 // ─── Main Component ─────────────────────────────────────────────────────────────
 
 const LaborDetailsPage = () => {
-    const [laborers, setLaborers] = useState<LaborDetail[]>(mockLaborers);
+    // ─── State Management ──────────────────────────────────────────────────
+    const [laborers, setLaborers] = useState<LabourItem[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-    const [selectedLaborer, setSelectedLaborer] = useState<LaborDetail | null>(null);
+    const [selectedLaborer, setSelectedLaborer] = useState<LabourItem | null>(null);
     const [formMode, setFormMode] = useState<"create" | "edit">("create");
     const [editId, setEditId] = useState<number | null>(null);
-
     const [formData, setFormData] = useState(initialFormData);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
+    const [projectId, setProjectId] = useState<number | null>(null);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [labourToDelete, setLabourToDelete] = useState<number | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    // ─── Resolve Project ID ──────────────────────────────────────────────────
+    useEffect(() => {
+        const userStr = localStorage.getItem("infrapilot_user");
+        const user = userStr ? JSON.parse(userStr) : {};
+        const pId = user?.project_id || user?.user?.project_id || user?.user?.project?.id || user?.user?.assigned_project?.id;
+        if (pId) {
+            setProjectId(Number(pId));
+        } else {
+            // Fallback discovery if needed
+            const discoverProject = async () => {
+                try {
+                    const api = (await import("../../../services/api")).default;
+                    const { data } = await api.get("/projects");
+                    const items = Array.isArray(data) ? data : (data.items || []);
+                    if (items.length > 0) {
+                        setProjectId(Number(items[0].project_id || items[0].id));
+                    }
+                } catch (e) {
+                    console.error("Project discovery failed", e);
+                }
+            };
+            discoverProject();
+        }
+    }, []);
+
+    // ─── Data Fetching ────────────────────────────────────────────────────────
+    const fetchLaborers = useCallback(async () => {
+        try {
+            setIsLoading(true);
+
+            // Use the resolved projectId if available, otherwise default to 1 as per user's latest spec
+            const activeProjectId = projectId || 1;
+
+            const params: any = { 
+                limit: 20, 
+                offset: 0,
+                project_id: activeProjectId
+            };
+            if (searchTerm) params.search = searchTerm;
+            if (statusFilter !== "All") params.status = statusFilter;
+
+            console.log("GET /api/v1/labour Request Body (Params):", params);
+
+            const response = await labourService.getLabours(activeProjectId, params);
+            console.log("GET /api/v1/labour Response Body:", response);
+
+            const items = response.items || (Array.isArray(response) ? response : []);
+            setLaborers(items);
+        } catch (error: any) {
+            console.error("GET /api/v1/labour Error Status:", error.response?.status);
+            console.error("GET /api/v1/labour Error Body:", error.response?.data);
+            const detail = error.response?.data?.detail || "Failed to fetch labour list";
+            toast.error(`Error: ${typeof detail === 'string' ? detail : JSON.stringify(detail)}`);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [projectId, searchTerm, statusFilter]);
+
+    useEffect(() => {
+        fetchLaborers();
+    }, [fetchLaborers]);
+
+    const handleViewDetail = async (labourId: number) => {
+        if (!labourId) {
+            toast.error("Invalid ID for detail lookup");
+            return;
+        }
+        console.log("Fetching Detail for Worker ID:", labourId);
+        const loadingToast = toast.loading(`Retrieving profile #${labourId}...`);
+        try {
+            console.log("GET /api/v1/labour/" + labourId + " Request (Fetch Detail)");
+            const data = await labourService.getLabourById(labourId);
+            console.log("GET /api/v1/labour/" + labourId + " Response Body:", data);
+            setSelectedLaborer(data);
+            setIsDetailModalOpen(true);
+            toast.dismiss(loadingToast);
+        } catch (err: any) {
+            console.error("Labor Detail API Failure:", err);
+            const detail = err.response?.data?.detail || "Worker profile not found on server";
+            toast.error(`API Error: ${detail}`, { id: loadingToast });
+        }
+    };
 
     // Stats
     const totalActive = laborers.filter(l => l.status === "Active").length;
     const avgWage = laborers.length > 0
-        ? (laborers.reduce((s, l) => s + l.wage_rate, 0) / laborers.length).toFixed(0)
+        ? (laborers.reduce((s, l) => s + Number(l.daily_wage_rate), 0) / laborers.length).toFixed(0)
         : 0;
 
     // ── CRUD Handlers ────────────────────────────────────────────────────────
@@ -110,7 +141,7 @@ const LaborDetailsPage = () => {
         const { name, value } = e.target;
         let finalValue = value;
 
-        if (name === "id_aadhaar") {
+        if (name === "aadhaar_number") {
             finalValue = formatAadhar(value);
         }
 
@@ -120,11 +151,10 @@ const LaborDetailsPage = () => {
 
     const validateForm = () => {
         const errs: Record<string, string> = {};
-        if (!formData.worker_name.trim()) errs.worker_name = "Required";
-        if (!formData.id_aadhaar.trim()) errs.id_aadhaar = "Required";
-        if (!formData.contractor_name.trim()) errs.contractor_name = "Required";
-        if (!formData.work_type) errs.work_type = "Required";
-        if (!formData.wage_rate) errs.wage_rate = "Required";
+        if (!formData.labour_name.trim()) errs.labour_name = "Required";
+        if (!formData.aadhaar_number.trim()) errs.aadhaar_number = "Required";
+        if (!formData.skill_type) errs.skill_type = "Required";
+        if (!formData.daily_wage_rate) errs.daily_wage_rate = "Required";
         setErrors(errs);
         return Object.keys(errs).length === 0;
     };
@@ -136,73 +166,109 @@ const LaborDetailsPage = () => {
         setIsFormModalOpen(true);
     };
 
-    const handleOpenEdit = (labor: LaborDetail) => {
+    const handleOpenEdit = (labor: LabourItem) => {
         setFormMode("edit");
         setEditId(labor.id);
         setFormData({
-            worker_name: labor.worker_name,
-            id_aadhaar: labor.id_aadhaar,
-            contractor_name: labor.contractor_name,
-            work_type: labor.work_type,
-            attendance: labor.attendance,
-            in_time: labor.in_out_time.split(" - ")[0] || "08:30",
-            out_time: labor.in_out_time.split(" - ")[1] || "17:30",
-            working_hours: labor.working_hours.toString(),
-            overtime_hours: labor.overtime_hours.toString(),
-            wage_rate: labor.wage_rate.toString(),
+            labour_name: labor.labour_name,
+            aadhaar_number: labor.aadhaar_number,
+            contractor_id: labor.contractor_id,
+            skill_type: labor.skill_type,
+            daily_wage_rate: labor.daily_wage_rate.toString(),
             status: labor.status,
-            notes: labor.notes,
+            notes: labor.notes || "",
         });
         setErrors({});
         setIsFormModalOpen(true);
     };
 
-    const handleDelete = (id: number) => {
-        if (window.confirm("Are you sure you want to remove this laborer from the registry?")) {
-            setLaborers(prev => prev.filter(l => l.id !== id));
-            toast.success("Labor record removed");
+    const handleDeleteClick = (id: number) => {
+        setLabourToDelete(id);
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleDeleteConfirm = async () => {
+        if (!labourToDelete) return;
+        try {
+            setIsDeleting(true);
+            console.log("DELETE /api/v1/labour/" + labourToDelete + " Request");
+            const result = await labourService.deleteLabour(labourToDelete);
+            console.log("DELETE /api/v1/labour/" + labourToDelete + " Response Body:", result);
+            toast.success("Worker record removed successfully!");
+            setIsDeleteModalOpen(false);
+            setLabourToDelete(null);
+            fetchLaborers();
+        } catch (error: any) {
+            console.error("Delete Failure:", error.response?.data);
+            toast.error("Failed to delete worker record");
+        } finally {
+            setIsDeleting(false);
         }
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!validateForm()) {
             toast.error("Please fill all required fields");
             return;
         }
 
-        const laborData: LaborDetail = {
-            id: formMode === "edit" ? editId! : Date.now(),
-            labour_id: formMode === "edit" ? laborers.find(l => l.id === editId)?.labour_id || 0 : Date.now(),
-            project_id: 1,
-            worker_name: formData.worker_name,
-            id_aadhaar: formData.id_aadhaar,
-            contractor_name: formData.contractor_name,
-            work_type: formData.work_type,
-            attendance: formData.attendance,
-            in_out_time: formData.attendance === "Present" ? `${formData.in_time} - ${formData.out_time}` : "-",
-            working_hours: formData.attendance === "Present" ? Number(formData.working_hours) : 0,
-            overtime_hours: Number(formData.overtime_hours),
-            wage_rate: Number(formData.wage_rate),
-            status: formData.status,
-            notes: formData.notes,
-            total_wage: (Number(formData.working_hours) * (Number(formData.wage_rate) / 8)) + (Number(formData.overtime_hours) * (Number(formData.wage_rate) / 8) * 1.5),
-        };
+        try {
+            if (formMode === "edit") {
+                const updatePayload: UpdateLabourRequest = {
+                    labour_name: formData.labour_name,
+                    skill_type: formData.skill_type,
+                    daily_wage_rate: Number(formData.daily_wage_rate),
+                    contractor_id: Number(formData.contractor_id),
+                    status: formData.status,
+                    notes: formData.notes,
+                };
+                console.log("PUT /api/v1/labour/" + editId + " Request Body:", updatePayload);
+                const result = await labourService.updateLabour(editId!, updatePayload);
+                console.log("PUT /api/v1/labour/" + editId + " Response Body:", result);
+                toast.success("Worker profile updated!");
+            } else {
+                const createPayload = {
+                    aadhaar_number: formData.aadhaar_number.replace(/\D/g, ""),
+                    labour_name: formData.labour_name,
+                    skill_type: formData.skill_type,
+                    daily_wage_rate: Number(formData.daily_wage_rate),
+                    contractor_id: Number(formData.contractor_id),
+                    status: formData.status,
+                    notes: formData.notes,
+                    project_id: projectId,
+                };
+                console.log("POST /api/v1/labour Request Body:", JSON.stringify(createPayload, null, 2));
+                const result = await labourService.createLabour(createPayload as any);
+                console.log("POST /api/v1/labour Response Body:", result);
+                
+                // Now Assign to Project as requested: POST /api/v1/labour/assign-project
+                const assignPayload = {
+                    labour_id: result.id,
+                    project_id: projectId
+                };
+                console.log("POST /api/v1/labour/assign-project Request Body:", assignPayload);
+                const assignResult = await labourService.assignLabourToProject(result.id, projectId!);
+                console.log("POST /api/v1/labour/assign-project Response Body:", assignResult);
 
-        if (formMode === "edit") {
-            setLaborers(prev => prev.map(l => l.id === editId ? laborData : l));
-            toast.success("Worker profile updated");
-        } else {
-            setLaborers(prev => [laborData, ...prev]);
-            toast.success("New worker registered");
+                toast.success("New worker registered and assigned!");
+            }
+            setIsFormModalOpen(false);
+            fetchLaborers();
+        } catch (error: any) {
+            console.error("API Error Full:", error.response?.data);
+            console.error("API Error Status:", error.response?.status);
+            const detail = error.response?.data?.detail || error.response?.data?.message || "Failed to save labor data";
+            toast.error(`Error: ${typeof detail === 'string' ? detail : JSON.stringify(detail)}`);
         }
-        setIsFormModalOpen(false);
     };
 
     const filteredLaborers = useMemo(() => {
         return laborers.filter((l) => {
-            const matchesSearch = l.worker_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                l.id_aadhaar.toLowerCase().includes(searchTerm.toLowerCase());
+            const searchLower = (searchTerm || "").toLowerCase();
+            const nameMatch = (l.labour_name || "").toLowerCase().includes(searchLower);
+            const aadhaarMatch = (l.aadhaar_number || "").toLowerCase().includes(searchLower);
+            const matchesSearch = nameMatch || aadhaarMatch;
             const matchesStatus = statusFilter === "All" || l.status === statusFilter;
             return matchesSearch && matchesStatus;
         });
@@ -322,8 +388,15 @@ const LaborDetailsPage = () => {
                 </div>
 
                 {/* ── Labor Registry Grid ───────────────────────────────────── */}
-                <div className="mb-20">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 font-inter">
+                <div className="mb-20 min-h-[400px] relative">
+                    {isLoading ? (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50/50 backdrop-blur-[2px] z-10 rounded-2xl">
+                            <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Synchronizing Registry...</p>
+                        </div>
+                    ) : null}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 font-inter">
                         {filteredLaborers.map((labor) => (
                             <div
                                 key={labor.id}
@@ -331,7 +404,7 @@ const LaborDetailsPage = () => {
                             >
                                 {/* Header: ID & Status */}
                                 <div className="flex items-center justify-between mb-1">
-                                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">LID #{labor.labour_id}</span>
+                                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">#{labor.worker_code || labor.id}</span>
                                     <span className={`px-2 py-0.5 text-[9px] font-black uppercase tracking-widest rounded-lg ${labor.status === "Active"
                                         ? "bg-emerald-50 text-emerald-600"
                                         : "bg-rose-50 text-rose-600"
@@ -342,26 +415,26 @@ const LaborDetailsPage = () => {
 
                                 {/* Metadata */}
                                 <p className="text-[10px] text-slate-400 mt-1.5 font-medium font-inter mb-2">
-                                    {labor.work_type} · {labor.contractor_name}
+                                    {labor.skill_type} · LID {labor.id}
                                 </p>
 
                                 {/* Worker Name */}
-                                <p className="text-2xl font-bold text-slate-900 font-inter leading-tight mb-1">{labor.worker_name}</p>
-                                <p className="text-[10px] text-slate-400 mt-0.5 font-medium leading-relaxed mb-4">{labor.id_aadhaar}</p>
+                                <p className="text-2xl font-bold text-slate-900 font-inter leading-tight mb-1">{labor.labour_name}</p>
+                                <p className="text-[10px] text-slate-400 mt-0.5 font-medium leading-relaxed mb-4">{labor.aadhaar_number}</p>
 
                                 {/* Stats Grid */}
-                                <div className="grid grid-cols-2 gap-3 mt-auto">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-auto">
                                     <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-50">
                                         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Wage Rate</p>
                                         <div className="flex items-baseline gap-1">
-                                            <span className="text-lg font-bold text-slate-800 font-inter">₹{labor.wage_rate}</span>
+                                            <span className="text-lg font-bold text-slate-800 font-inter">₹{labor.daily_wage_rate}</span>
                                         </div>
                                         <p className="text-[9px] text-slate-400 mt-1 font-medium italic-none uppercase tracking-tighter">Per day</p>
                                     </div>
                                     <div className="bg-primary/5 rounded-xl p-3 border border-primary/5">
-                                        <p className="text-xs font-semibold text-primary/70 uppercase tracking-wider mb-1">Attendance</p>
-                                        <p className="text-lg font-bold text-primary font-inter leading-none">{labor.attendance}</p>
-                                        <p className="text-[9px] text-primary/50 mt-1 font-medium capitalize">Last check-in</p>
+                                        <p className="text-xs font-semibold text-primary/70 uppercase tracking-wider mb-1">Contractor</p>
+                                        <p className="text-[11px] font-bold text-primary font-inter leading-tight line-clamp-1">ID: {labor.contractor_id}</p>
+                                        <p className="text-[9px] text-primary/50 mt-1 font-medium capitalize">Assigned Partner</p>
                                     </div>
                                 </div>
 
@@ -369,7 +442,7 @@ const LaborDetailsPage = () => {
                                 <div className="flex items-center justify-between pt-4 border-t border-slate-100 mt-4">
                                     <div className="flex items-center gap-1">
                                         <button
-                                            onClick={() => { setSelectedLaborer(labor); setIsDetailModalOpen(true); }}
+                                            onClick={() => handleViewDetail(labor.id)}
                                             className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
                                             title="View Detail"
                                         >
@@ -389,7 +462,7 @@ const LaborDetailsPage = () => {
                                         </button>
                                     </div>
                                     <button
-                                        onClick={() => handleDelete(labor.id)}
+                                        onClick={() => handleDeleteClick(labor.id)}
                                         className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
                                         title="Remove Worker"
                                     >
@@ -428,7 +501,7 @@ const LaborDetailsPage = () => {
                             <div className="relative z-10">
                                 <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-2">Workforce Profile</p>
                                 <div className="flex items-center justify-between mb-8">
-                                    <h3 className="text-3xl font-black tracking-tight">{selectedLaborer.worker_name}</h3>
+                                    <h3 className="text-3xl font-black tracking-tight">{selectedLaborer.labour_name}</h3>
                                     <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center">
                                         <svg className="w-6 h-6 opacity-40 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -438,12 +511,12 @@ const LaborDetailsPage = () => {
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Labor ID</p>
-                                        <p className="text-xl font-black">#{selectedLaborer.labour_id}</p>
+                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Worker Code</p>
+                                        <p className="text-xl font-black">{selectedLaborer.worker_code}</p>
                                     </div>
                                     <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
                                         <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Daily Wage</p>
-                                        <p className="text-xl font-black">₹{selectedLaborer.wage_rate}</p>
+                                        <p className="text-xl font-black">₹{selectedLaborer.daily_wage_rate}</p>
                                     </div>
                                 </div>
                             </div>
@@ -457,16 +530,16 @@ const LaborDetailsPage = () => {
                             </div>
                             <div className="grid grid-cols-2 gap-y-6 gap-x-12 px-2">
                                 <div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">ID / Aadhaar</p>
-                                    <p className="text-sm font-black text-slate-800 tabular-nums">{selectedLaborer.id_aadhaar}</p>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Aadhaar Number</p>
+                                    <p className="text-sm font-black text-slate-800 tabular-nums">{selectedLaborer.aadhaar_number}</p>
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Work Category</p>
-                                    <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{selectedLaborer.work_type}</p>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Skill Classification</p>
+                                    <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{selectedLaborer.skill_type}</p>
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Employer / Contractor</p>
-                                    <p className="text-sm font-black text-slate-800">{selectedLaborer.contractor_name}</p>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Contractor ID</p>
+                                    <p className="text-sm font-black text-slate-800">{selectedLaborer.contractor_id}</p>
                                 </div>
                                 <div>
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Current Status</p>
@@ -477,23 +550,13 @@ const LaborDetailsPage = () => {
                             </div>
                         </div>
 
-                        {/* ── Operational Log ────────────────────────────────── */}
                         <div className="mb-10">
                             <div className="flex items-center gap-3 mb-6">
                                 <div className="w-1 h-5 bg-indigo-500 rounded-full" />
-                                <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.1em]">Shift & Performance</h4>
+                                <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.1em]">Personnel Notes</h4>
                             </div>
-                            <div className="grid grid-cols-2 gap-y-6 gap-x-12 px-2">
+                            <div className="grid grid-cols-1 px-2">
                                 <div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Last Check-in</p>
-                                    <p className="text-sm font-black text-slate-800">{selectedLaborer.in_out_time}</p>
-                                </div>
-                                <div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Attedance Mode</p>
-                                    <p className="text-sm font-black text-slate-800">{selectedLaborer.attendance}</p>
-                                </div>
-                                <div className="col-span-2">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Performance Remarks</p>
                                     <p className="text-sm font-medium text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-2xl border border-slate-100">
                                         {selectedLaborer.notes || "No additional remarks logged for this personnel."}
                                     </p>
@@ -541,41 +604,38 @@ const LaborDetailsPage = () => {
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Worker Name <span className="text-rose-500">*</span></label>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Labour Name <span className="text-rose-500">*</span></label>
                                     <input
-                                        name="worker_name"
-                                        value={formData.worker_name}
+                                        name="labour_name"
+                                        value={formData.labour_name}
                                         onChange={handleChange}
                                         placeholder="Enter legal name"
-                                        className={`w-full px-5 py-3.5 bg-white border rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-primary/5 transition-all ${errors.worker_name ? "border-rose-200 bg-rose-50/30" : "border-slate-200/60 focus:border-primary"}`}
+                                        className={`w-full px-5 py-3.5 bg-white border rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-primary/5 transition-all ${errors.labour_name ? "border-rose-200 bg-rose-50/30" : "border-slate-200/60 focus:border-primary"}`}
                                     />
-                                    {errors.worker_name && <p className="text-[9px] font-bold text-rose-500 px-1">{errors.worker_name}</p>}
+                                    {errors.labour_name && <p className="text-[9px] font-bold text-rose-500 px-1">{errors.labour_name}</p>}
                                 </div>
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">ID / Aadhaar <span className="text-rose-500">*</span></label>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Aadhaar Number <span className="text-rose-500">*</span></label>
                                     <input
-                                        name="id_aadhaar"
-                                        value={formData.id_aadhaar}
+                                        name="aadhaar_number"
+                                        value={formData.aadhaar_number}
                                         onChange={handleChange}
                                         placeholder="xxxx-xxxx-xxxx"
-                                        className={`w-full px-5 py-3.5 bg-white border rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-primary/5 transition-all ${errors.id_aadhaar ? "border-rose-200 bg-rose-50/30" : "border-slate-200/60 focus:border-primary"}`}
+                                        className={`w-full px-5 py-3.5 bg-white border rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-primary/5 transition-all ${errors.aadhaar_number ? "border-rose-200 bg-rose-50/30" : "border-slate-200/60 focus:border-primary"}`}
                                     />
                                 </div>
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Work Type <span className="text-rose-500">*</span></label>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Skill Type <span className="text-rose-500">*</span></label>
                                     <div className="relative">
                                         <select
-                                            name="work_type"
-                                            value={formData.work_type}
+                                            name="skill_type"
+                                            value={formData.skill_type}
                                             onChange={handleChange}
                                             className="w-full appearance-none px-5 py-3.5 bg-white border border-slate-200/60 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all cursor-pointer pr-12"
                                         >
                                             <option value="">Select Category</option>
-                                            <option value="Mason">Mason</option>
-                                            <option value="Helper">Helper</option>
-                                            <option value="Electrician">Electrician</option>
-                                            <option value="Plumber">Plumber</option>
-                                            <option value="Carpenter">Carpenter</option>
+                                            <option value="Skilled">Skilled</option>
+                                            <option value="Unskilled">Unskilled</option>
                                         </select>
                                         <span className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" /></svg>
@@ -583,12 +643,12 @@ const LaborDetailsPage = () => {
                                     </div>
                                 </div>
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Contractor Employer <span className="text-rose-500">*</span></label>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Contractor ID <span className="text-rose-500">*</span></label>
                                     <input
-                                        name="contractor_name"
-                                        value={formData.contractor_name}
+                                        name="contractor_id"
+                                        type="number"
+                                        value={formData.contractor_id}
                                         onChange={handleChange}
-                                        placeholder="Assigning employer"
                                         className="w-full px-5 py-3.5 bg-white border border-slate-200/60 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all"
                                     />
                                 </div>
@@ -605,9 +665,9 @@ const LaborDetailsPage = () => {
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Daily Wage Rate (₹) <span className="text-rose-500">*</span></label>
                                     <input
-                                        name="wage_rate"
+                                        name="daily_wage_rate"
                                         type="number"
-                                        value={formData.wage_rate}
+                                        value={formData.daily_wage_rate}
                                         onChange={handleChange}
                                         placeholder="0.00"
                                         className="w-full px-5 py-3.5 bg-white border border-slate-200/60 rounded-2xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all"
@@ -663,6 +723,19 @@ const LaborDetailsPage = () => {
                     </button>
                 </div>
             </Modal>
+            <ConfirmModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => {
+                    setIsDeleteModalOpen(false);
+                    setLabourToDelete(null);
+                }}
+                onConfirm={handleDeleteConfirm}
+                title="Deactivate Worker Identity"
+                message="Are you sure you want to remove this labor record? This will permanently archive the identity and associated history from the registry."
+                confirmText="Delete"
+                type="danger"
+                isLoading={isDeleting}
+            />
         </>
     );
 };

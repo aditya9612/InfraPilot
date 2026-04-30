@@ -11,11 +11,13 @@ interface WageReportEntry {
     working_hours: number;
     overtime_hours: number;
     total_wages: number;
+    status: 'Paid' | 'Pending';
 }
 
 const LaborReportsPage: React.FC = () => {
     const [reportType, setReportType] = useState<'Daily' | 'Weekly' | 'Monthly'>('Weekly');
     const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState('All');
 
     // Mock data for demonstration
     const mockReports: WageReportEntry[] = [
@@ -27,7 +29,8 @@ const LaborReportsPage: React.FC = () => {
             days_present: reportType === 'Daily' ? 1 : (reportType === 'Weekly' ? 6 : 24),
             working_hours: reportType === 'Daily' ? 8 : (reportType === 'Weekly' ? 48 : 192),
             overtime_hours: reportType === 'Daily' ? 1 : (reportType === 'Weekly' ? 4 : 15),
-            total_wages: reportType === 'Daily' ? 750 : (reportType === 'Weekly' ? 4500 : 18500)
+            total_wages: reportType === 'Daily' ? 750 : (reportType === 'Weekly' ? 4500 : 18500),
+            status: 'Paid'
         },
         {
             id: 2,
@@ -37,7 +40,8 @@ const LaborReportsPage: React.FC = () => {
             days_present: reportType === 'Daily' ? 1 : (reportType === 'Weekly' ? 5 : 22),
             working_hours: reportType === 'Daily' ? 8 : (reportType === 'Weekly' ? 40 : 176),
             overtime_hours: reportType === 'Daily' ? 0 : (reportType === 'Weekly' ? 0 : 5),
-            total_wages: reportType === 'Daily' ? 600 : (reportType === 'Weekly' ? 3500 : 16000)
+            total_wages: reportType === 'Daily' ? 600 : (reportType === 'Weekly' ? 3500 : 16000),
+            status: 'Pending'
         },
         {
             id: 3,
@@ -47,16 +51,19 @@ const LaborReportsPage: React.FC = () => {
             days_present: reportType === 'Daily' ? 1 : (reportType === 'Weekly' ? 6 : 26),
             working_hours: reportType === 'Daily' ? 8 : (reportType === 'Weekly' ? 52 : 208),
             overtime_hours: reportType === 'Daily' ? 2 : (reportType === 'Weekly' ? 8 : 20),
-            total_wages: reportType === 'Daily' ? 900 : (reportType === 'Weekly' ? 5500 : 22000)
+            total_wages: reportType === 'Daily' ? 900 : (reportType === 'Weekly' ? 5500 : 22000),
+            status: 'Paid'
         }
     ];
 
     const filteredReports = useMemo(() => {
-        return mockReports.filter(r =>
-            r.worker_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            r.contractor_name.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-    }, [mockReports, searchTerm]);
+        return mockReports.filter(r => {
+            const matchesSearch = r.worker_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                r.contractor_name.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesStatus = statusFilter === 'All' || r.status === statusFilter;
+            return matchesSearch && matchesStatus;
+        });
+    }, [mockReports, searchTerm, statusFilter]);
 
     const stats = useMemo(() => {
         const total = mockReports.reduce((acc, curr) => acc + curr.total_wages, 0);
@@ -223,10 +230,14 @@ const LaborReportsPage: React.FC = () => {
                     <div className="flex flex-col gap-0.5 min-w-[130px]">
                         <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Status</label>
                         <div className="relative">
-                            <select className="w-full appearance-none px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none transition-all cursor-pointer pr-8">
-                                <option>All Status</option>
-                                <option>Paid</option>
-                                <option>Pending</option>
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                className="w-full appearance-none px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none transition-all cursor-pointer pr-8"
+                            >
+                                <option value="All">All Status</option>
+                                <option value="Paid">Paid</option>
+                                <option value="Pending">Pending</option>
                             </select>
                             <span className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -290,7 +301,10 @@ const LaborReportsPage: React.FC = () => {
                                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{report.id_aadhaar}</p>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-xs font-bold text-emerald-500 bg-emerald-50 px-2 py-1 rounded-lg">₹{report.total_wages.toLocaleString()}</p>
+                                    <p className="text-xs font-bold text-emerald-500 bg-emerald-50 px-2 py-1 rounded-lg mb-1">₹{report.total_wages.toLocaleString()}</p>
+                                    <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${report.status === 'Paid' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
+                                        {report.status}
+                                    </span>
                                 </div>
                             </div>
 

@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
+import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -74,6 +75,8 @@ const DailyProgressEntryPage = () => {
     const [editId, setEditId] = useState<number | null>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [selectedEntry, setSelectedEntry] = useState<DailyEntry | null>(null);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [entryToDelete, setEntryToDelete] = useState<number | null>(null);
 
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
@@ -125,11 +128,17 @@ const DailyProgressEntryPage = () => {
         setIsFormModalOpen(true);
     };
 
-    const handleDelete = (id: number) => {
-        if (window.confirm("Are you sure you want to delete this entry?")) {
-            setActivities(prev => prev.filter(a => a.id !== id));
-            toast.success("Entry deleted successfully");
-        }
+    const handleDeleteClick = (id: number) => {
+        setEntryToDelete(id);
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleDeleteConfirm = () => {
+        if (!entryToDelete) return;
+        setActivities(prev => prev.filter(a => a.id !== entryToDelete));
+        toast.success("Entry deleted successfully");
+        setIsDeleteModalOpen(false);
+        setEntryToDelete(null);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -378,7 +387,7 @@ const DailyProgressEntryPage = () => {
                                                     </svg>
                                                 </button>
                                                 <button
-                                                    onClick={() => handleDelete(entry.id)}
+                                                    onClick={() => handleDeleteClick(entry.id)}
                                                     className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
                                                     title="Delete"
                                                 >
@@ -702,6 +711,18 @@ const DailyProgressEntryPage = () => {
                     </div>
                 )}
             </Modal>
+            <ConfirmModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => {
+                    setIsDeleteModalOpen(false);
+                    setEntryToDelete(null);
+                }}
+                onConfirm={handleDeleteConfirm}
+                title="Delete Progress Entry"
+                message="Are you sure you want to delete this progress record? This action cannot be undone and will affect overall project completion stats."
+                confirmText="Delete"
+                type="danger"
+            />
         </>
     );
 };

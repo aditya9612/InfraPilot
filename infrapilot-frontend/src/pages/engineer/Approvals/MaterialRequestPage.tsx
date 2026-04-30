@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
+import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -47,6 +48,8 @@ const MaterialRequestPage = () => {
     const [requestData, setRequestData] = useState<MaterialRequestRecord[]>(materialRequests);
     const [isEditMode, setIsEditMode] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [requestToDelete, setRequestToDelete] = useState<string | null>(null);
 
     const [formData, setFormData] = useState({
         id: "",
@@ -109,11 +112,17 @@ const MaterialRequestPage = () => {
         setIsFormModalOpen(true);
     };
 
-    const handleDelete = (id: string) => {
-        if (window.confirm("Are you sure you want to delete this requisition?")) {
-            setRequestData(prev => prev.filter(t => t.id !== id));
-            toast.success("Requisition deleted");
-        }
+    const handleDeleteClick = (id: string) => {
+        setRequestToDelete(id);
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleDeleteConfirm = () => {
+        if (!requestToDelete) return;
+        setRequestData(prev => prev.filter(t => t.id !== requestToDelete));
+        toast.success("Requisition deleted");
+        setIsDeleteModalOpen(false);
+        setRequestToDelete(null);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -286,7 +295,7 @@ const MaterialRequestPage = () => {
                                             </svg>
                                         </button>
                                         <button
-                                            onClick={(e) => { e.stopPropagation(); handleDelete(request.id); }}
+                                            onClick={(e) => { e.stopPropagation(); handleDeleteClick(request.id); }}
                                             className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
                                         >
                                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -526,6 +535,18 @@ const MaterialRequestPage = () => {
                     </button>
                 </div>
             </Modal>
+            <ConfirmModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => {
+                    setIsDeleteModalOpen(false);
+                    setRequestToDelete(null);
+                }}
+                onConfirm={handleDeleteConfirm}
+                title="Delete Material Requisition"
+                message="Are you sure you want to delete this material request? This will permanently remove the procurement log and requirement narrative from the system."
+                confirmText="Delete"
+                type="danger"
+            />
         </>
     );
 };

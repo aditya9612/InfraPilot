@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
+import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -59,6 +60,8 @@ const DrawingsDocumentsPage = () => {
     const [isEditMode, setIsEditMode] = useState(false);
     const [editId, setEditId] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [drawingToDelete, setDrawingToDelete] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<"All" | "Recent">("All");
 
     const [formData, setFormData] = useState(initialFormData);
@@ -119,11 +122,17 @@ const DrawingsDocumentsPage = () => {
         setIsFormModalOpen(true);
     };
 
-    const handleDelete = (id: string) => {
-        if (window.confirm("Are you sure you want to delete this drawing?")) {
-            setDrawingData(prev => prev.filter(t => t.id !== id));
-            toast.success("Drawing record deleted");
-        }
+    const handleDeleteClick = (id: string) => {
+        setDrawingToDelete(id);
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleDeleteConfirm = () => {
+        if (!drawingToDelete) return;
+        setDrawingData(prev => prev.filter(t => t.id !== drawingToDelete));
+        toast.success("Drawing record deleted");
+        setIsDeleteModalOpen(false);
+        setDrawingToDelete(null);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -312,7 +321,7 @@ const DrawingsDocumentsPage = () => {
                                             </svg>
                                         </button>
                                         <button
-                                            onClick={(e) => { e.stopPropagation(); handleDelete(drawing.id); }}
+                                            onClick={(e) => { e.stopPropagation(); handleDeleteClick(drawing.id); }}
                                             className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
                                         >
                                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -540,6 +549,18 @@ const DrawingsDocumentsPage = () => {
                     </button>
                 </div>
             </Modal >
+            <ConfirmModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => {
+                    setIsDeleteModalOpen(false);
+                    setDrawingToDelete(null);
+                }}
+                onConfirm={handleDeleteConfirm}
+                title="Delete Engineering Asset"
+                message="Are you sure you want to delete this drawing record? This will permanently remove the document metadata and historical versioning from the vault."
+                confirmText="Delete"
+                type="danger"
+            />
         </>
     );
 };

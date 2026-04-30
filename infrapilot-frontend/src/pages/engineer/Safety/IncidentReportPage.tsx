@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
+import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -46,6 +47,8 @@ const IncidentReportPage = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("All Status");
     const [categoryFilter, setCategoryFilter] = useState("All Reports");
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [incidentToDelete, setIncidentToDelete] = useState<string | null>(null);
 
     const [formData, setFormData] = useState({
         id: "",
@@ -115,11 +118,17 @@ const IncidentReportPage = () => {
         setIsFormModalOpen(true);
     };
 
-    const handleDelete = (id: string) => {
-        if (window.confirm("Are you sure you want to delete this incident report?")) {
-            setIncidentData(prev => prev.filter(t => t.id !== id));
-            toast.success("Record deleted");
-        }
+    const handleDeleteClick = (id: string) => {
+        setIncidentToDelete(id);
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleDeleteConfirm = () => {
+        if (!incidentToDelete) return;
+        setIncidentData(prev => prev.filter(t => t.id !== incidentToDelete));
+        toast.success("Incident record deleted");
+        setIsDeleteModalOpen(false);
+        setIncidentToDelete(null);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -384,7 +393,7 @@ const IncidentReportPage = () => {
                                         </button>
                                     </div>
                                     <button
-                                        onClick={() => handleDelete(item.id)}
+                                        onClick={() => handleDeleteClick(item.id)}
                                         className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
                                         title="Delete Registry"
                                     >
@@ -624,6 +633,18 @@ const IncidentReportPage = () => {
                     </button>
                 </div>
             </Modal>
+            <ConfirmModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => {
+                    setIsDeleteModalOpen(false);
+                    setIncidentToDelete(null);
+                }}
+                onConfirm={handleDeleteConfirm}
+                title="Delete Incident Report"
+                message="Are you sure you want to delete this incident report? This will permanently remove the safety record and cannot be undone."
+                confirmText="Delete"
+                type="danger"
+            />
         </>
     );
 };

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
+import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -72,6 +73,8 @@ const QCTestReportsPage = () => {
     const [testList, setTestList] = useState<TestRecord[]>(testHistory);
     const [isEditMode, setIsEditMode] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [testToDelete, setTestToDelete] = useState<string | null>(null);
 
     const [formData, setFormData] = useState({
         id: "",
@@ -144,11 +147,17 @@ const QCTestReportsPage = () => {
         setIsFormModalOpen(true);
     };
 
-    const handleDelete = (id: string) => {
-        if (window.confirm("Are you sure you want to delete this test report?")) {
-            setTestList(prev => prev.filter(t => t.id !== id));
-            toast.success("Record deleted");
-        }
+    const handleDeleteClick = (id: string) => {
+        setTestToDelete(id);
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleDeleteConfirm = () => {
+        if (!testToDelete) return;
+        setTestList(prev => prev.filter(t => t.id !== testToDelete));
+        toast.success("Test report deleted");
+        setIsDeleteModalOpen(false);
+        setTestToDelete(null);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -363,7 +372,7 @@ const QCTestReportsPage = () => {
                                             </svg>
                                         </button>
                                         <button
-                                            onClick={() => handleDelete(item.id)}
+                                            onClick={() => handleDeleteClick(item.id)}
                                             className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
                                             title="Delete Record"
                                         >
@@ -601,6 +610,18 @@ const QCTestReportsPage = () => {
                     </button>
                 </div>
             </Modal>
+            <ConfirmModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => {
+                    setIsDeleteModalOpen(false);
+                    setTestToDelete(null);
+                }}
+                onConfirm={handleDeleteConfirm}
+                title="Delete Test Report"
+                message="Are you sure you want to delete this QC test report? This will permanently remove the laboratory validation data and cannot be undone."
+                confirmText="Delete"
+                type="danger"
+            />
         </>
     );
 };

@@ -74,7 +74,8 @@ input[type="range"]::-webkit-slider-runnable-track {
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  margin-top: -6px; /* Centers thumb on the track */
+  margin-top: -6px;
+  /* Centers thumb on the track */
   background-color: #2563EB;
   height: 18px;
   width: 18px;

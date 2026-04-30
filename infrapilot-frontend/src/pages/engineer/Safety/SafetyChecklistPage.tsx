@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
+import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -57,6 +58,8 @@ const SafetyChecklistPage = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("All Status");
     const [categoryFilter, setCategoryFilter] = useState("All Reports");
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [auditToDelete, setAuditToDelete] = useState<string | null>(null);
 
     const [formData, setFormData] = useState({
         id: "",
@@ -126,11 +129,17 @@ const SafetyChecklistPage = () => {
         setIsFormModalOpen(true);
     };
 
-    const handleDelete = (id: string) => {
-        if (window.confirm("Are you sure you want to delete this safety audit?")) {
-            setChecklistData(prev => prev.filter(t => t.id !== id));
-            toast.success("Record deleted");
-        }
+    const handleDeleteClick = (id: string) => {
+        setAuditToDelete(id);
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleDeleteConfirm = () => {
+        if (!auditToDelete) return;
+        setChecklistData(prev => prev.filter(t => t.id !== auditToDelete));
+        toast.success("Safety record deleted");
+        setIsDeleteModalOpen(false);
+        setAuditToDelete(null);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -391,7 +400,7 @@ const SafetyChecklistPage = () => {
                                         </button>
                                     </div>
                                     <button
-                                        onClick={() => handleDelete(item.id)}
+                                        onClick={() => handleDeleteClick(item.id)}
                                         className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
                                         title="Delete Protocol"
                                     >
@@ -641,6 +650,18 @@ const SafetyChecklistPage = () => {
                     </button>
                 </div>
             </Modal>
+            <ConfirmModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => {
+                    setIsDeleteModalOpen(false);
+                    setAuditToDelete(null);
+                }}
+                onConfirm={handleDeleteConfirm}
+                title="Delete Safety Audit"
+                message="Are you sure you want to delete this safety audit record? This action will permanently remove the compliance data and cannot be undone."
+                confirmText="Delete"
+                type="danger"
+            />
         </>
     );
 };

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
+import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -72,6 +73,8 @@ const QCInspectionPage = () => {
     const [inspectionList, setInspectionList] = useState<InspectionRecord[]>(inspectionHistory);
     const [isEditMode, setIsEditMode] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [inspectionToDelete, setInspectionToDelete] = useState<string | null>(null);
 
     const [formData, setFormData] = useState({
         id: "",
@@ -144,11 +147,17 @@ const QCInspectionPage = () => {
         setIsFormModalOpen(true);
     };
 
-    const handleDelete = (id: string) => {
-        if (window.confirm("Are you sure you want to delete this record?")) {
-            setInspectionList(prev => prev.filter(i => i.id !== id));
-            toast.success("Record deleted");
-        }
+    const handleDeleteClick = (id: string) => {
+        setInspectionToDelete(id);
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleDeleteConfirm = () => {
+        if (!inspectionToDelete) return;
+        setInspectionList(prev => prev.filter(i => i.id !== inspectionToDelete));
+        toast.success("Inspection record deleted");
+        setIsDeleteModalOpen(false);
+        setInspectionToDelete(null);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -356,7 +365,7 @@ const QCInspectionPage = () => {
                                             </svg>
                                         </button>
                                         <button
-                                            onClick={() => handleDelete(item.id)}
+                                            onClick={() => handleDeleteClick(item.id)}
                                             className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
                                             title="Delete Record"
                                         >
@@ -606,6 +615,18 @@ const QCInspectionPage = () => {
                     </button>
                 </div>
             </Modal>
+            <ConfirmModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => {
+                    setIsDeleteModalOpen(false);
+                    setInspectionToDelete(null);
+                }}
+                onConfirm={handleDeleteConfirm}
+                title="Delete Inspection Record"
+                message="Are you sure you want to delete this quality inspection log? This will permanently remove the audit data and cannot be undone."
+                confirmText="Delete"
+                type="danger"
+            />
         </>
     );
 };

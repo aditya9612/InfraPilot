@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
+import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -89,6 +90,8 @@ const ActivityListPage = () => {
     const [formData, setFormData] = useState(initialFormData);
     const [editId, setEditId] = useState<number | null>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [activityToDelete, setActivityToDelete] = useState<number | null>(null);
 
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
@@ -149,11 +152,17 @@ const ActivityListPage = () => {
         setIsFormModalOpen(true);
     };
 
-    const handleDelete = (id: number) => {
-        if (window.confirm("Are you sure you want to delete this activity?")) {
-            setActivities(prev => prev.filter(a => a.id !== id));
-            toast.success("Activity deleted successfully");
-        }
+    const handleDeleteClick = (id: number) => {
+        setActivityToDelete(id);
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleDeleteConfirm = () => {
+        if (!activityToDelete) return;
+        setActivities(prev => prev.filter(a => a.id !== activityToDelete));
+        toast.success("Activity deleted successfully");
+        setIsDeleteModalOpen(false);
+        setActivityToDelete(null);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -430,7 +439,7 @@ const ActivityListPage = () => {
                                                         </svg>
                                                     </button>
                                                     <button
-                                                        onClick={() => handleDelete(activity.id)}
+                                                        onClick={() => handleDeleteClick(activity.id)}
                                                         className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
                                                         title="Delete"
                                                     >
@@ -833,6 +842,18 @@ const ActivityListPage = () => {
                     </div>
                 )}
             </Modal >
+            <ConfirmModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => {
+                    setIsDeleteModalOpen(false);
+                    setActivityToDelete(null);
+                }}
+                onConfirm={handleDeleteConfirm}
+                title="Delete Activity"
+                message="Are you sure you want to delete this activity? This will permanently remove all associated progress entries and cannot be undone."
+                confirmText="Delete"
+                type="danger"
+            />
         </>
     );
 };

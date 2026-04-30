@@ -2,6 +2,7 @@ import React, { useState, useRef } from "react";
 import PageTransition from "../../components/common/PageTransition";
 import Navbar from "../../components/common/Navbar";
 import Modal from "../../components/common/Modal";
+import ConfirmModal from "../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
@@ -107,6 +108,8 @@ const SitePhotosPage = () => {
     const [searchQuery, setSearchQuery] = useState("");
     const [filterActivity, setFilterActivity] = useState("All Activities");
     const [filterLocation, setFilterLocation] = useState("All Locations");
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [photoToDelete, setPhotoToDelete] = useState<number | null>(null);
 
     // ── Handlers ──────────────────────────────────────────────────────────
 
@@ -162,6 +165,18 @@ const SitePhotosPage = () => {
             setFormData(initialForm);
             setErrors({});
         }, 1500);
+    };
+    const handleDeleteClick = (id: number) => {
+        setPhotoToDelete(id);
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleDeleteConfirm = () => {
+        if (!photoToDelete) return;
+        setPhotos(prev => prev.filter(p => p.id !== photoToDelete));
+        toast.success("Site photo deleted successfully");
+        setIsDeleteModalOpen(false);
+        setPhotoToDelete(null);
     };
 
     // ── Filter Bar ────────────────────────────────────────────────────────
@@ -281,6 +296,17 @@ const SitePhotosPage = () => {
                                         <span className="px-3 py-1 bg-white/90 backdrop-blur-md text-[10px] font-black text-slate-800 rounded-lg uppercase tracking-widest shadow-sm">
                                             {photo.activity_tag}
                                         </span>
+                                    </div>
+                                    <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleDeleteClick(photo.id); }}
+                                            className="p-2 bg-white/90 backdrop-blur-md text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-lg"
+                                            title="Delete Photo"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        </button>
                                     </div>
                                     <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-white opacity-0 group-hover:opacity-100 transition-opacity">
                                         <p className="text-[10px] font-bold truncate pr-2">{photo.location_tag}</p>
@@ -568,6 +594,18 @@ const SitePhotosPage = () => {
                     </div>
                 )}
             </Modal>
+            <ConfirmModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => {
+                    setIsDeleteModalOpen(false);
+                    setPhotoToDelete(null);
+                }}
+                onConfirm={handleDeleteConfirm}
+                title="Delete Site Evidence"
+                message="Are you sure you want to delete this photographic record? This will permanently remove the visual artifact and its associated metadata from the system."
+                confirmText="Delete"
+                type="danger"
+            />
         </>
     );
 };

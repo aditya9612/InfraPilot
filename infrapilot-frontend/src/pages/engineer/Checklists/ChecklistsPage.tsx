@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
+import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -67,6 +68,8 @@ const ChecklistsPage = () => {
     const [items, setItems] = useState<ChecklistItem[]>([]);
     const [newItemTask, setNewItemTask] = useState("");
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [checklistToDelete, setChecklistToDelete] = useState<string | null>(null);
 
     const [searchTerm, setSearchTerm] = useState("");
     const [filterStatus, setFilterStatus] = useState("All Status");
@@ -131,11 +134,17 @@ const ChecklistsPage = () => {
         setIsFormModalOpen(true);
     };
 
-    const handleDelete = (id: string) => {
-        if (window.confirm("Are you sure you want to delete this checklist log?")) {
-            setChecklistData(prev => prev.filter(c => c.id !== id));
-            toast.success("Checklist deleted");
-        }
+    const handleDeleteClick = (id: string) => {
+        setChecklistToDelete(id);
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleDeleteConfirm = () => {
+        if (!checklistToDelete) return;
+        setChecklistData(prev => prev.filter(c => c.id !== checklistToDelete));
+        toast.success("Checklist deleted");
+        setIsDeleteModalOpen(false);
+        setChecklistToDelete(null);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -329,7 +338,7 @@ const ChecklistsPage = () => {
                                             </svg>
                                         </button>
                                         <button
-                                            onClick={() => handleDelete(item.id)}
+                                            onClick={() => handleDeleteClick(item.id)}
                                             className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all font-inter"
                                             title="Delete Log"
                                         >
@@ -560,6 +569,18 @@ const ChecklistsPage = () => {
                     </button>
                 </div>
             </Modal>
+            <ConfirmModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => {
+                    setIsDeleteModalOpen(false);
+                    setChecklistToDelete(null);
+                }}
+                onConfirm={handleDeleteConfirm}
+                title="Delete Checklist Log"
+                message="Are you sure you want to delete this checklist record? This will permanently remove the verification matrix and technical remarks from the vault."
+                confirmText="Delete"
+                type="danger"
+            />
         </>
     );
 };

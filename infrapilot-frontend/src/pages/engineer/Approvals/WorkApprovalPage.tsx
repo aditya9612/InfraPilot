@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
+import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -47,6 +48,8 @@ const WorkApprovalPage = () => {
     const [approvalData, setApprovalData] = useState<WorkApprovalRecord[]>(workApprovals);
     const [isEditMode, setIsEditMode] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [requestToDelete, setRequestToDelete] = useState<string | null>(null);
 
     const [formData, setFormData] = useState({
         id: "",
@@ -109,11 +112,17 @@ const WorkApprovalPage = () => {
         setIsFormModalOpen(true);
     };
 
-    const handleDelete = (id: string) => {
-        if (window.confirm("Are you sure you want to delete this approval request?")) {
-            setApprovalData(prev => prev.filter(t => t.id !== id));
-            toast.success("Request deleted");
-        }
+    const handleDeleteClick = (id: string) => {
+        setRequestToDelete(id);
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleDeleteConfirm = () => {
+        if (!requestToDelete) return;
+        setApprovalData(prev => prev.filter(t => t.id !== requestToDelete));
+        toast.success("Request deleted");
+        setIsDeleteModalOpen(false);
+        setRequestToDelete(null);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -289,7 +298,7 @@ const WorkApprovalPage = () => {
                                             </svg>
                                         </button>
                                         <button
-                                            onClick={(e) => { e.stopPropagation(); handleDelete(approval.id); }}
+                                            onClick={(e) => { e.stopPropagation(); handleDeleteClick(approval.id); }}
                                             className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
                                         >
                                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -530,6 +539,18 @@ const WorkApprovalPage = () => {
                     </button>
                 </div>
             </Modal>
+            <ConfirmModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => {
+                    setIsDeleteModalOpen(false);
+                    setRequestToDelete(null);
+                }}
+                onConfirm={handleDeleteConfirm}
+                title="Delete Work Request"
+                message="Are you sure you want to delete this work approval request? This will permanently remove the authorization log and technical narrative from the system."
+                confirmText="Delete"
+                type="danger"
+            />
         </>
     );
 };
