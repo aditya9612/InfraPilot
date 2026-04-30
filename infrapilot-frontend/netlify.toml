@@ -5,3 +5,14 @@
 [build.environment]
   NODE_OPTIONS = "--max-old-space-size=4096"
   CI = "false"
+
+[[redirects]]
+  from = "/api/*"
+  to = "https://infrapilot.in/api/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
