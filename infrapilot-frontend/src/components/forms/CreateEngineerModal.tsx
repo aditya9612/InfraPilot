@@ -80,7 +80,7 @@ const CreateEngineerModal: React.FC<CreateEngineerModalProps> = ({
                   placeholder="e.g. Arjun Mehta"
                   className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-semibold"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value.replace(/[^a-zA-Z\s]/g, "") })}
                 />
               </div>
             </div>
@@ -118,7 +118,7 @@ const CreateEngineerModal: React.FC<CreateEngineerModalProps> = ({
                   placeholder="+91 95566 77889"
                   className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-semibold"
                   value={formData.mobile}
-                  onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, mobile: e.target.value.replace(/[^\d]/g, "").slice(0, 10) })}
                 />
               </div>
             </div>
@@ -133,10 +133,10 @@ const CreateEngineerModal: React.FC<CreateEngineerModalProps> = ({
                 </span>
                 <input
                   type="text"
-                  placeholder="e.g. 8 Years"
+                  placeholder="e.g. 8"
                   className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-semibold"
                   value={formData.experience}
-                  onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, experience: e.target.value.replace(/[^\d]/g, "").slice(0, 2) })}
                 />
               </div>
             </div>

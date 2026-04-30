@@ -211,7 +211,13 @@ export default function OwnersListPage() {
   };
 
   const handleChange = (field: keyof Omit<Owner, "id">) => (value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    let finalValue = value;
+    if (field === "name") {
+      finalValue = value.replace(/[^a-zA-Z\s]/g, "");
+    } else if (field === "mobile") {
+      finalValue = value.replace(/[^\d]/g, "").slice(0, 10);
+    }
+    setForm((prev) => ({ ...prev, [field]: finalValue }));
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
   };
 
