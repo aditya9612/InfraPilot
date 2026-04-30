@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
+import { useAuth } from "../../context/AuthContext";
+import { Upload, Trash2, User } from "lucide-react";
 import toast from "react-hot-toast";
 
 // ─── Toggle Switch ──────────────────────────────────────────────────────────────
@@ -43,7 +45,25 @@ const SectionHeader = ({
 // ─── Main Component ─────────────────────────────────────────────────────────────
 
 const SettingsPage = () => {
+    const { user } = useAuth();
     const [isSaving, setIsSaving] = useState(false);
+    const [profileImage, setProfileImage] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const imageUrl = URL.createObjectURL(file);
+            setProfileImage(imageUrl);
+            toast.success("Profile photo updated temporarily.");
+        }
+    };
+
+    const handleRemoveImage = () => {
+        setProfileImage(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        toast.success("Profile photo removed.");
+    };
 
     // ── 1. Project Selection ─────────────────────────────────────────────
     const [selectedProject, setSelectedProject] = useState("Skyline Tower A");
@@ -193,6 +213,87 @@ const SettingsPage = () => {
 
                 {/* ── Main Settings Grid ───────────────────────────────────── */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                    {/* ─ 0. Profile & Account ──────────────────────────────── */}
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 lg:col-span-2">
+                        <SectionHeader
+                            title="Profile & Account"
+                            icon={<User className="w-4 h-4" />}
+                        />
+                        <div className="flex flex-col md:flex-row items-start gap-8">
+                            <div className="flex flex-col items-center gap-4">
+                                <div className="relative group">
+                                    <div className="w-24 h-24 rounded-full border-4 border-slate-50 bg-slate-100 overflow-hidden flex items-center justify-center text-3xl font-bold text-slate-400 shadow-sm">
+                                        {profileImage ? (
+                                            <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
+                                        ) : (
+                                            user?.name?.charAt(0) || "U"
+                                        )}
+                                    </div>
+                                    <button 
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="absolute bottom-0 right-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform border-2 border-white"
+                                        title="Upload Photo"
+                                    >
+                                        <Upload className="w-3.5 h-3.5" strokeWidth={3} />
+                                    </button>
+                                    <input 
+                                        type="file" 
+                                        accept="image/*" 
+                                        className="hidden" 
+                                        ref={fileInputRef} 
+                                        onChange={handleImageUpload} 
+                                    />
+                                </div>
+                                {profileImage && (
+                                    <button 
+                                        onClick={handleRemoveImage}
+                                        className="text-xs font-bold text-rose-500 hover:text-rose-600 flex items-center gap-1.5 transition-colors"
+                                    >
+                                        <Trash2 className="w-3 h-3" /> Remove
+                                    </button>
+                                )}
+                            </div>
+                            
+                            <div className="flex-1 w-full">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Full Name</label>
+                                        <input 
+                                            type="text" 
+                                            defaultValue={user?.name} 
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Role</label>
+                                        <input 
+                                            type="text" 
+                                            value={user?.role} 
+                                            disabled
+                                            className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-sm font-semibold text-slate-500 cursor-not-allowed capitalize"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Email Address</label>
+                                        <input 
+                                            type="email" 
+                                            defaultValue={`${user?.name?.toLowerCase().replace(/\s/g, '.')}@infrapilot.com`} 
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Mobile Number</label>
+                                        <input 
+                                            type="tel" 
+                                            defaultValue={user?.mobile || "+91 98765 43210"} 
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
                     {/* ─ 1. Project Selection ──────────────────────────────── */}
                     <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">

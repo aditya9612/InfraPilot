@@ -13,7 +13,7 @@ import type { Project, ProjectStatus } from "../../types/project";
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const statusBadge: Record<ProjectStatus, string> = {
   Planned: "bg-slate-100 text-slate-500",
-  Active: "bg-green-100 text-success",
+  Ongoing: "bg-green-100 text-success",
   Delayed: "bg-red-100 text-red-600",
   Completed: "bg-blue-100 text-primary",
   "On Hold": "bg-amber-100 text-warning",
@@ -21,7 +21,7 @@ const statusBadge: Record<ProjectStatus, string> = {
 
 const progressFill: Record<ProjectStatus, string> = {
   Planned: "bg-slate-300",
-  Active: "bg-success",
+  Ongoing: "bg-success",
   Delayed: "bg-red-500",
   Completed: "bg-primary",
   "On Hold": "bg-warning",
@@ -29,7 +29,7 @@ const progressFill: Record<ProjectStatus, string> = {
 
 const statusDot: Record<ProjectStatus, string> = {
   Planned: "bg-slate-400",
-  Active: "bg-success",
+  Ongoing: "bg-success",
   Delayed: "bg-red-500",
   Completed: "bg-primary",
   "On Hold": "bg-warning",
@@ -57,7 +57,9 @@ const ProjectsPage = () => {
   const fetchProjects = useCallback(async () => {
     try {
       setIsLoading(true);
-      const res = await projectService.getProjects(100, 0, debouncedSearch, filterStatus);
+      // Fetch all projects; status filtering is applied client-side to avoid
+      // backend validation errors on certain status values (e.g. Active, Delayed).
+      const res = await projectService.getProjects(100, 0, debouncedSearch);
       const projectList = Array.isArray(res) ? res : (res.items || res.data || []);
       setProjects(projectList);
     } catch (error) {
@@ -66,7 +68,7 @@ const ProjectsPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [debouncedSearch, filterStatus]);
+  }, [debouncedSearch]);
 
   useEffect(() => {
     fetchProjects();
@@ -84,9 +86,19 @@ const ProjectsPage = () => {
     }
   };
 
-  const handleEditClick = (project: Project) => {
-    setEditingProject(project);
-    setIsEditModalOpen(true);
+  const handleEditClick = async (project: Project) => {
+    try {
+      const toastId = toast.loading("Fetching project details...");
+      const freshProject = await projectService.getProjectById(project.id);
+      setEditingProject(freshProject);
+      setIsEditModalOpen(true);
+      toast.dismiss(toastId);
+    } catch (error) {
+      toast.error("Failed to load project details");
+      // Fallback to existing project data if API fails
+      setEditingProject(project);
+      setIsEditModalOpen(true);
+    }
   };
 
   const handleEditProject = async (updatedData: any) => {
@@ -110,11 +122,13 @@ const ProjectsPage = () => {
     return () => clearTimeout(handler);
   }, [search]);
 
-  const filtered = projects;
+  const filtered = filterStatus === "All"
+    ? projects
+    : projects.filter((p) => p.status === filterStatus);
 
   const stats = {
     total: projects.length,
-    active: projects.filter((p) => p.status === "Active").length,
+    active: projects.filter((p) => p.status === "Ongoing").length,
     completed: projects.filter((p) => p.status === "Completed").length,
     delayed: projects.filter((p) => p.status === "Delayed").length,
   };
@@ -207,11 +221,11 @@ const ProjectsPage = () => {
               status: "All",
             },
             {
-              title: "Active Sites",
+              title: "Ongoing Sites",
               value: String(stats.active),
               sub: "Currently in progress",
               accent: "text-success",
-              status: "Active",
+              status: "Ongoing",
             },
             {
               title: "Completed",
@@ -276,7 +290,7 @@ const ProjectsPage = () => {
                   {(
                     [
                       "All",
-                      "Active",
+                      "Ongoing",
                       "Planned",
                       "Delayed",
                       "Completed",

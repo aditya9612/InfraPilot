@@ -13,7 +13,7 @@ interface TaskDetailsModalProps {
 const TaskDetailsModal = ({ task, onClose, onUpdateProgress, onAddComment }: TaskDetailsModalProps) => {
   const [history, setHistory] = useState<TaskProgress[]>([]);
   const [comments, setComments] = useState<TaskComment[]>([]);
-  const [_isLoading, setIsLoading] = useState(true);
+
   
   const [newComment, setNewComment] = useState("");
   const [updatePercentage, setUpdatePercentage] = useState(task.completion_percentage);
@@ -22,7 +22,6 @@ const TaskDetailsModal = ({ task, onClose, onUpdateProgress, onAddComment }: Tas
 
   const fetchData = useCallback(async () => {
     try {
-      setIsLoading(true);
       const [hData, cData] = await Promise.all([
         projectService.getTaskProgressHistory(task.project_id, task.id),
         projectService.getTaskComments(task.project_id, task.id)
@@ -32,7 +31,6 @@ const TaskDetailsModal = ({ task, onClose, onUpdateProgress, onAddComment }: Tas
     } catch (error) {
       console.error("Failed to fetch task details:", error);
     } finally {
-      setIsLoading(false);
     }
   }, [task.id, task.project_id]);
 

@@ -201,49 +201,54 @@ const ChartOfAccountsPage = () => {
     return (
       <div key={acc.id}>
         <div
-          className={`flex items-center px-6 py-4 border-b border-slate-50 hover:bg-slate-50/50 transition-colors group cursor-pointer`}
+          className={`flex items-center px-6 py-5 border-b border-slate-50 hover:bg-slate-50/50 transition-colors group cursor-pointer`}
           style={{ paddingLeft: `${level * 2 + 1.5}rem` }}
           onClick={() => hasChildren && toggleExpand(acc.id)}
         >
-          <div className="w-8 shrink-0">
+          <div className="w-10 shrink-0">
             {hasChildren && (
               <span
-                className={`text-slate-400 transition-transform inline-block ${isExpanded ? "rotate-90" : ""}`}
+                className={`text-slate-300 transition-transform inline-block ${isExpanded ? "rotate-90" : ""}`}
               >
-                ▶
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" /></svg>
               </span>
             )}
           </div>
-          <div className="flex-1 flex items-center gap-4">
-            <div className="w-24 text-xs font-black text-slate-400 uppercase tracking-tighter">
+          <div className="flex-1 flex items-center gap-6">
+            <div className="w-20 text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-2 py-1 rounded-md border border-slate-100 text-center">
               {acc.account_code}
             </div>
             <div>
-              <p className="text-sm font-bold text-slate-700">
+              <p className="text-sm font-black text-slate-700 tracking-tight">
                 {acc.account_name}
               </p>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+              <p className={`text-[10px] font-black uppercase tracking-widest ${
+                  acc.account_type === 'Asset' ? 'text-emerald-500' :
+                  acc.account_type === 'Liability' ? 'text-rose-500' :
+                  acc.account_type === 'Income' ? 'text-primary' : 'text-amber-500'
+              }`}>
                 {acc.account_type}
               </p>
             </div>
           </div>
           <div className="w-48 text-right">
-            <p className="text-sm font-black text-slate-800">
+            <p className="text-sm font-black text-slate-800 tracking-tight">
               {new Intl.NumberFormat("en-IN", {
                 style: "currency",
                 currency: "INR",
+                maximumFractionDigits: 0
               }).format(acc.current_balance)}
             </p>
-            <p className="text-[10px] text-slate-400 font-medium">Balance</p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Valuation</p>
           </div>
-          <div className="w-24 text-right opacity-0 group-hover:opacity-100 transition-opacity">
-            <button className="text-primary text-xs font-bold hover:underline">
-              + Sub
+          <div className="w-32 text-right opacity-0 group-hover:opacity-100 transition-all">
+            <button className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-primary hover:text-white transition-all">
+              + Sub Account
             </button>
           </div>
         </div>
         {hasChildren && isExpanded && (
-          <div className="animate-in fade-in slide-in-from-top-1 duration-200">
+          <div className="animate-in fade-in slide-in-from-top-2 duration-300">
             {acc.children?.map((child) => renderAccountRow(child, level + 1))}
           </div>
         )}
@@ -258,45 +263,45 @@ const ChartOfAccountsPage = () => {
         breadcrumb={["Accountant", "Finance", "COA"]}
       />
 
-      <PageTransition className="p-6 bg-slate-50 min-h-screen">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+      <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8 mt-2">
           <div>
-            <h1 className="text-2xl font-black text-slate-800 tracking-tight">
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight">
               {activeTab === "All"
                 ? "Full Ledger Hierarchy"
                 : `${activeTab} Accounts`}
             </h1>
-            <p className="text-slate-500 text-sm font-medium">
-              Accounting structure and General Ledger hierarchy.
+            <p className="text-slate-500 text-sm font-medium mt-1">
+              Accounting structure and General Ledger hierarchy for the entire organization.
             </p>
           </div>
           <button
             onClick={() => setIsModalOpen(true)}
             disabled={isSubmitting}
-            className="px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="px-8 py-3 bg-primary text-white rounded-2xl text-sm font-bold shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <span className="text-lg">+</span>
+            <span className="text-xl">+</span>
             {activeTab === "Expense"
               ? "Record New Expense"
               : "Create New Account"}
           </button>
         </div>
 
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="bg-slate-50/50 px-6 py-4 border-b border-slate-100 flex items-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
-            <div className="w-8"></div>
-            <div className="flex-1 flex gap-4">
-              <div className="w-24">GL Code</div>
+        <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden">
+          <div className="bg-slate-50/50 px-6 py-5 border-b border-slate-100 flex items-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            <div className="w-10"></div>
+            <div className="flex-1 flex gap-6">
+              <div className="w-20 text-center">GL Code</div>
               <div>Account Name & Category</div>
             </div>
             <div className="w-48 text-right">Current Valuation</div>
-            <div className="w-24 text-right">Actions</div>
+            <div className="w-32 text-right">Actions</div>
           </div>
 
           {isLoading ? (
-            <div className="p-20 text-center">
-              <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-sm font-bold text-slate-400">
+            <div className="py-32 text-center">
+              <div className="w-12 h-12 border-4 border-primary/10 border-t-primary rounded-full animate-spin mx-auto mb-6 shadow-sm" />
+              <p className="text-sm font-black text-slate-400 uppercase tracking-widest">
                 Synchronizing Ledger...
               </p>
             </div>
@@ -305,8 +310,11 @@ const ChartOfAccountsPage = () => {
               {filteredCOA.map((acc) => renderAccountRow(acc))}
             </div>
           ) : (
-            <div className="p-20 text-center">
-              <p className="text-sm font-bold text-slate-400">
+            <div className="py-32 text-center">
+              <div className="w-20 h-20 bg-slate-50 rounded-[32px] flex items-center justify-center mx-auto mb-6 border border-slate-100">
+                  <svg className="w-10 h-10 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+              </div>
+              <p className="text-sm font-black text-slate-400 uppercase tracking-widest">
                 No accounts found in this category.
               </p>
             </div>

@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
+import CreateBankingRecordModal from "../../components/forms/CreateBankingRecordModal";
+import ViewBankingRecordModal from "../../components/forms/ViewBankingRecordModal";
+import ConfirmModal from "../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 
 const MOCK_BANKING_RECORDS = [
@@ -42,7 +45,12 @@ const MOCK_BANKING_RECORDS = [
 
 const BankingPage = () => {
   const { category } = useParams<{ category: string }>();
-  const [records] = useState(MOCK_BANKING_RECORDS);
+  const [records, setRecords] = useState(MOCK_BANKING_RECORDS);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<any>(null);
+  const [recordToDelete, setRecordToDelete] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<string>("All");
 
   useEffect(() => {
@@ -52,6 +60,46 @@ const BankingPage = () => {
         setActiveTab("All");
     }
   }, [category]);
+
+  const handleCreateRecord = (data: any) => {
+    if (selectedRecord && !isViewModalOpen) {
+        setRecords(prev => prev.map(r => r.id === selectedRecord.id ? { ...r, ...data } : r));
+        toast.success("Banking record updated!");
+    } else {
+        const newRecord = {
+            ...data,
+            id: records.length + 1,
+        };
+        setRecords(prev => [newRecord, ...prev]);
+        toast.success("Banking record added successfully!");
+    }
+    setIsModalOpen(false);
+    setSelectedRecord(null);
+  };
+
+  const handleViewRecord = (record: any) => {
+    setSelectedRecord(record);
+    setIsViewModalOpen(true);
+  };
+
+  const handleEditRecord = (record: any) => {
+    setSelectedRecord(record);
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteRecord = (id: number) => {
+    setRecordToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (recordToDelete) {
+      setRecords(prev => prev.filter(r => r.id !== recordToDelete));
+      toast.success("Record deleted successfully");
+      setIsDeleteModalOpen(false);
+      setRecordToDelete(null);
+    }
+  };
 
   const filtered = activeTab === "All" 
     ? records 
@@ -66,69 +114,111 @@ const BankingPage = () => {
     }
   };
 
+  const renderAccountIcon = (type: string) => {
+    if (type === 'cash') return (
+        <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shadow-inner">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        </div>
+    );
+    return (
+        <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shadow-inner">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+        </div>
+    );
+  };
+
   return (
     <>
       <Navbar title="Bank & Cash" breadcrumb={["Accountant", "Finance", "Banking"]} />
       
-      <PageTransition className="p-6 bg-slate-50 min-h-screen">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+      <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8 mt-2">
           <div>
-            <h1 className="text-2xl font-black text-slate-800 tracking-tight">
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight">
                 {formatTitle(activeTab)}
             </h1>
-            <p className="text-slate-500 text-sm font-medium">Manage bank accounts, petty cash, and reconciliation statements.</p>
+            <p className="text-slate-500 text-sm font-medium mt-1">Manage institutional bank accounts, site petty cash, and automated reconciliation statements.</p>
           </div>
           <button 
-            onClick={() => toast.success("Record generation coming soon!")}
-            className="px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2"
+            onClick={() => {
+                setSelectedRecord(null);
+                setIsModalOpen(true);
+            }}
+            className="px-8 py-3 bg-primary text-white rounded-2xl text-sm font-bold shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 flex items-center gap-2"
           >
-            <span className="text-lg">+</span> Add Record
+            <span className="text-xl">+</span> Add Asset/Account
           </button>
         </div>
 
-        <div className="bg-white rounded-[32px] shadow-sm border border-slate-100 overflow-hidden">
+        <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden">
             <div className="overflow-x-auto">
                 <table className="w-full text-left">
                     <thead>
                         <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
-                            <th className="px-6 py-5">Account Name</th>
-                            <th className="px-6 py-5">Bank Details</th>
-                            <th className="px-6 py-5 text-right">Opening Balance</th>
-                            <th className="px-6 py-5 text-right">{activeTab === 'reconciliation' ? 'Bank Balance' : 'Current Balance'}</th>
-                            <th className="px-6 py-5">Transaction History</th>
-                            <th className="px-6 py-5 text-center">Actions</th>
+                            <th className="px-8 py-6">Account & Category</th>
+                            <th className="px-8 py-6">Institution Details</th>
+                            <th className="px-8 py-6 text-right">Opening Bal.</th>
+                            <th className="px-8 py-6 text-right font-black text-slate-900">{activeTab === 'reconciliation' ? 'Statement Bal.' : 'Current Liquidity'}</th>
+                            <th className="px-8 py-6">Status / Last Event</th>
+                            <th className="px-8 py-6 text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
                         {filtered.map(record => (
-                            <tr key={record.id} className="hover:bg-slate-50/50 transition-colors group">
-                                <td className="px-6 py-5">
-                                    <p className="text-sm font-black text-slate-700">{record.account_name}</p>
-                                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${record.type === "cash" ? "bg-amber-100 text-amber-600" : "bg-blue-100 text-blue-600"}`}>
-                                        {record.type === "cash" ? "Petty Cash" : "Bank"}
-                                    </span>
+                            <tr key={record.id} className="hover:bg-slate-50/30 transition-colors group">
+                                <td className="px-8 py-6">
+                                    <div className="flex items-center gap-4">
+                                        {renderAccountIcon(record.type)}
+                                        <div>
+                                            <p className="text-sm font-black text-slate-800 tracking-tight">{record.account_name}</p>
+                                            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-lg border inline-block mt-1 ${record.type === "cash" ? "bg-amber-50 text-amber-600 border-amber-100" : "bg-blue-50 text-blue-600 border-blue-100"}`}>
+                                                {record.type === "cash" ? "Petty Cash" : record.type === "reconciliation" ? "Recon Target" : "Commercial Bank"}
+                                            </span>
+                                        </div>
+                                    </div>
                                 </td>
-                                <td className="px-6 py-5">
+                                <td className="px-8 py-6">
                                     <p className="text-sm font-bold text-slate-700">{record.bank_name}</p>
-                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                                        {record.account_number !== "-" ? `A/C: ${record.account_number} | IFSC: ${record.ifsc}` : "Cash Account"}
+                                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1 font-mono">
+                                        {record.account_number !== "-" ? `${record.account_number} • ${record.ifsc}` : "INTERNAL CASH BOX"}
                                     </p>
                                 </td>
-                                <td className="px-6 py-5 text-right">
-                                    <p className="text-sm font-bold text-slate-500">₹{record.opening_balance.toLocaleString()}</p>
+                                <td className="px-8 py-6 text-right">
+                                    <p className="text-sm font-bold text-slate-500">₹{record.opening_balance.toLocaleString("en-IN")}</p>
                                 </td>
-                                <td className="px-6 py-5 text-right">
-                                    <p className="text-sm font-black text-slate-800">₹{record.current_balance.toLocaleString()}</p>
+                                <td className="px-8 py-6 text-right">
+                                    <p className="text-lg font-black text-slate-900 tracking-tight">₹{record.current_balance.toLocaleString("en-IN")}</p>
                                 </td>
-                                <td className="px-6 py-5">
-                                    <p className={`text-[11px] font-bold ${activeTab === 'reconciliation' ? 'text-rose-500' : 'text-slate-500'}`}>
+                                <td className="px-8 py-6">
+                                    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${activeTab === 'reconciliation' ? 'bg-rose-50 text-rose-500' : 'bg-emerald-50 text-emerald-600'}`}>
+                                        <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${activeTab === 'reconciliation' ? 'bg-rose-500' : 'bg-emerald-500'}`} />
                                         {record.last_transaction}
-                                    </p>
+                                    </div>
                                 </td>
-                                <td className="px-6 py-5 text-center">
-                                    <button className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-xl transition-all">
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                                    </button>
+                                <td className="px-8 py-6 text-right">
+                                    <div className="flex items-center justify-end gap-1">
+                                        <button 
+                                          onClick={() => handleViewRecord(record)}
+                                          className="p-2.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-2xl transition-all active:scale-90"
+                                          title="View Ledger"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                        </button>
+                                        <button 
+                                          onClick={() => handleEditRecord(record)}
+                                          className="p-2.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-2xl transition-all active:scale-90"
+                                          title="Update Info"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                        </button>
+                                        <button 
+                                          onClick={() => handleDeleteRecord(record.id)}
+                                          className="p-2.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-2xl transition-all active:scale-90"
+                                          title="Close Account"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}
@@ -137,6 +227,28 @@ const BankingPage = () => {
             </div>
         </div>
       </PageTransition>
+
+      <CreateBankingRecordModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleCreateRecord}
+      />
+
+      <ViewBankingRecordModal
+        isOpen={isViewModalOpen}
+        onClose={() => setIsViewModalOpen(false)}
+        record={selectedRecord}
+      />
+
+      <ConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={confirmDelete}
+        title="Delete Record"
+        message="Are you sure you want to delete this banking record? This action cannot be undone."
+        confirmText="Delete Record"
+        type="danger"
+      />
     </>
   );
 };

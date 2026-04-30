@@ -120,7 +120,7 @@ export default function PurchaseOrderModal({
                 </option>
                 {suppliers.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.name} ({s.contactPerson})
+                    {s.name} ({s.contactPerson || "No Contact"})
                   </option>
                 ))}
               </select>

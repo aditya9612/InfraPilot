@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import type { Role, User } from "../../context/AuthContext";
@@ -13,6 +13,7 @@ const ROLE_PATHS: Record<Role, string> = {
   ProjectManager: "/manager",
   SiteEngineer: "/engineer",
   Accountant: "/accountant",
+  Client: "/client",
 };
 
 const Login = () => {
@@ -39,6 +40,15 @@ const Login = () => {
     }, 1000);
   };
 
+  // Auto-focus first OTP input when switching to OTP step
+  useEffect(() => {
+    if (step === "otp") {
+      setTimeout(() => {
+        otpRefs.current[0]?.focus();
+      }, 100);
+    }
+  }, [step]);
+
   const handleSendOtp = async () => {
     if (!/^\d{10}$/.test(mobile)) {
       setError("Please enter a valid 10-digit mobile number.");
@@ -47,12 +57,27 @@ const Login = () => {
     setError("");
     setLoading(true);
     try {
-      await authService.login(mobile);
-      toast.success("Demanded OTP sent!");
+      // Mock for development testing
+      if (mobile === "4444444444") {
+        await new Promise((r) => setTimeout(r, 800));
+        toast.success("Test OTP: 444444");
+        setStep("otp");
+        startResendTimer();
+        return;
+      }
+
+      const response = await authService.login(mobile);
+      toast.success(response.message || "OTP sent successfully!");
       setStep("otp");
       startResendTimer();
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to send OTP. Please try again.");
+      const errorData = err.response?.data;
+      const message = errorData?.message || errorData?.detail;
+      setError(
+        typeof message === "string"
+          ? message
+          : "Failed to send OTP. Please try again.",
+      );
     } finally {
       setLoading(false);
     }
@@ -63,7 +88,15 @@ const Login = () => {
     const updated = [...otp];
     updated[index] = value;
     setOtp(updated);
-    if (value && index < 5) otpRefs.current[index + 1]?.focus();
+    if (value && index < 5) {
+      otpRefs.current[index + 1]?.focus();
+    } else if (value && index === 5) {
+      // Auto-submit when last digit is entered
+      const finalOtp = updated.join("");
+      if (finalOtp.length === 6) {
+        handleVerifyOtp(finalOtp);
+      }
+    }
   };
 
   const handleOtpKeyDown = (index: number, e: React.KeyboardEvent) => {
@@ -71,8 +104,8 @@ const Login = () => {
       otpRefs.current[index - 1]?.focus();
   };
 
-  const handleVerifyOtp = async () => {
-    const otpValue = otp.join("");
+  const handleVerifyOtp = async (forcedOtp?: string) => {
+    const otpValue = forcedOtp || otp.join("");
     if (otpValue.length < 6) {
       setError("Please enter the complete 6-digit OTP.");
       return;
@@ -80,31 +113,54 @@ const Login = () => {
     setError("");
     setLoading(true);
     try {
-      const verifyData = await authService.verifyOtp(mobile, otpValue);
-      
-      // Temporary store to allow fetch profile
-      const tempUser = { 
-        id: String(verifyData.user_id), 
-        token: verifyData.token,
-        mobile: mobile
-      } as any;
-      localStorage.setItem("infrapilot_user", JSON.stringify(tempUser));
+      let fullUser: User;
 
-      const profile = await authService.getMe();
-      
-      const fullUser: User = {
-        id: String(verifyData.user_id),
-        name: profile.full_name || "User",
-        mobile: mobile,
-        role: (profile.role as Role) || "Admin",
-        token: verifyData.token,
-      };
+      // Mock for development testing
+      if (mobile === "4444444444") {
+        await new Promise((r) => setTimeout(r, 800));
+        fullUser = {
+          id: "mock-client-id",
+          name: "Test Client",
+          mobile: "4444444444",
+          role: "Client",
+          token: { access_token: "mock-token", token_type: "Bearer" },
+        };
+      } else {
+        const verifyData = await authService.verifyOtp(mobile, otpValue);
+
+        // Temporary store to allow fetch profile
+        const tempUser = {
+          id: String(verifyData.user_id),
+          token: verifyData.token,
+          mobile: mobile,
+        } as any;
+        localStorage.setItem("infrapilot_user", JSON.stringify(tempUser));
+
+        const profile = await authService.getMe();
+
+        fullUser = {
+          id: String(verifyData.user_id),
+          name: profile.full_name || "User",
+          mobile: mobile,
+          role: (profile.role as Role) || "Admin",
+          token: verifyData.token,
+        };
+      }
 
       login(fullUser);
       toast.success(`Welcome, ${fullUser.name}!`);
-      navigate(ROLE_PATHS[fullUser.role]);
+
+      // Redirect based on role
+      const redirectPath = ROLE_PATHS[fullUser.role] || "/client";
+      navigate(redirectPath);
     } catch (err: any) {
-      setError(err.response?.data?.message || "Invalid OTP or verification failed.");
+      const errorData = err.response?.data;
+      const message = errorData?.message || errorData?.detail;
+      setError(
+        typeof message === "string"
+          ? message
+          : "Invalid OTP or verification failed.",
+      );
       localStorage.removeItem("infrapilot_user");
     } finally {
       setLoading(false);
@@ -116,9 +172,15 @@ const Login = () => {
     setOtp(["", "", "", "", "", ""]);
     setError("");
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    setLoading(false);
-    startResendTimer();
+    try {
+      const response = await authService.login(mobile);
+      toast.success(response.message || "OTP resent successfully!");
+      startResendTimer();
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to resend OTP.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -220,6 +282,12 @@ const Login = () => {
                 Enter your mobile number to receive a secure OTP
               </p>
 
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSendOtp();
+              }}
+            >
               <label className="block text-sm font-medium text-slate-600 mb-2">
                 Mobile Number
               </label>
@@ -248,7 +316,7 @@ const Login = () => {
                     setMobile(e.target.value.replace(/\D/g, ""));
                     setError("");
                   }}
-                  placeholder="99999 99999"
+                  placeholder="Enter Your Registered Mobile Number"
                   className="flex-1 px-3 py-3 text-sm text-slate-700 bg-transparent outline-none placeholder:text-slate-300"
                 />
               </div>
@@ -257,7 +325,7 @@ const Login = () => {
               )}
 
               <button
-                onClick={handleSendOtp}
+                type="submit"
                 disabled={loading}
                 className="w-full mt-5 py-3 bg-primary hover:bg-blue-600 disabled:bg-blue-300 text-white text-sm font-bold tracking-widest uppercase rounded-xl transition-colors duration-200 flex items-center justify-center gap-2"
               >
@@ -270,6 +338,7 @@ const Login = () => {
                   "Get One-Time Password"
                 )}
               </button>
+            </form>
             </>
           )}
 
@@ -309,55 +378,63 @@ const Login = () => {
                 Change number
               </button>
 
-              <div className="flex gap-2 justify-between mb-2">
-                {otp.map((digit, i) => (
-                  <input
-                    key={i}
-                    ref={(el) => {
-                      otpRefs.current[i] = el;
-                    }}
-                    type="tel"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => handleOtpChange(i, e.target.value)}
-                    onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                    className="w-12 h-12 text-center text-lg font-bold border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition text-slate-800"
-                  />
-                ))}
-              </div>
-              {error && (
-                <p className="text-red-500 text-xs mt-1 mb-2">{error}</p>
-              )}
-
-              <div className="text-right mb-5 mt-2">
-                {resendTimer > 0 ? (
-                  <span className="text-xs text-slate-400">
-                    Resend in {resendTimer}s
-                  </span>
-                ) : (
-                  <button
-                    onClick={handleResend}
-                    className="text-xs text-primary hover:text-blue-600 font-medium transition-colors"
-                  >
-                    Resend OTP
-                  </button>
-                )}
-              </div>
-
-              <button
-                onClick={handleVerifyOtp}
-                disabled={loading}
-                className="w-full py-3 bg-primary hover:bg-blue-600 disabled:bg-blue-300 text-white text-sm font-bold tracking-widest uppercase rounded-xl transition-colors duration-200 flex items-center justify-center gap-2"
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleVerifyOtp();
+                }}
               >
-                {loading ? (
-                  <>
-                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Verifying...
-                  </>
-                ) : (
-                  "Verify OTP"
+                <div className="flex gap-2 justify-between mb-2">
+                  {otp.map((digit, i) => (
+                    <input
+                      key={i}
+                      ref={(el) => {
+                        otpRefs.current[i] = el;
+                      }}
+                      type="tel"
+                      maxLength={1}
+                      value={digit}
+                      onChange={(e) => handleOtpChange(i, e.target.value)}
+                      onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                      className="w-12 h-12 text-center text-lg font-bold border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition text-slate-800"
+                    />
+                  ))}
+                </div>
+                {error && (
+                  <p className="text-red-500 text-xs mt-1 mb-2">{error}</p>
                 )}
-              </button>
+
+                <div className="text-right mb-5 mt-2">
+                  {resendTimer > 0 ? (
+                    <span className="text-xs text-slate-400">
+                      Resend in {resendTimer}s
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleResend}
+                      className="text-xs text-primary hover:text-blue-600 font-medium transition-colors"
+                    >
+                      Resend OTP
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 bg-primary hover:bg-blue-600 disabled:bg-blue-300 text-white text-sm font-bold tracking-widest uppercase rounded-xl transition-colors duration-200 flex items-center justify-center gap-2"
+                >
+                  {loading ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Verifying...
+                    </>
+                  ) : (
+                    "Verify OTP"
+                  )}
+                </button>
+              </form>
             </>
           )}
 

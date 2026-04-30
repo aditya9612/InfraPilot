@@ -8,7 +8,7 @@ export const PROJECTS: Project[] = [
     description: "Wing A Construction - Premium Residential Complex",
     start_date: "2026-04-02",
     end_date: "2027-12-31",
-    status: "Active",
+    status: "Ongoing",
     completion_percentage: 15,
     budget: 45000000,
   },

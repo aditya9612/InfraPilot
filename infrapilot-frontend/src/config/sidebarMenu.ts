@@ -5,12 +5,19 @@ export interface MenuItem {
   path: string;
   icon: string;
   subNav?: MenuItem[];
+  disabled?: boolean;
 }
 
 export const sidebarMenus: Record<Role, MenuItem[]> = {
   Admin: [
     { label: "Dashboard", path: "/admin", icon: "grid" },
     { label: "Projects", path: "/admin/projects", icon: "folder" },
+    {
+      label: "(Coming Soon) Estimates / Invoices",
+      path: "#",
+      icon: "file-text",
+      disabled: true,
+    },
     {
       label: "User & Role Management",
       path: "/admin/users",
@@ -359,5 +366,59 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     },
     { label: "Reports", path: "/accountant/reports", icon: "bar-chart" },
     { label: "Settings", path: "/accountant/settings", icon: "settings" },
+  ],
+  Client: [
+    { label: "Dashboard", path: "/client", icon: "grid" },
+    { label: "Work Progress", path: "/client/progress", icon: "bar-chart" },
+    {
+      label: "Financials",
+      path: "/client/financials",
+      icon: "dollar-sign",
+      subNav: [
+        { label: "Summary", path: "/client/financials", icon: "bar-chart" },
+        { label: "Invoices", path: "/client/financials/invoices", icon: "file-text" },
+        { label: "Payments", path: "/client/financials/payments", icon: "credit-card" },
+      ],
+    },
+    {
+      label: "Site Updates",
+      path: "/client/site-updates",
+      icon: "camera",
+      subNav: [
+        { label: "Daily reports", path: "/client/site-updates/dsr", icon: "clipboard" },
+        { label: "Photos", path: "/client/site-updates/photos", icon: "camera" },
+      ],
+    },
+    { label: "Issues & Risks", path: "/client/issues", icon: "alert-triangle" },
+    { label: "Documents & Drawings", path: "/client/documents", icon: "folder" },
+    {
+      label: "Approvals",
+      path: "/client/approvals",
+      icon: "check-circle",
+      subNav: [
+        { label: "Pending Approvals", path: "/client/approvals/pending", icon: "clock" },
+        { label: "Approved Items", path: "/client/approvals/approved", icon: "check-circle" },
+      ],
+    },
+    {
+      label: "Communication",
+      path: "/client/communication",
+      icon: "message-circle",
+      subNav: [
+        { label: "Messages", path: "/client/communication/messages", icon: "mail" },
+        { label: "Announcements", path: "/client/communication/announcements", icon: "bell" },
+      ],
+    },
+    {
+      label: "Reports",
+      path: "/client/reports",
+      icon: "bar-chart",
+      subNav: [
+        { label: "Monthly Report", path: "/client/reports/progress", icon: "file-text" },
+        { label: "Financial Summary", path: "/client/reports/financial", icon: "dollar-sign" },
+        { label: "Work Summary", path: "/client/reports/work", icon: "activity" },
+      ],
+    },
+    { label: "Settings", path: "/client/settings", icon: "settings" },
   ],
 };

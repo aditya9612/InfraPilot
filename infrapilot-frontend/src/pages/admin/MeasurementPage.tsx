@@ -39,7 +39,7 @@ const MeasurementPage = () => {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        setIsProjectsLoading(true);
+        setIsLoading(true);
         const res = await projectService.getProjects(100);
         const items = Array.isArray(res) ? res : res.items || [];
         setProjects(items);
@@ -49,7 +49,7 @@ const MeasurementPage = () => {
       } catch (error) {
         toast.error("System offline: Project matrix inaccessible");
       } finally {
-        setIsProjectsLoading(false);
+        setIsLoading(false);
       }
     };
     fetchProjects();

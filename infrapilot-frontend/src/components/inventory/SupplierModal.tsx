@@ -24,7 +24,14 @@ export default function SupplierModal({
 
   useEffect(() => {
     if (initialData) {
-      setFormData(initialData);
+      setFormData({
+        name: initialData.name || "",
+        contactPerson: initialData.contactPerson || "",
+        phone: initialData.phone || initialData.contact || "",
+        email: initialData.email || "",
+        gst: initialData.gst || "",
+        address: initialData.address || "",
+      });
     } else {
       setFormData({
         name: "",
@@ -37,30 +44,68 @@ export default function SupplierModal({
     }
   }, [initialData, isOpen]);
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   if (!isOpen) return null;
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
-    const { name, value } = e.target;
+    let { name, value } = e.target;
+    if (name === "contactPerson") {
+      value = value.replace(/[^a-zA-Z\s]/g, "");
+    } else if (name === "phone") {
+      value = value.replace(/[^\d]/g, "").slice(0, 10);
+    }
     setFormData((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.name.trim()) newErrors.name = "Supplier name is required.";
+    if (!formData.contactPerson.trim()) newErrors.contactPerson = "Contact person is required.";
+    if (!formData.phone.trim()) newErrors.phone = "Phone number is required.";
+    else if (formData.phone.length !== 10) newErrors.phone = "Phone must be 10 digits.";
+    
+    if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = "Invalid email format.";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    setErrors({});
     onSubmit(formData);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm transition-opacity">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h2 className="text-xl font-bold text-slate-800">
-            {initialData ? "Edit Supplier" : "Add New Supplier"}
-          </h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm transition-opacity font-inter">
+      <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-100 flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-white shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-800 tracking-tight">
+                {initialData ? "Edit Supplier" : "Register New Supplier"}
+              </h2>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-widest mt-0.5">
+                Supplier Database Management
+              </p>
+            </div>
+          </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl transition-colors"
           >
             <svg
               className="w-5 h-5"
@@ -71,115 +116,138 @@ export default function SupplierModal({
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeWidth="2"
+                strokeWidth="2.5"
                 d="M6 18L18 6M6 6l12 12"
               />
             </svg>
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-1 md:col-span-2">
-              <label className="block text-sm font-semibold text-slate-700">
-                Company Name *
-              </label>
-              <input
-                required
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
-                placeholder="e.g. UltraTech Cement Ltd"
-              />
+        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-6 custom-scrollbar">
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-1 h-6 bg-primary rounded-full"></div>
+              <h3 className="font-semibold text-gray-700">Business Identity</h3>
             </div>
 
-            <div className="space-y-1">
-              <label className="block text-sm font-semibold text-slate-700">
-                Contact Person
-              </label>
-              <input
-                type="text"
-                name="contactPerson"
-                value={formData.contactPerson}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
-                placeholder="John Doe"
-              />
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-600 mb-1">
+                  Supplier / Agency Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-2 bg-gray-50 border rounded-xl focus:ring-4 transition-all text-sm outline-none ${
+                    errors.name 
+                      ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" 
+                      : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                  }`}
+                  placeholder="e.g. Asian Paints Dealer"
+                />
+                {errors.name && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.name}</p>}
+              </div>
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-600 mb-1">
+                  Contact Person <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="contactPerson"
+                  value={formData.contactPerson}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-2 bg-gray-50 border rounded-xl focus:ring-4 transition-all text-sm outline-none ${
+                    errors.contactPerson 
+                      ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" 
+                      : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                  }`}
+                  placeholder="e.g. Rajesh Kumar"
+                />
+                {errors.contactPerson && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.contactPerson}</p>}
+              </div>
 
-            <div className="space-y-1">
-              <label className="block text-sm font-semibold text-slate-700">
-                Phone *
-              </label>
-              <input
-                required
-                type="tel"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
-                placeholder="+91 98765 43210"
-              />
-            </div>
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-600 mb-1">
+                  Phone Number <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="tel"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-2 bg-gray-50 border rounded-xl focus:ring-4 transition-all text-sm outline-none ${
+                    errors.phone 
+                      ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" 
+                      : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                  }`}
+                  placeholder="9876543210"
+                />
+                {errors.phone && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.phone}</p>}
+              </div>
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-600 mb-1">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-2 bg-gray-50 border rounded-xl focus:ring-4 transition-all text-sm outline-none ${
+                    errors.email 
+                      ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" 
+                      : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                  }`}
+                  placeholder="e.g. contact@supplier.com"
+                />
+                {errors.email && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.email}</p>}
+              </div>
 
-            <div className="space-y-1">
-              <label className="block text-sm font-semibold text-slate-700">
-                Email
-              </label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
-                placeholder="contact@company.com"
-              />
-            </div>
+              <div className="md:col-span-2 space-y-1">
+                <label className="block text-sm font-medium text-gray-600 mb-1">
+                  GST Number (Optional)
+                </label>
+                <input
+                  type="text"
+                  name="gst"
+                  value={formData.gst}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all text-sm outline-none uppercase"
+                  placeholder="e.g. 27AAAAA0000A1Z5"
+                />
+              </div>
 
-            <div className="space-y-1">
-              <label className="block text-sm font-semibold text-slate-700">
-                GST Number
-              </label>
-              <input
-                type="text"
-                name="gst"
-                value={formData.gst}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
-                placeholder="22AAAAA0000A1Z5"
-              />
-            </div>
-
-            <div className="space-y-1 md:col-span-2">
-              <label className="block text-sm font-semibold text-slate-700">
-                Registered Address
-              </label>
-              <textarea
-                name="address"
-                value={formData.address}
-                onChange={handleChange}
-                rows={3}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
-                placeholder="Full address"
-              />
+              <div className="md:col-span-2 space-y-1">
+                <label className="block text-sm font-medium text-gray-600 mb-1">
+                  Office Address
+                </label>
+                <textarea
+                  name="address"
+                  value={formData.address}
+                  onChange={handleChange}
+                  rows={2}
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all text-sm outline-none resize-none"
+                  placeholder="e.g. Mumbai, Maharashtra"
+                />
+              </div>
             </div>
           </div>
 
-          <div className="mt-8 flex items-center justify-end gap-3 pt-6 border-t border-slate-100">
+          <div className="pt-2 flex gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+              className="flex-1 px-4 py-2.5 bg-gray-50 text-gray-600 rounded-xl text-sm font-semibold border border-gray-200 hover:bg-gray-100 transition-all"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-5 py-2.5 text-sm font-semibold text-white bg-primary hover:bg-blue-600 rounded-xl shadow-lg shadow-primary/20 transition-all"
+              className="flex-1 px-8 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center justify-center gap-2 active:scale-95"
             >
-              {initialData ? "Update Supplier" : "Add Supplier"}
+              {initialData ? "Update Supplier Info" : "Register Supplier"}
             </button>
           </div>
         </form>
@@ -187,3 +255,4 @@ export default function SupplierModal({
     </div>
   );
 }
+

@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL;
+export const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -36,9 +36,12 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Re-enabled: Clear session on authentication failure to allow fresh login
-      localStorage.removeItem('infrapilot_user');
-      window.location.href = '/login';
+      const path = window.location.pathname;
+      // Don't redirect if we're already on the login page or root (which shows login)
+      if (path !== '/login' && path !== '/') {
+        localStorage.removeItem('infrapilot_user');
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   },

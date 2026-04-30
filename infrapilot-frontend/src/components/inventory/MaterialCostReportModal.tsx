@@ -72,9 +72,9 @@ const MaterialCostReportModal = ({
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-slate-800 text-white shadow-xl rounded-lg p-3 border border-slate-700/50">
-          <p className="font-bold text-sm mb-1">{payload[0].name}</p>
-          <p className="text-emerald-400 font-bold text-base">
+        <div className="bg-slate-900/90 backdrop-blur-md text-white shadow-2xl rounded-2xl p-4 border border-white/10">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{payload[0].name}</p>
+          <p className="text-xl font-black text-white">
             ₹{payload[0].value.toLocaleString()}
           </p>
         </div>
@@ -84,24 +84,25 @@ const MaterialCostReportModal = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200 font-inter">
+      <div className="bg-white rounded-[40px] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.14)] w-full max-w-6xl overflow-hidden flex flex-col max-h-[95vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50">
-          <div>
-            <h2 className="text-xl font-bold text-slate-800">
-              Material Cost & Expense Report
+        <div className="flex items-center justify-between px-10 py-8 border-b border-slate-100 bg-slate-900 text-white relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-primary/20 rounded-full blur-[100px] -mr-48 -mt-48" />
+          <div className="relative z-10">
+            <h2 className="text-2xl font-black tracking-tight">
+              Inventory Financial Analysis
             </h2>
-            <p className="text-xs font-semibold text-slate-500 mt-1">
-              Aggregated breakdown across all active inventory items.
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
+                Real-time Asset Valuation & Cost Distribution
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"
+            className="p-3 text-slate-400 hover:text-white hover:bg-white/10 rounded-2xl transition-all relative z-10"
           >
             <svg
-              className="w-5 h-5"
+              className="w-6 h-6"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -117,67 +118,49 @@ const MaterialCostReportModal = ({
         </div>
 
         {/* Content Body */}
-        <div className="p-6 overflow-y-auto bg-slate-50 flex-1">
+        <div className="p-10 overflow-y-auto bg-slate-50 flex-1 scrollbar-hide">
           {/* Top Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-emerald-100 border-l-4 border-l-emerald-500 flex items-center gap-4">
-              <div className="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-xl flex items-center justify-center font-black text-xl">
-                ₹
-              </div>
-              <div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                  Total Valuation
-                </p>
-                <p className="text-2xl font-black text-slate-800">
-                  ₹{(totalExpense / 100000).toFixed(2)}
-                  <span className="text-sm font-bold text-slate-500">L</span>
-                </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
+            <div className="bg-slate-900 p-8 rounded-[32px] shadow-2xl relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 relative z-10">Total Inventory Value</p>
+              <div className="flex items-baseline gap-1 relative z-10">
+                <span className="text-3xl font-black text-white">₹{(totalExpense / 100000).toFixed(2)}</span>
+                <span className="text-sm font-bold text-emerald-400 uppercase">Lacs</span>
               </div>
             </div>
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-blue-100 border-l-4 border-l-blue-500 flex items-center gap-4">
-              <div className="w-12 h-12 bg-blue-50 text-blue-500 rounded-xl flex items-center justify-center font-black text-xl">
-                📦
-              </div>
-              <div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                  Categories
-                </p>
-                <p className="text-2xl font-black text-slate-800">
-                  {categoryData.length}
-                </p>
-              </div>
+
+            <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-200 relative overflow-hidden group">
+               <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 relative z-10">Material Categories</p>
+               <p className="text-3xl font-black text-slate-900 relative z-10">{categoryData.length}</p>
             </div>
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-amber-100 border-l-4 border-l-amber-500 flex items-center gap-4">
-              <div className="w-12 h-12 bg-amber-50 text-amber-500 rounded-xl flex items-center justify-center font-black text-xl">
-                🏗️
-              </div>
-              <div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                  Active Sites
-                </p>
-                <p className="text-2xl font-black text-slate-800">
-                  {projectData.length}
-                </p>
-              </div>
+
+            <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-200 relative overflow-hidden group">
+               <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 relative z-10">Strategic Sites</p>
+               <p className="text-3xl font-black text-slate-900 relative z-10">{projectData.length}</p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
             {/* Category Pie Chart */}
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col">
-              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-6 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-blue-500"></span>{" "}
-                Category-wise Distribution
-              </h3>
-              <div className="h-[300px] w-full flex-1">
+            <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-100 flex flex-col min-h-[450px]">
+              <div className="flex items-center justify-between mb-8">
+                <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                    Asset Distribution
+                </h3>
+              </div>
+              <div className="flex-1 w-full">
                 {categoryData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={100}>
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <PieChart>
                       <Pie
                         data={categoryData}
-                        innerRadius={70}
-                        outerRadius={110}
-                        paddingAngle={5}
+                        innerRadius={80}
+                        outerRadius={120}
+                        paddingAngle={8}
                         dataKey="value"
                         stroke="none"
                       >
@@ -192,50 +175,45 @@ const MaterialCostReportModal = ({
                       <Legend
                         verticalAlign="bottom"
                         iconType="circle"
-                        wrapperStyle={{
-                          fontSize: "12px",
-                          fontWeight: "bold",
-                          color: "#64748b",
-                        }}
+                        formatter={(value) => <span className="text-[10px] font-black text-slate-500 uppercase tracking-tight">{value}</span>}
+                        wrapperStyle={{ paddingTop: "20px" }}
                       />
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="h-full flex items-center justify-center text-slate-400 text-sm font-medium">
-                    No category data available
+                  <div className="h-full flex items-center justify-center text-slate-400 text-xs font-bold uppercase tracking-widest">
+                    Insufficient Data
                   </div>
                 )}
               </div>
             </div>
 
             {/* Project Bar Chart */}
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col">
-              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-6 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>{" "}
-                Project-wise Allocation
-              </h3>
-              <div className="h-[300px] w-full flex-1">
+            <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-100 flex flex-col min-h-[450px]">
+              <div className="flex items-center justify-between mb-8">
+                <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Project Valuations
+                </h3>
+              </div>
+              <div className="flex-1 w-full">
                 {projectData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={100}>
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <BarChart
                       data={projectData}
-                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                       layout="vertical"
+                      margin={{ left: 20, right: 20 }}
                     >
                       <CartesianGrid
-                        strokeDasharray="3 3"
-                        horizontal={true}
-                        vertical={false}
+                        strokeDasharray="4 4"
+                        horizontal={false}
+                        vertical={true}
                         stroke="#f1f5f9"
                       />
                       <XAxis
                         type="number"
                         tickFormatter={(value) => `₹${value / 1000}k`}
-                        tick={{
-                          fill: "#94a3b8",
-                          fontSize: 10,
-                          fontWeight: "bold",
-                        }}
+                        tick={{ fill: "#94a3b8", fontSize: 9, fontWeight: 900 }}
                         axisLine={false}
                         tickLine={false}
                       />
@@ -243,23 +221,16 @@ const MaterialCostReportModal = ({
                         type="category"
                         dataKey="name"
                         width={100}
-                        tick={{
-                          fill: "#64748b",
-                          fontSize: 10,
-                          fontWeight: "bold",
-                        }}
+                        tick={{ fill: "#64748b", fontSize: 9, fontWeight: "black" }}
                         axisLine={false}
                         tickLine={false}
                       />
-                      <Tooltip
-                        content={<CustomTooltip />}
-                        cursor={{ fill: "#f8fafc" }}
-                      />
+                      <Tooltip content={<CustomTooltip />} cursor={{ fill: "#f8fafc" }} />
                       <Bar
                         dataKey="value"
                         fill="#10b981"
-                        radius={[0, 4, 4, 0]}
-                        maxBarSize={40}
+                        radius={[0, 12, 12, 0]}
+                        maxBarSize={32}
                       >
                         {projectData.map((_entry, index) => (
                           <Cell
@@ -271,8 +242,8 @@ const MaterialCostReportModal = ({
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="h-full flex items-center justify-center text-slate-400 text-sm font-medium">
-                    No project data available
+                  <div className="h-full flex items-center justify-center text-slate-400 text-xs font-bold uppercase tracking-widest">
+                    Insufficient Data
                   </div>
                 )}
               </div>

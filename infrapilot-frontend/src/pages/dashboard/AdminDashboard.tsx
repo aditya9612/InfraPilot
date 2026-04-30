@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { exportToCSV } from "../../utils/csvExport";
 import {
   LineChart,
   Line,
@@ -21,6 +23,7 @@ import CreateBOQModal from "../../components/forms/CreateBOQModal";
 import CreateReportModal from "../../components/dashboard/CreateReportModal";
 import { projectService } from "../../services/projectService";
 import { boqService } from "../../services/boqService";
+import { userService } from "../../services/userService";
 import type { Project, ProjectStatus } from "../../types/project";
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
@@ -36,7 +39,7 @@ const budgetData = [
 // ─── Styling Helpers ──────────────────────────────────────────────────────────
 const statusBadge: Record<ProjectStatus, string> = {
   Planned: "bg-slate-100 text-slate-500",
-  Active: "bg-green-100 text-success",
+  Ongoing: "bg-green-100 text-success",
   Delayed: "bg-red-100 text-danger",
   Completed: "bg-blue-100 text-primary",
   "On Hold": "bg-amber-100 text-warning",
@@ -44,7 +47,7 @@ const statusBadge: Record<ProjectStatus, string> = {
 
 const statusDot: Record<ProjectStatus, string> = {
   Planned: "bg-slate-400",
-  Active: "bg-success",
+  Ongoing: "bg-success",
   Delayed: "bg-danger",
   Completed: "bg-primary",
   "On Hold": "bg-warning",
@@ -52,7 +55,7 @@ const statusDot: Record<ProjectStatus, string> = {
 
 const progressPulse: Record<ProjectStatus, string> = {
   Planned: "bg-slate-300",
-  Active: "bg-success",
+  Ongoing: "bg-success",
   Delayed: "bg-danger",
   Completed: "bg-primary",
   "On Hold": "bg-warning",
@@ -67,13 +70,14 @@ const AdminDashboard = () => {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [alerts, setAlerts] = useState<any[]>([]);
+  const [projectAlertsData, setProjectAlertsData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchDashboardData = useCallback(async () => {
     try {
       setIsLoading(true);
       const [pData, pAlerts, tAlerts] = await Promise.all([
-        projectService.getProjects(10, 0),
+        projectService.getProjects(100, 0),
         projectService.getProjectAlerts().catch(() => []),
         projectService.getTaskAlerts().catch(() => []),
       ]);
@@ -82,6 +86,7 @@ const AdminDashboard = () => {
         ? pData
         : pData.items || pData.data || [];
       setProjects(projectsList);
+      setProjectAlertsData(Array.isArray(pAlerts) ? pAlerts : []);
 
       // Combine alerts for activity feed
       const combinedAlerts = [
@@ -89,7 +94,12 @@ const AdminDashboard = () => {
         ...(Array.isArray(tAlerts) ? tAlerts : []),
       ].map((a: any) => ({
         user: a.user_name || "System",
-        action: a.message || a.detail || "Alert reported",
+        action:
+          a.message ||
+          a.detail ||
+          (a.project_name
+            ? `${a.project_name} is ${a.status}`
+            : "Alert reported"),
         time: a.created_at
           ? new Date(a.created_at).toLocaleTimeString()
           : "Recent",
@@ -108,12 +118,51 @@ const AdminDashboard = () => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  const handleCreateUser = (userData: any) => {
-    console.log("New User Data:", userData);
+  const navigate = useNavigate();
+
+  const handleViewProject = (id: number) => {
+    navigate(`/admin/projects/${id}`);
   };
 
-  const handleCreateProject = () => {
-    fetchDashboardData();
+  const handleDownloadCSV = () => {
+    const csvData = projects.map((p) => ({
+      project_name: p.project_name,
+      start_date: p.start_date,
+      end_date: p.end_date,
+      status: p.status,
+      completion: `${p.completion_percentage}%`,
+      efficiency_score: "92.4",
+    }));
+    exportToCSV(csvData, "master_projects_overview.csv", {
+      project_name: "Site / Project",
+      start_date: "Start Date",
+      end_date: "End Date",
+      status: "Health",
+      completion: "Total Progress",
+      efficiency_score: "Efficiency Score",
+    });
+  };
+
+  const handleCreateUser = async (userData: any) => {
+    try {
+      await userService.createUser(userData);
+      toast.success("User created successfully!");
+      setIsUserModalOpen(false);
+      fetchDashboardData(); // Refresh stats
+    } catch (error) {
+      toast.error("Failed to create user");
+    }
+  };
+
+  const handleCreateProject = async (projectData: any) => {
+    try {
+      await projectService.createProject(projectData);
+      toast.success("Project created successfully!");
+      setIsNewProjectModalOpen(false);
+      fetchDashboardData();
+    } catch (error) {
+      toast.error("Failed to create project");
+    }
   };
 
   const handleCreateBOQ = async (boqData: any) => {
@@ -129,7 +178,7 @@ const AdminDashboard = () => {
   // Dynamic Statistics
   const stats = {
     total: projects.length,
-    active: projects.filter((p) => p.status === "Active").length,
+    active: projects.filter((p) => p.status === "Ongoing").length,
     completed: projects.filter((p) => p.status === "Completed").length,
     delayed: projects.filter((p) => p.status === "Delayed").length,
   };
@@ -193,7 +242,7 @@ const AdminDashboard = () => {
               accent="text-primary"
             />
             <StatCard
-              title="Active Projects"
+              title="Ongoing Projects"
               value={String(stats.active)}
               sub="On-going sites"
               accent="text-blue-500"
@@ -286,7 +335,12 @@ const AdminDashboard = () => {
             </div>
             <div className="h-[300px] w-full">
               {!isLoading ? (
-                <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={100}>
+                <ResponsiveContainer
+                  width="100%"
+                  height="100%"
+                  minWidth={0}
+                  debounce={100}
+                >
                   <LineChart
                     data={budgetData}
                     margin={{ top: 5, right: 10, left: 10, bottom: 0 }}
@@ -356,7 +410,9 @@ const AdminDashboard = () => {
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
                   <div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin mb-4" />
-                  <p className="text-xs font-bold uppercase tracking-widest">Loading Analytics...</p>
+                  <p className="text-xs font-bold uppercase tracking-widest">
+                    Loading Analytics...
+                  </p>
                 </div>
               )}
             </div>
@@ -429,29 +485,39 @@ const AdminDashboard = () => {
               <span className="text-red-500 font-bold">⚠️</span>
               <h2 className="font-bold text-slate-800">Critical Alerts</h2>
             </div>
-            <div className="space-y-4">
-              <div className="p-3 bg-red-50 rounded-xl flex items-start gap-3">
-                <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5" />
-                <div className="flex-1">
-                  <p className="text-xs font-bold text-red-900">
-                    Budget Exceeded: SARA CITY
-                  </p>
-                  <p className="text-[10px] text-red-600">
-                    Material costs spiking by 12% in current phase.
+            <div className="space-y-4 max-h-[250px] overflow-y-auto pr-1 custom-scrollbar">
+              {projectAlertsData.length === 0 ? (
+                <div className="text-center py-6">
+                  <p className="text-2xl mb-1">✅</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    All Projects Healthy
                   </p>
                 </div>
-              </div>
-              <div className="p-3 bg-amber-50 rounded-xl flex items-start gap-3">
-                <div className="w-2 h-2 rounded-full bg-amber-500 mt-1.5" />
-                <div className="flex-1">
-                  <p className="text-xs font-bold text-amber-900">
-                    Pending Safety Approval
-                  </p>
-                  <p className="text-[10px] text-amber-600">
-                    Site Engineer Ravi awaiting signature for BOQ-22.
-                  </p>
-                </div>
-              </div>
+              ) : (
+                projectAlertsData.map((alert, i) => (
+                  <div
+                    key={i}
+                    className="p-3 bg-red-50 rounded-xl flex items-start gap-3 border border-red-100/50 hover:bg-red-100/50 transition-all cursor-pointer"
+                    onClick={() => handleViewProject(alert.project_id)}
+                  >
+                    <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5 animate-pulse" />
+                    <div className="flex-1">
+                      <p className="text-xs font-bold text-red-900 flex justify-between items-center">
+                        {alert.project_name}
+                        <span className="text-[8px] px-1.5 py-0.5 bg-red-100 text-red-600 rounded">
+                          {alert.status}
+                        </span>
+                      </p>
+                      <p className="text-[10px] text-red-600 mt-0.5">
+                        Delayed since:{" "}
+                        {alert.end_date
+                          ? new Date(alert.end_date).toLocaleDateString()
+                          : "TBD"}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -562,7 +628,23 @@ const AdminDashboard = () => {
             <h2 className="font-bold text-slate-800">
               Master Projects Overview
             </h2>
-            <button className="text-xs text-primary font-bold hover:underline">
+            <button
+              onClick={handleDownloadCSV}
+              className="flex items-center gap-1.5 text-xs text-primary font-bold hover:underline transition-colors"
+            >
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
               Download CSV
             </button>
           </div>
@@ -600,7 +682,8 @@ const AdminDashboard = () => {
                   projects.map((p, i) => (
                     <tr
                       key={i}
-                      className="hover:bg-slate-50/50 transition-colors group"
+                      onClick={() => handleViewProject(p.id)}
+                      className="hover:bg-slate-50/50 transition-colors group cursor-pointer"
                     >
                       <td className="px-6 py-4 font-bold text-slate-700">
                         {p.project_name}
@@ -642,7 +725,6 @@ const AdminDashboard = () => {
 
       <CreateUserModal
         isOpen={isUserModalOpen}
-        projects={projects}
         onClose={() => setIsUserModalOpen(false)}
         onSubmit={handleCreateUser}
       />

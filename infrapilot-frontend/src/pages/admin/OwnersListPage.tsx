@@ -59,12 +59,12 @@ const Field = ({
   placeholder?: string;
   type?: string;
 }) => (
-  <div>
+  <div className="space-y-1">
     <label
       htmlFor={id}
-      className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5"
+      className="block text-sm font-medium text-gray-600 mb-1"
     >
-      {label} <span className="text-rose-500 font-bold">*</span>
+      {label} <span className="text-rose-500">*</span>
     </label>
     <input
       id={id}
@@ -72,13 +72,13 @@ const Field = ({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className={`w-full px-4 py-2.5 bg-slate-50/50 border rounded-2xl text-sm font-bold focus:outline-none focus:ring-4 transition-all shadow-inner ${
+      className={`w-full px-4 py-2.5 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all ${
         error
           ? "border-rose-100 focus:ring-rose-50 bg-rose-50/30"
-          : "border-slate-100 focus:ring-primary/5 focus:border-primary/30 hover:bg-white"
+          : "border-gray-200 focus:ring-primary/10 focus:border-primary"
       }`}
     />
-    {error && <p className="mt-1.5 text-[11px] text-rose-500 font-bold">{error}</p>}
+    {error && <p className="mt-1 text-[11px] text-rose-500 font-medium">{error}</p>}
   </div>
 );
 
@@ -211,7 +211,13 @@ export default function OwnersListPage() {
   };
 
   const handleChange = (field: keyof Omit<Owner, "id">) => (value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    let finalValue = value;
+    if (field === "name") {
+      finalValue = value.replace(/[^a-zA-Z\s]/g, "");
+    } else if (field === "mobile") {
+      finalValue = value.replace(/[^\d]/g, "").slice(0, 10);
+    }
+    setForm((prev) => ({ ...prev, [field]: finalValue }));
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
   };
 
@@ -400,121 +406,134 @@ export default function OwnersListPage() {
       {/* Add / Edit Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-white/20 font-inter">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col border border-slate-100 font-inter scale-in-center">
             {/* Header */}
-            <div className="flex items-start justify-between p-10 pb-6">
-              <div>
-                <h3 className="text-3xl font-black text-slate-800 tracking-tight leading-none mb-3">
-                  {editTarget ? "Update Record" : "New Registration"}
-                </h3>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
-                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">
-                    Live Broadcast Authentication
+            <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-white shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-800 tracking-tight leading-none">
+                    {editTarget ? "Update Owner Record" : "Register New Owner"}
+                  </h3>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-widest mt-1.5">
+                    Stakeholder Directory Management
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="p-3 text-slate-300 hover:text-slate-600 hover:bg-slate-50 rounded-[1.2rem] transition-all"
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl transition-all"
               >
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" />
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
             {/* Body */}
-            <div className="p-10 pt-4 space-y-8">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                <Field
-                  label="Full Legal Name"
-                  id="name"
-                  value={form.name}
-                  onChange={handleChange("name")}
-                  error={errors.name}
-                  placeholder="e.g. Vikramaditya Singh"
-                />
-                <Field
-                  label="Contact Mobile"
-                  id="mobile"
-                  value={form.mobile}
-                  onChange={handleChange("mobile")}
-                  error={errors.mobile}
-                  placeholder="10-digit primary sequence"
-                />
-              </div>
-
-              <Field
-                label="Digital Coordinate (Email)"
-                id="email"
-                type="email"
-                value={form.email}
-                onChange={handleChange("email")}
-                error={errors.email}
-                placeholder="e.g. v.singh@corporate.in"
-              />
-
-              <Field
-                label="Financial Identity (PAN)"
-                id="pan"
-                value={form.pan}
-                onChange={(v) => handleChange("pan")(v.toUpperCase())}
-                error={errors.pan}
-                placeholder="Format: ABCDE1234F"
-              />
-
+            <div className="p-6 overflow-y-auto space-y-6 custom-scrollbar">
               <div>
-                <label
-                  htmlFor="address"
-                  className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5"
-                >
-                  Operational Coordinates{" "}
-                  <span className="text-rose-500 font-bold">*</span>
-                </label>
-                <textarea
-                  id="address"
-                  value={form.address}
-                  onChange={(e) => handleChange("address")(e.target.value)}
-                  rows={3}
-                  placeholder="Complete physical or business address..."
-                  className={`w-full px-5 py-4 border-2 rounded-[1.5rem] text-sm font-bold focus:outline-none focus:ring-8 transition-all resize-none shadow-inner ${
-                    errors.address
-                      ? "border-rose-100 focus:ring-rose-50 bg-rose-50/30"
-                      : "border-slate-50 focus:ring-primary/5 bg-slate-50/50 hover:bg-white transition-colors"
-                  }`}
-                />
-                {errors.address && (
-                  <p className="mt-2 text-xs text-rose-500 font-bold flex items-center gap-1 uppercase tracking-tighter">
-                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                    Coordinate error
-                  </p>
-                )}
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-1 h-6 bg-primary rounded-full"></div>
+                  <h3 className="font-semibold text-gray-700">Stakeholder Information</h3>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Field
+                    label="Full Legal Name"
+                    id="name"
+                    value={form.name}
+                    onChange={handleChange("name")}
+                    error={errors.name}
+                    placeholder="e.g. Vikramaditya Singh"
+                  />
+                  <Field
+                    label="Contact Mobile"
+                    id="mobile"
+                    value={form.mobile}
+                    onChange={handleChange("mobile")}
+                    error={errors.mobile}
+                    placeholder="10-digit primary sequence"
+                  />
+                  
+                  <div className="sm:col-span-2">
+                    <Field
+                      label="Email Address"
+                      id="email"
+                      type="email"
+                      value={form.email}
+                      onChange={handleChange("email")}
+                      error={errors.email}
+                      placeholder="e.g. v.singh@corporate.in"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <Field
+                      label="Financial Identity (PAN)"
+                      id="pan"
+                      value={form.pan}
+                      onChange={(v) => handleChange("pan")(v.toUpperCase())}
+                      error={errors.pan}
+                      placeholder="Format: ABCDE1234F"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2 space-y-1">
+                    <label
+                      htmlFor="address"
+                      className="block text-sm font-medium text-gray-600 mb-1"
+                    >
+                      Permanent Address <span className="text-rose-500">*</span>
+                    </label>
+                    <textarea
+                      id="address"
+                      value={form.address}
+                      onChange={(e) => handleChange("address")(e.target.value)}
+                      rows={3}
+                      placeholder="Complete physical or business address..."
+                      className={`w-full px-4 py-2.5 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all resize-none ${
+                        errors.address
+                          ? "border-rose-100 focus:ring-rose-50 bg-rose-50/30"
+                          : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                      }`}
+                    />
+                    {errors.address && (
+                      <p className="mt-1 text-[11px] text-rose-500 font-medium">
+                        {errors.address}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-end gap-4 px-10 py-8 border-t border-slate-50 bg-[#fbfcff] rounded-b-[2.5rem]">
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-100 bg-white shrink-0">
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="px-8 py-3 text-sm font-black text-slate-400 hover:text-slate-600 transition-all rounded-xl hover:bg-slate-100"
+                className="px-6 py-2.5 text-sm font-semibold text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-xl transition-all border border-gray-200"
               >
-                Abort
+                Cancel
               </button>
               <button
                 onClick={handleSave}
                 disabled={isSaving}
-                className="px-12 py-3.5 bg-primary text-white rounded-2xl text-sm font-black shadow-2xl shadow-primary/30 hover:bg-blue-600 hover:-translate-y-1 transition-all active:scale-[0.98] disabled:opacity-50 disabled:translate-y-0"
+                className="px-8 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50"
               >
                 {isSaving ? (
-                   <div className="flex items-center gap-3">
+                   <div className="flex items-center gap-2">
                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                     Synchronizing...
+                     Processing...
                    </div>
                 ) : editTarget ? (
-                  "Authorize Update"
+                  "Update Profile"
                 ) : (
-                  "Authorize Broadcast"
+                  "Register Owner"
                 )}
               </button>
             </div>
