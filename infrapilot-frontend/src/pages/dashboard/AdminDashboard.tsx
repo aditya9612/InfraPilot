@@ -291,68 +291,68 @@ const AdminDashboard = () => {
                     data={budgetData}
                     margin={{ top: 5, right: 10, left: 10, bottom: 0 }}
                   >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    vertical={false}
-                    stroke="#f1f5f9"
-                  />
-                  <XAxis
-                    dataKey="month"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: "#94a3b8", fontSize: 12 }}
-                    dy={10}
-                  />
-                  <YAxis
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: "#94a3b8", fontSize: 12 }}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: "12px",
-                      border: "none",
-                      boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
-                    }}
-                  />
-                  <Legend
-                    iconType="circle"
-                    wrapperStyle={{ paddingTop: "20px" }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="budget"
-                    stroke="#2563EB"
-                    strokeWidth={3}
-                    dot={{ fill: "#2563EB", strokeWidth: 2, r: 4 }}
-                    activeDot={{ r: 6, strokeWidth: 0 }}
-                    name="Planned Budget"
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="actual"
-                    stroke="#F43F5E"
-                    strokeWidth={3}
-                    dot={{ fill: "#F43F5E", strokeWidth: 2, r: 4 }}
-                    activeDot={{ r: 6, strokeWidth: 0 }}
-                    name="Actual Cost"
-                  />
-                  {/* Highlight Over Budget Areas in Red */}
-                  <ReferenceArea
-                    x1="Feb"
-                    x2="Apr"
-                    fill="#fee2e2"
-                    fillOpacity={0.3}
-                    label={{
-                      position: "top",
-                      value: "Over Budget",
-                      fill: "#ef4444",
-                      fontSize: 10,
-                      fontWeight: "bold",
-                    }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      stroke="#f1f5f9"
+                    />
+                    <XAxis
+                      dataKey="month"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: "#94a3b8", fontSize: 12 }}
+                      dy={10}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: "#94a3b8", fontSize: 12 }}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: "12px",
+                        border: "none",
+                        boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
+                      }}
+                    />
+                    <Legend
+                      iconType="circle"
+                      wrapperStyle={{ paddingTop: "20px" }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="budget"
+                      stroke="#2563EB"
+                      strokeWidth={3}
+                      dot={{ fill: "#2563EB", strokeWidth: 2, r: 4 }}
+                      activeDot={{ r: 6, strokeWidth: 0 }}
+                      name="Planned Budget"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="actual"
+                      stroke="#F43F5E"
+                      strokeWidth={3}
+                      dot={{ fill: "#F43F5E", strokeWidth: 2, r: 4 }}
+                      activeDot={{ r: 6, strokeWidth: 0 }}
+                      name="Actual Cost"
+                    />
+                    {/* Highlight Over Budget Areas in Red */}
+                    <ReferenceArea
+                      x1="Feb"
+                      x2="Apr"
+                      fill="#fee2e2"
+                      fillOpacity={0.3}
+                      label={{
+                        position: "top",
+                        value: "Over Budget",
+                        fill: "#ef4444",
+                        fontSize: 10,
+                        fontWeight: "bold",
+                      }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
                   <div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin mb-4" />
@@ -371,11 +371,10 @@ const AdminDashboard = () => {
                   <button
                     key={tab}
                     onClick={() => setActivityFilter(tab)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
-                      activityFilter === tab
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${activityFilter === tab
                         ? "bg-primary text-white shadow-md shadow-primary/20"
                         : "bg-slate-50 text-slate-500 hover:bg-slate-100"
-                    }`}
+                      }`}
                   >
                     {tab.toUpperCase()}
                   </button>
@@ -394,13 +393,12 @@ const AdminDashboard = () => {
                 alerts.map((act, i) => (
                   <div key={i} className="flex gap-4 group">
                     <div
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                        act.type === "alert"
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${act.type === "alert"
                           ? "bg-red-50 text-red-500"
                           : act.type === "money"
                             ? "bg-green-50 text-green-500"
                             : "bg-blue-50 text-blue-500"
-                      }`}
+                        }`}
                     >
                       {act.type === "task" && "✔"}
                       {act.type === "money" && "₹"}
