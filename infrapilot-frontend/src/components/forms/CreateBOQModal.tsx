@@ -88,6 +88,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
       case 'quantity':
         if (!value) error = 'Quantity is required.';
         else if (isNaN(Number(value)) || Number(value) <= 0) error = 'Enter a valid quantity greater than 0.';
+        else if (!/^\d+$/.test(value.toString())) error = 'Quantity must be a whole number.';
         break;
       case 'unit':
         if (!value) error = 'Please select a unit.';
@@ -95,6 +96,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
       case 'unit_cost':
         if (!value) error = 'Unit cost is required.';
         else if (isNaN(Number(value)) || Number(value) <= 0) error = 'Enter a valid unit cost.';
+        else if (!/^\d+$/.test(value.toString())) error = 'Unit cost must be a whole number.';
         break;
       default:
         break;
@@ -108,6 +110,8 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
     // Restriction: Only alphabets and spaces for item_name
     if (name === 'item_name') {
       value = value.replace(/[^a-zA-Z\s]/g, '');
+    } else if (name === 'quantity' || name === 'unit_cost') {
+      value = value.replace(/[^\d]/g, '');
     }
 
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -256,12 +260,11 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Quantity <span className="text-rose-500">*</span></label>
             <input
-              type="number"
+              type="text"
               name="quantity"
               value={formData.quantity}
               onChange={handleChange}
-              placeholder="0.00"
-              step="0.01"
+              placeholder="0"
               className={`w-full px-4 py-2.5 bg-white border ${errors.quantity ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all`}
             />
             {errors.quantity && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.quantity}</p>}
@@ -284,12 +287,11 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Unit Cost (₹) <span className="text-rose-500">*</span></label>
             <input
-              type="number"
+              type="text"
               name="unit_cost"
               value={formData.unit_cost}
               onChange={handleChange}
-              placeholder="0.00"
-              step="0.01"
+              placeholder="0"
               className={`w-full px-4 py-2.5 bg-white border ${errors.unit_cost ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all`}
             />
             {errors.unit_cost && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.unit_cost}</p>}
@@ -311,7 +313,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
             <div>
               <p className="text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Estimated Total Cost</p>
               <p className="text-lg font-black text-slate-800">
-                ₹{((Number(formData.quantity) || 0) * (Number(formData.unit_cost) || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                ₹{((Number(formData.quantity) || 0) * (Number(formData.unit_cost) || 0)).toLocaleString('en-IN', { minimumFractionDigits: 0 })}
               </p>
             </div>
             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">

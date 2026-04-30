@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { X } from "lucide-react";
 import toast from "react-hot-toast";
+import Modal from "../common/Modal";
 
 interface CreateMasterDataModalProps {
   isOpen: boolean;
@@ -35,8 +35,6 @@ const CreateMasterDataModal: React.FC<CreateMasterDataModalProps> = ({
     }
   }, [initialData, isOpen]);
 
-  if (!isOpen) return null;
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.code || !formData.category) {
@@ -46,104 +44,102 @@ const CreateMasterDataModal: React.FC<CreateMasterDataModalProps> = ({
     onSubmit(formData);
   };
 
+  const modalFooter = (
+    <div className="flex justify-end gap-3">
+      <button
+        type="button"
+        onClick={onClose}
+        className="px-6 py-2.5 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
+      >
+        Cancel
+      </button>
+      <button
+        form="master-data-form"
+        type="submit"
+        className="px-8 py-2.5 text-sm font-bold text-white bg-primary rounded-xl hover:bg-blue-600 shadow-lg shadow-primary/20 transition-all active:scale-95"
+      >
+        {initialData ? "Save changes" : "Create entity"}
+      </button>
+    </div>
+  );
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100 scale-in-center">
-        <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
-          <div>
-            <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
-              {initialData ? "Edit Master Entity" : "Create Master Entity"}
-            </h2>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mt-0.5">
-              System Configuration
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-slate-200/50 rounded-xl transition-all text-slate-400 hover:text-slate-600"
-          >
-            <X size={20} strokeWidth={2.5} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
-              Entity Name
-            </label>
-            <input
-              type="text"
-              required
-              placeholder="e.g. Cement (OPC 53)"
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-semibold"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            />
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={initialData ? "Edit Master Entity" : "Create Master Entity"}
+      footer={modalFooter}
+    >
+      <form id="master-data-form" onSubmit={handleSubmit} className="space-y-6">
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-1 h-6 bg-primary rounded-full"></div>
+            <h3 className="font-semibold text-gray-700">Entity configuration</h3>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                Unique Code
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Entity name <span className="text-rose-500">*</span>
               </label>
               <input
                 type="text"
                 required
-                placeholder="MAT-CEM-01"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-mono font-bold"
-                value={formData.code}
-                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                placeholder="e.g. Cement (OPC 53)"
+                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
             </div>
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                System Type
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">
+                  Unique code <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="MAT-CEM-01"
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-primary/20 focus:border-primary transition-all font-mono font-bold"
+                  value={formData.code}
+                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">
+                  System type <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-primary/20 focus:border-primary transition-all font-bold appearance-none cursor-pointer"
+                  value={formData.type}
+                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                >
+                  <option value="Material">Material</option>
+                  <option value="Labor">Labor</option>
+                  <option value="Activity">Activity</option>
+                  <option value="Unit">Unit</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Category group <span className="text-rose-500">*</span>
               </label>
-              <select
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold appearance-none cursor-pointer"
-                value={formData.type}
-                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-              >
-                <option value="Material">Material</option>
-                <option value="Labor">Labor</option>
-                <option value="Activity">Activity</option>
-                <option value="Unit">Unit</option>
-              </select>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Construction Material"
+                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              />
             </div>
           </div>
-
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
-              Category Group
-            </label>
-            <input
-              type="text"
-              required
-              placeholder="e.g. Construction Material"
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-semibold"
-              value={formData.category}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-            />
-          </div>
-
-          <div className="pt-4 flex gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-3 bg-slate-100 text-slate-600 rounded-2xl text-sm font-bold hover:bg-slate-200 transition-all"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="flex-2 px-8 py-3 bg-primary text-white rounded-2xl text-sm font-bold shadow-lg shadow-primary/25 hover:bg-blue-600 transition-all"
-            >
-              {initialData ? "Save Changes" : "Create Entity"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        </div>
+      </form>
+    </Modal>
   );
 };
 

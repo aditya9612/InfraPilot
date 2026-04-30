@@ -3,7 +3,6 @@ import toast from "react-hot-toast";
 import Modal from "../common/Modal";
 import type { User, UserRole } from "../../types/user";
 
-
 interface CreateUserModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -18,7 +17,6 @@ const ROLES: { value: UserRole; label: string }[] = [
   { value: "Accountant", label: "Accountant" },
 ];
 
-
 const CreateUserModal: React.FC<CreateUserModalProps> = ({
   isOpen,
   onClose,
@@ -30,7 +28,6 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     full_name: "",
     mobile_number: "",
     email: "",
-    password: "",
     role: "" as UserRole,
     designation: "",
     joining_date: new Date().toISOString().split('T')[0],
@@ -54,7 +51,6 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
           full_name: initialData.full_name || "",
           mobile_number: initialData.mobile_number || "",
           email: initialData.email || "",
-          password: "", // Don't populate password
           role: initialData.role || "",
           designation: initialData.designation || "",
           joining_date: initialData.joining_date || "",
@@ -70,7 +66,6 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
           full_name: "",
           mobile_number: "",
           email: "",
-          password: "",
           role: "" as any,
           designation: "",
           joining_date: new Date().toISOString().split('T')[0],
@@ -113,11 +108,6 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
       newErrors.email = "Enter a valid email address.";
 
-    // Only validate password on create
-    if (!initialData && (!formData.password || formData.password.length < 6)) {
-      newErrors.password = "Password must be at least 6 characters.";
-    }
-
     if (!formData.role) newErrors.role = "Please select a role.";
     if (!formData.designation)
       newErrors.designation = "Designation is required.";
@@ -142,6 +132,8 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
         else if (i === 9 && /[A-Z]/.test(char)) filtered += char;
       }
       value = filtered;
+    } else if (name === "full_name" || name === "designation") {
+      value = value.replace(/[^a-zA-Z\s]/g, "");
     } else if (name === "mobile_number") {
       value = value.replace(/[^\d]/g, "").slice(0, 10);
     } else if (name === "aadhaar_number") {
@@ -178,16 +170,8 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
           is_active: formData.is_active,
         };
 
-        if (formData.password) {
-          payload.password = formData.password;
-        }
-
-        // Pass the actual File object to the service, or the existing URL string
         if (photo) {
           payload.profile_image = photo;
-        } else if (photoUrl && !photoUrl.startsWith('blob:')) {
-           // We might not want to send the string URL if the backend expects a File. 
-           // It's safer to just omit profile_image if it hasn't changed.
         }
 
         onSubmit(payload);
@@ -320,25 +304,6 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">
-                Password{" "}
-                {!initialData && <span className="text-rose-500">*</span>}
-              </label>
-              <input
-                type="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                placeholder={
-                  initialData ? "Leave empty to keep current" : "••••••••"
-                }
-                className={`w-full px-4 py-2 bg-gray-50 border ${errors.password ? "border-rose-500 focus:ring-rose-100" : "border-gray-200 focus:ring-primary/20"} rounded-xl transition-all outline-none`}
-              />
-              {errors.password && (
-                <p className="mt-1 text-xs text-rose-500">{errors.password}</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">
                 Role <span className="text-rose-500">*</span>
               </label>
               <select
@@ -429,8 +394,6 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
             </div>
           </div>
         </div>
-
-
 
         <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
