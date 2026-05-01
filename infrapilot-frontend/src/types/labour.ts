@@ -39,3 +39,20 @@ export interface LabourResponse {
   items: LabourItem[];
   meta: LabourMeta;
 }
+export interface AttendanceRecord {
+    id: number;
+    labour_id: number;
+    labour_name: string;
+    labour_category: string;
+    check_in_time: string;
+    check_out_time: string | null;
+    status: string;
+    reported_date: string;
+    gps_location: string;
+    selfie_url: string;
+}
+
+export interface AttendanceResponse {
+    items: AttendanceRecord[];
+    meta?: LabourMeta;
+}

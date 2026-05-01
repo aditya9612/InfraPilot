@@ -1,9 +1,24 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
+import StatCard from "../../../components/common/StatCard";
 import Modal from "../../../components/common/Modal";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
+import { 
+  Layers, 
+  Activity, 
+  AlertCircle, 
+  Clock, 
+  Search, 
+  Plus, 
+  Edit2, 
+  Trash2, 
+  Eye, 
+  Filter,
+  TrendingUp,
+  FileText
+} from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -34,7 +49,7 @@ const mockConsumption: MaterialConsumption[] = [
         openingStock: 1000,
         receivedQuantity: 500,
         usedQuantity: 120,
-        closingStock: 1380, // (1000+500)-120
+        closingStock: 1380,
         supplierName: "Global Builders",
         billNumber: "INV-2026-001",
         location: "Site Store",
@@ -76,8 +91,8 @@ const initialFormData = {
 
 const MaterialConsumptionPage = () => {
     const [consumptionList, setConsumptionList] = useState<MaterialConsumption[]>(mockConsumption);
-    const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedConsumption, setSelectedConsumption] = useState<MaterialConsumption | null>(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
     const [formMode, setFormMode] = useState<"create" | "edit">("create");
     const [editId, setEditId] = useState<number | null>(null);
     const [formData, setFormData] = useState(initialFormData);
@@ -86,12 +101,14 @@ const MaterialConsumptionPage = () => {
     const [consumptionToDelete, setConsumptionToDelete] = useState<number | null>(null);
 
     const [searchTerm, setSearchTerm] = useState("");
-    const [filterPriority, setFilterPriority] = useState("All");
+    const [filterPriority, setFilterPriority] = useState("All Priority");
 
-    // Summary stats
-    const totalConsumption = consumptionList.length;
-    const highValueCount = consumptionList.filter(c => c.priority === "High Value").length;
-    const siteUsage = consumptionList.filter(c => c.location.includes("Site")).length;
+    const stats = {
+        total: consumptionList.length,
+        highValue: consumptionList.filter(c => c.priority === "High Value").length,
+        todayUsage: "125 Units",
+        stockAccuracy: "98.2%"
+    };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -183,259 +200,292 @@ const MaterialConsumptionPage = () => {
         return consumptionList.filter(item => {
             const matchesSearch = item.materialName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 item.activityLink.toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesPriority = filterPriority === "All" || item.priority === filterPriority;
+            const matchesPriority = filterPriority === "All Priority" || item.priority === filterPriority;
             return matchesSearch && matchesPriority;
         });
     }, [consumptionList, searchTerm, filterPriority]);
 
     return (
         <>
-            <Navbar title="Material Consumption" breadcrumb={["InfraPilot", "Engineer", "Inventory", "Consumption"]} />
+            <Navbar title="Material Consumption Tracker" breadcrumb={["Engineer", "Material", "Consumption Ledger"]} />
 
-            <PageTransition className="p-4 md:p-8 bg-slate-50 min-h-screen font-inter italic-none">
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
                 {/* ── Header ──────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 text-inter">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1 font-inter">Inventory Outflow Registry</p>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Material Consumption</h1>
-                        <p className="text-slate-500 text-sm font-medium leading-relaxed max-w-xl font-inter">Track daily material usage against activity benchmarks with automatic stock reduction.</p>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight italic-none">Inventory Outflow & Usage Registry</h1>
+                        <p className="text-slate-500 text-sm italic-none">Monitor daily material expenditure across site activities with real-time stock impact.</p>
                     </div>
-
                     <button
                         onClick={() => { setFormMode("create"); setFormData(initialFormData); setIsModalOpen(true); }}
-                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all font-inter active:scale-95"
+                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                     >
-                        <span className="text-lg leading-none font-inter">+</span>
-                        Log Usage Entry
+                        <Plus className="w-4 h-4" />
+                        Log Material Usage
                     </button>
                 </div>
 
-                {/* ── Summary Stats (DSR Style) ───────────────────────────── */}
-                <div className="mb-8 font-inter">
-                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4 font-inter">Consumption Overview</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 font-inter">
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all font-inter">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 font-inter">Total Logged</p>
-                            <p className="text-2xl font-bold text-slate-900 font-inter">{totalConsumption}</p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium font-inter">Usage Entries Filed</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all font-inter">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 font-inter">High Value</p>
-                            <p className="text-2xl font-bold text-amber-500 font-inter">{highValueCount}</p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium font-inter">Critical Outflows</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all font-inter">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 font-inter">Site Usage</p>
-                            <p className="text-2xl font-bold text-blue-600 font-inter">{siteUsage}</p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium font-inter">Active Areas</p>
-                        </div>
-                    </div>
+                {/* ── Summary Stats ───────────────────────────── */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <StatCard
+                        title="Usage Intensity"
+                        value={stats.todayUsage}
+                        sub="Current Deployment"
+                        accent="text-slate-800"
+                        icon={<TrendingUp className="w-5 h-5" />}
+                    />
+                    <StatCard
+                        title="Outflow Logs"
+                        value={stats.total.toString()}
+                        sub="Total Entries"
+                        accent="text-blue-500"
+                        icon={<Activity className="w-5 h-5" />}
+                    />
+                    <StatCard
+                        title="Critical Outflow"
+                        value={stats.highValue.toString()}
+                        sub="High Value Materials"
+                        accent="text-rose-500"
+                        icon={<AlertCircle className="w-5 h-5" />}
+                    />
+                    <StatCard
+                        title="Ledger Integrity"
+                        value={stats.stockAccuracy}
+                        sub="System Health"
+                        accent="text-emerald-500"
+                        icon={<Clock className="w-5 h-5" />}
+                    />
                 </div>
 
-                {/* ── Filter Bar (DSR Exact Parity) ────────────────────── */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-100 px-5 py-4 mb-8 flex flex-wrap items-center gap-4 font-inter">
-                    <div className="flex items-center gap-3 shrink-0">
-                        <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-md shadow-primary/30">
-                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                            </svg>
-                        </div>
-                        <span className="text-base font-bold text-slate-800 whitespace-nowrap font-inter">Inflow Filters</span>
-                    </div>
-
-                    <div className="hidden md:block w-px h-8 bg-slate-100 shrink-0 mx-2" />
-
-                    <div className="flex flex-col gap-0.5 min-w-[200px] font-inter">
-                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider font-inter">Quick Search</label>
-                        <div className="relative font-inter">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-inter">
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                {/* ── Main Container ───────────────────────────────────────────── */}
+                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-12 font-inter">
+                    {/* Integrated Filter Bar */}
+                    <div className="p-6 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-slate-50/30 font-inter">
+                        <div className="relative flex-1 max-w-md font-inter">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                                <Search className="w-4 h-4" />
                             </span>
                             <input
                                 type="text"
-                                placeholder="Material or Activity..."
+                                placeholder="Search by material or site activity..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[13px] font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
+                                className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
                             />
                         </div>
-                    </div>
-
-                    <div className="flex flex-col gap-0.5 font-inter">
-                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider font-inter">Inflow Priority</label>
-                        <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-100 font-inter h-[38px] items-center">
-                            {["All", "Standard", "High Value"].map(tab => (
-                                <button
-                                    key={tab}
-                                    onClick={() => setFilterPriority(tab)}
-                                    className={`px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all font-inter ${filterPriority === tab ? "bg-white text-slate-900 shadow-sm" : "text-slate-400 hover:text-slate-600"}`}
-                                >
-                                    {tab}
-                                </button>
-                            ))}
+                        <div className="flex items-center gap-2 font-inter">
+                            <Filter className="w-4 h-4 text-slate-400" />
+                            <select 
+                                value={filterPriority} 
+                                onChange={(e) => setFilterPriority(e.target.value)} 
+                                className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none cursor-pointer font-inter"
+                            >
+                                <option>All Priority</option>
+                                <option>Standard</option>
+                                <option>High Value</option>
+                            </select>
                         </div>
                     </div>
-                </div>
 
-                {/* ── Ledger Grid (DSR Card Style) ───────────────────── */}
-                <div className="mb-20">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 font-inter underline-none">
-                        {filteredList.map((item) => (
-                            <div key={item.id} className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all font-inter flex flex-col underline-none">
-                                <div className="flex items-center justify-between mb-1 font-inter">
-                                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">LOG #{item.id}</span>
-                                    <span className={`px-2 py-0.5 text-[9px] font-black uppercase tracking-widest rounded-lg ${item.priority === "High Value" ? "bg-amber-50 text-amber-600" : "bg-slate-50 text-slate-500"}`}>
-                                        {item.priority}
-                                    </span>
-                                </div>
-                                <p className="text-[10px] text-slate-400 mt-1.5 font-medium font-inter mb-2 italic-none uppercase tracking-wider">{item.date} · {item.loggedBy}</p>
-                                <p className="text-2xl font-bold text-slate-900 font-inter leading-tight mb-1 tracking-tight">{item.materialName}</p>
-                                <p className="text-[10px] text-slate-400 mt-0.5 font-medium leading-relaxed line-clamp-1 mb-4 italic-none uppercase tracking-wider">Activity: {item.activityLink}</p>
-
-                                <div className="grid grid-cols-2 gap-3 mt-auto border-t border-slate-50 pt-4 font-inter">
-                                    <div>
-                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 font-inter">Qty Used</p>
-                                        <p className="text-2xl font-bold text-rose-500 font-inter tabular-nums">-{item.usedQuantity}</p>
-                                        <p className="text-[10px] text-slate-400 mt-0.5 font-medium font-inter">{item.unit}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 font-inter">Closing Stock</p>
-                                        <p className="text-2xl font-bold text-slate-800 font-inter tabular-nums tracking-tighter">{item.closingStock}</p>
-                                        <p className="text-[10px] text-slate-400 mt-0.5 font-medium font-inter">Updated Ledger</p>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center justify-between pt-4 border-t border-slate-100 mt-4">
-                                    <div className="flex items-center gap-1">
-                                        <button onClick={() => setSelectedConsumption(item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all font-inter"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg></button>
-                                        <button onClick={() => handleOpenEdit(item)} className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all font-inter"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
-                                    </div>
-                                    <button onClick={() => handleDeleteClick(item.id)} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all font-inter"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
-                                </div>
-                            </div>
-                        ))}
+                    <div className="overflow-x-auto font-inter">
+                        <table className="w-full text-left font-inter">
+                            <thead>
+                                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
+                                    <th className="px-6 py-4 font-inter">Material & Outflow Log</th>
+                                    <th className="px-6 py-4 font-inter">Consumption Delta</th>
+                                    <th className="px-6 py-4 font-inter">Linked Site Activity</th>
+                                    <th className="px-6 py-4 font-inter">Priority</th>
+                                    <th className="px-6 py-4 text-right font-inter">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50 font-inter">
+                                {filteredList.map((item) => (
+                                    <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
+                                        <td className="px-6 py-4">
+                                            <div className="flex flex-col font-inter">
+                                                <span className="text-sm font-bold text-slate-800 font-inter">{item.materialName}</span>
+                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-inter">{item.date} • Logged by {item.loggedBy}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex flex-col font-inter">
+                                                <span className="text-xs font-black text-rose-500 tabular-nums font-inter">-{item.usedQuantity} {item.unit}</span>
+                                                <span className="text-[10px] text-slate-400 font-bold font-inter italic-none">Closing: {item.closingStock} {item.unit}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex flex-col font-inter">
+                                                <span className="text-xs font-bold text-slate-600 font-inter truncate italic-none">{item.activityLink}</span>
+                                                <div className="flex items-center gap-1 text-[10px] text-slate-400 font-inter">
+                                                    <FileText className="w-3 h-3" />
+                                                    <span className="truncate font-inter italic-none">{item.location}</span>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${item.priority === 'High Value' ? 'bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-500'}`}>
+                                                {item.priority}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <div className="flex items-center justify-end gap-2 font-inter">
+                                                <button 
+                                                    onClick={() => { setSelectedConsumption(item); }}
+                                                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all font-inter"
+                                                >
+                                                    <Eye className="w-4 h-4" />
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleOpenEdit(item)}
+                                                    className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
+                                                >
+                                                    <Edit2 className="w-4 h-4" />
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDeleteClick(item.id)}
+                                                    className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </PageTransition>
 
-            {/* Consumption Modal (Absolute DSR Parity) */}
-            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={formMode === "create" ? "New Material Usage Entry" : "Modify Usage Registry"} maxWidth="max-w-5xl">
+            {/* Consumption Modal */}
+            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={formMode === "create" ? "Record Material Usage" : "Edit Outflow Registry"} maxWidth="max-w-5xl">
                 <div className="bg-white p-8 italic-none font-inter text-inter">
                     <form id="consumption-form" onSubmit={handleSubmit} className="space-y-10 text-inter">
-                        <div className="border border-slate-200 rounded-xl p-6">
-                            <h3 className="text-[15px] font-bold text-slate-800 mb-6 font-inter">Usage Context</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter text-inter text-slate-800">
-                                <div className="flex flex-col font-inter">
-                                    <label className="text-[13px] font-bold text-slate-700 mb-1.5 font-inter">Material Name <span className="text-rose-500">*</span></label>
-                                    <input name="materialName" value={formData.materialName} onChange={handleChange} placeholder="e.g. UltraTech Cement" className={`w-full px-4 py-3 bg-white border rounded-lg text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all font-inter ${errors.materialName ? "border-rose-300 bg-rose-50" : "border-slate-200"}`} />
-                                </div>
-                                <div className="flex flex-col font-inter">
-                                    <label className="text-[13px] font-bold text-slate-700 mb-1.5 font-inter">Unit (Bag/Kg/Ton)</label>
-                                    <select name="unit" value={formData.unit} onChange={handleChange} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all font-inter">
-                                        <option value="Bag">Bag</option>
-                                        <option value="Kg">Kg</option>
-                                        <option value="Ton">Ton</option>
-                                    </select>
-                                </div>
-                                <div className="flex flex-col font-inter">
-                                    <label className="text-[13px] font-bold text-slate-700 mb-1.5 font-inter">Opening Stock</label>
-                                    <input name="openingStock" type="number" value={formData.openingStock} onChange={handleChange} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-[13px] text-slate-600 font-bold font-inter" />
-                                </div>
-                                <div className="flex flex-col font-inter">
-                                    <label className="text-[13px] font-bold text-slate-700 mb-1.5 font-inter">Used Quantity <span className="text-rose-500">*</span></label>
-                                    <input name="usedQuantity" type="number" value={formData.usedQuantity} onChange={handleChange} placeholder="0.00" className={`w-full px-4 py-3 bg-white border rounded-lg text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all font-inter ${errors.usedQuantity ? "border-rose-300 bg-rose-50" : "border-slate-200"}`} />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 font-inter">
+                            <div className="space-y-8 font-inter">
+                                <div>
+                                    <h3 className="text-[13px] font-black text-slate-800 uppercase tracking-[0.2em] mb-6 flex items-center gap-2 font-inter">
+                                        <span className="w-2 h-2 rounded-full bg-primary font-inter"></span>
+                                        Usage Context
+                                    </h3>
+                                    <div className="grid grid-cols-1 gap-6 font-inter">
+                                        <div className="flex flex-col font-inter">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter italic-none">Material Category</label>
+                                            <input name="materialName" value={formData.materialName} onChange={handleChange} placeholder="e.g. UltraTech Cement" className={`w-full px-5 py-4 bg-slate-50 border rounded-2xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter ${errors.materialName ? "border-rose-300" : "border-slate-100"}`} />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4 font-inter">
+                                            <div className="flex flex-col font-inter">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter italic-none">Measurement Unit</label>
+                                                <select name="unit" value={formData.unit} onChange={handleChange} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter">
+                                                    <option value="Bag">Bag</option>
+                                                    <option value="Kg">Kg</option>
+                                                    <option value="Ton">Ton</option>
+                                                </select>
+                                            </div>
+                                            <div className="flex flex-col font-inter">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter italic-none">Opening Balance</label>
+                                                <input name="openingStock" type="number" value={formData.openingStock} onChange={handleChange} className="w-full px-5 py-4 bg-slate-100 border border-slate-100 rounded-2xl text-sm text-slate-500 font-bold font-inter" readOnly />
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div className="border border-slate-200 rounded-xl p-6">
-                            <h3 className="text-[15px] font-bold text-slate-800 mb-6 font-inter">Site Execution</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter text-inter text-slate-800">
-                                <div className="flex flex-col font-inter">
-                                    <label className="text-[13px] font-bold text-slate-700 mb-1.5 font-inter">Linked Site Activity <span className="text-rose-500">*</span></label>
-                                    <textarea name="activityLink" rows={3} value={formData.activityLink} onChange={handleChange} placeholder="RCC Slab at Tower B..." className={`w-full px-4 py-3 bg-white border rounded-lg text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all font-inter resize-none ${errors.activityLink ? "border-rose-300 bg-rose-50" : "border-slate-200"}`} />
-                                </div>
-                                <div className="flex flex-col font-inter">
-                                    <label className="text-[13px] font-bold text-slate-700 mb-1.5 font-inter">Location (Store / Site)</label>
-                                    <input name="location" value={formData.location} onChange={handleChange} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-[13px] text-slate-900 font-inter focus:ring-blue-500 transition-all" />
-                                </div>
-                                <div className="flex flex-col font-inter">
-                                    <label className="text-[13px] font-bold text-slate-700 mb-1.5 font-inter">Original Supplier (Ref)</label>
-                                    <input name="supplierName" value={formData.supplierName} onChange={handleChange} placeholder="Global Builders" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all font-inter" />
-                                </div>
-                                <div className="flex flex-col font-inter">
-                                    <label className="text-[13px] font-bold text-slate-700 mb-1.5 font-inter">Bill Number (Ref)</label>
-                                    <input name="billNumber" value={formData.billNumber} onChange={handleChange} placeholder="INV-2026-X" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all font-inter" />
+                            <div className="space-y-8 font-inter">
+                                <div>
+                                    <h3 className="text-[13px] font-black text-slate-800 uppercase tracking-[0.2em] mb-6 flex items-center gap-2 font-inter">
+                                        <span className="w-2 h-2 rounded-full bg-rose-500 font-inter"></span>
+                                        Execution Audit
+                                    </h3>
+                                    <div className="grid grid-cols-1 gap-6 font-inter">
+                                        <div className="flex flex-col font-inter">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter italic-none">Consumption Quantity</label>
+                                            <input name="usedQuantity" type="number" value={formData.usedQuantity} onChange={handleChange} placeholder="0.00" className={`w-full px-5 py-4 bg-slate-50 border rounded-2xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter ${errors.usedQuantity ? "border-rose-300" : "border-slate-100"}`} />
+                                        </div>
+                                        <div className="flex flex-col font-inter">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter italic-none">Linked Site Activity</label>
+                                            <textarea name="activityLink" rows={3} value={formData.activityLink} onChange={handleChange} placeholder="Activity description..." className={`w-full px-5 py-4 bg-slate-50 border rounded-2xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter resize-none ${errors.activityLink ? "border-rose-300" : "border-slate-100"}`} />
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </form>
                 </div>
 
-                <div className="bg-white px-8 py-6 border-t border-slate-100 flex items-center justify-end gap-3 font-inter">
-                    <button onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 bg-white border border-slate-200 text-[13px] font-bold text-slate-600 rounded-lg hover:bg-slate-50 transition-all font-inter shadow-sm uppercase tracking-wider">Cancel</button>
-                    <button type="submit" form="consumption-form" className="px-8 py-2.5 bg-blue-600 text-white text-[13px] font-bold rounded-lg shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95 font-inter">
-                        {formMode === "create" ? "Record Usage Entry" : "Update Registry"}
+                <div className="bg-slate-50 px-8 py-6 border-t border-slate-100 flex items-center justify-end gap-4 font-inter">
+                    <button onClick={() => setIsModalOpen(false)} className="px-6 py-3 text-[11px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-800 transition-all font-inter italic-none">Discard Entry</button>
+                    <button type="submit" form="consumption-form" className="px-10 py-4 bg-primary text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter italic-none">
+                        {formMode === "create" ? "Authorize & Log Usage" : "Update Usage Profile"}
                     </button>
                 </div>
             </Modal>
 
-            {/* Insight Modal (Showing All Required Fields) */}
-            <Modal isOpen={!!selectedConsumption} onClose={() => setSelectedConsumption(null)} title="Consumption Analytics Insight" maxWidth="max-w-xl">
+            {/* Insight Modal */}
+            <Modal isOpen={!!selectedConsumption} onClose={() => setSelectedConsumption(null)} title="Consumption Intelligence Insight" maxWidth="max-w-2xl">
                 {selectedConsumption && (
-                    <div className="bg-white p-6 italic-none text-inter">
-                        <div className="bg-blue-600 rounded-[2rem] p-8 text-white shadow-xl mb-8 relative overflow-hidden font-inter">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl" />
-                            <div className="relative z-10">
-                                <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-2 font-inter">Usage Blueprints</p>
-                                <div className="flex items-center justify-between mb-8 font-inter">
-                                    <h3 className="text-2xl font-black tracking-tight leading-tight">{selectedConsumption.materialName}</h3>
-                                    <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center border border-white/20 shadow-inner font-inter">
-                                        <svg className="w-6 h-6 opacity-40 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                                    </div>
-                                </div>
+                    <div className="p-6 font-inter text-inter italic-none">
+                        <div className="bg-slate-900 rounded-[2.5rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter">
+                            <div className="relative z-10 font-inter">
+                                <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-2 font-inter">Inventory Consumption Ledger</p>
+                                <h3 className="text-2xl font-black tracking-tight leading-tight mb-6 font-inter">{selectedConsumption.materialName}</h3>
                                 <div className="grid grid-cols-2 gap-4 font-inter">
-                                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Consumption</p>
-                                        <p className="text-xl font-black">-{selectedConsumption.usedQuantity} <span className="text-xs">{selectedConsumption.unit}</span></p>
+                                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 font-inter">
+                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-40 mb-1 font-inter">Consumption</p>
+                                        <p className="text-lg font-black font-inter italic-none text-rose-400">-{selectedConsumption.usedQuantity} {selectedConsumption.unit}</p>
                                     </div>
-                                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Closing Stock</p>
-                                        <p className="text-xl font-black">{selectedConsumption.closingStock}</p>
+                                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 font-inter">
+                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-40 mb-1 font-inter">Ledger Balance</p>
+                                        <p className="text-lg font-black font-inter italic-none">{selectedConsumption.closingStock} {selectedConsumption.unit}</p>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="space-y-8 mb-10 px-1 font-inter">
+                        <div className="space-y-8 px-2 mb-10 font-inter">
                             <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 font-inter">Comprehensive Stock Impact</p>
-                                <div className="grid grid-cols-2 gap-y-6 gap-x-12 font-inter border-l-2 border-emerald-500 pl-6">
-                                    <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Opening Stock</p><p className="text-sm font-black text-slate-600 font-inter tabular-nums">{selectedConsumption.openingStock}</p></div>
-                                    <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Received (+)</p><p className="text-sm font-black text-slate-800 font-inter tabular-nums">+{selectedConsumption.receivedQuantity}</p></div>
-                                    <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Used (-)</p><p className="text-sm font-black text-rose-600 font-inter tabular-nums">-{selectedConsumption.usedQuantity}</p></div>
-                                    <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Supplier (Ref)</p><p className="text-sm font-black text-slate-800 font-inter">{selectedConsumption.supplierName}</p></div>
-                                    <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Bill Number (Ref)</p><p className="text-sm font-black text-slate-800 font-inter">{selectedConsumption.billNumber}</p></div>
-                                    <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Log Date</p><p className="text-sm font-black text-slate-800 tabular-nums font-inter">{selectedConsumption.date}</p></div>
-                                    <div className="col-span-2"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Location</p><p className="text-sm font-black text-slate-800 font-inter">{selectedConsumption.location}</p></div>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 font-inter">Audit Traceability</p>
+                                <div className="grid grid-cols-2 gap-6 font-inter">
+                                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 font-inter">
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 font-inter">Executed Date</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter">{selectedConsumption.date}</p>
+                                    </div>
+                                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 font-inter">
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 font-inter">Verified By</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter uppercase">{selectedConsumption.loggedBy}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 font-inter">Site Activity Context</p>
+                                <div className="p-5 bg-slate-50/50 rounded-2xl border border-slate-100 font-inter italic-none">
+                                    <p className="text-sm font-bold text-slate-800 mb-2 font-inter">{selectedConsumption.activityLink}</p>
+                                    <div className="flex items-center gap-2 text-[10px] text-slate-400 font-bold uppercase tracking-wider font-inter">
+                                        <Layers className="w-3.5 h-3.5" />
+                                        Location: {selectedConsumption.location}
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <button onClick={() => setSelectedConsumption(null)} className="flex-1 w-full py-4 bg-slate-50 hover:bg-slate-100 text-slate-500 text-[10px] font-black rounded-2xl transition-all uppercase tracking-widest font-inter">Close Insight</button>
+                        <button 
+                            onClick={() => setSelectedConsumption(null)}
+                            className="w-full py-5 bg-slate-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/20 active:scale-95 font-inter italic-none"
+                        >
+                            Dismiss Consumption Insight
+                        </button>
                     </div>
                 )}
             </Modal>
+
             <ConfirmModal
                 isOpen={isDeleteModalOpen}
-                onClose={() => {
-                    setIsDeleteModalOpen(false);
-                    setConsumptionToDelete(null);
-                }}
+                onClose={() => setIsDeleteModalOpen(false)}
                 onConfirm={handleDeleteConfirm}
-                title="Delete Consumption Record"
-                message="Are you sure you want to delete this material usage log? This will revert the automatic stock reduction for this entry."
-                confirmText="Delete"
+                title="Discard Consumption Entry"
+                message="Are you sure you want to remove this usage log? This will revert the automatic stock reduction and update the inventory ledger."
+                confirmText="Archive Log"
                 type="danger"
             />
         </>

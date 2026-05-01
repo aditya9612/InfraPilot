@@ -470,6 +470,10 @@ export const labourService = {
             };
         }
     },
+    async deleteAttendance(attendanceId: number): Promise<any> {
+        const response = await api.delete(`/labour/attendance/${attendanceId}`);
+        return response.data;
+    },
 };
 
 export default labourService;

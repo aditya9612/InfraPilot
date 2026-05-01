@@ -1,5 +1,6 @@
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
+import StatCard from "../../components/common/StatCard";
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
@@ -62,14 +63,14 @@ const EngineerDashboard = () => {
         <>
             <Navbar title="Site Overview" breadcrumb={["InfraPilot", "Engineer", "Dashboard"]} />
 
-            <PageTransition className="p-4 md:p-8 bg-slate-50 min-h-screen font-inter">
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
 
                 {/* ── Header ─────────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">Project</p>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Skyline Tower – Block A</h1>
-                        <p className="text-slate-500 text-sm font-medium">Real-time site progress, labor, and material monitoring.</p>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Skyline Tower – Block A</h1>
+                        <p className="text-slate-500 text-sm">Real-time site progress, labor, and material monitoring.</p>
                     </div>
                     <div className="flex items-center gap-3 px-5 py-3 bg-white border border-slate-200 text-slate-700 rounded-2xl shadow-sm">
                         <span className="text-3xl">☀️</span>
@@ -85,26 +86,30 @@ const EngineerDashboard = () => {
                 <div className="mb-6">
                     <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Site Vitals</h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Total Labor Today</p>
-                            <p className="text-2xl font-bold text-primary">145</p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">85 Skilled · 60 Unskilled</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Active Activities</p>
-                            <p className="text-2xl font-bold text-blue-500">12</p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">Foundations, Column Casting</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Material Stock Status</p>
-                            <p className="text-2xl font-bold text-emerald-500">OK</p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">Cement: OK · Steel: Low</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Open Issues</p>
-                            <p className="text-2xl font-bold text-rose-500">4</p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">2 High Priority</p>
-                        </div>
+                        <StatCard
+                            title="Total Labor Today"
+                            value="145"
+                            sub="85 Skilled · 60 Unskilled"
+                            accent="text-primary"
+                        />
+                        <StatCard
+                            title="Active Activities"
+                            value="12"
+                            sub="Foundations, Column Casting"
+                            accent="text-blue-500"
+                        />
+                        <StatCard
+                            title="Material Stock Status"
+                            value="OK"
+                            sub="Cement: OK · Steel: Low"
+                            accent="text-emerald-500"
+                        />
+                        <StatCard
+                            title="Open Issues"
+                            value="4"
+                            sub="2 High Priority"
+                            accent="text-rose-500"
+                        />
                     </div>
                 </div>
 
@@ -303,12 +308,12 @@ const EngineerDashboard = () => {
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead>
-                                    <tr className="border-b border-slate-100">
-                                        <th className="px-6 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
-                                        <th className="px-6 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</th>
-                                        <th className="px-6 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Category</th>
-                                        <th className="px-6 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Note</th>
-                                        <th className="px-6 py-3 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount</th>
+                                    <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] border-b border-slate-50">
+                                        <th className="px-6 py-4 text-left">Date</th>
+                                        <th className="px-6 py-4 text-left">Type</th>
+                                        <th className="px-6 py-4 text-left">Category</th>
+                                        <th className="px-6 py-4 text-left">Note</th>
+                                        <th className="px-6 py-4 text-right">Amount</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">

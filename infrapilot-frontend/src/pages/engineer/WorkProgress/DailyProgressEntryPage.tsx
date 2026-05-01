@@ -1,9 +1,23 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
+import StatCard from "../../../components/common/StatCard";
 import Modal from "../../../components/common/Modal";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
+import { 
+  TrendingUp, 
+  Clock, 
+  AlertCircle, 
+  Search, 
+  Plus, 
+  Edit2, 
+  Trash2, 
+  Eye, 
+  Filter,
+  Layers,
+  FileText
+} from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -55,674 +69,237 @@ const mockDailyEntries: DailyEntry[] = [
 const initialFormData = {
     activity_name: "",
     boq_code: "",
-    planned_quantity: "",
     today_progress: "",
-    total_completed: "",
-    remaining_quantity: "",
-    percent_completion: "",
-    start_date: new Date().toISOString().split("T")[0],
-    end_date: "",
     status: "On Track" as "On Track" | "Delay",
 };
 
-// ─── Main Component ─────────────────────────────────────────────────────────────
-
 const DailyProgressEntryPage = () => {
-    const [activities, setActivities] = useState<DailyEntry[]>(mockDailyEntries);
-    const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+    const [entries, setEntries] = useState<DailyEntry[]>(mockDailyEntries);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [statusFilter, setStatusFilter] = useState("All Status");
+
+    // Modal States
+    const [isFormOpen, setIsFormOpen] = useState(false);
     const [formMode, setFormMode] = useState<"create" | "edit">("create");
     const [formData, setFormData] = useState(initialFormData);
-    const [editId, setEditId] = useState<number | null>(null);
-    const [errors, setErrors] = useState<Record<string, string>>({});
     const [selectedEntry, setSelectedEntry] = useState<DailyEntry | null>(null);
-    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [isDetailOpen, setIsDetailOpen] = useState(false);
+    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [entryToDelete, setEntryToDelete] = useState<number | null>(null);
 
-    const [searchTerm, setSearchTerm] = useState("");
-    const [statusFilter, setStatusFilter] = useState("All");
-
-    // Summary stats
-    const totalEntries = activities.length;
-    const avgTodayProgress = totalEntries > 0 ? (activities.reduce((sum, a) => sum + a.today_progress, 0) / totalEntries).toFixed(1) : "0";
-
-    // ── CRUD Handlers ────────────────────────────────────────────────────────
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-        if (errors[name]) setErrors(prev => { const u = { ...prev }; delete u[name]; return u; });
-    };
-
-    const validateForm = () => {
-        const errs: Record<string, string> = {};
-        if (!formData.activity_name.trim()) errs.activity_name = "Required";
-        if (!formData.boq_code.trim()) errs.boq_code = "Required";
-        if (!formData.planned_quantity) errs.planned_quantity = "Required";
-        if (!formData.end_date) errs.end_date = "Required";
-        setErrors(errs);
-        return Object.keys(errs).length === 0;
-    };
-
-    const handleOpenCreate = () => {
-        setFormMode("create");
-        setFormData(initialFormData);
-        setErrors({});
-        setIsFormModalOpen(true);
-    };
-
-    const handleOpenEdit = (entry: DailyEntry) => {
-        setFormMode("edit");
-        setEditId(entry.id);
-        setFormData({
-            activity_name: entry.activity_name,
-            boq_code: entry.boq_code,
-            planned_quantity: entry.planned_quantity.toString(),
-            today_progress: entry.today_progress.toString(),
-            total_completed: entry.total_completed.toString(),
-            remaining_quantity: entry.remaining_quantity.toString(),
-            percent_completion: entry.percent_completion.toString(),
-            start_date: entry.start_date,
-            end_date: entry.end_date,
-            status: entry.status,
+    const filteredEntries = useMemo(() => {
+        return entries.filter(e => {
+            const matchesSearch = e.activity_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                e.boq_code.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesStatus = statusFilter === "All Status" || e.status === statusFilter;
+            return matchesSearch && matchesStatus;
         });
-        setErrors({});
-        setIsFormModalOpen(true);
-    };
+    }, [entries, searchTerm, statusFilter]);
 
-    const handleDeleteClick = (id: number) => {
-        setEntryToDelete(id);
-        setIsDeleteModalOpen(true);
-    };
-
-    const handleDeleteConfirm = () => {
-        if (!entryToDelete) return;
-        setActivities(prev => prev.filter(a => a.id !== entryToDelete));
-        toast.success("Entry deleted successfully");
-        setIsDeleteModalOpen(false);
-        setEntryToDelete(null);
+    const stats = {
+        avgCompletion: Math.round(entries.reduce((acc, curr) => acc + curr.percent_completion, 0) / entries.length),
+        onTrack: entries.filter(e => e.status === "On Track").length,
+        delay: entries.filter(e => e.status === "Delay").length,
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!validateForm()) {
-            toast.error("Please fill all required fields");
-            return;
-        }
-
-        const entryData: DailyEntry = {
-            id: formMode === "edit" ? editId! : Date.now(),
+        const newEntry: DailyEntry = {
+            id: formMode === 'edit' && selectedEntry ? selectedEntry.id : Date.now(),
             activity_name: formData.activity_name,
             boq_code: formData.boq_code,
             today_progress: Number(formData.today_progress),
-            planned_quantity: Number(formData.planned_quantity),
-            total_completed: Number(formData.total_completed),
-            remaining_quantity: Number(formData.remaining_quantity),
-            percent_completion: Number(formData.percent_completion),
-            start_date: formData.start_date,
-            end_date: formData.end_date,
+            planned_quantity: 5000,
+            total_completed: (selectedEntry?.total_completed || 0) + Number(formData.today_progress),
+            remaining_quantity: 1200,
+            percent_completion: 80,
+            start_date: "2026-03-01",
+            end_date: "2026-05-01",
             status: formData.status,
         };
 
-        if (formMode === "edit") {
-            setActivities(prev => prev.map(a => a.id === editId ? entryData : a));
-            toast.success("Entry updated successfully");
+        if (formMode === 'edit') {
+            setEntries(prev => prev.map(e => e.id === selectedEntry?.id ? newEntry : e));
+            toast.success("Progress log updated");
         } else {
-            setActivities(prev => [entryData, ...prev]);
-            toast.success("Daily progress recorded");
+            setEntries(prev => [newEntry, ...prev]);
+            toast.success("Daily progress logged");
         }
-        setIsFormModalOpen(false);
+        setIsFormOpen(false);
     };
-
-    const filteredEntries = useMemo(() => {
-        return activities.filter((entry: DailyEntry) => {
-            const matchesSearch = entry.activity_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                entry.boq_code.toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesStatus = statusFilter === "All" || entry.status === statusFilter;
-            return matchesSearch && matchesStatus;
-        });
-    }, [activities, searchTerm, statusFilter]);
 
     return (
         <>
-            <Navbar
-                title="Daily Progress Entry"
-                breadcrumb={["InfraPilot", "Engineer", "Progress", "Entry"]}
-            />
+            <Navbar title="Daily Progress Tracking" breadcrumb={["Engineer", "Work Progress", "Daily Entry"]} />
 
-            <PageTransition className="p-4 md:p-8 bg-slate-50 min-h-screen font-inter italic-none">
-
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
                 {/* ── Header ──────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">
-                            Operational Documentation
-                        </p>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">
-                            Daily Progress Entry
-                        </h1>
-                        <p className="text-slate-500 text-sm font-medium">
-                            Submit and review daily executed quantities and operational site events.
-                        </p>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight italic-none">Daily Progress & Execution Log</h1>
+                        <p className="text-slate-500 text-sm italic-none">Record daily activity benchmarks and monitor site execution against planned BOQ milestones.</p>
                     </div>
-
                     <button
-                        onClick={handleOpenCreate}
-                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all font-inter"
+                        onClick={() => { setFormMode("create"); setFormData(initialFormData); setIsFormOpen(true); }}
+                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                     >
-                        <span className="text-lg leading-none font-inter">+</span>
-                        New Progress Entry
+                        <Plus className="w-4 h-4" />
+                        Log Progress
                     </button>
                 </div>
 
-                {/* ── Summary Stats (DSR Style) ───────────────────────────── */}
-                <div className="mb-8">
-                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4 font-inter">
-                        Daily Overview
-                    </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Total Entries</p>
-                            <p className="text-2xl font-bold text-blue-600">{totalEntries}</p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">Total records captured</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Avg. Daily Progress</p>
-                            <p className="text-2xl font-bold text-emerald-600">{avgTodayProgress} <span className="text-sm uppercase tracking-tighter font-black opacity-50 ml-1">Cu.m</span></p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">Mean execution rate</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all text-center">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Weather</p>
-                            <p className="text-2xl font-bold text-amber-500">Sunny ☀️</p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">Optimal conditions</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Active Site</p>
-                            <p className="text-2xl font-bold text-slate-800">C-64</p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">Current active zone</p>
-                        </div>
-                    </div>
+                {/* ── Summary Stats ───────────────────────────── */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <StatCard title="Average Efficiency" value={`${stats.avgCompletion}%`} sub="Overall Completion" accent="text-blue-500" icon={<TrendingUp className="w-5 h-5" />} />
+                    <StatCard title="Healthy Metrics" value={stats.onTrack.toString()} sub="On Track Activities" accent="text-emerald-500" icon={<Clock className="w-5 h-5" />} />
+                    <StatCard title="Critical Delays" value={stats.delay.toString()} sub="Action Required" accent="text-rose-500" icon={<AlertCircle className="w-5 h-5" />} />
+                    <StatCard title="Milestone Status" value="Active" sub="Project Health" accent="text-slate-800" icon={<Layers className="w-5 h-5" />} />
                 </div>
 
-                {/* ── Entry Ledger (Tabular View) ─────────────────────────── */}
-                <div className="bg-white rounded-2xl md:rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-
-                    {/* ── Filter Bar (Horizontal Style) ─────────────────────────── */}
-                    <div className="bg-white px-5 py-4 border-b border-slate-100 flex flex-wrap items-center gap-4 font-inter">
-
-                        {/* Left: Blue Icon + Title */}
-                        <div className="flex items-center gap-3 shrink-0">
-                            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-md shadow-primary/30">
-                                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                </svg>
-                            </div>
-                            <div className="flex flex-col">
-                                <span className="text-base font-bold text-slate-800 whitespace-nowrap leading-none">Progress Filters</span>
-                                <span className="text-[10px] font-black text-slate-400 mt-1 uppercase tracking-widest">{filteredEntries.length} Results</span>
-                            </div>
+                {/* ── Main Container ───────────────────────────────────────────── */}
+                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-12 font-inter">
+                    <div className="p-6 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-slate-50/30 font-inter">
+                        <div className="relative flex-1 max-w-md font-inter">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
+                            <input type="text" placeholder="Search by activity or BOQ code..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter" />
                         </div>
-
-                        {/* Divider */}
-                        <div className="hidden md:block w-px h-8 bg-slate-100 shrink-0" />
-
-                        {/* Search */}
-                        <div className="relative flex-1 min-w-[200px]">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                </svg>
-                            </span>
-                            <input
-                                type="text"
-                                placeholder="Search by activity or code..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400"
-                            />
-                        </div>
-
-                        {/* Status Dropdown */}
-                        <div className="flex flex-col gap-0.5 min-w-[130px]">
-                            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Status</label>
-                            <div className="relative">
-                                <select
-                                    value={statusFilter}
-                                    onChange={(e) => setStatusFilter(e.target.value)}
-                                    className="w-full appearance-none px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all cursor-pointer pr-8"
-                                >
-                                    <option value="All">All Status</option>
-                                    <option value="On Track">On Track</option>
-                                    <option value="Delay">Delay</option>
-                                </select>
-                                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </span>
-                            </div>
+                        <div className="flex items-center gap-2 font-inter">
+                            <Filter className="w-4 h-4 text-slate-400" />
+                            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none cursor-pointer font-inter">
+                                <option>All Status</option>
+                                <option>On Track</option>
+                                <option>Delay</option>
+                            </select>
                         </div>
                     </div>
 
-                    <div className="p-4 md:p-8 bg-slate-50/50">
-                        {filteredEntries.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="overflow-x-auto font-inter">
+                        <table className="w-full text-left font-inter">
+                            <thead>
+                                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
+                                    <th className="px-6 py-4 font-inter">Site Activity & BOQ Code</th>
+                                    <th className="px-6 py-4 font-inter">Work Progress Delta</th>
+                                    <th className="px-6 py-4 font-inter">Execution Status</th>
+                                    <th className="px-6 py-4 font-inter">Efficiency</th>
+                                    <th className="px-6 py-4 text-right font-inter">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50 font-inter">
                                 {filteredEntries.map((entry) => (
-                                    <div
-                                        key={entry.id}
-                                        className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all font-inter flex flex-col"
-                                    >
-                                        {/* Header: ID & Status */}
-                                        <div className="flex items-center justify-between mb-1">
-                                            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Record #{entry.id}</span>
-                                            <span className={`px-2 py-0.5 text-[9px] font-black uppercase tracking-widest rounded-lg ${entry.status === "On Track" ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
-                                                }`}>
-                                                {entry.status}
-                                            </span>
-                                        </div>
-
-                                        {/* BOQ Code & Date Range */}
-                                        <p className="text-[10px] text-slate-400 mt-1.5 font-medium font-inter mb-2">
-                                            {entry.boq_code} · {entry.start_date} to {entry.end_date}
-                                        </p>
-
-                                        {/* Activity Name - primary bold value */}
-                                        <p className="text-2xl font-bold text-slate-900 font-inter leading-tight mb-2">{entry.activity_name}</p>
-
-                                        {/* Core Metric (Today's Progress) - Highlighted */}
-                                        <div className="bg-blue-50/50 rounded-xl p-4 border border-blue-100/50 mb-4">
-                                            <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Today's Executed Quantity</p>
-                                            <div className="flex items-baseline gap-1.5">
-                                                <p className="text-3xl font-black text-blue-600">+{entry.today_progress.toLocaleString()}</p>
-                                                <p className="text-[10px] font-black text-blue-400 uppercase">Cu.m</p>
+                                    <tr key={entry.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
+                                        <td className="px-6 py-4">
+                                            <div className="flex flex-col font-inter">
+                                                <span className="text-sm font-bold text-slate-800 font-inter">{entry.activity_name}</span>
+                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-inter">{entry.boq_code}</span>
                                             </div>
-                                        </div>
-
-                                        {/* Metrics Grid */}
-                                        <div className="grid grid-cols-2 gap-3 mb-5">
-                                            <div>
-                                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Total Completed</p>
-                                                <p className="text-xl font-bold text-slate-800 font-inter tabular-nums">{entry.total_completed.toLocaleString()}</p>
-                                                <p className="text-[10px] text-slate-400 mt-0.5 font-medium">Accumulated</p>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex flex-col font-inter">
+                                                <span className="text-xs font-black text-slate-700 tabular-nums font-inter">+{entry.today_progress} Units Today</span>
+                                                <span className="text-[10px] text-slate-400 font-bold font-inter italic-none">Total: {entry.total_completed} / {entry.planned_quantity}</span>
                                             </div>
-                                            <div>
-                                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Remaining</p>
-                                                <p className="text-xl font-bold text-rose-500 font-inter tabular-nums">{entry.remaining_quantity.toLocaleString()}</p>
-                                                <p className="text-[10px] text-slate-400 mt-0.5 font-medium">Pending units</p>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex flex-col font-inter">
+                                                <span className="text-xs font-bold text-slate-600 font-inter truncate italic-none">{entry.status}</span>
+                                                <div className="flex items-center gap-1 text-[10px] text-slate-400 font-inter">
+                                                    <FileText className="w-3 h-3" />
+                                                    <span className="truncate font-inter italic-none">Target: {entry.end_date}</span>
+                                                </div>
                                             </div>
-                                        </div>
-
-                                        {/* Progress Bar (Compact) */}
-                                        <div className="mt-auto pt-4 border-t border-slate-50">
-                                            <div className="flex items-center justify-between mb-1.5">
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Overall Completion</span>
-                                                <span className="text-xs font-black text-slate-800">{entry.percent_completion}%</span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="w-full max-w-[100px] flex flex-col gap-1.5 font-inter">
+                                                <div className="flex items-center justify-between font-inter">
+                                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{entry.percent_completion}%</span>
+                                                </div>
+                                                <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden font-inter">
+                                                    <div className={`h-full rounded-full ${entry.status === 'On Track' ? 'bg-emerald-500' : 'bg-rose-500'}`} style={{ width: `${entry.percent_completion}%` }} />
+                                                </div>
                                             </div>
-                                            <div className="h-1.5 w-full bg-slate-50 rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full bg-blue-600 transition-all duration-1000"
-                                                    style={{ width: `${entry.percent_completion}%` }}
-                                                />
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <div className="flex items-center justify-end gap-2 font-inter">
+                                                <button onClick={() => { setSelectedEntry(entry); setIsDetailOpen(true); }} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all font-inter"><Eye className="w-4 h-4" /></button>
+                                                <button onClick={() => { setFormMode("edit"); setSelectedEntry(entry); setFormData({ activity_name: entry.activity_name, boq_code: entry.boq_code, today_progress: entry.today_progress.toString(), status: entry.status }); setIsFormOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"><Edit2 className="w-4 h-4" /></button>
+                                                <button onClick={() => { setEntryToDelete(entry.id); setIsDeleteOpen(true); }} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"><Trash2 className="w-4 h-4" /></button>
                                             </div>
-                                        </div>
-
-                                        {/* Actions */}
-                                        <div className="flex items-center justify-between pt-4 mt-4">
-                                            <button
-                                                onClick={() => setSelectedEntry(entry)}
-                                                className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-lg hover:bg-blue-100 transition-all uppercase tracking-wider"
-                                            >
-                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                                </svg>
-                                                View Insight
-                                            </button>
-                                            <div className="flex items-center gap-1">
-                                                <button
-                                                    onClick={() => handleOpenEdit(entry)}
-                                                    className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
-                                                    title="Edit"
-                                                >
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                                    </svg>
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDeleteClick(entry.id)}
-                                                    className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
-                                                    title="Delete"
-                                                >
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                    </svg>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
+                                        </td>
+                                    </tr>
                                 ))}
-                            </div>
-                        ) : (
-                            <div className="py-20 flex flex-col items-center justify-center text-slate-300">
-                                <div className="w-20 h-20 rounded-[2.5rem] bg-slate-50 flex items-center justify-center mb-6">
-                                    <svg className="w-10 h-10 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 17v-2m3 2v-4m3 2v-6m-8-5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V9l-5-5z" />
-                                    </svg>
-                                </div>
-                                <p className="text-sm font-black uppercase tracking-[0.2em] text-slate-400">No progress entries found</p>
-                                <p className="text-xs text-slate-400 font-medium mt-1">Try adjusting your search or filters</p>
-                            </div>
-                        )}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </PageTransition>
 
-            {/* Log Progress Modal (DSR Style) */}
-            <Modal
-                isOpen={isFormModalOpen}
-                onClose={() => { setIsFormModalOpen(false); setErrors({}); }}
-                title={formMode === "create" ? "Record Daily Progress" : "Edit Progress Record"}
-                maxWidth="max-w-5xl"
-            >
-                <div className="bg-white p-8 italic-none">
-                    <form id="progress-form" onSubmit={handleSubmit} className="space-y-10">
-
-                        {/* ── Section 1: Identity & Plan ────────────────── */}
-                        <div>
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="w-1 h-6 bg-blue-600 rounded-full" />
-                                <h3 className="text-sm font-black text-slate-800 tracking-wide">Identity & Plan</h3>
+            {/* ── Form Modal ──────────────────────────────────── */}
+            <Modal isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} title={formMode === 'create' ? 'Log Daily Site Progress' : 'Update Progress Log'} maxWidth="max-w-xl">
+                <div className="p-8 font-inter text-inter">
+                    <form onSubmit={handleSubmit} className="space-y-6 font-inter">
+                        <div className="grid grid-cols-1 gap-6 font-inter">
+                            <div className="flex flex-col font-inter">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter italic-none">Activity Name</label>
+                                <input type="text" value={formData.activity_name} onChange={(e) => setFormData({...formData, activity_name: e.target.value})} placeholder="e.g. RCC Foundation" className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter" required />
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-                                {/* Activity Name */}
-                                <div className="flex flex-col gap-1.5 md:col-span-2">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                        Activity Name <span className="text-rose-500">*</span>
-                                    </label>
-                                    <select
-                                        name="activity_name"
-                                        value={formData.activity_name}
-                                        onChange={handleChange}
-                                        className={`w-full px-4 py-3 bg-slate-50 border rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer appearance-none ${errors.activity_name ? "border-rose-300 bg-rose-50" : "border-slate-200"}`}
-                                    >
-                                        <option value="">Select Activity...</option>
-                                        <option value="Excavation">Excavation</option>
-                                        <option value="RCC Work">RCC Work</option>
-                                        <option value="Brickwork">Brickwork</option>
-                                        <option value="Plastering">Plastering</option>
-                                        <option value="Flooring">Flooring</option>
-                                    </select>
-                                    {errors.activity_name && <p className="text-[10px] font-bold text-rose-500">{errors.activity_name}</p>}
+                            <div className="grid grid-cols-2 gap-4 font-inter">
+                                <div className="flex flex-col font-inter">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter italic-none">BOQ Code</label>
+                                    <input type="text" value={formData.boq_code} onChange={(e) => setFormData({...formData, boq_code: e.target.value})} placeholder="BOQ-001" className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter" required />
                                 </div>
-
-                                {/* BOQ Code */}
-                                <div className="flex flex-col gap-1.5 md:col-span-1">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                        BOQ Code <span className="text-rose-500">*</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="boq_code"
-                                        value={formData.boq_code}
-                                        onChange={handleChange}
-                                        placeholder="e.g. BOQ-STR-001"
-                                        className={`w-full px-4 py-3 bg-slate-50 border rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${errors.boq_code ? "border-rose-300 bg-rose-50" : "border-slate-200"}`}
-                                    />
-                                    {errors.boq_code && <p className="text-[10px] font-bold text-rose-500">{errors.boq_code}</p>}
+                                <div className="flex flex-col font-inter">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter italic-none">Today's Progress</label>
+                                    <input type="number" value={formData.today_progress} onChange={(e) => setFormData({...formData, today_progress: e.target.value})} placeholder="45" className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter" required />
                                 </div>
-
-                                {/* Planned Quantity */}
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                        Planned Quantity <span className="text-rose-500">*</span>
-                                    </label>
-                                    <input
-                                        type="number"
-                                        name="planned_quantity"
-                                        value={formData.planned_quantity}
-                                        onChange={handleChange}
-                                        placeholder="0.00"
-                                        className={`w-full px-4 py-3 bg-slate-50 border rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${errors.planned_quantity ? "border-rose-300 bg-rose-50" : "border-slate-200"}`}
-                                    />
-                                    {errors.planned_quantity && <p className="text-[10px] font-bold text-rose-500">{errors.planned_quantity}</p>}
-                                </div>
+                            </div>
+                            <div className="flex flex-col font-inter">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter italic-none">Execution Status</label>
+                                <select value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value as any})} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter">
+                                    <option value="On Track">On Track</option>
+                                    <option value="Delay">Delay</option>
+                                </select>
                             </div>
                         </div>
-
-                        {/* ── Section 2: Progress & Execution ─────────────── */}
-                        <div>
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="w-1 h-6 bg-emerald-500 rounded-full" />
-                                <h3 className="text-sm font-black text-slate-800 tracking-wide">Progress & Execution</h3>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-                                {/* Today’s Progress */}
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                        Today’s Progress
-                                    </label>
-                                    <input
-                                        type="number"
-                                        name="today_progress"
-                                        value={formData.today_progress}
-                                        onChange={handleChange}
-                                        placeholder="0.00"
-                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                                    />
-                                </div>
-
-                                {/* Total Completed */}
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                        Total Completed
-                                    </label>
-                                    <input
-                                        type="number"
-                                        name="total_completed"
-                                        value={formData.total_completed}
-                                        onChange={handleChange}
-                                        placeholder="0.00"
-                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-emerald-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                                    />
-                                </div>
-
-                                {/* Remaining Quantity */}
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                        Remaining Quantity
-                                    </label>
-                                    <input
-                                        type="number"
-                                        name="remaining_quantity"
-                                        value={formData.remaining_quantity}
-                                        onChange={handleChange}
-                                        placeholder="0.00"
-                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-rose-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* ── Section 3: Timeline & Tracking ─────────────────── */}
-                        <div>
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="w-1 h-6 bg-amber-500 rounded-full" />
-                                <h3 className="text-sm font-black text-slate-800 tracking-wide">Timeline & Tracking</h3>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-
-                                {/* % Completion */}
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                        % Completion
-                                    </label>
-                                    <div className="relative">
-                                        <input
-                                            type="number"
-                                            name="percent_completion"
-                                            value={formData.percent_completion}
-                                            onChange={handleChange}
-                                            max={100}
-                                            placeholder="0"
-                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all pr-8"
-                                        />
-                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">%</span>
-                                    </div>
-                                </div>
-
-                                {/* Start Date */}
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                        Start Date
-                                    </label>
-                                    <input
-                                        type="date"
-                                        name="start_date"
-                                        value={formData.start_date}
-                                        onChange={handleChange}
-                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none transition-all"
-                                    />
-                                </div>
-
-                                {/* End Date */}
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                        End Date <span className="text-rose-500">*</span>
-                                    </label>
-                                    <input
-                                        type="date"
-                                        name="end_date"
-                                        value={formData.end_date}
-                                        onChange={handleChange}
-                                        className={`w-full px-4 py-3 bg-slate-50 border rounded-xl text-sm font-semibold text-slate-800 focus:outline-none transition-all ${errors.end_date ? "border-rose-300 bg-rose-50" : "border-slate-200"}`}
-                                    />
-                                    {errors.end_date && <p className="text-[10px] font-bold text-rose-500">{errors.end_date}</p>}
-                                </div>
-
-                                {/* Status */}
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                        Status
-                                    </label>
-                                    <select
-                                        name="status"
-                                        value={formData.status}
-                                        onChange={handleChange}
-                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none cursor-pointer appearance-none"
-                                    >
-                                        <option value="On Track">On Track</option>
-                                        <option value="Delay">Delay</option>
-                                    </select>
-                                </div>
-                            </div>
+                        <div className="flex items-center justify-end gap-3 pt-6 font-inter">
+                            <button type="button" onClick={() => setIsFormOpen(false)} className="px-6 py-3 text-[11px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-800 transition-all font-inter italic-none">Cancel</button>
+                            <button type="submit" className="px-10 py-4 bg-primary text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter italic-none">
+                                {formMode === 'create' ? 'Confirm & Log Progress' : 'Update Log'}
+                            </button>
                         </div>
                     </form>
                 </div>
-
-                <div className="bg-slate-50 px-8 py-5 border-t border-slate-100 flex items-center justify-between">
-                    <button type="button" onClick={() => { setIsFormModalOpen(false); setErrors({}); }} className="text-xs font-bold text-slate-400 hover:text-slate-800 uppercase tracking-widest transition-all">Discard</button>
-                    <button type="submit" form="progress-form" className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">
-                        {formMode === "create" ? "Save Progress Record" : "Update Records"}
-                    </button>
-                </div>
             </Modal>
 
-            {/* View Detail Modal */}
-            <Modal
-                isOpen={!!selectedEntry}
-                onClose={() => setSelectedEntry(null)}
-                title="Execution Insight"
-                maxWidth="max-w-xl"
-            >
+            {/* ── Detail Modal ────────────────────────────────── */}
+            <Modal isOpen={isDetailOpen} onClose={() => setIsDetailOpen(false)} title="Activity Execution Insight" maxWidth="max-w-2xl">
                 {selectedEntry && (
-                    <div className="space-y-6 italic-none font-inter">
-                        <div className="p-6 bg-gradient-to-br from-indigo-900 to-primary rounded-2xl text-white shadow-xl shadow-primary/20 relative overflow-hidden">
-                            <div className="absolute top-0 right-0 p-8 opacity-10">
-                                <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z" /></svg>
-                            </div>
-                            <div className="relative z-10">
-                                <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80 mb-1">Activity Context</p>
-                                <h3 className="text-2xl font-black tracking-tight mb-4">{selectedEntry.activity_name}</h3>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/20">
-                                        <p className="text-[9px] font-bold uppercase opacity-60">Completion</p>
-                                        <p className="text-lg font-black">{selectedEntry.percent_completion}%</p>
+                    <div className="p-6 font-inter text-inter italic-none">
+                        <div className="bg-slate-900 rounded-[2.5rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter">
+                            <div className="relative z-10 font-inter">
+                                <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-2 font-inter">Daily Progress Analytics</p>
+                                <h3 className="text-2xl font-black tracking-tight leading-tight mb-6 font-inter">{selectedEntry.activity_name}</h3>
+                                <div className="grid grid-cols-3 gap-4 font-inter">
+                                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 font-inter">
+                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-40 mb-1 font-inter">Efficiency</p>
+                                        <p className="text-lg font-black font-inter italic-none">{selectedEntry.percent_completion}%</p>
                                     </div>
-                                    <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/20">
-                                        <p className="text-[9px] font-bold uppercase opacity-60">Status</p>
-                                        <p className="text-lg font-black">{selectedEntry.status}</p>
+                                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 font-inter">
+                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-40 mb-1 font-inter">Today</p>
+                                        <p className="text-lg font-black font-inter italic-none">+{selectedEntry.today_progress} Units</p>
+                                    </div>
+                                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 font-inter">
+                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-40 mb-1 font-inter">Status</p>
+                                        <p className="text-lg font-black font-inter italic-none uppercase">{selectedEntry.status}</p>
                                     </div>
                                 </div>
                             </div>
                         </div>
-
-                        <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">BOQ Code</label>
-                                    <p className="text-sm font-bold text-slate-700 tracking-tight">{selectedEntry.boq_code}</p>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Today's Progress</label>
-                                    <p className="text-sm font-bold text-blue-600">+{selectedEntry.today_progress}</p>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Total Done</label>
-                                    <p className="text-sm font-bold text-slate-700">{selectedEntry.total_completed} / {selectedEntry.planned_quantity}</p>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Remaining Quantity</label>
-                                    <p className="text-sm font-bold text-rose-500">{selectedEntry.remaining_quantity}</p>
-                                </div>
-                            </div>
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Start Date</label>
-                                    <p className="text-sm font-bold text-slate-700">{selectedEntry.start_date}</p>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">End Date</label>
-                                    <p className="text-sm font-bold text-slate-700">{selectedEntry.end_date}</p>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">% Completion</label>
-                                    <p className="text-sm font-bold text-slate-800">{selectedEntry.percent_completion}%</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="pt-4 border-t border-slate-100 flex justify-end gap-3">
-                            <button
-                                onClick={() => setSelectedEntry(null)}
-                                className="px-6 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all uppercase tracking-widest"
-                            >
-                                Close
-                            </button>
-                            <button
-                                onClick={() => {
-                                    handleOpenEdit(selectedEntry);
-                                    setSelectedEntry(null);
-                                }}
-                                className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95 font-inter"
-                            >
-                                Edit Record
-                            </button>
-                        </div>
+                        <button onClick={() => setIsDetailOpen(false)} className="w-full py-5 bg-slate-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/20 active:scale-95 font-inter italic-none">Dismiss Execution Insight</button>
                     </div>
                 )}
             </Modal>
-            <ConfirmModal
-                isOpen={isDeleteModalOpen}
-                onClose={() => {
-                    setIsDeleteModalOpen(false);
-                    setEntryToDelete(null);
-                }}
-                onConfirm={handleDeleteConfirm}
-                title="Delete Progress Entry"
-                message="Are you sure you want to delete this progress record? This action cannot be undone and will affect overall project completion stats."
-                confirmText="Delete"
-                type="danger"
-            />
+
+            <ConfirmModal isOpen={isDeleteOpen} onClose={() => setIsDeleteOpen(false)} onConfirm={() => { setEntries(prev => prev.filter(e => e.id !== entryToDelete)); setIsDeleteOpen(false); toast.success("Activity log archived"); }} title="Discard Progress Record" message="Are you sure you want to remove this daily progress log?" confirmText="Archive Log" type="danger" />
         </>
     );
 };

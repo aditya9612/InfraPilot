@@ -1,12 +1,23 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
+import StatCard from "../../../components/common/StatCard";
 import Modal from "../../../components/common/Modal";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
+import { 
+  AlertTriangle, 
+  ShieldAlert, 
+  CheckCircle2, 
+  Search, 
+  Plus, 
+  Edit2, 
+  Trash2,
+  Eye,
+  Activity
+} from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-
 interface IncidentRecord {
     id: string;
     date: string;
@@ -20,7 +31,6 @@ interface IncidentRecord {
 }
 
 // ─── Mock Data ───────────────────────────────────────────────────────────────
-
 const incidentHistory: IncidentRecord[] = [
     {
         id: "SF-INC-401",
@@ -35,18 +45,12 @@ const incidentHistory: IncidentRecord[] = [
     },
 ];
 
-// ─── Profile Field Helper ──────────────────────────────────────────────────────
-
-// ─── Main Component ─────────────────────────────────────────────────────────────
-
 const IncidentReportPage = () => {
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [selectedIncident, setSelectedIncident] = useState<IncidentRecord | null>(null);
     const [incidentData, setIncidentData] = useState<IncidentRecord[]>(incidentHistory);
     const [isEditMode, setIsEditMode] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
-    const [statusFilter, setStatusFilter] = useState("All Status");
-    const [categoryFilter, setCategoryFilter] = useState("All Reports");
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [incidentToDelete, setIncidentToDelete] = useState<string | null>(null);
 
@@ -118,11 +122,6 @@ const IncidentReportPage = () => {
         setIsFormModalOpen(true);
     };
 
-    const handleDeleteClick = (id: string) => {
-        setIncidentToDelete(id);
-        setIsDeleteModalOpen(true);
-    };
-
     const handleDeleteConfirm = () => {
         if (!incidentToDelete) return;
         setIncidentData(prev => prev.filter(t => t.id !== incidentToDelete));
@@ -162,486 +161,306 @@ const IncidentReportPage = () => {
         setIsFormModalOpen(false);
     };
 
-    // ── Filtered records ──────────────────────────────────────────────────────
-    const filteredHistory = incidentData.filter(item => {
-        // Since status isn't explicitly in the schema yet, we map categories or descriptions
-        const matchesStatus = statusFilter === "All Status" ||
-            (statusFilter === "Critical" && item.violation_type === "Height Safety") ||
-            (statusFilter === "Moderate" && item.violation_type !== "Height Safety") ||
-            (statusFilter === "Near Miss" && item.injury_details.toLowerCase().includes("none"));
+    const filteredHistory = useMemo(() => {
+        return incidentData.filter(item => {
+            const matchesSearch = item.responsible_person.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                item.incident_description.toLowerCase().includes(searchTerm.toLowerCase());
+            return matchesSearch;
+        });
+    }, [incidentData, searchTerm]);
 
-        const matchesCategory = categoryFilter === "All Reports" ||
-            (categoryFilter === "Height" && item.violation_type === "Height Safety") ||
-            (categoryFilter === "PPE" && item.violation_type === "PPE Violation") ||
-            (categoryFilter === "Electrical" && item.violation_type === "Electrical Hazard");
+    // Stats
+    const totalLogged = incidentData.length;
+    const heightSafetyViolations = incidentData.filter(i => i.violation_type === "Height Safety").length;
+    const resolvedCases = incidentData.filter(i => i.action_taken !== "").length;
+    const ppeComplianceAvg = Math.round(incidentData.reduce((acc, i) => acc + parseInt(i.ppe_compliance), 0) / (totalLogged || 1));
 
-        const matchesSearch = item.responsible_person.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            item.incident_description.toLowerCase().includes(searchTerm.toLowerCase());
-
-        return matchesStatus && matchesCategory && matchesSearch;
-    });
+    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
+    const inputClasses = (error?: string) => `
+        w-full px-4 py-2.5 bg-white border 
+        ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
+        rounded-xl text-sm outline-none transition-all placeholder:text-slate-300
+    `;
 
     return (
         <>
-            <Navbar
-                title="Incident Report"
-                breadcrumb={["InfraPilot", "Engineer", "Safety", "Incident"]}
-            />
+            <Navbar title="Incident Registry" breadcrumb={["Engineer", "Safety", "Lodge Incident"]} />
 
-            <PageTransition className="p-4 md:p-8 bg-slate-50 min-h-screen font-inter italic-none">
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
                 {/* ── Header ──────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 text-inter">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1 font-inter">
-                            Field Documentation Registry
-                        </p>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">
-                            Incident Registry
-                        </h1>
-                        <p className="text-slate-500 text-sm font-medium leading-relaxed max-w-xl font-inter">
-                            Official logging for site safety violations, near-misses, and injury occurrences with corrective action tracking.
-                        </p>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Incident Registry</h1>
+                        <p className="text-slate-500 text-sm">Official logging for site safety violations and injury occurrences.</p>
                     </div>
-                    <div className="flex items-center gap-3 font-inter">
-                        <button
-                            onClick={handleOpenAdd}
-                            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all font-inter"
-                        >
-                            <span className="text-lg leading-none font-inter">+</span>
-                            Lodge New Incident
-                        </button>
-                    </div>
+                    <button
+                        onClick={handleOpenAdd}
+                        className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-rose-200 hover:bg-rose-700 transition-all active:scale-95"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Lodge Incident
+                    </button>
                 </div>
 
-                {/* ── Summary Stat Cards (Activity Style) ────────────────────── */}
-                <div className="mb-8 font-inter">
-                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4 font-inter">
-                        Safety Metrics
-                    </h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 font-inter">
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all font-inter">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 font-inter">Total Logged</p>
-                            <p className="text-2xl font-bold text-slate-900 font-inter">{incidentData.length}</p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium font-inter">Incident Entries</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all font-inter relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 w-1 group-hover:w-full h-full bg-rose-500 transition-all duration-500 opacity-10 group-hover:opacity-5" />
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 font-inter">Height Safety</p>
-                            <p className="text-2xl font-bold text-rose-500 font-inter">
-                                {incidentData.filter(i => i.violation_type === "Height Safety").length}
-                            </p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium font-inter">Critical Violations</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all font-inter">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 font-inter">Resolved Cases</p>
-                            <p className="text-2xl font-bold text-emerald-500 font-inter">
-                                {incidentData.filter(i => i.action_taken !== "").length}
-                            </p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium font-inter">Corrective Actions</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all font-inter">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 font-inter">PPE Issues</p>
-                            <p className="text-2xl font-bold text-blue-600 font-inter">
-                                {incidentData.filter(i => i.violation_type === "PPE Violation").length}
-                            </p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium font-inter">Compliance Alerts</p>
-                        </div>
-                    </div>
+                {/* ── Summary Stats ───────────────────────────── */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <StatCard
+                        title="Total Logged"
+                        value={totalLogged.toString()}
+                        sub="Incident Entries"
+                        accent="text-slate-800"
+                        icon={<AlertTriangle className="w-5 h-5" />}
+                    />
+                    <StatCard
+                        title="Height Safety"
+                        value={heightSafetyViolations.toString()}
+                        sub="Critical Violations"
+                        accent="text-rose-500"
+                        icon={<ShieldAlert className="w-5 h-5" />}
+                    />
+                    <StatCard
+                        title="Resolved"
+                        value={resolvedCases.toString()}
+                        sub="Corrective Actions"
+                        accent="text-emerald-500"
+                        icon={<CheckCircle2 className="w-5 h-5" />}
+                    />
+                    <StatCard
+                        title="PPE Compliance"
+                        value={`${ppeComplianceAvg}%`}
+                        sub="Safety Adherence"
+                        accent="text-blue-500"
+                        icon={<Activity className="w-5 h-5" />}
+                    />
                 </div>
 
                 {/* ── Filter Bar ───────────────────────────────────────────── */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-100 px-5 py-4 mb-8 flex flex-wrap items-center gap-4 font-inter">
-
-                    {/* Icon + Title */}
-                    <div className="flex items-center gap-3 shrink-0">
-                        <div className="w-10 h-10 rounded-xl bg-rose-600 flex items-center justify-center shadow-md shadow-rose-100">
-                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                            </svg>
-                        </div>
-                        <span className="text-base font-bold text-slate-800 whitespace-nowrap">All Tasks Filters</span>
-                    </div>
-
-                    {/* Divider */}
-                    <div className="hidden md:block w-px h-8 bg-slate-100 shrink-0" />
-
-                    {/* Search */}
-                    <div className="flex flex-col gap-0.5 min-w-[180px]">
-                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Search</label>
-                        <div className="relative">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-8">
+                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4">
+                        <div className="relative flex-1 max-w-md">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                </svg>
+                                <Search className="w-4 h-4" />
                             </span>
                             <input
                                 type="text"
-                                placeholder="Search tasks..."
+                                placeholder="Search by description or ID..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all placeholder:text-slate-400"
+                                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/10 focus:border-rose-500 transition-all"
                             />
                         </div>
                     </div>
 
-                    {/* Severity Dropdown */}
-                    <div className="flex flex-col gap-0.5 min-w-[130px]">
-                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Status</label>
-                        <div className="relative">
-                            <select
-                                value={statusFilter}
-                                onChange={(e) => setStatusFilter(e.target.value)}
-                                className="w-full appearance-none px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all cursor-pointer pr-8"
-                            >
-                                <option value="All Status">All Status</option>
-                                <option value="Critical">Critical Breach</option>
-                                <option value="Moderate">Moderate Risk</option>
-                                <option value="Near Miss">Near Miss</option>
-                            </select>
-                            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
-                                </svg>
-                            </span>
-                        </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
+                                    <th className="px-6 py-4">Incident Details</th>
+                                    <th className="px-6 py-4">Violation Type</th>
+                                    <th className="px-6 py-4">PPE Level</th>
+                                    <th className="px-6 py-4">Auditor</th>
+                                    <th className="px-6 py-4 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {filteredHistory.length > 0 ? (
+                                    filteredHistory.map((item) => (
+                                        <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
+                                            <td className="px-6 py-4">
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm font-bold text-slate-800 line-clamp-1">{item.incident_description}</span>
+                                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{item.id} • {item.date}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="text-xs font-semibold text-rose-600 bg-rose-50 px-2.5 py-1 rounded-lg">
+                                                    {item.violation_type}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="text-sm font-bold text-slate-800">{item.ppe_compliance}</span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="text-xs font-medium text-slate-500">{item.responsible_person}</span>
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button 
+                                                        onClick={() => setSelectedIncident(item)}
+                                                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                                                    >
+                                                        <Eye className="w-4 h-4" />
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleOpenEdit(item)}
+                                                        className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all"
+                                                    >
+                                                        <Edit2 className="w-4 h-4" />
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => { setIncidentToDelete(item.id); setIsDeleteModalOpen(true); }}
+                                                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={5} className="px-6 py-20 text-center text-slate-400 italic">
+                                            No incident reports found.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
                     </div>
-
-                    {/* Category Dropdown */}
-                    <div className="flex flex-col gap-0.5 min-w-[150px]">
-                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Filter</label>
-                        <div className="relative">
-                            <select
-                                value={categoryFilter}
-                                onChange={(e) => setCategoryFilter(e.target.value)}
-                                className="w-full appearance-none px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all cursor-pointer pr-8"
-                            >
-                                <option value="All Reports">All Reports</option>
-                                <option value="Height">Height Safety</option>
-                                <option value="PPE">PPE Violation</option>
-                                <option value="Electrical">Electrical Hazard</option>
-                            </select>
-                            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
-                                </svg>
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* ── Incident Registry Grid ─────────────────────────────────── */}
-                <div className="mb-20">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 font-inter">
-                        {filteredHistory.map((item) => (
-                            <div
-                                key={item.id}
-                                className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all font-inter flex flex-col"
-                            >
-                                {/* Header: ID & Severity */}
-                                <div className="flex items-center justify-between mb-1">
-                                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Incident #{item.id}</span>
-                                    <span className="px-2 py-0.5 text-[9px] font-black uppercase tracking-widest rounded-lg bg-rose-50 text-rose-600">
-                                        Critical Breach
-                                    </span>
-                                </div>
-
-                                {/* Date & Auditor */}
-                                <p className="text-[10px] text-slate-400 mt-1.5 font-medium font-inter mb-2">
-                                    {item.date} · Lead: {item.responsible_person}
-                                </p>
-
-                                {/* Violation Title - primay value */}
-                                <p className="text-2xl font-bold text-slate-900 font-inter leading-tight mb-1">{item.violation_type}</p>
-                                <p className="text-[10px] text-slate-400 mt-0.5 font-medium leading-relaxed line-clamp-2 mb-4">{item.incident_description}</p>
-
-                                {/* Diagnostic Metrics Breakdown */}
-                                <div className="grid grid-cols-2 gap-3 mt-auto">
-                                    <div>
-                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Protection</p>
-                                        <p className="text-2xl font-bold text-rose-600 font-inter tabular-nums">{item.ppe_compliance}</p>
-                                        <p className="text-[10px] text-slate-400 mt-0.5 font-medium">PPE Level</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Injury Audit</p>
-                                        <p className="text-lg font-bold text-slate-800 font-inter truncate">{item.injury_details === "None" ? "Clean Registry" : item.injury_details}</p>
-                                        <p className="text-[10px] text-slate-400 mt-0.5 font-medium">Medical Status</p>
-                                    </div>
-                                </div>
-
-                                {/* Actions */}
-                                <div className="flex items-center justify-between pt-4 border-t border-slate-100 mt-4">
-                                    <div className="flex items-center gap-1">
-                                        <button
-                                            onClick={() => setSelectedIncident(item)}
-                                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
-                                            title="View Analysis"
-                                        >
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                            </svg>
-                                        </button>
-                                        <button
-                                            onClick={() => handleOpenEdit(item)}
-                                            className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
-                                            title="Modify Case"
-                                        >
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                    <button
-                                        onClick={() => handleDeleteClick(item.id)}
-                                        className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
-                                        title="Delete Registry"
-                                    >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {incidentData.length === 0 && (
-                        <div className="bg-emerald-50 border border-emerald-100 rounded-[2rem] p-20 text-center mt-8 font-inter">
-                            <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6 text-emerald-600">
-                                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
-                            </div>
-                            <p className="text-emerald-900 font-black text-xl mb-2 font-inter uppercase tracking-tight">Zero Incidents Logged</p>
-                            <p className="text-emerald-600 text-[10px] font-black uppercase tracking-[0.2em]">Safe Site Protocol Maintained</p>
-                        </div>
-                    )}
                 </div>
             </PageTransition>
 
-            {/* ── DETAIL MODAL (Insight View) ────────────────────────────────── */}
+            {/* ── Detail Modal ────────────────────────────────── */}
             <Modal
                 isOpen={!!selectedIncident}
                 onClose={() => setSelectedIncident(null)}
-                title="Critical Evidence Analysis"
-                maxWidth="max-w-2xl"
+                title="Incident Insight"
+                maxWidth="max-w-xl"
             >
                 {selectedIncident && (
-                    <div className="bg-white p-8 italic-none font-inter space-y-8">
-                        {/* ── Blue Hero Card ────────────────────────────────── */}
-                        <div className="bg-rose-600 rounded-2xl p-6 text-white shadow-xl relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
-                            <div className="relative z-10 flex items-center justify-between">
+                    <div className="p-6">
+                        <div className="bg-rose-600 rounded-[2rem] p-8 mb-8 text-white shadow-xl shadow-rose-100 relative overflow-hidden">
+                            <div className="relative z-10">
+                                <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-2">Critical Case Audit</p>
+                                <h3 className="text-2xl font-black tracking-tight leading-tight mb-6">{selectedIncident.violation_type}</h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
+                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Case ID</p>
+                                        <p className="text-lg font-black">{selectedIncident.id}</p>
+                                    </div>
+                                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
+                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Protection</p>
+                                        <p className="text-lg font-black">{selectedIncident.ppe_compliance}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-8 px-2 mb-10">
+                            <div>
+                                <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-2')}>Technical Narration</p>
+                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm text-slate-600 leading-relaxed">
+                                    "{selectedIncident.incident_description}"
+                                </div>
+                            </div>
+                            <div>
+                                <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-2')}>Corrective Strategy</p>
+                                <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 text-sm text-emerald-700 font-bold leading-relaxed">
+                                    "{selectedIncident.action_taken}"
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-1">Critical Evidence Report</p>
-                                    <h3 className="text-2xl font-black tracking-tight">{selectedIncident.date}</h3>
-                                    <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mt-1">Case ID: {selectedIncident.id}</p>
+                                    <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-1')}>Injury Audit</p>
+                                    <p className="text-sm font-bold text-slate-800">{selectedIncident.injury_details}</p>
                                 </div>
-                                <div className="text-right">
-                                    <div className="px-2 py-1 bg-white/20 rounded-lg text-[9px] font-black tracking-widest uppercase mb-2 inline-block">
-                                        Type: {selectedIncident.violation_type}
-                                    </div>
-                                    <p className="text-[10px] font-black uppercase tracking-wider opacity-40">Logged Entry</p>
+                                <div>
+                                    <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-1')}>Reporting Officer</p>
+                                    <p className="text-sm font-bold text-slate-800">{selectedIncident.responsible_person}</p>
                                 </div>
                             </div>
                         </div>
 
-                        {/* ── Operational Analysis ────────────────────────────── */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">PPE Level</p>
-                                <p className="text-xl font-black text-rose-600">{selectedIncident.ppe_compliance}</p>
-                            </div>
-                            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Injury Audit</p>
-                                <p className="text-sm font-black text-slate-800 truncate">{selectedIncident.injury_details}</p>
-                            </div>
-                        </div>
-
-                        {/* ── Detailed Evidence ────────────────────────────── */}
-                        <div className="space-y-6">
-                            <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Technical Narration</p>
-                                <p className="text-xs font-bold text-slate-600 leading-relaxed italic-none">{selectedIncident.incident_description}</p>
-                            </div>
-
-                            <div className="bg-emerald-50/50 rounded-2xl p-5 border border-emerald-100">
-                                <p className="text-[10px] font-black text-emerald-600/60 uppercase tracking-widest mb-2 font-inter">Corrective Strategy Executed</p>
-                                <p className="text-sm font-black text-emerald-700 leading-relaxed italic-none tracking-tight">{selectedIncident.action_taken}</p>
-                            </div>
-
-                            <div className="flex items-center justify-between py-4 border-t border-slate-100 px-1">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Audit Officer</span>
-                                <div className="flex items-center gap-2">
-                                    <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[8px] font-black text-slate-600 uppercase">
-                                        {selectedIncident.responsible_person.substring(0, 2)}
-                                    </div>
-                                    <span className="text-xs font-black text-slate-800 uppercase tracking-tight">{selectedIncident.responsible_person}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* ── Footer Actions ─────────────────────────────────── */}
-                        <div className="flex items-center justify-end gap-3 pt-4 font-inter">
-                            <button
-                                onClick={() => setSelectedIncident(null)}
-                                className="px-6 py-2.5 text-[10px] font-black text-slate-400 hover:text-slate-800 uppercase tracking-widest transition-all"
-                            >
-                                Dismiss analysis
-                            </button>
-                            <button
-                                onClick={() => {
-                                    handleOpenEdit(selectedIncident);
-                                    setSelectedIncident(null);
-                                }}
-                                className="px-8 py-2.5 bg-rose-600 text-white text-[13px] font-bold rounded-xl shadow-lg shadow-rose-100 hover:bg-rose-700 transition-all flex items-center gap-2 active:scale-95"
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                                Modify Case Registry
-                            </button>
-                        </div>
+                        <button 
+                            onClick={() => setSelectedIncident(null)}
+                            className="w-full py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all"
+                        >
+                            Dismiss analysis
+                        </button>
                     </div>
                 )}
             </Modal>
 
-            {/* ── FORM MODAL (Add / Edit) ────────────────────────────────── */}
+            {/* ── Form Modal ────────────────────────────────── */}
             <Modal
                 isOpen={isFormModalOpen}
-                onClose={() => { setIsFormModalOpen(false); setErrors({}); }}
+                onClose={() => setIsFormModalOpen(false)}
                 title={isEditMode ? "Modify Case Registry" : "Lodge Critical Incident"}
                 maxWidth="max-w-4xl"
+                footer={
+                    <>
+                        <button onClick={() => setIsFormModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">
+                            Cancel
+                        </button>
+                        <button
+                            form="incident-form"
+                            type="submit"
+                            className="px-8 py-2.5 bg-rose-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-rose-200 hover:bg-rose-700 transition-all active:scale-95"
+                        >
+                            {isEditMode ? "Update Master Registry" : "Finalize Incident Lodge"}
+                        </button>
+                    </>
+                }
             >
-                <div className="bg-white p-8 italic-none font-inter text-inter">
-                    <form id="incident-form" onSubmit={handleSubmit} className="p-0 space-y-10 text-inter">
-
-                        {/* Section 1: Record Identity */}
-                        <div className="border border-slate-200 rounded-xl p-6">
-                            <h3 className="text-[15px] font-bold text-slate-800 mb-6 font-inter underline decoration-rose-600 decoration-2 underline-offset-8">Registry Metadata</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 font-inter text-inter text-slate-800">
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-[13px] font-bold text-slate-700 font-inter">Observation Date <span className="text-rose-500">*</span></label>
-                                    <input
-                                        name="date"
-                                        type="date"
-                                        value={formData.date}
-                                        onChange={handleInputChange}
-                                        className={`w-full px-4 py-3 bg-white border rounded-lg text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-rose-500 transition-all font-inter ${errors.date ? "border-rose-300 bg-rose-50" : "border-slate-200"}`}
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-[13px] font-bold text-slate-700 font-inter">Breach Category</label>
-                                    <div className="relative">
-                                        <select
-                                            name="violation_type"
-                                            value={formData.violation_type}
-                                            onChange={handleInputChange}
-                                            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-rose-500 appearance-none cursor-pointer pr-10 font-inter"
-                                        >
-                                            <option value="Height Safety">Height Safety Breach</option>
-                                            <option value="PPE Violation">PPE Non-Compliance</option>
-                                            <option value="Material Handling">Unsafe Material Handling</option>
-                                            <option value="Electrical Hazard">Electrical Hazard</option>
-                                            <option value="Machinery Misuse">Machinery Misuse</option>
-                                        </select>
-                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" /></svg>
-                                        </span>
-                                    </div>
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-[13px] font-bold text-slate-700 font-inter">Audit Lead <span className="text-rose-500">*</span></label>
-                                    <input
-                                        name="responsible_person"
-                                        value={formData.responsible_person}
-                                        onChange={handleInputChange}
-                                        placeholder="Officer Name"
-                                        className={`w-full px-4 py-3 bg-white border rounded-lg text-[13px] text-slate-900 focus:outline-none transition-all font-inter ${errors.responsible_person ? "border-rose-300 bg-rose-50" : "border-slate-200"}`}
-                                    />
-                                </div>
+                <form id="incident-form" onSubmit={handleSubmit} className="space-y-6">
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Registry Metadata</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                            <div>
+                                <label className={labelClasses}>Observation Date <span className="text-rose-500">*</span></label>
+                                <input name="date" type="date" value={formData.date} onChange={handleInputChange} className={inputClasses(errors.date)} />
+                            </div>
+                            <div>
+                                <label className={labelClasses}>Breach Category</label>
+                                <select name="violation_type" value={formData.violation_type} onChange={handleInputChange} className={inputClasses()}>
+                                    <option value="Height Safety">Height Safety Breach</option>
+                                    <option value="PPE Violation">PPE Non-Compliance</option>
+                                    <option value="Material Handling">Unsafe Material Handling</option>
+                                    <option value="Electrical Hazard">Electrical Hazard</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className={labelClasses}>Audit Lead <span className="text-rose-500">*</span></label>
+                                <input name="responsible_person" value={formData.responsible_person} onChange={handleInputChange} placeholder="Officer Name" className={inputClasses(errors.responsible_person)} />
                             </div>
                         </div>
+                    </div>
 
-                        {/* Section 2: Technical Scope */}
-                        <div className="border border-slate-200 rounded-xl p-6">
-                            <h3 className="text-[15px] font-bold text-slate-800 mb-6 font-inter underline decoration-amber-500 decoration-2 underline-offset-8">Field Diagnostics</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter text-inter">
-                                <div className="md:col-span-2 flex flex-col gap-1.5">
-                                    <label className="text-[13px] font-bold text-slate-700 font-inter">Incident Narration <span className="text-rose-500">*</span></label>
-                                    <textarea
-                                        name="incident_description"
-                                        rows={3}
-                                        value={formData.incident_description}
-                                        onChange={handleInputChange}
-                                        placeholder="Technical description of the breach occurrence..."
-                                        className={`w-full px-4 py-3 bg-white border rounded-lg text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-rose-500 transition-all italic-none resize-none font-inter leading-relaxed ${errors.incident_description ? "border-rose-300 bg-rose-50" : "border-slate-200"}`}
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-[13px] font-bold text-slate-700 font-inter">PPE Compliance (%)</label>
-                                    <input
-                                        name="ppe_compliance"
-                                        value={formData.ppe_compliance}
-                                        onChange={handleInputChange}
-                                        placeholder="e.g. 100%"
-                                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-rose-500 transition-all font-inter"
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-[13px] font-bold text-slate-700 font-inter">Injury Audit</label>
-                                    <input
-                                        name="injury_details"
-                                        value={formData.injury_details}
-                                        onChange={handleInputChange}
-                                        placeholder="Specifics or 'None Recorded'"
-                                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-rose-500 transition-all font-inter"
-                                    />
-                                </div>
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Field Diagnostics</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div className="md:col-span-2">
+                                <label className={labelClasses}>Incident Narration <span className="text-rose-500">*</span></label>
+                                <textarea name="incident_description" rows={3} value={formData.incident_description} onChange={handleInputChange} placeholder="Technical description of the breach occurrence..." className={`${inputClasses(errors.incident_description)} resize-none`} />
+                            </div>
+                            <div>
+                                <label className={labelClasses}>PPE Compliance (%)</label>
+                                <input name="ppe_compliance" value={formData.ppe_compliance} onChange={handleInputChange} placeholder="e.g. 100%" className={inputClasses()} />
+                            </div>
+                            <div>
+                                <label className={labelClasses}>Injury Audit</label>
+                                <input name="injury_details" value={formData.injury_details} onChange={handleInputChange} placeholder="Specifics or 'None'" className={inputClasses()} />
                             </div>
                         </div>
+                    </div>
 
-                        {/* Section 3: Mitigation Protocol */}
-                        <div className="border border-slate-200 rounded-xl p-6">
-                            <h3 className="text-[15px] font-bold text-slate-800 mb-6 font-inter underline decoration-emerald-500 decoration-2 underline-offset-8">Corrective Strategy</h3>
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-[13px] font-bold text-slate-700 font-inter">Mitigation Executed <span className="text-rose-500">*</span></label>
-                                <textarea
-                                    name="action_taken"
-                                    rows={3}
-                                    value={formData.action_taken}
-                                    onChange={handleInputChange}
-                                    placeholder="Protocol executed to normalize conditions..."
-                                    className={`w-full px-4 py-3 bg-white border rounded-lg text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-rose-500 transition-all italic-none resize-none font-inter leading-relaxed ${errors.action_taken ? "border-rose-300 bg-rose-50" : "border-slate-200"}`}
-                                />
-                            </div>
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Mitigation Protocol</h3>
+                        <div>
+                            <label className={labelClasses}>Mitigation Executed <span className="text-rose-500">*</span></label>
+                            <textarea name="action_taken" rows={3} value={formData.action_taken} onChange={handleInputChange} placeholder="Protocol executed to normalize conditions..." className={`${inputClasses(errors.action_taken)} resize-none`} />
                         </div>
-                    </form>
-                </div>
-
-                <div className="bg-white px-8 py-6 border-t border-slate-100 flex items-center justify-end gap-3 font-inter">
-                    <button
-                        type="button"
-                        onClick={() => setIsFormModalOpen(false)}
-                        className="px-6 py-2.5 text-[11px] font-bold text-slate-400 hover:text-slate-800 uppercase tracking-widest transition-all"
-                    >
-                        Discard
-                    </button>
-                    <button
-                        type="submit"
-                        form="incident-form"
-                        className="px-8 py-2.5 bg-rose-600 text-white text-[13px] font-bold rounded-lg shadow-lg shadow-rose-100 hover:bg-rose-700 transition-all flex items-center gap-2 active:scale-95 font-inter"
-                    >
-                        {isEditMode ? "Update Master Registry" : "Finalize Incident Lodge"}
-                    </button>
-                </div>
+                    </div>
+                </form>
             </Modal>
+
             <ConfirmModal
                 isOpen={isDeleteModalOpen}
-                onClose={() => {
-                    setIsDeleteModalOpen(false);
-                    setIncidentToDelete(null);
-                }}
+                onClose={() => setIsDeleteModalOpen(false)}
                 onConfirm={handleDeleteConfirm}
-                title="Delete Incident Report"
-                message="Are you sure you want to delete this incident report? This will permanently remove the safety record and cannot be undone."
+                title="Delete Case"
+                message="Are you sure you want to delete this incident report? This action cannot be undone."
                 confirmText="Delete"
                 type="danger"
             />
@@ -650,4 +469,3 @@ const IncidentReportPage = () => {
 };
 
 export default IncidentReportPage;
-
