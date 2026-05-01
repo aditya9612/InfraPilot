@@ -1,8 +1,13 @@
-[[redirects]]
-  from = "/api/*"
-  to = "https://infrapilot.in/api/:splat"
-  status = 200
-  force = true
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_OPTIONS = "--max-old-space-size=4096"
+  CI = "false"
+  VITE_API_URL = "https://infrapilot.in/api/v1"
+
+# API proxy removed - VITE_API_URL now points directly to https://infrapilot.in/api/v1
 
 [[redirects]]
   from = "/*"

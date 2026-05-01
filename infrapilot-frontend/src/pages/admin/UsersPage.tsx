@@ -24,7 +24,7 @@ const UsersPage = () => {
     try {
       setIsLoading(true);
       const res = await userService.getAllUsers(100, 0);
-      const userList = Array.isArray(res) ? res : (res.items || res.data || []);
+      const userList = Array.isArray(res) ? res : (res.items || res.data || res.users || []);
       setUsers(userList);
     } catch (error) {
       toast.error("Failed to fetch users");

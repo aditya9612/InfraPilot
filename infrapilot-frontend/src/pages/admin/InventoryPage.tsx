@@ -12,8 +12,25 @@ import MaterialCostReportModal from "../../components/inventory/MaterialCostRepo
 import toast from "react-hot-toast";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import { materialService } from "../../services/materialService";
-import { Edit2, PlusCircle, MinusCircle, Trash2, FileText, History, ShoppingCart, Truck, LayoutDashboard } from "lucide-react";
-import type { Material, Supplier, PurchaseOrder, Transfer, InventoryLog, InventorySummary } from "../../types/material";
+import {
+  Edit2,
+  PlusCircle,
+  MinusCircle,
+  Trash2,
+  FileText,
+  History,
+  ShoppingCart,
+  Truck,
+  LayoutDashboard,
+} from "lucide-react";
+import type {
+  Material,
+  Supplier,
+  PurchaseOrder,
+  Transfer,
+  InventoryLog,
+  InventorySummary,
+} from "../../types/material";
 
 // New modular components
 import InventoryTable from "../../components/admin/inventory/InventoryTable";
@@ -43,9 +60,9 @@ const InventoryPage = () => {
   const [valuation, setValuation] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [activeTab, setActiveTab] = useState<"overview" | "inventory" | "suppliers" | "pos" | "transfers" | "logs">(
-    isMaster ? "suppliers" : "overview",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "inventory" | "suppliers" | "pos" | "transfers" | "logs"
+  >(isMaster ? "suppliers" : "overview");
   const [searchTerm, setSearchTerm] = useState("");
 
   const [isSupplierModalOpen, setSupplierModalOpen] = useState(false);
@@ -75,15 +92,16 @@ const InventoryPage = () => {
     setIsLoading(true);
     try {
       console.log("Fetching inventory data for Project 1...");
-      const [invData, supData, poData, trData, logData, summaryData, valData] = await Promise.all([
-        materialService.getMaterials(1), // Default to project 1
-        materialService.getSuppliers(),
-        materialService.getPOs(),
-        materialService.getTransfers(),
-        materialService.getLogs({ limit: 50, project_id: 1 }),
-        materialService.getSummary(),
-        materialService.getInventoryValuation()
-      ]);
+      const [invData, supData, poData, trData, logData, summaryData, valData] =
+        await Promise.all([
+          materialService.getMaterials(1), // Default to project 1
+          materialService.getSuppliers(),
+          materialService.getPOs(),
+          materialService.getTransfers(),
+          materialService.getLogs({ limit: 50, project_id: 1 }),
+          materialService.getSummary(),
+          materialService.getInventoryValuation(),
+        ]);
 
       setInventory(invData);
       setSuppliers(supData);
@@ -95,9 +113,12 @@ const InventoryPage = () => {
       console.log("Inventory data synchronized successfully.");
     } catch (error: any) {
       console.error("Critical API Error in InventoryPage:", error);
-      const errorMsg = error.response?.data?.detail || error.response?.data || error.message;
+      const errorMsg =
+        error.response?.data?.detail || error.response?.data || error.message;
       console.error("Error Detail:", errorMsg);
-      toast.error(`Sync Failed: ${typeof errorMsg === 'string' ? errorMsg : 'Check console'}`);
+      toast.error(
+        `Sync Failed: ${typeof errorMsg === "string" ? errorMsg : "Check console"}`,
+      );
     } finally {
       setIsLoading(false);
     }
@@ -109,7 +130,8 @@ const InventoryPage = () => {
 
   useEffect(() => {
     if (isMaster) {
-      if (activeTab === "overview" || activeTab === "inventory") setActiveTab("suppliers");
+      if (activeTab === "overview" || activeTab === "inventory")
+        setActiveTab("suppliers");
     }
   }, [isMaster]);
 
@@ -131,11 +153,18 @@ const InventoryPage = () => {
   const handleSupplierSubmit = async (data: any) => {
     try {
       if (selectedSupplier) {
-        setSuppliers(prev => prev.map(s => s.id === selectedSupplier.id ? { ...data, id: s.id } : s));
+        setSuppliers((prev) =>
+          prev.map((s) =>
+            s.id === selectedSupplier.id ? { ...data, id: s.id } : s,
+          ),
+        );
         toast.success("Supplier updated successfully!");
       } else {
         await materialService.createSupplier(data);
-        setSuppliers((prev) => [...prev, { ...data, id: `s${prev.length + 1}` }]);
+        setSuppliers((prev) => [
+          ...prev,
+          { ...data, id: `s${prev.length + 1}` },
+        ]);
         toast.success("Supplier added successfully!");
       }
       setSupplierModalOpen(false);
@@ -167,7 +196,7 @@ const InventoryPage = () => {
         await materialService.logUsage(purchaseActionConfig.material.id, {
           quantity: data.quantity,
           project_id: data.project_id,
-          issue_type: data.issue_type || "SITE"
+          issue_type: data.issue_type || "SITE",
         });
         toast.success("Usage logged successfully!");
       } else {
@@ -175,12 +204,16 @@ const InventoryPage = () => {
           quantity: data.quantity,
           amount_paid: data.payment,
           project_id: data.project_id,
-          issue_type: data.issue_type || "SYSTEM"
+          issue_type: data.issue_type || "SYSTEM",
         });
         toast.success("Purchase added successfully!");
       }
       fetchData();
-      setPurchaseActionConfig({ isOpen: false, type: "purchase", material: null });
+      setPurchaseActionConfig({
+        isOpen: false,
+        type: "purchase",
+        material: null,
+      });
     } catch (error) {
       toast.error("Failed to log action");
     }
@@ -276,20 +309,25 @@ const InventoryPage = () => {
                 { id: "pos", label: "Orders", icon: ShoppingCart },
                 { id: "transfers", label: "Transfers", icon: Truck },
                 { id: "logs", label: "Logs", icon: History },
-              ].filter(tab => !isMaster || (tab.id === "suppliers" || tab.id === "logs")).map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    activeTab === tab.id 
-                      ? "bg-primary text-white shadow-md shadow-primary/20" 
-                      : "text-slate-500 hover:bg-slate-50"
-                  }`}
-                >
-                  <tab.icon size={14} />
-                  {tab.label}
-                </button>
-              ))}
+              ]
+                .filter(
+                  (tab) =>
+                    !isMaster || tab.id === "suppliers" || tab.id === "logs",
+                )
+                .map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      activeTab === tab.id
+                        ? "bg-primary text-white shadow-md shadow-primary/20"
+                        : "text-slate-500 hover:bg-slate-50"
+                    }`}
+                  >
+                    <tab.icon size={14} />
+                    {tab.label}
+                  </button>
+                ))}
             </div>
 
             {activeTab === "inventory" && (
@@ -338,7 +376,8 @@ const InventoryPage = () => {
         {activeTab === "overview" && (
           <div className="flex flex-col gap-6 mb-8">
             {/* LOW STOCK ALERT BANNER */}
-            {inventory.filter(m => m.remaining_stock < m.minimum_stock_level).length > 0 && (
+            {inventory.filter((m) => m.remaining_stock < m.minimum_stock_level)
+              .length > 0 && (
               <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex items-start gap-4 shadow-sm animate-in fade-in slide-in-from-top-2">
                 <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center shrink-0">
                   <span className="text-rose-500 font-bold text-xl block animate-pulse">
@@ -350,7 +389,8 @@ const InventoryPage = () => {
                     Critical Inventory Alert
                   </h3>
                   <p className="text-rose-600 text-xs mt-0.5 mb-2 font-medium">
-                    The following items have dropped below their minimum threshold and require immediate procurement:
+                    The following items have dropped below their minimum
+                    threshold and require immediate procurement:
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {inventory
@@ -428,54 +468,82 @@ const InventoryPage = () => {
             {isLoading ? (
               <div className="flex flex-col items-center justify-center py-24 gap-4">
                 <div className="w-12 h-12 border-4 border-slate-100 border-t-primary rounded-full animate-spin" />
-                <p className="text-sm font-bold text-slate-400 animate-pulse">Synchronizing inventory data...</p>
+                <p className="text-sm font-bold text-slate-400 animate-pulse">
+                  Synchronizing inventory data...
+                </p>
               </div>
             ) : (
               <>
                 {activeTab === "inventory" && (
-                  <InventoryTable 
+                  <InventoryTable
                     materials={filteredInventory}
                     projects={projects}
-                    onEdit={(m) => { setSelectedMaterial(m); setMaterialFormOpen(true); }}
-                    onPurchase={(m) => setPurchaseActionConfig({ isOpen: true, type: "purchase", material: m })}
-                    onUsage={(m) => setPurchaseActionConfig({ isOpen: true, type: "usage", material: m })}
+                    onEdit={(m) => {
+                      setSelectedMaterial(m);
+                      setMaterialFormOpen(true);
+                    }}
+                    onPurchase={(m) =>
+                      setPurchaseActionConfig({
+                        isOpen: true,
+                        type: "purchase",
+                        material: m,
+                      })
+                    }
+                    onUsage={(m) =>
+                      setPurchaseActionConfig({
+                        isOpen: true,
+                        type: "usage",
+                        material: m,
+                      })
+                    }
                     onDelete={(id) => handleDeleteClick(id, "material")}
                   />
                 )}
                 {activeTab === "suppliers" && (
-                  <SupplierTable 
+                  <SupplierTable
                     suppliers={filteredSuppliers}
-                    onEdit={(s) => { setSelectedSupplier(s); setSupplierModalOpen(true); }}
+                    onEdit={(s) => {
+                      setSelectedSupplier(s);
+                      setSupplierModalOpen(true);
+                    }}
                     onDelete={(id) => handleDeleteClick(id, "supplier")}
                   />
                 )}
                 {activeTab === "pos" && (
-                  <PurchaseOrderTable 
-                    pos={pos.filter(p => p.material_name.toLowerCase().includes(searchTerm.toLowerCase()))}
+                  <PurchaseOrderTable
+                    pos={pos.filter((p) =>
+                      p.material_name
+                        .toLowerCase()
+                        .includes(searchTerm.toLowerCase()),
+                    )}
                     onEdit={() => {}}
                     onDelete={(id) => {}}
                     onStatusUpdate={async (id, status) => {
                       try {
-                        await materialService.updatePO(id, { ...pos.find(p => p.id === id)! }); // Simplistic update
+                        await materialService.updatePO(id, {
+                          ...pos.find((p) => p.id === id)!,
+                        }); // Simplistic update
                         fetchData();
-                      } catch (error) { toast.error("Failed to update status"); }
+                      } catch (error) {
+                        toast.error("Failed to update status");
+                      }
                     }}
                   />
                 )}
                 {activeTab === "transfers" && (
-                  <TransferTable 
+                  <TransferTable
                     transfers={transfers}
                     onStatusUpdate={async (id, status) => {
                       try {
                         await materialService.updateTransferStatus(id, status);
                         fetchData();
-                      } catch (error) { toast.error("Failed to update transfer"); }
+                      } catch (error) {
+                        toast.error("Failed to update transfer");
+                      }
                     }}
                   />
                 )}
-                {activeTab === "logs" && (
-                  <InventoryLogsTable logs={logs} />
-                )}
+                {activeTab === "logs" && <InventoryLogsTable logs={logs} />}
               </>
             )}
           </div>
@@ -485,8 +553,8 @@ const InventoryPage = () => {
       <SupplierModal
         isOpen={isSupplierModalOpen}
         onClose={() => {
-            setSupplierModalOpen(false);
-            setSelectedSupplier(null);
+          setSupplierModalOpen(false);
+          setSelectedSupplier(null);
         }}
         onSubmit={handleSupplierSubmit}
         initialData={selectedSupplier}
