@@ -14,8 +14,18 @@ import {
   Plus, 
   Edit2, 
   Trash2,
-  Eye
+  Eye,
+  Briefcase,
+  Phone,
+  Mail,
+  FileText
 } from "lucide-react";
+
+const statusColors: Record<string, string> = {
+    'Approved': 'bg-emerald-600',
+    'Pending': 'bg-amber-600',
+    'Hold': 'bg-rose-600',
+};
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface WorkApprovalRecord {
@@ -79,9 +89,11 @@ const WorkApprovalPage = () => {
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
-        if (!formData.requestType) newErrors.requestType = "Required";
-        if (!formData.quantity) newErrors.quantity = "Required";
-        if (!formData.description) newErrors.description = "Required";
+        if (!formData.requestType.trim()) newErrors.requestType = "Required";
+        if (!formData.quantity.trim()) newErrors.quantity = "Required";
+        if (!formData.description.trim()) newErrors.description = "Required";
+        if (!formData.approvedBy.trim()) newErrors.approvedBy = "Required";
+        if (!formData.status) newErrors.status = "Required";
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -154,11 +166,11 @@ const WorkApprovalPage = () => {
                         <p className="text-slate-500 text-sm">Technical clearance portal for critical site activities and execution milestones.</p>
                     </div>
                     <button
-                        onClick={() => { setIsEditMode(false); setFormData({ id: "", requestType: "", description: "", quantity: "", requestedBy: "Eng. Site User", approvedBy: "Pending", status: "Pending" }); setIsFormModalOpen(true); }}
-                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+                        onClick={() => { setIsEditMode(false); setFormData({ id: "", requestType: "", description: "", quantity: "", requestedBy: "Eng. Site User", approvedBy: "Pending", status: "Pending" }); setErrors({}); setIsFormModalOpen(true); }}
+                        className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                     >
                         <Plus className="w-4 h-4" />
-                        New Work Request
+                        Log Request
                     </button>
                 </div>
 
@@ -211,8 +223,8 @@ const WorkApprovalPage = () => {
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
+                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                        <table className="w-full text-left font-inter min-w-[1200px]">
                             <thead>
                                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
                                     <th className="px-6 py-4">Work Authorization</th>
@@ -244,10 +256,10 @@ const WorkApprovalPage = () => {
                                                 {approval.requestedBy}
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <div className="flex items-center justify-end gap-2 transition-opacity">
                                                     <button 
                                                         onClick={() => setSelectedApproval(approval)}
-                                                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                                                        className={`p-2 text-white rounded-xl shadow-lg transition-all active:scale-95 ${statusColors[approval.status as keyof typeof statusColors] || 'bg-primary'} ${approval.status ? `shadow-${statusColors[approval.status as keyof typeof statusColors]?.split('-')[1]}/20` : 'shadow-primary/20'}`}
                                                     >
                                                         <Eye className="w-4 h-4" />
                                                     </button>
@@ -284,50 +296,107 @@ const WorkApprovalPage = () => {
             <Modal
                 isOpen={!!selectedApproval}
                 onClose={() => setSelectedApproval(null)}
-                title="Approval Insight"
+                title="Work Authorization Insight"
                 maxWidth="max-w-xl"
             >
                 {selectedApproval && (
-                    <div className="p-6">
-                        <div className={`rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden ${selectedApproval.status === 'Approved' ? 'bg-emerald-600' : selectedApproval.status === 'Pending' ? 'bg-amber-600' : 'bg-rose-600'}`}>
-                            <div className="relative z-10">
-                                <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-2">Work Authorization</p>
-                                <h3 className="text-2xl font-black tracking-tight leading-tight mb-6">{selectedApproval.requestType}</h3>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Status</p>
-                                        <p className="text-lg font-black">{selectedApproval.status.toUpperCase()}</p>
+                    <div className="p-6 font-inter text-inter italic-none">
+                        {/* ── Profile Style Header ────────────────── */}
+                        <div className={`${statusColors[selectedApproval.status as keyof typeof statusColors] || 'bg-primary'} rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter`}>
+                            <div className="relative z-10 flex items-center gap-6 font-inter">
+                                <div className="w-24 h-24 bg-blue-400/30 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/20 relative font-inter">
+                                    <span className="text-4xl font-black font-inter">{selectedApproval.requestType.charAt(0)}</span>
+                                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-4 border-primary rounded-full animate-pulse" />
+                                </div>
+                                <div className="font-inter">
+                                    <div className="flex items-center gap-3 mb-2 font-inter">
+                                        <h3 className="text-2xl font-black tracking-tight font-inter">Work Approval</h3>
+                                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${selectedApproval.status === 'Approved' ? 'bg-emerald-500/20 text-emerald-100' : 'bg-amber-500/20 text-amber-100'}`}>
+                                            {selectedApproval.status}
+                                        </span>
                                     </div>
-                                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Target Qty</p>
-                                        <p className="text-lg font-black">{selectedApproval.quantity}</p>
+                                    <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
+                                        <Mail className="w-3 h-3" />
+                                        <span className="text-[11px] font-bold font-inter italic-none">approval.ref-{selectedApproval.id.toLowerCase()}@infrapilot.com</span>
+                                    </div>
+                                    <div className="px-3 py-1 bg-white/20 rounded-full inline-block font-inter">
+                                        <span className="text-[10px] font-black uppercase tracking-widest font-inter">REQUEST: {selectedApproval.requestType}</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="space-y-8 px-2 mb-10">
-                            <div>
-                                <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-2')}>Technical Narrative</p>
-                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm text-slate-600 leading-relaxed">
-                                    "{selectedApproval.description}"
+                        <div className="space-y-8 px-2 mb-10 font-inter">
+                            {/* Professional Information style section */}
+                            <div className="font-inter">
+                                <div className="flex items-center gap-2 mb-6 font-inter">
+                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
+                                        <Briefcase className="w-4 h-4 text-primary" />
+                                    </div>
+                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Operational Intelligence</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Request Type</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedApproval.requestType}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Target Quantity</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedApproval.quantity}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Authorization Status</p>
+                                        <p className={`text-sm font-black font-inter italic-none ${selectedApproval.status === 'Approved' ? 'text-emerald-500' : 'text-amber-500'}`}>{selectedApproval.status.toUpperCase()}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Approval ID</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">AUT-{selectedApproval.id}X</p>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-1')}>Requested By</p>
-                                    <p className="text-sm font-bold text-slate-800">{selectedApproval.requestedBy}</p>
+
+                            {/* Contact Details style section */}
+                            <div className="font-inter">
+                                <div className="flex items-center gap-2 mb-6 font-inter">
+                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
+                                        <Phone className="w-4 h-4 text-primary" />
+                                    </div>
+                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Technical Narrative</p>
                                 </div>
-                                <div>
-                                    <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-1')}>Verified By</p>
-                                    <p className="text-sm font-bold text-blue-600">{selectedApproval.approvedBy}</p>
+                                <div className="grid grid-cols-1 gap-6 font-inter">
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Scope Observations</p>
+                                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm text-slate-600 leading-relaxed font-inter italic-none">
+                                            "{selectedApproval.description || "No additional technical scope narrated for this authorization request."}"
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Assignments style section */}
+                            <div className="font-inter">
+                                <div className="flex items-center gap-2 mb-6 font-inter">
+                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
+                                        <FileText className="w-4 h-4 text-primary" />
+                                    </div>
+                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Audit Integrity</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Verified By</p>
+                                        <p className="text-sm font-black text-blue-600 font-inter italic-none">{selectedApproval.approvedBy}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">System Sync</p>
+                                        <p className="text-sm font-black text-emerald-500 font-inter italic-none">Verified Request</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
                         <button 
                             onClick={() => setSelectedApproval(null)}
-                            className="w-full py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all"
+                            className={`w-full py-4 ${statusColors[selectedApproval.status as keyof typeof statusColors] || 'bg-primary'} text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 ${selectedApproval.status ? `shadow-${statusColors[selectedApproval.status as keyof typeof statusColors]?.split('-')[1]}/20` : 'shadow-primary/20'}`}
                         >
                             Dismiss analysis
                         </button>
@@ -361,12 +430,14 @@ const WorkApprovalPage = () => {
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Authorization Identity</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div>
-                                <label className={labelClasses}>Request Type *</label>
+                                <label className={labelClasses}>Request Type <span className="text-rose-500">*</span></label>
                                 <input name="requestType" value={formData.requestType} onChange={handleInputChange} placeholder="e.g. Concrete Pouring" className={inputClasses(errors.requestType)} />
+                                {errors.requestType && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.requestType}</p>}
                             </div>
                             <div>
-                                <label className={labelClasses}>Target Quantity *</label>
+                                <label className={labelClasses}>Target Quantity <span className="text-rose-500">*</span></label>
                                 <input name="quantity" value={formData.quantity} onChange={handleInputChange} placeholder="e.g. 500 Sqft" className={inputClasses(errors.quantity)} />
+                                {errors.quantity && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.quantity}</p>}
                             </div>
                         </div>
                     </div>
@@ -374,8 +445,9 @@ const WorkApprovalPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Technical Scope</h3>
                         <div>
-                            <label className={labelClasses}>Work Description *</label>
+                            <label className={labelClasses}>Work Description <span className="text-rose-500">*</span></label>
                             <textarea name="description" rows={4} value={formData.description} onChange={handleInputChange} placeholder="Describe the technical requirements..." className={`${inputClasses(errors.description)} resize-none`} />
+                            {errors.description && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.description}</p>}
                         </div>
                     </div>
 
@@ -383,20 +455,22 @@ const WorkApprovalPage = () => {
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Workflow Control</h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                             <div>
-                                <label className={labelClasses}>Requested By</label>
+                                <label className={labelClasses}>Requested By <span className="text-rose-500">*</span></label>
                                 <input name="requestedBy" value={formData.requestedBy} readOnly className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-400 font-bold" />
                             </div>
                             <div>
-                                <label className={labelClasses}>Verified By</label>
-                                <input name="approvedBy" value={formData.approvedBy} onChange={handleInputChange} placeholder="Authority Name" className={inputClasses()} />
+                                <label className={labelClasses}>Verified By <span className="text-rose-500">*</span></label>
+                                <input name="approvedBy" value={formData.approvedBy} onChange={handleInputChange} placeholder="Authority Name" className={inputClasses(errors.approvedBy)} />
+                                {errors.approvedBy && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.approvedBy}</p>}
                             </div>
                             <div>
-                                <label className={labelClasses}>Status</label>
-                                <select name="status" value={formData.status} onChange={handleInputChange} className={inputClasses()}>
+                                <label className={labelClasses}>Status <span className="text-rose-500">*</span></label>
+                                <select name="status" value={formData.status} onChange={handleInputChange} className={inputClasses(errors.status)}>
                                     <option value="Pending">Pending</option>
                                     <option value="Approved">Approved</option>
                                     <option value="Hold">Hold</option>
                                 </select>
+                                {errors.status && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.status}</p>}
                             </div>
                         </div>
                     </div>

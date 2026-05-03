@@ -193,7 +193,7 @@ const CreateChecklistModal: React.FC<CreateChecklistModalProps> = ({
                 <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                     <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Technical Remarks</h3>
                     <div className="flex flex-col gap-1.5">
-                        <label className={labelClasses}>Registry Observations</label>
+                        <label className={labelClasses}>Registry Observations <span className="text-rose-500">*</span></label>
                         <textarea
                             name="remarks"
                             rows={3}

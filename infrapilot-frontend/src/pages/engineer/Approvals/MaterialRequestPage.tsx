@@ -79,9 +79,11 @@ const MaterialRequestPage = () => {
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
-        if (!formData.requestType) newErrors.requestType = "Required";
-        if (!formData.quantity) newErrors.quantity = "Required";
-        if (!formData.description) newErrors.description = "Required";
+        if (!formData.requestType.trim()) newErrors.requestType = "Required";
+        if (!formData.quantity.trim()) newErrors.quantity = "Required";
+        if (!formData.description.trim()) newErrors.description = "Required";
+        if (!formData.approvedBy.trim()) newErrors.approvedBy = "Required";
+        if (!formData.status) newErrors.status = "Required";
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -154,11 +156,11 @@ const MaterialRequestPage = () => {
                         <p className="text-slate-500 text-sm">Formal procurement requests for structural and consumable site resources.</p>
                     </div>
                     <button
-                        onClick={() => { setIsEditMode(false); setFormData({ id: "", requestType: "", description: "", quantity: "", requestedBy: "Eng. Site User", approvedBy: "Pending", status: "Pending" }); setIsFormModalOpen(true); }}
-                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+                        onClick={() => { setIsEditMode(false); setFormData({ id: "", requestType: "", description: "", quantity: "", requestedBy: "Eng. Site User", approvedBy: "Pending", status: "Pending" }); setErrors({}); setIsFormModalOpen(true); }}
+                        className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                     >
                         <Plus className="w-4 h-4" />
-                        New Requisition
+                        Log Requisition
                     </button>
                 </div>
 
@@ -211,8 +213,8 @@ const MaterialRequestPage = () => {
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
+                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                        <table className="w-full text-left font-inter min-w-[1200px]">
                             <thead>
                                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
                                     <th className="px-6 py-4">Resource Requisition</th>
@@ -244,10 +246,14 @@ const MaterialRequestPage = () => {
                                                 {request.requestedBy}
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <div className="flex items-center justify-end gap-2 transition-opacity">
                                                     <button 
                                                         onClick={() => setSelectedRequest(request)}
-                                                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                                                        className={`p-2 text-white rounded-xl shadow-lg transition-all active:scale-95 ${
+                                                            request.status === 'Approved' ? 'bg-emerald-600 shadow-emerald-600/20 hover:bg-emerald-700' : 
+                                                            request.status === 'Pending' ? 'bg-amber-600 shadow-amber-600/20 hover:bg-amber-700' : 
+                                                            'bg-rose-600 shadow-rose-600/20 hover:bg-rose-700'
+                                                        }`}
                                                     >
                                                         <Eye className="w-4 h-4" />
                                                     </button>
@@ -327,7 +333,11 @@ const MaterialRequestPage = () => {
 
                         <button 
                             onClick={() => setSelectedRequest(null)}
-                            className="w-full py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all"
+                            className={`w-full py-4 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 ${
+                                selectedRequest.status === 'Approved' ? 'bg-emerald-600 shadow-emerald-600/20 hover:bg-emerald-700' : 
+                                selectedRequest.status === 'Pending' ? 'bg-amber-600 shadow-amber-600/20 hover:bg-amber-700' : 
+                                'bg-rose-600 shadow-rose-600/20 hover:bg-rose-700'
+                            }`}
                         >
                             Dismiss analysis
                         </button>
@@ -361,12 +371,14 @@ const MaterialRequestPage = () => {
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Requisition Identity</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div>
-                                <label className={labelClasses}>Request Type *</label>
+                                <label className={labelClasses}>Request Type <span className="text-rose-500">*</span></label>
                                 <input name="requestType" value={formData.requestType} onChange={handleInputChange} placeholder="e.g. Structural Steel" className={inputClasses(errors.requestType)} />
+                                {errors.requestType && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.requestType}</p>}
                             </div>
                             <div>
-                                <label className={labelClasses}>Order Quantity *</label>
+                                <label className={labelClasses}>Order Quantity <span className="text-rose-500">*</span></label>
                                 <input name="quantity" value={formData.quantity} onChange={handleInputChange} placeholder="e.g. 5 Tons" className={inputClasses(errors.quantity)} />
+                                {errors.quantity && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.quantity}</p>}
                             </div>
                         </div>
                     </div>
@@ -374,8 +386,9 @@ const MaterialRequestPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Requirement Narrative</h3>
                         <div>
-                            <label className={labelClasses}>Description *</label>
+                            <label className={labelClasses}>Description <span className="text-rose-500">*</span></label>
                             <textarea name="description" rows={4} value={formData.description} onChange={handleInputChange} placeholder="Detailed specifications..." className={`${inputClasses(errors.description)} resize-none`} />
+                            {errors.description && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.description}</p>}
                         </div>
                     </div>
 
@@ -383,20 +396,22 @@ const MaterialRequestPage = () => {
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Supply Chain Control</h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                             <div>
-                                <label className={labelClasses}>Requested By</label>
+                                <label className={labelClasses}>Requested By <span className="text-rose-500">*</span></label>
                                 <input name="requestedBy" value={formData.requestedBy} readOnly className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-400 font-bold" />
                             </div>
                             <div>
-                                <label className={labelClasses}>Approved By</label>
-                                <input name="approvedBy" value={formData.approvedBy} onChange={handleInputChange} placeholder="Authority Name" className={inputClasses()} />
+                                <label className={labelClasses}>Approved By <span className="text-rose-500">*</span></label>
+                                <input name="approvedBy" value={formData.approvedBy} onChange={handleInputChange} placeholder="Authority Name" className={inputClasses(errors.approvedBy)} />
+                                {errors.approvedBy && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.approvedBy}</p>}
                             </div>
                             <div>
-                                <label className={labelClasses}>Status</label>
-                                <select name="status" value={formData.status} onChange={handleInputChange} className={inputClasses()}>
+                                <label className={labelClasses}>Status <span className="text-rose-500">*</span></label>
+                                <select name="status" value={formData.status} onChange={handleInputChange} className={inputClasses(errors.status)}>
                                     <option value="Pending">Pending</option>
                                     <option value="Approved">Approved</option>
                                     <option value="Rejected">Rejected</option>
                                 </select>
+                                {errors.status && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.status}</p>}
                             </div>
                         </div>
                     </div>

@@ -60,6 +60,12 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSubmit }: EditDSRModalProps) => 
     if (!formData.work_planned || !formData.work_planned.trim())
       errs.work_planned = "Work Planned is required";
     if (!formData.weather) errs.weather = "Weather condition is required";
+    if (!formData.machinery_used || !formData.machinery_used.trim()) errs.machinery_used = "Required";
+    if (!formData.material_received || !formData.material_received.trim()) errs.material_received = "Required";
+    if (!formData.material_used || !formData.material_used.trim()) errs.material_used = "Required";
+    if (!formData.issues || !formData.issues.trim()) errs.issues = "Required";
+    if (!formData.safety_observations || !formData.safety_observations.trim()) errs.safety_observations = "Required";
+    if (!formData.remarks || !formData.remarks.trim()) errs.remarks = "Required";
 
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -160,7 +166,9 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSubmit }: EditDSRModalProps) => 
               )}
             </div>
             <div>
-              <label className={labelClasses}>Weather Condition</label>
+              <label className={labelClasses}>
+                Weather Condition <span className="text-rose-500">*</span>
+              </label>
               <select
                 name="weather"
                 value={formData.weather || "Sunny"}
@@ -230,37 +238,52 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSubmit }: EditDSRModalProps) => 
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
-              <label className={labelClasses}>Machinery Used</label>
+              <label className={labelClasses}>
+                Machinery Used <span className="text-rose-500">*</span>
+              </label>
               <input
                 type="text"
                 name="machinery_used"
                 value={formData.machinery_used || ""}
                 onChange={handleChange}
                 placeholder="e.g. 1x JCB, 2x Concrete Mixers"
-                className={inputClasses()}
+                className={inputClasses(errors.machinery_used)}
               />
+              {errors.machinery_used && (
+                <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.machinery_used}</p>
+              )}
             </div>
             <div>
-              <label className={labelClasses}>Material Received</label>
+              <label className={labelClasses}>
+                Material Received <span className="text-rose-500">*</span>
+              </label>
               <textarea
                 name="material_received"
                 value={formData.material_received || ""}
                 onChange={handleChange}
                 placeholder="List materials received..."
                 rows={2}
-                className={`${inputClasses()} resize-none`}
+                className={`${inputClasses(errors.material_received)} resize-none`}
               />
+              {errors.material_received && (
+                <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.material_received}</p>
+              )}
             </div>
             <div>
-              <label className={labelClasses}>Material Consumed</label>
+              <label className={labelClasses}>
+                Material Consumed <span className="text-rose-500">*</span>
+              </label>
               <textarea
                 name="material_used"
                 value={formData.material_used || ""}
                 onChange={handleChange}
                 placeholder="List materials consumed..."
                 rows={2}
-                className={`${inputClasses()} resize-none`}
+                className={`${inputClasses(errors.material_used)} resize-none`}
               />
+              {errors.material_used && (
+                <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.material_used}</p>
+              )}
             </div>
           </div>
         </div>
@@ -272,37 +295,52 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSubmit }: EditDSRModalProps) => 
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className={labelClasses}>Site Issues / Bottlenecks</label>
+              <label className={labelClasses}>
+                Site Issues / Bottlenecks <span className="text-rose-500">*</span>
+              </label>
               <textarea
                 name="issues"
                 value={formData.issues || ""}
                 onChange={handleChange}
                 placeholder="Describe any issues faced..."
                 rows={2}
-                className={`${inputClasses()} resize-none`}
+                className={`${inputClasses(errors.issues)} resize-none`}
               />
+              {errors.issues && (
+                <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.issues}</p>
+              )}
             </div>
             <div>
-              <label className={labelClasses}>Safety Observations</label>
+              <label className={labelClasses}>
+                Safety Observations <span className="text-rose-500">*</span>
+              </label>
               <textarea
                 name="safety_observations"
                 value={formData.safety_observations || ""}
                 onChange={handleChange}
                 placeholder="Any safety concerns or audits..."
                 rows={2}
-                className={`${inputClasses()} resize-none`}
+                className={`${inputClasses(errors.safety_observations)} resize-none`}
               />
+              {errors.safety_observations && (
+                <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.safety_observations}</p>
+              )}
             </div>
             <div className="md:col-span-2">
-              <label className={labelClasses}>General Remarks</label>
+              <label className={labelClasses}>
+                General Remarks <span className="text-rose-500">*</span>
+              </label>
               <textarea
                 name="remarks"
                 value={formData.remarks || ""}
                 onChange={handleChange}
                 placeholder="Additional notes..."
                 rows={2}
-                className={`${inputClasses()} resize-none`}
+                className={`${inputClasses(errors.remarks)} resize-none`}
               />
+              {errors.remarks && (
+                <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.remarks}</p>
+              )}
             </div>
           </div>
         </div>

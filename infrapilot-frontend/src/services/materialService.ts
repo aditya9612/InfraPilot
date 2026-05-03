@@ -1,8 +1,8 @@
 import api from './api'; // Updated imports
-import type { 
-  Material, MaterialCreate, MaterialUpdate, 
-  Supplier, SupplierCreate, 
-  PurchaseOrder, POCreate, 
+import type {
+  Material, MaterialCreate, MaterialUpdate,
+  Supplier, SupplierCreate,
+  PurchaseOrder, POCreate,
   Transfer, TransferCreate,
   InventoryLog, MaterialReport, PriceHistory, InventorySummary
 } from '../types/material';
@@ -14,7 +14,7 @@ export const materialService = {
     return response.data;
   },
 
-  async getMaterials(projectId?: number, skip = 0, limit = 50): Promise<Material[]> {
+  async listMaterials(projectId?: number, skip = 0, limit = 50): Promise<Material[]> {
     const params = { project_id: projectId, skip, limit };
     const response = await api.get('/materials', { params });
     return response.data;
@@ -34,12 +34,12 @@ export const materialService = {
     await api.delete(`/materials/${id}`);
   },
 
-  async logUsage(id: number, data: { quantity: number; project_id: number; issue_type: string }): Promise<Material> {
+  async addUsage(id: number, data: { quantity: number; project_id: number; issue_type: string }): Promise<Material> {
     const response = await api.post(`/materials/${id}/usage`, data);
     return response.data;
   },
 
-  async logPurchase(id: number, data: { quantity: number; amount_paid: number; project_id: number; issue_type: string }): Promise<Material> {
+  async addPurchase(id: number, data: { quantity: number; amount_paid: number; project_id: number; issue_type: string }): Promise<Material> {
     const response = await api.post(`/materials/${id}/purchase`, data);
     return response.data;
   },
@@ -162,7 +162,42 @@ export const materialService = {
     return response.data;
   },
 
-  // Export URLs (these return the direct URL for downloading)
+  // --- Exports ---
+  async exportReportPDF(projectId?: number): Promise<void> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await api.get('/materials/reports/pdf', { 
+        params,
+        responseType: 'blob' 
+    });
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `material_report_p${projectId || 1}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
+  async exportReportExcel(projectId?: number): Promise<void> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await api.get('/materials/reports/excel', { 
+        params,
+        responseType: 'blob' 
+    });
+    const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `material_report_p${projectId || 1}.xlsx`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
+  // Helper URLs (if needed for direct links)
   getExportPdfUrl(): string {
     return `${api.defaults.baseURL}/materials/reports/pdf`;
   },

@@ -1,3 +1,7 @@
+export type RateType  = 'FIXED' | 'VARIABLE';
+export type AlertType = 'LOW_STOCK' | 'IN_STOCK' | 'NEAR_LOW';
+export type IssueType = 'SITE' | 'SYSTEM';
+
 export interface Supplier {
   id: number;
   name: string;
@@ -19,49 +23,67 @@ export interface SupplierCreate {
   address?: string;
 }
 
+// Full material object — returned by ALL material APIs
 export interface Material {
   id: number;
-  material_code: string;
+  material_code: string;          // MAT001 — auto by system
   project_id: number;
   material_name: string;
   category: string;
-  unit: string;
+  unit: string;                   // Bags / Kg / Ton / Litre
   supplier_id: number;
-  supplier_name: string;
+  supplier_name: string;          // auto-fetched from supplier
   purchase_rate: number;
-  rate_type: string;
-  quantity_purchased: number;
-  quantity_used: number;
-  remaining_stock: number;
+  rate_type: RateType;
+  quantity_purchased: number;     // cumulative total
+  quantity_used: number;          // cumulative total
+  remaining_stock: number;        // quantity_purchased - quantity_used
   total_amount: number;
   payment_given: number;
-  payment_pending: number;
-  extra_paid: number;
+  payment_pending: number;        // total_amount - payment_given
+  extra_paid: number;             // overpayment if any
   minimum_stock_level: number;
-  alert_type: "IN_STOCK" | "LOW_STOCK" | "NEAR_LOW";
+  alert_type: AlertType;          // system sets automatically
 }
 
-export interface MaterialCreate {
+export interface CreateMaterialPayload {
   project_id: number;
   material_name: string;
   category: string;
   unit: string;
   supplier_id: number;
   purchase_rate: number;
-  rate_type: string;
+  rate_type: RateType;
   quantity_purchased: number;
   payment_given: number;
   minimum_stock_level: number;
 }
 
-export interface MaterialUpdate {
+export interface UpdateMaterialPayload {
   material_name?: string;
   category?: string;
   unit?: string;
   supplier_id?: number;
   purchase_rate?: number;
-  rate_type?: string;
+  rate_type?: RateType;
   minimum_stock_level?: number;
+}
+
+// Aliases for backward compatibility
+export type MaterialCreate = CreateMaterialPayload;
+export type MaterialUpdate = UpdateMaterialPayload;
+
+export interface UsagePayload {
+  quantity: number;
+  project_id: number;
+  issue_type: IssueType;
+}
+
+export interface PurchasePayload {
+  quantity: number;
+  amount_paid: number;
+  project_id: number;
+  issue_type: IssueType;
 }
 
 export interface PurchaseOrder {

@@ -56,9 +56,14 @@ const CreateMachineryModal: React.FC<CreateMachineryModalProps> = ({
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
-    if (!formData.equipment_name) newErrors.equipment_name = "Name is required.";
-    if (!formData.equipment_code) newErrors.equipment_code = "Code is required.";
-    if (!formData.operator_name) newErrors.operator_name = "Operator is required.";
+    if (!formData.equipment_name.trim()) newErrors.equipment_name = "Name is required.";
+    if (!formData.equipment_code.trim()) newErrors.equipment_code = "Code is required.";
+    if (!formData.operator_name.trim()) newErrors.operator_name = "Operator is required.";
+    if (!formData.working_hours || formData.working_hours <= 0) newErrors.working_hours = "Required";
+    if (!formData.fuel_used || formData.fuel_used <= 0) newErrors.fuel_used = "Required";
+    if (!formData.rental_cost || formData.rental_cost <= 0) newErrors.rental_cost = "Required";
+    if (!formData.maintenance_date) newErrors.maintenance_date = "Required";
+    if (!formData.condition) newErrors.condition = "Required";
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -139,28 +144,33 @@ const CreateMachineryModal: React.FC<CreateMachineryModalProps> = ({
           <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Operational Telemetry</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             <div>
-              <label className={labelClasses}>Working Hours</label>
-              <input type="number" name="working_hours" value={formData.working_hours} onChange={handleChange} className={inputClasses()} />
+              <label className={labelClasses}>Working Hours <span className="text-rose-500">*</span></label>
+              <input type="number" name="working_hours" value={formData.working_hours} onChange={handleChange} className={inputClasses(errors.working_hours)} />
+              {errors.working_hours && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.working_hours}</p>}
             </div>
             <div>
-              <label className={labelClasses}>Fuel Consumed (Ltrs)</label>
-              <input type="number" name="fuel_used" value={formData.fuel_used} onChange={handleChange} className={inputClasses()} />
+              <label className={labelClasses}>Fuel Consumed (Ltrs) <span className="text-rose-500">*</span></label>
+              <input type="number" name="fuel_used" value={formData.fuel_used} onChange={handleChange} className={inputClasses(errors.fuel_used)} />
+              {errors.fuel_used && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.fuel_used}</p>}
             </div>
             <div>
-              <label className={labelClasses}>Rental Cost (₹)</label>
-              <input type="number" name="rental_cost" value={formData.rental_cost} onChange={handleChange} className={inputClasses()} />
+              <label className={labelClasses}>Rental Cost (₹) <span className="text-rose-500">*</span></label>
+              <input type="number" name="rental_cost" value={formData.rental_cost} onChange={handleChange} className={inputClasses(errors.rental_cost)} />
+              {errors.rental_cost && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.rental_cost}</p>}
             </div>
             <div>
-              <label className={labelClasses}>Maintenance Date</label>
-              <input type="date" name="maintenance_date" value={formData.maintenance_date} onChange={handleChange} className={inputClasses()} />
+              <label className={labelClasses}>Maintenance Date <span className="text-rose-500">*</span></label>
+              <input type="date" name="maintenance_date" value={formData.maintenance_date} onChange={handleChange} className={inputClasses(errors.maintenance_date)} />
+              {errors.maintenance_date && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.maintenance_date}</p>}
             </div>
             <div>
-              <label className={labelClasses}>Current Condition</label>
-              <select name="condition" value={formData.condition} onChange={handleChange} className={inputClasses()}>
+              <label className={labelClasses}>Current Condition <span className="text-rose-500">*</span></label>
+              <select name="condition" value={formData.condition} onChange={handleChange} className={inputClasses(errors.condition)}>
                 <option value="GOOD">Good / Optimal</option>
                 <option value="FAIR">Fair / Functional</option>
                 <option value="REPAIR">Needs Repair</option>
               </select>
+              {errors.condition && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.condition}</p>}
             </div>
           </div>
         </div>

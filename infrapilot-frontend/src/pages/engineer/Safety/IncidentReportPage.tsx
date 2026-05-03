@@ -14,7 +14,11 @@ import {
   Edit2, 
   Trash2,
   Eye,
-  Activity
+  Activity,
+  Briefcase,
+  Phone,
+  Mail,
+  FileText
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -83,9 +87,12 @@ const IncidentReportPage = () => {
     const validate = () => {
         const newErrors: Record<string, string> = {};
         if (!formData.date) newErrors.date = "Required";
-        if (!formData.incident_description) newErrors.incident_description = "Required";
-        if (!formData.action_taken) newErrors.action_taken = "Required";
-        if (!formData.responsible_person) newErrors.responsible_person = "Required";
+        if (!formData.violation_type) newErrors.violation_type = "Required";
+        if (!formData.responsible_person.trim()) newErrors.responsible_person = "Required";
+        if (!formData.incident_description.trim()) newErrors.incident_description = "Required";
+        if (!formData.ppe_compliance.trim()) newErrors.ppe_compliance = "Required";
+        if (!formData.injury_details.trim()) newErrors.injury_details = "Required";
+        if (!formData.action_taken.trim()) newErrors.action_taken = "Required";
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -196,10 +203,10 @@ const IncidentReportPage = () => {
                     </div>
                     <button
                         onClick={handleOpenAdd}
-                        className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-rose-200 hover:bg-rose-700 transition-all active:scale-95"
+                        className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-rose-600/20 hover:bg-rose-700 transition-all active:scale-95"
                     >
                         <Plus className="w-4 h-4" />
-                        Lodge Incident
+                        Log Incident
                     </button>
                 </div>
 
@@ -252,8 +259,8 @@ const IncidentReportPage = () => {
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
+                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                        <table className="w-full text-left font-inter min-w-[1200px]">
                             <thead>
                                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
                                     <th className="px-6 py-4">Incident Details</th>
@@ -285,10 +292,10 @@ const IncidentReportPage = () => {
                                                 <span className="text-xs font-medium text-slate-500">{item.responsible_person}</span>
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <div className="flex items-center justify-end gap-2 transition-opacity">
                                                     <button 
                                                         onClick={() => setSelectedIncident(item)}
-                                                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                                                        className="p-2 bg-rose-600 text-white rounded-xl shadow-lg shadow-rose-600/20 hover:bg-rose-700 transition-all active:scale-95"
                                                     >
                                                         <Eye className="w-4 h-4" />
                                                     </button>
@@ -325,56 +332,100 @@ const IncidentReportPage = () => {
             <Modal
                 isOpen={!!selectedIncident}
                 onClose={() => setSelectedIncident(null)}
-                title="Incident Insight"
+                title="Incident Intelligence Insight"
                 maxWidth="max-w-xl"
             >
                 {selectedIncident && (
-                    <div className="p-6">
-                        <div className="bg-rose-600 rounded-[2rem] p-8 mb-8 text-white shadow-xl shadow-rose-100 relative overflow-hidden">
-                            <div className="relative z-10">
-                                <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-2">Critical Case Audit</p>
-                                <h3 className="text-2xl font-black tracking-tight leading-tight mb-6">{selectedIncident.violation_type}</h3>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Case ID</p>
-                                        <p className="text-lg font-black">{selectedIncident.id}</p>
+                    <div className="p-6 font-inter text-inter italic-none">
+                        {/* ── Profile Style Header ────────────────── */}
+                        <div className="bg-rose-600 rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter">
+                            <div className="relative z-10 flex items-center gap-6 font-inter">
+                                <div className="w-24 h-24 bg-rose-400/30 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/20 relative font-inter">
+                                    <span className="text-4xl font-black font-inter">{selectedIncident.violation_type.charAt(0)}</span>
+                                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-white border-4 border-rose-600 rounded-full flex items-center justify-center">
+                                        <div className="w-2 h-2 bg-rose-600 rounded-full animate-pulse" />
                                     </div>
-                                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Protection</p>
-                                        <p className="text-lg font-black">{selectedIncident.ppe_compliance}</p>
+                                </div>
+                                <div className="font-inter">
+                                    <div className="flex items-center gap-3 mb-2 font-inter">
+                                        <h3 className="text-2xl font-black tracking-tight font-inter">Incident Registry</h3>
+                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-black uppercase tracking-widest font-inter">{selectedIncident.violation_type}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
+                                        <Mail className="w-3 h-3" />
+                                        <span className="text-[11px] font-bold font-inter italic-none">incident.ref-{selectedIncident.id.toLowerCase()}@infrapilot.com</span>
+                                    </div>
+                                    <div className="px-3 py-1 bg-white/20 rounded-full inline-block font-inter">
+                                        <span className="text-[10px] font-black uppercase tracking-widest font-inter">OBSERVED: {selectedIncident.date}</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="space-y-8 px-2 mb-10">
-                            <div>
-                                <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-2')}>Technical Narration</p>
-                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm text-slate-600 leading-relaxed">
-                                    "{selectedIncident.incident_description}"
+                        <div className="space-y-8 px-2 mb-10 font-inter">
+                            {/* Professional Information style section */}
+                            <div className="font-inter">
+                                <div className="flex items-center gap-2 mb-6 font-inter">
+                                    <div className="p-2 bg-rose-50 rounded-lg font-inter">
+                                        <Briefcase className="w-4 h-4 text-rose-600" />
+                                    </div>
+                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Breach Intelligence</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Violation Type</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedIncident.violation_type}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Audit Lead</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedIncident.responsible_person}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Severity Level</p>
+                                        <p className="text-sm font-black text-rose-600 font-inter italic-none">CRITICAL</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Case ID</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">CAS-{selectedIncident.id}X</p>
+                                    </div>
                                 </div>
                             </div>
-                            <div>
-                                <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-2')}>Corrective Strategy</p>
-                                <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 text-sm text-emerald-700 font-bold leading-relaxed">
-                                    "{selectedIncident.action_taken}"
+
+                            {/* Contact Details style section */}
+                            <div className="font-inter">
+                                <div className="flex items-center gap-2 mb-6 font-inter">
+                                    <div className="p-2 bg-rose-50 rounded-lg font-inter">
+                                        <Phone className="w-4 h-4 text-rose-600" />
+                                    </div>
+                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Incident Narration</p>
+                                </div>
+                                <div className="grid grid-cols-1 gap-6 font-inter">
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Visual Evidence/Observations</p>
+                                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm text-slate-600 leading-relaxed font-inter italic-none">
+                                            "{selectedIncident.incident_description}"
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-1')}>Injury Audit</p>
-                                    <p className="text-sm font-bold text-slate-800">{selectedIncident.injury_details}</p>
+
+                            {/* Assignments style section */}
+                            <div className="font-inter">
+                                <div className="flex items-center gap-2 mb-6 font-inter">
+                                    <div className="p-2 bg-emerald-50 rounded-lg font-inter">
+                                        <FileText className="w-4 h-4 text-emerald-600" />
+                                    </div>
+                                    <p className="text-[11px] font-black text-emerald-600 uppercase tracking-[0.15em] font-inter">Corrective Action Taken</p>
                                 </div>
-                                <div>
-                                    <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-1')}>Reporting Officer</p>
-                                    <p className="text-sm font-bold text-slate-800">{selectedIncident.responsible_person}</p>
+                                <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 text-sm text-emerald-800 font-bold leading-relaxed font-inter italic-none">
+                                    {selectedIncident.action_taken}
                                 </div>
                             </div>
                         </div>
 
                         <button 
                             onClick={() => setSelectedIncident(null)}
-                            className="w-full py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all"
+                            className="w-full py-4 bg-rose-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-700 transition-all shadow-lg shadow-rose-600/20 active:scale-95"
                         >
                             Dismiss analysis
                         </button>
@@ -410,19 +461,22 @@ const IncidentReportPage = () => {
                             <div>
                                 <label className={labelClasses}>Observation Date <span className="text-rose-500">*</span></label>
                                 <input name="date" type="date" value={formData.date} onChange={handleInputChange} className={inputClasses(errors.date)} />
+                                {errors.date && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.date}</p>}
                             </div>
                             <div>
-                                <label className={labelClasses}>Breach Category</label>
-                                <select name="violation_type" value={formData.violation_type} onChange={handleInputChange} className={inputClasses()}>
+                                <label className={labelClasses}>Breach Category <span className="text-rose-500">*</span></label>
+                                <select name="violation_type" value={formData.violation_type} onChange={handleInputChange} className={inputClasses(errors.violation_type)}>
                                     <option value="Height Safety">Height Safety Breach</option>
                                     <option value="PPE Violation">PPE Non-Compliance</option>
                                     <option value="Material Handling">Unsafe Material Handling</option>
                                     <option value="Electrical Hazard">Electrical Hazard</option>
                                 </select>
+                                {errors.violation_type && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.violation_type}</p>}
                             </div>
                             <div>
                                 <label className={labelClasses}>Audit Lead <span className="text-rose-500">*</span></label>
                                 <input name="responsible_person" value={formData.responsible_person} onChange={handleInputChange} placeholder="Officer Name" className={inputClasses(errors.responsible_person)} />
+                                {errors.responsible_person && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.responsible_person}</p>}
                             </div>
                         </div>
                     </div>
@@ -433,14 +487,17 @@ const IncidentReportPage = () => {
                             <div className="md:col-span-2">
                                 <label className={labelClasses}>Incident Narration <span className="text-rose-500">*</span></label>
                                 <textarea name="incident_description" rows={3} value={formData.incident_description} onChange={handleInputChange} placeholder="Technical description of the breach occurrence..." className={`${inputClasses(errors.incident_description)} resize-none`} />
+                                {errors.incident_description && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.incident_description}</p>}
                             </div>
                             <div>
-                                <label className={labelClasses}>PPE Compliance (%)</label>
-                                <input name="ppe_compliance" value={formData.ppe_compliance} onChange={handleInputChange} placeholder="e.g. 100%" className={inputClasses()} />
+                                <label className={labelClasses}>PPE Compliance (%) <span className="text-rose-500">*</span></label>
+                                <input name="ppe_compliance" value={formData.ppe_compliance} onChange={handleInputChange} placeholder="e.g. 100%" className={inputClasses(errors.ppe_compliance)} />
+                                {errors.ppe_compliance && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.ppe_compliance}</p>}
                             </div>
                             <div>
-                                <label className={labelClasses}>Injury Audit</label>
-                                <input name="injury_details" value={formData.injury_details} onChange={handleInputChange} placeholder="Specifics or 'None'" className={inputClasses()} />
+                                <label className={labelClasses}>Injury Audit <span className="text-rose-500">*</span></label>
+                                <input name="injury_details" value={formData.injury_details} onChange={handleInputChange} placeholder="Specifics or 'None'" className={inputClasses(errors.injury_details)} />
+                                {errors.injury_details && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.injury_details}</p>}
                             </div>
                         </div>
                     </div>
@@ -450,6 +507,7 @@ const IncidentReportPage = () => {
                         <div>
                             <label className={labelClasses}>Mitigation Executed <span className="text-rose-500">*</span></label>
                             <textarea name="action_taken" rows={3} value={formData.action_taken} onChange={handleInputChange} placeholder="Protocol executed to normalize conditions..." className={`${inputClasses(errors.action_taken)} resize-none`} />
+                            {errors.action_taken && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.action_taken}</p>}
                         </div>
                     </div>
                 </form>

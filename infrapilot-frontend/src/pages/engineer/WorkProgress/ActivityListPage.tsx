@@ -107,7 +107,7 @@ const ActivityListPage = () => {
     const handleDelete = () => {
         if (!itemToDelete) return;
         setActivities(prev => prev.filter(a => a.id !== itemToDelete));
-        toast.success("Activity archived");
+        toast.success("Activity record archived");
         setIsDeleteModalOpen(false);
     };
 
@@ -131,18 +131,18 @@ const ActivityListPage = () => {
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight italic-none">Project Activity Master List</h1>
                         <p className="text-slate-500 text-sm italic-none">Monitor technical benchmarks and monitor site execution against BOQ milestones.</p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
                         <input type="file" className="hidden" ref={fileInputRef} accept=".xlsx, .xls, .csv" />
                         <button
                             onClick={() => fileInputRef.current?.click()}
-                            className="flex items-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm"
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm w-full sm:w-auto"
                         >
                             <FileSpreadsheet className="w-4 h-4" />
                             Import BOQ
                         </button>
                         <button
                             onClick={() => { setEditingActivity(null); setIsModalOpen(true); }}
-                            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 w-full sm:w-auto"
                         >
                             <Plus className="w-4 h-4" />
                             New Activity
@@ -181,8 +181,8 @@ const ActivityListPage = () => {
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto font-inter">
-                        <table className="w-full text-left font-inter">
+                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                        <table className="w-full text-left font-inter min-w-[1200px]">
                             <thead>
                                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
                                     <th className="px-6 py-4 font-inter">Activity Milestone</th>
@@ -228,7 +228,7 @@ const ActivityListPage = () => {
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex items-center justify-end gap-2 font-inter">
-                                                <button onClick={() => toast.success("Activity details visible in Gantt view")} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all font-inter"><Eye className="w-4 h-4" /></button>
+                                                <button onClick={() => toast.success("Activity details visible in Gantt view")} className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"><Eye className="w-4 h-4" /></button>
                                                 <button onClick={() => { setEditingActivity(activity); setIsModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"><Edit2 className="w-4 h-4" /></button>
                                                 <button onClick={() => { setItemToDelete(activity.id); setIsDeleteModalOpen(true); }} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"><Trash2 className="w-4 h-4" /></button>
                                             </div>
@@ -241,8 +241,8 @@ const ActivityListPage = () => {
                 </div>
             </PageTransition>
 
-            <CreateActivityModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleCreateOrUpdate} initialData={editingActivity} isLoading={isLoading} />
-            <ConfirmModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={handleDelete} title="Archive Milestone" message="Are you sure you want to remove this activity from the master list?" confirmText="Archive Activity" type="danger" />
+            <CreateActivityModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleCreateOrUpdate} initialData={editingActivity} />
+            <ConfirmModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={handleDelete} title="Discard Activity Entry" message="Are you sure you want to remove this activity from the master list?" confirmText="Archive Activity" type="danger" />
         </>
     );
 };

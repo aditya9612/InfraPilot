@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import PageTransition from "../../components/common/PageTransition";
 import Navbar from "../../components/common/Navbar";
 import StatCard from "../../components/common/StatCard";
@@ -279,11 +279,11 @@ const SitePhotosPage = () => {
                                                 </span>
                                             </div>
                                             
-                                            {/* Hover Actions */}
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                                            {/* Action Buttons */}
+                                            <div className="absolute bottom-4 right-4 z-10 flex items-center gap-2">
                                                 <button
                                                     onClick={() => setSelectedPhoto(photo)}
-                                                    className="p-3 bg-white text-primary rounded-2xl hover:scale-110 transition-transform shadow-lg"
+                                                    className="p-3 bg-primary text-white rounded-2xl hover:scale-110 transition-transform shadow-lg shadow-primary/20"
                                                     title="View Details"
                                                 >
                                                     <Eye className="w-5 h-5" />

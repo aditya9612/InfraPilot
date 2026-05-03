@@ -18,7 +18,11 @@ import {
   Trash2, 
   Eye, 
   Filter,
-  MapPin
+  MapPin,
+  AlertCircle,
+  Briefcase,
+  Phone,
+  Mail
 } from "lucide-react";
 
 import { dsrService } from "../../services/dsrService";
@@ -31,6 +35,14 @@ const statusBadge: Record<string, string> = {
     Approved: "bg-emerald-100 text-success",
     Verified: "bg-emerald-100 text-success",
     Rejected: "bg-red-100 text-red-600",
+};
+
+const statusColors: Record<string, string> = {
+    Draft: "bg-slate-500",
+    Submitted: "bg-primary",
+    Approved: "bg-emerald-600",
+    Verified: "bg-emerald-600",
+    Rejected: "bg-rose-600",
 };
 
 // ─── Demo Data ──────────────────────────────────────────────────────────────
@@ -71,10 +83,10 @@ const DSRPage = () => {
     // Modal States
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
-    const [selectedDsr, setSelectedDsr] = useState<DsrItem | null>(null);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-    const [dsrToDelete, setDsrToDelete] = useState<number | null>(null);
     const [isDetailOpen, setIsDetailOpen] = useState(false);
+    const [selectedDsr, setSelectedDsr] = useState<DsrItem | null>(null);
+    const [dsrToDelete, setDsrToDelete] = useState<number | null>(null);
 
     useEffect(() => {
         const resolveProjectId = async () => {
@@ -125,10 +137,9 @@ const DSRPage = () => {
         }
     };
 
-    const handleUpdate = async (data: UpdateDsrRequest) => {
-        if (!selectedDsr) return;
+    const handleUpdate = async (id: number, data: UpdateDsrRequest) => {
         try {
-            await dsrService.updateDsr(selectedDsr.id, data);
+            await dsrService.updateDsr(id, data);
             toast.success("DSR updated successfully!");
             fetchDsr();
             setIsEditOpen(false);
@@ -141,7 +152,7 @@ const DSRPage = () => {
         if (!dsrToDelete) return;
         try {
             await dsrService.deleteDsr(dsrToDelete);
-            toast.success("DSR record removed");
+            toast.success("DSR record archived");
             setIsDeleteOpen(false);
             fetchDsr();
         } catch (error) {
@@ -178,10 +189,10 @@ const DSRPage = () => {
                     </div>
                     <button
                         onClick={() => setIsCreateOpen(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+                        className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                     >
                         <Plus className="w-4 h-4" />
-                        Log New Entry
+                        Log DSR Entry
                     </button>
                 </div>
 
@@ -249,14 +260,14 @@ const DSRPage = () => {
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto font-inter">
+                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
                         {isLoading ? (
                             <div className="p-20 text-center text-slate-400 font-inter">
                                 <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
-                                <p className="text-[10px] font-black uppercase tracking-widest">Syncing site records...</p>
+                                <p className="text-[10px] font-black uppercase tracking-widest">Syncing DSR vault...</p>
                             </div>
                         ) : (
-                            <table className="w-full text-left font-inter">
+                            <table className="w-full text-left font-inter min-w-[1200px]">
                                 <thead>
                                     <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
                                         <th className="px-6 py-4 font-inter">Report Details</th>
@@ -297,10 +308,10 @@ const DSRPage = () => {
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
-                                                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity font-inter">
+                                                    <div className="flex items-center justify-end gap-2 transition-opacity font-inter">
                                                         <button 
                                                             onClick={() => { setSelectedDsr(dsr); setIsDetailOpen(true); }}
-                                                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all font-inter"
+                                                            className={`p-2 text-white rounded-xl shadow-lg transition-all active:scale-95 font-inter ${dsr.status ? statusColors[dsr.status] : 'bg-primary'} ${dsr.status ? `shadow-${statusColors[dsr.status].split('-')[1]}/20` : 'shadow-primary/20'}`}
                                                         >
                                                             <Eye className="w-4 h-4" />
                                                         </button>
@@ -338,52 +349,110 @@ const DSRPage = () => {
             <Modal
                 isOpen={isDetailOpen}
                 onClose={() => setIsDetailOpen(false)}
-                title="DSR Insight"
-                maxWidth="max-w-2xl"
+                title="DSR Intelligence Insight"
+                maxWidth="max-w-xl"
             >
                 {selectedDsr && (
                     <div className="p-6 font-inter text-inter italic-none">
-                        <div className="bg-slate-900 rounded-[2.5rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden">
-                            <div className="relative z-10 font-inter">
-                                <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-2">Project Execution Ledger</p>
-                                <h3 className="text-2xl font-black tracking-tight leading-tight mb-6">{selectedDsr.site_location}</h3>
-                                <div className="grid grid-cols-3 gap-4">
-                                    <div className="bg-white/5 backdrop-blur-md rounded-2xl p-4 border border-white/10 font-inter">
-                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-40 mb-1">DSR ID</p>
-                                        <p className="text-lg font-black text-blue-400">{selectedDsr.business_id || `DSR-${selectedDsr.id}`}</p>
+                        {/* ── Profile Style Header ────────────────── */}
+                        <div className={`${selectedDsr.status ? statusColors[selectedDsr.status] : 'bg-primary'} rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter`}>
+                            <div className="relative z-10 flex items-center gap-6 font-inter">
+                                <div className="w-24 h-24 bg-blue-400/30 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/20 relative font-inter">
+                                    <span className="text-4xl font-black font-inter">D</span>
+                                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-4 border-primary rounded-full animate-pulse" />
+                                </div>
+                                <div className="font-inter">
+                                    <div className="flex items-center gap-3 mb-2 font-inter">
+                                        <h3 className="text-2xl font-black tracking-tight font-inter">{selectedDsr.business_id || `DSR-${selectedDsr.id}`}</h3>
+                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-black uppercase tracking-widest font-inter">{selectedDsr.status || 'Verified'}</span>
                                     </div>
-                                    <div className="bg-white/5 backdrop-blur-md rounded-2xl p-4 border border-white/10 font-inter">
-                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-40 mb-1">Weather</p>
-                                        <p className="text-lg font-black">{selectedDsr.weather}</p>
+                                    <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
+                                        <Mail className="w-3 h-3" />
+                                        <span className="text-[11px] font-bold font-inter italic-none">dsr.ref-{selectedDsr.id}@infrapilot.com</span>
                                     </div>
-                                    <div className="bg-white/5 backdrop-blur-md rounded-2xl p-4 border border-white/10 font-inter">
-                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-40 mb-1">Labour</p>
-                                        <p className="text-lg font-black tabular-nums">{selectedDsr.total_labour}</p>
+                                    <div className="px-3 py-1 bg-white/20 rounded-full inline-block font-inter">
+                                        <span className="text-[10px] font-black uppercase tracking-widest font-inter">LOG DATE: {selectedDsr.report_date}</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
                         <div className="space-y-8 px-2 mb-10 font-inter">
-                            <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 font-inter">Work Completed Today</p>
-                                <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 text-sm text-slate-600 leading-relaxed font-inter italic-none">
-                                    "{selectedDsr.work_done}"
+                            {/* Professional Information style section */}
+                            <div className="font-inter">
+                                <div className="flex items-center gap-2 mb-6 font-inter">
+                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
+                                        <Briefcase className="w-4 h-4 text-primary" />
+                                    </div>
+                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Operational Intelligence</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Site Location</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedDsr.site_location}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Weather Condition</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedDsr.weather}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Total Personnel</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedDsr.total_labour || 0} Units</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Registry ID</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedDsr.business_id || `DSR-${selectedDsr.id}`}</p>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-8 font-inter">
-                                <div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Material Received</p>
-                                    <p className="text-sm font-bold text-slate-800 font-inter">{selectedDsr.material_received || "Nil"}</p>
+
+                            {/* Contact Details style section */}
+                            <div className="font-inter">
+                                <div className="flex items-center gap-2 mb-6 font-inter">
+                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
+                                        <Phone className="w-4 h-4 text-primary" />
+                                    </div>
+                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Work Narrative</p>
                                 </div>
-                                <div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Machinery Deployed</p>
-                                    <p className="text-sm font-bold text-slate-800 font-inter">{selectedDsr.machinery_used || "Nil"}</p>
+                                <div className="grid grid-cols-1 gap-6 font-inter">
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Work Completed Today</p>
+                                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm text-slate-600 leading-relaxed font-inter italic-none">
+                                            "{selectedDsr.work_done}"
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 font-inter">Site Constraints / Issues</p>
-                                <div className="p-5 bg-rose-50/50 rounded-2xl border border-rose-100 text-sm text-rose-600 font-medium italic-none">
+
+                            {/* Assignments style section */}
+                            <div className="font-inter">
+                                <div className="flex items-center gap-2 mb-6 font-inter">
+                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
+                                        <FileText className="w-4 h-4 text-primary" />
+                                    </div>
+                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Resource Logistics</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Material Received</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedDsr.material_received || "Nil"}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Machinery Used</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedDsr.machinery_used || "Nil"}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Issues section */}
+                            <div className="font-inter">
+                                <div className="flex items-center gap-2 mb-6 font-inter">
+                                    <div className="p-2 bg-rose-50 rounded-lg font-inter">
+                                        <AlertCircle className="w-4 h-4 text-rose-500" />
+                                    </div>
+                                    <p className="text-[11px] font-black text-rose-500 uppercase tracking-[0.15em] font-inter">Constraints & Observations</p>
+                                </div>
+                                <div className="p-4 bg-rose-50 rounded-2xl border border-rose-100 text-sm text-rose-600 font-medium font-inter italic-none">
                                     {selectedDsr.issues || "No operational constraints reported today."}
                                 </div>
                             </div>
@@ -391,9 +460,9 @@ const DSRPage = () => {
 
                         <button 
                             onClick={() => setIsDetailOpen(false)}
-                            className="w-full py-5 bg-primary text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] hover:bg-blue-600 transition-all shadow-xl shadow-primary/20 active:scale-95 font-inter italic-none"
+                            className={`w-full py-5 ${selectedDsr.status ? statusColors[selectedDsr.status] : 'bg-primary'} text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all shadow-xl active:scale-95 font-inter italic-none`}
                         >
-                            Dismiss Registry Insight
+                            Dismiss DSR Insight
                         </button>
                     </div>
                 )}
@@ -410,17 +479,18 @@ const DSRPage = () => {
             <EditDSRModal 
                 isOpen={isEditOpen} 
                 onClose={() => setIsEditOpen(false)} 
-                onSubmit={(id, data) => handleUpdate(data)} 
-                initialData={selectedDsr} 
+                onSubmit={handleUpdate} 
+                dsr={selectedDsr} 
             />
+
 
             <ConfirmModal
                 isOpen={isDeleteOpen}
                 onClose={() => setIsDeleteOpen(false)}
                 onConfirm={handleDeleteConfirm}
-                title="Remove Site Record"
+                title="Discard DSR Entry"
                 message="Are you sure you want to delete this DSR record? This action will permanently remove the entry from the project ledger."
-                confirmText="Delete Ledger Entry"
+                confirmText="Archive Record"
                 type="danger"
             />
         </>

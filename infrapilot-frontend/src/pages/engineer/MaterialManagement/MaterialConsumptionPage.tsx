@@ -5,19 +5,19 @@ import StatCard from "../../../components/common/StatCard";
 import Modal from "../../../components/common/Modal";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
-import { 
-  Layers, 
-  Activity, 
-  AlertCircle, 
-  Clock, 
-  Search, 
-  Plus, 
-  Edit2, 
-  Trash2, 
-  Eye, 
-  Filter,
-  TrendingUp,
-  FileText
+import {
+    Layers,
+    Activity,
+    AlertCircle,
+    Clock,
+    Search,
+    Plus,
+    Edit2,
+    Trash2,
+    Eye,
+    Filter,
+    TrendingUp,
+    FileText
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -213,12 +213,12 @@ const MaterialConsumptionPage = () => {
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight italic-none">Inventory Outflow & Usage Registry</h1>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Inventory Outflow & Usage Registry</h1>
                         <p className="text-slate-500 text-sm italic-none">Monitor daily material expenditure across site activities with real-time stock impact.</p>
                     </div>
                     <button
                         onClick={() => { setFormMode("create"); setFormData(initialFormData); setIsModalOpen(true); }}
-                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+                        className="flex items-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                     >
                         <Plus className="w-4 h-4" />
                         Log Material Usage
@@ -275,9 +275,9 @@ const MaterialConsumptionPage = () => {
                         </div>
                         <div className="flex items-center gap-2 font-inter">
                             <Filter className="w-4 h-4 text-slate-400" />
-                            <select 
-                                value={filterPriority} 
-                                onChange={(e) => setFilterPriority(e.target.value)} 
+                            <select
+                                value={filterPriority}
+                                onChange={(e) => setFilterPriority(e.target.value)}
                                 className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none cursor-pointer font-inter"
                             >
                                 <option>All Priority</option>
@@ -292,9 +292,9 @@ const MaterialConsumptionPage = () => {
                             <thead>
                                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
                                     <th className="px-6 py-4 font-inter">Material & Outflow Log</th>
-                                    <th className="px-6 py-4 font-inter">Consumption Delta</th>
+                                    <th className="px-6 py-4 font-inter text-center">Consumption Delta</th>
                                     <th className="px-6 py-4 font-inter">Linked Site Activity</th>
-                                    <th className="px-6 py-4 font-inter">Priority</th>
+                                    <th className="px-6 py-4 font-inter text-center">Priority</th>
                                     <th className="px-6 py-4 text-right font-inter">Actions</th>
                                 </tr>
                             </thead>
@@ -303,47 +303,50 @@ const MaterialConsumptionPage = () => {
                                     <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                         <td className="px-6 py-4">
                                             <div className="flex flex-col font-inter">
-                                                <span className="text-sm font-bold text-slate-800 font-inter">{item.materialName}</span>
+                                                <span className="text-sm font-bold text-slate-800 font-inter uppercase">{item.materialName}</span>
                                                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-inter">{item.date} • Logged by {item.loggedBy}</span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-6 py-4 text-center">
                                             <div className="flex flex-col font-inter">
-                                                <span className="text-xs font-black text-rose-500 tabular-nums font-inter">-{item.usedQuantity} {item.unit}</span>
-                                                <span className="text-[10px] text-slate-400 font-bold font-inter italic-none">Closing: {item.closingStock} {item.unit}</span>
+                                                <span className="text-xs font-bold text-rose-500 tabular-nums font-inter">-{item.usedQuantity} {item.unit}</span>
+                                                <span className="text-[10px] text-slate-400 font-bold font-inter">Closing: {item.closingStock} {item.unit}</span>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex flex-col font-inter">
-                                                <span className="text-xs font-bold text-slate-600 font-inter truncate italic-none">{item.activityLink}</span>
+                                                <span className="text-xs font-bold text-slate-600 font-inter truncate">{item.activityLink}</span>
                                                 <div className="flex items-center gap-1 text-[10px] text-slate-400 font-inter">
                                                     <FileText className="w-3 h-3" />
-                                                    <span className="truncate font-inter italic-none">{item.location}</span>
+                                                    <span className="truncate font-bold uppercase tracking-widest">{item.location}</span>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${item.priority === 'High Value' ? 'bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-500'}`}>
+                                        <td className="px-6 py-4 text-center">
+                                            <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest ${item.priority === 'High Value' ? 'bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-500'}`}>
                                                 {item.priority}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex items-center justify-end gap-2 font-inter">
-                                                <button 
+                                                <button
                                                     onClick={() => { setSelectedConsumption(item); }}
-                                                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all font-inter"
+                                                    className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
+                                                    title="View Intelligence"
                                                 >
                                                     <Eye className="w-4 h-4" />
                                                 </button>
-                                                <button 
+                                                <button
                                                     onClick={() => handleOpenEdit(item)}
                                                     className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
+                                                    title="Modify Record"
                                                 >
                                                     <Edit2 className="w-4 h-4" />
                                                 </button>
-                                                <button 
+                                                <button
                                                     onClick={() => handleDeleteClick(item.id)}
                                                     className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"
+                                                    title="Archive Entry"
                                                 >
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
@@ -469,7 +472,7 @@ const MaterialConsumptionPage = () => {
                             </div>
                         </div>
 
-                        <button 
+                        <button
                             onClick={() => setSelectedConsumption(null)}
                             className="w-full py-5 bg-slate-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/20 active:scale-95 font-inter italic-none"
                         >

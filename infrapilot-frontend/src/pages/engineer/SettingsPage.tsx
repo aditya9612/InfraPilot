@@ -42,12 +42,22 @@ const SectionHeader = ({
     </div>
 );
 
+const formatMobile = (value: string) => {
+    let digits = value.replace(/\D/g, "");
+    if (digits.startsWith("91")) {
+        digits = digits.slice(2);
+    }
+    digits = digits.slice(0, 10);
+    return digits ? `+91 ${digits}` : "";
+};
+
 // ─── Main Component ─────────────────────────────────────────────────────────────
 
 const SettingsPage = () => {
     const { user } = useAuth();
     const [isSaving, setIsSaving] = useState(false);
     const [profileImage, setProfileImage] = useState<string | null>(null);
+    const [mobile, setMobile] = useState(user?.mobile || "+91 9876543210");
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -286,7 +296,9 @@ const SettingsPage = () => {
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Mobile Number</label>
                                         <input 
                                             type="tel" 
-                                            defaultValue={user?.mobile || "+91 98765 43210"} 
+                                            value={mobile}
+                                            onChange={(e) => setMobile(formatMobile(e.target.value))}
+                                            placeholder="+91 0000000000"
                                             className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                         />
                                     </div>

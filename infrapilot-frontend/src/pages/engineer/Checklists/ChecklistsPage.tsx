@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import StatCard from "../../../components/common/StatCard";
@@ -7,7 +7,6 @@ import ConfirmModal from "../../../components/common/ConfirmModal";
 import CreateChecklistModal from "../../../components/forms/CreateChecklistModal";
 import toast from "react-hot-toast";
 import { 
-  ClipboardCheck, 
   ShieldCheck, 
   FileText, 
   AlertOctagon, 
@@ -16,6 +15,9 @@ import {
   Edit2, 
   Trash2,
   Eye,
+  Briefcase,
+  Phone,
+  Mail,
   Activity,
   Filter
 } from "lucide-react";
@@ -150,8 +152,7 @@ const ChecklistsPage = () => {
         pending: checklistData.filter(c => c.status === "Pending").length,
     };
 
-    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
-
+  
     return (
         <>
             <Navbar title="Checklists Vault" breadcrumb={["Engineer", "Compliance", "Checklists"]} />
@@ -275,10 +276,10 @@ const ChecklistsPage = () => {
                                                     {item.reported_date}
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
-                                                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity font-inter">
+                                                    <div className="flex items-center justify-end gap-2 transition-opacity font-inter">
                                                         <button 
                                                             onClick={() => { setSelectedChecklist(item); setIsDetailModalOpen(true); }}
-                                                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all font-inter"
+                                                            className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
                                                         >
                                                             <Eye className="w-4 h-4" />
                                                         </button>
@@ -316,31 +317,45 @@ const ChecklistsPage = () => {
             <Modal
                 isOpen={isDetailModalOpen}
                 onClose={() => setIsDetailModalOpen(false)}
-                title="Compliance Detail"
+                title="Compliance Intelligence Insight"
                 maxWidth="max-w-xl"
             >
                 {selectedChecklist && (
-                    <div className="p-6 font-inter">
-                        <div className={`rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden ${selectedChecklist.status === 'Done' ? 'bg-emerald-600' : 'bg-rose-600'}`}>
-                            <div className="relative z-10 font-inter">
-                                <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-2">Registry Audit</p>
-                                <h3 className="text-2xl font-black tracking-tight leading-tight mb-6">{selectedChecklist.checklist_name}</h3>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 font-inter">
-                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Audit ID</p>
-                                        <p className="text-lg font-black">{selectedChecklist.business_id || `CHK-${selectedChecklist.id}`}</p>
+                    <div className="p-6 font-inter text-inter italic-none">
+                        {/* ── Profile Style Header ────────────────── */}
+                        <div className="bg-primary rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter">
+                            <div className="relative z-10 flex items-center gap-6 font-inter">
+                                <div className="w-24 h-24 bg-blue-400/30 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/20 relative font-inter">
+                                    <span className="text-4xl font-black font-inter">{selectedChecklist.checklist_name.charAt(0)}</span>
+                                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-4 border-primary rounded-full animate-pulse" />
+                                </div>
+                                <div className="font-inter">
+                                    <div className="flex items-center gap-3 mb-2 font-inter">
+                                        <h3 className="text-2xl font-black tracking-tight font-inter">{selectedChecklist.checklist_name}</h3>
+                                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${selectedChecklist.status === 'Done' ? 'bg-emerald-500/20 text-emerald-100' : 'bg-rose-500/20 text-rose-100'}`}>
+                                            {selectedChecklist.status}
+                                        </span>
                                     </div>
-                                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 font-inter">
-                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Status</p>
-                                        <p className="text-lg font-black">{selectedChecklist.status.toUpperCase()}</p>
+                                    <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
+                                        <Mail className="w-3 h-3" />
+                                        <span className="text-[11px] font-bold font-inter italic-none">compliance.ref-{selectedChecklist.id}@infrapilot.com</span>
+                                    </div>
+                                    <div className="px-3 py-1 bg-white/20 rounded-full inline-block font-inter">
+                                        <span className="text-[10px] font-black uppercase tracking-widest font-inter">AUDIT ID: {selectedChecklist.business_id || `CHK-${selectedChecklist.id}`}</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
                         <div className="space-y-8 px-2 mb-10 font-inter">
-                            <div>
-                                <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-4')}>Verification Matrix</p>
+                            {/* Professional Information style section */}
+                            <div className="font-inter">
+                                <div className="flex items-center gap-2 mb-6 font-inter">
+                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
+                                        <Briefcase className="w-4 h-4 text-primary" />
+                                    </div>
+                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Verification Matrix</p>
+                                </div>
                                 <div className="space-y-2.5 max-h-60 overflow-y-auto pr-2 custom-scrollbar font-inter">
                                     {selectedChecklist.item_list.map((point) => (
                                         <div key={point.id} className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100/50 font-inter">
@@ -358,19 +373,50 @@ const ChecklistsPage = () => {
                                 </div>
                             </div>
 
-                            <div>
-                                <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-2')}>Technical Remarks</p>
-                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm text-slate-600 leading-relaxed font-inter italic-none">
-                                    "{selectedChecklist.remarks || "No additional technical remarks recorded."}"
+                            {/* Contact Details style section */}
+                            <div className="font-inter">
+                                <div className="flex items-center gap-2 mb-6 font-inter">
+                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
+                                        <Phone className="w-4 h-4 text-primary" />
+                                    </div>
+                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Technical Narrative</p>
+                                </div>
+                                <div className="grid grid-cols-1 gap-6 font-inter">
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Lead Engineer Remarks</p>
+                                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm text-slate-600 leading-relaxed font-inter italic-none">
+                                            "{selectedChecklist.remarks || "No additional technical remarks recorded for this compliance cycle."}"
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Assignments style section */}
+                            <div className="font-inter">
+                                <div className="flex items-center gap-2 mb-6 font-inter">
+                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
+                                        <FileText className="w-4 h-4 text-primary" />
+                                    </div>
+                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Protocol Integrity</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Audit Status</p>
+                                        <p className={`text-sm font-black font-inter italic-none ${selectedChecklist.status === 'Done' ? 'text-emerald-500' : 'text-rose-500'}`}>{selectedChecklist.status.toUpperCase()}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">System Sync</p>
+                                        <p className="text-sm font-black text-emerald-500 font-inter italic-none">Verified Registry</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
                         <button 
                             onClick={() => setIsDetailModalOpen(false)}
-                            className="w-full py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all font-inter italic-none"
+                            className="w-full py-5 bg-primary text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] hover:bg-blue-600 transition-all shadow-xl shadow-primary/20 active:scale-95 font-inter italic-none"
                         >
-                            Close Insight
+                            Dismiss Audit Insight
                         </button>
                     </div>
                 )}

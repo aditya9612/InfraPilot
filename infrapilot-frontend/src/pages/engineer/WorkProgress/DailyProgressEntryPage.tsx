@@ -86,6 +86,17 @@ const DailyProgressEntryPage = () => {
     const [isDetailOpen, setIsDetailOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [entryToDelete, setEntryToDelete] = useState<number | null>(null);
+    const [errors, setErrors] = useState<Record<string, string>>({});
+
+    const validate = () => {
+        const newErrors: Record<string, string> = {};
+        if (!formData.activity_name.trim()) newErrors.activity_name = "Activity name is required";
+        if (!formData.boq_code.trim()) newErrors.boq_code = "BOQ code is required";
+        if (!formData.today_progress || Number(formData.today_progress) <= 0) newErrors.today_progress = "Valid progress qty is required";
+        
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
 
     const filteredEntries = useMemo(() => {
         return entries.filter(e => {
@@ -104,6 +115,10 @@ const DailyProgressEntryPage = () => {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        if (!validate()) {
+            toast.error("Please correct the errors in the form");
+            return;
+        }
         const newEntry: DailyEntry = {
             id: formMode === 'edit' && selectedEntry ? selectedEntry.id : Date.now(),
             activity_name: formData.activity_name,
@@ -140,8 +155,8 @@ const DailyProgressEntryPage = () => {
                         <p className="text-slate-500 text-sm italic-none">Record daily activity benchmarks and monitor site execution against planned BOQ milestones.</p>
                     </div>
                     <button
-                        onClick={() => { setFormMode("create"); setFormData(initialFormData); setIsFormOpen(true); }}
-                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+                        onClick={() => { setFormMode("create"); setFormData(initialFormData); setErrors({}); setIsFormOpen(true); }}
+                        className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                     >
                         <Plus className="w-4 h-4" />
                         Log Progress
@@ -173,8 +188,8 @@ const DailyProgressEntryPage = () => {
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto font-inter">
-                        <table className="w-full text-left font-inter">
+                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                        <table className="w-full text-left font-inter min-w-[1000px]">
                             <thead>
                                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
                                     <th className="px-6 py-4 font-inter">Site Activity & BOQ Code</th>
@@ -220,8 +235,8 @@ const DailyProgressEntryPage = () => {
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex items-center justify-end gap-2 font-inter">
-                                                <button onClick={() => { setSelectedEntry(entry); setIsDetailOpen(true); }} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all font-inter"><Eye className="w-4 h-4" /></button>
-                                                <button onClick={() => { setFormMode("edit"); setSelectedEntry(entry); setFormData({ activity_name: entry.activity_name, boq_code: entry.boq_code, today_progress: entry.today_progress.toString(), status: entry.status }); setIsFormOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"><Edit2 className="w-4 h-4" /></button>
+                                                <button onClick={() => { setSelectedEntry(entry); setIsDetailOpen(true); }} className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"><Eye className="w-4 h-4" /></button>
+                                                <button onClick={() => { setFormMode("edit"); setSelectedEntry(entry); setFormData({ activity_name: entry.activity_name, boq_code: entry.boq_code, today_progress: entry.today_progress.toString(), status: entry.status }); setErrors({}); setIsFormOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"><Edit2 className="w-4 h-4" /></button>
                                                 <button onClick={() => { setEntryToDelete(entry.id); setIsDeleteOpen(true); }} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"><Trash2 className="w-4 h-4" /></button>
                                             </div>
                                         </td>
@@ -234,47 +249,62 @@ const DailyProgressEntryPage = () => {
             </PageTransition>
 
             {/* ── Form Modal ──────────────────────────────────── */}
-            <Modal isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} title={formMode === 'create' ? 'Log Daily Site Progress' : 'Update Progress Log'} maxWidth="max-w-xl">
-                <div className="p-8 font-inter text-inter">
-                    <form onSubmit={handleSubmit} className="space-y-6 font-inter">
-                        <div className="grid grid-cols-1 gap-6 font-inter">
-                            <div className="flex flex-col font-inter">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter italic-none">Activity Name</label>
-                                <input type="text" value={formData.activity_name} onChange={(e) => setFormData({...formData, activity_name: e.target.value})} placeholder="e.g. RCC Foundation" className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter" required />
+            <Modal 
+                isOpen={isFormOpen} 
+                onClose={() => setIsFormOpen(false)} 
+                title={formMode === 'create' ? 'Log Daily Site Progress' : 'Update Progress Log'} 
+                maxWidth="max-w-4xl"
+                footer={
+                    <>
+                        <button onClick={() => setIsFormOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">
+                            Cancel
+                        </button>
+                        <button
+                            form="progress-form"
+                            type="submit"
+                            className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+                        >
+                            {formMode === 'create' ? 'Confirm & Log Progress' : 'Update Log'}
+                        </button>
+                    </>
+                }
+            >
+                <form id="progress-form" onSubmit={handleSubmit} className="space-y-6">
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Progress Details</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div className="md:col-span-2">
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Activity Milestone <span className="text-rose-500">*</span></label>
+                                <input type="text" value={formData.activity_name} onChange={(e) => { setFormData({...formData, activity_name: e.target.value}); if (errors.activity_name) setErrors({...errors, activity_name: ""}); }} placeholder="e.g. Excavation Works" className={`w-full px-4 py-2.5 bg-white border ${errors.activity_name ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all placeholder:text-slate-300`} />
+                                {errors.activity_name && <p className="text-[10px] text-rose-500 mt-1 font-bold ml-1">{errors.activity_name}</p>}
                             </div>
-                            <div className="grid grid-cols-2 gap-4 font-inter">
-                                <div className="flex flex-col font-inter">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter italic-none">BOQ Code</label>
-                                    <input type="text" value={formData.boq_code} onChange={(e) => setFormData({...formData, boq_code: e.target.value})} placeholder="BOQ-001" className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter" required />
-                                </div>
-                                <div className="flex flex-col font-inter">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter italic-none">Today's Progress</label>
-                                    <input type="number" value={formData.today_progress} onChange={(e) => setFormData({...formData, today_progress: e.target.value})} placeholder="45" className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter" required />
-                                </div>
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">BOQ Code Reference <span className="text-rose-500">*</span></label>
+                                <input type="text" value={formData.boq_code} onChange={(e) => { setFormData({...formData, boq_code: e.target.value}); if (errors.boq_code) setErrors({...errors, boq_code: ""}); }} placeholder="BOQ-STR-001" className={`w-full px-4 py-2.5 bg-white border ${errors.boq_code ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all placeholder:text-slate-300`} />
+                                {errors.boq_code && <p className="text-[10px] text-rose-500 mt-1 font-bold ml-1">{errors.boq_code}</p>}
                             </div>
-                            <div className="flex flex-col font-inter">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter italic-none">Execution Status</label>
-                                <select value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value as any})} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter">
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Today's Progress Qty <span className="text-rose-500">*</span></label>
+                                <input type="number" value={formData.today_progress} onChange={(e) => { setFormData({...formData, today_progress: e.target.value}); if (errors.today_progress) setErrors({...errors, today_progress: ""}); }} placeholder="100" className={`w-full px-4 py-2.5 bg-white border ${errors.today_progress ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all placeholder:text-slate-300`} />
+                                {errors.today_progress && <p className="text-[10px] text-rose-500 mt-1 font-bold ml-1">{errors.today_progress}</p>}
+                            </div>
+                            <div className="md:col-span-2">
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Execution Status <span className="text-rose-500">*</span></label>
+                                <select value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value as any})} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all">
                                     <option value="On Track">On Track</option>
                                     <option value="Delay">Delay</option>
                                 </select>
                             </div>
                         </div>
-                        <div className="flex items-center justify-end gap-3 pt-6 font-inter">
-                            <button type="button" onClick={() => setIsFormOpen(false)} className="px-6 py-3 text-[11px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-800 transition-all font-inter italic-none">Cancel</button>
-                            <button type="submit" className="px-10 py-4 bg-primary text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter italic-none">
-                                {formMode === 'create' ? 'Confirm & Log Progress' : 'Update Log'}
-                            </button>
-                        </div>
-                    </form>
-                </div>
+                    </div>
+                </form>
             </Modal>
 
             {/* ── Detail Modal ────────────────────────────────── */}
             <Modal isOpen={isDetailOpen} onClose={() => setIsDetailOpen(false)} title="Activity Execution Insight" maxWidth="max-w-2xl">
                 {selectedEntry && (
                     <div className="p-6 font-inter text-inter italic-none">
-                        <div className="bg-slate-900 rounded-[2.5rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter">
+                        <div className="bg-primary rounded-[2.5rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter">
                             <div className="relative z-10 font-inter">
                                 <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-2 font-inter">Daily Progress Analytics</p>
                                 <h3 className="text-2xl font-black tracking-tight leading-tight mb-6 font-inter">{selectedEntry.activity_name}</h3>
@@ -294,7 +324,7 @@ const DailyProgressEntryPage = () => {
                                 </div>
                             </div>
                         </div>
-                        <button onClick={() => setIsDetailOpen(false)} className="w-full py-5 bg-slate-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/20 active:scale-95 font-inter italic-none">Dismiss Execution Insight</button>
+                        <button onClick={() => setIsDetailOpen(false)} className="w-full py-5 bg-primary text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] hover:bg-blue-600 transition-all shadow-xl shadow-primary/20 active:scale-95 font-inter italic-none">Dismiss Execution Insight</button>
                     </div>
                 )}
             </Modal>

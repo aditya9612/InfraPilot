@@ -61,12 +61,14 @@ import ReportsPage from "../pages/engineer/ReportsPage";
 import SettingsPage from "../pages/engineer/SettingsPage";
 import ActivityListPage from "../pages/engineer/WorkProgress/ActivityListPage";
 import DailyProgressEntryPage from "../pages/engineer/WorkProgress/DailyProgressEntryPage";
-import LaborAttendancePage from "../pages/engineer/LaborManagement/LaborAttendancePage";
-import LaborReportsPage from "../pages/engineer/LaborManagement/LaborReportsPage";
-import LaborDetailsPage from "../pages/engineer/LaborManagement/LaborDetailsPage";
-import MaterialReceiptPage from "../pages/engineer/MaterialManagement/MaterialReceiptPage";
-import MaterialConsumptionPage from "../pages/engineer/MaterialManagement/MaterialConsumptionPage";
+import AttendancePage from "../pages/engineer/LabourManagement/AttendancePage";
+import PaymentPage from "../pages/engineer/LabourManagement/PaymentPage";
+import PayrollReportPage from "../pages/engineer/LabourManagement/PayrollReportPage";
+import LaborDetailsPage from "../pages/engineer/LabourManagement/LaborDetailsPage";
+// import MaterialReceiptPage from "../pages/engineer/MaterialManagement/MaterialReceiptPage";
+// import MaterialConsumptionPage from "../pages/engineer/MaterialManagement/MaterialConsumptionPage";
 import MaterialStockPage from "../pages/engineer/MaterialManagement/MaterialStockPage";
+import MaterialTransactionPage from "../pages/engineer/MaterialManagement/MaterialTransactionPage";
 import QCInspectionPage from "../pages/engineer/QC/QCInspectionPage";
 import QCTestReportsPage from "../pages/engineer/QC/QCTestReportsPage";
 import MachineryPage from "../pages/engineer/MachineryManagement/MachineryPage";
@@ -77,6 +79,8 @@ import DrawingsDocumentsPage from "../pages/engineer/Drawings/DrawingsDocumentsP
 import ChecklistsPage from "../pages/engineer/Checklists/ChecklistsPage";
 import MaterialRequestPage from "../pages/engineer/Approvals/MaterialRequestPage";
 import WorkApprovalPage from "../pages/engineer/Approvals/WorkApprovalPage";
+import MaterialListPage from "../pages/engineer/MaterialManagement/MaterialListPage";
+import MaterialReportsPage from "../pages/engineer/MaterialManagement/MaterialReportsPage";
 
 
 
@@ -240,8 +244,8 @@ function AppRoutes() {
                 element={<ProjectDetailsPage />}
               />
             </Route>
-             
-              {/* Client Specific Routes */}
+
+            {/* Client Specific Routes */}
             <Route
               element={<ProtectedRoute allowedRoles={["Client"]} />}
             >
@@ -344,11 +348,14 @@ function AppRoutes() {
               <Route path="/engineer/settings" element={<SettingsPage />} />
               <Route path="/engineer/progress/activities" element={<ActivityListPage />} />
               <Route path="/engineer/progress/entry" element={<DailyProgressEntryPage />} />
-              <Route path="/engineer/labor/attendance" element={<LaborAttendancePage />} />
-              <Route path="/engineer/labor/reports" element={<LaborReportsPage />} />
-              <Route path="/engineer/labor/details" element={<LaborDetailsPage />} />
-              <Route path="/engineer/material/receipt" element={<MaterialReceiptPage />} />
-              <Route path="/engineer/material/consumption" element={<MaterialConsumptionPage />} />
+              <Route path="/engineer/labor/list" element={<LaborDetailsPage />} />
+              <Route path="/engineer/labor/attendance" element={<AttendancePage />} />
+              <Route path="/engineer/labor/payments" element={<PaymentPage />} />
+              <Route path="/engineer/labor/reports" element={<PayrollReportPage />} />
+              <Route path="/material" element={<MaterialListPage />} />
+              <Route path="/material/reports" element={<MaterialReportsPage />} />
+              <Route path="/engineer/material/receipt" element={<MaterialTransactionPage />} />
+              <Route path="/engineer/material/consumption" element={<MaterialTransactionPage />} />
               <Route path="/engineer/material/stock" element={<MaterialStockPage />} />
               <Route path="/engineer/qc/inspection" element={<QCInspectionPage />} />
               <Route path="/engineer/qc/reports" element={<QCTestReportsPage />} />

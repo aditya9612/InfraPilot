@@ -15,7 +15,10 @@ import {
   Edit2, 
   Trash2,
   Eye,
-  Upload
+  Upload,
+  Briefcase,
+  Phone,
+  Mail
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -93,10 +96,12 @@ const DrawingsDocumentsPage = () => {
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
-        if (!formData.drawing_name) newErrors.drawing_name = "Required";
-        if (!formData.version) newErrors.version = "Required";
-        if (!formData.approved_by) newErrors.approved_by = "Required";
+        if (!formData.drawing_name.trim()) newErrors.drawing_name = "Required";
+        if (!formData.version.trim()) newErrors.version = "Required";
+        if (!formData.approved_by.trim()) newErrors.approved_by = "Required";
         if (!formData.upload_file) newErrors.upload_file = "Required";
+        if (!formData.date) newErrors.date = "Required";
+        if (!formData.remarks.trim()) newErrors.remarks = "Required";
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -175,11 +180,11 @@ const DrawingsDocumentsPage = () => {
                         <p className="text-slate-500 text-sm">Centralized repository for structural blueprints and technical revisions.</p>
                     </div>
                     <button
-                        onClick={() => { setIsEditMode(false); setFormData(initialFormData); setIsFormModalOpen(true); }}
-                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+                        onClick={() => { setIsEditMode(false); setFormData(initialFormData); setErrors({}); setIsFormModalOpen(true); }}
+                        className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                     >
                         <Plus className="w-4 h-4" />
-                        Register New Drawing
+                        Log Document
                     </button>
                 </div>
 
@@ -232,8 +237,8 @@ const DrawingsDocumentsPage = () => {
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
+                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                        <table className="w-full text-left font-inter min-w-[1200px]">
                             <thead>
                                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
                                     <th className="px-6 py-4">Drawing Name</th>
@@ -265,10 +270,10 @@ const DrawingsDocumentsPage = () => {
                                                 {drawing.date}
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <div className="flex items-center justify-end gap-2 transition-opacity">
                                                     <button 
                                                         onClick={() => setSelectedDrawing(drawing)}
-                                                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                                                        className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                                                     >
                                                         <Eye className="w-4 h-4" />
                                                     </button>
@@ -305,50 +310,105 @@ const DrawingsDocumentsPage = () => {
             <Modal
                 isOpen={!!selectedDrawing}
                 onClose={() => setSelectedDrawing(null)}
-                title="Drawing Insight"
+                title="Engineering Asset Intelligence"
                 maxWidth="max-w-xl"
             >
                 {selectedDrawing && (
-                    <div className="p-6">
-                        <div className="bg-blue-600 rounded-[2rem] p-8 mb-8 text-white shadow-xl shadow-blue-100 relative overflow-hidden">
-                            <div className="relative z-10">
-                                <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-2">Engineering Blueprint</p>
-                                <h3 className="text-2xl font-black tracking-tight leading-tight mb-6">{selectedDrawing.drawing_name}</h3>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Version</p>
-                                        <p className="text-lg font-black">{selectedDrawing.version}</p>
+                    <div className="p-6 font-inter text-inter italic-none">
+                        {/* ── Profile Style Header ────────────────── */}
+                        <div className="bg-primary rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter">
+                            <div className="relative z-10 flex items-center gap-6 font-inter">
+                                <div className="w-24 h-24 bg-blue-400/30 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/20 relative font-inter">
+                                    <span className="text-4xl font-black font-inter">{selectedDrawing.drawing_name.charAt(0)}</span>
+                                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-4 border-primary rounded-full animate-pulse" />
+                                </div>
+                                <div className="font-inter">
+                                    <div className="flex items-center gap-3 mb-2 font-inter">
+                                        <h3 className="text-2xl font-black tracking-tight font-inter">{selectedDrawing.drawing_name}</h3>
+                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-black uppercase tracking-widest font-inter">{selectedDrawing.version}</span>
                                     </div>
-                                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Asset ID</p>
-                                        <p className="text-lg font-black tabular-nums">{selectedDrawing.id}</p>
+                                    <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
+                                        <Mail className="w-3 h-3" />
+                                        <span className="text-[11px] font-bold font-inter italic-none">drawing.ref-{selectedDrawing.id.toLowerCase()}@infrapilot.com</span>
+                                    </div>
+                                    <div className="px-3 py-1 bg-white/20 rounded-full inline-block font-inter">
+                                        <span className="text-[10px] font-black uppercase tracking-widest font-inter">APPROVED BY: {selectedDrawing.approved_by}</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="space-y-8 px-2 mb-10">
-                            <div>
-                                <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-2')}>Technical Remarks</p>
-                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm text-slate-600 leading-relaxed">
-                                    "{selectedDrawing.remarks || "No additional technical remarks recorded."}"
+                        <div className="space-y-8 px-2 mb-10 font-inter">
+                            {/* Professional Information style section */}
+                            <div className="font-inter">
+                                <div className="flex items-center gap-2 mb-6 font-inter">
+                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
+                                        <Briefcase className="w-4 h-4 text-primary" />
+                                    </div>
+                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Asset Metadata</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Drawing Version</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedDrawing.version}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Approved Authority</p>
+                                        <p className="text-sm font-black text-blue-600 font-inter italic-none">{selectedDrawing.approved_by}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Registration Date</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedDrawing.date}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Asset ID</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedDrawing.id}</p>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-1')}>Approved By</p>
-                                    <p className="text-sm font-bold text-blue-600">{selectedDrawing.approved_by}</p>
+
+                            {/* Contact Details style section */}
+                            <div className="font-inter">
+                                <div className="flex items-center gap-2 mb-6 font-inter">
+                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
+                                        <Phone className="w-4 h-4 text-primary" />
+                                    </div>
+                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Technical Narrative</p>
                                 </div>
-                                <div>
-                                    <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-1')}>Filename</p>
-                                    <p className="text-sm font-bold text-slate-800 truncate">{selectedDrawing.upload_file}</p>
+                                <div className="grid grid-cols-1 gap-6 font-inter">
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Lead Engineer Remarks</p>
+                                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm text-slate-600 leading-relaxed font-inter italic-none">
+                                            "{selectedDrawing.remarks || "No additional technical remarks recorded for this engineering asset."}"
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Assignments style section */}
+                            <div className="font-inter">
+                                <div className="flex items-center gap-2 mb-6 font-inter">
+                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
+                                        <FileText className="w-4 h-4 text-primary" />
+                                    </div>
+                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">File Integrity</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Linked Filename</p>
+                                        <p className="text-sm font-black text-slate-800 truncate font-inter italic-none">{selectedDrawing.upload_file}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">System Sync</p>
+                                        <p className="text-sm font-black text-emerald-500 font-inter italic-none">Verified Blueprint</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
                         <button 
                             onClick={() => setSelectedDrawing(null)}
-                            className="w-full py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all"
+                            className="w-full py-4 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg shadow-primary/20 active:scale-95"
                         >
                             Dismiss analysis
                         </button>
@@ -382,20 +442,23 @@ const DrawingsDocumentsPage = () => {
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Core Details</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div className="md:col-span-2">
-                                <label className={labelClasses}>Drawing Name *</label>
+                                <label className={labelClasses}>Drawing Name <span className="text-rose-500">*</span></label>
                                 <input name="drawing_name" value={formData.drawing_name} onChange={handleInputChange} placeholder="Identification of blueprint..." className={inputClasses(errors.drawing_name)} />
+                                {errors.drawing_name && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.drawing_name}</p>}
                             </div>
                             <div>
-                                <label className={labelClasses}>Version *</label>
+                                <label className={labelClasses}>Version <span className="text-rose-500">*</span></label>
                                 <input name="version" value={formData.version} onChange={handleInputChange} placeholder="e.g. V1.0" className={inputClasses(errors.version)} />
+                                {errors.version && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.version}</p>}
                             </div>
                             <div>
-                                <label className={labelClasses}>Upload File *</label>
+                                <label className={labelClasses}>Upload File <span className="text-rose-500">*</span></label>
                                 <div className={`relative ${inputClasses(errors.upload_file)} flex items-center justify-between group`}>
                                     <span className="text-slate-400 truncate pr-4">{formData.upload_file || "Select source file..."}</span>
                                     <input type="file" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer" />
                                     <Upload className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" />
                                 </div>
+                                {errors.upload_file && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.upload_file}</p>}
                             </div>
                         </div>
                     </div>
@@ -404,16 +467,19 @@ const DrawingsDocumentsPage = () => {
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Registration Detail</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div>
-                                <label className={labelClasses}>Approved By *</label>
+                                <label className={labelClasses}>Approved By <span className="text-rose-500">*</span></label>
                                 <input name="approved_by" value={formData.approved_by} onChange={handleInputChange} placeholder="Name of authority" className={inputClasses(errors.approved_by)} />
+                                {errors.approved_by && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.approved_by}</p>}
                             </div>
                             <div>
-                                <label className={labelClasses}>Date</label>
-                                <input name="date" type="date" value={formData.date} onChange={handleInputChange} className={inputClasses()} />
+                                <label className={labelClasses}>Date <span className="text-rose-500">*</span></label>
+                                <input name="date" type="date" value={formData.date} onChange={handleInputChange} className={inputClasses(errors.date)} />
+                                {errors.date && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.date}</p>}
                             </div>
                             <div className="md:col-span-2">
-                                <label className={labelClasses}>Remarks</label>
-                                <textarea name="remarks" rows={4} value={formData.remarks} onChange={handleInputChange} placeholder="Enter any technical remarks..." className={`${inputClasses()} resize-none`} />
+                                <label className={labelClasses}>Remarks <span className="text-rose-500">*</span></label>
+                                <textarea name="remarks" rows={4} value={formData.remarks} onChange={handleInputChange} placeholder="Enter any technical remarks..." className={`${inputClasses(errors.remarks)} resize-none`} />
+                                {errors.remarks && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.remarks}</p>}
                             </div>
                         </div>
                     </div>

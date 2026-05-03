@@ -4,19 +4,19 @@ import Navbar from "../../../components/common/Navbar";
 import StatCard from "../../../components/common/StatCard";
 import Modal from "../../../components/common/Modal";
 import toast from "react-hot-toast";
-import { 
-  Package, 
-  TrendingUp, 
-  Activity, 
-  Search, 
-  Plus, 
-  Edit2, 
-  Trash2, 
-  Eye, 
-  Filter,
-  Layers,
-  ArrowUpRight,
-  AlertOctagon
+import {
+    Package,
+    TrendingUp,
+    Activity,
+    Search,
+    Plus,
+    Edit2,
+    Trash2,
+    Eye,
+    Filter,
+    Layers,
+    ArrowUpRight,
+    AlertOctagon
 } from "lucide-react";
 
 import { inventoryService } from "../../../services/inventoryService.ts";
@@ -116,12 +116,12 @@ const MaterialStockPage = () => {
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight italic-none">Resource Equilibrium Ledger</h1>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Resource Equilibrium Ledger</h1>
                         <p className="text-slate-500 text-sm italic-none">Live auditing of site materials and critical stock thresholds.</p>
                     </div>
                     <button
                         onClick={() => toast.success("Opening Receipt Portal...")}
-                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+                        className="flex items-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                     >
                         <Plus className="w-4 h-4" />
                         Log Receipt
@@ -178,9 +178,9 @@ const MaterialStockPage = () => {
                         </div>
                         <div className="flex items-center gap-2 font-inter">
                             <Filter className="w-4 h-4 text-slate-400" />
-                            <select 
-                                value={categoryFilter} 
-                                onChange={(e) => setCategoryFilter(e.target.value)} 
+                            <select
+                                value={categoryFilter}
+                                onChange={(e) => setCategoryFilter(e.target.value)}
                                 className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none cursor-pointer font-inter"
                             >
                                 <option>All Categories</option>
@@ -202,8 +202,8 @@ const MaterialStockPage = () => {
                                 <thead>
                                     <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
                                         <th className="px-6 py-4 font-inter">Material Entity</th>
-                                        <th className="px-6 py-4 font-inter">Quantitative Levels</th>
-                                        <th className="px-6 py-4 font-inter">Live Status</th>
+                                        <th className="px-6 py-4 font-inter text-center">Quantitative Levels</th>
+                                        <th className="px-6 py-4 font-inter text-center">Live Status</th>
                                         <th className="px-6 py-4 font-inter">Audit Trail</th>
                                         <th className="px-6 py-4 text-right font-inter">Actions</th>
                                     </tr>
@@ -218,46 +218,49 @@ const MaterialStockPage = () => {
                                                             <Layers className="w-5 h-5 text-slate-400 font-inter" />
                                                         </div>
                                                         <div className="flex flex-col font-inter">
-                                                            <span className="text-sm font-bold text-slate-800 font-inter">{item.material_name}</span>
+                                                            <span className="text-sm font-bold text-slate-800 font-inter uppercase">{item.material_name}</span>
                                                             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-inter">{item.category}</span>
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4 font-inter">
+                                                <td className="px-6 py-4 font-inter text-center">
                                                     <div className="flex flex-col font-inter">
-                                                        <span className="text-sm font-black text-slate-800 tabular-nums font-inter">{item.current_stock} {item.unit}</span>
-                                                        <span className="text-[9px] text-slate-400 font-bold font-inter italic-none">Min Threshold: {item.min_stock_level} {item.unit}</span>
+                                                        <span className="text-sm font-bold text-slate-800 tabular-nums font-inter">{item.current_stock} {item.unit}</span>
+                                                        <span className="text-[9px] text-slate-400 font-bold font-inter">Min Threshold: {item.min_stock_level} {item.unit}</span>
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4 font-inter">
-                                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${item.status === 'Available' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600 animate-pulse'}`}>
+                                                <td className="px-6 py-4 font-inter text-center">
+                                                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest ${item.status === 'Available' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
                                                         {item.status}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 font-inter">
                                                     <div className="flex flex-col font-inter">
-                                                        <div className="flex items-center gap-1.5 text-[10px] font-black text-slate-600 font-inter">
+                                                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600 font-inter">
                                                             <ArrowUpRight className="w-3 h-3 text-emerald-500 font-inter" />
-                                                            <span className="font-inter italic-none">LAST SYNC</span>
+                                                            <span className="font-bold uppercase tracking-widest">LAST SYNC</span>
                                                         </div>
-                                                        <p className="text-[10px] text-slate-400 font-bold font-inter italic-none">{item.last_updated}</p>
+                                                        <p className="text-[10px] text-slate-400 font-bold font-inter">{item.last_updated}</p>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
                                                     <div className="flex items-center justify-end gap-2 font-inter">
-                                                        <button 
+                                                        <button
                                                             onClick={() => { setSelectedStock(item); setIsDetailOpen(true); }}
-                                                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all font-inter"
+                                                            className={`p-2 text-white rounded-xl shadow-lg transition-all active:scale-95 font-inter ${item.status === 'Available' ? 'bg-emerald-500 shadow-emerald-500/20' : 'bg-rose-500 shadow-rose-500/20'}`}
+                                                            title="View Intelligence"
                                                         >
                                                             <Eye className="w-4 h-4" />
                                                         </button>
-                                                        <button 
+                                                        <button
                                                             className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
+                                                            title="Modify Record"
                                                         >
                                                             <Edit2 className="w-4 h-4" />
                                                         </button>
-                                                        <button 
+                                                        <button
                                                             className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"
+                                                            title="Archive Entry"
                                                         >
                                                             <Trash2 className="w-4 h-4" />
                                                         </button>
@@ -312,7 +315,7 @@ const MaterialStockPage = () => {
                                     <span className="text-[10px] font-black text-emerald-500 font-inter italic-none">SAFE OPERATING ZONE</span>
                                 </div>
                                 <div className="w-full h-3 bg-white rounded-full border border-slate-200 overflow-hidden font-inter">
-                                    <div 
+                                    <div
                                         className="h-full bg-emerald-500 rounded-full transition-all duration-1000"
                                         style={{ width: `${Math.min((selectedStock.current_stock / selectedStock.min_stock_level) * 50, 100)}%` }}
                                     />
@@ -331,7 +334,7 @@ const MaterialStockPage = () => {
                             </div>
                         </div>
 
-                        <button 
+                        <button
                             onClick={() => setIsDetailOpen(false)}
                             className="w-full py-5 bg-primary text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] hover:bg-blue-600 transition-all shadow-xl shadow-primary/20 active:scale-95 font-inter italic-none"
                         >

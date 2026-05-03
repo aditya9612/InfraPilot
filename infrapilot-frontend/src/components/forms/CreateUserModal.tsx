@@ -100,11 +100,9 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     const newErrors: Record<string, string> = {};
     if (!formData.full_name || formData.full_name.length < 3)
       newErrors.full_name = "Full Name must be at least 3 characters.";
-    if (
-      !formData.mobile_number ||
-      !/^\d{10}$/.test(formData.mobile_number.trim())
-    )
-      newErrors.mobile_number = "Enter a valid mobile number.";
+    const cleanMobile = formData.mobile_number.replace(/\D/g, "").replace(/^91/, "");
+    if (!cleanMobile || cleanMobile.length !== 10)
+      newErrors.mobile_number = "Enter a valid 10-digit mobile number.";
     if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
       newErrors.email = "Enter a valid email address.";
 
@@ -135,11 +133,16 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     } else if (name === "full_name" || name === "designation") {
       value = value.replace(/[^a-zA-Z\s]/g, "");
     } else if (name === "mobile_number") {
-      value = value.replace(/[^\d]/g, "").slice(0, 10);
+      let digits = value.replace(/\D/g, "");
+      if (digits.startsWith("91")) {
+        digits = digits.slice(2);
+      }
+      digits = digits.slice(0, 10);
+      value = digits ? `+91 ${digits}` : "";
     } else if (name === "aadhaar_number") {
-      const numeric = value.replace(/[^\d]/g, "").slice(0, 12);
+      const numeric = value.replace(/\D/g, "").slice(0, 12);
       const parts = numeric.match(/.{1,4}/g);
-      value = parts ? parts.join("-") : "";
+      value = parts ? parts.join("-") : numeric;
     }
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));

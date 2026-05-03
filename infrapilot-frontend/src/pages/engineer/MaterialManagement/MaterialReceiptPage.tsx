@@ -5,18 +5,18 @@ import StatCard from "../../../components/common/StatCard";
 import Modal from "../../../components/common/Modal";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
-import { 
-  Truck, 
-  CheckCircle2, 
-  Clock, 
-  Search, 
-  Plus, 
-  Edit2, 
-  Trash2, 
-  Eye, 
-  Filter,
-  FileText,
-  Package
+import {
+    Truck,
+    CheckCircle2,
+    Clock,
+    Search,
+    Plus,
+    Edit2,
+    Trash2,
+    Eye,
+    Filter,
+    FileText,
+    Package
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -101,9 +101,9 @@ const MaterialReceiptPage = () => {
 
     const filteredReceipts = useMemo(() => {
         return receipts.filter(r => {
-            const matchesSearch = r.materialName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                r.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                r.billNumber.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesSearch = r.materialName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                r.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                r.billNumber.toLowerCase().includes(searchTerm.toLowerCase());
             const matchesStatus = statusFilter === "All Status" || r.verificationStatus === statusFilter;
             return matchesSearch && matchesStatus;
         });
@@ -153,12 +153,12 @@ const MaterialReceiptPage = () => {
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight italic-none">Procurement & Receipt Ledger</h1>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Procurement & Receipt Ledger</h1>
                         <p className="text-slate-500 text-sm italic-none">Monitor inbound material logistics and verify quality compliance upon arrival.</p>
                     </div>
                     <button
                         onClick={() => { setFormMode("create"); setFormData(initialFormData); setIsFormOpen(true); }}
-                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+                        className="flex items-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                     >
                         <Plus className="w-4 h-4" />
                         Log New Receipt
@@ -195,9 +195,9 @@ const MaterialReceiptPage = () => {
                             <thead>
                                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
                                     <th className="px-6 py-4 font-inter">Material Consignment</th>
-                                    <th className="px-6 py-4 font-inter">Quantity Matrix</th>
+                                    <th className="px-6 py-4 font-inter text-center">Quantity Matrix</th>
                                     <th className="px-6 py-4 font-inter">Inbound Logistics</th>
-                                    <th className="px-6 py-4 font-inter">QC Status</th>
+                                    <th className="px-6 py-4 font-inter text-center">QC Status</th>
                                     <th className="px-6 py-4 text-right font-inter">Actions</th>
                                 </tr>
                             </thead>
@@ -206,35 +206,35 @@ const MaterialReceiptPage = () => {
                                     <tr key={receipt.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                         <td className="px-6 py-4">
                                             <div className="flex flex-col font-inter">
-                                                <span className="text-sm font-bold text-slate-800 font-inter">{receipt.materialName}</span>
+                                                <span className="text-sm font-bold text-slate-800 font-inter uppercase">{receipt.materialName}</span>
                                                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-inter">Bill: {receipt.billNumber} • {receipt.date}</span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-6 py-4 text-center">
                                             <div className="flex flex-col font-inter">
-                                                <span className="text-xs font-black text-slate-700 tabular-nums font-inter">+{receipt.receivedQuantity} {receipt.unit} Received</span>
-                                                <span className="text-[10px] text-slate-400 font-bold font-inter italic-none">Closing: {receipt.closingStock} {receipt.unit}</span>
+                                                <span className="text-xs font-bold text-slate-700 tabular-nums font-inter">+{receipt.receivedQuantity} {receipt.unit} Received</span>
+                                                <span className="text-[10px] text-slate-400 font-bold font-inter">Closing: {receipt.closingStock} {receipt.unit}</span>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex flex-col font-inter">
-                                                <span className="text-xs font-bold text-slate-600 font-inter truncate italic-none">{receipt.supplier}</span>
+                                                <span className="text-xs font-bold text-slate-600 font-inter truncate">{receipt.supplier}</span>
                                                 <div className="flex items-center gap-1 text-[10px] text-slate-400 font-inter">
                                                     <FileText className="w-3 h-3" />
-                                                    <span className="truncate font-inter italic-none">{receipt.location}</span>
+                                                    <span className="truncate font-bold uppercase tracking-widest">{receipt.location}</span>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${receipt.verificationStatus === 'Verified' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600 animate-pulse'}`}>
+                                        <td className="px-6 py-4 text-center">
+                                            <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest ${receipt.verificationStatus === 'Verified' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
                                                 {receipt.verificationStatus}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex items-center justify-end gap-2 font-inter">
-                                                <button onClick={() => { setSelectedReceipt(receipt); setIsDetailOpen(true); }} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all font-inter"><Eye className="w-4 h-4" /></button>
-                                                <button onClick={() => { setFormMode("edit"); setSelectedReceipt(receipt); setFormData({ materialName: receipt.materialName, unit: receipt.unit, receivedQuantity: receipt.receivedQuantity.toString(), supplier: receipt.supplier, billNumber: receipt.billNumber, totalAmount: receipt.totalAmount.toString(), location: receipt.location }); setIsFormOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"><Edit2 className="w-4 h-4" /></button>
-                                                <button onClick={() => { setReceiptToDelete(receipt.id); setIsDeleteOpen(true); }} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"><Trash2 className="w-4 h-4" /></button>
+                                                <button onClick={() => { setSelectedReceipt(receipt); setIsDetailOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter" title="View Intelligence"><Eye className="w-4 h-4" /></button>
+                                                <button onClick={() => { setFormMode("edit"); setSelectedReceipt(receipt); setFormData({ materialName: receipt.materialName, unit: receipt.unit, receivedQuantity: receipt.receivedQuantity.toString(), supplier: receipt.supplier, billNumber: receipt.billNumber, totalAmount: receipt.totalAmount.toString(), location: receipt.location }); setIsFormOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter" title="Modify Record"><Edit2 className="w-4 h-4" /></button>
+                                                <button onClick={() => { setReceiptToDelete(receipt.id); setIsDeleteOpen(true); }} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter" title="Archive Entry"><Trash2 className="w-4 h-4" /></button>
                                             </div>
                                         </td>
                                     </tr>
@@ -252,16 +252,16 @@ const MaterialReceiptPage = () => {
                         <div className="grid grid-cols-1 gap-6 font-inter">
                             <div className="flex flex-col font-inter">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter italic-none">Material Name</label>
-                                <input type="text" value={formData.materialName} onChange={(e) => setFormData({...formData, materialName: e.target.value})} placeholder="e.g. UltraTech Cement" className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter" required />
+                                <input type="text" value={formData.materialName} onChange={(e) => setFormData({ ...formData, materialName: e.target.value })} placeholder="e.g. UltraTech Cement" className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter" required />
                             </div>
                             <div className="grid grid-cols-2 gap-4 font-inter">
                                 <div className="flex flex-col font-inter">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter italic-none">Received Qty</label>
-                                    <input type="number" value={formData.receivedQuantity} onChange={(e) => setFormData({...formData, receivedQuantity: e.target.value})} placeholder="500" className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter" required />
+                                    <input type="number" value={formData.receivedQuantity} onChange={(e) => setFormData({ ...formData, receivedQuantity: e.target.value })} placeholder="500" className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter" required />
                                 </div>
                                 <div className="flex flex-col font-inter">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter italic-none">Measurement Unit</label>
-                                    <select value={formData.unit} onChange={(e) => setFormData({...formData, unit: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter">
+                                    <select value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter">
                                         <option value="Bag">Bag</option>
                                         <option value="Kg">Kg</option>
                                         <option value="Ton">Ton</option>
@@ -271,16 +271,16 @@ const MaterialReceiptPage = () => {
                             </div>
                             <div className="flex flex-col font-inter">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter italic-none">Supplier Name</label>
-                                <input type="text" value={formData.supplier} onChange={(e) => setFormData({...formData, supplier: e.target.value})} placeholder="Vendor Name" className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter" required />
+                                <input type="text" value={formData.supplier} onChange={(e) => setFormData({ ...formData, supplier: e.target.value })} placeholder="Vendor Name" className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter" required />
                             </div>
                             <div className="grid grid-cols-2 gap-4 font-inter">
                                 <div className="flex flex-col font-inter">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter italic-none">Bill / Invoice #</label>
-                                    <input type="text" value={formData.billNumber} onChange={(e) => setFormData({...formData, billNumber: e.target.value})} placeholder="INV-001" className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter" required />
+                                    <input type="text" value={formData.billNumber} onChange={(e) => setFormData({ ...formData, billNumber: e.target.value })} placeholder="INV-001" className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter" required />
                                 </div>
                                 <div className="flex flex-col font-inter">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter italic-none">Total Amount (₹)</label>
-                                    <input type="number" value={formData.totalAmount} onChange={(e) => setFormData({...formData, totalAmount: e.target.value})} placeholder="25000" className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter" required />
+                                    <input type="number" value={formData.totalAmount} onChange={(e) => setFormData({ ...formData, totalAmount: e.target.value })} placeholder="25000" className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter" required />
                                 </div>
                             </div>
                         </div>

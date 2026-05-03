@@ -15,8 +15,19 @@ import {
   Trash2,
   Eye,
   Activity,
-  Filter
+  Filter,
+  Briefcase,
+  Phone,
+  Mail,
+  FileText
 } from "lucide-react";
+
+const statusColors: Record<string, string> = {
+    'Open': 'bg-rose-600',
+    'In Progress': 'bg-amber-600',
+    'Resolved': 'bg-blue-600',
+    'Closed': 'bg-emerald-600',
+};
 
 import { issueService } from "../../../services/issueService";
 import type { IssueItem } from "../../../types/issue";
@@ -94,6 +105,22 @@ const IssueTrackerPage = () => {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [issueToDelete, setIssueToDelete] = useState<number | null>(null);
 
+    const validate = () => {
+        const newErrors: Record<string, string> = {};
+        if (!formData.title.trim()) newErrors.title = "Required";
+        if (!formData.category) newErrors.category = "Required";
+        if (!formData.priority) newErrors.priority = "Required";
+        if (!formData.description.trim()) newErrors.description = "Required";
+        if (!formData.reported_date) newErrors.reported_date = "Required";
+        if (formMode === 'edit') {
+            if (!formData.status) newErrors.status = "Required";
+            if (!formData.resolution.trim()) newErrors.resolution = "Required";
+        }
+        
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
     useEffect(() => {
         const resolveProjectId = async () => {
             const userStr = localStorage.getItem("infrapilot_user");
@@ -144,17 +171,12 @@ const IssueTrackerPage = () => {
         if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
     };
 
-    const validate = () => {
-        const errs: Record<string, string> = {};
-        if (!formData.title.trim()) errs.title = "Required";
-        if (!formData.description.trim()) errs.description = "Required";
-        setErrors(errs);
-        return Object.keys(errs).length === 0;
-    };
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!validate()) return;
+        if (!validate()) {
+            toast.error("Please correct the errors in the form");
+            return;
+        }
         setIsSubmitting(true);
         try {
             if (formMode === "create") {
@@ -180,7 +202,7 @@ const IssueTrackerPage = () => {
             toast.success("Issue deleted successfully");
             setIsDeleteModalOpen(false);
             fetchIssues();
-        } catch (error) {
+        } catch (error: any) {
             toast.error("Failed to delete issue");
         }
     };
@@ -221,11 +243,11 @@ const IssueTrackerPage = () => {
                         <p className="text-slate-500 text-sm">Identify, track, and resolve site impediments to maintain momentum.</p>
                     </div>
                     <button
-                        onClick={() => { setFormMode("create"); setFormData(INITIAL_FORM_DATA); setIsFormModalOpen(true); }}
-                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+                        onClick={() => { setFormMode("create"); setFormData(INITIAL_FORM_DATA); setErrors({}); setIsFormModalOpen(true); }}
+                        className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                     >
                         <Plus className="w-4 h-4" />
-                        Lodge Site Issue
+                        Log Issue
                     </button>
                 </div>
 
@@ -295,14 +317,14 @@ const IssueTrackerPage = () => {
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
                         {isLoading ? (
-                            <div className="p-20 text-center text-slate-400">
+                            <div className="p-20 text-center text-slate-400 font-inter">
                                 <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
-                                <p className="text-[10px] font-black uppercase tracking-widest">Syncing constraints...</p>
+                                <p className="text-[10px] font-black uppercase tracking-widest">Syncing issue logs...</p>
                             </div>
                         ) : (
-                            <table className="w-full text-left">
+                            <table className="w-full text-left font-inter min-w-[1200px]">
                                 <thead>
                                     <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
                                         <th className="px-6 py-4">Issue Description</th>
@@ -336,22 +358,22 @@ const IssueTrackerPage = () => {
                                                     {issue.reported_date}
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
-                                                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <div className="flex items-center justify-end gap-2 font-inter">
                                                         <button 
-                                                            onClick={() => setSelectedIssue(issue)}
-                                                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                                                            onClick={() => { setSelectedIssue(issue); }} 
+                                                            className={`p-2 text-white rounded-xl shadow-lg transition-all active:scale-95 font-inter ${statusColors[issue.status] || 'bg-primary'} ${issue.status ? `shadow-${statusColors[issue.status]?.split('-')[1]}/20` : 'shadow-primary/20'}`}
                                                         >
                                                             <Eye className="w-4 h-4" />
                                                         </button>
                                                         <button 
-                                                            onClick={() => { setFormMode("edit"); setSelectedIssue(issue); setFormData({ ...issue, assigned_to: issue.assigned_to || "" } as any); setIsFormModalOpen(true); }}
-                                                            className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all"
+                                                            onClick={() => { setFormMode("edit"); setFormData({ ...issue, assigned_to: issue.assigned_to || "" } as any); setErrors({}); setIsFormModalOpen(true); }} 
+                                                            className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
                                                         >
                                                             <Edit2 className="w-4 h-4" />
                                                         </button>
                                                         <button 
-                                                            onClick={() => { setIssueToDelete(issue.id); setIsDeleteModalOpen(true); }}
-                                                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                                                            onClick={() => { setIssueToDelete(issue.id); setIsDeleteModalOpen(true); }} 
+                                                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"
                                                         >
                                                             <Trash2 className="w-4 h-4" />
                                                         </button>
@@ -361,8 +383,8 @@ const IssueTrackerPage = () => {
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan={5} className="px-6 py-20 text-center text-slate-400 italic">
-                                                No site issues found.
+                                            <td colSpan={5} className="px-6 py-20 text-center text-slate-400 italic font-inter">
+                                                No site issues found matching your filters.
                                             </td>
                                         </tr>
                                     )}
@@ -377,58 +399,100 @@ const IssueTrackerPage = () => {
             <Modal
                 isOpen={!!selectedIssue && !isFormModalOpen}
                 onClose={() => setSelectedIssue(null)}
-                title="Issue Impact Analysis"
+                title="Issue Intelligence Insight"
                 maxWidth="max-w-xl"
             >
                 {selectedIssue && (
-                    <div className="p-6">
-                        <div className={`rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden ${selectedIssue.priority === 'High' ? 'bg-rose-600' : selectedIssue.priority === 'Medium' ? 'bg-amber-600' : 'bg-emerald-600'}`}>
-                            <div className="relative z-10">
-                                <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-2">Impediment Documentation</p>
-                                <h3 className="text-2xl font-black tracking-tight leading-tight mb-6">{selectedIssue.title}</h3>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Issue ID</p>
-                                        <p className="text-lg font-black">{selectedIssue.business_id || `ISS-${selectedIssue.id}`}</p>
+                    <div className="p-6 font-inter text-inter italic-none">
+                        {/* ── Profile Style Header ────────────────── */}
+                        <div className={`${statusColors[selectedIssue.status as keyof typeof statusColors] || 'bg-primary'} rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter`}>
+                            <div className="relative z-10 flex items-center gap-6 font-inter">
+                                <div className="w-24 h-24 bg-blue-400/30 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/20 relative font-inter">
+                                    <span className="text-4xl font-black font-inter">{selectedIssue.title.charAt(0)}</span>
+                                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-4 border-primary rounded-full animate-pulse" />
+                                </div>
+                                <div className="font-inter">
+                                    <div className="flex items-center gap-3 mb-2 font-inter">
+                                        <h3 className="text-2xl font-black tracking-tight font-inter">{selectedIssue.title}</h3>
+                                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${selectedIssue.status === 'Closed' ? 'bg-emerald-500/20 text-emerald-100' : 'bg-amber-500/20 text-amber-100'}`}>
+                                            {selectedIssue.status}
+                                        </span>
                                     </div>
-                                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Status</p>
-                                        <p className="text-lg font-black">{selectedIssue.status.toUpperCase()}</p>
+                                    <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
+                                        <Mail className="w-3 h-3" />
+                                        <span className="text-[11px] font-bold font-inter italic-none">issue.ref-{selectedIssue.id}@infrapilot.com</span>
+                                    </div>
+                                    <div className="px-3 py-1 bg-white/20 rounded-full inline-block font-inter">
+                                        <span className="text-[10px] font-black uppercase tracking-widest font-inter">PRIORITY: {selectedIssue.priority}</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="space-y-8 px-2 mb-10">
-                            <div>
-                                <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-2')}>Impact Narrative</p>
-                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm text-slate-600 leading-relaxed">
-                                    "{selectedIssue.description}"
+                        <div className="space-y-8 px-2 mb-10 font-inter">
+                            {/* Professional Information style section */}
+                            <div className="font-inter">
+                                <div className="flex items-center gap-2 mb-6 font-inter">
+                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
+                                        <Briefcase className="w-4 h-4 text-primary" />
+                                    </div>
+                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Constraint Intelligence</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Category</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedIssue.category}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Priority Level</p>
+                                        <p className="text-sm font-black text-rose-500 font-inter italic-none">{selectedIssue.priority}</p>
+                                    </div>
+                                    <div className="font-inter col-span-2">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Description</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none leading-relaxed">{selectedIssue.description}</p>
+                                    </div>
                                 </div>
                             </div>
+
+                            {/* Assignments style section */}
                             {selectedIssue.resolution && (
-                                <div>
-                                    <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-2')}>Resolution Strategy</p>
-                                    <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 text-sm text-emerald-700 font-bold leading-relaxed">
-                                        "{selectedIssue.resolution}"
+                                <div className="font-inter">
+                                    <div className="flex items-center gap-2 mb-6 font-inter">
+                                        <div className="p-2 bg-emerald-50 rounded-lg font-inter">
+                                            <FileText className="w-4 h-4 text-emerald-600" />
+                                        </div>
+                                        <p className="text-[11px] font-black text-emerald-600 uppercase tracking-[0.15em] font-inter">Resolution Strategy</p>
+                                    </div>
+                                    <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 text-sm text-emerald-800 font-bold leading-relaxed font-inter italic-none">
+                                        {selectedIssue.resolution}
                                     </div>
                                 </div>
                             )}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-1')}>Category</p>
-                                    <p className="text-sm font-bold text-slate-800">{selectedIssue.category}</p>
+
+                            {/* Contact Details style section */}
+                            <div className="font-inter">
+                                <div className="flex items-center gap-2 mb-6 font-inter">
+                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
+                                        <Phone className="w-4 h-4 text-primary" />
+                                    </div>
+                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Audit Trail</p>
                                 </div>
-                                <div>
-                                    <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-1')}>Priority</p>
-                                    <p className="text-sm font-bold text-slate-800">{selectedIssue.priority}</p>
+                                <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Reported Date</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedIssue.reported_date}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Issue ID</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">ISS-{selectedIssue.id}</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
                         <button 
                             onClick={() => setSelectedIssue(null)}
-                            className="w-full py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all"
+                            className={`w-full py-4 ${statusColors[selectedIssue.status as keyof typeof statusColors] || 'bg-primary'} text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 ${selectedIssue.status ? `shadow-${statusColors[selectedIssue.status as keyof typeof statusColors]?.split('-')[1]}/20` : 'shadow-primary/20'}`}
                         >
                             Dismiss analysis
                         </button>
@@ -467,20 +531,27 @@ const IssueTrackerPage = () => {
                                 <input name="title" value={formData.title} onChange={handleInputChange} placeholder="e.g. Shortage of Grade-43 Cement" className={inputClasses(errors.title)} />
                             </div>
                             <div>
-                                <label className={labelClasses}>Category</label>
-                                <select name="category" value={formData.category} onChange={handleInputChange} className={inputClasses()}>
+                                <label className={labelClasses}>Reported Date <span className="text-rose-500">*</span></label>
+                                <input name="reported_date" type="date" value={formData.reported_date} onChange={handleInputChange} className={inputClasses(errors.reported_date)} />
+                                {errors.reported_date && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.reported_date}</p>}
+                            </div>
+                            <div>
+                                <label className={labelClasses}>Category <span className="text-rose-500">*</span></label>
+                                <select name="category" value={formData.category} onChange={handleInputChange} className={inputClasses(errors.category)}>
                                     <option value="Material">Material</option>
                                     <option value="Safety">Safety</option>
                                     <option value="Delay">Delay</option>
                                 </select>
+                                {errors.category && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.category}</p>}
                             </div>
                             <div>
-                                <label className={labelClasses}>Priority Matrix</label>
-                                <select name="priority" value={formData.priority} onChange={handleInputChange} className={inputClasses()}>
+                                <label className={labelClasses}>Priority Matrix <span className="text-rose-500">*</span></label>
+                                <select name="priority" value={formData.priority} onChange={handleInputChange} className={inputClasses(errors.priority)}>
                                     <option value="Low">Low Impact</option>
                                     <option value="Medium">Medium Impact</option>
                                     <option value="High">High Impact</option>
                                 </select>
+                                {errors.priority && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.priority}</p>}
                             </div>
                         </div>
                     </div>
@@ -498,16 +569,18 @@ const IssueTrackerPage = () => {
                             <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Resolution Workflow</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <div>
-                                    <label className={labelClasses}>Workflow Status</label>
-                                    <select name="status" value={formData.status} onChange={handleInputChange} className={inputClasses()}>
+                                    <label className={labelClasses}>Workflow Status <span className="text-rose-500">*</span></label>
+                                    <select name="status" value={formData.status} onChange={handleInputChange} className={inputClasses(errors.status)}>
                                         <option value="Open">Open</option>
                                         <option value="In Progress">In Progress</option>
                                         <option value="Closed">Closed</option>
                                     </select>
+                                    {errors.status && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.status}</p>}
                                 </div>
                                 <div>
-                                    <label className={labelClasses}>Resolution Detail</label>
-                                    <input name="resolution" value={formData.resolution} onChange={handleInputChange} placeholder="Brief summary of resolution..." className={inputClasses()} />
+                                    <label className={labelClasses}>Resolution Detail <span className="text-rose-500">*</span></label>
+                                    <input name="resolution" value={formData.resolution} onChange={handleInputChange} placeholder="Brief summary of resolution..." className={inputClasses(errors.resolution)} />
+                                    {errors.resolution && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.resolution}</p>}
                                 </div>
                             </div>
                         </div>

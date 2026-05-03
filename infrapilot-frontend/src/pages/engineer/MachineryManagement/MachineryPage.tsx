@@ -17,8 +17,18 @@ import {
   Edit2, 
   Trash2,
   Eye,
-  Activity
+  Activity,
+  Briefcase,
+  Phone,
+  Mail,
+  FileText
 } from "lucide-react";
+
+const conditionColors: Record<string, string> = {
+    'GOOD': 'bg-emerald-600',
+    'REPAIR': 'bg-rose-600',
+    'SERVICE': 'bg-amber-600',
+};
 
 const MachineryPage = () => {
     const [machineryList, setMachineryList] = useState<Equipment[]>([]);
@@ -33,11 +43,22 @@ const MachineryPage = () => {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<number | null>(null);
 
-    const projectId = 1;
+    const [projectId, setProjectId] = useState<number>(0);
+    const [userContext, setUserContext] = useState<any>(null);
 
     useEffect(() => {
-        fetchEquipment();
+        const userStr = localStorage.getItem("infrapilot_user");
+        const user = userStr ? JSON.parse(userStr) : {};
+        const pId = user?.project_id || user?.user?.project_id || 0;
+        setProjectId(Number(pId));
+        setUserContext(user);
     }, []);
+
+    useEffect(() => {
+        if (projectId > 0) {
+            fetchEquipment();
+        }
+    }, [projectId]);
 
     const fetchEquipment = async () => {
         setIsLoading(true);
@@ -109,7 +130,7 @@ const MachineryPage = () => {
                     </div>
                     <button
                         onClick={() => { setEditingEquipment(null); setIsModalOpen(true); }}
-                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+                        className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                     >
                         <Plus className="w-4 h-4" />
                         Register Equipment
@@ -176,86 +197,86 @@ const MachineryPage = () => {
                         </select>
                     </div>
 
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
-                            <thead>
-                                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-                                    <th className="px-6 py-4">Asset Details</th>
-                                    <th className="px-6 py-4">Operator</th>
-                                    <th className="px-6 py-4">Utilization</th>
-                                    <th className="px-6 py-4">Fuel Log</th>
-                                    <th className="px-6 py-4">Status</th>
-                                    <th className="px-6 py-4 text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-50">
-                                {isLoading ? (
-                                    <tr>
-                                        <td colSpan={6} className="px-6 py-10 text-center text-slate-400">
-                                            <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2" />
-                                            Loading assets...
-                                        </td>
+                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                        {isLoading ? (
+                            <div className="p-20 text-center text-slate-400">
+                                <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
+                                <p className="text-[10px] font-black uppercase tracking-widest">Syncing telemetry...</p>
+                            </div>
+                        ) : (
+                            <table className="w-full text-left font-inter min-w-[1200px]">
+                                <thead>
+                                    <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
+                                        <th className="px-6 py-4">Asset Details</th>
+                                        <th className="px-6 py-4">Operator</th>
+                                        <th className="px-6 py-4">Utilization</th>
+                                        <th className="px-6 py-4">Fuel Log</th>
+                                        <th className="px-6 py-4">Status</th>
+                                        <th className="px-6 py-4 text-right">Actions</th>
                                     </tr>
-                                ) : filteredList.length > 0 ? (
-                                    filteredList.map((item) => (
-                                        <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
-                                            <td className="px-6 py-4">
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm font-bold text-slate-800">{item.equipment_name}</span>
-                                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{item.equipment_code}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className="text-xs font-semibold text-slate-600">{item.operator_name}</span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className="text-sm font-bold text-slate-800">{item.working_hours} h</span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className="text-sm font-bold text-blue-600">{item.fuel_used} L</span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
-                                                    item.condition === 'GOOD' ? 'bg-emerald-50 text-emerald-600' : 
-                                                    item.condition === 'REPAIR' ? 'bg-rose-50 text-rose-600 animate-pulse' : 
-                                                    'bg-amber-50 text-amber-600'
-                                                }`}>
-                                                    {item.condition}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button 
-                                                        onClick={() => setViewingEquipment(item)}
-                                                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
-                                                    >
-                                                        <Eye className="w-4 h-4" />
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => { setEditingEquipment(item); setIsModalOpen(true); }}
-                                                        className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all"
-                                                    >
-                                                        <Edit2 className="w-4 h-4" />
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => { setItemToDelete(item.id); setIsDeleteModalOpen(true); }}
-                                                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </div>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {filteredList.length > 0 ? (
+                                        filteredList.map((item) => (
+                                            <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
+                                                <td className="px-6 py-4">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-bold text-slate-800">{item.equipment_name}</span>
+                                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{item.equipment_code}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className="text-xs font-semibold text-slate-600">{item.operator_name}</span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className="text-sm font-bold text-slate-800">{item.working_hours} h</span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className="text-sm font-bold text-blue-600">{item.fuel_used} L</span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
+                                                        item.condition === 'GOOD' ? 'bg-emerald-50 text-emerald-600' : 
+                                                        item.condition === 'REPAIR' ? 'bg-rose-50 text-rose-600 animate-pulse' : 
+                                                        'bg-amber-50 text-amber-600'
+                                                    }`}>
+                                                        {item.condition}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <div className="flex items-center justify-end gap-2 transition-opacity">
+                                                        <button 
+                                                            onClick={() => setViewingEquipment(item)}
+                                                            className={`p-2 text-white rounded-xl shadow-lg transition-all active:scale-95 ${conditionColors[item.condition as keyof typeof conditionColors] || 'bg-primary'} ${item.condition ? `shadow-${conditionColors[item.condition as keyof typeof conditionColors]?.split('-')[1]}/20` : 'shadow-primary/20'}`}
+                                                        >
+                                                            <Eye className="w-4 h-4" />
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => { setEditingEquipment(item); setIsModalOpen(true); }}
+                                                            className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all"
+                                                        >
+                                                            <Edit2 className="w-4 h-4" />
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => { setItemToDelete(item.id); setIsDeleteModalOpen(true); }}
+                                                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan={6} className="px-6 py-20 text-center text-slate-400 italic">
+                                                No equipment logs found matching your filters.
                                             </td>
                                         </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan={6} className="px-6 py-20 text-center text-slate-400 italic">
-                                            No equipment logs found matching your filters.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
+                                    )}
+                                </tbody>
+                            </table>
+                        )}
                     </div>
                 </div>
             </PageTransition>
@@ -280,53 +301,109 @@ const MachineryPage = () => {
             <Modal
                 isOpen={!!viewingEquipment}
                 onClose={() => setViewingEquipment(null)}
-                title="Equipment Insights"
-                maxWidth="max-w-lg"
+                title="Asset Intelligence Insight"
+                maxWidth="max-w-xl"
             >
                 {viewingEquipment && (
-                    <div className="p-6 text-inter">
-                        <div className="bg-slate-50 rounded-[2rem] p-6 mb-8 border border-slate-100">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Asset Identity</p>
-                            <h3 className="text-xl font-black text-slate-800 mb-1">{viewingEquipment.equipment_name}</h3>
-                            <p className="text-sm font-bold text-primary">{viewingEquipment.equipment_code}</p>
+                    <div className="p-6 font-inter text-inter italic-none">
+                        {/* ── Profile Style Header ────────────────── */}
+                        <div className={`${conditionColors[viewingEquipment.condition as keyof typeof conditionColors] || 'bg-primary'} rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter`}>
+                            <div className="relative z-10 flex items-center gap-6 font-inter">
+                                <div className="w-24 h-24 bg-blue-400/30 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/20 relative font-inter">
+                                    <span className="text-4xl font-black font-inter">{viewingEquipment.equipment_name.charAt(0)}</span>
+                                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-4 border-primary rounded-full animate-pulse" />
+                                </div>
+                                <div className="font-inter">
+                                    <div className="flex items-center gap-3 mb-2 font-inter">
+                                        <h3 className="text-2xl font-black tracking-tight font-inter">{viewingEquipment.equipment_name}</h3>
+                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-black uppercase tracking-widest font-inter">{viewingEquipment.equipment_code}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
+                                        <Mail className="w-3 h-3" />
+                                        <span className="text-[11px] font-bold font-inter italic-none">asset.ref-{viewingEquipment.id}@infrapilot.com</span>
+                                    </div>
+                                    <div className="px-3 py-1 bg-white/20 rounded-full inline-block font-inter">
+                                        <span className="text-[10px] font-black uppercase tracking-widest font-inter">CONDITION: {viewingEquipment.condition}</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        
-                        <div className="grid grid-cols-2 gap-8 px-2 mb-10">
-                            <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Operator</p>
-                                <p className="text-sm font-black text-slate-700">{viewingEquipment.operator_name}</p>
+
+                        <div className="space-y-8 px-2 mb-10 font-inter">
+                            {/* Professional Information style section */}
+                            <div className="font-inter">
+                                <div className="flex items-center gap-2 mb-6 font-inter">
+                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
+                                        <Briefcase className="w-4 h-4 text-primary" />
+                                    </div>
+                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Asset Utilization</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Operator Identity</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{viewingEquipment.operator_name}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Working Hours</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{viewingEquipment.working_hours} Hrs</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Fuel Consumption</p>
+                                        <p className="text-sm font-black text-blue-600 font-inter italic-none">{viewingEquipment.fuel_used} Liters</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Asset Health</p>
+                                        <p className={`text-sm font-black font-inter italic-none ${viewingEquipment.condition === 'GOOD' ? 'text-emerald-500' : 'text-rose-500'}`}>{viewingEquipment.condition}</p>
+                                    </div>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Current State</p>
-                                <span className={`px-2 py-0.5 text-[10px] font-black uppercase rounded-lg ${
-                                    viewingEquipment.condition === 'GOOD' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
-                                }`}>
-                                    {viewingEquipment.condition}
-                                </span>
+
+                            {/* Contact Details style section */}
+                            <div className="font-inter">
+                                <div className="flex items-center gap-2 mb-6 font-inter">
+                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
+                                        <Phone className="w-4 h-4 text-primary" />
+                                    </div>
+                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Fiscal Intelligence</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Rental Value (₹)</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">₹{viewingEquipment.rental_cost.toLocaleString()}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Audit ID</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">AST-{viewingEquipment.id}X99</p>
+                                    </div>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Working Hours</p>
-                                <p className="text-sm font-black text-slate-700">{viewingEquipment.working_hours} h</p>
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Fuel Consumed</p>
-                                <p className="text-sm font-black text-blue-600">{viewingEquipment.fuel_used} L</p>
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Rental Cost</p>
-                                <p className="text-sm font-black text-slate-700">₹{viewingEquipment.rental_cost.toLocaleString()}</p>
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Last Maintenance</p>
-                                <p className="text-sm font-black text-slate-700">{viewingEquipment.maintenance_date}</p>
+
+                            {/* Assignments style section */}
+                            <div className="font-inter">
+                                <div className="flex items-center gap-2 mb-6 font-inter">
+                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
+                                        <FileText className="w-4 h-4 text-primary" />
+                                    </div>
+                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Maintenance Status</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Last Verified</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">2026-04-10</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">System Integrity</p>
+                                        <p className="text-sm font-black text-emerald-500 font-inter italic-none">Fully Operational</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
                         <button 
                             onClick={() => setViewingEquipment(null)}
-                            className="w-full py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-slate-800 transition-all"
+                            className={`w-full py-5 ${conditionColors[viewingEquipment.condition as keyof typeof conditionColors] || 'bg-primary'} text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all shadow-xl active:scale-95 font-inter italic-none`}
                         >
-                            Close Insight
+                            Dismiss Asset Insight
                         </button>
                     </div>
                 )}
