@@ -56,7 +56,11 @@ export default function AddMaterialModal({
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
     let { name, value } = e.target;
-    if (name === "purchase_rate" || name === "quantity_purchased" || name === "payment_given") {
+    if (
+      name === "purchase_rate" ||
+      name === "quantity_purchased" ||
+      name === "payment_given"
+    ) {
       value = value.replace(/[^\d]/g, "");
     }
     setFormData((prev) => ({
@@ -76,13 +80,20 @@ export default function AddMaterialModal({
     e.preventDefault();
     const newErrors: Record<string, string> = {};
 
-    if (!formData.material_name.trim()) newErrors.material_name = "Material name is required.";
+    if (!formData.material_name.trim())
+      newErrors.material_name = "Material name is required.";
     if (!formData.category.trim()) newErrors.category = "Category is required.";
     if (!formData.unit.trim()) newErrors.unit = "Unit is required.";
-    if (!formData.supplier_name) newErrors.supplier_name = "Please select a supplier.";
-    if (!formData.purchase_rate || formData.purchase_rate <= 0) newErrors.purchase_rate = "Purchase rate must be greater than 0.";
-    if (!formData.rate_type.trim()) newErrors.rate_type = "Rate type is required.";
-    if (!initialData && (!formData.quantity_purchased || formData.quantity_purchased <= 0)) {
+    if (!formData.supplier_name)
+      newErrors.supplier_name = "Please select a supplier.";
+    if (!formData.purchase_rate || formData.purchase_rate <= 0)
+      newErrors.purchase_rate = "Purchase rate must be greater than 0.";
+    if (!formData.rate_type.trim())
+      newErrors.rate_type = "Rate type is required.";
+    if (
+      !initialData &&
+      (!formData.quantity_purchased || formData.quantity_purchased <= 0)
+    ) {
       newErrors.quantity_purchased = "Opening quantity must be greater than 0.";
     }
 
@@ -126,7 +137,11 @@ export default function AddMaterialModal({
       footer={modalFooter}
       maxWidth="max-w-2xl"
     >
-      <form id="add-material-form" onSubmit={handleSubmit} className="space-y-6">
+      <form
+        id="add-material-form"
+        onSubmit={handleSubmit}
+        className="space-y-6"
+      >
         <div>
           <div className="flex items-center gap-2 mb-4">
             <div className="w-1 h-6 bg-primary rounded-full"></div>
@@ -150,7 +165,11 @@ export default function AddMaterialModal({
                 }`}
                 placeholder="e.g. Premium Cement 53 Grade"
               />
-              {errors.material_name && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.material_name}</p>}
+              {errors.material_name && (
+                <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">
+                  {errors.material_name}
+                </p>
+              )}
             </div>
 
             <div className="space-y-1">
@@ -169,7 +188,11 @@ export default function AddMaterialModal({
                 }`}
                 placeholder="e.g. Masonry"
               />
-              {errors.category && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.category}</p>}
+              {errors.category && (
+                <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">
+                  {errors.category}
+                </p>
+              )}
             </div>
 
             <div className="space-y-1">
@@ -188,7 +211,11 @@ export default function AddMaterialModal({
                 }`}
                 placeholder="e.g. Bags, Liters"
               />
-              {errors.unit && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.unit}</p>}
+              {errors.unit && (
+                <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">
+                  {errors.unit}
+                </p>
+              )}
             </div>
 
             <div className="md:col-span-2 space-y-1">
@@ -214,7 +241,11 @@ export default function AddMaterialModal({
                   </option>
                 ))}
               </select>
-              {errors.supplier_name && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.supplier_name}</p>}
+              {errors.supplier_name && (
+                <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">
+                  {errors.supplier_name}
+                </p>
+              )}
             </div>
 
             <div className="space-y-1">
@@ -238,7 +269,11 @@ export default function AddMaterialModal({
                   placeholder="0"
                 />
               </div>
-              {errors.purchase_rate && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.purchase_rate}</p>}
+              {errors.purchase_rate && (
+                <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">
+                  {errors.purchase_rate}
+                </p>
+              )}
             </div>
 
             <div className="space-y-1">
@@ -257,7 +292,11 @@ export default function AddMaterialModal({
                 }`}
                 placeholder="e.g. per bag"
               />
-              {errors.rate_type && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.rate_type}</p>}
+              {errors.rate_type && (
+                <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">
+                  {errors.rate_type}
+                </p>
+              )}
             </div>
 
             {!initialData && (
@@ -278,7 +317,11 @@ export default function AddMaterialModal({
                     }`}
                     placeholder="0"
                   />
-                  {errors.quantity_purchased && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.quantity_purchased}</p>}
+                  {errors.quantity_purchased && (
+                    <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">
+                      {errors.quantity_purchased}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-1 border-t border-slate-50 pt-4 mt-2">
@@ -312,7 +355,9 @@ export default function AddMaterialModal({
                     </span>
                   </div>
                   <div className="flex justify-between items-center pt-4 border-t border-white/10 relative z-10">
-                    <span className="text-xs font-medium text-slate-400 uppercase tracking-widest">Initial pending balance</span>
+                    <span className="text-xs font-medium text-slate-400 uppercase tracking-widest">
+                      Initial pending balance
+                    </span>
                     <span
                       className={`text-sm font-black ${paymentPending > 0 ? "text-amber-400" : "text-emerald-400"}`}
                     >
@@ -325,7 +370,9 @@ export default function AddMaterialModal({
 
             {initialData && (
               <div className="space-y-1 md:col-span-2 border-t border-slate-50 pt-4 mt-2">
-                <label className="block text-sm font-medium text-primary mb-1">Record additional payment</label>
+                <label className="block text-sm font-medium text-primary mb-1">
+                  Record additional payment
+                </label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-400">
                     ₹
@@ -340,7 +387,8 @@ export default function AddMaterialModal({
                   />
                 </div>
                 <p className="text-[10px] text-slate-400 font-medium mt-2 ml-1 italic">
-                  * Only enter the amount being paid now. Existing payments are preserved.
+                  * Only enter the amount being paid now. Existing payments are
+                  preserved.
                 </p>
               </div>
             )}
@@ -350,4 +398,3 @@ export default function AddMaterialModal({
     </Modal>
   );
 }
-

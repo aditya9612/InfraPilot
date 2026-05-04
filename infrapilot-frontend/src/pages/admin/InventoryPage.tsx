@@ -11,9 +11,34 @@ import PurchaseActionModal from "../../components/inventory/PurchaseActionModal"
 import MaterialCostReportModal from "../../components/inventory/MaterialCostReportModal";
 import toast from "react-hot-toast";
 import ConfirmModal from "../../components/common/ConfirmModal";
-import { materialService } from "../../services/materialService";
-import { Edit2, PlusCircle, MinusCircle, Trash2, FileText, History, ShoppingCart, Truck, LayoutDashboard } from "lucide-react";
-import type { Material, Supplier, PurchaseOrder, Transfer, InventoryLog, InventorySummary } from "../../types/material";
+import { 
+  mockInventory, 
+  mockSuppliers, 
+  mockProjects, 
+  mockPOs, 
+  mockTransfers, 
+  mockLogs, 
+  mockSummary 
+} from "../../components/admin/inventory/mockData";
+import {
+  Edit2,
+  PlusCircle,
+  MinusCircle,
+  Trash2,
+  FileText,
+  History,
+  ShoppingCart,
+  Truck,
+  LayoutDashboard,
+} from "lucide-react";
+import type {
+  Material,
+  Supplier,
+  PurchaseOrder,
+  Transfer,
+  InventoryLog,
+  InventorySummary,
+} from "../../types/material";
 
 // New modular components
 import InventoryTable from "../../components/admin/inventory/InventoryTable";
@@ -34,14 +59,13 @@ const InventoryPage = () => {
     location.pathname.includes("/master") ||
     location.pathname === "/admin/inventory";
 
-  const [inventory, setInventory] = useState<Material[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [pos, setPos] = useState<PurchaseOrder[]>([]);
-  const [transfers, setTransfers] = useState<Transfer[]>([]);
-  const [logs, setLogs] = useState<InventoryLog[]>([]);
-  const [summary, setSummary] = useState<InventorySummary | null>(null);
-  const [valuation, setValuation] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
+  const [inventory, setInventory] = useState<Material[]>(mockInventory);
+  const [suppliers, setSuppliers] = useState<Supplier[]>(mockSuppliers);
+  const [pos, setPos] = useState<PurchaseOrder[]>(mockPOs);
+  const [transfers, setTransfers] = useState<Transfer[]>(mockTransfers);
+  const [logs, setLogs] = useState<InventoryLog[]>(mockLogs);
+  const [summary, setSummary] = useState<InventorySummary | null>(mockSummary);
+  const [isLoading, setIsLoading] = useState(false);
 
   const [activeTab, setActiveTab] = useState<"overview" | "inventory" | "suppliers" | "pos" | "transfers" | "logs">(
     isMaster ? "suppliers" : "overview",
@@ -72,39 +96,11 @@ const InventoryPage = () => {
   } | null>(null);
 
   const fetchData = async () => {
-    setIsLoading(true);
-    try {
-      console.log("Fetching inventory data for Project 1...");
-      const [invData, supData, poData, trData, logData, summaryData, valData] = await Promise.all([
-        materialService.getMaterials(1), // Default to project 1
-        materialService.getSuppliers(),
-        materialService.getPOs(),
-        materialService.getTransfers(),
-        materialService.getLogs({ limit: 50, project_id: 1 }),
-        materialService.getSummary(),
-        materialService.getInventoryValuation()
-      ]);
-
-      setInventory(invData);
-      setSuppliers(supData);
-      setPos(poData);
-      setTransfers(trData);
-      setLogs(logData);
-      setSummary(summaryData);
-      setValuation(valData.total_value || 0);
-      console.log("Inventory data synchronized successfully.");
-    } catch (error: any) {
-      console.error("Critical API Error in InventoryPage:", error);
-      const errorMsg = error.response?.data?.detail || error.response?.data || error.message;
-      console.error("Error Detail:", errorMsg);
-      toast.error(`Sync Failed: ${typeof errorMsg === 'string' ? errorMsg : 'Check console'}`);
-    } finally {
-      setIsLoading(false);
-    }
+    // No-op for static version
   };
 
   useEffect(() => {
-    fetchData();
+    // Static data already initialized in state
   }, []);
 
   useEffect(() => {
@@ -131,12 +127,20 @@ const InventoryPage = () => {
   const handleSupplierSubmit = async (data: any) => {
     try {
       if (selectedSupplier) {
-        setSuppliers(prev => prev.map(s => s.id === selectedSupplier.id ? { ...data, id: s.id } : s));
-        toast.success("Supplier updated successfully!");
+        setSuppliers((prev) =>
+          prev.map((s) =>
+            s.id === selectedSupplier.id ? { ...data, id: s.id, contact: data.phone } : s,
+          ),
+        );
+        toast.success("Supplier updated successfully! (Mock)");
       } else {
-        await materialService.createSupplier(data);
-        setSuppliers((prev) => [...prev, { ...data, id: `s${prev.length + 1}` }]);
-        toast.success("Supplier added successfully!");
+        const newSupplier: Supplier = { 
+          ...data, 
+          id: suppliers.length + 1,
+          contact: data.phone 
+        };
+        setSuppliers((prev) => [...prev, newSupplier]);
+        toast.success("Supplier added successfully! (Mock)");
       }
       setSupplierModalOpen(false);
       setSelectedSupplier(null);
@@ -148,13 +152,32 @@ const InventoryPage = () => {
   const handleCreateOrUpdateMaterial = async (data: any) => {
     try {
       if (selectedMaterial) {
-        await materialService.updateMaterial(selectedMaterial.id, data);
-        toast.success("Material updated successfully!");
+        setInventory((prev) =>
+          prev.map((m) =>
+            m.id === selectedMaterial.id ? { ...m, ...data } : m,
+          ),
+        );
+        toast.success("Material updated successfully! (Mock)");
       } else {
-        await materialService.createMaterial(data);
-        toast.success("Material created successfully!");
+        const supplier = suppliers.find(s => s.name === data.supplier_name);
+        const newMaterial: Material = { 
+          ...data, 
+          id: inventory.length + 1,
+          material_code: `MAT-${100 + inventory.length + 1}`,
+          supplier_id: supplier?.id || 0,
+          supplier_name: data.supplier_name,
+          quantity_used: 0,
+          remaining_stock: data.quantity_purchased,
+          total_amount: data.purchase_rate * data.quantity_purchased,
+          payment_given: data.payment_given || 0,
+          payment_pending: (data.purchase_rate * data.quantity_purchased) - (data.payment_given || 0),
+          extra_paid: 0,
+          minimum_stock_level: data.minimum_stock_level || 10,
+          alert_type: "IN_STOCK"
+        };
+        setInventory((prev) => [...prev, newMaterial]);
+        toast.success("Material created successfully! (Mock)");
       }
-      fetchData();
       setMaterialFormOpen(false);
     } catch (error) {
       toast.error("Failed to save material");
@@ -163,24 +186,71 @@ const InventoryPage = () => {
 
   const handlePurchaseAction = async (data: any) => {
     try {
+      const material = purchaseActionConfig.material;
       if (data.actionType === "usage") {
-        await materialService.logUsage(purchaseActionConfig.material.id, {
+        setInventory((prev) =>
+          prev.map((m) =>
+            m.id === material.id
+              ? {
+                  ...m,
+                  quantity_used: m.quantity_used + data.quantity,
+                  remaining_stock: m.remaining_stock - data.quantity,
+                }
+              : m,
+          ),
+        );
+        const newLog: InventoryLog = {
+          id: logs.length + 1,
+          material_id: material.id,
+          type: "USAGE",
           quantity: data.quantity,
-          project_id: data.project_id,
-          issue_type: data.issue_type || "SITE"
-        });
-        toast.success("Usage logged successfully!");
+          rate: material.purchase_rate,
+          avg_rate: material.purchase_rate,
+          total_amount: material.purchase_rate * data.quantity,
+          amount_paid: 0,
+          payment_pending: 0,
+          issue_type: data.issue_type || "SITE",
+          project_id: data.project_id || material.project_id,
+          created_at: new Date().toLocaleString(),
+        };
+        setLogs((prev) => [newLog, ...prev]);
+        toast.success("Usage logged successfully! (Mock)");
       } else {
-        await materialService.logPurchase(purchaseActionConfig.material.id, {
+        setInventory((prev) =>
+          prev.map((m) =>
+            m.id === material.id
+              ? {
+                  ...m,
+                  quantity_purchased: m.quantity_purchased + data.quantity,
+                  remaining_stock: m.remaining_stock + data.quantity,
+                  payment_given: m.payment_given + data.payment,
+                  payment_pending: m.payment_pending + (m.purchase_rate * data.quantity - data.payment)
+                }
+              : m,
+          ),
+        );
+        const newLog: InventoryLog = {
+          id: logs.length + 1,
+          material_id: material.id,
+          type: "PURCHASE",
           quantity: data.quantity,
+          rate: material.purchase_rate,
+          avg_rate: material.purchase_rate,
+          total_amount: material.purchase_rate * data.quantity,
           amount_paid: data.payment,
-          project_id: data.project_id,
-          issue_type: data.issue_type || "SYSTEM"
-        });
-        toast.success("Purchase added successfully!");
+          payment_pending: (material.purchase_rate * data.quantity) - data.payment,
+          issue_type: data.issue_type || "SYSTEM",
+          project_id: data.project_id || material.project_id,
+          created_at: new Date().toLocaleString(),
+        };
+        setLogs((prev) => [newLog, ...prev]);
+        toast.success("Purchase added successfully! (Mock)");
       }
-      fetchData();
-      setPurchaseActionConfig({ isOpen: false, type: "purchase", material: null });
+      setPurchaseActionConfig({
+        isOpen: false,
+        type: "purchase",
+        material: null,
+      });
     } catch (error) {
       toast.error("Failed to log action");
     }
@@ -188,10 +258,39 @@ const InventoryPage = () => {
 
   const handleTransferSubmit = async (data: any) => {
     try {
-      await materialService.createTransfer(data);
-      fetchData();
+      const material = inventory.find(i => i.id === data.material_id);
+      if (!material) return;
+
+      setInventory((prev) =>
+        prev.map((m) =>
+          m.id === data.material_id
+            ? { ...m, remaining_stock: m.remaining_stock - data.quantity }
+            : m,
+        ),
+      );
+
+      const newTransfer: Transfer = {
+        id: transfers.length + 1,
+        material: {
+          id: material.id,
+          name: material.material_name,
+        },
+        from_project: {
+          id: data.from_project_id,
+          name: projects[data.from_project_id] || "Unknown Site",
+        },
+        to_project: {
+          id: data.to_project_id,
+          name: projects[data.to_project_id] || "Unknown Site",
+        },
+        quantity: data.quantity,
+        status: "PENDING",
+        created_at: new Date().toISOString().split("T")[0],
+      };
+      setTransfers((prev) => [newTransfer, ...prev]);
+      
       setTransferModalOpen(false);
-      toast.success("Material transferred successfully!");
+      toast.success("Material transfer recorded! (Mock)");
     } catch (error) {
       toast.error("Failed to transfer material");
     }
@@ -206,13 +305,12 @@ const InventoryPage = () => {
     if (!itemToDelete) return;
     try {
       if (itemToDelete.type === "material") {
-        await materialService.deleteMaterial(itemToDelete.id);
-        toast.success("Material deleted successfully!");
+        setInventory((prev) => prev.filter((m) => m.id !== itemToDelete.id));
+        toast.success("Material deleted successfully! (Mock)");
       } else {
-        await materialService.deleteSupplier(itemToDelete.id);
-        toast.success("Supplier deleted successfully!");
+        setSuppliers((prev) => prev.filter((s) => s.id !== itemToDelete.id));
+        toast.success("Supplier deleted successfully! (Mock)");
       }
-      fetchData();
       setIsDeleteModalOpen(false);
       setItemToDelete(null);
     } catch (error) {
@@ -227,6 +325,7 @@ const InventoryPage = () => {
   );
   const lowStockCount = inventory.filter((m) => m.remaining_stock < 10).length;
   const totalValuation = inventory.reduce((acc, m) => acc + m.total_amount, 0);
+  const totalPendingPayments = inventory.reduce((acc, m) => acc + m.payment_pending, 0);
 
   return (
     <>
@@ -376,19 +475,19 @@ const InventoryPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <StatCard
                 title="Total Stock Valuation"
-                value={`₹${valuation.toLocaleString()}`}
+                value={`₹${totalValuation.toLocaleString()}`}
                 sub="Across all sites"
                 accent="text-emerald-500"
               />
               <StatCard
                 title="Total Materials"
-                value={summary?.total_materials.toLocaleString() || "0"}
+                value={inventory.length.toLocaleString()}
                 sub="Active catalog items"
                 accent="text-primary"
               />
               <StatCard
                 title="Pending Payments"
-                value={`₹${summary?.total_pending_payments.toLocaleString() || "0"}`}
+                value={`₹${totalPendingPayments.toLocaleString()}`}
                 sub="Supplier payables"
                 accent="text-rose-500"
               />
@@ -455,10 +554,8 @@ const InventoryPage = () => {
                     onEdit={() => {}}
                     onDelete={(id) => {}}
                     onStatusUpdate={async (id, status) => {
-                      try {
-                        await materialService.updatePO(id, { ...pos.find(p => p.id === id)! }); // Simplistic update
-                        fetchData();
-                      } catch (error) { toast.error("Failed to update status"); }
+                      setPos(prev => prev.map(p => p.id === id ? { ...p, status } : p));
+                      toast.success("PO status updated! (Mock)");
                     }}
                   />
                 )}
@@ -466,10 +563,8 @@ const InventoryPage = () => {
                   <TransferTable 
                     transfers={transfers}
                     onStatusUpdate={async (id, status) => {
-                      try {
-                        await materialService.updateTransferStatus(id, status);
-                        fetchData();
-                      } catch (error) { toast.error("Failed to update transfer"); }
+                      setTransfers(prev => prev.map(t => t.id === id ? { ...t, status } : t));
+                      toast.success("Transfer status updated! (Mock)");
                     }}
                   />
                 )}
