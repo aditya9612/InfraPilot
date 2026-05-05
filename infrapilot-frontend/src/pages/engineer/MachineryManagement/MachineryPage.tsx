@@ -98,6 +98,22 @@ const MachineryPage = () => {
         }
     };
 
+    const handleView = async (id: number) => {
+        try {
+            const data = await equipmentService.getEquipmentById(id);
+            setViewingEquipment(data);
+        } catch (error) {
+            console.error("Failed to fetch equipment details:", error);
+            // Fallback to local item if API fails
+            const localItem = machineryList.find(item => item.id === id);
+            if (localItem) {
+                setViewingEquipment(localItem);
+            } else {
+                toast.error("Failed to load asset details");
+            }
+        }
+    };
+
     const handleCreateOrUpdate = async (data: any) => {
         try {
             if (editingEquipment) {
@@ -153,9 +169,6 @@ const MachineryPage = () => {
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Heavy Machinery Registry</h1>
                         <p className="text-slate-500 text-sm">
                             Monitor utilization, fuel consumption, and health status.
-                            <span className="ml-2 px-2 py-0.5 bg-primary/10 text-primary rounded-md text-[10px] font-black uppercase tracking-widest">
-                                Active Project: {projectId || "Detecting..."}
-                            </span>
                         </p>
                     </div>
                     <button
@@ -277,7 +290,7 @@ const MachineryPage = () => {
                                                 <td className="px-6 py-4 text-right">
                                                     <div className="flex items-center justify-end gap-2 transition-opacity">
                                                         <button 
-                                                            onClick={() => setViewingEquipment(item)}
+                                                            onClick={() => handleView(item.id)}
                                                             className={`p-2 text-white rounded-xl shadow-lg transition-all active:scale-95 ${conditionColors[item.condition as keyof typeof conditionColors] || 'bg-primary'} ${item.condition ? `shadow-${conditionColors[item.condition as keyof typeof conditionColors]?.split('-')[1]}/20` : 'shadow-primary/20'}`}
                                                         >
                                                             <Eye className="w-4 h-4" />

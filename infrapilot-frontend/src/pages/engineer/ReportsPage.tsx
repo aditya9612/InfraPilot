@@ -135,15 +135,28 @@ const ReportsPage = () => {
     const [activeFilter, setActiveFilter] = useState("All");
     const [isInitialLoading, setIsInitialLoading] = useState(true);
     const [dynamicReports, setDynamicReports] = useState<ReportType[]>(reportTypes);
+    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+    const [projectId, setProjectId] = useState<number>(36); // Fallback to 36 as per Site Engineer access
+
+    // Resolve Project ID from session
+    useEffect(() => {
+        const userStr = localStorage.getItem("infrapilot_user");
+        if (userStr) {
+            try {
+                const user = JSON.parse(userStr);
+                const pId = user?.project_id || user?.user?.project_id || user?.id; // Try multiple paths
+                if (pId) setProjectId(Number(pId));
+            } catch (e) {
+                console.error("Failed to resolve project ID", e);
+            }
+        }
+    }, []);
 
     const fetchReports = useCallback(async () => {
         setIsInitialLoading(true);
         try {
-            const projectId = 36; // Consistent with other modules
-            const today = new Date().toISOString().split("T")[0];
-
             const [daily, weekly, labour, material, issues] = await Promise.all([
-                reportService.getDailyReport(projectId, today).catch(() => null),
+                reportService.getDailyReport(projectId, selectedDate).catch(() => null),
                 reportService.getWeeklyProgress(projectId).catch(() => null),
                 reportService.getLabourReport(projectId).catch(() => null),
                 reportService.getMaterialReport(projectId).catch(() => null),
@@ -248,65 +261,68 @@ const ReportsPage = () => {
         toast.success("Excel report exported");
     };
 
-    const handleExportPDF = () => {
-        const rows = filtered.map(r => `
-            <tr>
-                <td style="font-weight: bold;">${r.name}</td>
-                <td>${r.frequency}</td>
-                <td style="font-size: 9px; color: #64748b;">${r.description}</td>
-                <td>${r.lastGenerated}</td>
-                <td style="color: #2563eb;">${r.size}</td>
-            </tr>
-        `).join("");
-
-        const html = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="utf-8">
-                <style>
-                    body { font-family: Inter, Arial; padding: 30px; }
-                    h1 { color: #2563eb; font-size: 20px; margin-bottom: 2px; }
-                    p { color: #64748b; font-size: 11px; margin-bottom: 20px; }
-                    table { width: 100%; border-collapse: collapse; font-size: 10px; }
-                    th { background: #2563eb; color: white; padding: 10px; text-align: left; }
-                    td { padding: 10px; border-bottom: 1px solid #e2e8f0; }
-                </style>
-            </head>
-            <body>
-                <h1>Site Analytics Inventory — InfraPilot</h1>
-                <p>Filter: ${activeFilter} | Date: ${new Date().toLocaleDateString()} | Records: ${filtered.length}</p>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Report Name</th>
-                            <th>Cycle</th>
-                            <th>Scope</th>
-                            <th>Generated</th>
-                            <th>Size</th>
-                        </tr>
-                    </thead>
-                    <tbody>${rows}</tbody>
-                </table>
-            </body>
-            </html>
-        `;
-        const win = window.open("", "_blank");
-        if (win) {
-            win.document.write(html);
-            win.document.close();
-            win.focus();
-            setTimeout(() => win.print(), 400);
+    const handleExportPDF = async () => {
+        setLoadingId("global-pdf");
+        toast.loading("Generating Official Daily PDF...", { id: "global-pdf" });
+        try {
+            const blob = await reportService.exportDailyPDF(projectId, selectedDate);
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Daily_Report_${selectedDate}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            toast.success("Daily PDF downloaded!", { id: "global-pdf" });
+        } catch (e) {
+            toast.error("Failed to fetch official PDF", { id: "global-pdf" });
+        } finally {
+            setLoadingId(null);
         }
     };
 
-    const handleExport = (report: ReportType) => {
+    const handleExport = async (report: ReportType) => {
         setLoadingId(report.id);
-        toast.loading(`Generating ${report.name}…`, { id: `exp-${report.id}` });
-        setTimeout(() => {
-            toast.success(`${report.name} exported successfully!`, { id: `exp-${report.id}` });
+        toast.loading(`Exporting ${report.name}...`, { id: `exp-${report.id}` });
+        try {
+            let blob: Blob;
+            let filename: string;
+            const today = new Date().toISOString().split("T")[0];
+
+            if (report.id === "daily") {
+                blob = await reportService.exportDailyPDF(projectId, selectedDate);
+                filename = `Daily_Report_${selectedDate}.pdf`;
+            } else if (report.id === "material") {
+                blob = await reportService.exportMaterialExcel(projectId);
+                filename = `Material_Report_${today}.xlsx`;
+            } else if (report.id === "labor") {
+                blob = await reportService.exportLabourExcel(projectId);
+                filename = `Labour_Deployment_${today}.xlsx`;
+            } else if (report.id === "issue") {
+                blob = await reportService.exportIssueExcel(projectId);
+                filename = `Issue_Registry_${today}.xlsx`;
+            } else {
+                // Fallback for others (Weekly, etc.)
+                blob = new Blob([`Report Content for ${report.name}`], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                filename = `${report.name}_Report_${today}.xlsx`;
+            }
+
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', filename);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            
+            toast.success(`${report.name} exported!`, { id: `exp-${report.id}` });
+        } catch (e) {
+            toast.error("Export failed", { id: `exp-${report.id}` });
+        } finally {
             setLoadingId(null);
-        }, 1800);
+        }
     };
 
     const filtered = activeFilter === "All"
@@ -397,6 +413,19 @@ const ReportsPage = () => {
                                 type="text"
                                 placeholder="Search reports..."
                                 className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:outline-none transition-all"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Date Picker */}
+                    <div className="flex flex-col gap-0.5 min-w-[150px]">
+                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Report Date</label>
+                        <div className="relative">
+                            <input
+                                type="date"
+                                value={selectedDate}
+                                onChange={(e) => setSelectedDate(e.target.value)}
+                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none transition-all cursor-pointer"
                             />
                         </div>
                     </div>

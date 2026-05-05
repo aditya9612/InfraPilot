@@ -122,6 +122,24 @@ const DSRPage = () => {
         }
     }, [projectId]);
 
+    const handleView = async (id: number) => {
+        try {
+            const data = await dsrService.getDsrById(id);
+            setSelectedDsr(data);
+            setIsDetailOpen(true);
+        } catch (error) {
+            console.error("Failed to fetch DSR details:", error);
+            // Fallback to existing item in list
+            const localItem = dsrList.find(item => item.id === id);
+            if (localItem) {
+                setSelectedDsr(localItem);
+                setIsDetailOpen(true);
+            } else {
+                toast.error("Failed to load project ledger details");
+            }
+        }
+    };
+
     useEffect(() => {
         fetchDsr();
     }, [fetchDsr]);
@@ -310,7 +328,7 @@ const DSRPage = () => {
                                                 <td className="px-6 py-4 text-right">
                                                     <div className="flex items-center justify-end gap-2 transition-opacity font-inter">
                                                         <button
-                                                            onClick={() => { setSelectedDsr(dsr); setIsDetailOpen(true); }}
+                                                            onClick={() => handleView(dsr.id)}
                                                             className={`p-2 text-white rounded-xl shadow-lg transition-all active:scale-95 font-inter ${dsr.status ? statusColors[dsr.status] : 'bg-primary'} ${dsr.status ? `shadow-${statusColors[dsr.status].split('-')[1]}/20` : 'shadow-primary/20'}`}
                                                         >
                                                             <Eye className="w-4 h-4" />

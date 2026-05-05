@@ -242,10 +242,7 @@ const IssueTrackerPage = () => {
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Constraint Management</h1>
                         <p className="text-slate-500 text-sm">
-                            Identify, track, and resolve site impediments. 
-                            <span className="ml-2 px-2 py-0.5 bg-primary/10 text-primary rounded-md text-[10px] font-black uppercase tracking-widest">
-                                Active Project: {projectId || "Detecting..."}
-                            </span>
+                            Identify, track, and resolve site impediments.
                         </p>
                     </div>
                     <button

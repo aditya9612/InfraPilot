@@ -41,6 +41,7 @@ const QCInspectionPage = () => {
     // Selection States
     const [selectedQc, setSelectedQc] = useState<QcItem | null>(null);
     const [deleteId, setDeleteId] = useState<number | null>(null);
+    const [projectId, setProjectId] = useState<number>(36);
     
     // Form States
     const [formData, setFormData] = useState<CreateQcRequest>({
@@ -56,12 +57,30 @@ const QCInspectionPage = () => {
         remarks: ""
     });
 
+    // ─── PROJECT RESOLUTION ─────────────────────────────────────────────
+    useEffect(() => {
+        const userStr = localStorage.getItem("infrapilot_user");
+        if (userStr) {
+            try {
+                const user = JSON.parse(userStr);
+                const pId = user?.project_id || user?.user?.project_id;
+                if (pId) {
+                    const resolvedId = Number(pId);
+                    setProjectId(resolvedId);
+                    setFormData(prev => ({ ...prev, project_id: resolvedId }));
+                }
+            } catch (e) {
+                console.error("Failed to resolve project ID", e);
+            }
+        }
+    }, []);
+
     // ─── INITIALIZATION ──────────────────────────────────────────────────
 
     const fetchData = useCallback(async () => {
         setIsLoading(true);
         try {
-            const res = await qcService.listQc(36, { 
+            const res = await qcService.listQc(projectId, { 
                 status: filterStatus || undefined,
                 inspection_type: filterType || undefined
             });
@@ -71,7 +90,7 @@ const QCInspectionPage = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [filterStatus, filterType]);
+    }, [projectId, filterStatus, filterType]);
 
     useEffect(() => {
         fetchData();
@@ -148,7 +167,7 @@ const QCInspectionPage = () => {
 
     const resetForm = () => {
         setFormData({
-            project_id: 36,
+            project_id: projectId,
             task_id: null,
             dsr_id: null,
             inspection_type: "General",
@@ -174,7 +193,7 @@ const QCInspectionPage = () => {
     const openEdit = (qc: QcItem) => {
         setSelectedQc(qc);
         setFormData({
-            project_id: 36,
+            project_id: projectId,
             task_id: qc.task_id,
             dsr_id: qc.dsr_id,
             inspection_type: qc.inspection_type,

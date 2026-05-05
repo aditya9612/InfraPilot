@@ -26,10 +26,11 @@ import type { CreateDrawingRequest } from "../../../services/drawingService";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface DrawingRecord {
-    id: string;
+    id: string | number;
     drawing_name: string;
     version: string;
-    upload_file: string;
+    upload_file?: string;
+    file_url?: string;
     approved_by: string;
     date: string;
     remarks: string;
@@ -58,7 +59,7 @@ const drawingHistory: DrawingRecord[] = [
 ];
 
 const initialFormData = {
-    project_id: 1,
+    project_id: 36,
     drawing_name: "",
     version: "",
     approved_by: "",
@@ -73,21 +74,41 @@ const DrawingsDocumentsPage = () => {
     const [isEditMode, setIsEditMode] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [drawingToDelete, setDrawingToDelete] = useState<string | null>(null);
+    const [drawingToDelete, setDrawingToDelete] = useState<string | number | null>(null);
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [formData, setFormData] = useState<any>(initialFormData);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     const [latestDrawing, setLatestDrawing] = useState<any>(null);
+
+    const [projectId, setProjectId] = useState<number>(36);
+
+    // Resolve Project ID from session
+    useEffect(() => {
+        const userStr = localStorage.getItem("infrapilot_user");
+        if (userStr) {
+            try {
+                const user = JSON.parse(userStr);
+                const pId = user?.project_id || user?.user?.project_id || user?.id;
+                if (pId) {
+                    setProjectId(Number(pId));
+                    setFormData((prev: any) => ({ ...prev, project_id: Number(pId) }));
+                }
+            } catch (e) {
+                console.error("Failed to resolve project ID", e);
+            }
+        }
+    }, []);
 
     const fetchDrawings = useCallback(async () => {
         setIsLoading(true);
         try {
             // 1. Fetch versions (Main List)
             try {
-                const serverData = await drawingService.getVersions(1);
+                const serverData = await drawingService.getVersions(projectId);
                 setDrawingData(prev => {
                     const mocks = prev.filter(d => String(d.id).startsWith("MOCK-"));
                     const serverIds = new Set(serverData.map((d: any) => d.id));
@@ -96,12 +117,11 @@ const DrawingsDocumentsPage = () => {
                 });
             } catch (vErr) {
                 console.warn("Versions Sync Issue:", vErr);
-                // We don't toast error here because we still have mock data
             }
 
             // 2. Fetch latest (Stats)
             try {
-                const latest = await drawingService.getLatest(1);
+                const latest = await drawingService.getLatest(projectId);
                 if (latest) setLatestDrawing(latest);
             } catch (lErr) {
                 console.warn("Latest Sync Issue:", lErr);
@@ -113,7 +133,7 @@ const DrawingsDocumentsPage = () => {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [projectId]);
 
     useEffect(() => {
         fetchDrawings();
@@ -139,6 +159,7 @@ const DrawingsDocumentsPage = () => {
         if (!formData.date) newErrors.date = "Required";
         if (!formData.remarks?.trim()) newErrors.remarks = "Required";
         if (!formData.project_id) newErrors.project_id = "Required";
+        if (!isEditMode && !selectedFile) newErrors.file = "Blueprint file is required";
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -191,7 +212,8 @@ const DrawingsDocumentsPage = () => {
                 version: formData.version,
                 approved_by: formData.approved_by,
                 date: formData.date,
-                remarks: formData.remarks
+                remarks: formData.remarks,
+                file: selectedFile || undefined
             };
 
             let newRecord: any = null;
@@ -221,6 +243,7 @@ const DrawingsDocumentsPage = () => {
                 }
             }
             setIsFormModalOpen(false);
+            setSelectedFile(null);
         } catch (error) {
             console.error("Upload Error:", error);
             toast.error("Failed to register asset", { id: toastId });
@@ -332,7 +355,9 @@ const DrawingsDocumentsPage = () => {
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col">
                                                     <span className="text-sm font-bold text-slate-800">{drawing.drawing_name}</span>
-                                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{drawing.id} • {drawing.upload_file || "Synced"}</span>
+                                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                                                        {drawing.id} • {drawing.file_url || drawing.upload_file || "Synced"}
+                                                    </span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
@@ -350,9 +375,6 @@ const DrawingsDocumentsPage = () => {
                                                 <div className="flex items-center justify-end gap-2 transition-opacity">
                                                     <button onClick={() => setSelectedDrawing(drawing)} className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">
                                                         <Eye className="w-4 h-4" />
-                                                    </button>
-                                                    <button onClick={() => handleOpenEdit(drawing)} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all">
-                                                        <Edit2 className="w-4 h-4" />
                                                     </button>
                                                     <button onClick={() => { setDrawingToDelete(drawing.id); setIsDeleteModalOpen(true); }} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all">
                                                         <Trash2 className="w-4 h-4" />
@@ -391,7 +413,7 @@ const DrawingsDocumentsPage = () => {
                                     </div>
                                     <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
                                         <Mail className="w-3 h-3" />
-                                        <span className="text-[11px] font-bold font-inter italic-none">drawing.ref-{selectedDrawing.id.toLowerCase()}@infrapilot.com</span>
+                                        <span className="text-[11px] font-bold font-inter italic-none">drawing.ref-{String(selectedDrawing.id).toLowerCase()}@infrapilot.com</span>
                                     </div>
                                     <div className="px-3 py-1 bg-white/20 rounded-full inline-block font-inter">
                                         <span className="text-[10px] font-black uppercase tracking-widest font-inter">APPROVED BY: {selectedDrawing.approved_by}</span>
@@ -455,7 +477,9 @@ const DrawingsDocumentsPage = () => {
                                 <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
                                     <div className="font-inter">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Linked Filename</p>
-                                        <p className="text-sm font-black text-slate-800 truncate font-inter italic-none">{selectedDrawing.upload_file}</p>
+                                        <p className="text-sm font-black text-slate-800 truncate font-inter italic-none">
+                                            {selectedDrawing.file_url || selectedDrawing.upload_file || "system_blueprint.pdf"}
+                                        </p>
                                     </div>
                                     <div className="font-inter">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">System Sync</p>
@@ -528,6 +552,38 @@ const DrawingsDocumentsPage = () => {
                                 <label className={labelClasses}>Remarks <span className="text-rose-500">*</span></label>
                                 <textarea name="remarks" rows={4} value={formData.remarks} onChange={handleInputChange} placeholder="e.g. Initial approved drawing..." className={`${inputClasses(errors.remarks)} resize-none`} />
                                 {errors.remarks && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.remarks}</p>}
+                            </div>
+                            
+                            <div className="md:col-span-2">
+                                <label className={labelClasses}>Upload Blueprint (PDF/DWG/IMG) <span className="text-rose-500">*</span></label>
+                                <div className={`relative group transition-all duration-300 ${errors.file ? 'ring-2 ring-rose-500 rounded-xl' : ''}`}>
+                                    <input 
+                                        type="file" 
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0] || null;
+                                            setSelectedFile(file);
+                                            if (file && errors.file) {
+                                                setErrors(prev => {
+                                                    const newErrs = {...prev};
+                                                    delete newErrs.file;
+                                                    return newErrs;
+                                                });
+                                            }
+                                        }}
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                                        accept=".pdf,.dwg,.png,.jpg,.jpeg"
+                                    />
+                                    <div className="flex items-center gap-4 px-6 py-8 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50 group-hover:bg-white group-hover:border-primary transition-all">
+                                        <div className="p-3 bg-white rounded-xl shadow-sm border border-slate-100 text-primary group-hover:scale-110 transition-transform">
+                                            <RefreshCcw className="w-6 h-6 animate-pulse" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-sm font-bold text-slate-700">{selectedFile ? selectedFile.name : "Select technical document"}</p>
+                                            <p className="text-[10px] text-slate-400 font-medium">{selectedFile ? `${(selectedFile.size / 1024).toFixed(2)} KB` : "Drag and drop or click to browse (Max 50MB)"}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                {errors.file && <p className="mt-2 text-[10px] text-rose-500 font-black uppercase tracking-wider ml-1">{errors.file}</p>}
                             </div>
                         </div>
                     </div>

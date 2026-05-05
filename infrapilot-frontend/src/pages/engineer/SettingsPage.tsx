@@ -199,15 +199,17 @@ const SettingsPage = () => {
                 payment_terms: settings.payment_terms || "30 days"
             };
 
-            // 2. Prepare Profile Update
+            // 2. Prepare Profile Update (with sanitization to avoid 422 errors)
             const profileData: UpdateProfileRequest = {
                 full_name: profile.full_name,
                 role: profile.role,
-                mobile_number: profile.mobile_number,
+                // Sanitize: Remove non-digits from mobile and aadhaar
+                mobile_number: profile.mobile_number.replace(/\D/g, ""),
                 email: profile.email,
                 address: profile.address,
-                pan_number: profile.pan_number,
-                aadhaar_number: profile.aadhaar_number,
+                // Sanitize: PAN should be uppercase
+                pan_number: profile.pan_number.toUpperCase(),
+                aadhaar_number: profile.aadhaar_number.replace(/\D/g, ""),
                 designation: profile.designation,
                 joining_date: profile.joining_date,
                 is_active: profile.is_active

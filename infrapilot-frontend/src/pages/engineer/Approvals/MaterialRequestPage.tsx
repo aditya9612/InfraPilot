@@ -3,7 +3,6 @@ import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import StatCard from "../../../components/common/StatCard";
 import Modal from "../../../components/common/Modal";
-import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 import {
     Package,
@@ -12,8 +11,6 @@ import {
     TrendingUp,
     Search,
     Plus,
-    Edit2,
-    Trash2,
     Eye,
     Loader2,
     Check,
@@ -38,32 +35,39 @@ interface MaterialRequestRecord {
 
 const MaterialRequestPage = () => {
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
-    const [selectedRequest, setSelectedRequest] = useState<MaterialRequestRecord | null>(null);
     const [requestData, setRequestData] = useState<MaterialRequestRecord[]>([]);
-    const [isEditMode, setIsEditMode] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
-    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [requestToDelete, setRequestToDelete] = useState<string | number | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [projectId, setProjectId] = useState<number | null>(null);
 
     const [formData, setFormData] = useState({
         id: "" as string | number,
         request_type: "Material",
         description: "",
         quantity: "" as string | number,
-        project_id: 36,
         requestedBy: "Eng. Site User" as string | number,
         approvedBy: "Pending" as string | number,
         status: "Pending" as "Pending" | "Approved" | "Rejected" | string,
     });
 
+    useEffect(() => {
+        const resolveProjectId = async () => {
+            const userStr = localStorage.getItem("infrapilot_user");
+            const user = userStr ? JSON.parse(userStr) : {};
+            const pId = user?.project_id || user?.user?.project_id;
+            setProjectId(pId ? Number(pId) : 1);
+        };
+        resolveProjectId();
+    }, []);
+
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     const fetchRequests = useCallback(async () => {
+        if (!projectId) return;
         setIsLoading(true);
         try {
-            const serverData = await siteRequestService.getRequests(36);
+            const serverData = await siteRequestService.getRequests(projectId);
             setRequestData(prev => {
                 const mocks = prev.filter(r => String(r.id).startsWith("MOCK-"));
                 // Combine mocks with server data, ensuring no duplicate IDs if server somehow has them
@@ -103,44 +107,39 @@ const MaterialRequestPage = () => {
         if (!validate()) return;
 
         setIsSubmitting(true);
-        const toastId = toast.loading(isEditMode ? "Updating requisition..." : "Submitting requisition...");
+        const toastId = toast.loading("Submitting requisition...");
         try {
             const payload: CreateSiteRequest = {
-                project_id: 36,
+                project_id: projectId || 1,
                 request_type: formData.request_type,
                 description: formData.description,
                 quantity: Number(formData.quantity)
             };
 
             let newRecord: MaterialRequestRecord | null = null;
-            if (isEditMode) {
-                toast.error("Update not implemented in service yet", { id: toastId });
-                return;
-            } else {
-                try {
-                    newRecord = await siteRequestService.createRequest(payload);
-                    toast.success("Requisition Submitted Successfully!", { id: toastId });
-                } catch (error: any) {
-                    if (error.response?.status === 403) {
-                        // Fail-to-Mock Fallback for demo/dev purposes
-                        newRecord = {
-                            id: `MOCK-${Date.now()}`,
-                            ...payload,
-                            requested_by: 1,
-                            approved_by: null,
-                            status: "Pending"
-                        };
-                        toast.success("Requisition Logged (Demo Mode)", { id: toastId });
-                    } else {
-                        throw error;
-                    }
+            try {
+                newRecord = await siteRequestService.createRequest(payload);
+                toast.success("Requisition Submitted Successfully!", { id: toastId });
+            } catch (error: any) {
+                if (error.response?.status === 403) {
+                    // Fail-to-Mock Fallback for demo/dev purposes
+                    newRecord = {
+                        id: `MOCK-${Date.now()}`,
+                        ...payload,
+                        requested_by: 1,
+                        approved_by: null,
+                        status: "Pending"
+                    };
+                    toast.success("Requisition Logged (Demo Mode)", { id: toastId });
+                } else {
+                    throw error;
                 }
+            }
 
-                // Manually update state to ensure visibility even if API is slow or in demo mode
-                if (newRecord) {
-                    const record = newRecord; // local non-null copy
-                    setRequestData(prev => [record, ...prev]);
-                }
+            // Manually update state to ensure visibility even if API is slow or in demo mode
+            if (newRecord) {
+                const record = newRecord; // local non-null copy
+                setRequestData(prev => [record, ...prev]);
             }
             setIsFormModalOpen(false);
         } catch (error) {
@@ -175,13 +174,7 @@ const MaterialRequestPage = () => {
         }
     };
 
-    const handleDeleteConfirm = () => {
-        if (!requestToDelete) return;
-        setRequestData(prev => prev.filter(r => r.id !== requestToDelete));
-        toast.success("Requisition deleted");
-        setIsDeleteModalOpen(false);
-        setRequestToDelete(null);
-    };
+    const [selectedRequest, setSelectedRequest] = useState<MaterialRequestRecord | null>(null);
 
     const filteredRequests = useMemo(() => {
         return requestData.filter(r =>
@@ -225,13 +218,11 @@ const MaterialRequestPage = () => {
                     </div>
                     <button
                         onClick={() => {
-                            setIsEditMode(false);
                             setFormData({
                                 id: "",
                                 request_type: "Material",
                                 description: "",
                                 quantity: "",
-                                project_id: 36,
                                 requestedBy: "Eng. Site User",
                                 approvedBy: "Pending",
                                 status: "Pending"
@@ -347,33 +338,7 @@ const MaterialRequestPage = () => {
                                                     >
                                                         <Eye className="w-4 h-4" />
                                                     </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            setIsEditMode(true);
-                                                            setFormData({
-                                                                id: request.id,
-                                                                request_type: request.request_type,
-                                                                description: request.description,
-                                                                quantity: request.quantity,
-                                                                project_id: 36,
-                                                                requestedBy: request.requested_by,
-                                                                approvedBy: request.approved_by || "Pending",
-                                                                status: request.status
-                                                            });
-                                                            setIsFormModalOpen(true);
-                                                        }}
-                                                        className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all"
-                                                    >
-                                                        <Edit2 className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => { setRequestToDelete(request.id); setIsDeleteModalOpen(true); }}
-                                                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
-                                                        title="Delete Requisition"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-
+                                                    
                                                     {request.status === "Pending" && (
                                                         <div className="flex items-center gap-1 border-l border-slate-100 pl-2">
                                                             <button
@@ -471,7 +436,7 @@ const MaterialRequestPage = () => {
             <Modal
                 isOpen={isFormModalOpen}
                 onClose={() => setIsFormModalOpen(false)}
-                title={isEditMode ? "Modify Requisition" : "New Material Requisition"}
+                title="New Material Requisition"
                 maxWidth="max-w-4xl"
                 footer={
                     <>
@@ -488,7 +453,7 @@ const MaterialRequestPage = () => {
                             {isSubmitting ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
                             ) : null}
-                            {isEditMode ? "Update Requisition" : "Submit Requisition"}
+                            Submit Requisition
                         </button>
                     </>
                 }
@@ -566,15 +531,6 @@ const MaterialRequestPage = () => {
                 </form>
             </Modal>
 
-            <ConfirmModal
-                isOpen={isDeleteModalOpen}
-                onClose={() => setIsDeleteModalOpen(false)}
-                onConfirm={handleDeleteConfirm}
-                title="Delete Requisition"
-                message="Are you sure you want to delete this material request record? This action cannot be undone."
-                confirmText="Delete"
-                type="danger"
-            />
         </>
     );
 };

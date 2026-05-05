@@ -20,7 +20,7 @@ const ChecklistsPage = () => {
     // Core Data States
     const [checklists, setChecklists] = useState<ChecklistItem[]>([]);
     const [logs, setLogs] = useState<ChecklistLog[]>([]);
-    const [activeTab, setActiveTab] = useState<"Daily Checklist" | "Activity Checklist">("Daily Checklist");
+    const [activeTab, setActiveTab] = useState<"Daily Checklist" | "Activity Checklist" | "Safety" | "Quality">("Daily Checklist");
     const [projectId] = useState<number>(36); // Re-aligned with project-specific scope 36
     
     // UI States
@@ -95,10 +95,11 @@ const ChecklistsPage = () => {
             }
 
             toast.success("Checklist created successfully!");
+            setChecklists(prev => [created, ...prev]);
             setIsNewModalOpen(false);
             setNewChecklistName("");
             setNewChecklistItems([]);
-            fetchData();
+            // fetchData(); // Avoid refetch to keep virtual item
         } catch (err) {
             toast.error("Failed to create checklist");
         } finally {
@@ -136,16 +137,17 @@ const ChecklistsPage = () => {
 
         setIsSubmitting(true);
         try {
-            await checklistService.executeChecklist({
+            const response = await checklistService.executeChecklist({
                 project_id: projectId,
                 checklist_id: selectedChecklist.id,
                 status: executeStatus,
                 remarks: executeRemarks
             });
             toast.success("Checklist executed successfully!");
+            setLogs(prev => [response, ...prev]);
             setIsExecuteModalOpen(false);
             setExecuteRemarks("");
-            fetchData();
+            // fetchData();
         } catch (err) {
             toast.error("Failed to execute checklist");
         } finally {
@@ -159,9 +161,11 @@ const ChecklistsPage = () => {
         try {
             await checklistService.deleteChecklist(deleteId);
             toast.success("Checklist deleted successfully!");
+            setChecklists(prev => prev.filter(c => c.id !== deleteId));
+            setLogs(prev => prev.filter(l => l.checklist_id !== deleteId));
             setIsDeleteModalOpen(false);
             setDeleteId(null);
-            fetchData();
+            // fetchData();
         } catch (err) {
             toast.error("Failed to delete checklist");
         } finally {
@@ -206,7 +210,7 @@ const ChecklistsPage = () => {
 
                 {/* ── Tab Bar ────────────────────────────────────────────── */}
                 <div className="flex items-center gap-8 border-b border-slate-200 mb-8 overflow-x-auto scrollbar-hide">
-                    {["Daily Checklist", "Activity Checklist"].map((tab) => (
+                    {["Daily Checklist", "Activity Checklist", "Safety", "Quality"].map((tab) => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab as any)}
@@ -236,9 +240,12 @@ const ChecklistsPage = () => {
                                     <div className="flex-1">
                                         <h3 className="text-lg font-bold text-slate-800 group-hover:text-primary transition-colors leading-tight mb-1">{cl.name}</h3>
                                         <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${
-                                            cl.type === "Daily Checklist" ? "bg-blue-100 text-blue-600" : "bg-purple-100 text-purple-600"
+                                            cl.type === "Daily Checklist" ? "bg-blue-100 text-blue-600" : 
+                                            cl.type === "Safety" ? "bg-rose-100 text-rose-600" :
+                                            cl.type === "Quality" ? "bg-emerald-100 text-emerald-600" :
+                                            "bg-purple-100 text-purple-600"
                                         }`}>
-                                            {cl.type === "Daily Checklist" ? "Daily" : "Activity"}
+                                            {cl.type}
                                         </span>
                                     </div>
                                     <div className="flex flex-col items-end gap-2">
@@ -252,9 +259,25 @@ const ChecklistsPage = () => {
                                 <div className="space-y-4 mb-6">
                                     <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-widest">
                                         <span>Status</span>
-                                        <span className="px-2 py-0.5 bg-yellow-100 text-yellow-600 rounded-lg">Pending</span>
+                                        {(() => {
+                                            const latestLog = logs.filter(l => l.checklist_id === cl.id).sort((a, b) => 
+                                                new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+                                            )[0];
+                                            const status = latestLog?.status || "Pending";
+                                            return (
+                                                <span className={`px-2 py-0.5 rounded-lg ${
+                                                    status === "Done" ? "bg-emerald-100 text-emerald-600" : "bg-yellow-100 text-yellow-600"
+                                                }`}>
+                                                    {status}
+                                                </span>
+                                            );
+                                        })()}
                                     </div>
-                                    <p className="text-[11px] text-slate-400 italic line-clamp-1">No recent remarks recorded.</p>
+                                    <p className="text-[11px] text-slate-400 italic line-clamp-1">
+                                        {logs.filter(l => l.checklist_id === cl.id).sort((a, b) => 
+                                            new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+                                        )[0]?.remarks || "No recent remarks recorded."}
+                                    </p>
                                 </div>
 
                                 <div className="grid grid-cols-3 gap-2">

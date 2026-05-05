@@ -84,7 +84,7 @@ const SitePhotosPage = () => {
     const [searchQuery, setSearchQuery] = useState("");
     const [filterActivity, setFilterActivity] = useState("All Activities");
     const [filterLocation, setFilterLocation] = useState("All Locations");
-    const [projectId, setProjectId] = useState<number | null>(null);
+    const [projectId, setProjectId] = useState<number>(36);
 
     // Modal States
     const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -92,9 +92,18 @@ const SitePhotosPage = () => {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [photoToDelete, setPhotoToDelete] = useState<number | null>(null);
 
+    // Resolve Project ID from session
     useEffect(() => {
-        // Use project 1 as requested
-        setProjectId(1);
+        const userStr = localStorage.getItem("infrapilot_user");
+        if (userStr) {
+            try {
+                const user = JSON.parse(userStr);
+                const pId = user?.project_id || user?.user?.project_id || user?.id;
+                if (pId) setProjectId(Number(pId));
+            } catch (e) {
+                console.error("Failed to resolve project ID", e);
+            }
+        }
     }, []);
 
     const fetchPhotos = useCallback(async () => {
@@ -102,8 +111,8 @@ const SitePhotosPage = () => {
         try {
             let apiData: SitePhoto[] = [];
             try {
-                // Fetch for project 1
-                const response = await sitePhotoService.getPhotos({ project_id: 1 });
+                // Fetch for current project
+                const response = await sitePhotoService.getPhotos({ project_id: projectId });
                 apiData = response.items || [];
             } catch (err) {
                 console.warn("API unavailable, using demo data.");
@@ -123,7 +132,7 @@ const SitePhotosPage = () => {
 
     useEffect(() => {
         fetchPhotos();
-    }, [fetchPhotos]);
+    }, [fetchPhotos, projectId]);
 
     const handleUpload = async (formData: FormData) => {
         try {
@@ -179,9 +188,6 @@ const SitePhotosPage = () => {
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Photographic Documentation</h1>
                         <p className="text-slate-500 text-sm italic-none">
                             Maintain a visual ledger of progress milestones.
-                            <span className="ml-2 px-2 py-0.5 bg-primary/10 text-primary rounded-md text-[10px] font-black uppercase tracking-widest">
-                                Active Project: {projectId || "Detecting..."}
-                            </span>
                         </p>
                     </div>
                     <button
