@@ -46,7 +46,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const INITIAL_FORM_DATA = {
-    project_id: 1,
+    project_id: 36,
     title: "",
     category: "Material",
     description: "",
@@ -93,7 +93,7 @@ const IssueTrackerPage = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
     const [priorityFilter, setPriorityFilter] = useState("All");
-    const [projectId, setProjectId] = useState<number | null>(null);
+    const [projectId, setProjectId] = useState<number>(36);
 
     // Modal State
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -122,19 +122,9 @@ const IssueTrackerPage = () => {
     };
 
     useEffect(() => {
-        const resolveProjectId = async () => {
-            const userStr = localStorage.getItem("infrapilot_user");
-            const user = userStr ? JSON.parse(userStr) : {};
-            const pId = user?.project_id || user?.user?.project_id;
-
-            if (pId) {
-                setProjectId(Number(pId));
-                setFormData(prev => ({ ...prev, project_id: Number(pId) }));
-                return;
-            }
-            setProjectId(1);
-        };
-        resolveProjectId();
+        // Force project 36 scope for consistency across modules
+        setProjectId(36);
+        setFormData(prev => ({ ...prev, project_id: 36 }));
     }, []);
 
     const fetchIssues = useCallback(async () => {
@@ -173,22 +163,33 @@ const IssueTrackerPage = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        
+        if (!projectId || !formData.project_id) {
+            console.error("Critical: Submission blocked. project_id is missing.", { projectId, formPId: formData.project_id });
+            toast.error("Critical Error: Active project not detected. Please reload the page.");
+            return;
+        }
+
         if (!validate()) {
             toast.error("Please correct the errors in the form");
             return;
         }
         setIsSubmitting(true);
         try {
+            console.log("Submitting Issue POST Request:", formData);
             if (formMode === "create") {
-                await issueService.createIssue(formData as any);
+                const response = await issueService.createIssue(formData as any);
+                console.log("Issue POST Response (200 OK):", response);
                 toast.success("Issue lodged successfully!");
             } else if (selectedIssue) {
-                await issueService.updateIssue(selectedIssue.id, formData as any);
+                const response = await issueService.updateIssue(selectedIssue.id, formData as any);
+                console.log("Issue PUT Response (200 OK):", response);
                 toast.success("Issue updated successfully!");
             }
             setIsFormModalOpen(false);
             fetchIssues();
         } catch (error: any) {
+            console.error("Issue Sync Failure:", error.response?.data || error.message);
             toast.error("Failed to save issue");
         } finally {
             setIsSubmitting(false);
@@ -240,10 +241,20 @@ const IssueTrackerPage = () => {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Constraint Management</h1>
-                        <p className="text-slate-500 text-sm">Identify, track, and resolve site impediments to maintain momentum.</p>
+                        <p className="text-slate-500 text-sm">
+                            Identify, track, and resolve site impediments. 
+                            <span className="ml-2 px-2 py-0.5 bg-primary/10 text-primary rounded-md text-[10px] font-black uppercase tracking-widest">
+                                Active Project: {projectId || "Detecting..."}
+                            </span>
+                        </p>
                     </div>
                     <button
-                        onClick={() => { setFormMode("create"); setFormData(INITIAL_FORM_DATA); setErrors({}); setIsFormModalOpen(true); }}
+                        onClick={() => { 
+                            setFormMode("create"); 
+                            setFormData({ ...INITIAL_FORM_DATA, project_id: projectId }); 
+                            setErrors({}); 
+                            setIsFormModalOpen(true); 
+                        }}
                         className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                     >
                         <Plus className="w-4 h-4" />

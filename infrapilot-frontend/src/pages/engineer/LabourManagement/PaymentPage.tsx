@@ -7,12 +7,12 @@ import {
     Clock, 
     TrendingUp,
     AlertCircle,
-    Plus,
     Filter,
     Search
 } from "lucide-react";
 import { paymentService } from '../../../services/paymentService';
 import { labourService } from '../../../services/labourService';
+import { projectService } from '../../../services/projectService';
 import PaySalaryModal from '../../../components/payment/PaySalaryModal';
 import AdvancePaymentModal from '../../../components/payment/AdvancePaymentModal';
 import toast from 'react-hot-toast';
@@ -22,24 +22,77 @@ const PaymentPage: React.FC = () => {
     const [history, setHistory] = useState<any[]>([]);
     const [pendingDues, setPendingDues] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<'payroll' | 'history' | 'dues'>('payroll');
+    const [projectId, setProjectId] = useState<number | null>(null);
+    const [activeTab, setActiveTab] = useState<'payroll' | 'history' | 'dues' | 'weekly' | 'monthly'>('payroll');
+    const [weeklyReports, setWeeklyReports] = useState<any[]>([]);
+    const [monthlyReports, setMonthlyReports] = useState<any[]>([]);
 
     // Modal States
     const [payTarget, setPayTarget] = useState<any | null>(null);
     const [advanceTarget, setAdvanceTarget] = useState<any | null>(null);
 
+    useEffect(() => {
+        const initializeProject = async () => {
+            try {
+                const userStr = localStorage.getItem("infrapilot_user");
+                const user = userStr ? JSON.parse(userStr) : {};
+                const storedPId = user?.project_id || user?.user?.project_id;
+                
+                if (storedPId) {
+                    console.log("Payments: Using Stored Project ID:", storedPId);
+                    setProjectId(Number(storedPId));
+                } else {
+                    console.log("Payments: Project discovery via server...");
+                    const projectsResponse = await projectService.getProjects(1, 0);
+                    const projects = Array.isArray(projectsResponse) ? projectsResponse : ((projectsResponse as any).items || []);
+                    
+                    if (projects && projects.length > 0) {
+                        const firstPId = projects[0].project_id || projects[0].id;
+                        console.log("Payments: Auto-discovered Project ID:", firstPId);
+                        setProjectId(Number(firstPId));
+                    } else {
+                        console.warn("Payments: No projects found. Defaulting to 1.");
+                        setProjectId(1);
+                    }
+                }
+            } catch (err) {
+                console.error("Payments: Discovery failed:", err);
+                setProjectId(1);
+            }
+        };
+        initializeProject();
+    }, []);
+
     const fetchData = async () => {
+        if (projectId === null) return;
         setIsLoading(true);
         try {
+            console.log(`Payments: Syncing Vault for Project: ${projectId}`);
             const [labourRes, historyRes, duesRes] = await Promise.all([
-                labourService.getLabours(1),
-                paymentService.getPaymentHistory(),
-                paymentService.getPendingDues()
+                labourService.getLabours(projectId),
+                paymentService.getPaymentHistory({ project_id: projectId, limit: 20, offset: 0 }),
+                paymentService.getPendingDues({ project_id: projectId, limit: 20, offset: 0 })
             ]);
+            console.log("Payroll Roster Sync Success:", labourRes);
+            console.log("Payment History Sync Success (200 OK):", historyRes);
+            console.log("Pending Dues Sync Success (200 OK):", duesRes);
+            
             setLabours(labourRes.items || []);
-            setHistory(historyRes);
-            setPendingDues(duesRes);
-        } catch (error) {
+            setHistory(Array.isArray(historyRes) ? historyRes : ((historyRes as any).items || []));
+            setPendingDues(Array.isArray(duesRes) ? duesRes : ((duesRes as any).items || []));
+
+            // Fetch reports for the first worker as a summary if they exist
+            const firstWorker = labourRes.items?.[0];
+            if (firstWorker) {
+                const [weeklyRes, monthlyRes] = await Promise.all([
+                    labourService.getLabourWeeklyReport(firstWorker.id),
+                    labourService.getLabourMonthlyReport(firstWorker.id)
+                ]);
+                setWeeklyReports(Array.isArray(weeklyRes) ? weeklyRes : [weeklyRes]);
+                setMonthlyReports(Array.isArray(monthlyRes) ? monthlyRes : [monthlyRes]);
+            }
+        } catch (error: any) {
+            console.error("Payment Sync Failure:", error.response?.data || error.message);
             toast.error('Failed to load payment data');
         } finally {
             setIsLoading(false);
@@ -48,7 +101,7 @@ const PaymentPage: React.FC = () => {
 
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [projectId, activeTab]);
 
     const stats = useMemo(() => {
         const totalPaid = history.reduce((acc, curr) => acc + curr.amount, 0);
@@ -106,7 +159,9 @@ const PaymentPage: React.FC = () => {
                     {[
                         { id: 'payroll', label: 'Active Payroll' },
                         { id: 'history', label: 'Payment History' },
-                        { id: 'dues', label: 'Contractor Dues' }
+                        { id: 'dues', label: 'Contractor Dues' },
+                        { id: 'weekly', label: 'Weekly Summary' },
+                        { id: 'monthly', label: 'Monthly Report' }
                     ].map((tab) => (
                         <button
                             key={tab.id}
@@ -150,13 +205,45 @@ const PaymentPage: React.FC = () => {
                             <table className="w-full text-left min-w-[1000px]">
                                 <thead>
                                     <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-                                        <th className="px-6 py-4">Worker Details</th>
-                                        <th className="px-6 py-4 text-center">Days Present</th>
-                                        <th className="px-6 py-4 text-center">Hours/OT</th>
-                                        <th className="px-6 py-4 text-center">Daily Wage</th>
-                                        <th className="px-6 py-4 text-center">Net Salary</th>
-                                        <th className="px-6 py-4 text-center">Status</th>
-                                        <th className="px-6 py-4 text-right">Direct Actions</th>
+                                        {(activeTab === 'payroll' || activeTab === 'history') && <th className="px-6 py-4">Worker Details</th>}
+                                        {activeTab === 'payroll' && (
+                                            <>
+                                                <th className="px-6 py-4 text-center">Days Present</th>
+                                                <th className="px-6 py-4 text-center">Hours/OT</th>
+                                                <th className="px-6 py-4 text-center">Daily Wage</th>
+                                                <th className="px-6 py-4 text-center">Net Salary</th>
+                                                <th className="px-6 py-4 text-center">Status</th>
+                                                <th className="px-6 py-4 text-right">Direct Actions</th>
+                                            </>
+                                        )}
+                                        {activeTab === 'history' && (
+                                            <>
+                                                <th className="px-6 py-4 text-center">Type</th>
+                                                <th className="px-6 py-4 text-center">Method</th>
+                                                <th className="px-6 py-4 text-center">Amount</th>
+                                                <th className="px-6 py-4 text-center">Date</th>
+                                                <th className="px-6 py-4 text-center">Status</th>
+                                            </>
+                                        )}
+                                        {activeTab === 'dues' && (
+                                            <>
+                                                <th className="px-6 py-4">Contractor</th>
+                                                <th className="px-6 py-4 text-center">Total Due</th>
+                                                <th className="px-6 py-4 text-center">Paid</th>
+                                                <th className="px-6 py-4 text-center">Pending</th>
+                                                <th className="px-6 py-4 text-center">Last Payment</th>
+                                            </>
+                                        )}
+                                        {(activeTab === 'weekly' || activeTab === 'monthly') && (
+                                            <>
+                                                <th className="px-6 py-4">{activeTab === 'weekly' ? 'Week' : 'Month'}</th>
+                                                <th className="px-6 py-4 text-center">Total Days</th>
+                                                <th className="px-6 py-4 text-center">Present</th>
+                                                <th className="px-6 py-4 text-center">Man Hours</th>
+                                                <th className="px-6 py-4 text-center">OT Hours</th>
+                                                <th className="px-6 py-4 text-center">Total Wage</th>
+                                            </>
+                                        )}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
@@ -257,6 +344,28 @@ const PaymentPage: React.FC = () => {
                                             <td className="px-6 py-4 text-right">
                                                 <span className="text-xs font-bold text-slate-400 tabular-nums">{d.last_payment_date}</span>
                                             </td>
+                                        </tr>
+                                    ))}
+
+                                    {activeTab === 'weekly' && weeklyReports.map((r, i) => (
+                                        <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                                            <td className="px-6 py-4 font-bold text-slate-700">Week {r.month || i + 1}</td>
+                                            <td className="px-6 py-4 text-center font-bold text-slate-600">{r.total_days} Days</td>
+                                            <td className="px-6 py-4 text-center font-bold text-emerald-600">{r.present_days}</td>
+                                            <td className="px-6 py-4 text-center font-bold text-slate-600">{r.total_hours}h</td>
+                                            <td className="px-6 py-4 text-center font-bold text-amber-500">{r.overtime_hours}h</td>
+                                            <td className="px-6 py-4 text-center font-bold text-slate-800">₹{r.total_wage}</td>
+                                        </tr>
+                                    ))}
+
+                                    {activeTab === 'monthly' && monthlyReports.map((r, i) => (
+                                        <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                                            <td className="px-6 py-4 font-bold text-slate-700">{r.month === 4 ? 'April 2026' : `Month ${r.month}`}</td>
+                                            <td className="px-6 py-4 text-center font-bold text-slate-600">{r.total_days} Days</td>
+                                            <td className="px-6 py-4 text-center font-bold text-emerald-600">{r.present_days}</td>
+                                            <td className="px-6 py-4 text-center font-bold text-slate-600">{r.total_hours}h</td>
+                                            <td className="px-6 py-4 text-center font-bold text-amber-500">{r.overtime_hours}h</td>
+                                            <td className="px-6 py-4 text-center font-bold text-slate-800">₹{r.total_wage}</td>
                                         </tr>
                                     ))}
                                 </tbody>

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { paymentService } from '../../../services/paymentService';
 import { labourService } from '../../../services/labourService';
+import { projectService } from '../../../services/projectService';
 import toast from 'react-hot-toast';
 import { 
     XAxis, 
@@ -29,40 +30,67 @@ const PayrollReportPage: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isExportingExcel, setIsExportingExcel] = useState(false);
     const [isExportingPDF, setIsExportingPDF] = useState(false);
+    const [projectId, setProjectId] = useState<number | null>(null);
+
+    useEffect(() => {
+        const initializeProject = async () => {
+            try {
+                const res = await projectService.getProjects();
+                const projects = Array.isArray(res) ? res : (res.items || []);
+                if (projects.length > 0) {
+                    const pId = projects[0].project_id || projects[0].id;
+                    console.log("Report Discovery: Using Project ID:", pId);
+                    setProjectId(Number(pId));
+                }
+            } catch (err) {
+                console.error("Report Discovery Failed:", err);
+            }
+        };
+        initializeProject();
+    }, []);
 
     const fetchReports = async () => {
+        if (!projectId) return;
         setIsLoading(true);
         try {
+            console.log(`Reports: Fetching ${activeTab} for Project ${projectId}`);
             let data: any[] = [];
+            
+            // First find a valid labour ID to fetch reports for
+            const labourRes = await labourService.getLabours(projectId);
+            const firstWorker = labourRes.items?.[0];
+
             if (activeTab === 'daily') {
-                data = await paymentService.getDailyPayroll();
+                data = await paymentService.getDailyPayroll(projectId);
             } else if (activeTab === 'weekly') {
-                // Using the specific labour weekly report API as requested
-                const weeklyData = await labourService.getLabourWeeklyReport(1);
-                // Map the weekly-report fields to the table fields
-                data = weeklyData.map((item: any) => ({
-                    week: `Month ${item.month} - Week Summary`,
-                    total_wages: item.total_wage,
-                    overtime_wages: 0,
-                    total_payout: item.total_wage,
-                    attendance_summary: `${item.present_days}P / ${item.absent_days}A / ${item.total_days}T`,
-                    total_hours: item.total_hours
-                }));
+                if (firstWorker) {
+                    const weeklyData = await labourService.getLabourWeeklyReport(firstWorker.id);
+                    data = Array.isArray(weeklyData) ? weeklyData.map((item: any) => ({
+                        week: `Month ${item.month} - Week Summary`,
+                        total_wages: item.total_wage,
+                        overtime_wages: 0,
+                        total_payout: item.total_wage,
+                        attendance_summary: `${item.present_days}P / ${item.absent_days}A / ${item.total_days}T`,
+                        total_hours: item.total_hours
+                    })) : [];
+                }
             } else {
-                // Using the specific labour monthly report API as requested
-                const monthlyData = await labourService.getLabourMonthlyReport(1);
-                // Map the monthly-report fields to the table fields
-                data = monthlyData.map((item: any) => ({
-                    month: `Month ${item.month} - Full Report`,
-                    total_wages: item.total_wage,
-                    overtime_wages: 0,
-                    total_payout: item.total_wage,
-                    attendance_summary: `${item.present_days}P / ${item.absent_days}A / ${item.total_days}T`,
-                    total_hours: item.total_hours
-                }));
+                if (firstWorker) {
+                    const monthlyData = await labourService.getLabourMonthlyReport(firstWorker.id);
+                    data = Array.isArray(monthlyData) ? monthlyData.map((item: any) => ({
+                        month: `Month ${item.month} - Full Report`,
+                        total_wages: item.total_wage,
+                        overtime_wages: 0,
+                        total_payout: item.total_wage,
+                        attendance_summary: `${item.present_days}P / ${item.absent_days}A / ${item.total_days}T`,
+                        total_hours: item.total_hours
+                    })) : [];
+                }
             }
             setReports(data);
+            console.log("Reports Sync Success (200 OK):", data);
         } catch (error) {
+            console.error("Reports Sync Failure:", error);
             toast.error('Failed to load payroll reports');
         } finally {
             setIsLoading(false);
@@ -71,7 +99,7 @@ const PayrollReportPage: React.FC = () => {
 
     useEffect(() => {
         fetchReports();
-    }, [activeTab]);
+    }, [activeTab, projectId]);
 
     const handleExportExcel = async () => {
         setIsExportingExcel(true);

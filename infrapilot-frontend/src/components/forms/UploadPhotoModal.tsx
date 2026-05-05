@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Modal from '../common/Modal';
 import { Upload, CheckCircle2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface UploadPhotoModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSubmit: (formData: FormData) => Promise<void>;
+    projectId: number | null;
 }
 
 const activityTags = [
@@ -34,7 +36,7 @@ const locationTags = [
     "Entry Gate",
 ];
 
-const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, onSubmit }) => {
+const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, onSubmit, projectId }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [formData, setFormData] = useState({
         date: new Date().toISOString().split("T")[0],
@@ -85,20 +87,28 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!validate()) return;
+        if (!projectId) {
+            toast.error("Project context not found. Please reload.");
+            return;
+        }
 
         setIsSubmitting(true);
         try {
             const data = new FormData();
+            data.append("project_id", String(projectId));
             data.append("date", formData.date);
             data.append("activity_tag", formData.activity_tag);
             data.append("location_tag", formData.location_tag);
             data.append("description", formData.description);
-            if (selectedFile) data.append("photo", selectedFile);
+            if (selectedFile) {
+                data.append("file", selectedFile);
+            }
 
+            console.log("Submitting Photo Upload with Project:", projectId);
             await onSubmit(data);
             onClose();
         } catch (error) {
-            // Error handled by parent
+            console.error("Upload Form Error:", error);
         } finally {
             setIsSubmitting(false);
         }

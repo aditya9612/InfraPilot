@@ -8,6 +8,7 @@ import Modal from "../../../components/common/Modal";
 import toast from "react-hot-toast";
 import { equipmentService } from "../../../services/equipmentService";
 import type { Equipment } from "../../../services/equipmentService";
+import { projectService } from "../../../services/projectService";
 import { 
   Wrench, 
   Settings2, 
@@ -28,6 +29,8 @@ const conditionColors: Record<string, string> = {
     'GOOD': 'bg-emerald-600',
     'REPAIR': 'bg-rose-600',
     'SERVICE': 'bg-amber-600',
+    'DAMAGED': 'bg-rose-700',
+    'MAINTENANCE': 'bg-blue-600',
 };
 
 const MachineryPage = () => {
@@ -44,14 +47,30 @@ const MachineryPage = () => {
     const [itemToDelete, setItemToDelete] = useState<number | null>(null);
 
     const [projectId, setProjectId] = useState<number>(0);
-    const [userContext, setUserContext] = useState<any>(null);
 
     useEffect(() => {
-        const userStr = localStorage.getItem("infrapilot_user");
-        const user = userStr ? JSON.parse(userStr) : {};
-        const pId = user?.project_id || user?.user?.project_id || 0;
-        setProjectId(Number(pId));
-        setUserContext(user);
+        const initializeProject = async () => {
+            try {
+                // Try discovery via service first
+                const res = await projectService.getProjects();
+                const projects = Array.isArray(res) ? res : (res.items || []);
+                if (projects.length > 0) {
+                    const pId = projects[0].project_id || projects[0].id;
+                    console.log("Machinery Discovery: Using Project ID:", pId);
+                    setProjectId(Number(pId));
+                    return;
+                }
+
+                // Fallback to local storage
+                const userStr = localStorage.getItem("infrapilot_user");
+                const user = userStr ? JSON.parse(userStr) : {};
+                const pId = user?.project_id || user?.user?.project_id || 0;
+                setProjectId(Number(pId));
+            } catch (err) {
+                console.error("Machinery Discovery Failed:", err);
+            }
+        };
+        initializeProject();
     }, []);
 
     useEffect(() => {
@@ -61,13 +80,19 @@ const MachineryPage = () => {
     }, [projectId]);
 
     const fetchEquipment = async () => {
+        if (!projectId) return;
         setIsLoading(true);
         try {
+            console.log(`Fetching Equipment List for Project: ${projectId}`);
             const data = await equipmentService.getEquipment(projectId);
-            const items = Array.isArray(data) ? data : data.items || [];
+            console.log("Machinery API Raw Response:", data);
+            
+            const items = Array.isArray(data) ? data : (data.items || data.data || []);
+            console.log(`Successfully synced ${items.length} machinery items (200 OK)`);
             setMachineryList(items);
         } catch (err) {
-            toast.error("Failed to load machinery registry");
+            console.error("Fetch Equipment Failed:", err);
+            toast.error("Failed to sync machinery vault");
         } finally {
             setIsLoading(false);
         }
@@ -126,7 +151,12 @@ const MachineryPage = () => {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Heavy Machinery Registry</h1>
-                        <p className="text-slate-500 text-sm">Monitor utilization, fuel consumption, and health status.</p>
+                        <p className="text-slate-500 text-sm">
+                            Monitor utilization, fuel consumption, and health status.
+                            <span className="ml-2 px-2 py-0.5 bg-primary/10 text-primary rounded-md text-[10px] font-black uppercase tracking-widest">
+                                Active Project: {projectId || "Detecting..."}
+                            </span>
+                        </p>
                     </div>
                     <button
                         onClick={() => { setEditingEquipment(null); setIsModalOpen(true); }}
@@ -234,13 +264,14 @@ const MachineryPage = () => {
                                                 <td className="px-6 py-4">
                                                     <span className="text-sm font-bold text-blue-600">{item.fuel_used} L</span>
                                                 </td>
-                                                <td className="px-6 py-4">
+                                                 <td className="px-6 py-4">
                                                     <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
                                                         item.condition === 'GOOD' ? 'bg-emerald-50 text-emerald-600' : 
-                                                        item.condition === 'REPAIR' ? 'bg-rose-50 text-rose-600 animate-pulse' : 
-                                                        'bg-amber-50 text-amber-600'
+                                                        (item.condition === 'REPAIR' || item.condition === 'DAMAGED') ? 'bg-rose-50 text-rose-600 animate-pulse' : 
+                                                        item.condition === 'SERVICE' ? 'bg-amber-50 text-amber-600' :
+                                                        'bg-slate-50 text-slate-600'
                                                     }`}>
-                                                        {item.condition}
+                                                        {item.condition || 'N/A'}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 text-right">

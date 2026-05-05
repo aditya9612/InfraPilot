@@ -28,9 +28,13 @@ const CheckInModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess }) =
 
     useEffect(() => {
         if (isOpen) {
+            const userStr = localStorage.getItem("infrapilot_user");
+            const user = userStr ? JSON.parse(userStr) : {};
+            const activePId = user?.project_id || user?.user?.project_id || 1;
+
             setStep('details');
             setFormData({
-                project_id: 1,
+                project_id: activePId,
                 task_id: '',
                 task_description: '',
                 latitude: null,

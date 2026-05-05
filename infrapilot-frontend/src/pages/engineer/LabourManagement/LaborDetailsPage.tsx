@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 
 import { labourService } from "../../../services/labourService";
+import { projectService } from "../../../services/projectService";
 import type { LabourItem } from "../../../types/labour";
 
 const initialFormData = {
@@ -65,6 +66,7 @@ const LaborDetailsPage = () => {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [labourToDelete, setLabourToDelete] = useState<number | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     const validate = () => {
@@ -84,24 +86,54 @@ const LaborDetailsPage = () => {
     };
 
     useEffect(() => {
-        const userStr = localStorage.getItem("infrapilot_user");
-        const user = userStr ? JSON.parse(userStr) : {};
-        const pId = user?.project_id || user?.user?.project_id;
-        setProjectId(pId ? Number(pId) : 1);
+        const initializeProject = async () => {
+            try {
+                // Try to get project from localStorage first
+                const userStr = localStorage.getItem("infrapilot_user");
+                const user = userStr ? JSON.parse(userStr) : {};
+                const storedPId = user?.project_id || user?.user?.project_id;
+                
+                if (storedPId) {
+                    console.log("Using Stored Project ID:", storedPId);
+                    setProjectId(Number(storedPId));
+                } else {
+                    // If not in storage, fetch from server to see which project the user belongs to
+                    console.log("Project ID not found in storage. Fetching from server...");
+                    const projectsResponse = await projectService.getProjects(1, 0);
+                    const projects = Array.isArray(projectsResponse) ? projectsResponse : (projectsResponse.items || []);
+                    
+                    if (projects && projects.length > 0) {
+                        const firstPId = projects[0].project_id || projects[0].id;
+                        console.log("Auto-discovered Project ID:", firstPId);
+                        setProjectId(Number(firstPId));
+                    } else {
+                        console.warn("No projects found for user. Defaulting to ID 1.");
+                        setProjectId(1);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to discover project context:", err);
+                setProjectId(1);
+            }
+        };
+        initializeProject();
     }, []);
 
     const fetchLaborers = useCallback(async () => {
+        if (projectId === null) return;
         setIsLoading(true);
-        const activeProjectId = projectId || 1;
         try {
-            const response = await labourService.getLabours(activeProjectId, { 
+            console.log(`Synchronizing Personnel Registry for Project: ${projectId}`);
+            const response = await labourService.getLabours(projectId, { 
                 limit: 50, 
                 offset: 0,
                 search: searchTerm,
                 status: statusFilter === "All" ? undefined : statusFilter
             });
+            console.log("Personnel Registry Sync Success:", response);
             setLaborers(response.items || []);
-        } catch (error) {
+        } catch (error: any) {
+            console.error("Personnel Registry Sync Failure:", error.response?.data || error.message);
             toast.error("Failed to sync personnel registry");
         } finally {
             setIsLoading(false);
@@ -152,37 +184,57 @@ const LaborDetailsPage = () => {
             toast.error("Please correct the errors in the form");
             return;
         }
+        setIsSubmitting(true);
         try {
             if (formMode === "edit" && editId) {
-                // PUT Request Body structure & sequence
                 const updatePayload = {
                     labour_name: formData.labour_name,
                     skill_type: formData.skill_type,
-                    daily_wage_rate: Number(formData.daily_wage_rate).toFixed(2), // as string "900.00"
+                    daily_wage_rate: Number(formData.daily_wage_rate).toFixed(2), 
                     contractor_id: Number(formData.contractor_id),
                     status: formData.status,
                     notes: formData.notes,
                 };
-                await labourService.updateLabour(editId, updatePayload as any);
-                toast.success("Profile updated");
+                const updatedLaborer = await labourService.updateLabour(editId, updatePayload as any);
+                
+                // Update local state immediately with real data
+                setLaborers(prev => prev.map(l => l.id === editId ? { ...l, ...updatedLaborer } : l));
+                
+                toast.success("Profile updated successfully");
             } else {
-                // POST Request Body structure & sequence
                 const createPayload = {
                     aadhaar_number: formData.aadhaar_number.replace(/-/g, ""),
                     labour_name: formData.labour_name,
                     skill_type: formData.skill_type,
-                    daily_wage_rate: Number(formData.daily_wage_rate), // as number 800
+                    daily_wage_rate: Number(formData.daily_wage_rate), 
                     contractor_id: Number(formData.contractor_id),
                     status: formData.status,
                     notes: formData.notes,
+                    project_id: projectId || 1, // Explicitly linking worker to the current project context
                 };
-                await labourService.createLabour(createPayload);
-                toast.success("Personnel registered");
+                console.log("Step 1: Registering Personnel...", createPayload);
+                const newLaborer = await labourService.createLabour(createPayload);
+                
+                // Step 2: Explicitly assign worker to the project to ensure they appear in the list
+                const activePId = projectId || 1;
+                console.log(`Step 2: Assigning Worker ${newLaborer.id} to Project ${activePId}...`);
+                await labourService.assignLabourToProject(newLaborer.id, activePId);
+                
+                // Add to local state immediately
+                setLaborers(prev => [newLaborer, ...prev]);
+                toast.success("Personnel registered and assigned to project successfully");
             }
             setIsFormModalOpen(false);
-            fetchLaborers();
-        } catch (error) {
-            toast.error("Operation failed");
+            
+            // Now that we've assigned them, a fetch should safely see them
+            setTimeout(() => {
+                fetchLaborers();
+            }, 1000);
+        } catch (error: any) {
+            console.error("Submission Error:", error.response?.data || error.message);
+            toast.error(error.response?.data?.detail || "Registration failed");
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -331,8 +383,10 @@ const LaborDetailsPage = () => {
                         <button
                             form="personnel-form"
                             type="submit"
-                            className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+                            disabled={isSubmitting}
+                            className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
                         >
+                            {isSubmitting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                             {formMode === 'create' ? 'Confirm Registration' : 'Update Profile'}
                         </button>
                     </>

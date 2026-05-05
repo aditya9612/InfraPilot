@@ -1,88 +1,88 @@
-import api from "./api";
-import type { ChecklistRecord, CreateChecklistRequest, UpdateChecklistRequest, ChecklistResponse } from "../types/checklist";
+import api from './api';
+
+export interface ChecklistItem {
+    id: number;
+    project_id: number;
+    name: string;
+    type: string;
+}
+
+export interface ChecklistItemEntry {
+    id: number;
+    checklist_id: number;
+    item: string;
+}
+
+export interface ChecklistLog {
+    id: number;
+    project_id: number;
+    checklist_id: number;
+    status: string;
+    remarks: string;
+    created_at?: string;
+    checklist_name?: string; // Optional for UI convenience if joined on backend
+}
+
+export interface ChecklistLogResponse {
+    items: ChecklistLog[];
+    meta: {
+        total: number;
+        limit: number;
+        offset: number;
+    };
+}
+
+export interface CreateChecklistRequest {
+    project_id: number;
+    name: string;
+    type: string;
+}
+
+export interface AddItemRequest {
+    checklist_id: number;
+    item: string;
+}
+
+export interface ExecuteChecklistRequest {
+    project_id: number;
+    checklist_id: number;
+    status: string;
+    remarks: string;
+}
 
 export const checklistService = {
-    /**
-     * Get List of Checklists (by filters)
-     * GET /api/v1/checklists
-     */
-    async getChecklists(params?: any): Promise<ChecklistResponse> {
-        try {
-            const response = await api.get("/checklists", { params });
-            return response.data;
-        } catch (error: any) {
-            console.error("Get Checklists API Error:", error.response?.data || error.message);
-            throw error;
-        }
+    listChecklists: async (): Promise<ChecklistItem[]> => {
+        const response = await api.get('/checklists');
+        return response.data;
     },
 
-    /**
-     * Get Lists Checklists By Project ID
-     * GET /api/v1/checklists/project/{project_id}
-     */
-    async listChecklistsByProject(project_id: number, params?: any): Promise<ChecklistResponse> {
-        try {
-            const response = await api.get(`/checklists/project/${project_id}`, { params });
-            return response.data;
-        } catch (error: any) {
-            console.error("List Checklists By Project API Error:", error.response?.data || error.message);
-            throw error;
-        }
+    createChecklist: async (data: CreateChecklistRequest): Promise<ChecklistItem> => {
+        const response = await api.post('/checklists', data, {
+            params: { project_id: data.project_id }
+        });
+        return response.data;
     },
 
-    /**
-     * Get Checklist By ID
-     * GET /api/v1/checklists/{id}
-     */
-    async getChecklist(id: number): Promise<ChecklistRecord> {
-        try {
-            const response = await api.get(`/checklists/${id}`);
-            return response.data;
-        } catch (error: any) {
-            console.error(`Get Checklist ${id} API Error:`, error.response?.data || error.message);
-            throw error;
-        }
+    addItem: async (data: AddItemRequest): Promise<ChecklistItemEntry> => {
+        const response = await api.post('/checklists/items', data);
+        console.log("Add Item Success: 200 OK");
+        return response.data;
     },
 
-    /**
-     * Create Checklist
-     * POST /api/v1/checklists
-     */
-    async createChecklist(data: CreateChecklistRequest): Promise<ChecklistRecord> {
-        try {
-            const response = await api.post("/checklists", data);
-            return response.data;
-        } catch (error: any) {
-            console.error("Create Checklist API Error:", error.response?.data || error.message);
-            throw error;
-        }
+    executeChecklist: async (data: ExecuteChecklistRequest): Promise<ChecklistLog> => {
+        const response = await api.post('/checklists/execute', data);
+        return response.data;
     },
 
-    /**
-     * Update Checklist By ID
-     * PUT /api/v1/checklists/{id}
-     */
-    async updateChecklist(id: number, data: UpdateChecklistRequest): Promise<ChecklistRecord> {
-        try {
-            const response = await api.put(`/checklists/${id}`, data);
-            return response.data;
-        } catch (error: any) {
-            console.error(`Update Checklist ${id} API Error:`, error.response?.data || error.message);
-            throw error;
-        }
+    listLogs: async (project_id: number): Promise<ChecklistLogResponse> => {
+        const response = await api.get('/checklists/logs', {
+            params: { project_id }
+        });
+        return response.data;
     },
 
-    /**
-     * Delete Checklist By ID
-     * DELETE /api/v1/checklists/{id}
-     */
-    async deleteChecklist(id: number): Promise<{ success: boolean; message: string }> {
-        try {
-            const response = await api.delete(`/checklists/${id}`);
-            return response.data;
-        } catch (error: any) {
-            console.error(`Delete Checklist ${id} API Error:`, error.response?.data || error.message);
-            throw error;
-        }
+    deleteChecklist: async (id: number): Promise<{ message: string }> => {
+        const response = await api.delete(`/checklists/${id}`);
+        return response.data;
     }
 };

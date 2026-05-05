@@ -16,9 +16,12 @@ import {
     Eye,
     Trash2,
     Mail,
-    ClipboardList
+    ClipboardList,
+    Sheet,
+    FileText
 } from "lucide-react";
 import { labourService } from '../../../services/labourService';
+import { projectService } from '../../../services/projectService';
 import CheckInModal from '../../../components/attendance/CheckInModal';
 import CheckOutModal from '../../../components/attendance/CheckOutModal';
 import Modal from '../../../components/common/Modal';
@@ -63,23 +66,99 @@ const AttendancePage: React.FC = () => {
         }
     };
 
+    const [projectId, setProjectId] = useState<number | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        const initializeProject = async () => {
+            try {
+                // Try to get project from localStorage first
+                const userStr = localStorage.getItem("infrapilot_user");
+                const user = userStr ? JSON.parse(userStr) : {};
+                const storedPId = user?.project_id || user?.user?.project_id;
+                
+                if (storedPId) {
+                    console.log("Attendance: Using Stored Project ID:", storedPId);
+                    setProjectId(Number(storedPId));
+                } else {
+                    console.log("Attendance: Project ID missing. Discovering from server...");
+                    const projectsResponse = await projectService.getProjects(1, 0);
+                    const projects = Array.isArray(projectsResponse) ? projectsResponse : (projectsResponse.items || []);
+                    
+                    if (projects && projects.length > 0) {
+                        const firstPId = projects[0].project_id || projects[0].id;
+                        console.log("Attendance: Auto-discovered Project ID:", firstPId);
+                        setProjectId(Number(firstPId));
+                    } else {
+                        console.warn("Attendance: No projects found. Defaulting to 1.");
+                        setProjectId(1);
+                    }
+                }
+            } catch (err) {
+                console.error("Attendance: Discovery failed:", err);
+                setProjectId(1);
+            }
+        };
+        initializeProject();
+    }, []);
+
     const fetchData = async () => {
+        if (projectId === null) return;
+        setIsLoading(true);
         try {
+            console.log(`Attendance: Syncing Registry for Project: ${projectId}`);
             const [attendanceRes, labourRes] = await Promise.all([
-                labourService.getAttendanceList(1),
-                labourService.getLabours(1)
+                labourService.getAttendanceList(projectId),
+                labourService.getLabours(projectId)
             ]);
+            console.log("Attendance Sync Success (200 OK):", attendanceRes);
+            console.log("Labour Roster Sync Success (200 OK):", labourRes);
+            
             setAttendances(attendanceRes.items || []);
             setLabours(labourRes.items || []);
-        } catch (error) {
+        } catch (error: any) {
+            console.error("Attendance Sync Failure:", error.response?.data || error.message);
             toast.error('Failed to load attendance data');
         } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleExport = async (type: 'excel' | 'pdf') => {
+        if (!projectId) return;
+        const loadingToast = toast.loading(`Generating ${type.toUpperCase()}...`);
+        try {
+            let blob;
+            let filename;
+            const today = new Date().toISOString().split('T')[0];
+
+            if (type === 'excel') {
+                blob = await labourService.exportAttendanceExcel(projectId, today, today);
+                filename = `attendance_report_${today}.xlsx`;
+            } else {
+                blob = await labourService.exportAttendancePDF(projectId, today, today);
+                filename = `attendance_report_${today}.pdf`;
+            }
+
+            const url = window.URL.createObjectURL(new Blob([blob]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', filename);
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode?.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            
+            toast.success(`${type.toUpperCase()} Generated!`, { id: loadingToast });
+        } catch (error: any) {
+            console.error("Export Failure:", error);
+            toast.error(`Failed to export ${type.toUpperCase()}`, { id: loadingToast });
         }
     };
 
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [projectId]);
 
     const filteredAttendances = useMemo(() => {
         return attendances.filter(a => {
@@ -114,6 +193,20 @@ const AttendancePage: React.FC = () => {
                         <p className="text-slate-500 text-sm italic-none">Securely track worker check-in/out with GPS and photo validation.</p>
                     </div>
                     <div className="flex gap-3">
+                        <button 
+                            onClick={() => handleExport('excel')}
+                            className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-200 hover:bg-emerald-600 transition-all active:scale-95"
+                        >
+                            <Sheet className="w-4 h-4" />
+                            <span>Excel</span>
+                        </button>
+                        <button 
+                            onClick={() => handleExport('pdf')}
+                            className="flex items-center gap-2 px-4 py-2 bg-rose-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-rose-200 hover:bg-rose-600 transition-all active:scale-95"
+                        >
+                            <FileText className="w-4 h-4" />
+                            <span>PDF</span>
+                        </button>
                         <div className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 shadow-sm">
                             <Calendar className="w-4 h-4 text-primary" />
                             {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
@@ -183,21 +276,27 @@ const AttendancePage: React.FC = () => {
                     </div>
 
                     <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200">
-                        <table className="w-full text-left min-w-[1200px]">
-                            <thead>
-                                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-                                    <th className="px-6 py-4">Worker Identity</th>
-                                    <th className="px-6 py-4">Contractor</th>
-                                    <th className="px-6 py-4 text-center">In Time</th>
-                                    <th className="px-6 py-4 text-center">Out Time</th>
-                                    <th className="px-6 py-4 text-center">Shift Hrs</th>
-                                    <th className="px-6 py-4 text-center">OT</th>
-                                    <th className="px-6 py-4 text-center">Security Check</th>
-                                    <th className="px-6 py-4 text-right">Registry Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-50">
-                                {filteredAttendances.map((a) => (
+                        {isLoading ? (
+                            <div className="p-20 text-center text-slate-400 font-inter">
+                                <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
+                                <p className="text-[10px] font-black uppercase tracking-widest">Syncing attendance vault...</p>
+                            </div>
+                        ) : (
+                            <table className="w-full text-left min-w-[1200px]">
+                                <thead>
+                                    <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
+                                        <th className="px-6 py-4">Worker Identity</th>
+                                        <th className="px-6 py-4">Contractor</th>
+                                        <th className="px-6 py-4 text-center">In Time</th>
+                                        <th className="px-6 py-4 text-center">Out Time</th>
+                                        <th className="px-6 py-4 text-center">Shift Hrs</th>
+                                        <th className="px-6 py-4 text-center">OT</th>
+                                        <th className="px-6 py-4 text-center">Security Check</th>
+                                        <th className="px-6 py-4 text-right">Registry Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {filteredAttendances.map((a) => (
                                     <tr key={a.id} className="hover:bg-slate-50/50 transition-colors group">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-4">
@@ -271,9 +370,10 @@ const AttendancePage: React.FC = () => {
                                                     </div>
                                                 </td>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
                     </div>
 
                     {/* Dual Action Section: Check-In & Check-Out */}

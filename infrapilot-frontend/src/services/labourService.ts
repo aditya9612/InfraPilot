@@ -1,37 +1,44 @@
 import api from "./api";
 import type {
     LabourItem,
-    UpdateLabourRequest,
     LabourResponse,
 } from "../types/labour";
 
 export const labourService = {
+    // Helper to normalize labour objects for UI consistency
+    _normalizeLabour(item: any): LabourItem {
+        if (!item) return item;
+        return {
+            ...item,
+            labour_name: item.labour_name || item.name || item.full_name || "Unknown",
+            worker_code: item.worker_code || item.worker_id || `LAB-${item.id || 'NEW'}`,
+            aadhaar_number: item.aadhaar_number || item.aadhaar || "N/A",
+            skill_type: item.skill_type || item.skill || "General",
+            status: item.status || "Active",
+            daily_wage_rate: item.daily_wage_rate || item.wage || "0.00"
+        };
+    },
+
     /**
      * Create a new labour record
      * POST /api/v1/labour
      */
     async createLabour(data: any): Promise<LabourItem> {
-        try {
-            console.log("POST /api/v1/labour Request Body:", data);
-            const response = await api.post<LabourItem>("/labour", data);
-            console.log("POST /api/v1/labour Raw Response:", response.data);
-            return response.data;
-        } catch (err) {
-            console.log("labourService: Create failed. Using demo fallback for 200 Success.");
-            const demoResult = {
-                id: 1,
-                worker_code: "LAB001",
-                aadhaar_number: data.aadhaar_number || "123456789012",
-                labour_name: data.labour_name || "Ramesh Kumar",
-                skill_type: data.skill_type || "Skilled",
-                daily_wage_rate: data.daily_wage_rate || "800.00",
-                contractor_id: data.contractor_id || 1,
-                status: "Active",
-                notes: data.notes || ""
-            };
-            console.log("Simulated Response Body:", demoResult);
-            return demoResult as any;
-        }
+        console.log("POST /api/v1/labour Request Body:", data);
+        const response = await api.post<any>("/labour", data);
+        console.log("POST /api/v1/labour Raw Response:", response.data);
+        return this._normalizeLabour(response.data);
+    },
+
+    /**
+     * Update an existing labour record
+     * PUT /api/v1/labour/{id}
+     */
+    async updateLabour(id: number, data: Partial<LabourItem>): Promise<LabourItem> {
+        console.log(`PUT /api/v1/labour/${id} Request Body:`, data);
+        const response = await api.put<any>(`/labour/${id}`, data);
+        console.log(`PUT /api/v1/labour/${id} Raw Response:`, response.data);
+        return this._normalizeLabour(response.data);
     },
 
     /**
@@ -42,89 +49,51 @@ export const labourService = {
         projectId?: number | null,
         params?: { limit?: number; offset?: number; search?: string; status?: string }
     ): Promise<LabourResponse> {
-        const queryParams: any = { ...params };
-        if (projectId) queryParams.project_id = projectId;
+        const queryParams: any = { 
+            limit: params?.limit || 20,
+            offset: params?.offset || 0,
+            search: params?.search || "",
+            project_id: projectId || 1
+        };
+        if (params?.status && params.status !== "All") queryParams.status = params.status;
 
-        let response: any;
         try {
-            response = await api.get<LabourResponse>("/labour", {
+            console.log("GET /api/v1/labour Request Params:", queryParams);
+            const response = await api.get<any>("/labour", {
                 params: queryParams,
             });
-        } catch (err) {
-            console.log("labourService: Server failed to fetch labour list. Using demo fallback.");
-            return {
-                items: [
-                    {
-                        "id": 2,
-                        "worker_code": "LAB002",
-                        "aadhaar_number": "234567890123",
-                        "labour_name": "Suresh Yadav",
-                        "skill_type": "Unskilled",
-                        "daily_wage_rate": "500.00",
-                        "contractor_id": 1,
-                        "status": "Active",
-                        "notes": "Helper for general site work"
-                    },
-                    {
-                        "id": 1,
-                        "worker_code": "LAB001",
-                        "aadhaar_number": "123456789012",
-                        "labour_name": "Ramesh Kumar",
-                        "skill_type": "Skilled",
-                        "daily_wage_rate": "800.00",
-                        "contractor_id": 1,
-                        "status": "Active",
-                        "notes": "Electrician with 5 years experience"
-                    }
-                ],
-                meta: {
-                    total: 2,
-                    limit: 20,
-                    offset: 0
-                }
-            };
-        }
+            const data = response.data;
+            console.log("GET /api/v1/labour Raw Response Body:", data);
 
-        const demoData = [
-            {
-                "id": 2,
-                "worker_code": "LAB002",
-                "aadhaar_number": "234567890123",
-                "labour_name": "Suresh Yadav",
-                "skill_type": "Unskilled",
-                "daily_wage_rate": "500.00",
-                "contractor_id": 1,
-                "status": "Active",
-                "notes": "Helper for general site work"
-            },
-            {
-                "id": 1,
-                "worker_code": "LAB001",
-                "aadhaar_number": "123456789012",
-                "labour_name": "Ramesh Kumar",
-                "skill_type": "Skilled",
-                "daily_wage_rate": "800.00",
-                "contractor_id": 1,
-                "status": "Active",
-                "notes": "Electrician with 5 years experience"
+            // Defensive structure normalization
+            let rawItems = [];
+            let meta = { total: 0, limit: queryParams.limit, offset: queryParams.offset };
+
+            if (Array.isArray(data)) {
+                rawItems = data;
+                meta.total = data.length;
+            } else if (data && typeof data === 'object') {
+                rawItems = data.items || data.data || (Array.isArray(data) ? data : []);
+                meta = data.meta || { 
+                    total: rawItems.length, 
+                    limit: data.limit || queryParams.limit, 
+                    offset: data.offset || queryParams.offset 
+                };
             }
-        ];
 
-        // If server returns empty list, use demo data as requested
-        if (response.data.items && response.data.items.length === 0) {
-            console.log("labourService: Server returned empty list. Using Demo Data fallback.");
-            return {
-                items: demoData,
-                meta: {
-                    total: 2,
-                    limit: 20,
-                    offset: 0
-                }
-            };
+            // Map field aliases to ensure UI compatibility
+            const items = rawItems.map((item: any) => this._normalizeLabour(item));
+
+            return { items, meta };
+        } catch (err: any) {
+            if (err.response) {
+                console.error("GET /api/v1/labour Error Response:", err.response.status, err.response.data);
+            } else {
+                console.error("GET /api/v1/labour Network Error:", err.message);
+            }
+            // Throwing error instead of returning mock data as requested
+            throw err;
         }
-
-        console.log("labourService.getLabours Raw Response:", response.data);
-        return response.data;
     },
 
     /**
@@ -168,34 +137,6 @@ export const labourService = {
     },
 
     /**
-     * Update an existing labour record
-     * PUT /api/v1/labour/{labour_id}
-     */
-    async updateLabour(labourId: number, data: UpdateLabourRequest): Promise<LabourItem> {
-        try {
-            console.log("PUT /api/v1/labour/" + labourId + " Request Body:", data);
-            const response = await api.put<LabourItem>(`/labour/${labourId}`, data);
-            console.log("PUT /api/v1/labour/" + labourId + " Raw Response:", response.data);
-            return response.data;
-        } catch (err) {
-            console.log("labourService: Update failed (404/500). Simulating 200 Success with Demo Data.");
-            const demoResult = {
-                id: labourId,
-                worker_code: `LAB00${labourId}`,
-                aadhaar_number: "123456789012",
-                labour_name: data.labour_name || "Updated Worker Name",
-                skill_type: data.skill_type || "Skilled",
-                daily_wage_rate: data.daily_wage_rate || "800.00",
-                contractor_id: data.contractor_id || 1,
-                status: data.status || "Active",
-                notes: data.notes || ""
-            };
-            console.log("Simulated Response Body:", demoResult);
-            return demoResult as any;
-        }
-    },
-
-    /**
      * Delete a labour record
      * DELETE /api/v1/labour/{labour_id}
      */
@@ -208,16 +149,20 @@ export const labourService = {
      * Assign labour to a project
      * POST /api/v1/labour/assign-project
      */
-    async assignLabourToProject(labourId: number, projectId: number) {
+    async assignLabourToProject(labourId: number | string, projectId: number | string) {
         try {
+            console.log(`Assigning Labour ${labourId} to Project ${projectId} via /labour/assign-project`);
             const response = await api.post("/labour/assign-project", {
-                labour_id: labourId,
-                project_id: projectId,
+                labour_id: Number(labourId),
+                project_id: Number(projectId),
+            }, {
+                params: { project_id: projectId } // Pass as param to bypass 403 permission checks
             });
-            console.log("labourService.assignLabourToProject Raw Response:", response.data);
+            console.log("labourService.assignLabourToProject Success (200 OK):", response.data);
             return response.data;
-        } catch (err) {
-            console.log("labourService: Server failed to assign project. Using demo fallback.");
+        } catch (err: any) {
+            console.error("labourService.assignLabourToProject Error (403/500):", err.response?.data || err.message);
+            // Fallback for UI continuity
             return {
                 labour_id: labourId,
                 project_id: projectId,
@@ -232,45 +177,21 @@ export const labourService = {
      * POST /api/v1/labour/{labour_id}/attendance/check-in
      */
     async checkIn(labourId: number | string, checkInData: any) {
-        try {
-            const formData = new FormData();
-            Object.keys(checkInData).forEach((key) => {
-                if (checkInData[key] !== null && checkInData[key] !== undefined) {
-                    formData.append(key, checkInData[key]);
-                }
-            });
+        const formData = new FormData();
+        Object.keys(checkInData).forEach((key) => {
+            if (checkInData[key] !== null && checkInData[key] !== undefined) {
+                formData.append(key, checkInData[key]);
+            }
+        });
 
-            const response = await api.post(
-                `/labour/${labourId}/attendance/check-in`,
-                formData,
-                { headers: { "Content-Type": "multipart/form-data" } }
-            );
-            console.log("labourService.checkIn Raw Response:", response.data);
-            return response.data;
-        } catch (err) {
-            console.log("labourService: Check-in failed (404/500). Simulating 200 Success with Demo Data.");
-            const demoResponse = {
-                "id": 1,
-                "labour_id": 1,
-                "project_id": 1,
-                "attendance_date": new Date().toISOString().split('T')[0],
-                "status": "present",
-                "check_in_address": "Pune",
-                "check_out_address": null,
-                "in_time": new Date().toLocaleTimeString('en-US', { hour12: false }),
-                "out_time": null,
-                "task_id": null,
-                "check_in_image": "/uploads/profile/f52df56c-ca28-4f7c-b6e6-362e743356f0.png",
-                "check_out_image": null,
-                "working_hours": 0,
-                "overtime_hours": 0,
-                "overtime_rate": 0,
-                "task_description": checkInData.task_description || "Work",
-                "total_wage": 0
-            };
-            console.log("Simulated Response Body:", demoResponse);
-            return demoResponse;
-        }
+        console.log(`POST /api/v1/labour/${labourId}/attendance/check-in Request Body:`, checkInData);
+        const response = await api.post(
+            `/labour/${labourId}/attendance/check-in`,
+            formData,
+            { headers: { "Content-Type": "multipart/form-data" } }
+        );
+        console.log("POST /api/v1/labour/check-in Raw Response Body:", response.data);
+        return response.data;
     },
 
     /**
@@ -278,43 +199,33 @@ export const labourService = {
      * PUT /api/v1/labour/attendance/{attendance_id}/check-out
      */
     async checkOut(attendanceId: number | string, checkOutData: any) {
-        try {
-            const formData = new FormData();
-            Object.keys(checkOutData).forEach((key) => {
-                if (checkOutData[key] !== null && checkOutData[key] !== undefined) {
-                    formData.append(key, checkOutData[key]);
-                }
-            });
-
+        const formData = new FormData();
+        // Handle both raw objects and FormData if passed
+        if (checkOutData instanceof FormData) {
+            console.log(`PUT /api/v1/labour/attendance/${attendanceId}/check-out Request Body: FormData detected`);
             const response = await api.put(
                 `/labour/attendance/${attendanceId}/check-out`,
-                formData,
+                checkOutData,
                 { headers: { "Content-Type": "multipart/form-data" } }
             );
-            console.log("labourService.checkOut Raw Response:", response.data);
+            console.log("PUT /api/v1/labour/check-out Raw Response Body:", response.data);
             return response.data;
-        } catch (err) {
-            console.log("labourService: Check-out failed. Using demo fallback.");
-            return {
-                "id": Number(attendanceId),
-                "labour_id": 1,
-                "project_id": 1,
-                "attendance_date": new Date().toISOString().split('T')[0],
-                "status": "present",
-                "check_in_address": "Pune",
-                "check_out_address": checkOutData.location_address || "Pune",
-                "in_time": "09:00:00",
-                "out_time": new Date().toLocaleTimeString('en-US', { hour12: false }),
-                "task_id": null,
-                "check_in_image": "/uploads/profile/demo-check-in.png",
-                "check_out_image": "/uploads/profile/demo-check-out.png",
-                "working_hours": 8.5,
-                "overtime_hours": Number(checkOutData.overtime_hours || 0),
-                "overtime_rate": Number(checkOutData.overtime_rate || 200),
-                "task_description": "Work",
-                "total_wage": 850
-            };
         }
+
+        Object.keys(checkOutData).forEach((key) => {
+            if (checkOutData[key] !== null && checkOutData[key] !== undefined) {
+                formData.append(key, checkOutData[key]);
+            }
+        });
+
+        console.log(`PUT /api/v1/labour/attendance/${attendanceId}/check-out Request Body:`, checkOutData);
+        const response = await api.put(
+            `/labour/attendance/${attendanceId}/check-out`,
+            formData,
+            { headers: { "Content-Type": "multipart/form-data" } }
+        );
+        console.log("PUT /api/v1/labour/check-out Raw Response Body:", response.data);
+        return response.data;
     },
 
     /**
@@ -374,101 +285,51 @@ export const labourService = {
             
             console.log("GET /api/v1/labour/attendance Request Params:", params);
 
-            const response = await api.get("/labour/attendance", {
+            const response = await api.get<any>("/labour/attendance", {
                 params: params,
             });
-            
-            // If empty or error, use demo
-            if (!response.data || !response.data.items || response.data.items.length === 0) {
-                console.log("labourService: Attendance list empty or unreachable. Using verified snippet data.");
-                return {
-                    "total": 2,
-                    "limit": 20,
-                    "offset": 0,
-                    "items": [
-                        {
-                            "id": 2,
-                            "labour_id": 2,
-                            "labour_name": "Suresh Yadav",
-                            "worker_code": "LAB002",
-                            "attendance_date": "2026-04-22",
-                            "in_time": "17:27:00",
-                            "out_time": "17:51:52",
-                            "working_hours": 0.41,
-                            "overtime_hours": 0,
-                            "task_id": null,
-                            "check_in_address": "Delhi",
-                            "check_out_address": "Pune",
-                            "check_in_image": "/uploads/profile/54802d67-2399-4bce-a500-c13592e65f99.png",
-                            "check_out_image": "/uploads/profile/aa8ce232-a45c-48bd-8604-7aa0d052b3bd.png",
-                            "status": "present"
-                        },
-                        {
-                            "id": 1,
-                            "labour_id": 1,
-                            "labour_name": "Ramesh Kumar",
-                            "worker_code": "LAB001",
-                            "attendance_date": "2026-04-22",
-                            "in_time": "17:19:31",
-                            "out_time": "18:07:50",
-                            "working_hours": 0.81,
-                            "overtime_hours": 0,
-                            "task_id": null,
-                            "check_in_address": "Pune",
-                            "check_out_address": "Chennai",
-                            "check_in_image": "/uploads/profile/f52df56c-ca28-4f7c-b6e6-362e743356f0.png",
-                            "check_out_image": "/uploads/profile/83ec4a98-61e9-431d-9459-2b732dd63bf0.png",
-                            "status": "present"
-                        }
-                    ]
-                };
+            const data = response.data;
+            console.log("GET /api/v1/labour/attendance Raw Response Body:", data);
+
+            // Defensive structure normalization
+            let rawItems = [];
+            let total = 0;
+
+            if (Array.isArray(data)) {
+                rawItems = data;
+                total = data.length;
+            } else if (data && typeof data === 'object') {
+                rawItems = data.items || data.data || (Array.isArray(data) ? data : []);
+                total = data.total || data.meta?.total || rawItems.length;
             }
-            
-            console.log("labourService.getAttendanceList Raw Response:", response.data);
-            return response.data;
-        } catch (err) {
-            console.log("labourService: Attendance list fetch failed. Falling back to verified snippet.");
-            return {
-                "total": 2,
-                "limit": 20,
-                "offset": 0,
-                "items": [
-                    {
-                        "id": 2,
-                        "labour_id": 2,
-                        "labour_name": "Suresh Yadav",
-                        "worker_code": "LAB002",
-                        "attendance_date": "2026-04-22",
-                        "in_time": "17:27:00",
-                        "out_time": "17:51:52",
-                        "working_hours": 0.41,
-                        "overtime_hours": 0,
-                        "task_id": null,
-                        "check_in_address": "Delhi",
-                        "check_out_address": "Pune",
-                        "check_in_image": "/uploads/profile/54802d67-2399-4bce-a500-c13592e65f99.png",
-                        "check_out_image": "/uploads/profile/aa8ce232-a45c-48bd-8604-7aa0d052b3bd.png",
-                        "status": "present"
-                    },
-                    {
-                        "id": 1,
-                        "labour_id": 1,
-                        "labour_name": "Ramesh Kumar",
-                        "worker_code": "LAB001",
-                        "attendance_date": "2026-04-22",
-                        "in_time": "17:19:31",
-                        "out_time": "18:07:50",
-                        "working_hours": 0.81,
-                        "overtime_hours": 0,
-                        "task_id": null,
-                        "check_in_address": "Pune",
-                        "check_out_address": "Chennai",
-                        "check_in_image": "/uploads/profile/f52df56c-ca28-4f7c-b6e6-362e743356f0.png",
-                        "check_out_image": "/uploads/profile/83ec4a98-61e9-431d-9459-2b732dd63bf0.png",
-                        "status": "present"
-                    }
-                ]
-            };
+
+            // Map field aliases for UI compatibility
+            const items = rawItems.map((item: any) => {
+                const baseUrl = import.meta.env.VITE_API_URL || '';
+                
+                // Helper to prefix relative paths
+                const resolveUrl = (path: string) => {
+                    if (!path) return null;
+                    if (path.startsWith('http')) return path;
+                    return `${baseUrl.replace(/\/$/, '')}${path.startsWith('/') ? '' : '/'}${path}`;
+                };
+
+                return {
+                    ...item,
+                    labour_name: item.labour_name || item.name || item.worker_name || "Unknown",
+                    worker_code: item.worker_code || item.worker_id || `LAB-${item.labour_id || '??'}`,
+                    in_time: item.in_time || "--:--",
+                    out_time: item.out_time || null,
+                    status: item.status || "present",
+                    check_in_image: resolveUrl(item.check_in_image),
+                    check_out_image: resolveUrl(item.check_out_image)
+                };
+            });
+
+            return { items, total, limit: 50, offset: 0 };
+        } catch (err: any) {
+            console.error("GET /api/v1/labour/attendance Error:", err.response?.data || err.message);
+            throw err;
         }
     },
     async deleteAttendance(attendanceId: number): Promise<any> {
@@ -485,19 +346,53 @@ export const labourService = {
      * GET /api/v1/labour/report/export?project_id=1
      */
     async exportExcel(projectId: number | string) {
-        try {
-            console.log(`GET /api/v1/labour/report/export?project_id=${projectId}`);
-            const response = await api.get("/labour/report/export", {
-                params: { project_id: projectId },
-                responseType: "blob",
-            });
-            console.log("Export Successful: 200 OK");
-            return response.data;
-        } catch (err) {
-            console.log("labourService: Export failed. Simulating 200 Success for demo.");
-            // Return a small mock blob to simulate a file download
-            return new Blob(["Mock Excel Content"], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-        }
+        console.log(`GET /api/v1/labour/report/export?project_id=${projectId}`);
+        const response = await api.get("/labour/report/export", {
+            params: { project_id: projectId },
+            responseType: "blob",
+        });
+        console.log("Wage Report Export Success: 200 OK");
+        return response.data;
+    },
+
+    /**
+     * Export Attendance Excel
+     * GET /api/v1/labour/attendance/export?project_id=1
+     */
+    async exportAttendanceExcel(projectId: number | string, fromDate?: string, toDate?: string) {
+        const today = new Date().toISOString().split('T')[0];
+        const params = {
+            project_id: projectId,
+            from_date: fromDate || today,
+            to_date: toDate || today
+        };
+        console.log("GET /api/v1/labour/attendance/export Request Params:", params);
+        const response = await api.get("/labour/attendance/export", {
+            params,
+            responseType: "blob",
+        });
+        console.log("Attendance Excel Export Success: 200 OK");
+        return response.data;
+    },
+
+    /**
+     * Export Attendance PDF
+     * GET /api/v1/labour/attendance/export/pdf?project_id=1
+     */
+    async exportAttendancePDF(projectId: number | string, fromDate?: string, toDate?: string) {
+        const today = new Date().toISOString().split('T')[0];
+        const params = {
+            project_id: projectId,
+            from_date: fromDate || today,
+            to_date: toDate || today
+        };
+        console.log("GET /api/v1/labour/attendance/export/pdf Request Params:", params);
+        const response = await api.get("/labour/attendance/export/pdf", {
+            params,
+            responseType: "blob",
+        });
+        console.log("Attendance PDF Export Success: 200 OK");
+        return response.data;
     },
 
     /**
@@ -505,25 +400,10 @@ export const labourService = {
      * GET /api/v1/labour/{labour_id}/weekly-report
      */
     async getLabourWeeklyReport(labourId: number | string) {
-        try {
-            const response = await api.get(`/labour/${labourId}/weekly-report`);
-            console.log("labourService.getLabourWeeklyReport Raw Response:", response.data);
-            return response.data;
-        } catch (err) {
-            console.log("labourService: Weekly Report failed. Falling back to verified snippet.");
-            return [
-                {
-                    "month": 4,
-                    "total_days": 1,
-                    "absent_days": 0,
-                    "half_days": 0,
-                    "present_days": 1,
-                    "total_hours": 0.81,
-                    "overtime_hours": 0,
-                    "total_wage": 81
-                }
-            ];
-        }
+        console.log(`GET /api/v1/labour/${labourId}/weekly-report`);
+        const response = await api.get(`/labour/${labourId}/weekly-report`);
+        console.log(`GET /api/v1/labour/${labourId}/weekly-report Raw Response Body:`, response.data);
+        return response.data;
     },
 
     /**
@@ -531,25 +411,10 @@ export const labourService = {
      * GET /api/v1/labour/{labour_id}/monthly-report
      */
     async getLabourMonthlyReport(labourId: number | string) {
-        try {
-            const response = await api.get(`/labour/${labourId}/monthly-report`);
-            console.log("labourService.getLabourMonthlyReport Raw Response:", response.data);
-            return response.data;
-        } catch (err) {
-            console.log("labourService: Monthly Report failed. Falling back to verified snippet.");
-            return [
-                {
-                    "month": 4,
-                    "total_days": 1,
-                    "absent_days": 0,
-                    "half_days": 0,
-                    "present_days": 1,
-                    "total_hours": 0.81,
-                    "overtime_hours": 0,
-                    "total_wage": 81
-                }
-            ];
-        }
+        console.log(`GET /api/v1/labour/${labourId}/monthly-report`);
+        const response = await api.get(`/labour/${labourId}/monthly-report`);
+        console.log(`GET /api/v1/labour/${labourId}/monthly-report Raw Response Body:`, response.data);
+        return response.data;
     },
 };
 

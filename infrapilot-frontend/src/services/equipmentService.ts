@@ -176,7 +176,11 @@ export const equipmentService = {
    */
   async createEquipment(data: EquipmentCreateData) {
     try {
-      const response = await api.post('/equipment', data);
+      console.log("Creating equipment with data:", data);
+      const response = await api.post('/equipment', data, {
+        params: { project_id: data.project_id } // Often required to prevent 500/403 on some backend layers
+      });
+      console.log("Create Equipment Success (200 OK):", response.data);
       return response.data;
     } catch (error: any) {
       if (error.response?.data) {

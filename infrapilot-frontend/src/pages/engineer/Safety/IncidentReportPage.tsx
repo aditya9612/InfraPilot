@@ -1,524 +1,622 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
-import StatCard from "../../../components/common/StatCard";
 import Modal from "../../../components/common/Modal";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 import { 
-  AlertTriangle, 
-  ShieldAlert, 
-  CheckCircle2, 
-  Search, 
   Plus, 
+  Search, 
+  Eye, 
   Edit2, 
   Trash2,
-  Eye,
+  Calendar,
+  User,
+  ShieldAlert,
+  AlertCircle,
+  FileText,
   Activity,
-  Briefcase,
-  Phone,
-  Mail,
-  FileText
+  Shield,
+  HeartPulse,
+  Clock
 } from "lucide-react";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-interface IncidentRecord {
-    id: string;
-    date: string;
-    checklist_status: string;
-    ppe_compliance: string;
-    violation_type: string;
-    incident_description: string;
-    injury_details: string;
-    action_taken: string;
-    responsible_person: string;
-}
+import { safetyService } from "../../../services/safetyService";
+import type { IncidentItem, CreateIncidentRequest } from "../../../services/safetyService";
 
-// ─── Mock Data ───────────────────────────────────────────────────────────────
-const incidentHistory: IncidentRecord[] = [
-    {
-        id: "SF-INC-401",
-        date: "2026-04-12",
-        checklist_status: "Issues Found",
-        ppe_compliance: "60%",
-        violation_type: "Height Safety",
-        incident_description: "Worker slipped on scaffolding while plastering. Safety harness was not hooked.",
-        injury_details: "Minor bruise on elbow. No serious injury.",
-        action_taken: "Immediate site stand-down. Retraining of worker and supervisor.",
-        responsible_person: "Vikram Singh",
-    },
+const violationTypeOptions = [
+    "No Helmet",
+    "No Safety Harness",
+    "Unsafe Equipment Usage",
+    "No Safety Shoes",
+    "Fire Hazard",
+    "Electrical Hazard",
+    "Working at Height without Protection",
+    "Other"
 ];
 
-const IncidentReportPage = () => {
-    const [isFormModalOpen, setIsFormModalOpen] = useState(false);
-    const [selectedIncident, setSelectedIncident] = useState<IncidentRecord | null>(null);
-    const [incidentData, setIncidentData] = useState<IncidentRecord[]>(incidentHistory);
-    const [isEditMode, setIsEditMode] = useState(false);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [incidentToDelete, setIncidentToDelete] = useState<string | null>(null);
+const violationTypeColors: Record<string, string> = {
+    "No Helmet": "bg-red-100 text-red-600",
+    "No Safety Harness": "bg-orange-100 text-orange-600",
+    "Unsafe Equipment Usage": "bg-amber-100 text-amber-600",
+    "No Safety Shoes": "bg-yellow-100 text-yellow-600",
+    "Fire Hazard": "bg-rose-100 text-rose-600",
+    "Electrical Hazard": "bg-purple-100 text-purple-600",
+    "Working at Height without Protection": "bg-blue-100 text-blue-600",
+    "Other": "bg-slate-100 text-slate-500",
+};
 
-    const [formData, setFormData] = useState({
-        id: "",
+const StatCard = ({ title, value, icon, color, subValue }: { title: string, value: string | number, icon: React.ReactNode, color: string, subValue?: string }) => (
+    <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all">
+        <div className="flex items-center justify-between mb-4">
+            <div className={`p-3 rounded-2xl ${color}`}>
+                {icon}
+            </div>
+            {subValue && <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{subValue}</span>}
+        </div>
+        <h3 className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-1">{title}</h3>
+        <p className="text-2xl font-black text-slate-800 tracking-tight">{value}</p>
+    </div>
+);
+
+const IncidentReportPage = () => {
+    const [incidents, setIncidents] = useState<IncidentItem[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    // Modal States
+    const [isNewModalOpen, setIsNewModalOpen] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    
+    // Selection States
+    const [selectedIncident, setSelectedIncident] = useState<IncidentItem | null>(null);
+    const [deleteId, setDeleteId] = useState<number | null>(null);
+    
+    // Filter State
+    const [filterViolationType, setFilterViolationType] = useState("");
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
+    const [projectId, setProjectId] = useState<number>(1);
+    
+    // Form State
+    const [formData, setFormData] = useState<CreateIncidentRequest>({
+        project_id: 1,
         date: new Date().toISOString().split("T")[0],
-        checklist_status: "Issues Found",
-        ppe_compliance: "100%",
-        violation_type: "Height Safety",
-        incident_description: "",
+        violation_type: "No Helmet",
+        description: "",
         injury_details: "",
         action_taken: "",
-        responsible_person: "",
+        responsible_person: ""
     });
 
-    const [errors, setErrors] = useState<Record<string, string>>({});
+    // ─── PROJECT RESOLUTION ─────────────────────────────────────────────
+    useEffect(() => {
+        const userStr = localStorage.getItem("infrapilot_user");
+        if (userStr) {
+            try {
+                const user = JSON.parse(userStr);
+                const pId = user?.project_id || user?.user?.project_id;
+                if (pId) {
+                    const resolvedId = Number(pId);
+                    setProjectId(resolvedId);
+                    setFormData(prev => ({ ...prev, project_id: resolvedId }));
+                }
+            } catch (e) {
+                console.error("Failed to resolve project ID", e);
+            }
+        }
+    }, []);
+
+    // ─── DATA FETCHING ──────────────────────────────────────────────────
+
+    const fetchData = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const response = await safetyService.listIncidents(projectId, filterViolationType || undefined);
+            setIncidents(response.items || []);
+        } catch (error) {
+            console.error("Failed to fetch safety incidents", error);
+            toast.error("Failed to load incident reports");
+        } finally {
+            setIsLoading(false);
+        }
+    }, [projectId, filterViolationType]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    // ─── STATS CALCULATION ──────────────────────────────────────────────
+
+    const stats = useMemo(() => {
+        const total = incidents.length;
+        const currentMonth = new Date().getMonth();
+        const currentYear = new Date().getFullYear();
+        
+        const thisMonthCount = incidents.filter(item => {
+            const itemDate = new Date(item.date);
+            return itemDate.getMonth() === currentMonth && itemDate.getFullYear() === currentYear;
+        }).length;
+        
+        const noInjuryCount = incidents.filter(item => 
+            item.injury_details.toLowerCase().includes("no injury")
+        ).length;
+        
+        const withInjuryCount = total - noInjuryCount;
+        
+        return { total, thisMonthCount, noInjuryCount, withInjuryCount };
+    }, [incidents]);
+
+    // ─── HANDLERS ──────────────────────────────────────────────────────
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setFormData((prev) => ({ ...prev, [name]: value }));
-        if (errors[name]) {
-            setErrors((prev) => {
-                const newErrs = { ...prev };
-                delete newErrs[name];
-                return newErrs;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleCreateSubmit = async (e?: React.BaseSyntheticEvent) => {
+        if (e) e.preventDefault();
+        setIsSubmitting(true);
+        try {
+            const response = await safetyService.createIncident({ ...formData, project_id: projectId });
+            toast.success("Incident reported successfully!");
+            setIncidents(prev => [response, ...prev]);
+            setIsNewModalOpen(false);
+            // DO NOT call fetchData() here to preserve the 'Virtual' item in local state
+            // as the restricted backend won't return it in the next fetch.
+            // Reset form
+            setFormData({
+                project_id: projectId,
+                date: new Date().toISOString().split("T")[0],
+                violation_type: "No Helmet",
+                description: "",
+                injury_details: "",
+                action_taken: "",
+                responsible_person: ""
             });
+        } catch (error) {
+            toast.error("Failed to report incident");
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
-    const validate = () => {
-        const newErrors: Record<string, string> = {};
-        if (!formData.date) newErrors.date = "Required";
-        if (!formData.violation_type) newErrors.violation_type = "Required";
-        if (!formData.responsible_person.trim()) newErrors.responsible_person = "Required";
-        if (!formData.incident_description.trim()) newErrors.incident_description = "Required";
-        if (!formData.ppe_compliance.trim()) newErrors.ppe_compliance = "Required";
-        if (!formData.injury_details.trim()) newErrors.injury_details = "Required";
-        if (!formData.action_taken.trim()) newErrors.action_taken = "Required";
-        setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
-    };
-
-    const handleOpenAdd = () => {
-        setIsEditMode(false);
-        setFormData({
-            id: "",
-            date: new Date().toISOString().split("T")[0],
-            checklist_status: "Issues Found",
-            ppe_compliance: "100%",
-            violation_type: "Height Safety",
-            incident_description: "",
-            injury_details: "",
-            action_taken: "",
-            responsible_person: "",
-        });
-        setIsFormModalOpen(true);
-    };
-
-    const handleOpenEdit = (record: IncidentRecord) => {
-        setIsEditMode(true);
-        setFormData({
-            id: record.id,
-            date: record.date,
-            checklist_status: record.checklist_status,
-            ppe_compliance: record.ppe_compliance,
-            violation_type: record.violation_type,
-            incident_description: record.incident_description,
-            injury_details: record.injury_details,
-            action_taken: record.action_taken,
-            responsible_person: record.responsible_person,
-        });
-        setIsFormModalOpen(true);
-    };
-
-    const handleDeleteConfirm = () => {
-        if (!incidentToDelete) return;
-        setIncidentData(prev => prev.filter(t => t.id !== incidentToDelete));
-        toast.success("Incident record deleted");
-        setIsDeleteModalOpen(false);
-        setIncidentToDelete(null);
-    };
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!validate()) {
-            toast.error("Please fill all required fields.");
-            return;
+    const handleEditClick = async (id: number) => {
+        try {
+            const incident = await safetyService.getIncident(id);
+            setSelectedIncident(incident);
+            setFormData({
+                project_id: incident.project_id,
+                date: incident.date,
+                violation_type: incident.violation_type,
+                description: incident.description,
+                injury_details: incident.injury_details,
+                action_taken: incident.action_taken,
+                responsible_person: incident.responsible_person
+            });
+            setIsEditModalOpen(true);
+        } catch (error) {
+            toast.error("Failed to fetch incident details");
         }
-
-        if (isEditMode) {
-            setIncidentData(prev => prev.map(t => t.id === formData.id ? {
-                ...t,
-                date: formData.date,
-                checklist_status: formData.checklist_status,
-                ppe_compliance: formData.ppe_compliance,
-                violation_type: formData.violation_type,
-                incident_description: formData.incident_description,
-                injury_details: formData.injury_details,
-                action_taken: formData.action_taken,
-                responsible_person: formData.responsible_person,
-            } : t));
-            toast.success("Incident Updated!");
-        } else {
-            const newEntry: IncidentRecord = {
-                ...formData,
-                id: `SF-INC-${400 + incidentData.length + 1}`,
-            };
-            setIncidentData((prev) => [newEntry, ...prev]);
-            toast.success("Incident Report Lodged!");
-        }
-        setIsFormModalOpen(false);
     };
 
-    const filteredHistory = useMemo(() => {
-        return incidentData.filter(item => {
-            const matchesSearch = item.responsible_person.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                item.incident_description.toLowerCase().includes(searchTerm.toLowerCase());
-            return matchesSearch;
-        });
-    }, [incidentData, searchTerm]);
+    const handleUpdateSubmit = async (e?: React.BaseSyntheticEvent) => {
+        if (e) e.preventDefault();
+        if (!selectedIncident) return;
+        
+        setIsSubmitting(true);
+        try {
+            const response = await safetyService.updateIncident(selectedIncident.id, formData);
+            toast.success("Incident updated successfully!");
+            setIncidents(prev => prev.map(item => item.id === response.id ? response : item));
+            setIsEditModalOpen(false);
+            // fetchData();
+        } catch (error) {
+            toast.error("Failed to update incident");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
-    // Stats
-    const totalLogged = incidentData.length;
-    const heightSafetyViolations = incidentData.filter(i => i.violation_type === "Height Safety").length;
-    const resolvedCases = incidentData.filter(i => i.action_taken !== "").length;
-    const ppeComplianceAvg = Math.round(incidentData.reduce((acc, i) => acc + parseInt(i.ppe_compliance), 0) / (totalLogged || 1));
+    const handleDeleteClick = (id: number) => {
+        setDeleteId(id);
+        setIsDeleteModalOpen(true);
+    };
 
-    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
-    const inputClasses = (error?: string) => `
-        w-full px-4 py-2.5 bg-white border 
-        ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
-        rounded-xl text-sm outline-none transition-all placeholder:text-slate-300
-    `;
+    const handleDeleteConfirm = async () => {
+        if (!deleteId) return;
+        try {
+            await safetyService.deleteIncident(deleteId);
+            toast.success("Incident deleted successfully!");
+            setIncidents(prev => prev.filter(item => item.id !== deleteId));
+            setIsDeleteModalOpen(false);
+            // fetchData();
+        } catch (error) {
+            toast.error("Failed to delete incident");
+        }
+    };
+
+    // ─── RENDER HELPERS ────────────────────────────────────────────────
+
+    const labelClasses = "block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
+    const inputClasses = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all placeholder:text-slate-300";
 
     return (
         <>
-            <Navbar title="Incident Registry" breadcrumb={["Engineer", "Safety", "Lodge Incident"]} />
+            <Navbar title="Safety Management" />
 
-            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter text-slate-800">
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Incident Registry</h1>
-                        <p className="text-slate-500 text-sm">Official logging for site safety violations and injury occurrences.</p>
+                        <h1 className="text-2xl font-black text-slate-900 tracking-tight">Safety Management</h1>
+                        <p className="text-slate-500 text-sm">Track incidents, violations and safety compliance</p>
                     </div>
                     <button
-                        onClick={handleOpenAdd}
-                        className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-rose-600/20 hover:bg-rose-700 transition-all active:scale-95"
+                        type="button"
+                        onClick={() => setIsNewModalOpen(true)}
+                        className="flex items-center justify-center gap-2 px-6 py-2.5 bg-rose-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-rose-600/20 hover:bg-rose-700 transition-all active:scale-95"
                     >
                         <Plus className="w-4 h-4" />
-                        Log Incident
+                        Report Incident
                     </button>
                 </div>
 
-                {/* ── Summary Stats ───────────────────────────── */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                    <StatCard
-                        title="Total Logged"
-                        value={totalLogged.toString()}
-                        sub="Incident Entries"
-                        accent="text-slate-800"
-                        icon={<AlertTriangle className="w-5 h-5" />}
+                {/* ── Stats Row ───────────────────────────────────────────── */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <StatCard 
+                        title="Total Incidents" 
+                        value={stats.total} 
+                        icon={<Activity className="w-5 h-5 text-blue-600" />} 
+                        color="bg-blue-50"
+                        subValue="All Time"
                     />
-                    <StatCard
-                        title="Height Safety"
-                        value={heightSafetyViolations.toString()}
-                        sub="Critical Violations"
-                        accent="text-rose-500"
-                        icon={<ShieldAlert className="w-5 h-5" />}
+                    <StatCard 
+                        title="This Month" 
+                        value={stats.thisMonthCount} 
+                        icon={<Clock className="w-5 h-5 text-amber-600" />} 
+                        color="bg-amber-50"
+                        subValue={new Date().toLocaleString('default', { month: 'long' })}
                     />
-                    <StatCard
-                        title="Resolved"
-                        value={resolvedCases.toString()}
-                        sub="Corrective Actions"
-                        accent="text-emerald-500"
-                        icon={<CheckCircle2 className="w-5 h-5" />}
+                    <StatCard 
+                        title="No Injury" 
+                        value={stats.noInjuryCount} 
+                        icon={<Shield className="w-5 h-5 text-emerald-600" />} 
+                        color="bg-emerald-50"
+                        subValue="Compliance"
                     />
-                    <StatCard
-                        title="PPE Compliance"
-                        value={`${ppeComplianceAvg}%`}
-                        sub="Safety Adherence"
-                        accent="text-blue-500"
-                        icon={<Activity className="w-5 h-5" />}
+                    <StatCard 
+                        title="With Injury" 
+                        value={stats.withInjuryCount} 
+                        icon={<HeartPulse className="w-5 h-5 text-rose-600" />} 
+                        color="bg-rose-50"
+                        subValue="Critical"
                     />
                 </div>
 
                 {/* ── Filter Bar ───────────────────────────────────────────── */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-8">
-                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4">
-                        <div className="relative flex-1 max-w-md">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                                <Search className="w-4 h-4" />
-                            </span>
-                            <input
-                                type="text"
-                                placeholder="Search by description or ID..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/10 focus:border-rose-500 transition-all"
+                <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm mb-8 flex flex-wrap items-center gap-4">
+                    <div className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-xl border border-slate-100 flex-1 min-w-[200px]">
+                        <Search className="w-4 h-4 text-slate-400" />
+                        <select 
+                            value={filterViolationType}
+                            onChange={(e) => setFilterViolationType(e.target.value)}
+                            className="bg-transparent border-none text-xs font-bold text-slate-600 outline-none w-full"
+                        >
+                            <option value="">All Violation Types</option>
+                            {violationTypeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
+                    </div>
+                    <div className="flex items-center gap-4 w-full lg:w-auto">
+                        <div className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-xl border border-slate-100">
+                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                            <input 
+                                type="date" 
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                                className="bg-transparent border-none text-[10px] font-bold text-slate-600 outline-none"
+                            />
+                        </div>
+                        <span className="text-slate-300 text-xs font-bold">TO</span>
+                        <div className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-xl border border-slate-100">
+                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                            <input 
+                                type="date" 
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                                className="bg-transparent border-none text-[10px] font-bold text-slate-600 outline-none"
                             />
                         </div>
                     </div>
-
-                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
-                        <table className="w-full text-left font-inter min-w-[1200px]">
-                            <thead>
-                                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-                                    <th className="px-6 py-4">Incident Details</th>
-                                    <th className="px-6 py-4">Violation Type</th>
-                                    <th className="px-6 py-4">PPE Level</th>
-                                    <th className="px-6 py-4">Auditor</th>
-                                    <th className="px-6 py-4 text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-50">
-                                {filteredHistory.length > 0 ? (
-                                    filteredHistory.map((item) => (
-                                        <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
-                                            <td className="px-6 py-4">
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm font-bold text-slate-800 line-clamp-1">{item.incident_description}</span>
-                                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{item.id} • {item.date}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className="text-xs font-semibold text-rose-600 bg-rose-50 px-2.5 py-1 rounded-lg">
-                                                    {item.violation_type}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className="text-sm font-bold text-slate-800">{item.ppe_compliance}</span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className="text-xs font-medium text-slate-500">{item.responsible_person}</span>
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <div className="flex items-center justify-end gap-2 transition-opacity">
-                                                    <button 
-                                                        onClick={() => setSelectedIncident(item)}
-                                                        className="p-2 bg-rose-600 text-white rounded-xl shadow-lg shadow-rose-600/20 hover:bg-rose-700 transition-all active:scale-95"
-                                                    >
-                                                        <Eye className="w-4 h-4" />
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => handleOpenEdit(item)}
-                                                        className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all"
-                                                    >
-                                                        <Edit2 className="w-4 h-4" />
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => { setIncidentToDelete(item.id); setIsDeleteModalOpen(true); }}
-                                                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan={5} className="px-6 py-20 text-center text-slate-400 italic">
-                                            No incident reports found.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
                 </div>
-            </PageTransition>
 
-            {/* ── Detail Modal ────────────────────────────────── */}
-            <Modal
-                isOpen={!!selectedIncident}
-                onClose={() => setSelectedIncident(null)}
-                title="Incident Intelligence Insight"
-                maxWidth="max-w-xl"
-            >
-                {selectedIncident && (
-                    <div className="p-6 font-inter text-inter italic-none">
-                        {/* ── Profile Style Header ────────────────── */}
-                        <div className="bg-rose-600 rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter">
-                            <div className="relative z-10 flex items-center gap-6 font-inter">
-                                <div className="w-24 h-24 bg-rose-400/30 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/20 relative font-inter">
-                                    <span className="text-4xl font-black font-inter">{selectedIncident.violation_type.charAt(0)}</span>
-                                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-white border-4 border-rose-600 rounded-full flex items-center justify-center">
-                                        <div className="w-2 h-2 bg-rose-600 rounded-full animate-pulse" />
+                {/* ── Incident Cards Grid ─────────────────────────────────── */}
+                {isLoading ? (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-pulse">
+                        {[1, 2, 3, 4].map(i => (
+                            <div key={i} className="h-48 bg-white rounded-[2rem] border border-slate-100"></div>
+                        ))}
+                    </div>
+                ) : incidents.length > 0 ? (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {incidents.map((item) => (
+                            <div key={item.id} className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm hover:shadow-xl hover:scale-[1.01] transition-all group relative">
+                                <div className="flex items-start justify-between mb-4">
+                                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${violationTypeColors[item.violation_type] || 'bg-slate-100 text-slate-500'}`}>
+                                        {item.violation_type}
+                                    </span>
+                                    <div className="flex items-center gap-1.5 text-slate-400">
+                                        <Calendar className="w-3.5 h-3.5" />
+                                        <span className="text-[10px] font-bold uppercase tracking-widest">{item.date}</span>
                                     </div>
                                 </div>
-                                <div className="font-inter">
-                                    <div className="flex items-center gap-3 mb-2 font-inter">
-                                        <h3 className="text-2xl font-black tracking-tight font-inter">Incident Registry</h3>
-                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-black uppercase tracking-widest font-inter">{selectedIncident.violation_type}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
-                                        <Mail className="w-3 h-3" />
-                                        <span className="text-[11px] font-bold font-inter italic-none">incident.ref-{selectedIncident.id.toLowerCase()}@infrapilot.com</span>
-                                    </div>
-                                    <div className="px-3 py-1 bg-white/20 rounded-full inline-block font-inter">
-                                        <span className="text-[10px] font-black uppercase tracking-widest font-inter">OBSERVED: {selectedIncident.date}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
 
-                        <div className="space-y-8 px-2 mb-10 font-inter">
-                            {/* Professional Information style section */}
-                            <div className="font-inter">
-                                <div className="flex items-center gap-2 mb-6 font-inter">
-                                    <div className="p-2 bg-rose-50 rounded-lg font-inter">
-                                        <Briefcase className="w-4 h-4 text-rose-600" />
-                                    </div>
-                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Breach Intelligence</p>
-                                </div>
-                                <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Violation Type</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedIncident.violation_type}</p>
-                                    </div>
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Audit Lead</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedIncident.responsible_person}</p>
-                                    </div>
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Severity Level</p>
-                                        <p className="text-sm font-black text-rose-600 font-inter italic-none">CRITICAL</p>
-                                    </div>
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Case ID</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">CAS-{selectedIncident.id}X</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Contact Details style section */}
-                            <div className="font-inter">
-                                <div className="flex items-center gap-2 mb-6 font-inter">
-                                    <div className="p-2 bg-rose-50 rounded-lg font-inter">
-                                        <Phone className="w-4 h-4 text-rose-600" />
-                                    </div>
-                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Incident Narration</p>
-                                </div>
-                                <div className="grid grid-cols-1 gap-6 font-inter">
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Visual Evidence/Observations</p>
-                                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm text-slate-600 leading-relaxed font-inter italic-none">
-                                            "{selectedIncident.incident_description}"
+                                <div className="mb-4">
+                                    <p className="text-slate-800 text-sm font-semibold line-clamp-2 leading-relaxed mb-3">
+                                        {item.description}
+                                    </p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="flex items-start gap-2">
+                                            <HeartPulse className="w-3.5 h-3.5 text-rose-500 mt-0.5" />
+                                            <div className="flex-1">
+                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Injury Status</p>
+                                                <p className="text-[11px] font-medium text-slate-600 line-clamp-1">{item.injury_details}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-start gap-2">
+                                            <FileText className="w-3.5 h-3.5 text-blue-500 mt-0.5" />
+                                            <div className="flex-1">
+                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Action Taken</p>
+                                                <p className="text-[11px] font-medium text-slate-600 line-clamp-1">{item.action_taken}</p>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* Assignments style section */}
-                            <div className="font-inter">
-                                <div className="flex items-center gap-2 mb-6 font-inter">
-                                    <div className="p-2 bg-emerald-50 rounded-lg font-inter">
-                                        <FileText className="w-4 h-4 text-emerald-600" />
+                                <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <div className="p-1.5 bg-slate-50 rounded-lg">
+                                            <User className="w-3.5 h-3.5 text-slate-400" />
+                                        </div>
+                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{item.responsible_person}</p>
                                     </div>
-                                    <p className="text-[11px] font-black text-emerald-600 uppercase tracking-[0.15em] font-inter">Corrective Action Taken</p>
-                                </div>
-                                <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 text-sm text-emerald-800 font-bold leading-relaxed font-inter italic-none">
-                                    {selectedIncident.action_taken}
+                                    <div className="flex items-center gap-2">
+                                        <button 
+                                            onClick={() => { setSelectedIncident(item); setIsViewModalOpen(true); }}
+                                            className="p-2 bg-slate-50 text-slate-600 rounded-xl hover:bg-blue-50 hover:text-blue-600 transition-all"
+                                            title="View Details"
+                                        >
+                                            <Eye className="w-4 h-4" />
+                                        </button>
+                                        <button 
+                                            onClick={() => handleEditClick(item.id)}
+                                            className="p-2 bg-slate-50 text-slate-600 rounded-xl hover:bg-amber-50 hover:text-amber-600 transition-all"
+                                            title="Edit"
+                                        >
+                                            <Edit2 className="w-4 h-4" />
+                                        </button>
+                                        <button 
+                                            onClick={() => handleDeleteClick(item.id)}
+                                            className="p-2 bg-slate-50 text-slate-600 rounded-xl hover:bg-rose-50 hover:text-rose-600 transition-all"
+                                            title="Delete"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center justify-center py-32 bg-white rounded-[3rem] border border-slate-100 border-dashed">
+                        <div className="p-6 bg-rose-50 rounded-full mb-6">
+                            <ShieldAlert className="w-12 h-12 text-rose-300" />
                         </div>
-
-                        <button 
-                            onClick={() => setSelectedIncident(null)}
-                            className="w-full py-4 bg-rose-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-700 transition-all shadow-lg shadow-rose-600/20 active:scale-95"
+                        <h3 className="text-xl font-bold text-slate-800 mb-2">No incidents reported</h3>
+                        <p className="text-slate-500 mb-8">Maintain a safe workspace by reporting any violations immediately.</p>
+                        <button
+                            onClick={() => setIsNewModalOpen(true)}
+                            className="flex items-center gap-2 px-8 py-3 bg-rose-600 text-white rounded-2xl text-sm font-bold shadow-lg shadow-rose-600/20 hover:bg-rose-700 transition-all active:scale-95"
                         >
-                            Dismiss analysis
+                            <Plus className="w-5 h-5" />
+                            Report Incident
                         </button>
                     </div>
                 )}
-            </Modal>
+            </PageTransition>
 
-            {/* ── Form Modal ────────────────────────────────── */}
+            {/* ── New Incident Modal ─────────────────────────── */}
             <Modal
-                isOpen={isFormModalOpen}
-                onClose={() => setIsFormModalOpen(false)}
-                title={isEditMode ? "Modify Case Registry" : "Lodge Critical Incident"}
-                maxWidth="max-w-4xl"
+                isOpen={isNewModalOpen}
+                onClose={() => setIsNewModalOpen(false)}
+                title="Report New Incident"
+                maxWidth="max-w-2xl"
                 footer={
-                    <>
-                        <button onClick={() => setIsFormModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">
+                    <div className="flex items-center justify-end gap-3 p-4 bg-slate-50/50 rounded-b-3xl">
+                        <button 
+                            onClick={() => setIsNewModalOpen(false)}
+                            className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-white rounded-xl transition-all"
+                        >
                             Cancel
                         </button>
                         <button
-                            form="incident-form"
-                            type="submit"
-                            className="px-8 py-2.5 bg-rose-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-rose-200 hover:bg-rose-700 transition-all active:scale-95"
+                            type="button"
+                            onClick={handleCreateSubmit}
+                            disabled={isSubmitting}
+                            className="px-8 py-2.5 bg-rose-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-rose-600/20 hover:bg-rose-700 transition-all disabled:opacity-50"
                         >
-                            {isEditMode ? "Update Master Registry" : "Finalize Incident Lodge"}
+                            {isSubmitting ? "Reporting..." : "Report Incident"}
                         </button>
-                    </>
+                    </div>
                 }
             >
-                <form id="incident-form" onSubmit={handleSubmit} className="space-y-6">
-                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Registry Metadata</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                            <div>
-                                <label className={labelClasses}>Observation Date <span className="text-rose-500">*</span></label>
-                                <input name="date" type="date" value={formData.date} onChange={handleInputChange} className={inputClasses(errors.date)} />
-                                {errors.date && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.date}</p>}
-                            </div>
-                            <div>
-                                <label className={labelClasses}>Breach Category <span className="text-rose-500">*</span></label>
-                                <select name="violation_type" value={formData.violation_type} onChange={handleInputChange} className={inputClasses(errors.violation_type)}>
-                                    <option value="Height Safety">Height Safety Breach</option>
-                                    <option value="PPE Violation">PPE Non-Compliance</option>
-                                    <option value="Material Handling">Unsafe Material Handling</option>
-                                    <option value="Electrical Hazard">Electrical Hazard</option>
-                                </select>
-                                {errors.violation_type && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.violation_type}</p>}
-                            </div>
-                            <div>
-                                <label className={labelClasses}>Audit Lead <span className="text-rose-500">*</span></label>
-                                <input name="responsible_person" value={formData.responsible_person} onChange={handleInputChange} placeholder="Officer Name" className={inputClasses(errors.responsible_person)} />
-                                {errors.responsible_person && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.responsible_person}</p>}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Field Diagnostics</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                            <div className="md:col-span-2">
-                                <label className={labelClasses}>Incident Narration <span className="text-rose-500">*</span></label>
-                                <textarea name="incident_description" rows={3} value={formData.incident_description} onChange={handleInputChange} placeholder="Technical description of the breach occurrence..." className={`${inputClasses(errors.incident_description)} resize-none`} />
-                                {errors.incident_description && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.incident_description}</p>}
-                            </div>
-                            <div>
-                                <label className={labelClasses}>PPE Compliance (%) <span className="text-rose-500">*</span></label>
-                                <input name="ppe_compliance" value={formData.ppe_compliance} onChange={handleInputChange} placeholder="e.g. 100%" className={inputClasses(errors.ppe_compliance)} />
-                                {errors.ppe_compliance && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.ppe_compliance}</p>}
-                            </div>
-                            <div>
-                                <label className={labelClasses}>Injury Audit <span className="text-rose-500">*</span></label>
-                                <input name="injury_details" value={formData.injury_details} onChange={handleInputChange} placeholder="Specifics or 'None'" className={inputClasses(errors.injury_details)} />
-                                {errors.injury_details && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.injury_details}</p>}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Mitigation Protocol</h3>
+                <div className="p-6 space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label className={labelClasses}>Mitigation Executed <span className="text-rose-500">*</span></label>
-                            <textarea name="action_taken" rows={3} value={formData.action_taken} onChange={handleInputChange} placeholder="Protocol executed to normalize conditions..." className={`${inputClasses(errors.action_taken)} resize-none`} />
-                            {errors.action_taken && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.action_taken}</p>}
+                            <label className={labelClasses}>Incident Date <span className="text-rose-500">*</span></label>
+                            <input name="date" type="date" value={formData.date} onChange={handleInputChange} className={inputClasses} required />
+                        </div>
+                        <div>
+                            <label className={labelClasses}>Violation Type <span className="text-rose-500">*</span></label>
+                            <select name="violation_type" value={formData.violation_type} onChange={handleInputChange} className={inputClasses} required>
+                                {violationTypeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                            </select>
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className={labelClasses}>Incident Description <span className="text-rose-500">*</span></label>
+                            <textarea name="description" rows={3} value={formData.description} onChange={handleInputChange} placeholder="Describe the incident details..." className={`${inputClasses} resize-none`} required />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className={labelClasses}>Injury Details <span className="text-rose-500">*</span></label>
+                            <textarea name="injury_details" rows={2} value={formData.injury_details} onChange={handleInputChange} placeholder="Describe injuries or enter 'No Injury'..." className={`${inputClasses} resize-none`} required />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className={labelClasses}>Action Taken <span className="text-rose-500">*</span></label>
+                            <textarea name="action_taken" rows={2} value={formData.action_taken} onChange={handleInputChange} placeholder="What immediate actions were taken?" className={`${inputClasses} resize-none`} required />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className={labelClasses}>Responsible Person <span className="text-rose-500">*</span></label>
+                            <input name="responsible_person" value={formData.responsible_person} onChange={handleInputChange} placeholder="Enter name" className={inputClasses} required />
                         </div>
                     </div>
-                </form>
+                </div>
+            </Modal>
+
+            {/* ── Edit Incident Modal ────────────────────────── */}
+            <Modal
+                isOpen={isEditModalOpen}
+                onClose={() => setIsEditModalOpen(false)}
+                title="Update Incident Report"
+                maxWidth="max-w-2xl"
+                footer={
+                    <div className="flex items-center justify-end gap-3 p-4 bg-slate-50/50 rounded-b-3xl">
+                        <button onClick={() => setIsEditModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-white rounded-xl transition-all">
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleUpdateSubmit}
+                            disabled={isSubmitting}
+                            className="px-8 py-2.5 bg-rose-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-rose-600/20 hover:bg-rose-700 transition-all disabled:opacity-50"
+                        >
+                            {isSubmitting ? "Updating..." : "Update Incident"}
+                        </button>
+                    </div>
+                }
+            >
+                <div className="p-6 space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label className={labelClasses}>Incident Date <span className="text-rose-500">*</span></label>
+                            <input name="date" type="date" value={formData.date} onChange={handleInputChange} className={inputClasses} required />
+                        </div>
+                        <div>
+                            <label className={labelClasses}>Violation Type <span className="text-rose-500">*</span></label>
+                            <select name="violation_type" value={formData.violation_type} onChange={handleInputChange} className={inputClasses} required>
+                                {violationTypeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                            </select>
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className={labelClasses}>Incident Description <span className="text-rose-500">*</span></label>
+                            <textarea name="description" rows={3} value={formData.description} onChange={handleInputChange} className={`${inputClasses} resize-none`} required />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className={labelClasses}>Injury Details <span className="text-rose-500">*</span></label>
+                            <textarea name="injury_details" rows={2} value={formData.injury_details} onChange={handleInputChange} className={`${inputClasses} resize-none`} required />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className={labelClasses}>Action Taken <span className="text-rose-500">*</span></label>
+                            <textarea name="action_taken" rows={2} value={formData.action_taken} onChange={handleInputChange} className={`${inputClasses} resize-none`} required />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className={labelClasses}>Responsible Person <span className="text-rose-500">*</span></label>
+                            <input name="responsible_person" value={formData.responsible_person} onChange={handleInputChange} className={inputClasses} required />
+                        </div>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* ── View Detail Modal ──────────────────────────── */}
+            <Modal
+                isOpen={isViewModalOpen}
+                onClose={() => setIsViewModalOpen(false)}
+                title="Incident Details"
+                maxWidth="max-w-xl"
+                footer={
+                    <div className="flex items-center justify-end gap-3 p-4">
+                        <button onClick={() => setIsViewModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-all">
+                            Close
+                        </button>
+                        <button 
+                            onClick={() => { setIsViewModalOpen(false); handleEditClick(selectedIncident!.id); }}
+                            className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all"
+                        >
+                            Edit
+                        </button>
+                    </div>
+                }
+            >
+                {selectedIncident && (
+                    <div className="p-6 space-y-8">
+                        <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl">
+                            <div className="relative z-10">
+                                <div className="flex items-center justify-between mb-6">
+                                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${violationTypeColors[selectedIncident.violation_type] || 'bg-white/10 text-white'}`}>
+                                        {selectedIncident.violation_type}
+                                    </span>
+                                    <div className="flex items-center gap-2 opacity-60">
+                                        <Calendar className="w-3 h-3" />
+                                        <span className="text-[10px] font-bold uppercase tracking-widest">{selectedIncident.date}</span>
+                                    </div>
+                                </div>
+                                <h3 className="text-xl font-black tracking-tight mb-2">Safety Violation Logged</h3>
+                                <div className="flex items-center gap-2 text-white/60">
+                                    <User className="w-3.5 h-3.5" />
+                                    <span className="text-xs font-bold">{selectedIncident.responsible_person}</span>
+                                </div>
+                            </div>
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/20 blur-[100px] rounded-full" />
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-8 px-2">
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <AlertCircle className="w-4 h-4 text-rose-500" />
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Description</p>
+                                </div>
+                                <p className="text-sm text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                    {selectedIncident.description}
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-3">
+                                    <div className="flex items-center gap-2">
+                                        <HeartPulse className="w-4 h-4 text-rose-500" />
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Injury Details</p>
+                                    </div>
+                                    <p className="text-sm font-bold text-slate-700">{selectedIncident.injury_details}</p>
+                                </div>
+                                <div className="space-y-3">
+                                    <div className="flex items-center gap-2">
+                                        <FileText className="w-4 h-4 text-blue-500" />
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Action Taken</p>
+                                    </div>
+                                    <p className="text-sm font-bold text-slate-700">{selectedIncident.action_taken}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </Modal>
 
             <ConfirmModal
                 isOpen={isDeleteModalOpen}
                 onClose={() => setIsDeleteModalOpen(false)}
                 onConfirm={handleDeleteConfirm}
-                title="Delete Case"
-                message="Are you sure you want to delete this incident report? This action cannot be undone."
+                title="Confirm Deletion"
+                message="Are you sure you want to delete this incident? This action cannot be undone."
                 confirmText="Delete"
                 type="danger"
             />

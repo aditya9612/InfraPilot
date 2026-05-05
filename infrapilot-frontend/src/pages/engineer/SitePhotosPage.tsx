@@ -6,18 +6,18 @@ import Modal from "../../components/common/Modal";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import UploadPhotoModal from "../../components/forms/UploadPhotoModal";
 import toast from "react-hot-toast";
-import { 
-  Camera, 
-  Tag, 
-  MapPin, 
-  Search, 
-  Trash2,
-  Activity,
-  Filter,
-  Image as ImageIcon,
-  Upload,
-  Eye,
-  Calendar
+import {
+    Camera,
+    Tag,
+    MapPin,
+    Search,
+    Trash2,
+    Activity,
+    Filter,
+    Image as ImageIcon,
+    Upload,
+    Eye,
+    Calendar
 } from "lucide-react";
 
 import { sitePhotoService } from "../../services/sitePhotoService";
@@ -76,26 +76,35 @@ const DEMO_PHOTOS: SitePhoto[] = [
     },
 ];
 
+
+
 const SitePhotosPage = () => {
     const [photos, setPhotos] = useState<SitePhoto[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [filterActivity, setFilterActivity] = useState("All Activities");
     const [filterLocation, setFilterLocation] = useState("All Locations");
-    
+    const [projectId, setProjectId] = useState<number | null>(null);
+
     // Modal States
     const [isUploadOpen, setIsUploadOpen] = useState(false);
     const [selectedPhoto, setSelectedPhoto] = useState<SitePhoto | null>(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [photoToDelete, setPhotoToDelete] = useState<number | null>(null);
 
+    useEffect(() => {
+        // Use project 1 as requested
+        setProjectId(1);
+    }, []);
+
     const fetchPhotos = useCallback(async () => {
         setIsLoading(true);
         try {
             let apiData: SitePhoto[] = [];
             try {
-                const response = await sitePhotoService.getPhotos();
-                apiData = response.items;
+                // Fetch for project 1
+                const response = await sitePhotoService.getPhotos({ project_id: 1 });
+                apiData = response.items || [];
             } catch (err) {
                 console.warn("API unavailable, using demo data.");
             }
@@ -118,9 +127,10 @@ const SitePhotosPage = () => {
 
     const handleUpload = async (formData: FormData) => {
         try {
-            await sitePhotoService.uploadPhoto(formData);
+            const newPhoto = await sitePhotoService.uploadPhoto(formData);
             toast.success("Evidence uploaded successfully!");
-            fetchPhotos();
+            // Prepend new photo to list for immediate visual feedback
+            setPhotos(prev => [newPhoto, ...prev]);
         } catch (error) {
             toast.error("Failed to upload photo");
             throw error;
@@ -167,9 +177,15 @@ const SitePhotosPage = () => {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Photographic Documentation</h1>
-                        <p className="text-slate-500 text-sm italic-none">Maintain a visual ledger of progress milestones and site constraints.</p>
+                        <p className="text-slate-500 text-sm italic-none">
+                            Maintain a visual ledger of progress milestones.
+                            <span className="ml-2 px-2 py-0.5 bg-primary/10 text-primary rounded-md text-[10px] font-black uppercase tracking-widest">
+                                Active Project: {projectId || "Detecting..."}
+                            </span>
+                        </p>
                     </div>
                     <button
+                        type="button"
                         onClick={() => setIsUploadOpen(true)}
                         className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                     >
@@ -229,9 +245,9 @@ const SitePhotosPage = () => {
                         <div className="flex flex-wrap items-center gap-3">
                             <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200">
                                 <Filter className="w-3.5 h-3.5 text-slate-400" />
-                                <select 
-                                    value={filterActivity} 
-                                    onChange={(e) => setFilterActivity(e.target.value)} 
+                                <select
+                                    value={filterActivity}
+                                    onChange={(e) => setFilterActivity(e.target.value)}
                                     className="bg-transparent text-xs font-bold text-slate-600 outline-none cursor-pointer pr-2"
                                 >
                                     <option>All Activities</option>
@@ -240,9 +256,9 @@ const SitePhotosPage = () => {
                             </div>
                             <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200">
                                 <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                                <select 
-                                    value={filterLocation} 
-                                    onChange={(e) => setFilterLocation(e.target.value)} 
+                                <select
+                                    value={filterLocation}
+                                    onChange={(e) => setFilterLocation(e.target.value)}
                                     className="bg-transparent text-xs font-bold text-slate-600 outline-none cursor-pointer pr-2"
                                 >
                                     <option>All Locations</option>
@@ -278,7 +294,7 @@ const SitePhotosPage = () => {
                                                     {photo.activity_tag}
                                                 </span>
                                             </div>
-                                            
+
                                             {/* Action Buttons */}
                                             <div className="absolute bottom-4 right-4 z-10 flex items-center gap-2">
                                                 <button
@@ -303,7 +319,7 @@ const SitePhotosPage = () => {
                                                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">IMG-{photo.id}</span>
                                                 <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest bg-blue-50 px-2.5 py-1 rounded-lg">SITE CAPTURE</span>
                                             </div>
-                                            
+
                                             <p className="text-[14px] font-medium text-slate-600 leading-relaxed line-clamp-3 mb-6 flex-1 italic-none">
                                                 {photo.description}
                                             </p>
@@ -384,7 +400,7 @@ const SitePhotosPage = () => {
                             </div>
                         </div>
 
-                        <button 
+                        <button
                             onClick={() => setSelectedPhoto(null)}
                             className="w-full py-5 bg-primary text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] hover:bg-blue-600 transition-all shadow-xl shadow-primary/20 active:scale-95"
                         >
@@ -395,10 +411,11 @@ const SitePhotosPage = () => {
             </Modal>
 
             {/* ── Form Modal ────────────────────────────────── */}
-            <UploadPhotoModal 
+            <UploadPhotoModal
                 isOpen={isUploadOpen}
                 onClose={() => setIsUploadOpen(false)}
                 onSubmit={handleUpload}
+                projectId={projectId}
             />
 
             <ConfirmModal

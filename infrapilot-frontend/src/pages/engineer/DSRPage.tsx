@@ -7,22 +7,22 @@ import EditDSRModal from "../../components/dashboard/EditDSRModal";
 import Modal from "../../components/common/Modal";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
-import { 
-  FileText, 
-  CheckCircle2, 
-  AlertTriangle, 
-  Activity, 
-  Search, 
-  Plus, 
-  Edit2, 
-  Trash2, 
-  Eye, 
-  Filter,
-  MapPin,
-  AlertCircle,
-  Briefcase,
-  Phone,
-  Mail
+import {
+    FileText,
+    CheckCircle2,
+    AlertTriangle,
+    Activity,
+    Search,
+    Plus,
+    Edit2,
+    Trash2,
+    Eye,
+    Filter,
+    MapPin,
+    AlertCircle,
+    Briefcase,
+    Phone,
+    Mail
 } from "lucide-react";
 
 import { dsrService } from "../../services/dsrService";
@@ -246,9 +246,9 @@ const DSRPage = () => {
                         </div>
                         <div className="flex items-center gap-2 font-inter">
                             <Filter className="w-4 h-4 text-slate-400" />
-                            <select 
-                                value={statusFilter} 
-                                onChange={(e) => setStatusFilter(e.target.value)} 
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
                                 className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none cursor-pointer font-inter"
                             >
                                 <option value="All">All Status</option>
@@ -309,19 +309,19 @@ const DSRPage = () => {
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
                                                     <div className="flex items-center justify-end gap-2 transition-opacity font-inter">
-                                                        <button 
+                                                        <button
                                                             onClick={() => { setSelectedDsr(dsr); setIsDetailOpen(true); }}
                                                             className={`p-2 text-white rounded-xl shadow-lg transition-all active:scale-95 font-inter ${dsr.status ? statusColors[dsr.status] : 'bg-primary'} ${dsr.status ? `shadow-${statusColors[dsr.status].split('-')[1]}/20` : 'shadow-primary/20'}`}
                                                         >
                                                             <Eye className="w-4 h-4" />
                                                         </button>
-                                                        <button 
+                                                        <button
                                                             onClick={() => { setSelectedDsr(dsr); setIsEditOpen(true); }}
                                                             className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
                                                         >
                                                             <Edit2 className="w-4 h-4" />
                                                         </button>
-                                                        <button 
+                                                        <button
                                                             onClick={() => { setDsrToDelete(dsr.id); setIsDeleteOpen(true); }}
                                                             className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"
                                                         >
@@ -458,7 +458,7 @@ const DSRPage = () => {
                             </div>
                         </div>
 
-                        <button 
+                        <button
                             onClick={() => setIsDetailOpen(false)}
                             className={`w-full py-5 ${selectedDsr.status ? statusColors[selectedDsr.status] : 'bg-primary'} text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all shadow-xl active:scale-95 font-inter italic-none`}
                         >
@@ -469,18 +469,18 @@ const DSRPage = () => {
             </Modal>
 
             {/* ── Form Modals ────────────────────────────────── */}
-            <NewDSREntryModal 
-                isOpen={isCreateOpen} 
-                onClose={() => setIsCreateOpen(false)} 
+            <NewDSREntryModal
+                isOpen={isCreateOpen}
+                onClose={() => setIsCreateOpen(false)}
                 onSubmit={handleCreate}
                 projectId={projectId || 1}
             />
 
-            <EditDSRModal 
-                isOpen={isEditOpen} 
-                onClose={() => setIsEditOpen(false)} 
-                onSubmit={handleUpdate} 
-                dsr={selectedDsr} 
+            <EditDSRModal
+                isOpen={isEditOpen}
+                onClose={() => setIsEditOpen(false)}
+                onSubmit={handleUpdate}
+                dsr={selectedDsr}
             />
 
 

@@ -18,11 +18,14 @@ export const issueService = {
 
     /**
      * Get Lists Issues By Project ID
-     * GET /api/v1/issues/project/{project_id}
+     * GET /api/v1/issues?project_id=36
      */
     async listIssuesByProject(project_id: number, params?: any): Promise<IssueResponse> {
         try {
-            const response = await api.get(`/issues/project/${project_id}`, { params });
+            const activeProjectId = project_id || 36;
+            const response = await api.get(`/issues`, { 
+                params: { ...params, project_id: activeProjectId } 
+            });
             return response.data;
         } catch (error: any) {
             console.error("List Issues By Project API Error:", error.response?.data || error.message);
@@ -46,12 +49,15 @@ export const issueService = {
 
     /**
      * Create Issue
-     * POST /api/v1/issues
+     * POST /api/v1/issues?project_id=36
      */
     async createIssue(data: CreateIssueRequest): Promise<IssueItem> {
         try {
             console.log("Creating Issue with payload:", data);
-            const response = await api.post("/issues", data);
+            const { project_id, ...payload } = data;
+            const response = await api.post("/issues", payload, {
+                params: { project_id: 36 }
+            });
             return response.data;
         } catch (error: any) {
             console.error("Create Issue API Error:", error.response?.data || error.message);
@@ -61,11 +67,13 @@ export const issueService = {
 
     /**
      * Update Issue By ID
-     * PUT /api/v1/issues/{id}
+     * PUT /api/v1/issues/{id}?project_id=36
      */
     async updateIssue(id: number, data: UpdateIssueRequest): Promise<IssueItem> {
         try {
-            const response = await api.put(`/issues/${id}`, data);
+            const response = await api.put(`/issues/${id}`, data, {
+                params: { project_id: 36 }
+            });
             return response.data;
         } catch (error: any) {
             console.error(`Update Issue ${id} API Error:`, error.response?.data || error.message);

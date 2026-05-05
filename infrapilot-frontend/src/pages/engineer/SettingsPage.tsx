@@ -1,9 +1,15 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
-import { useAuth } from "../../context/AuthContext";
 import { Upload, Trash2, User } from "lucide-react";
 import toast from "react-hot-toast";
+import { settingsService } from "../../services/settingsService";
+import type { 
+    UserSettings, 
+    UserProfile, 
+    UpdateSettingsRequest, 
+    UpdateProfileRequest 
+} from "../../types/settings";
 
 // ─── Toggle Switch ──────────────────────────────────────────────────────────────
 
@@ -42,23 +48,79 @@ const SectionHeader = ({
     </div>
 );
 
-const formatMobile = (value: string) => {
-    let digits = value.replace(/\D/g, "");
-    if (digits.startsWith("91")) {
-        digits = digits.slice(2);
-    }
-    digits = digits.slice(0, 10);
-    return digits ? `+91 ${digits}` : "";
-};
-
 // ─── Main Component ─────────────────────────────────────────────────────────────
 
 const SettingsPage = () => {
-    const { user } = useAuth();
     const [isSaving, setIsSaving] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    
+    // ── Profile State ───────────────────────────────────────────────────
+    const [profile, setProfile] = useState<UserProfile | null>(null);
     const [profileImage, setProfileImage] = useState<string | null>(null);
-    const [mobile, setMobile] = useState(user?.mobile || "+91 9876543210");
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // ── Settings State ──────────────────────────────────────────────────
+    const [settings, setSettings] = useState<UserSettings | null>(null);
+    const [selectedProject, setSelectedProject] = useState<number | null>(null);
+    const [unitSystem, setUnitSystem] = useState("Metric");
+    const [massUnit, setMassUnit] = useState("Kg");
+    const [lengthUnit, setLengthUnit] = useState("Meter");
+    const [notifications, setNotifications] = useState({
+        emailAlerts: true,
+        smsAlerts: false,
+        pushNotifications: true,
+        dsrReminders: true,
+        issueAlerts: true,
+        materialAlerts: false,
+    });
+    const [preferences, setPreferences] = useState({
+        autoSave: true,
+        compactView: false,
+        showWeather: true,
+        showGPS: true,
+    });
+
+    const [language, setLanguage] = useState("English");
+    const [timezone, setTimezone] = useState("IST (UTC+5:30)");
+    const [dateFormat, setDateFormat] = useState("DD/MM/YYYY");
+    
+    // Financial & Unit Settings
+    const [financialYear, setFinancialYear] = useState("2025-26");
+    const [currency, setCurrency] = useState("INR");
+
+    // ─── DATA FETCHING ──────────────────────────────────────────────────
+
+    const fetchData = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const [settingsRes, profileRes] = await Promise.all([
+                settingsService.getSettings(),
+                settingsService.getProfile()
+            ]);
+
+            setSettings(settingsRes);
+            setProfile(profileRes);
+            
+            // Map Settings
+            setSelectedProject(settingsRes.default_project_id);
+            setLengthUnit(settingsRes.unit || "Meter");
+            setFinancialYear(settingsRes.financial_year || "2025-26");
+            setCurrency(settingsRes.currency || "INR");
+            
+            // Map Profile
+            setProfileImage(profileRes.profile_image);
+
+        } catch (error) {
+            console.error("Failed to fetch settings/profile", error);
+            toast.error("Failed to sync account settings");
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
 
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -75,39 +137,14 @@ const SettingsPage = () => {
         toast.success("Profile photo removed.");
     };
 
-    // ── 1. Project Selection ─────────────────────────────────────────────
-    const [selectedProject, setSelectedProject] = useState("Skyline Tower A");
-    const projects = [
-        "Skyline Tower A",
-        "Grand Residency Phase 1",
-        "Metro Station – Zone A",
-        "Industrial Shed Extension",
-        "Riverside Commercial Complex",
-    ];
-
-    // ── 2. Units ─────────────────────────────────────────────────────────
-    const [unitSystem, setUnitSystem] = useState("Metric");
-    const [massUnit, setMassUnit] = useState("Kg");
-    const [lengthUnit, setLengthUnit] = useState("Meter");
-
     const unitOptions = {
         system: ["Metric", "Imperial"],
         mass: ["Kg", "Ton", "Lbs"],
         length: ["Meter", "Feet", "Inch", "Cm"],
     };
 
-    // ── 3. Notification Settings ─────────────────────────────────────────
-    const [notifications, setNotifications] = useState({
-        emailAlerts: true,
-        smsAlerts: false,
-        pushNotifications: true,
-        dsrReminders: true,
-        issueAlerts: true,
-        materialAlerts: false,
-    });
-
     const toggleNotif = (key: keyof typeof notifications) => {
-        setNotifications(prev => ({ ...prev, [key]: !prev[key] }));
+        setNotifications((prev: typeof notifications) => ({ ...prev, [key]: !prev[key] }));
     };
 
     const notifItems = [
@@ -119,20 +156,8 @@ const SettingsPage = () => {
         { key: "materialAlerts" as const, label: "Material Alerts", desc: "Low stock threshold notifications", icon: "🏗️" },
     ];
 
-    // ── 4. User Preferences ──────────────────────────────────────────────
-    const [preferences, setPreferences] = useState({
-        autoSave: true,
-        compactView: false,
-        showWeather: true,
-        showGPS: true,
-    });
-
-    const [language, setLanguage] = useState("English");
-    const [timezone, setTimezone] = useState("IST (UTC+5:30)");
-    const [dateFormat, setDateFormat] = useState("DD/MM/YYYY");
-
     const togglePref = (key: keyof typeof preferences) => {
-        setPreferences(prev => ({ ...prev, [key]: !prev[key] }));
+        setPreferences((prev: typeof preferences) => ({ ...prev, [key]: !prev[key] }));
     };
 
     const prefItems = [
@@ -142,15 +167,77 @@ const SettingsPage = () => {
         { key: "showGPS" as const, label: "Auto GPS Capture", desc: "Capture GPS on DSR form open" },
     ];
 
-    // ── Save ─────────────────────────────────────────────────────────────
-    const handleSave = () => {
-        setIsSaving(true);
-        toast.loading("Saving settings…", { id: "settings-save" });
-        setTimeout(() => {
-            toast.success("Settings saved successfully!", { id: "settings-save" });
-            setIsSaving(false);
-        }, 1400);
+    const projects = [
+        { id: 36, name: "Project 36 - Main Site" },
+        { id: 101, name: "Skyline Tower A" },
+        { id: 102, name: "Grand Residency Phase 1" },
+    ];
+
+    const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        const { name, value } = e.target;
+        if (!profile) return;
+        setProfile({ ...profile, [name]: value } as UserProfile);
     };
+
+    // ── Save ─────────────────────────────────────────────────────────────
+    const handleSave = async () => {
+        if (!profile || !settings) return;
+        
+        setIsSaving(true);
+        const toastId = toast.loading("Saving changes…");
+        try {
+            // 1. Prepare Settings Update
+            const settingsData: UpdateSettingsRequest = {
+                default_project_id: selectedProject,
+                unit: lengthUnit,
+                notifications_enabled: notifications.emailAlerts || notifications.pushNotifications,
+                preferences: { ...preferences, language, timezone, dateFormat },
+                financial_year: financialYear,
+                currency: currency,
+                tax_settings: settings.tax_settings || {},
+                invoice_format: settings.invoice_format || "standard",
+                payment_terms: settings.payment_terms || "30 days"
+            };
+
+            // 2. Prepare Profile Update
+            const profileData: UpdateProfileRequest = {
+                full_name: profile.full_name,
+                role: profile.role,
+                mobile_number: profile.mobile_number,
+                email: profile.email,
+                address: profile.address,
+                pan_number: profile.pan_number,
+                aadhaar_number: profile.aadhaar_number,
+                designation: profile.designation,
+                joining_date: profile.joining_date,
+                is_active: profile.is_active
+            };
+
+            await Promise.all([
+                settingsService.updateSettings(settingsData),
+                settingsService.updateProfile(profileData)
+            ]);
+
+            toast.success("Account settings updated!", { id: toastId });
+            fetchData();
+        } catch (error) {
+            console.error("Save Settings Error:", error);
+            toast.error("Failed to save changes", { id: toastId });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-slate-50">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Loading Configuration...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <>
@@ -237,7 +324,7 @@ const SettingsPage = () => {
                                         {profileImage ? (
                                             <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
                                         ) : (
-                                            user?.name?.charAt(0) || "U"
+                                            profile?.full_name?.charAt(0) || "U"
                                         )}
                                     </div>
                                     <button 
@@ -271,24 +358,29 @@ const SettingsPage = () => {
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Full Name</label>
                                         <input 
                                             type="text" 
-                                            defaultValue={user?.name} 
+                                            name="full_name"
+                                            value={profile?.full_name || ""} 
+                                            onChange={handleProfileChange}
                                             className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1.5">
-                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Role</label>
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Designation</label>
                                         <input 
                                             type="text" 
-                                            value={user?.role} 
-                                            disabled
-                                            className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-sm font-semibold text-slate-500 cursor-not-allowed capitalize"
+                                            name="designation"
+                                            value={profile?.designation || ""} 
+                                            onChange={handleProfileChange}
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1.5">
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Email Address</label>
                                         <input 
                                             type="email" 
-                                            defaultValue={`${user?.name?.toLowerCase().replace(/\s/g, '.')}@infrapilot.com`} 
+                                            name="email"
+                                            value={profile?.email || ""} 
+                                            onChange={handleProfileChange}
                                             className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                         />
                                     </div>
@@ -296,9 +388,39 @@ const SettingsPage = () => {
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Mobile Number</label>
                                         <input 
                                             type="tel" 
-                                            value={mobile}
-                                            onChange={(e) => setMobile(formatMobile(e.target.value))}
-                                            placeholder="+91 0000000000"
+                                            name="mobile_number"
+                                            value={profile?.mobile_number || ""}
+                                            onChange={handleProfileChange}
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">PAN Number</label>
+                                        <input 
+                                            type="text" 
+                                            name="pan_number"
+                                            value={profile?.pan_number || ""} 
+                                            onChange={handleProfileChange}
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Aadhaar Number</label>
+                                        <input 
+                                            type="text" 
+                                            name="aadhaar_number"
+                                            value={profile?.aadhaar_number || ""} 
+                                            onChange={handleProfileChange}
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5 sm:col-span-2">
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Address</label>
+                                        <input 
+                                            type="text" 
+                                            name="address"
+                                            value={profile?.address || ""} 
+                                            onChange={handleProfileChange}
                                             className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                         />
                                     </div>
@@ -324,12 +446,13 @@ const SettingsPage = () => {
                                     Active Project
                                 </label>
                                 <select
-                                    value={selectedProject}
-                                    onChange={e => setSelectedProject(e.target.value)}
+                                    value={selectedProject || ""}
+                                    onChange={e => setSelectedProject(Number(e.target.value))}
                                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none cursor-pointer"
                                 >
+                                    <option value="">Select Project</option>
                                     {projects.map(p => (
-                                        <option key={p} value={p}>{p}</option>
+                                        <option key={p.id} value={p.id}>{p.name}</option>
                                     ))}
                                 </select>
                             </div>
@@ -338,18 +461,18 @@ const SettingsPage = () => {
                             <div className="space-y-2 mt-2">
                                 {projects.map(p => (
                                     <button
-                                        key={p}
-                                        onClick={() => setSelectedProject(p)}
-                                        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold transition-all ${selectedProject === p
+                                        key={p.id}
+                                        onClick={() => setSelectedProject(p.id)}
+                                        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold transition-all ${selectedProject === p.id
                                             ? "bg-blue-50 border-blue-200 text-blue-700"
                                             : "bg-slate-50 border-slate-100 text-slate-600 hover:border-slate-200"
                                             }`}
                                     >
                                         <span className="flex items-center gap-2.5">
-                                            <span className={`w-2 h-2 rounded-full ${selectedProject === p ? "bg-blue-500" : "bg-slate-300"}`} />
-                                            {p}
+                                            <span className={`w-2 h-2 rounded-full ${selectedProject === p.id ? "bg-blue-500" : "bg-slate-300"}`} />
+                                            {p.name}
                                         </span>
-                                        {selectedProject === p && (
+                                        {selectedProject === p.id && (
                                             <span className="text-[9px] font-bold text-blue-500 uppercase tracking-widest">Active</span>
                                         )}
                                     </button>

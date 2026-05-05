@@ -13,23 +13,10 @@ export const paymentService = {
      * POST /api/v1/payments/salary
      */
     async paySalary(payload: SalaryPaymentPayload): Promise<Payment> {
-        try {
-            const response = await api.post<Payment>("/payments/salary", payload);
-            return response.data;
-        } catch (err) {
-            console.log("paymentService: Salary payment failed. Using demo fallback.");
-            return {
-                id: Math.floor(Math.random() * 1000),
-                labour_id: payload.labour_id,
-                worker_name: "Ramesh Kumar",
-                contractor_name: "Universal Construction",
-                amount: payload.payment_amount,
-                payment_type: 'salary',
-                payment_method: payload.payment_method,
-                status: 'paid',
-                payment_date: new Date().toISOString()
-            };
-        }
+        console.log("POST /api/v1/labour/payments/salary Request Body:", payload);
+        const response = await api.post<Payment>("/labour/payments/salary", payload);
+        console.log("POST /api/v1/labour/payments/salary Raw Response Body:", response.data);
+        return response.data;
     },
 
     /**
@@ -37,143 +24,95 @@ export const paymentService = {
      * POST /api/v1/payments/advance
      */
     async requestAdvance(payload: AdvanceRequestPayload): Promise<AdvanceRequest> {
-        try {
-            const response = await api.post<AdvanceRequest>("/payments/advance", payload);
-            return response.data;
-        } catch (err) {
-            console.log("paymentService: Advance request failed. Using demo fallback.");
-            return {
-                id: Math.floor(Math.random() * 1000),
-                labour_id: payload.labour_id,
-                worker_name: "Suresh Yadav",
-                advance_amount: payload.advance_amount,
-                reason: payload.reason,
-                status: 'pending'
-            };
-        }
+        console.log("POST /api/v1/labour/payments/advance Request Body:", payload);
+        const response = await api.post<AdvanceRequest>("/labour/payments/advance", payload);
+        console.log("POST /api/v1/labour/payments/advance Raw Response Body:", response.data);
+        return response.data;
     },
 
-    /**
-     * Get payment history
-     * GET /api/v1/payments/history
-     */
     async getPaymentHistory(params?: any): Promise<Payment[]> {
-        try {
-            const response = await api.get<Payment[]>("/payments/history", { params });
-            return response.data;
-        } catch (err) {
-            return [
-                {
-                    id: 1,
-                    labour_id: 1,
-                    worker_name: "Ramesh Kumar",
-                    contractor_name: "Universal Construction",
-                    amount: 12000,
-                    payment_type: 'salary',
-                    payment_method: 'UPI',
-                    status: 'paid',
-                    payment_date: "2026-04-25"
-                },
-                {
-                    id: 2,
-                    labour_id: 2,
-                    worker_name: "Suresh Yadav",
-                    contractor_name: "Modern Builders",
-                    amount: 3000,
-                    payment_type: 'advance',
-                    payment_method: 'Cash',
-                    status: 'paid',
-                    payment_date: "2026-04-20"
-                }
-            ];
-        }
+        console.log("GET /api/v1/labour/payments Request Params:", params);
+        const response = await api.get<Payment[]>("/labour/payments", { params });
+        console.log("GET /api/v1/labour/payments Raw Response Body:", response.data);
+        return response.data;
     },
 
     /**
      * Get pending dues report
      * GET /api/v1/payments/pending
      */
-    async getPendingDues(): Promise<any[]> {
-        try {
-            const response = await api.get("/payments/pending");
-            return response.data;
-        } catch (err) {
-            return [
-                { contractor_name: "Universal Construction", total_due: 45000, paid_amount: 30000, pending_amount: 15000, last_payment_date: "2026-04-22" },
-                { contractor_name: "Modern Builders", total_due: 28000, paid_amount: 20000, pending_amount: 8000, last_payment_date: "2026-04-18" }
-            ];
-        }
+    async getPendingDues(params?: any): Promise<any[]> {
+        console.log("GET /api/v1/labour/pending Request Params:", params);
+        const response = await api.get("/labour/pending", { params });
+        console.log("GET /api/v1/labour/pending Raw Response Body:", response.data);
+        return response.data;
     },
 
     /**
-     * Get Daily Payroll
-     * GET /api/v1/payments/payroll/daily
+     * Get Daily Payroll Report
+     * GET /api/v1/labour/report/daily
      */
-    async getDailyPayroll(): Promise<PayrollReport[]> {
-        try {
-            const response = await api.get("/payments/payroll/daily");
-            return response.data;
-        } catch (err) {
-            return [{ date: "2026-04-26", total_wages: 8500, overtime_wages: 1200, total_payout: 9700 }];
-        }
+    async getDailyPayroll(projectId?: number | string): Promise<PayrollReport[]> {
+        console.log(`GET /api/v1/labour/report/daily?project_id=${projectId}`);
+        const response = await api.get("/labour/report/daily", {
+            params: { project_id: projectId }
+        });
+        console.log("GET /api/v1/labour/report/daily Raw Response Body:", response.data);
+        return response.data;
     },
 
     /**
-     * Get Weekly Payroll
-     * GET /api/v1/payments/payroll/weekly
+     * Get Weekly Payroll Report
+     * GET /api/v1/labour/report/weekly
      */
-    async getWeeklyPayroll(): Promise<PayrollReport[]> {
-        try {
-            const response = await api.get("/payments/payroll/weekly");
-            return response.data;
-        } catch (err) {
-            return [{ week: "Week 17", total_wages: 58000, overtime_wages: 4500, total_payout: 62500, attendance_summary: "Avg 42 Present/Day" }];
-        }
+    async getWeeklyPayroll(projectId?: number | string): Promise<PayrollReport[]> {
+        console.log(`GET /api/v1/labour/report/weekly?project_id=${projectId}`);
+        const response = await api.get("/labour/report/weekly", {
+            params: { project_id: projectId }
+        });
+        console.log("GET /api/v1/labour/report/weekly Raw Response Body:", response.data);
+        return response.data;
     },
 
     /**
-     * Get Monthly Payroll
-     * GET /api/v1/payments/payroll/monthly
+     * Get Monthly Payroll Report
+     * GET /api/v1/labour/report/monthly
      */
-    async getMonthlyPayroll(): Promise<PayrollReport[]> {
-        try {
-            const response = await api.get("/payments/payroll/monthly");
-            return response.data;
-        } catch (err) {
-            return [{ month: "April 2026", total_wages: 245000, overtime_wages: 18000, total_payout: 263000, attendance_summary: "92% Occupancy" }];
-        }
+    async getMonthlyPayroll(projectId?: number | string): Promise<PayrollReport[]> {
+        console.log(`GET /api/v1/labour/report/monthly?project_id=${projectId}`);
+        const response = await api.get("/labour/report/monthly", {
+            params: { project_id: projectId }
+        });
+        console.log("GET /api/v1/labour/report/monthly Raw Response Body:", response.data);
+        return response.data;
     },
 
     /**
      * Export Payroll to Excel
-     * GET /api/v1/payments/export
+     * GET /api/v1/labour/report/payroll/export
      */
     async exportPayroll(filters?: any): Promise<Blob> {
-        try {
-            const response = await api.get("/payments/export", {
-                params: filters,
-                responseType: 'blob'
-            });
-            return response.data;
-        } catch (err) {
-            return new Blob(["Mock Payroll Export Content"], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-        }
+        console.log("GET /api/v1/labour/report/payroll/export Request Params:", filters);
+        const response = await api.get("/labour/report/payroll/export", {
+            params: filters,
+            responseType: 'blob'
+        });
+        console.log("Payroll Excel Export Success: 200 OK");
+        return response.data;
     },
 
     /**
      * Export Payroll to PDF
-     * GET /api/v1/payments/export/pdf
+     * GET /api/v1/labour/report/payroll/export/pdf
      */
     async exportPayrollPDF(filters?: any): Promise<Blob> {
-        try {
-            const response = await api.get("/payments/export/pdf", {
-                params: filters,
-                responseType: 'blob'
-            });
-            return response.data;
-        } catch (err) {
-            return new Blob(["Mock Payroll PDF Content"], { type: "application/pdf" });
-        }
+        console.log("GET /api/v1/labour/report/payroll/export/pdf Request Params:", filters);
+        const response = await api.get("/labour/report/payroll/export/pdf", {
+            params: filters,
+            responseType: 'blob'
+        });
+        console.log("Payroll PDF Export Success: 200 OK");
+        return response.data;
     }
 };
 
