@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Modal from "../common/Modal";
 import type { CreateDsrRequest } from "../../types/dsr";
 import toast from "react-hot-toast";
+import { X as XIcon, Upload } from "lucide-react";
 
 interface NewDSREntryModalProps {
   isOpen: boolean;
@@ -39,9 +40,12 @@ const NewDSREntryModal = ({
   const [gpsStatus, setGpsStatus] = useState<
     "idle" | "capturing" | "captured" | "error"
   >("idle");
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setFormData((prev) => ({ ...prev, project_id: projectId }));
+    setFormData((prev: CreateDsrRequest) => ({ ...prev, project_id: projectId }));
   }, [projectId]);
 
   useEffect(() => {
@@ -56,18 +60,18 @@ const NewDSREntryModal = ({
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const { latitude, longitude } = pos.coords;
-          setFormData((prev) => ({ ...prev, latitude, longitude }));
+          setFormData((prev: CreateDsrRequest) => ({ ...prev, latitude, longitude }));
           setGpsStatus("captured");
         },
         () => {
-          setFormData((prev) => ({ ...prev, latitude: 18.5204, longitude: 73.8567 }));
+          setFormData((prev: CreateDsrRequest) => ({ ...prev, latitude: 18.5204, longitude: 73.8567 }));
           setGpsStatus("error");
           toast.error("GPS unavailable. Using default location.");
         },
         { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 }
       );
     } else {
-      setFormData((prev) => ({ ...prev, latitude: 18.5204, longitude: 73.8567 }));
+      setFormData((prev: CreateDsrRequest) => ({ ...prev, latitude: 18.5204, longitude: 73.8567 }));
       setGpsStatus("error");
     }
   };
@@ -78,9 +82,9 @@ const NewDSREntryModal = ({
     >
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev: CreateDsrRequest) => ({ ...prev, [name]: value }));
     if (errors[name]) {
-      setErrors((prev) => {
+      setErrors((prev: Record<string, string>) => {
         const { [name]: _, ...rest } = prev;
         return rest;
       });
@@ -113,7 +117,7 @@ const NewDSREntryModal = ({
     if (!validate()) return;
     setIsLoading(true);
     try {
-      await onSubmit(formData);
+      await onSubmit({ ...formData, dsr_image: photoFile });
     } catch (error) {
       console.error("DSR creation error:", error);
     } finally {
@@ -158,6 +162,73 @@ const NewDSREntryModal = ({
       maxWidth="max-w-4xl"
     >
       <form id="dsr-form" onSubmit={handleSubmit} noValidate className="space-y-6">
+        {/* Site Photo Section */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 flex items-center justify-between">
+            Site Documentation
+            {photoPreview && (
+              <button 
+                type="button" 
+                onClick={() => { setPhotoFile(null); setPhotoPreview(null); }}
+                className="text-rose-500 hover:text-rose-600 transition-colors"
+              >
+                <XIcon className="w-4 h-4" />
+              </button>
+            )}
+          </h3>
+          
+          <div className="flex flex-col items-center justify-center">
+            {photoPreview ? (
+              <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-slate-100 shadow-sm group">
+                <img src={photoPreview} alt="Site" className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
+                  <button 
+                    type="button" 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-6 py-2 bg-white text-slate-800 rounded-xl text-xs font-bold shadow-xl active:scale-95 transition-all"
+                  >
+                    Change Photo
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="w-full flex flex-col items-center gap-6">
+                  <input 
+                      type="file" 
+                      ref={fileInputRef}
+                      className="hidden" 
+                      accept="image/*"
+                      onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                              setPhotoFile(file);
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                  setPhotoPreview(reader.result as string);
+                              };
+                              reader.readAsDataURL(file);
+                              toast.success("Image uploaded successfully!");
+                          }
+                      }}
+                  />
+                  <button 
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full py-12 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-4 bg-slate-50/50 hover:bg-slate-50 hover:border-primary/50 transition-all group"
+                  >
+                      <div className="p-4 bg-white rounded-full shadow-sm text-slate-400 group-hover:text-primary group-hover:scale-110 transition-all">
+                          <Upload className="w-8 h-8" />
+                      </div>
+                      <div className="text-center">
+                          <p className="text-sm font-bold text-slate-600">Upload Site Progress Photo</p>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Select from your device gallery</p>
+                      </div>
+                  </button>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Basic Info */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
           <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">

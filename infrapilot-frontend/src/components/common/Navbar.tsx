@@ -212,14 +212,28 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
               </div>
               <div className="p-2 space-y-1">
                 <button 
-                  onClick={() => { setIsProfileOpen(false); navigate("/admin/settings"); }}
+                  onClick={() => { 
+                    setIsProfileOpen(false); 
+                    const settingsPath = user?.role === "Admin" ? "/admin/settings" : 
+                                       user?.role === "SiteEngineer" ? "/engineer/settings" : 
+                                       user?.role === "Client" ? "/client/settings" : 
+                                       user?.role === "Accountant" ? "/accountant/settings" : "/admin/settings";
+                    navigate(`${settingsPath}#profile`); 
+                  }}
                   className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 hover:text-primary transition-colors"
                 >
                   <UserIcon className="w-4 h-4" />
                   My Profile
                 </button>
                 <button 
-                  onClick={() => { setIsProfileOpen(false); navigate("/admin/settings"); }}
+                  onClick={() => { 
+                    setIsProfileOpen(false); 
+                    const settingsPath = user?.role === "Admin" ? "/admin/settings" : 
+                                       user?.role === "SiteEngineer" ? "/engineer/settings" : 
+                                       user?.role === "Client" ? "/client/settings" : 
+                                       user?.role === "Accountant" ? "/accountant/settings" : "/admin/settings";
+                    navigate(settingsPath); 
+                  }}
                   className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 hover:text-primary transition-colors"
                 >
                   <Settings className="w-4 h-4" />

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useLocation } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import { Upload, Trash2, User } from "lucide-react";
@@ -62,6 +63,16 @@ const SettingsPage = () => {
     // ── Settings State ──────────────────────────────────────────────────
     const [settings, setSettings] = useState<UserSettings | null>(null);
     const [selectedProject, setSelectedProject] = useState<number | null>(null);
+    const location = useLocation();
+
+    useEffect(() => {
+        if (location.hash === "#profile") {
+            const element = document.getElementById("profile");
+            if (element) {
+                element.scrollIntoView({ behavior: "smooth" });
+            }
+        }
+    }, [location]);
     const [unitSystem, setUnitSystem] = useState("Metric");
     const [massUnit, setMassUnit] = useState("Kg");
     const [lengthUnit, setLengthUnit] = useState("Meter");
@@ -314,7 +325,7 @@ const SettingsPage = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
                     {/* ─ 0. Profile & Account ──────────────────────────────── */}
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 lg:col-span-2">
+                    <div id="profile" className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 lg:col-span-2">
                         <SectionHeader
                             title="Profile & Account"
                             icon={<User className="w-4 h-4" />}

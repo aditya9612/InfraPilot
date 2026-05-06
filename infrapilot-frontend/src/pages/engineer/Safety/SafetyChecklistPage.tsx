@@ -66,7 +66,9 @@ const SafetyChecklistPage = () => {
         description: "",
         injury_details: "",
         action_taken: "",
-        responsible_person: ""
+        responsible_person: "",
+        safety_checklist_status: "Completed",
+        ppe_compliance: true
     });
 
     // ─── PROJECT RESOLUTION ─────────────────────────────────────────────
@@ -126,15 +128,19 @@ const SafetyChecklistPage = () => {
             const matchesSearch = item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 item.responsible_person.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 item.violation_type.toLowerCase().includes(searchTerm.toLowerCase());
-            return matchesSearch;
+            
+            const matchesViolationType = !filterViolationType || item.violation_type === filterViolationType;
+
+            return matchesSearch && matchesViolationType;
         });
-    }, [incidentList, searchTerm]);
+    }, [incidentList, searchTerm, filterViolationType]);
 
     // ─── HANDLERS ──────────────────────────────────────────────────────
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        setFormData((prev: CreateSafetyRequest) => ({ ...prev, [name]: value }));
+        const { name, value, type } = e.target;
+        const val = type === "checkbox" ? (e.target as HTMLInputElement).checked : value;
+        setFormData((prev: CreateSafetyRequest) => ({ ...prev, [name]: val }));
     };
 
     const handleCreateSubmit = async (e?: React.BaseSyntheticEvent) => {
@@ -158,7 +164,9 @@ const SafetyChecklistPage = () => {
                 description: "",
                 injury_details: "",
                 action_taken: "",
-                responsible_person: ""
+                responsible_person: "",
+                safety_checklist_status: "Completed",
+                ppe_compliance: true
             });
         } catch (error) {
             toast.error("Failed to create safety incident");
@@ -188,7 +196,9 @@ const SafetyChecklistPage = () => {
                 description: incident.description,
                 injury_details: incident.injury_details || "",
                 action_taken: incident.action_taken,
-                responsible_person: incident.responsible_person
+                responsible_person: incident.responsible_person,
+                safety_checklist_status: incident.safety_checklist_status || "Completed",
+                ppe_compliance: incident.ppe_compliance ?? true
             });
             setIsEditModalOpen(true);
         } catch (error) {
@@ -462,20 +472,43 @@ const SafetyChecklistPage = () => {
                         </div>
                         <div>
                             <label className={labelClasses}>Violation Type <span className="text-rose-500">*</span></label>
-                            <select 
-                                name="violation_type" 
-                                value={formData.violation_type} 
-                                onChange={handleInputChange} 
-                                className={inputClasses}
-                            >
-                                <option value="No Helmet">No Helmet</option>
-                                <option value="Unsafe Equipment Usage">Unsafe Equipment Usage</option>
-                                <option value="No Safety Harness">No Safety Harness</option>
-                                <option value="Unsafe Scaffolding">Unsafe Scaffolding</option>
-                                <option value="Fire Hazard">Fire Hazard</option>
-                                <option value="Electrical Hazard">Electrical Hazard</option>
-                            </select>
-                        </div>
+                                <select 
+                                    name="violation_type" 
+                                    value={formData.violation_type} 
+                                    onChange={handleInputChange} 
+                                    className={inputClasses}
+                                >
+                                    <option value="No Helmet">No Helmet</option>
+                                    <option value="Unsafe Equipment Usage">Unsafe Equipment Usage</option>
+                                    <option value="No Safety Harness">No Safety Harness</option>
+                                    <option value="Unsafe Scaffolding">Unsafe Scaffolding</option>
+                                    <option value="Fire Hazard">Fire Hazard</option>
+                                    <option value="Electrical Hazard">Electrical Hazard</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className={labelClasses}>Checklist Status <span className="text-rose-500">*</span></label>
+                                <select 
+                                    name="safety_checklist_status" 
+                                    value={formData.safety_checklist_status} 
+                                    onChange={handleInputChange} 
+                                    className={inputClasses}
+                                >
+                                    <option value="Completed">Completed</option>
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="Pending">Pending</option>
+                                </select>
+                            </div>
+                            <div className="flex items-center gap-3 pt-6">
+                                <input 
+                                    name="ppe_compliance" 
+                                    type="checkbox"
+                                    checked={formData.ppe_compliance} 
+                                    onChange={handleInputChange}
+                                    className="w-5 h-5 rounded-lg border-slate-300 text-primary focus:ring-primary/20 transition-all cursor-pointer"
+                                />
+                                <label className="text-xs font-bold text-slate-700 cursor-pointer">PPE Compliance Verified</label>
+                            </div>
                         <div className="md:col-span-2">
                             <label className={labelClasses}>Incident Description <span className="text-rose-500">*</span></label>
                             <textarea 
@@ -574,6 +607,29 @@ const SafetyChecklistPage = () => {
                                 <option value="Fire Hazard">Fire Hazard</option>
                                 <option value="Electrical Hazard">Electrical Hazard</option>
                             </select>
+                        </div>
+                        <div>
+                            <label className={labelClasses}>Checklist Status <span className="text-rose-500">*</span></label>
+                            <select 
+                                name="safety_checklist_status" 
+                                value={formData.safety_checklist_status} 
+                                onChange={handleInputChange} 
+                                className={inputClasses}
+                            >
+                                <option value="Completed">Completed</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Pending">Pending</option>
+                            </select>
+                        </div>
+                        <div className="flex items-center gap-3 pt-6">
+                            <input 
+                                name="ppe_compliance" 
+                                type="checkbox"
+                                checked={formData.ppe_compliance} 
+                                onChange={handleInputChange}
+                                className="w-5 h-5 rounded-lg border-slate-300 text-primary focus:ring-primary/20 transition-all cursor-pointer"
+                            />
+                            <label className="text-xs font-bold text-slate-700 cursor-pointer">PPE Compliance Verified</label>
                         </div>
                         <div className="md:col-span-2">
                             <label className={labelClasses}>Incident Description <span className="text-rose-500">*</span></label>

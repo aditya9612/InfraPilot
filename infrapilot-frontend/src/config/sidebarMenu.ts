@@ -193,7 +193,6 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     { label: "Projects", path: "/manager/projects", icon: "folder" },
     { label: "BOQ", path: "/manager/boq", icon: "list" },
     { label: "Labour", path: "/manager/labour", icon: "users" },
-    { label: "Materials", path: "/manager/materials", icon: "package" },
   ],
   SiteEngineer: [
     { label: "Dashboard", path: "/engineer", icon: "grid" },
@@ -220,14 +219,12 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     },
     {
       label: "Material Management",
-      path: "/material",
+      path: "/engineer/material/receipt",
       icon: "package",
       subNav: [
-        { label: "Material Ledger", path: "/material", icon: "list" },
         { label: "Material Receipt", path: "/engineer/material/receipt", icon: "package" },
         { label: "Material Consumption", path: "/engineer/material/consumption", icon: "tool" },
         { label: "Stock Summary", path: "/engineer/material/stock", icon: "database" },
-        { label: "Logistics Reports", path: "/material/reports", icon: "file-text" },
       ],
     },
     { label: "Machinery & Equipment", path: "/engineer/machinery", icon: "tool" },

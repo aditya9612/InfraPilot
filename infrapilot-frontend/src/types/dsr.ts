@@ -27,6 +27,8 @@ export interface DsrItem {
   updated_at?: string;
   created_by_id?: number;
   created_by_name?: string;
+  dsr_image?: string;
+  photos?: DsrPhoto[];
 }
 
 export interface CreateDsrRequest {
@@ -45,6 +47,7 @@ export interface CreateDsrRequest {
   remarks: string;
   latitude: number;
   longitude: number;
+  dsr_image?: File | null;
 }
 
 export interface UpdateDsrRequest {
@@ -62,6 +65,7 @@ export interface UpdateDsrRequest {
   remarks?: string;
   latitude?: number;
   longitude?: number;
+  dsr_image?: File | null;
 }
 
 export interface DsrMeta {

@@ -22,10 +22,12 @@ import {
     AlertCircle,
     Briefcase,
     Phone,
-    Mail
+    Mail,
+    Image as ImageIcon
 } from "lucide-react";
 
 import { dsrService } from "../../services/dsrService";
+import { API_BASE_URL } from "../../services/api";
 import type { DsrItem, CreateDsrRequest, UpdateDsrRequest } from "../../types/dsr";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -113,7 +115,16 @@ const DSRPage = () => {
             if (apiData.length === 0) {
                 setDsrList(DEMO_DSR);
             } else {
-                setDsrList(apiData);
+                // Fetch photos for each DSR item to show in the list
+                const itemsWithPhotos = await Promise.all(apiData.map(async (item) => {
+                    try {
+                        const photos = await dsrService.getDsrPhotos(item.id);
+                        return { ...item, photos };
+                    } catch (e) {
+                        return item;
+                    }
+                }));
+                setDsrList(itemsWithPhotos);
             }
         } catch (error) {
             toast.error("Failed to sync DSR logs");
@@ -292,6 +303,7 @@ const DSRPage = () => {
                                         <th className="px-6 py-4 font-inter">Work Summary</th>
                                         <th className="px-6 py-4 font-inter">Status</th>
                                         <th className="px-6 py-4 font-inter">Resources</th>
+                                        <th className="px-6 py-4 font-inter">Site Media</th>
                                         <th className="px-6 py-4 text-right font-inter">Actions</th>
                                     </tr>
                                 </thead>
@@ -325,6 +337,34 @@ const DSRPage = () => {
                                                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest font-inter">{dsr.weather} Weather</p>
                                                     </div>
                                                 </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex -space-x-3 hover:space-x-1 transition-all">
+                                                        {dsr.photos && dsr.photos.length > 0 ? (
+                                                            dsr.photos.slice(0, 3).map((photo) => (
+                                                                <div key={photo.id} className="w-12 h-12 rounded-xl overflow-hidden border-2 border-white shadow-sm hover:z-10 transition-transform hover:scale-110">
+                                                                    <img 
+                                                                        src={photo.url.startsWith('http') ? photo.url : `${API_BASE_URL}/${photo.url}`} 
+                                                                        alt="Site" 
+                                                                        className="w-full h-full object-cover" 
+                                                                    />
+                                                                </div>
+                                                            ))
+                                                        ) : dsr.dsr_image ? (
+                                                            <div className="w-12 h-12 rounded-xl overflow-hidden border-2 border-white shadow-sm">
+                                                                <img src={dsr.dsr_image} alt="Site" className="w-full h-full object-cover" />
+                                                            </div>
+                                                        ) : (
+                                                            <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-300">
+                                                                <ImageIcon className="w-4 h-4" />
+                                                            </div>
+                                                        )}
+                                                        {dsr.photos && dsr.photos.length > 3 && (
+                                                            <div className="w-12 h-12 rounded-xl bg-slate-100 border-2 border-white flex items-center justify-center text-[10px] font-black text-slate-500 z-0">
+                                                                +{dsr.photos.length - 3}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
                                                 <td className="px-6 py-4 text-right">
                                                     <div className="flex items-center justify-end gap-2 transition-opacity font-inter">
                                                         <button
@@ -351,7 +391,7 @@ const DSRPage = () => {
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan={5} className="px-6 py-20 text-center text-slate-400 italic-none font-inter">
+                                            <td colSpan={6} className="px-6 py-20 text-center text-slate-400 italic-none font-inter">
                                                 No daily reports found in the project vault.
                                             </td>
                                         </tr>
@@ -394,6 +434,31 @@ const DSRPage = () => {
                                 </div>
                             </div>
                         </div>
+
+                        {(selectedDsr.photos && selectedDsr.photos.length > 0) ? (
+                            <div className="px-2 mb-8 font-inter">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 font-inter text-center">Site Media Gallery ({selectedDsr.photos.length})</p>
+                                <div className="grid grid-cols-2 gap-4">
+                                    {selectedDsr.photos.map((photo) => (
+                                        <div key={photo.id} className="rounded-2xl overflow-hidden border border-slate-100 shadow-sm aspect-[4/3] group relative">
+                                            <img 
+                                                src={photo.url.startsWith('http') ? photo.url : `${API_BASE_URL}/${photo.url}`} 
+                                                alt="Site Documentation" 
+                                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                                            />
+                                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : selectedDsr.dsr_image && (
+                            <div className="px-2 mb-8 font-inter text-center">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 font-inter">Site Documentation</p>
+                                <div className="rounded-[2rem] overflow-hidden border border-slate-100 shadow-sm aspect-video">
+                                    <img src={selectedDsr.dsr_image} alt="Site Documentation" className="w-full h-full object-cover" />
+                                </div>
+                            </div>
+                        )}
 
                         <div className="space-y-8 px-2 mb-10 font-inter">
                             {/* Professional Information style section */}

@@ -9,6 +9,8 @@ export interface IncidentItem {
     injury_details: string;
     action_taken: string;
     responsible_person: string;
+    safety_checklist_status: string;
+    ppe_compliance: boolean;
 }
 
 export interface IncidentResponse {
@@ -28,6 +30,8 @@ export interface CreateIncidentRequest {
     injury_details: string;
     action_taken: string;
     responsible_person: string;
+    safety_checklist_status: string;
+    ppe_compliance: boolean;
 }
 
 export type UpdateIncidentRequest = CreateIncidentRequest;
@@ -41,7 +45,9 @@ const DEFAULT_INCIDENTS: IncidentItem[] = [
         description: "Worker found without safety helmet in foundation area",
         injury_details: "No injury reported",
         action_taken: "Warning issued and helmet provided immediately",
-        responsible_person: "Site Supervisor - Rahul Sharma"
+        responsible_person: "Site Supervisor - Rahul Sharma",
+        safety_checklist_status: "Completed",
+        ppe_compliance: true
     },
     {
         id: 2,
@@ -51,7 +57,9 @@ const DEFAULT_INCIDENTS: IncidentItem[] = [
         description: "Worker used damaged ladder leading to fall",
         injury_details: "Minor leg injury, first aid given",
         action_taken: "Ladder replaced and safety briefing conducted",
-        responsible_person: "Safety Officer - Amit Patil"
+        responsible_person: "Safety Officer - Amit Patil",
+        safety_checklist_status: "In Progress",
+        ppe_compliance: false
     }
 ];
 
@@ -64,7 +72,8 @@ export const safetyService = {
 
         try {
             const response = await api.get('/safety', { params });
-            const items = response.data.items && response.data.items.length > 0 
+            // Respect empty list if items field is present, otherwise fallback to defaults for demo
+            const items = response.data && Array.isArray(response.data.items) 
                 ? response.data.items 
                 : DEFAULT_INCIDENTS;
 

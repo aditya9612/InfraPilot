@@ -1,208 +1,226 @@
-import api from './api'; // Updated imports
-import type {
-  Material, MaterialCreate, MaterialUpdate,
-  Supplier, SupplierCreate,
-  PurchaseOrder, POCreate,
-  Transfer, TransferCreate,
-  InventoryLog, MaterialReport, PriceHistory, InventorySummary
-} from '../types/material';
+import api from "./api";
+
+export interface MaterialItem {
+  id: number;
+  material_code: string;
+  project_id: number;
+  material_name: string;
+  category: string;
+  unit: string;
+  supplier_id: number;
+  supplier_name: string;
+  purchase_rate: number;
+  rate_type: string;
+  quantity_purchased: number;
+  quantity_used: number;
+  remaining_stock: number;
+  total_amount: number;
+  payment_given: number;
+  payment_pending: number;
+  extra_paid: number;
+  minimum_stock_level: number;
+  alert_type: string;
+}
+
+export interface InventoryItem {
+  material_id: number;
+  material_name: string;
+  remaining_stock: number;
+  unit: string;
+  avg_rate: number;
+  total_value: number;
+  project_id: number;
+}
+
+export interface MaterialLog {
+  id: number;
+  material_id: number;
+  type: string;
+  quantity: number;
+  rate: number;
+  avg_rate: number;
+  total_amount: number;
+  amount_paid: number;
+  payment_pending: number;
+  issue_type: string;
+  project_id: number;
+  created_at: string;
+}
+
+export interface MaterialReport {
+  material_id: number;
+  material_name: string;
+  total_purchased: number;
+  total_used: number;
+  remaining_stock: number;
+  total_cost: number;
+  payment_pending: number;
+}
+
+export interface CreateMaterialRequest {
+  project_id: number;
+  material_name: string;
+  category: string;
+  unit: string;
+  supplier_id: number;
+  purchase_rate: number;
+  rate_type: string;
+  quantity_purchased: number;
+  payment_given: number;
+  minimum_stock_level: number;
+}
+
+export interface UpdateMaterialRequest {
+  material_name: string;
+  category: string;
+  unit: string;
+  supplier_id: number;
+  purchase_rate: number;
+  rate_type: string;
+  minimum_stock_level: number;
+}
+
+export interface UsageRequest {
+  quantity: number;
+  project_id: number;
+  issue_type: string;
+}
+
+export interface PurchaseRequest {
+  quantity: number;
+  amount_paid: number;
+  project_id: number;
+  issue_type: string;
+}
 
 export const materialService = {
-  // --- Materials ---
-  async createMaterial(data: MaterialCreate): Promise<Material> {
-    const response = await api.post('/materials', data);
+  /**
+   * List all materials for a project
+   * GET /api/v1/materials
+   */
+  async listMaterials(project_id: number, skip: number = 0, limit: number = 50): Promise<MaterialItem[]> {
+    const response = await api.get<MaterialItem[]>("/materials", {
+      params: { project_id, skip, limit }
+    });
     return response.data;
   },
 
-  async listMaterials(projectId?: number, skip = 0, limit = 50): Promise<Material[]> {
-    const params = { project_id: projectId, skip, limit };
-    const response = await api.get('/materials', { params });
+  /**
+   * Get single material by ID
+   * GET /api/v1/materials/{id}
+   */
+  async getMaterial(id: number): Promise<MaterialItem> {
+    const response = await api.get<MaterialItem>(`/materials/${id}`);
     return response.data;
   },
 
-  async getMaterial(id: number): Promise<Material> {
-    const response = await api.get(`/materials/${id}`);
+  /**
+   * Create new material
+   * POST /api/v1/materials
+   */
+  async createMaterial(data: CreateMaterialRequest): Promise<MaterialItem> {
+    const response = await api.post<MaterialItem>("/materials", data);
     return response.data;
   },
 
-  async updateMaterial(id: number, data: MaterialUpdate): Promise<Material> {
-    const response = await api.put(`/materials/${id}`, data);
+  /**
+   * Update existing material
+   * PUT /api/v1/materials/{id}
+   */
+  async updateMaterial(id: number, data: UpdateMaterialRequest): Promise<MaterialItem> {
+    const response = await api.put<MaterialItem>(`/materials/${id}`, data);
     return response.data;
   },
 
+  /**
+   * Delete material
+   * DELETE /api/v1/materials/{id}
+   */
   async deleteMaterial(id: number): Promise<void> {
     await api.delete(`/materials/${id}`);
   },
 
-  async addUsage(id: number, data: { quantity: number; project_id: number; issue_type: string }): Promise<Material> {
-    const response = await api.post(`/materials/${id}/usage`, data);
+  /**
+   * Record material usage (consumption)
+   * POST /api/v1/materials/{id}/usage
+   */
+  async recordUsage(material_id: number, data: UsageRequest): Promise<MaterialItem> {
+    const response = await api.post<MaterialItem>(`/materials/${material_id}/usage`, data);
     return response.data;
   },
 
-  async addPurchase(id: number, data: { quantity: number; amount_paid: number; project_id: number; issue_type: string }): Promise<Material> {
-    const response = await api.post(`/materials/${id}/purchase`, data);
+  /**
+   * Record material purchase
+   * POST /api/v1/materials/{id}/purchase
+   */
+  async recordPurchase(material_id: number, data: PurchaseRequest): Promise<MaterialItem> {
+    const response = await api.post<MaterialItem>(`/materials/${material_id}/purchase`, data);
     return response.data;
   },
 
-  // --- Suppliers ---
-  async createSupplier(data: SupplierCreate): Promise<Supplier> {
-    const response = await api.post('/materials/suppliers', data);
+  /**
+   * Get inventory summary
+   * GET /api/v1/materials/inventory
+   */
+  async getInventory(): Promise<InventoryItem[]> {
+    const response = await api.get<InventoryItem[]>("/materials/inventory");
     return response.data;
   },
 
-  async getSuppliers(limit = 50): Promise<Supplier[]> {
-    const response = await api.get('/materials/suppliers', { params: { limit } });
+  /**
+   * Get transaction logs
+   * GET /api/v1/materials/logs
+   */
+  async getLogs(params: {
+    project_id: number;
+    material_id?: number;
+    type?: string;
+    limit?: number;
+  }): Promise<MaterialLog[]> {
+    const response = await api.get<MaterialLog[]>("/materials/logs", { params });
     return response.data;
   },
 
-  async getSupplier(id: number): Promise<Supplier> {
-    const response = await api.get(`/materials/suppliers/${id}`);
-    return response.data;
-  },
-
-  async updateSupplier(id: number, data: SupplierCreate): Promise<Supplier> {
-    const response = await api.put(`/materials/suppliers/${id}`, data);
-    return response.data;
-  },
-
-  async deleteSupplier(id: number): Promise<void> {
-    await api.delete(`/materials/suppliers/${id}`);
-  },
-
-  async getSupplierMaterials(supplierId: number): Promise<Material[]> {
-    const response = await api.get(`/materials/suppliers/${supplierId}/materials`);
-    return response.data;
-  },
-
-  // --- Purchase Orders ---
-  async createPO(data: POCreate): Promise<PurchaseOrder> {
-    const response = await api.post('/materials/purchase-orders', data);
-    return response.data;
-  },
-
-  async getPOs(skip = 0, limit = 50): Promise<PurchaseOrder[]> {
-    const response = await api.get('/materials/purchase-orders', { params: { skip, limit } });
-    return response.data;
-  },
-
-  async getPO(id: number): Promise<PurchaseOrder> {
-    const response = await api.get(`/materials/purchase-orders/${id}`);
-    return response.data;
-  },
-
-  async updatePO(id: number, data: POCreate): Promise<PurchaseOrder> {
-    const response = await api.put(`/materials/purchase-orders/${id}`, data);
-    return response.data;
-  },
-
-  async deletePO(id: number): Promise<void> {
-    await api.delete(`/materials/purchase-orders/${id}`);
-  },
-
-  // --- Transfers ---
-  async createTransfer(data: TransferCreate): Promise<Transfer> {
-    const response = await api.post('/materials/transfers', data);
-    return response.data;
-  },
-
-  async getTransfers(skip = 0, limit = 50): Promise<Transfer[]> {
-    const response = await api.get('/materials/transfers', { params: { skip, limit } });
-    return response.data;
-  },
-
-  async getTransfer(id: number): Promise<Transfer> {
-    const response = await api.get(`/materials/transfers/${id}`);
-    return response.data;
-  },
-
-  async updateTransferStatus(id: number, status: string): Promise<Transfer> {
-    const response = await api.put(`/materials/transfers/${id}`, { status });
-    return response.data;
-  },
-
-  // --- Inventory & Summary ---
-  async getAllInventory(): Promise<any[]> {
-    const response = await api.get('/materials/inventory');
-    return response.data;
-  },
-
-  async adjustInventory(data: { material_id: number; new_stock: number; reason: string }): Promise<any> {
-    const response = await api.post('/materials/inventory', data);
-    return response.data;
-  },
-
-  async getInventoryValuation(): Promise<{ total_value: number }> {
-    const response = await api.get('/materials/inventory/valuation');
-    return response.data;
-  },
-
-  async getProjectInventory(projectId: number): Promise<any[]> {
-    const response = await api.get(`/materials/inventory/${projectId}`);
-    return response.data;
-  },
-
-  async getSummary(): Promise<InventorySummary> {
-    const response = await api.get('/materials/summary');
-    return response.data;
-  },
-
-  // --- Logs & Reports ---
-  async getLogs(params: { limit?: number; material_id?: number; project_id?: number; type?: string }): Promise<InventoryLog[]> {
-    const response = await api.get('/materials/logs', { params });
-    return response.data;
-  },
-
-  async getMaterialReport(projectId: number): Promise<MaterialReport[]> {
-    const response = await api.get('/materials/reports', { params: { project_id: projectId } });
-    return response.data;
-  },
-
-  async getPriceHistory(materialId: number): Promise<PriceHistory[]> {
-    const response = await api.get(`/materials/materials/price-history/${materialId}`);
-    return response.data;
-  },
-
-  // --- Exports ---
-  async exportReportPDF(projectId?: number): Promise<void> {
-    const params = projectId ? { project_id: projectId } : {};
-    const response = await api.get('/materials/reports/pdf', { 
-        params,
-        responseType: 'blob' 
+  /**
+   * Get material report
+   * GET /api/v1/materials/reports
+   */
+  async getMaterialReport(project_id: number): Promise<MaterialReport[]> {
+    const response = await api.get<MaterialReport[]>("/materials/reports", {
+      params: { project_id }
     });
-    const blob = new Blob([response.data], { type: 'application/pdf' });
-    const url = window.URL.createObjectURL(blob);
+    return response.data;
+  },
+
+  /**
+   * Export report as PDF
+   * GET /api/v1/materials/reports/pdf
+   */
+  async exportPdf(): Promise<void> {
+    const response = await api.get("/materials/reports/pdf", { responseType: 'blob' });
+    const url = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `material_report_p${projectId || 1}.pdf`);
+    link.setAttribute('download', 'material_report.pdf');
     document.body.appendChild(link);
     link.click();
-    link.remove();
+    link.parentNode?.removeChild(link);
     window.URL.revokeObjectURL(url);
   },
 
-  async exportReportExcel(projectId?: number): Promise<void> {
-    const params = projectId ? { project_id: projectId } : {};
-    const response = await api.get('/materials/reports/excel', { 
-        params,
-        responseType: 'blob' 
-    });
-    const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = window.URL.createObjectURL(blob);
+  /**
+   * Export report as Excel
+   * GET /api/v1/materials/reports/excel
+   */
+  async exportExcel(): Promise<void> {
+    const response = await api.get("/materials/reports/excel", { responseType: 'blob' });
+    const url = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `material_report_p${projectId || 1}.xlsx`);
+    link.setAttribute('download', 'material_report.xlsx');
     document.body.appendChild(link);
     link.click();
-    link.remove();
+    link.parentNode?.removeChild(link);
     window.URL.revokeObjectURL(url);
-  },
-
-  // Helper URLs (if needed for direct links)
-  getExportPdfUrl(): string {
-    return `${api.defaults.baseURL}/materials/reports/pdf`;
-  },
-
-  getExportExcelUrl(): string {
-    return `${api.defaults.baseURL}/materials/reports/excel`;
   }
 };

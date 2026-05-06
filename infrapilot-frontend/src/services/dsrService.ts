@@ -17,7 +17,20 @@ export const dsrService = {
    * POST /api/v1/dsr
    */
   async createDsr(data: CreateDsrRequest): Promise<DsrItem> {
-    const response = await api.post<DsrItem>("/dsr", data);
+    const formData = new FormData();
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        if (key === "dsr_image" && value instanceof File) {
+          formData.append(key, value);
+        } else {
+          formData.append(key, String(value));
+        }
+      }
+    });
+
+    const response = await api.post<DsrItem>("/dsr", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
     return response.data;
   },
 
@@ -49,7 +62,20 @@ export const dsrService = {
    * PUT /api/v1/dsr/{id}
    */
   async updateDsr(id: number, data: UpdateDsrRequest): Promise<DsrItem> {
-    const response = await api.put<DsrItem>(`/dsr/${id}`, data);
+    const formData = new FormData();
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        if (key === "dsr_image" && value instanceof File) {
+          formData.append(key, value);
+        } else {
+          formData.append(key, String(value));
+        }
+      }
+    });
+
+    const response = await api.put<DsrItem>(`/dsr/${id}`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
     return response.data;
   },
 
