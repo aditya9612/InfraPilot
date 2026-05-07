@@ -178,9 +178,9 @@ const AdminDashboard = () => {
   // Dynamic Statistics
   const stats = {
     total: projects.length,
-    active: projects.filter((p) => p.status === "Ongoing").length,
-    completed: projects.filter((p) => p.status === "Completed").length,
-    delayed: projects.filter((p) => p.status === "Delayed").length,
+    active: projects.filter((p) => p.status?.toString().trim().toLowerCase() === "ongoing").length,
+    completed: projects.filter((p) => p.status?.toString().trim().toLowerCase() === "completed").length,
+    delayed: projects.filter((p) => p.status?.toString().trim().toLowerCase() === "delayed").length,
   };
 
   return (

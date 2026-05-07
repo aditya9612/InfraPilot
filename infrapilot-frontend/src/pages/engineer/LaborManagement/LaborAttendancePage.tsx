@@ -6,7 +6,7 @@ import toast from "react-hot-toast";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-interface LaborAttendance {
+interface LabourAttendance {
     id: number;
     labour_id: number;
     project_id: number;
@@ -28,7 +28,7 @@ interface LaborAttendance {
 
 // ─── Mock Data ───────────────────────────────────────────────────────────────
 
-const mockAttendance: LaborAttendance[] = [
+const mockAttendance: LabourAttendance[] = [
     {
         id: 1,
         labour_id: 101,
@@ -89,23 +89,23 @@ const initialFormData = {
 
 // ─── Main Component ─────────────────────────────────────────────────────────────
 
-const LaborAttendancePage = () => {
-    const [attendanceList, setAttendanceList] = useState<LaborAttendance[]>(mockAttendance);
+const LabourAttendancePage = () => {
+    const [attendanceList, setAttendanceList] = useState<LabourAttendance[]>(mockAttendance);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [formMode, setFormMode] = useState<"create" | "edit">("create");
     const [formData, setFormData] = useState(initialFormData);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [editId, setEditId] = useState<number | null>(null);
-    const [selectedAttendance, setSelectedAttendance] = useState<LaborAttendance | null>(null);
+    const [selectedAttendance, setSelectedAttendance] = useState<LabourAttendance | null>(null);
     const [gpsStatus, setGpsStatus] = useState<"idle" | "capturing" | "captured" | "error">("idle");
 
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
 
     // Summary stats
-    const totalLaborers = attendanceList.length;
+    const totalLabourers = attendanceList.length;
     const presentCount = attendanceList.filter(a => a.attendance === "Present").length;
-    const absentCount = totalLaborers - presentCount;
+    const absentCount = totalLabourers - presentCount;
 
     // ── CRUD Handlers ────────────────────────────────────────────────────────
     const formatAadhar = (value: string) => {
@@ -172,7 +172,7 @@ const LaborAttendancePage = () => {
         setIsModalOpen(true);
     };
 
-    const handleOpenEdit = (entry: LaborAttendance) => {
+    const handleOpenEdit = (entry: LabourAttendance) => {
         setFormMode("edit");
         setEditId(entry.id);
         setFormData({
@@ -212,7 +212,7 @@ const LaborAttendancePage = () => {
         const hourlyRate = Number(formData.wage_rate) / 8;
         const totalWage = (Number(formData.working_hours) * hourlyRate) + (Number(formData.overtime_hours) * hourlyRate * 1.5);
 
-        const entryData: LaborAttendance = {
+        const entryData: LabourAttendance = {
             id: formMode === "edit" ? editId! : Date.now(),
             labour_id: formMode === "edit" ? attendanceList.find(a => a.id === editId)?.labour_id || 0 : Date.now(),
             project_id: 1,
@@ -254,8 +254,8 @@ const LaborAttendancePage = () => {
     return (
         <>
             <Navbar
-                title="Labor Attendance"
-                breadcrumb={["InfraPilot", "Engineer", "Labor", "Attendance"]}
+                title="Labour Attendance"
+                breadcrumb={["InfraPilot", "Engineer", "Labour", "Attendance"]}
             />
 
             <PageTransition className="p-4 md:p-8 bg-slate-50 min-h-screen font-inter italic-none">
@@ -267,10 +267,10 @@ const LaborAttendancePage = () => {
                             Workforce Management
                         </p>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">
-                            Labor Attendance
+                            Labour Attendance
                         </h1>
                         <p className="text-slate-500 text-sm font-medium">
-                            Record daily attendance, shift timings, and overtime for all site laborers.
+                            Record daily attendance, shift timings, and overtime for all site labourers.
                         </p>
                     </div>
 
@@ -291,13 +291,13 @@ const LaborAttendancePage = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 font-inter">
                         <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all font-inter">
                             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 font-inter">Total Workforce</p>
-                            <p className="text-2xl font-bold text-slate-900 font-inter">{totalLaborers}</p>
+                            <p className="text-2xl font-bold text-slate-900 font-inter">{totalLabourers}</p>
                             <p className="text-[10px] text-slate-400 mt-1.5 font-medium font-inter">Registered Personnel</p>
                         </div>
                         <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all font-inter">
                             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 font-inter">Present Today</p>
                             <p className="text-2xl font-bold text-emerald-500 font-inter">{presentCount}</p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium font-inter">{((presentCount / totalLaborers) * 100 || 0).toFixed(0)}% Attendance Rate</p>
+                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium font-inter">{((presentCount / totalLabourers) * 100 || 0).toFixed(0)}% Attendance Rate</p>
                         </div>
                         <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all font-inter">
                             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 font-inter">Absent Today</p>
@@ -460,7 +460,7 @@ const LaborAttendancePage = () => {
             <Modal
                 isOpen={isModalOpen}
                 onClose={() => { setIsModalOpen(false); setErrors({}); }}
-                title={formMode === "create" ? "Mark Labor Attendance" : "Edit Attendance Record"}
+                title={formMode === "create" ? "Mark Labour Attendance" : "Edit Attendance Record"}
                 maxWidth="max-w-4xl"
             >
                 <div className="bg-white p-8 italic-none font-inter text-inter">
@@ -749,4 +749,4 @@ const LaborAttendancePage = () => {
     );
 };
 
-export default LaborAttendancePage;
+export default LabourAttendancePage;

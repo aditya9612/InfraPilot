@@ -152,7 +152,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
           path: "/admin/reports/financial",
           icon: "dollar-sign",
         },
-        { label: "Labor Report", path: "/admin/reports/labor", icon: "users" },
+        { label: "Labour Report", path: "/admin/reports/labour", icon: "users" },
         {
           label: "Material Consumption",
           path: "/admin/reports/consumption",
@@ -173,8 +173,8 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
           icon: "package",
         },
         {
-          label: "Labor Types",
-          path: "/admin/master-data/labor",
+          label: "Labour Types",
+          path: "/admin/master-data/labour",
           icon: "users",
         },
         {
@@ -208,13 +208,13 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       ],
     },
     {
-      label: "Labor Management",
-      path: "/engineer/labor",
+      label: "Labour Management",
+      path: "/engineer/labour",
       icon: "users",
       subNav: [
-        { label: "Attendance", path: "/engineer/labor/attendance", icon: "user-check" },
-        { label: "Wage Reports", path: "/engineer/labor/reports", icon: "file-text" },
-        { label: "Labor Details", path: "/engineer/labor/details", icon: "users" },
+        { label: "Labour Attendance", path: "/engineer/labour/attendance", icon: "user-check" },
+        { label: "Labour Reports", path: "/engineer/labour/reports", icon: "file-text" },
+        { label: "Labour Details", path: "/engineer/labour/details", icon: "users" },
       ],
     },
     {

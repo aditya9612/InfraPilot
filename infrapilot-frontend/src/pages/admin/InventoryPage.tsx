@@ -11,6 +11,7 @@ import PurchaseActionModal from "../../components/inventory/PurchaseActionModal"
 import MaterialCostReportModal from "../../components/inventory/MaterialCostReportModal";
 import toast from "react-hot-toast";
 import ConfirmModal from "../../components/common/ConfirmModal";
+import { materialService } from "../../services/materialService";
 import { 
   mockInventory, 
   mockSuppliers, 
@@ -33,6 +34,7 @@ import {
 } from "lucide-react";
 import type {
   Material,
+  MaterialCreate,
   Supplier,
   PurchaseOrder,
   Transfer,
@@ -59,8 +61,8 @@ const InventoryPage = () => {
     location.pathname.includes("/master") ||
     location.pathname === "/admin/inventory";
 
-  const [inventory, setInventory] = useState<Material[]>(mockInventory);
-  const [suppliers, setSuppliers] = useState<Supplier[]>(mockSuppliers);
+  const [inventory, setInventory] = useState<Material[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [pos, setPos] = useState<PurchaseOrder[]>(mockPOs);
   const [transfers, setTransfers] = useState<Transfer[]>(mockTransfers);
   const [logs, setLogs] = useState<InventoryLog[]>(mockLogs);
@@ -96,11 +98,28 @@ const InventoryPage = () => {
   } | null>(null);
 
   const fetchData = async () => {
-    // No-op for static version
+    setIsLoading(true);
+    try {
+      const [invData, supData] = await Promise.all([
+        materialService.getMaterials(1), // Default to project 1
+        materialService.getSuppliers()
+      ]);
+      setInventory(invData);
+      setSuppliers(supData);
+    } catch (error) {
+      console.error("Failed to fetch inventory data, falling back to mock data:", error);
+      toast.error("Live Sync Failed: Showing mock data due to server error.");
+      
+      // Fallback to mock data so the app remains functional
+      setInventory(mockInventory);
+      setSuppliers(mockSuppliers);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
-    // Static data already initialized in state
+    fetchData();
   }, []);
 
   useEffect(() => {
@@ -134,13 +153,13 @@ const InventoryPage = () => {
         );
         toast.success("Supplier updated successfully! (Mock)");
       } else {
-        const newSupplier: Supplier = { 
-          ...data, 
-          id: suppliers.length + 1,
-          contact: data.phone 
+        const payload = {
+          ...data,
+          contact: data.phone // Map phone to contact for API
         };
+        const newSupplier = await materialService.createSupplier(payload);
         setSuppliers((prev) => [...prev, newSupplier]);
-        toast.success("Supplier added successfully! (Mock)");
+        toast.success("Supplier added successfully!");
       }
       setSupplierModalOpen(false);
       setSelectedSupplier(null);
@@ -160,23 +179,24 @@ const InventoryPage = () => {
         toast.success("Material updated successfully! (Mock)");
       } else {
         const supplier = suppliers.find(s => s.name === data.supplier_name);
-        const newMaterial: Material = { 
-          ...data, 
-          id: inventory.length + 1,
-          material_code: `MAT-${100 + inventory.length + 1}`,
+        const payload: MaterialCreate = {
+          ...data,
           supplier_id: supplier?.id || 0,
-          supplier_name: data.supplier_name,
-          quantity_used: 0,
-          remaining_stock: data.quantity_purchased,
-          total_amount: data.purchase_rate * data.quantity_purchased,
-          payment_given: data.payment_given || 0,
-          payment_pending: (data.purchase_rate * data.quantity_purchased) - (data.payment_given || 0),
-          extra_paid: 0,
-          minimum_stock_level: data.minimum_stock_level || 10,
+          project_id: data.project_id || 1, // Default project
+          minimum_stock_level: data.minimum_stock_level || 10
+        };
+
+        const createdMaterial = await materialService.createMaterial(payload);
+        
+        // Ensure the UI has all necessary fields (some might be computed on server)
+        const newMaterial: Material = {
+          ...createdMaterial,
+          supplier_name: data.supplier_name, // Map back for UI display if server doesn't return it
           alert_type: "IN_STOCK"
         };
+
         setInventory((prev) => [...prev, newMaterial]);
-        toast.success("Material created successfully! (Mock)");
+        toast.success("Material created successfully!");
       }
       setMaterialFormOpen(false);
     } catch (error) {

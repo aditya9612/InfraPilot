@@ -6,7 +6,7 @@ interface PurchaseOrderTableProps {
   pos: PurchaseOrder[];
   onEdit: (po: PurchaseOrder) => void;
   onDelete: (id: number) => void;
-  onStatusUpdate?: (id: number, status: string) => void;
+  onStatusUpdate?: (id: number, status: PurchaseOrder["status"]) => void;
 }
 
 const PurchaseOrderTable: React.FC<PurchaseOrderTableProps> = ({

@@ -188,7 +188,7 @@ function AppRoutes() {
                 path="/admin/reports/financial"
                 element={<ReportsPage />}
               />
-              <Route path="/admin/reports/labor" element={<ReportsPage />} />
+              <Route path="/admin/reports/labour" element={<ReportsPage />} />
               <Route
                 path="/admin/reports/consumption"
                 element={<ReportsPage />}
@@ -211,7 +211,7 @@ function AppRoutes() {
                 element={<MasterDataPage />}
               />
               <Route
-                path="/admin/master-data/labor"
+                path="/admin/master-data/labour"
                 element={<MasterDataPage />}
               />
               <Route
@@ -249,9 +249,9 @@ function AppRoutes() {
               <Route path="/engineer/settings" element={<SettingsPage />} />
               <Route path="/engineer/progress/activities" element={<ActivityListPage />} />
               <Route path="/engineer/progress/entry" element={<DailyProgressEntryPage />} />
-              <Route path="/engineer/labor/attendance" element={<LaborAttendancePage />} />
-              <Route path="/engineer/labor/reports" element={<LaborReportsPage />} />
-              <Route path="/engineer/labor/details" element={<LaborDetailsPage />} />
+              <Route path="/engineer/labour/attendance" element={<LaborAttendancePage />} />
+              <Route path="/engineer/labour/reports" element={<LaborReportsPage />} />
+              <Route path="/engineer/labour/details" element={<LaborDetailsPage />} />
               <Route path="/engineer/material/receipt" element={<MaterialReceiptPage />} />
               <Route path="/engineer/material/consumption" element={<MaterialConsumptionPage />} />
               <Route path="/engineer/material/stock" element={<MaterialStockPage />} />
