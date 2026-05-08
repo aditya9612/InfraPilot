@@ -62,7 +62,7 @@ const EditProjectModal = ({ isOpen, onClose, project, onSubmit }: EditProjectMod
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!validate() || !project) return;
-        
+
         setIsLoading(true);
         try {
             const requestBody = {
@@ -117,20 +117,20 @@ const EditProjectModal = ({ isOpen, onClose, project, onSubmit }: EditProjectMod
                             />
                             {errors.project_name && <p className="text-[10px] text-red-500 mt-1">{errors.project_name}</p>}
                         </div>
-                        
+
                         <div className="md:col-span-2">
                             <label className="block text-xs font-bold text-slate-500 mb-1">Project Status</label>
                             <select
                                 name="status" value={formData.status} onChange={handleChange}
                                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                             >
-                                <option value="Planned">Planned</option>
-                                <option value="Ongoing">Ongoing</option>
-                                <option value="Completed">Completed</option>
-                                <option value="On Hold">On Hold</option>
+                                <option value="PLANNED">PLANNED</option>
+                                <option value="ONGOING">ONGOING</option>
+                                <option value="COMPLETED">COMPLETED</option>
+                                <option value="ON HOLD">ON HOLD</option>
                             </select>
                         </div>
-                        
+
                         <div className="md:col-span-2">
                             <label className="block text-xs font-bold text-slate-500 mb-1">Description <span className="text-red-500">*</span></label>
                             <textarea

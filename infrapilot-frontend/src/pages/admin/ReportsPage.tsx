@@ -18,7 +18,7 @@ const ReportsPage = () => {
   return (
     <>
       <Navbar title="Reports & Analytics" breadcrumb={["Admin", "Reports"]} />
-      
+
       <PageTransition key={location.pathname} className="p-6 bg-slate-50 min-h-screen">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
@@ -62,7 +62,7 @@ const ReportsPage = () => {
                   className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                 />
               </div>
-              <select 
+              <select
                 className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer"
                 value={filterProject}
                 onChange={(e) => setFilterProject(e.target.value)}
@@ -74,7 +74,7 @@ const ReportsPage = () => {
             </div>
             <div className="flex gap-2">
               {["Progress", "Financial", "Labor", "Material", "Performance"].map((type) => (
-                <button 
+                <button
                   key={type}
                   className="px-3 py-1.5 bg-slate-50 text-slate-500 hover:bg-slate-100 rounded-xl text-xs font-bold transition-all"
                 >
@@ -113,9 +113,8 @@ const ReportsPage = () => {
                     <td className="px-6 py-4 text-xs font-bold text-slate-400">{report.date}</td>
                     <td className="px-6 py-4 text-xs font-semibold text-slate-500">{report.project}</td>
                     <td className="px-6 py-4">
-                      <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${
-                        report.status === "Generated" ? "bg-emerald-100 text-emerald-600" : "bg-blue-100 text-blue-600"
-                      }`}>
+                      <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${report.status === "Generated" ? "bg-emerald-100 text-emerald-600" : "bg-blue-100 text-blue-600"
+                        }`}>
                         {report.status}
                       </span>
                     </td>

@@ -1,19 +1,14 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  FileText, 
-  MoreVertical, 
-  Download, 
-  Trash2, 
-  Eye, 
-  Edit3,
-  Calendar,
-  DollarSign,
-  TrendingUp,
-  Clock
+import { useState, useEffect, useMemo } from "react";
+import { Link } from "react-router-dom";
+import {
+  Plus,
+  Search,
+  Filter,
+  FileText,
+  Download,
+  Trash2,
+  Eye,
+  Edit3
 } from "lucide-react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
@@ -21,13 +16,15 @@ import StatCard from "../../components/common/StatCard";
 import { financeService } from "../../services/financeService";
 import type { Invoice } from "../../types/invoice";
 import toast from "react-hot-toast";
+import ViewInvoiceModal from "../../components/forms/ViewInvoiceModal";
 
 const AllInvoicesPage = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
-  const navigate = useNavigate();
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchInvoices = async () => {
@@ -45,9 +42,21 @@ const AllInvoicesPage = () => {
     fetchInvoices();
   }, []);
 
+  const handleDeleteInvoice = async (id: number) => {
+    if (!window.confirm("Are you sure you want to delete this invoice?")) return;
+
+    try {
+      await financeService.deleteInvoice(id);
+      setInvoices(invoices.filter(inv => inv.id !== id));
+      toast.success("Invoice deleted successfully");
+    } catch (error) {
+      toast.error("Failed to delete invoice");
+    }
+  };
+
   const filteredInvoices = useMemo(() => {
     return invoices.filter(inv => {
-      const matchSearch = 
+      const matchSearch =
         inv.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         inv.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         inv.description?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -66,10 +75,10 @@ const AllInvoicesPage = () => {
   return (
     <>
       <Navbar title="Estimates & Invoices" breadcrumb={["Dashboard", "Invoices", "All Invoices"]} />
-      
+
       <PageTransition className="p-6 bg-slate-50 min-h-screen">
         <div className="max-w-[1600px] mx-auto space-y-6">
-          
+
           {/* HEADER */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
@@ -80,7 +89,7 @@ const AllInvoicesPage = () => {
               <button className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2">
                 <Download className="w-4 h-4" /> Export All
               </button>
-              <Link 
+              <Link
                 to="/admin/invoices/create"
                 className="px-6 py-2 bg-indigo-600 text-white rounded-xl text-sm font-black shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all flex items-center gap-2"
               >
@@ -91,21 +100,21 @@ const AllInvoicesPage = () => {
 
           {/* STATS */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <StatCard 
-              title="Total Billed" 
-              value={`₹${(stats.total / 100000).toFixed(2)}L`} 
+            <StatCard
+              title="Total Billed"
+              value={`₹${(stats.total / 100000).toFixed(2)}L`}
               sub="Across all projects"
               accent="text-indigo-600"
             />
-            <StatCard 
-              title="Pending Collection" 
-              value={`₹${(stats.pending / 100000).toFixed(2)}L`} 
+            <StatCard
+              title="Pending Collection"
+              value={`₹${(stats.pending / 100000).toFixed(2)}L`}
               sub="Unpaid invoices"
               accent="text-amber-500"
             />
-            <StatCard 
-              title="Total Received" 
-              value={`₹${(stats.paid / 100000).toFixed(2)}L`} 
+            <StatCard
+              title="Total Received"
+              value={`₹${(stats.paid / 100000).toFixed(2)}L`}
               sub="Cleared payments"
               accent="text-emerald-500"
             />
@@ -116,7 +125,7 @@ const AllInvoicesPage = () => {
             <div className="p-4 border-b border-slate-50 flex flex-wrap items-center justify-between gap-4">
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input 
+                <input
                   type="text"
                   placeholder="Search invoices, clients, descriptions..."
                   value={searchTerm}
@@ -125,7 +134,7 @@ const AllInvoicesPage = () => {
                 />
               </div>
               <div className="flex items-center gap-3">
-                <select 
+                <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
                   className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 outline-none"
@@ -188,22 +197,31 @@ const AllInvoicesPage = () => {
                           <p className="text-sm font-black text-slate-800">₹{(inv.total_amount || 0).toLocaleString()}</p>
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
-                            inv.status === 'paid' ? 'bg-emerald-100 text-emerald-600' : 
+                          <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${inv.status === 'paid' ? 'bg-emerald-100 text-emerald-600' :
                             inv.status === 'pending' ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400'
-                          }`}>
+                            }`}>
                             {inv.status}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <button className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" title="View Details">
+                            <button
+                              onClick={() => {
+                                setSelectedInvoice(inv);
+                                setIsViewModalOpen(true);
+                              }}
+                              className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" title="View Details"
+                            >
                               <Eye className="w-4 h-4" />
                             </button>
                             <button className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Edit">
                               <Edit3 className="w-4 h-4" />
                             </button>
-                            <button className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Delete">
+                            <button
+                              onClick={() => handleDeleteInvoice(inv.id)}
+                              className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                              title="Delete"
+                            >
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
@@ -218,6 +236,12 @@ const AllInvoicesPage = () => {
 
         </div>
       </PageTransition>
+
+      <ViewInvoiceModal
+        isOpen={isViewModalOpen}
+        onClose={() => setIsViewModalOpen(false)}
+        invoice={selectedInvoice}
+      />
     </>
   );
 };
