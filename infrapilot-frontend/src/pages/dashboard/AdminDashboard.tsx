@@ -427,11 +427,10 @@ const AdminDashboard = () => {
                   <button
                     key={tab}
                     onClick={() => setActivityFilter(tab)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
-                      activityFilter === tab
-                        ? "bg-primary text-white shadow-md shadow-primary/20"
-                        : "bg-slate-50 text-slate-500 hover:bg-slate-100"
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${activityFilter === tab
+                      ? "bg-primary text-white shadow-md shadow-primary/20"
+                      : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                      }`}
                   >
                     {tab.toUpperCase()}
                   </button>
@@ -450,13 +449,12 @@ const AdminDashboard = () => {
                 alerts.map((act, i) => (
                   <div key={i} className="flex gap-4 group">
                     <div
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                        act.type === "alert"
-                          ? "bg-red-50 text-red-500"
-                          : act.type === "money"
-                            ? "bg-green-50 text-green-500"
-                            : "bg-blue-50 text-blue-500"
-                      }`}
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${act.type === "alert"
+                        ? "bg-red-50 text-red-500"
+                        : act.type === "money"
+                          ? "bg-green-50 text-green-500"
+                          : "bg-blue-50 text-blue-500"
+                        }`}
                     >
                       {act.type === "task" && "✔"}
                       {act.type === "money" && "₹"}

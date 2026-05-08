@@ -13,10 +13,14 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     { label: "Dashboard", path: "/admin", icon: "grid" },
     { label: "Projects", path: "/admin/projects", icon: "folder" },
     {
-      label: "(Coming Soon) Estimates / Invoices",
-      path: "#",
+      label: "Estimates / Invoices",
+      path: "/admin/invoices",
       icon: "file-text",
-      disabled: true,
+      subNav: [
+        { label: "All Invoices", path: "/admin/invoices/all", icon: "list" },
+        { label: "Create Invoice", path: "/admin/invoices/create", icon: "plus" },
+        { label: "Measurements", path: "/admin/measurements", icon: "tool" },
+      ],
     },
     {
       label: "User & Role Management",
