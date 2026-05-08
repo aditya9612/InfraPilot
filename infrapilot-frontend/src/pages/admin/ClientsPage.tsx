@@ -4,7 +4,6 @@ import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
 import CreateClientModal from "../../components/forms/CreateClientModal";
-import ViewClientModal from "../../components/forms/ViewClientModal";
 import toast from "react-hot-toast";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import { Eye, Edit2, Trash2 } from "lucide-react";
@@ -53,8 +52,6 @@ const ClientsPage = () => {
   const [editingClient, setEditingClient] = useState<any>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<number | null>(null);
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [viewingClient, setViewingClient] = useState<any>(null);
 
   const filteredClients = clients.filter(
     (c) =>
@@ -229,10 +226,7 @@ const ClientsPage = () => {
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-3">
                         <button
-                          onClick={() => {
-                            setViewingClient(c);
-                            setIsViewModalOpen(true);
-                          }}
+                          onClick={() => navigate(`/admin/clients/${c.id}`)}
                           className="p-1.5 text-slate-400 hover:text-primary transition-all duration-200"
                           title="View Profile"
                         >
@@ -281,15 +275,6 @@ const ClientsPage = () => {
         }}
         onSubmit={handleCreateOrUpdate}
         initialData={editingClient}
-      />
-
-      <ViewClientModal
-        isOpen={isViewModalOpen}
-        onClose={() => {
-          setIsViewModalOpen(false);
-          setViewingClient(null);
-        }}
-        client={viewingClient}
       />
 
       <ConfirmModal
