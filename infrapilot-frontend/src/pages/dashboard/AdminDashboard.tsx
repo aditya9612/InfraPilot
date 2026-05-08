@@ -38,27 +38,27 @@ const budgetData = [
 
 // ─── Styling Helpers ──────────────────────────────────────────────────────────
 const statusBadge: Record<ProjectStatus, string> = {
-  Planned: "bg-slate-100 text-slate-500",
-  Ongoing: "bg-green-100 text-success",
-  Delayed: "bg-red-100 text-danger",
-  Completed: "bg-blue-100 text-primary",
-  "On Hold": "bg-amber-100 text-warning",
+  PLANNED: "bg-slate-100 text-slate-500",
+  ONGOING: "bg-green-100 text-success",
+  DELAYED: "bg-red-100 text-danger",
+  COMPLETED: "bg-blue-100 text-primary",
+  "ON HOLD": "bg-amber-100 text-warning",
 };
 
 const statusDot: Record<ProjectStatus, string> = {
-  Planned: "bg-slate-400",
-  Ongoing: "bg-success",
-  Delayed: "bg-danger",
-  Completed: "bg-primary",
-  "On Hold": "bg-warning",
+  PLANNED: "bg-slate-400",
+  ONGOING: "bg-success",
+  DELAYED: "bg-danger",
+  COMPLETED: "bg-primary",
+  "ON HOLD": "bg-warning",
 };
 
 const progressPulse: Record<ProjectStatus, string> = {
-  Planned: "bg-slate-300",
-  Ongoing: "bg-success",
-  Delayed: "bg-danger",
-  Completed: "bg-primary",
-  "On Hold": "bg-warning",
+  PLANNED: "bg-slate-300",
+  ONGOING: "bg-success",
+  DELAYED: "bg-danger",
+  COMPLETED: "bg-primary",
+  "ON HOLD": "bg-warning",
 };
 
 // ─── Main Component ──────────────────────────────────────────────────────────
@@ -178,9 +178,9 @@ const AdminDashboard = () => {
   // Dynamic Statistics
   const stats = {
     total: projects.length,
-    active: projects.filter((p) => p.status?.toString().trim().toLowerCase() === "ongoing").length,
-    completed: projects.filter((p) => p.status?.toString().trim().toLowerCase() === "completed").length,
-    delayed: projects.filter((p) => p.status?.toString().trim().toLowerCase() === "delayed").length,
+    active: projects.filter((p) => p.status?.toString().trim().toUpperCase() === "ONGOING").length,
+    completed: projects.filter((p) => p.status?.toString().trim().toUpperCase() === "COMPLETED").length,
+    delayed: projects.filter((p) => p.status?.toString().trim().toUpperCase() === "DELAYED").length,
   };
 
   return (

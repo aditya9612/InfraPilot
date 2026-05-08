@@ -15,6 +15,7 @@ const ROLES: { value: UserRole; label: string }[] = [
   { value: "ProjectManager", label: "Project Manager" },
   { value: "SiteEngineer", label: "Site Engineer" },
   { value: "Accountant", label: "Accountant" },
+  { value: "Client", label: "Client" },
 ];
 
 const CreateUserModal: React.FC<CreateUserModalProps> = ({
@@ -35,6 +36,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     aadhaar_number: "",
     address: "",
     is_active: true,
+    password: "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -73,6 +75,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
           aadhaar_number: "",
           address: "",
           is_active: true,
+          password: "",
         });
         setPhotoUrl("");
       }
@@ -111,6 +114,10 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     if (!formData.role) newErrors.role = "Please select a role.";
     if (!formData.designation)
       newErrors.designation = "Designation is required.";
+
+    if (!initialData && (!formData.password || formData.password.length < 6)) {
+      newErrors.password = "Password must be at least 6 characters.";
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -169,6 +176,10 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
           joining_date: formData.joining_date || null,
           is_active: formData.is_active,
         };
+
+        if (!initialData && formData.password) {
+          payload.password = formData.password;
+        }
 
         if (photo) {
           payload.profile_image = photo;
@@ -302,6 +313,24 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                 <p className="mt-1 text-xs text-rose-500">{errors.email}</p>
               )}
             </div>
+            {!initialData && (
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">
+                  Password <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  placeholder="••••••••"
+                  className={`w-full px-4 py-2 bg-gray-50 border ${errors.password ? "border-rose-500 focus:ring-rose-100" : "border-gray-200 focus:ring-primary/20"} rounded-xl transition-all outline-none`}
+                />
+                {errors.password && (
+                  <p className="mt-1 text-xs text-rose-500">{errors.password}</p>
+                )}
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">
                 Role <span className="text-rose-500">*</span>

@@ -18,7 +18,7 @@ const NewProjectModal = ({
     description: "",
     start_date: "",
     end_date: "",
-    status: "Planned",
+    status: "PLANNED",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -164,10 +164,10 @@ const NewProjectModal = ({
                 onChange={handleChange}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
               >
-                <option value="Planned">Planned</option>
-                <option value="Ongoing">Ongoing</option>
-                <option value="Completed">Completed</option>
-                <option value="On Hold">On Hold</option>
+                <option value="PLANNED">PLANNED</option>
+                <option value="ONGOING">ONGOING</option>
+                <option value="COMPLETED">COMPLETED</option>
+                <option value="ON HOLD">ON HOLD</option>
               </select>
             </div>
             <div className="md:col-span-2">

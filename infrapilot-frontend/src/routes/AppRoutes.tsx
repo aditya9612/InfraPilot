@@ -11,6 +11,7 @@ import Unauthorized from "../pages/Unauthorized";
 import ProjectsPage from "../pages/admin/ProjectsPage";
 import UsersPage from "../pages/admin/UsersPage";
 import ClientsPage from "../pages/admin/ClientsPage";
+import ClientDetailPage from "../pages/admin/ClientDetailPage";
 import OwnersListPage from "../pages/admin/OwnersListPage";
 import AgreementUploadPage from "../pages/admin/AgreementUploadPage";
 import PaymentTrackerPage from "../pages/admin/PaymentTrackerPage";
@@ -33,6 +34,7 @@ import MeasurementPage from "../pages/admin/MeasurementPage";
 import ProjectDetailsPage from "../pages/projects/ProjectDetailsPage";
 import AllInvoicesPage from "../pages/admin/AllInvoicesPage";
 import CreateInvoicePage from "../pages/admin/CreateInvoicePage";
+import QuotationsPage from "../pages/admin/QuotationsPage";
 
 // Client Pages
 import ClientOverviewPage from "../pages/client/ClientOverviewPage";
@@ -137,6 +139,7 @@ function AppRoutes() {
                 element={<PermissionsPage />}
               />
               <Route path="/admin/clients" element={<ClientsPage />} />
+              <Route path="/admin/clients/:id" element={<ClientDetailPage />} />
               <Route path="/admin/owners/list" element={<OwnersListPage />} />
               <Route
                 path="/admin/owners/agreements"
@@ -204,6 +207,7 @@ function AppRoutes() {
               <Route path="/admin/documents" element={<DocumentsPage />} />
               <Route path="/admin/measurements" element={<MeasurementPage />} />
               <Route path="/admin/invoices/all" element={<AllInvoicesPage />} />
+              <Route path="/admin/quotations" element={<QuotationsPage />} />
               <Route path="/admin/invoices/create" element={<CreateInvoicePage />} />
               <Route path="/admin/master-data" element={<MasterDataPage />} />
               <Route

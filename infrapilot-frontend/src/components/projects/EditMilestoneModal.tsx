@@ -79,12 +79,12 @@ const EditMilestoneModal = ({
         milestone_id: milestone.id,
         ...formData,
       };
-      
+
       console.log("Updating Milestone (Request Body):", requestBody);
-      
+
       if (onSubmit) onSubmit(requestBody);
       setIsLoading(false);
-      
+
       toast.success(`Milestone "${formData.title}" updated successfully!`, {
         style: {
           borderRadius: '12px',
@@ -139,7 +139,7 @@ const EditMilestoneModal = ({
             </div>
 
 
-            
+
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">Description <span className="text-red-500">*</span></label>
               <textarea

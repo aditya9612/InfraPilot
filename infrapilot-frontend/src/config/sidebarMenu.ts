@@ -18,6 +18,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       icon: "file-text",
       subNav: [
         { label: "All Invoices", path: "/admin/invoices/all", icon: "list" },
+        { label: "Quotations", path: "/admin/quotations", icon: "file-text" },
         { label: "Create Invoice", path: "/admin/invoices/create", icon: "plus" },
         { label: "Measurements", path: "/admin/measurements", icon: "tool" },
       ],

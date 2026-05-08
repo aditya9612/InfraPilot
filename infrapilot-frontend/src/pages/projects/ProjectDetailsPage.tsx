@@ -63,10 +63,22 @@ const ProjectDetailsPage = () => {
       setLoading(true);
       const [pData, mData, msData, tData, sData, prData, plData] =
         await Promise.all([
-          projectService.getProjectById(projectId),
-          projectService.getProjectMembers(projectId),
-          projectService.getMilestones(projectId),
-          projectService.getTasks(projectId),
+          projectService.getProjectById(projectId).catch((err) => {
+            console.error("Project Meta Load Failure:", err);
+            return null;
+          }),
+          projectService.getProjectMembers(projectId).catch((err) => {
+            console.warn("Members Load Failure:", err);
+            return [];
+          }),
+          projectService.getMilestones(projectId).catch((err) => {
+            console.warn("Milestones Load Failure:", err);
+            return [];
+          }),
+          projectService.getTasks(projectId).catch((err) => {
+            console.warn("Tasks Load Failure:", err);
+            return [];
+          }),
           projectService.getProjectSchedule(projectId).catch(() => null),
           projectService.getProjectProgress(projectId).catch(() => null),
           projectService.getProjectProfitLoss(projectId).catch(() => null),
@@ -340,13 +352,12 @@ const ProjectDetailsPage = () => {
                 PRJ-{project.id}
               </span>
               <span
-                className={`px-3 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${
-                  project.status === "Ongoing"
-                    ? "bg-green-100 text-success"
-                    : project.status === "Delayed"
-                      ? "bg-red-100 text-red-600"
-                      : "bg-slate-100 text-slate-500"
-                }`}
+                className={`px-3 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${project.status === "ONGOING"
+                  ? "bg-green-100 text-success"
+                  : project.status === "DELAYED"
+                    ? "bg-red-100 text-red-600"
+                    : "bg-slate-100 text-slate-500"
+                  }`}
               >
                 {project.status}
               </span>
@@ -456,11 +467,10 @@ const ProjectDetailsPage = () => {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-6 py-4 text-sm font-bold transition-all border-b-2 -mb-[2px] whitespace-nowrap ${
-                activeTab === tab
-                  ? "text-primary border-primary"
-                  : "text-slate-400 border-transparent hover:text-slate-600"
-              }`}
+              className={`px-6 py-4 text-sm font-bold transition-all border-b-2 -mb-[2px] whitespace-nowrap ${activeTab === tab
+                ? "text-primary border-primary"
+                : "text-slate-400 border-transparent hover:text-slate-600"
+                }`}
             >
               {tab}
             </button>
