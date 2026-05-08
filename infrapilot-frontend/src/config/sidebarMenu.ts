@@ -213,7 +213,6 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     },
     {
       label: "Labour Management",
-<<<<<<< HEAD
       path: "/engineer/labor",
       icon: "users",
       subNav: [
@@ -221,14 +220,6 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
         { label: "Daily Attendance", path: "/engineer/labor/attendance", icon: "calendar" },
         { label: "Salary & Advances", path: "/engineer/labor/payments", icon: "dollar-sign" },
         { label: "Payroll Reports", path: "/engineer/labor/reports", icon: "file-text" },
-=======
-      path: "/engineer/labour",
-      icon: "users",
-      subNav: [
-        { label: "Labour Attendance", path: "/engineer/labour/attendance", icon: "user-check" },
-        { label: "Labour Reports", path: "/engineer/labour/reports", icon: "file-text" },
-        { label: "Labour Details", path: "/engineer/labour/details", icon: "users" },
->>>>>>> onkar
       ],
     },
     {

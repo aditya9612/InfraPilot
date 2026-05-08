@@ -428,13 +428,8 @@ const AdminDashboard = () => {
                     key={tab}
                     onClick={() => setActivityFilter(tab)}
                     className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${activityFilter === tab
-<<<<<<< HEAD
-                        ? "bg-primary text-white shadow-md shadow-primary/20"
-                        : "bg-slate-50 text-slate-500 hover:bg-slate-100"
-=======
                       ? "bg-primary text-white shadow-md shadow-primary/20"
                       : "bg-slate-50 text-slate-500 hover:bg-slate-100"
->>>>>>> onkar
                       }`}
                   >
                     {tab.toUpperCase()}
@@ -455,17 +450,10 @@ const AdminDashboard = () => {
                   <div key={i} className="flex gap-4 group">
                     <div
                       className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${act.type === "alert"
-<<<<<<< HEAD
-                          ? "bg-red-50 text-red-500"
-                          : act.type === "money"
-                            ? "bg-green-50 text-green-500"
-                            : "bg-blue-50 text-blue-500"
-=======
                         ? "bg-red-50 text-red-500"
                         : act.type === "money"
                           ? "bg-green-50 text-green-500"
                           : "bg-blue-50 text-blue-500"
->>>>>>> onkar
                         }`}
                     >
                       {act.type === "task" && "✔"}

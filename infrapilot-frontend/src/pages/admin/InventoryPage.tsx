@@ -12,18 +12,15 @@ import MaterialCostReportModal from "../../components/inventory/MaterialCostRepo
 import toast from "react-hot-toast";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import { materialService } from "../../services/materialService";
-<<<<<<< HEAD
-=======
-import { 
-  mockInventory, 
-  mockSuppliers, 
-  mockProjects, 
-  mockPOs, 
-  mockTransfers, 
-  mockLogs, 
-  mockSummary 
+import {
+  mockInventory,
+  mockSuppliers,
+  mockProjects,
+  mockPOs,
+  mockTransfers,
+  mockLogs,
+  mockSummary
 } from "../../components/admin/inventory/mockData";
->>>>>>> onkar
 import {
   Edit2,
   PlusCircle,
@@ -37,10 +34,7 @@ import {
 } from "lucide-react";
 import type {
   Material,
-<<<<<<< HEAD
-=======
   MaterialCreate,
->>>>>>> onkar
   Supplier,
   PurchaseOrder,
   Transfer,
@@ -106,38 +100,8 @@ const InventoryPage = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-<<<<<<< HEAD
-      console.log("Fetching inventory data for Project 1...");
-      const [invData, supData, poData, trData, logData, summaryData, valData] =
-        await Promise.all([
-          materialService.getMaterials(1), // Default to project 1
-          materialService.getSuppliers(),
-          materialService.getPOs(),
-          materialService.getTransfers(),
-          materialService.getLogs({ limit: 50, project_id: 1 }),
-          materialService.getSummary(),
-          materialService.getInventoryValuation(),
-        ]);
-
-      setInventory(invData);
-      setSuppliers(supData);
-      setPos(poData);
-      setTransfers(trData);
-      setLogs(logData);
-      setSummary(summaryData);
-      setValuation(valData.total_value || 0);
-      console.log("Inventory data synchronized successfully.");
-    } catch (error: any) {
-      console.error("Critical API Error in InventoryPage:", error);
-      const errorMsg =
-        error.response?.data?.detail || error.response?.data || error.message;
-      console.error("Error Detail:", errorMsg);
-      toast.error(
-        `Sync Failed: ${typeof errorMsg === "string" ? errorMsg : "Check console"}`,
-      );
-=======
       const [invData, supData] = await Promise.all([
-        materialService.getMaterials(1), // Default to project 1
+        materialService.listMaterials(1),
         materialService.getSuppliers()
       ]);
       setInventory(invData);
@@ -145,11 +109,8 @@ const InventoryPage = () => {
     } catch (error) {
       console.error("Failed to fetch inventory data, falling back to mock data:", error);
       toast.error("Live Sync Failed: Showing mock data due to server error.");
-      
-      // Fallback to mock data so the app remains functional
       setInventory(mockInventory);
       setSuppliers(mockSuppliers);
->>>>>>> onkar
     } finally {
       setIsLoading(false);
     }
@@ -186,18 +147,6 @@ const InventoryPage = () => {
       if (selectedSupplier) {
         setSuppliers((prev) =>
           prev.map((s) =>
-<<<<<<< HEAD
-            s.id === selectedSupplier.id ? { ...data, id: s.id } : s,
-          ),
-        );
-        toast.success("Supplier updated successfully!");
-      } else {
-        await materialService.createSupplier(data);
-        setSuppliers((prev) => [
-          ...prev,
-          { ...data, id: `s${prev.length + 1}` },
-        ]);
-=======
             s.id === selectedSupplier.id ? { ...data, id: s.id, contact: data.phone } : s,
           ),
         );
@@ -209,7 +158,6 @@ const InventoryPage = () => {
         };
         const newSupplier = await materialService.createSupplier(payload);
         setSuppliers((prev) => [...prev, newSupplier]);
->>>>>>> onkar
         toast.success("Supplier added successfully!");
       }
       setSupplierModalOpen(false);
@@ -238,7 +186,7 @@ const InventoryPage = () => {
         };
 
         const createdMaterial = await materialService.createMaterial(payload);
-        
+
         // Ensure the UI has all necessary fields (some might be computed on server)
         const newMaterial: Material = {
           ...createdMaterial,
@@ -263,10 +211,10 @@ const InventoryPage = () => {
           prev.map((m) =>
             m.id === material.id
               ? {
-                  ...m,
-                  quantity_used: m.quantity_used + data.quantity,
-                  remaining_stock: m.remaining_stock - data.quantity,
-                }
+                ...m,
+                quantity_used: m.quantity_used + data.quantity,
+                remaining_stock: m.remaining_stock - data.quantity,
+              }
               : m,
           ),
         );
@@ -275,12 +223,6 @@ const InventoryPage = () => {
           material_id: material.id,
           type: "USAGE",
           quantity: data.quantity,
-<<<<<<< HEAD
-          project_id: data.project_id,
-          issue_type: data.issue_type || "SITE",
-        });
-        toast.success("Usage logged successfully!");
-=======
           rate: material.purchase_rate,
           avg_rate: material.purchase_rate,
           total_amount: material.purchase_rate * data.quantity,
@@ -292,18 +234,17 @@ const InventoryPage = () => {
         };
         setLogs((prev) => [newLog, ...prev]);
         toast.success("Usage logged successfully! (Mock)");
->>>>>>> onkar
       } else {
         setInventory((prev) =>
           prev.map((m) =>
             m.id === material.id
               ? {
-                  ...m,
-                  quantity_purchased: m.quantity_purchased + data.quantity,
-                  remaining_stock: m.remaining_stock + data.quantity,
-                  payment_given: m.payment_given + data.payment,
-                  payment_pending: m.payment_pending + (m.purchase_rate * data.quantity - data.payment)
-                }
+                ...m,
+                quantity_purchased: m.quantity_purchased + data.quantity,
+                remaining_stock: m.remaining_stock + data.quantity,
+                payment_given: m.payment_given + data.payment,
+                payment_pending: m.payment_pending + (m.purchase_rate * data.quantity - data.payment)
+              }
               : m,
           ),
         );
@@ -316,14 +257,6 @@ const InventoryPage = () => {
           avg_rate: material.purchase_rate,
           total_amount: material.purchase_rate * data.quantity,
           amount_paid: data.payment,
-<<<<<<< HEAD
-          project_id: data.project_id,
-          issue_type: data.issue_type || "SYSTEM",
-        });
-        toast.success("Purchase added successfully!");
-      }
-      fetchData();
-=======
           payment_pending: (material.purchase_rate * data.quantity) - data.payment,
           issue_type: data.issue_type || "SYSTEM",
           project_id: data.project_id || material.project_id,
@@ -332,7 +265,6 @@ const InventoryPage = () => {
         setLogs((prev) => [newLog, ...prev]);
         toast.success("Purchase added successfully! (Mock)");
       }
->>>>>>> onkar
       setPurchaseActionConfig({
         isOpen: false,
         type: "purchase",
@@ -375,7 +307,7 @@ const InventoryPage = () => {
         created_at: new Date().toISOString().split("T")[0],
       };
       setTransfers((prev) => [newTransfer, ...prev]);
-      
+
       setTransferModalOpen(false);
       toast.success("Material transfer recorded! (Mock)");
     } catch (error) {
@@ -471,11 +403,10 @@ const InventoryPage = () => {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as any)}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                      activeTab === tab.id
-                        ? "bg-primary text-white shadow-md shadow-primary/20"
-                        : "text-slate-500 hover:bg-slate-50"
-                    }`}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === tab.id
+                      ? "bg-primary text-white shadow-md shadow-primary/20"
+                      : "text-slate-500 hover:bg-slate-50"
+                      }`}
                   >
                     <tab.icon size={14} />
                     {tab.label}
@@ -531,39 +462,39 @@ const InventoryPage = () => {
             {/* LOW STOCK ALERT BANNER */}
             {inventory.filter((m) => m.remaining_stock < m.minimum_stock_level)
               .length > 0 && (
-              <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex items-start gap-4 shadow-sm animate-in fade-in slide-in-from-top-2">
-                <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center shrink-0">
-                  <span className="text-rose-500 font-bold text-xl block animate-pulse">
-                    ⚠️
-                  </span>
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-bold text-rose-800 text-sm">
-                    Critical Inventory Alert
-                  </h3>
-                  <p className="text-rose-600 text-xs mt-0.5 mb-2 font-medium">
-                    The following items have dropped below their minimum
-                    threshold and require immediate procurement:
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {inventory
-                      .filter((m) => m.remaining_stock < m.minimum_stock_level)
-                      .map((lowItem) => (
-                        <span
-                          key={lowItem.id}
-                          className="bg-white border border-rose-200 text-rose-700 px-3 py-1 rounded-lg text-xs font-bold shadow-sm"
-                        >
-                          {lowItem.material_name}{" "}
-                          <span className="text-rose-400 font-normal ml-1">
-                            ({lowItem.remaining_stock} left @{" "}
-                            {projects[lowItem.project_id] || "Unknown Site"})
+                <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex items-start gap-4 shadow-sm animate-in fade-in slide-in-from-top-2">
+                  <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center shrink-0">
+                    <span className="text-rose-500 font-bold text-xl block animate-pulse">
+                      ⚠️
+                    </span>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-rose-800 text-sm">
+                      Critical Inventory Alert
+                    </h3>
+                    <p className="text-rose-600 text-xs mt-0.5 mb-2 font-medium">
+                      The following items have dropped below their minimum
+                      threshold and require immediate procurement:
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {inventory
+                        .filter((m) => m.remaining_stock < m.minimum_stock_level)
+                        .map((lowItem) => (
+                          <span
+                            key={lowItem.id}
+                            className="bg-white border border-rose-200 text-rose-700 px-3 py-1 rounded-lg text-xs font-bold shadow-sm"
+                          >
+                            {lowItem.material_name}{" "}
+                            <span className="text-rose-400 font-normal ml-1">
+                              ({lowItem.remaining_stock} left @{" "}
+                              {projects[lowItem.project_id] || "Unknown Site"})
+                            </span>
                           </span>
-                        </span>
-                      ))}
+                        ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
             {/* STAT CARDS */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -669,22 +600,11 @@ const InventoryPage = () => {
                         .toLowerCase()
                         .includes(searchTerm.toLowerCase()),
                     )}
-                    onEdit={() => {}}
-                    onDelete={(id) => {}}
+                    onEdit={() => { }}
+                    onDelete={(id) => { }}
                     onStatusUpdate={async (id, status) => {
-<<<<<<< HEAD
-                      try {
-                        await materialService.updatePO(id, {
-                          ...pos.find((p) => p.id === id)!,
-                        }); // Simplistic update
-                        fetchData();
-                      } catch (error) {
-                        toast.error("Failed to update status");
-                      }
-=======
                       setPos(prev => prev.map(p => p.id === id ? { ...p, status } : p));
                       toast.success("PO status updated! (Mock)");
->>>>>>> onkar
                     }}
                   />
                 )}
@@ -692,17 +612,8 @@ const InventoryPage = () => {
                   <TransferTable
                     transfers={transfers}
                     onStatusUpdate={async (id, status) => {
-<<<<<<< HEAD
-                      try {
-                        await materialService.updateTransferStatus(id, status);
-                        fetchData();
-                      } catch (error) {
-                        toast.error("Failed to update transfer");
-                      }
-=======
                       setTransfers(prev => prev.map(t => t.id === id ? { ...t, status } : t));
                       toast.success("Transfer status updated! (Mock)");
->>>>>>> onkar
                     }}
                   />
                 )}
