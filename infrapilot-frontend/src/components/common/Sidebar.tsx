@@ -99,6 +99,22 @@ const icons: Record<string, JSX.Element> = {
       />
     </svg>
   ),
+  plus: (
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+        d="M12 5v14M5 12h14"
+      />
+    </svg>
+  ),
+
   package: (
     <svg
       className="w-4 h-4"
@@ -721,11 +737,10 @@ const SidebarItem = ({
       <div className={`mb-0.5 ${isDisabled ? "opacity-50 pointer-events-none" : ""}`}>
         <button
           onClick={() => !isDisabled && setIsOpen(!isOpen)}
-          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-            isParentActive
-              ? "text-primary bg-blue-50/50 font-semibold"
-              : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
-          }`}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${isParentActive
+            ? "text-primary bg-blue-50/50 font-semibold"
+            : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+            }`}
         >
           <span className={isParentActive ? "text-primary" : "text-slate-400"}>
             {icons[item.icon]}
@@ -784,10 +799,9 @@ const SidebarItem = ({
       }
       onClick={onClose}
       className={({ isActive }) =>
-        `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors mb-0.5 ${
-          isActive
-            ? "text-primary bg-blue-50 font-semibold shadow-sm shadow-blue-100/50"
-            : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+        `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors mb-0.5 ${isActive
+          ? "text-primary bg-blue-50 font-semibold shadow-sm shadow-blue-100/50"
+          : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
         }`
       }
     >

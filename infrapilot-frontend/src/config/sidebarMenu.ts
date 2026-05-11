@@ -13,10 +13,15 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     { label: "Dashboard", path: "/admin", icon: "grid" },
     { label: "Projects", path: "/admin/projects", icon: "folder" },
     {
-      label: "(Coming Soon) Estimates / Invoices",
-      path: "#",
+      label: "Estimates / Invoices",
+      path: "/admin/invoices",
       icon: "file-text",
-      disabled: true,
+      subNav: [
+        { label: "All Invoices", path: "/admin/invoices/all", icon: "list" },
+        { label: "Quotations", path: "/admin/quotations", icon: "file-text" },
+        { label: "Create Invoice", path: "/admin/invoices/create", icon: "plus" },
+        { label: "Measurements", path: "/admin/measurements", icon: "tool" },
+      ],
     },
     {
       label: "User & Role Management",
@@ -152,7 +157,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
           path: "/admin/reports/financial",
           icon: "dollar-sign",
         },
-        { label: "Labor Report", path: "/admin/reports/labor", icon: "users" },
+        { label: "Labour Report", path: "/admin/reports/labour", icon: "users" },
         {
           label: "Material Consumption",
           path: "/admin/reports/consumption",
@@ -173,8 +178,8 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
           icon: "package",
         },
         {
-          label: "Labor Types",
-          path: "/admin/master-data/labor",
+          label: "Labour Types",
+          path: "/admin/master-data/labour",
           icon: "users",
         },
         {

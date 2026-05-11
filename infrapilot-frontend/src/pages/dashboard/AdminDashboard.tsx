@@ -24,62 +24,60 @@ import CreateReportModal from "../../components/dashboard/CreateReportModal";
 import { projectService } from "../../services/projectService";
 import { boqService } from "../../services/boqService";
 import { userService } from "../../services/userService";
+import { expenseService } from "../../services/expenseService";
+import { generateProjectListPDF } from "../../utils/projectPDFGenerator";
 import type { Project, ProjectStatus } from "../../types/project";
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-const budgetData = [
-  { month: "Jan", budget: 45, actual: 40 },
-  { month: "Feb", budget: 52, actual: 48 },
-  { month: "Mar", budget: 48, actual: 55 },
-  { month: "Apr", budget: 61, actual: 58 },
-  { month: "May", budget: 55, actual: 60 },
-  { month: "Jun", budget: 67, actual: 72 },
-];
+// Dynamic graph data will replace this
+// const budgetData = [];
 
 // ─── Styling Helpers ──────────────────────────────────────────────────────────
 const statusBadge: Record<ProjectStatus, string> = {
-  Planned: "bg-slate-100 text-slate-500",
-  Ongoing: "bg-green-100 text-success",
-  Delayed: "bg-red-100 text-danger",
-  Completed: "bg-blue-100 text-primary",
-  "On Hold": "bg-amber-100 text-warning",
+  PLANNED: "bg-slate-100 text-slate-500",
+  ONGOING: "bg-green-100 text-success",
+  DELAYED: "bg-red-100 text-danger",
+  COMPLETED: "bg-blue-100 text-primary",
+  "ON HOLD": "bg-amber-100 text-warning",
 };
 
 const statusDot: Record<ProjectStatus, string> = {
-  Planned: "bg-slate-400",
-  Ongoing: "bg-success",
-  Delayed: "bg-danger",
-  Completed: "bg-primary",
-  "On Hold": "bg-warning",
+  PLANNED: "bg-slate-400",
+  ONGOING: "bg-success",
+  DELAYED: "bg-danger",
+  COMPLETED: "bg-primary",
+  "ON HOLD": "bg-warning",
 };
 
 const progressPulse: Record<ProjectStatus, string> = {
-  Planned: "bg-slate-300",
-  Ongoing: "bg-success",
-  Delayed: "bg-danger",
-  Completed: "bg-primary",
-  "On Hold": "bg-warning",
+  PLANNED: "bg-slate-300",
+  ONGOING: "bg-success",
+  DELAYED: "bg-danger",
+  COMPLETED: "bg-primary",
+  "ON HOLD": "bg-warning",
 };
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 const AdminDashboard = () => {
   const [activityFilter, setActivityFilter] = useState("All");
+  const [timeFilter, setTimeFilter] = useState("This Year");
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
   const [isBOQModalOpen, setIsBOQModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [alerts, setAlerts] = useState<any[]>([]);
+  const [graphData, setGraphData] = useState<any[]>([]);
   const [projectAlertsData, setProjectAlertsData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchDashboardData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const [pData, pAlerts, tAlerts] = await Promise.all([
+      const [pData, pAlerts, tAlerts, expensesData] = await Promise.all([
         projectService.getProjects(100, 0),
         projectService.getProjectAlerts().catch(() => []),
         projectService.getTaskAlerts().catch(() => []),
+        expenseService.listExpenses().catch(() => []),
       ]);
 
       const projectsList = Array.isArray(pData)
@@ -106,6 +104,85 @@ const AdminDashboard = () => {
         type: a.type || "alert",
       }));
       setAlerts(combinedAlerts);
+
+      // Compute Chart Data
+      const monthlyData: Record<string, { budget: number, actual: number }> = {
+        Jan: { budget: 0, actual: 0 }, Feb: { budget: 0, actual: 0 },
+        Mar: { budget: 0, actual: 0 }, Apr: { budget: 0, actual: 0 },
+        May: { budget: 0, actual: 0 }, Jun: { budget: 0, actual: 0 },
+        Jul: { budget: 0, actual: 0 }, Aug: { budget: 0, actual: 0 },
+        Sep: { budget: 0, actual: 0 }, Oct: { budget: 0, actual: 0 },
+        Nov: { budget: 0, actual: 0 }, Dec: { budget: 0, actual: 0 },
+      };
+
+      projectsList.forEach((p: any) => {
+        if (p.budget && p.start_date && p.end_date) {
+          const start = new Date(p.start_date);
+          const end = new Date(p.end_date);
+          const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 1;
+          const monthlyBudget = p.budget / (monthsDiff > 0 ? monthsDiff : 1);
+
+          for (let d = new Date(start); d <= end; d.setMonth(d.getMonth() + 1)) {
+            const monthKey = d.toLocaleString('default', { month: 'short' });
+            if (monthlyData[monthKey]) {
+              monthlyData[monthKey].budget += monthlyBudget;
+            }
+          }
+        }
+      });
+
+      if (Array.isArray(expensesData)) {
+        expensesData.forEach((exp: any) => {
+          if (exp.expense_date) {
+            const monthKey = new Date(exp.expense_date).toLocaleString('default', { month: 'short' });
+            if (monthlyData[monthKey]) {
+              monthlyData[monthKey].actual += Number(exp.amount) || 0;
+            }
+          }
+        });
+      }
+
+      const monthsArr = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+      if (timeFilter === "This Year") {
+        const formattedGraphData = monthsArr.map(m => ({
+          month: m,
+          budget: Math.round(monthlyData[m].budget),
+          actual: Math.round(monthlyData[m].actual),
+        }));
+        setGraphData(formattedGraphData);
+      } else {
+        // "This Month" logic - show days of the current month
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+        const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+        const monthName = monthsArr[currentMonth];
+
+        const dailyBudget = monthlyData[monthName].budget / daysInMonth;
+        const dailyDataArray = [];
+
+        for (let i = 1; i <= daysInMonth; i++) {
+          let dayActual = 0;
+          if (Array.isArray(expensesData)) {
+            expensesData.forEach((exp: any) => {
+              if (exp.expense_date) {
+                const expDate = new Date(exp.expense_date);
+                if (expDate.getDate() === i && expDate.getMonth() === currentMonth && expDate.getFullYear() === currentYear) {
+                  dayActual += Number(exp.amount) || 0;
+                }
+              }
+            });
+          }
+
+          dailyDataArray.push({
+            month: `${i} ${monthName}`, // Label as "1 May", "2 May", etc.
+            budget: Math.round(dailyBudget),
+            actual: Math.round(dayActual),
+          });
+        }
+        setGraphData(dailyDataArray);
+      }
     } catch (error) {
       console.error("Dashboard: Data Sync Error", error);
       toast.error("Failed to sync dashboard data");
@@ -116,7 +193,7 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     fetchDashboardData();
-  }, [fetchDashboardData]);
+  }, [fetchDashboardData, timeFilter]);
 
   const navigate = useNavigate();
 
@@ -178,10 +255,17 @@ const AdminDashboard = () => {
   // Dynamic Statistics
   const stats = {
     total: projects.length,
-    active: projects.filter((p) => p.status === "Ongoing").length,
-    completed: projects.filter((p) => p.status === "Completed").length,
-    delayed: projects.filter((p) => p.status === "Delayed").length,
+    active: projects.filter((p) => p.status?.toString().trim().toUpperCase() === "ONGOING").length,
+    completed: projects.filter((p) => p.status?.toString().trim().toUpperCase() === "COMPLETED").length,
+    delayed: projects.filter((p) => p.status?.toString().trim().toUpperCase() === "DELAYED").length,
   };
+
+  const filteredAlerts = alerts.filter(act => {
+    if (activityFilter === "All") return true;
+    if (activityFilter === "Issues") return act.type === "alert" || act.action?.toLowerCase().includes("delay");
+    if (activityFilter === "Updates") return act.type !== "alert" && !act.action?.toLowerCase().includes("delay");
+    return true;
+  });
 
   return (
     <>
@@ -328,9 +412,13 @@ const AdminDashboard = () => {
                   Budget vs Actual expenditure across all projects
                 </p>
               </div>
-              <select className="text-xs font-bold text-slate-500 bg-slate-50 border-none rounded-lg px-3 py-1.5 focus:ring-0">
-                <option>This Year</option>
-                <option>This Month</option>
+              <select
+                value={timeFilter}
+                onChange={(e) => setTimeFilter(e.target.value)}
+                className="text-xs font-bold text-slate-500 bg-slate-50 border-none rounded-lg px-3 py-1.5 focus:ring-0"
+              >
+                <option value="This Year">This Year</option>
+                <option value="This Month">This Month</option>
               </select>
             </div>
             <div className="h-[300px] w-full">
@@ -342,7 +430,7 @@ const AdminDashboard = () => {
                   debounce={100}
                 >
                   <LineChart
-                    data={budgetData}
+                    data={graphData}
                     margin={{ top: 5, right: 10, left: 10, bottom: 0 }}
                   >
                     <CartesianGrid
@@ -428,8 +516,8 @@ const AdminDashboard = () => {
                     key={tab}
                     onClick={() => setActivityFilter(tab)}
                     className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${activityFilter === tab
-                        ? "bg-primary text-white shadow-md shadow-primary/20"
-                        : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                      ? "bg-primary text-white shadow-md shadow-primary/20"
+                      : "bg-slate-50 text-slate-500 hover:bg-slate-100"
                       }`}
                   >
                     {tab.toUpperCase()}
@@ -438,7 +526,7 @@ const AdminDashboard = () => {
               </div>
             </div>
             <div className="flex-1 p-6 space-y-6 overflow-y-auto max-h-[400px]">
-              {alerts.length === 0 ? (
+              {filteredAlerts.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 opacity-50">
                   <span className="text-2xl mb-2">✨</span>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -446,14 +534,14 @@ const AdminDashboard = () => {
                   </p>
                 </div>
               ) : (
-                alerts.map((act, i) => (
+                filteredAlerts.map((act, i) => (
                   <div key={i} className="flex gap-4 group">
                     <div
                       className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${act.type === "alert"
-                          ? "bg-red-50 text-red-500"
-                          : act.type === "money"
-                            ? "bg-green-50 text-green-500"
-                            : "bg-blue-50 text-blue-500"
+                        ? "bg-red-50 text-red-500"
+                        : act.type === "money"
+                          ? "bg-green-50 text-green-500"
+                          : "bg-blue-50 text-blue-500"
                         }`}
                     >
                       {act.type === "task" && "✔"}
@@ -628,29 +716,50 @@ const AdminDashboard = () => {
             <h2 className="font-bold text-slate-800">
               Master Projects Overview
             </h2>
-            <button
-              onClick={handleDownloadCSV}
-              className="flex items-center gap-1.5 text-xs text-primary font-bold hover:underline transition-colors"
-            >
-              <svg
-                className="w-3.5 h-3.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => generateProjectListPDF(projects)}
+                className="flex items-center gap-1.5 text-xs text-primary font-bold hover:underline transition-colors"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-              Download CSV
-            </button>
+                <svg
+                  className="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                  />
+                </svg>
+                Download PDF
+              </button>
+              <button
+                onClick={handleDownloadCSV}
+                className="flex items-center gap-1.5 text-xs text-primary font-bold hover:underline transition-colors"
+              >
+                <svg
+                  className="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+                Download CSV
+              </button>
+            </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
+          <div className="overflow-x-auto max-h-[320px] overflow-y-auto custom-scrollbar">
+            <table className="w-full text-left sticky-header">
+              <thead className="sticky top-0 bg-white z-10 shadow-sm">
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] border-b border-slate-50">
                   <th className="px-6 py-4">Site/Project</th>
                   <th className="px-6 py-4">Dates</th>

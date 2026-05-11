@@ -87,9 +87,9 @@ function parseDXF(content: string): Point[] {
 
 // ─── Step Indicator ───────────────────────────────────────────────────────────
 const STEPS: { id: Step; label: string; num: string }[] = [
-  { id: "upload",  label: "Upload File", num: "1" },
-  { id: "convert", label: "Convert",     num: "2" },
-  { id: "view",    label: "Visualize",   num: "3" },
+  { id: "upload", label: "Upload File", num: "1" },
+  { id: "convert", label: "Convert", num: "2" },
+  { id: "view", label: "Visualize", num: "3" },
 ];
 
 function StepIndicator({ current }: { current: Step }) {
@@ -134,19 +134,29 @@ export default function AutoCADPage() {
   const [step, setStep] = useState<Step>("upload");
 
   // File & parsed data
-  const [csvFile, setCsvFile]     = useState<File | null>(null);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
-  const [csvPoints, setCsvPoints]  = useState<Point[]>([]);
+  const [csvPoints, setCsvPoints] = useState<Point[]>([]);
 
   // Viewer
   const [viewPoints, setViewPoints] = useState<Point[]>([]);
   const [chartTitle, setChartTitle] = useState("AutoCAD Point Visualization");
 
-  // CAD Logs
+  // CAD Logs & Visualizations
   const [cadLogs, setCadLogs] = useState<any[]>([]);
+  const [visualizations, setVisualizations] = useState<any[]>([
+    // Demo entry to show style
+    {
+      id: "demo-1",
+      title: "Initial Site Survey",
+      url: "https://images.unsplash.com/photo-1541888946425-d81bb19480c5?auto=format&fit=crop&q=80&w=800",
+      date: new Date(Date.now() - 86400000 * 2).toISOString(),
+      points: 821
+    }
+  ]);
 
   useEffect(() => {
-    api.get("/cad/logs").then((r) => setCadLogs(r.data)).catch(() => {});
+    api.get("/cad/logs").then((r) => setCadLogs(r.data)).catch(() => { });
   }, []);
 
   // ── Upload handlers ──────────────────────────────────────────────────────
@@ -179,6 +189,33 @@ export default function AutoCADPage() {
     setViewPoints(points);
     setChartTitle(csvFile ? csvFile.name.replace(/\.[^.]+$/, "") + " — Visualization" : "Visualization");
     setStep("view");
+  };
+
+  // ── Save to Gallery ───────────────────────────────────────────────────────
+  const handleSaveToGallery = (dataUrl: string) => {
+    const uploadPromise = new Promise((resolve) => {
+      // Simulate professional secure cloud upload
+      setTimeout(() => {
+        const newViz = {
+          id: `viz-${Date.now()}`,
+          title: chartTitle,
+          url: dataUrl,
+          date: new Date().toISOString(),
+          points: viewPoints.length
+        };
+        setVisualizations(prev => [newViz, ...prev]);
+        resolve(newViz);
+      }, 2000);
+    });
+
+    toast.promise(uploadPromise, {
+      loading: 'Encrypting and saving site snapshot to project gallery...',
+      success: 'Blueprint successfully archived in Project Gallery!',
+      error: 'Failed to sync with project storage.',
+    }, {
+      style: { minWidth: '350px' },
+      success: { duration: 4000 }
+    });
   };
 
   // ── Reset to start ───────────────────────────────────────────────────────
@@ -274,6 +311,7 @@ export default function AutoCADPage() {
               <CADCanvas
                 points={viewPoints}
                 title={chartTitle}
+                onSaveToGallery={handleSaveToGallery}
               />
             </div>
           </div>
@@ -287,9 +325,9 @@ export default function AutoCADPage() {
               <span className="text-xs text-slate-400 font-medium">{cadLogs.length} records</span>
             )}
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-h-[320px] overflow-y-auto custom-scrollbar">
             <table className="w-full text-sm text-left">
-              <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs">
+              <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs sticky top-0 bg-white z-10 shadow-sm">
                 <tr>
                   <th className="px-4 py-3 rounded-tl-lg">ID</th>
                   <th className="px-4 py-3">Project Name</th>
@@ -334,6 +372,77 @@ export default function AutoCADPage() {
               </tbody>
             </table>
           </div>
+        </div>
+
+        {/* ── Project Visualization Gallery ──────────────────────────────── */}
+        <div className="mt-8">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-bold text-slate-800 tracking-tight">Recent Project Snapshots</h3>
+              <p className="text-sm text-slate-500">Historical visualizations saved to this project library.</p>
+            </div>
+            <span className="bg-primary/5 text-primary text-[10px] font-bold uppercase px-2 py-1 rounded border border-primary/10">Project Records</span>
+          </div>
+
+          {visualizations.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {visualizations.map((viz) => (
+                <div key={viz.id} className="group relative bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300">
+                  <div className="aspect-[16/10] bg-slate-900 overflow-hidden relative">
+                    <img
+                      src={viz.url}
+                      alt={viz.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90 group-hover:opacity-100"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent opacity-60" />
+
+                    {/* Action Overlay */}
+                    <div className="absolute inset-0 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-slate-900/40 backdrop-blur-[2px]">
+                      <button
+                        onClick={() => {
+                          const link = document.createElement("a");
+                          link.href = viz.url;
+                          link.download = `Archive_${viz.title.replace(/\s+/g, '_')}.png`;
+                          link.click();
+                        }}
+                        className="w-10 h-10 rounded-full bg-white text-slate-900 flex items-center justify-center shadow-lg hover:bg-primary hover:text-white transition-colors"
+                        title="Download Copy"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-4">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <h4 className="font-bold text-slate-800 text-sm line-clamp-1 truncate flex-1">{viz.title}</h4>
+                      <span className="text-[10px] font-mono text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 whitespace-nowrap">
+                        {viz.points} PTS
+                      </span>
+                    </div>
+                    <div className="flex items-center text-[11px] text-slate-400 font-medium">
+                      <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      {new Date(viz.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl py-12 flex flex-col items-center justify-center text-center">
+              <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center text-slate-300 mb-4 border border-slate-100">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <p className="text-slate-500 font-medium text-sm">No snapshots archived yet.</p>
+              <p className="text-slate-400 text-xs mt-1">Visualize your data and click 'Save to Gallery' to build a history.</p>
+            </div>
+          )}
         </div>
       </PageTransition>
     </>

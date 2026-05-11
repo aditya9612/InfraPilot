@@ -34,6 +34,7 @@ import {
 import OptimizationModal from "../../components/dashboard/OptimizationModal";
 import BulkImportBOQModal from "../../components/forms/BulkImportBOQModal";
 import ActivityDetailsModal from "../../components/dashboard/ActivityDetailsModal";
+import { BOQ_CATEGORIES } from "../../config/constants";
 
 const INITIAL_ACTIVITIES_DATA = [
   {
@@ -530,11 +531,10 @@ const BOQPage = () => {
                 }
                 setIsOptimizationModalOpen(true);
               }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold shadow-lg transition-all ${
-                projectFilter === "all"
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold shadow-lg transition-all ${projectFilter === "all"
                   ? "bg-slate-100 text-slate-400 cursor-not-allowed opacity-70"
                   : "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-amber-200 hover:scale-105"
-              }`}
+                }`}
             >
               <Sparkles className="w-4 h-4" />
               {projectFilter === "all"
@@ -658,11 +658,11 @@ const BOQPage = () => {
                 className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-primary/10 transition-all"
               >
                 <option value="all">All Categories</option>
-                <option value="construction">Construction</option>
-                <option value="civil">Civil</option>
-                <option value="structure">Structure</option>
-                <option value="electrical">Electrical</option>
-                <option value="finishing">Finishing</option>
+                {BOQ_CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
               </select>
 
               <select
@@ -842,20 +842,19 @@ const BOQPage = () => {
                         </td>
                         <td className="px-6 py-4 text-center">
                           <span
-                            className={`px-2 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${
-                              item.status === "Ongoing" ||
-                              item.status === "ACTIVE" ||
-                              item.status === "Ongoing"
+                            className={`px-2 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${item.status === "Ongoing" ||
+                                item.status === "ACTIVE" ||
+                                item.status === "Ongoing"
                                 ? "bg-emerald-100 text-emerald-600"
                                 : item.status === "Completed"
                                   ? "bg-blue-100 text-blue-600"
                                   : item.status === "Draft"
                                     ? "bg-slate-100 text-slate-600"
                                     : "bg-amber-100 text-amber-600"
-                            }`}
+                              }`}
                           >
                             {item.status === "Ongoing" ||
-                            item.status === "ACTIVE"
+                              item.status === "ACTIVE"
                               ? "Ongoing"
                               : item.status}
                           </span>
@@ -954,13 +953,12 @@ const BOQPage = () => {
                         </td>
                         <td className="px-6 py-4">
                           <span
-                            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${
-                              act.status === "Completed"
+                            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${act.status === "Completed"
                                 ? "bg-emerald-100 text-emerald-600"
                                 : act.status === "In Progress"
                                   ? "bg-blue-100 text-blue-600"
                                   : "bg-slate-100 text-slate-600"
-                            }`}
+                              }`}
                           >
                             {act.status}
                           </span>
@@ -1073,13 +1071,13 @@ const BOQPage = () => {
         initialData={
           activeItemForModal
             ? {
-                item_name: activeItemForModal.item_name,
-                actual_quantity: activeItemForModal.actual_quantity,
-                actual_cost: activeItemForModal.actual_cost,
-                quantity: activeItemForModal.quantity,
-                unit: activeItemForModal.unit,
-                total_cost: activeItemForModal.total_cost || "0",
-              }
+              item_name: activeItemForModal.item_name,
+              actual_quantity: activeItemForModal.actual_quantity,
+              actual_cost: activeItemForModal.actual_cost,
+              quantity: activeItemForModal.quantity,
+              unit: activeItemForModal.unit,
+              total_cost: activeItemForModal.total_cost || "0",
+            }
             : undefined
         }
       />

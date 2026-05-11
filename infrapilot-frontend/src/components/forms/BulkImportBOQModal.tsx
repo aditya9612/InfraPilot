@@ -4,6 +4,7 @@ import { boqService } from "../../services/boqService";
 import toast from "react-hot-toast";
 import { Upload, FileText, CheckCircle2, AlertCircle, X, ChevronDown } from "lucide-react";
 import type { BoqItem } from "../../types/boq";
+import { BOQ_CATEGORIES, BOQ_UNITS } from "../../config/constants";
 
 interface BulkImportBOQModalProps {
   isOpen: boolean;
@@ -53,7 +54,7 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
     if (selectedFile) {
       if (
         selectedFile.type ===
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
         selectedFile.type === "application/vnd.ms-excel" ||
         selectedFile.name.endsWith(".csv")
       ) {
@@ -79,10 +80,10 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
         .map((row: any) => ({
           project_id: projectId,
           item_name: row["Item Name"] || row["item_name"] || row["Name"],
-          category: row["Category"] || row["category"] || "Construction",
+          category: row["Category"] || row["category"] || BOQ_CATEGORIES[0],
           description: row["Description"] || row["description"] || "",
           quantity: Number(row["Quantity"] || row["qty"] || 0),
-          unit: row["Unit"] || row["unit"] || "Unit",
+          unit: row["Unit"] || row["unit"] || BOQ_UNITS[0],
           unit_cost: Number(row["Unit Cost"] || row["rate"] || 0),
           status: "Active",
         }))
@@ -124,10 +125,10 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
         const newBoq = await boqService.createBoq({
           project_id: projectId,
           item_name: boqName,
-          category: "Construction", // Using a valid category from CATEGORIES
+          category: BOQ_CATEGORIES[0], // Using centralized category
           description: "Created via bulk import",
           quantity: 1,
-          unit: "Nos", // Using a valid unit from UNITS
+          unit: BOQ_UNITS[6] || "Nos", // Using centralized unit (Nos is usually 6th or 7th)
           unit_cost: 0,
           status: "Draft",
         });

@@ -4,7 +4,7 @@ import type { Transfer } from "../../../types/material";
 
 interface TransferTableProps {
   transfers: Transfer[];
-  onStatusUpdate?: (id: number, status: string) => void;
+  onStatusUpdate?: (id: number, status: Transfer["status"]) => void;
 }
 
 const TransferTable: React.FC<TransferTableProps> = ({

@@ -53,6 +53,7 @@ const ProjectsPage = () => {
   // Edit State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [showAllProgress, setShowAllProgress] = useState(false);
 
   const fetchProjects = useCallback(async () => {
     try {
@@ -328,56 +329,69 @@ const ProjectsPage = () => {
                 </div>
               ) : filtered.length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-3xl mb-2">🏗️</p>
-                  <p className="font-bold text-slate-500 text-sm">
-                    No projects found
-                  </p>
+                   <p className="text-3xl mb-2">🏗️</p>
+                   <p className="font-bold text-slate-500 text-sm">
+                     No projects found
+                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {filtered.map((p) => (
-                    <div
-                      key={p.id}
-                      onClick={() => handleViewProject(p.id)}
-                      className="group cursor-pointer bg-slate-50/50 rounded-xl p-4 hover:bg-slate-50 transition-colors border border-slate-50"
-                    >
-                      <div className="flex justify-between items-start mb-1">
-                        <div className="min-w-0">
-                          <p className="text-[9px] font-mono font-bold text-slate-400">
-                            PRJ-{p.id}
-                          </p>
-                          <p className="text-xs font-bold text-slate-700 group-hover:text-primary transition-colors truncate max-w-[150px]">
-                            {p.project_name}
-                          </p>
-                        </div>
-                        <span className="text-[10px] font-bold text-slate-400">
-                          {p.completion_percentage}%
-                        </span>
-                      </div>
-
-                      <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden mt-3 mb-2">
-                        <div
-                          className={`h-full ${progressFill[p.status] || "bg-slate-300"} transition-all duration-1000`}
-                          style={{ width: `${p.completion_percentage}%` }}
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full ${statusDot[p.status] || "bg-slate-400"}`}
-                          />
-                          <span className="text-[9px] font-bold text-slate-400 uppercase translate-y-px">
-                            {p.status}
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {(showAllProgress ? filtered : filtered.slice(0, 6)).map((p) => (
+                      <div
+                        key={p.id}
+                        onClick={() => handleViewProject(p.id)}
+                        className="group cursor-pointer bg-slate-50/50 rounded-xl p-4 hover:bg-slate-50 transition-colors border border-slate-50"
+                      >
+                        <div className="flex justify-between items-start mb-1">
+                          <div className="min-w-0">
+                            <p className="text-[9px] font-mono font-bold text-slate-400">
+                              PRJ-{p.id}
+                            </p>
+                            <p className="text-xs font-bold text-slate-700 group-hover:text-primary transition-colors truncate max-w-[150px]">
+                              {p.project_name}
+                            </p>
+                          </div>
+                          <span className="text-[10px] font-bold text-slate-400">
+                            {p.completion_percentage}%
                           </span>
                         </div>
-                        <span className="text-[9px] font-bold text-slate-500">
-                          {p.start_date}
-                        </span>
+
+                        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden mt-3 mb-2">
+                          <div
+                            className={`h-full ${progressFill[p.status] || "bg-slate-300"} transition-all duration-1000`}
+                            style={{ width: `${p.completion_percentage}%` }}
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${statusDot[p.status] || "bg-slate-400"}`}
+                            />
+                            <span className="text-[9px] font-bold text-slate-400 uppercase translate-y-px">
+                              {p.status}
+                            </span>
+                          </div>
+                          <span className="text-[9px] font-bold text-slate-500">
+                            {p.start_date}
+                          </span>
+                        </div>
                       </div>
+                    ))}
+                  </div>
+                  
+                  {filtered.length > 6 && (
+                    <div className="mt-6 text-center">
+                      <button
+                        onClick={() => setShowAllProgress(!showAllProgress)}
+                        className="px-6 py-2 text-xs font-bold text-primary border border-primary/20 rounded-xl hover:bg-primary/5 transition-all uppercase tracking-widest"
+                      >
+                        {showAllProgress ? "Show Less" : `See More (${filtered.length - 6} more)`}
+                      </button>
                     </div>
-                  ))}
-                </div>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -466,9 +480,9 @@ const ProjectsPage = () => {
               Master Projects Overview
             </h2>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
+          <div className="max-h-[500px] overflow-auto custom-scrollbar">
+            <table className="w-full text-left relative">
+              <thead className="sticky top-0 z-10 bg-white">
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] border-b border-slate-50">
                   <th className="px-6 py-4">Project ID</th>
                   <th className="px-6 py-4">Project Name</th>

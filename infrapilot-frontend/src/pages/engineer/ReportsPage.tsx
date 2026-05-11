@@ -40,7 +40,7 @@ const reportTypes: ReportType[] = [
     {
         id: "daily",
         name: "Daily Report",
-        description: "Full summary of today's site operations — labor deployed, work completed, materials consumed, and any issues logged.",
+        description: "Full summary of today's site operations — labour deployed, work completed, materials consumed, and any issues logged.",
         icon: "📋",
         badgeColor: "bg-blue-50 text-blue-600",
         accentBar: "bg-blue-600",
@@ -48,7 +48,7 @@ const reportTypes: ReportType[] = [
         size: "1.2 MB",
         frequency: "Daily",
         metrics: [
-            { label: "Total Labor", value: "142 Workers", accent: "text-blue-600" },
+            { label: "Total Labour", value: "142 Workers", accent: "text-blue-600" },
             { label: "Concrete Poured", value: "120 m³" },
             { label: "Steel Fixed", value: "8.5 Tons" },
             { label: "Safety Incidents", value: "0", accent: "text-emerald-600" },
@@ -67,13 +67,13 @@ const reportTypes: ReportType[] = [
         metrics: [
             { label: "Planned Progress", value: "85%" },
             { label: "Actual Progress", value: "82%", accent: "text-amber-600" },
-            { label: "Labor Hours", value: "4,800 hrs" },
+            { label: "Labour Hours", value: "4,800 hrs" },
             { label: "Cost This Week", value: "₹45.2 L", accent: "text-rose-500" },
         ],
     },
     {
-        id: "labor",
-        name: "Labor Report",
+        id: "labour",
+        name: "Labour Report",
         description: "Workforce breakdown by skill category, attendance, overtime, and contractor-wise deployment summary.",
         icon: "👷",
         badgeColor: "bg-amber-50 text-amber-600",
@@ -82,8 +82,8 @@ const reportTypes: ReportType[] = [
         size: "0.8 MB",
         frequency: "Daily",
         metrics: [
-            { label: "Skilled Labor", value: "45", accent: "text-blue-600" },
-            { label: "Unskilled Labor", value: "88" },
+            { label: "Skilled Labour", value: "45", accent: "text-blue-600" },
+            { label: "Unskilled Labour", value: "88" },
             { label: "Supervisors", value: "9" },
             { label: "Overtime Hours", value: "24 hrs", accent: "text-amber-600" },
         ],
@@ -380,7 +380,7 @@ const ReportsPage = () => {
                             Reports
                         </h1>
                         <p className="text-slate-500 text-sm font-medium">
-                            Generate, view, and export daily, weekly, labor, material, and issue reports.
+                            Generate, view, and export daily, weekly, labour, material, and issue reports.
                         </p>
                     </div>
 
