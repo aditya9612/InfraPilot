@@ -25,6 +25,7 @@ const QCTestReportsPage = () => {
     
     // UI States
     const [activeTab] = useState<"Inspection" | "Test Reports">("Test Reports");
+    const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Pass" | "Fail">("All");
 
     // ─── PROJECT RESOLUTION ─────────────────────────────────────────────
     useEffect(() => {
@@ -76,10 +77,16 @@ const QCTestReportsPage = () => {
         };
     }, [qcList]);
 
+    const filteredQcList = useMemo(() => {
+        if (activeStatFilter === "Pass") return qcList.filter(q => q.status === "Pass");
+        if (activeStatFilter === "Fail") return qcList.filter(q => q.status === "Fail");
+        return qcList;
+    }, [qcList, activeStatFilter]);
+
     const breakdown = useMemo(() => {
         const groups: Record<string, { total: number; passed: number; failed: number }> = {};
         
-        qcList.forEach(q => {
+        filteredQcList.forEach(q => {
             if (!groups[q.test_type]) {
                 groups[q.test_type] = { total: 0, passed: 0, failed: 0 };
             }
@@ -93,7 +100,7 @@ const QCTestReportsPage = () => {
             ...data,
             passRate: Math.round((data.passed / data.total) * 100) + "%"
         }));
-    }, [qcList]);
+    }, [filteredQcList]);
 
     // ─── RENDER ──────────────────────────────────────────────────────────
 
@@ -112,27 +119,33 @@ const QCTestReportsPage = () => {
 
                 {/* ── Summary Stats ───────────────────────────── */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                    <StatCard
-                        title="Total Tests"
-                        value={stats.total.toString()}
-                        sub="Analytic Samples"
-                        accent="text-slate-800"
-                        icon={<BarChart3 className="w-5 h-5" />}
-                    />
-                    <StatCard
-                        title="Pass Rate"
-                        value={`${stats.passRate}%`}
-                        sub="Compliance Velocity"
-                        accent="text-emerald-500"
-                        icon={<TrendingUp className="w-5 h-5" />}
-                    />
-                    <StatCard
-                        title="Failures"
-                        value={stats.failCount.toString()}
-                        sub="Critical Deviations"
-                        accent="text-rose-500"
-                        icon={<TrendingDown className="w-5 h-5" />}
-                    />
+                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer transition-all ${activeStatFilter === "All" ? "ring-2 ring-slate-800 rounded-xl bg-white shadow-lg scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Total Tests"
+                            value={stats.total.toString()}
+                            sub="Analytic Samples"
+                            accent="text-slate-800"
+                            icon={<BarChart3 className={`w-5 h-5 ${activeStatFilter === "All" ? "text-slate-800" : "text-slate-400"}`} />}
+                        />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("Pass")} className={`cursor-pointer transition-all ${activeStatFilter === "Pass" ? "ring-2 ring-emerald-500 rounded-xl bg-emerald-50 shadow-lg scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Pass Rate"
+                            value={`${stats.passRate}%`}
+                            sub="Compliance Velocity"
+                            accent="text-emerald-500"
+                            icon={<TrendingUp className={`w-5 h-5 ${activeStatFilter === "Pass" ? "text-emerald-500" : "text-slate-400"}`} />}
+                        />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("Fail")} className={`cursor-pointer transition-all ${activeStatFilter === "Fail" ? "ring-2 ring-rose-500 rounded-xl bg-rose-50 shadow-lg scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Failures"
+                            value={stats.failCount.toString()}
+                            sub="Critical Deviations"
+                            accent="text-rose-500"
+                            icon={<TrendingDown className={`w-5 h-5 ${activeStatFilter === "Fail" ? "text-rose-500" : "text-slate-400"}`} />}
+                        />
+                    </div>
                     <StatCard
                         title="Data Quality"
                         value="100%"
@@ -225,7 +238,7 @@ const QCTestReportsPage = () => {
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-50 font-inter">
-                                                {qcList.map((qc) => (
+                                                {filteredQcList.map((qc) => (
                                                     <tr key={qc.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                                         <td className="px-6 py-4">
                                                             <div className="flex flex-col font-inter">

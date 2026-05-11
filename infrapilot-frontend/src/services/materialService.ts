@@ -182,6 +182,15 @@ export const materialService = {
   },
 
   /**
+   * Get specific material transactions
+   * GET /api/v1/materials/{id}/transactions
+   */
+  async getTransactions(material_id: number): Promise<MaterialLog[]> {
+    const response = await api.get<MaterialLog[]>(`/materials/${material_id}/transactions`);
+    return response.data;
+  },
+
+  /**
    * Get material report
    * GET /api/v1/materials/reports
    */
@@ -196,12 +205,15 @@ export const materialService = {
    * Export report as PDF
    * GET /api/v1/materials/reports/pdf
    */
-  async exportPdf(): Promise<void> {
-    const response = await api.get("/materials/reports/pdf", { responseType: 'blob' });
+  async exportPdf(project_id: number): Promise<void> {
+    const response = await api.get("/materials/reports/pdf", { 
+      params: { project_id },
+      responseType: 'blob' 
+    });
     const url = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'material_report.pdf');
+    link.setAttribute('download', `material_report_project_${project_id}.pdf`);
     document.body.appendChild(link);
     link.click();
     link.parentNode?.removeChild(link);
@@ -212,12 +224,15 @@ export const materialService = {
    * Export report as Excel
    * GET /api/v1/materials/reports/excel
    */
-  async exportExcel(): Promise<void> {
-    const response = await api.get("/materials/reports/excel", { responseType: 'blob' });
+  async exportExcel(project_id: number): Promise<void> {
+    const response = await api.get("/materials/reports/excel", { 
+      params: { project_id },
+      responseType: 'blob' 
+    });
     const url = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'material_report.xlsx');
+    link.setAttribute('download', `material_report_project_${project_id}.xlsx`);
     document.body.appendChild(link);
     link.click();
     link.parentNode?.removeChild(link);

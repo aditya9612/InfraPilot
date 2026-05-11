@@ -47,10 +47,15 @@ export interface CreateDsrRequest {
   remarks: string;
   latitude: number;
   longitude: number;
+  resolved_address?: string;
+  total_labour?: number;
+  skilled_labour?: number;
+  unskilled_labour?: number;
   dsr_image?: File | null;
 }
 
 export interface UpdateDsrRequest {
+  project_id?: number;
   report_date?: string;
   site_location?: string;
   contractor_id?: number;
@@ -65,6 +70,10 @@ export interface UpdateDsrRequest {
   remarks?: string;
   latitude?: number;
   longitude?: number;
+  resolved_address?: string;
+  total_labour?: number;
+  skilled_labour?: number;
+  unskilled_labour?: number;
   dsr_image?: File | null;
 }
 

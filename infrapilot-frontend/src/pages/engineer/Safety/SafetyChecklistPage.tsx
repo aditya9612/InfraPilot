@@ -21,19 +21,20 @@ import {
   Activity,
   Filter,
   Mail,
-  Briefcase
+  Briefcase,
+  RotateCcw
 } from "lucide-react";
 
 import { safetyService } from "../../../services/safetyService";
 import type { IncidentItem as SafetyItem, CreateIncidentRequest as CreateSafetyRequest } from "../../../services/safetyService";
 
 const violationTypeColors: Record<string, string> = {
-    "No Helmet": "bg-red-100 text-red-600",
-    "Unsafe Equipment Usage": "bg-orange-100 text-orange-600",
-    "No Safety Harness": "bg-yellow-100 text-yellow-600",
-    "Unsafe Scaffolding": "bg-amber-100 text-amber-600",
-    "Fire Hazard": "bg-rose-100 text-rose-600",
-    "Electrical Hazard": "bg-blue-100 text-blue-600",
+    "No Helmet": "bg-red-100 text-red-600 border-red-200",
+    "Unsafe Equipment Usage": "bg-orange-100 text-orange-600 border-orange-200",
+    "No Safety Harness": "bg-yellow-100 text-yellow-600 border-yellow-200",
+    "Unsafe Scaffolding": "bg-amber-100 text-amber-600 border-amber-200",
+    "Fire Hazard": "bg-rose-100 text-rose-600 border-rose-200",
+    "Electrical Hazard": "bg-blue-100 text-blue-600 border-blue-200",
 };
 
 const SafetyChecklistPage = () => {
@@ -43,6 +44,9 @@ const SafetyChecklistPage = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     
+    // Interactive StatCard Filter
+    const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Compliance" | "HighRisk">("All");
+
     // Modal States
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -124,7 +128,16 @@ const SafetyChecklistPage = () => {
     }, [incidentList]);
 
     const filteredList = useMemo(() => {
-        return incidentList.filter(item => {
+        let data = incidentList;
+
+        // Apply StatCard Filter
+        if (activeStatFilter === "HighRisk") {
+          data = data.filter(i => i.violation_type === "Electrical Hazard" || i.violation_type === "Fire Hazard");
+        } else if (activeStatFilter === "Compliance") {
+          data = data.filter(i => !i.injury_details || i.injury_details.toLowerCase().includes("no injury"));
+        }
+
+        return data.filter(item => {
             const matchesSearch = item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 item.responsible_person.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 item.violation_type.toLowerCase().includes(searchTerm.toLowerCase());
@@ -133,7 +146,7 @@ const SafetyChecklistPage = () => {
 
             return matchesSearch && matchesViolationType;
         });
-    }, [incidentList, searchTerm, filterViolationType]);
+    }, [incidentList, searchTerm, filterViolationType, activeStatFilter]);
 
     // ─── HANDLERS ──────────────────────────────────────────────────────
 
@@ -243,7 +256,7 @@ const SafetyChecklistPage = () => {
     // ─── RENDER HELPERS ────────────────────────────────────────────────
 
     const labelClasses = "block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
-    const inputClasses = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-300 font-inter";
+    const inputClasses = "w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter";
 
     return (
         <>
@@ -251,63 +264,71 @@ const SafetyChecklistPage = () => {
 
             <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
                 {/* ── Header ──────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                    <div>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight italic-none">Safety Audit Registry</h1>
-                        <p className="text-slate-500 text-sm italic-none">Historical record of safety inspections and site compliance audits.</p>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
+                    <div className="font-inter">
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight italic-none font-inter">Safety Audit Registry</h1>
+                        <p className="text-slate-500 text-sm italic-none font-inter">Historical record of safety inspections and site compliance audits.</p>
                     </div>
                     <button
                         type="button"
                         onClick={() => setIsNewModalOpen(true)}
-                        className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+                        className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
                     >
                         <Plus className="w-4 h-4" />
                         Log Audit Entry
                     </button>
                 </div>
 
-                {/* ── Summary Stats ───────────────────────────── */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                    <StatCard
-                        title="Total Audits"
-                        value={stats.total.toString()}
-                        sub="Verified Logs"
-                        accent="text-slate-800"
-                        icon={<FileText className="w-5 h-5" />}
-                    />
-                    <StatCard
-                        title="Compliance"
-                        value={`${stats.compliance}%`}
-                        sub="Incident-Free Rate"
-                        accent="text-emerald-500"
-                        icon={<CheckCircle2 className="w-5 h-5" />}
-                    />
-                    <StatCard
-                        title="High Risks"
-                        value={stats.critical.toString()}
-                        sub="Critical Hazards"
-                        accent="text-rose-500"
-                        icon={<AlertTriangle className="w-5 h-5" />}
-                    />
-                    <StatCard
-                        title="Site Safety"
-                        value={`${stats.momentum}%`}
-                        sub="Safety Momentum"
-                        accent="text-blue-500"
-                        icon={<Activity className="w-5 h-5" />}
-                    />
+                {/* ── Interactive Stats ───────────────────────────── */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
+                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-slate-800 bg-slate-100 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                      <StatCard
+                          title="Total Audits"
+                          value={stats.total.toString()}
+                          sub="Verified Logs"
+                          accent="text-slate-800"
+                          icon={<FileText className={`w-5 h-5 ${activeStatFilter === "All" ? "text-slate-800 scale-110" : "text-slate-400 group-hover:text-slate-800"} transition-all`} />}
+                      />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("Compliance")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Compliance" ? "ring-2 ring-emerald-500 bg-emerald-50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                      <StatCard
+                          title="Compliance"
+                          value={`${stats.compliance}%`}
+                          sub="Safe Operations"
+                          accent="text-emerald-500"
+                          icon={<CheckCircle2 className={`w-5 h-5 ${activeStatFilter === "Compliance" ? "text-emerald-500 scale-110" : "text-slate-400 group-hover:text-emerald-500"} transition-all`} />}
+                      />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("HighRisk")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "HighRisk" ? "ring-2 ring-rose-500 bg-rose-50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                      <StatCard
+                          title="High Risks"
+                          value={stats.critical.toString()}
+                          sub="Critical Hazards"
+                          accent="text-rose-500"
+                          icon={<AlertTriangle className={`w-5 h-5 ${activeStatFilter === "HighRisk" ? "text-rose-500 scale-110" : "text-slate-400 group-hover:text-rose-500"} transition-all`} />}
+                      />
+                    </div>
+                    <div className="cursor-default group transition-all rounded-xl hover:scale-[1.01]">
+                      <StatCard
+                          title="Site Safety"
+                          value={`${stats.momentum}%`}
+                          sub="Safety Momentum"
+                          accent="text-blue-500"
+                          icon={<Activity className="w-5 h-5 text-blue-500" />}
+                      />
+                    </div>
                 </div>
 
                 {/* ── Tabs ────────────────────────────────────────────────── */}
-                <div className="flex items-center gap-8 border-b border-slate-200 mb-8">
+                <div className="flex items-center gap-8 border-b border-slate-200 mb-8 font-inter">
                     <button 
-                        className="pb-4 text-sm font-bold text-primary border-b-2 border-primary transition-all"
+                        className="pb-4 text-sm font-black uppercase tracking-widest text-primary border-b-2 border-primary transition-all font-inter"
                         onClick={() => navigate("/engineer/safety/checklist")}
                     >
                         Safety Checklist
                     </button>
                     <button 
-                        className="pb-4 text-sm font-bold text-slate-400 hover:text-slate-600 transition-all"
+                        className="pb-4 text-sm font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-all font-inter"
                         onClick={() => navigate("/engineer/safety/incident")}
                     >
                         Incident Report
@@ -327,40 +348,47 @@ const SafetyChecklistPage = () => {
                                 placeholder="Search by observation, officer or type..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
+                                className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
                             />
                         </div>
-                        <div className="flex items-center gap-2 font-inter">
-                            <Filter className="w-4 h-4 text-slate-400" />
-                            <select
-                                value={filterViolationType}
-                                onChange={(e) => setFilterViolationType(e.target.value)}
-                                className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none cursor-pointer font-inter"
-                            >
-                                <option value="">All Violation Types</option>
-                                <option value="No Helmet">No Helmet</option>
-                                <option value="Unsafe Equipment Usage">Unsafe Equipment Usage</option>
-                                <option value="No Safety Harness">No Safety Harness</option>
-                                <option value="Unsafe Scaffolding">Unsafe Scaffolding</option>
-                                <option value="Fire Hazard">Fire Hazard</option>
-                                <option value="Electrical Hazard">Electrical Hazard</option>
-                            </select>
+                        <div className="flex items-center gap-3 font-inter">
+                            <div className="flex items-center gap-2 font-inter">
+                              <Filter className="w-4 h-4 text-slate-400" />
+                              <select
+                                  value={filterViolationType}
+                                  onChange={(e) => setFilterViolationType(e.target.value)}
+                                  className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-black uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter shadow-sm"
+                              >
+                                  <option value="">All Violation Types</option>
+                                  <option value="No Helmet">No Helmet</option>
+                                  <option value="Unsafe Equipment Usage">Unsafe Equipment Usage</option>
+                                  <option value="No Safety Harness">No Safety Harness</option>
+                                  <option value="Unsafe Scaffolding">Unsafe Scaffolding</option>
+                                  <option value="Fire Hazard">Fire Hazard</option>
+                                  <option value="Electrical Hazard">Electrical Hazard</option>
+                              </select>
+                            </div>
+                            {activeStatFilter !== "All" && (
+                              <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter">
+                                <RotateCcw className="w-4 h-4" />
+                              </button>
+                            )}
                         </div>
                     </div>
 
                     <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
                         {isLoading ? (
-                            <div className="p-20 text-center text-slate-400 font-inter">
-                                <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
-                                <p className="text-[10px] font-black uppercase tracking-widest">Syncing safety vault...</p>
+                            <div className="p-20 text-center font-inter">
+                                <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4 font-inter" />
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 font-inter">Syncing safety vault...</p>
                             </div>
                         ) : (
                             <table className="w-full text-left font-inter min-w-[1000px]">
                                 <thead>
                                     <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
-                                        <th className="px-6 py-4 font-inter">Audit Details</th>
+                                        <th className="px-6 py-4 font-inter">Audit Identity</th>
                                         <th className="px-6 py-4 font-inter">Observation Summary</th>
-                                        <th className="px-6 py-4 font-inter">Violation Type</th>
+                                        <th className="px-6 py-4 font-inter">Violation Profile</th>
                                         <th className="px-6 py-4 font-inter">Safety Officer</th>
                                         <th className="px-6 py-4 text-right font-inter">Actions</th>
                                     </tr>
@@ -369,49 +397,54 @@ const SafetyChecklistPage = () => {
                                     {filteredList.length > 0 ? (
                                         filteredList.map((item) => (
                                             <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
-                                                <td className="px-6 py-4">
+                                                <td className="px-6 py-4 font-inter">
                                                     <div className="flex flex-col font-inter">
-                                                        <span className="text-sm font-bold text-slate-800 font-inter">{item.date}</span>
-                                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-inter">AUDIT-#{item.id}</span>
+                                                        <span className="text-sm font-bold text-slate-800 font-inter italic-none">{item.date}</span>
+                                                        <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest font-inter">AUDIT-#{item.id}</span>
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4">
+                                                <td className="px-6 py-4 font-inter">
                                                     <div className="flex flex-col max-w-xs font-inter">
-                                                        <span className="text-xs font-bold text-slate-700 truncate font-inter">{item.description}</span>
-                                                        <div className="flex items-center gap-1 text-[10px] text-slate-400 font-inter">
+                                                        <span className="text-xs font-bold text-slate-700 truncate font-inter italic-none">{item.description}</span>
+                                                        <div className="flex items-center gap-1 text-[9px] text-slate-400 font-black uppercase tracking-widest font-inter">
                                                             <AlertCircle className="w-3 h-3 text-orange-500" />
                                                             <span className="truncate font-inter italic-none">{item.action_taken}</span>
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4">
-                                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${violationTypeColors[item.violation_type] || "bg-slate-100 text-slate-500"}`}>
+                                                <td className="px-6 py-4 font-inter">
+                                                    <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border font-inter ${violationTypeColors[item.violation_type] || "bg-slate-100 text-slate-500 border-slate-200"}`}>
                                                         {item.violation_type}
                                                     </span>
                                                 </td>
-                                                <td className="px-6 py-4">
+                                                <td className="px-6 py-4 font-inter">
                                                     <div className="flex items-center gap-2 font-inter">
-                                                        <User className="w-3.5 h-3.5 text-slate-400" />
-                                                        <p className="text-[10px] font-black text-slate-800 font-inter italic-none uppercase tracking-widest">{item.responsible_person}</p>
+                                                        <div className="w-6 h-6 bg-slate-100 rounded-full flex items-center justify-center font-inter">
+                                                          <User className="w-3 h-3 text-slate-500" />
+                                                        </div>
+                                                        <p className="text-[10px] font-black text-slate-700 font-inter italic-none uppercase tracking-widest">{item.responsible_person}</p>
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4 text-right">
-                                                    <div className="flex items-center justify-end gap-2 transition-opacity font-inter">
+                                                <td className="px-6 py-4 text-right font-inter">
+                                                    <div className="flex items-center justify-end gap-2 font-inter">
                                                         <button
                                                             onClick={() => handleViewClick(item.id)}
-                                                            className="p-2 text-white bg-primary rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-95 font-inter"
+                                                            className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-95 font-inter"
+                                                            title="View Insight"
                                                         >
                                                             <Eye className="w-4 h-4" />
                                                         </button>
                                                         <button
                                                             onClick={() => handleEditClick(item.id)}
                                                             className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
+                                                            title="Modify Record"
                                                         >
                                                             <Edit2 className="w-4 h-4" />
                                                         </button>
                                                         <button
                                                             onClick={() => handleDeleteClick(item.id)}
                                                             className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"
+                                                            title="Archive Record"
                                                         >
                                                             <Trash2 className="w-4 h-4" />
                                                         </button>
@@ -421,8 +454,8 @@ const SafetyChecklistPage = () => {
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan={5} className="px-6 py-20 text-center text-slate-400 italic-none font-inter">
-                                                No safety records found in the project vault.
+                                            <td colSpan={5} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter italic-none">
+                                                No matching safety records found in the project vault.
                                             </td>
                                         </tr>
                                     )}
@@ -433,34 +466,34 @@ const SafetyChecklistPage = () => {
                 </div>
             </PageTransition>
 
-            {/* ── New Incident Modal ─────────────────────────── */}
+            {/* ── New / Edit Modal ─────────────────────────── */}
             <Modal
-                isOpen={isNewModalOpen}
-                onClose={() => setIsNewModalOpen(false)}
-                title="Log New Safety Audit"
+                isOpen={isNewModalOpen || isEditModalOpen}
+                onClose={() => { setIsNewModalOpen(false); setIsEditModalOpen(false); }}
+                title={isEditModalOpen ? "Modify Audit Intelligence" : "Commit Safety Audit Entry"}
                 maxWidth="max-w-2xl"
                 footer={
-                    <div className="flex items-center justify-end gap-3 p-4 bg-slate-50/50 rounded-b-3xl">
+                    <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
                         <button 
-                            onClick={() => setIsNewModalOpen(false)}
-                            className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-white rounded-xl transition-all"
+                            onClick={() => { setIsNewModalOpen(false); setIsEditModalOpen(false); }}
+                            className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter"
                         >
                             Cancel
                         </button>
                         <button
                             type="button"
-                            onClick={handleCreateSubmit}
+                            onClick={isEditModalOpen ? handleUpdateSubmit : handleCreateSubmit}
                             disabled={isSubmitting}
-                            className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all disabled:opacity-50"
+                            className="flex-[2] py-3 bg-primary text-white rounded-xl font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
                         >
-                            {isSubmitting ? "Syncing..." : "Commit Entry"}
+                            {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Push Changes" : "Commit Entry")}
                         </button>
                     </div>
                 }
             >
-                <div className="p-6 space-y-6">
+                <div className="p-6 space-y-6 font-inter">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
-                        <div>
+                        <div className="font-inter">
                             <label className={labelClasses}>Observation Date <span className="text-rose-500">*</span></label>
                             <input 
                                 name="date" 
@@ -470,8 +503,8 @@ const SafetyChecklistPage = () => {
                                 className={inputClasses} 
                             />
                         </div>
-                        <div>
-                            <label className={labelClasses}>Violation Type <span className="text-rose-500">*</span></label>
+                        <div className="font-inter">
+                            <label className={labelClasses}>Violation Profile <span className="text-rose-500">*</span></label>
                                 <select 
                                     name="violation_type" 
                                     value={formData.violation_type} 
@@ -486,8 +519,8 @@ const SafetyChecklistPage = () => {
                                     <option value="Electrical Hazard">Electrical Hazard</option>
                                 </select>
                             </div>
-                            <div>
-                                <label className={labelClasses}>Checklist Status <span className="text-rose-500">*</span></label>
+                            <div className="font-inter">
+                                <label className={labelClasses}>Vault Status <span className="text-rose-500">*</span></label>
                                 <select 
                                     name="safety_checklist_status" 
                                     value={formData.safety_checklist_status} 
@@ -499,175 +532,56 @@ const SafetyChecklistPage = () => {
                                     <option value="Pending">Pending</option>
                                 </select>
                             </div>
-                            <div className="flex items-center gap-3 pt-6">
+                            <div className="flex items-center gap-3 pt-6 font-inter">
                                 <input 
                                     name="ppe_compliance" 
                                     type="checkbox"
                                     checked={formData.ppe_compliance} 
                                     onChange={handleInputChange}
-                                    className="w-5 h-5 rounded-lg border-slate-300 text-primary focus:ring-primary/20 transition-all cursor-pointer"
+                                    className="w-5 h-5 rounded-lg border-slate-300 text-primary focus:ring-primary/20 transition-all cursor-pointer font-inter"
                                 />
-                                <label className="text-xs font-bold text-slate-700 cursor-pointer">PPE Compliance Verified</label>
+                                <label className="text-[11px] font-black uppercase tracking-widest text-slate-700 cursor-pointer font-inter">PPE Compliance Verified</label>
                             </div>
-                        <div className="md:col-span-2">
-                            <label className={labelClasses}>Incident Description <span className="text-rose-500">*</span></label>
+                        <div className="md:col-span-2 font-inter">
+                            <label className={labelClasses}>Incident Narrative <span className="text-rose-500">*</span></label>
                             <textarea 
                                 name="description" 
                                 rows={3} 
                                 value={formData.description} 
                                 onChange={handleInputChange} 
-                                placeholder="Detail what happened..." 
-                                className={`${inputClasses} resize-none`} 
+                                placeholder="Detail the operational hazard..." 
+                                className={`${inputClasses} resize-none font-bold`} 
                             />
                         </div>
-                        <div className="md:col-span-2">
-                            <label className={labelClasses}>Injury Details (Optional)</label>
+                        <div className="md:col-span-2 font-inter">
+                            <label className={labelClasses}>Physical Injury Audit (Optional)</label>
                             <textarea 
                                 name="injury_details" 
                                 rows={2} 
                                 value={formData.injury_details || ""} 
                                 onChange={handleInputChange} 
-                                placeholder="Describe any injuries sustained..." 
-                                className={`${inputClasses} resize-none`} 
+                                placeholder="Describe any physical trauma..." 
+                                className={`${inputClasses} resize-none font-bold`} 
                             />
                         </div>
-                        <div className="md:col-span-2">
-                            <label className={labelClasses}>Action Taken <span className="text-rose-500">*</span></label>
+                        <div className="md:col-span-2 font-inter">
+                            <label className={labelClasses}>Compliance Protocol <span className="text-rose-500">*</span></label>
                             <textarea 
                                 name="action_taken" 
                                 rows={2} 
                                 value={formData.action_taken} 
                                 onChange={handleInputChange} 
-                                placeholder="What steps were taken immediately?" 
-                                className={`${inputClasses} resize-none`} 
+                                placeholder="What corrective actions were deployed?" 
+                                className={`${inputClasses} resize-none font-bold`} 
                             />
                         </div>
-                        <div className="md:col-span-2">
-                            <label className={labelClasses}>Responsible Person <span className="text-rose-500">*</span></label>
+                        <div className="md:col-span-2 font-inter">
+                            <label className={labelClasses}>Responsible Safety Officer <span className="text-rose-500">*</span></label>
                             <input 
                                 name="responsible_person" 
                                 value={formData.responsible_person} 
                                 onChange={handleInputChange} 
-                                placeholder="Enter name of the responsible individual" 
-                                className={inputClasses} 
-                            />
-                        </div>
-                    </div>
-                </div>
-            </Modal>
-
-            {/* ── Edit Incident Modal ────────────────────────── */}
-            <Modal
-                isOpen={isEditModalOpen}
-                onClose={() => setIsEditModalOpen(false)}
-                title="Update Audit Record"
-                maxWidth="max-w-2xl"
-                footer={
-                    <div className="flex items-center justify-end gap-3 p-4 bg-slate-50/50 rounded-b-3xl">
-                        <button 
-                            onClick={() => setIsEditModalOpen(false)}
-                            className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-white rounded-xl transition-all"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={handleUpdateSubmit}
-                            disabled={isSubmitting}
-                            className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all disabled:opacity-50"
-                        >
-                            {isSubmitting ? "Updating..." : "Push Changes"}
-                        </button>
-                    </div>
-                }
-            >
-                <div className="p-6 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
-                        <div>
-                            <label className={labelClasses}>Observation Date <span className="text-rose-500">*</span></label>
-                            <input 
-                                name="date" 
-                                type="date" 
-                                value={formData.date} 
-                                onChange={handleInputChange} 
-                                className={inputClasses} 
-                            />
-                        </div>
-                        <div>
-                            <label className={labelClasses}>Violation Type <span className="text-rose-500">*</span></label>
-                            <select 
-                                name="violation_type" 
-                                value={formData.violation_type} 
-                                onChange={handleInputChange} 
-                                className={inputClasses}
-                            >
-                                <option value="No Helmet">No Helmet</option>
-                                <option value="Unsafe Equipment Usage">Unsafe Equipment Usage</option>
-                                <option value="No Safety Harness">No Safety Harness</option>
-                                <option value="Unsafe Scaffolding">Unsafe Scaffolding</option>
-                                <option value="Fire Hazard">Fire Hazard</option>
-                                <option value="Electrical Hazard">Electrical Hazard</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className={labelClasses}>Checklist Status <span className="text-rose-500">*</span></label>
-                            <select 
-                                name="safety_checklist_status" 
-                                value={formData.safety_checklist_status} 
-                                onChange={handleInputChange} 
-                                className={inputClasses}
-                            >
-                                <option value="Completed">Completed</option>
-                                <option value="In Progress">In Progress</option>
-                                <option value="Pending">Pending</option>
-                            </select>
-                        </div>
-                        <div className="flex items-center gap-3 pt-6">
-                            <input 
-                                name="ppe_compliance" 
-                                type="checkbox"
-                                checked={formData.ppe_compliance} 
-                                onChange={handleInputChange}
-                                className="w-5 h-5 rounded-lg border-slate-300 text-primary focus:ring-primary/20 transition-all cursor-pointer"
-                            />
-                            <label className="text-xs font-bold text-slate-700 cursor-pointer">PPE Compliance Verified</label>
-                        </div>
-                        <div className="md:col-span-2">
-                            <label className={labelClasses}>Incident Description <span className="text-rose-500">*</span></label>
-                            <textarea 
-                                name="description" 
-                                rows={3} 
-                                value={formData.description} 
-                                onChange={handleInputChange} 
-                                className={`${inputClasses} resize-none`} 
-                            />
-                        </div>
-                        <div className="md:col-span-2">
-                            <label className={labelClasses}>Injury Details</label>
-                            <textarea 
-                                name="injury_details" 
-                                rows={2} 
-                                value={formData.injury_details || ""} 
-                                onChange={handleInputChange} 
-                                className={`${inputClasses} resize-none`} 
-                            />
-                        </div>
-                        <div className="md:col-span-2">
-                            <label className={labelClasses}>Action Taken <span className="text-rose-500">*</span></label>
-                            <textarea 
-                                name="action_taken" 
-                                rows={2} 
-                                value={formData.action_taken} 
-                                onChange={handleInputChange} 
-                                className={`${inputClasses} resize-none`} 
-                            />
-                        </div>
-                        <div className="md:col-span-2">
-                            <label className={labelClasses}>Responsible Person <span className="text-rose-500">*</span></label>
-                            <input 
-                                name="responsible_person" 
-                                value={formData.responsible_person} 
-                                onChange={handleInputChange} 
-                                placeholder="Officer Name" 
+                                placeholder="Enter officer name" 
                                 className={inputClasses} 
                             />
                         </div>
@@ -685,23 +599,24 @@ const SafetyChecklistPage = () => {
                 {selectedIncident && (
                     <div className="p-6 font-inter text-inter italic-none">
                         {/* ── Profile Style Header ────────────────── */}
-                        <div className={`${selectedIncident.violation_type === 'Electrical Hazard' || selectedIncident.violation_type === 'Fire Hazard' ? 'bg-rose-600' : 'bg-primary'} rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter`}>
-                            <div className="relative z-10 flex items-center gap-6 font-inter">
-                                <div className="w-24 h-24 bg-white/20 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/20 relative font-inter">
+                        <div className={`${selectedIncident.violation_type === 'Electrical Hazard' || selectedIncident.violation_type === 'Fire Hazard' ? 'bg-rose-600 shadow-rose-600/20' : 'bg-primary shadow-primary/20'} rounded-[2.5rem] p-8 mb-8 text-white shadow-2xl relative overflow-hidden font-inter`}>
+                            <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl" />
+                            <div className="relative z-10 flex items-center gap-8 font-inter">
+                                <div className="w-24 h-24 bg-white/20 backdrop-blur-xl rounded-[2rem] flex items-center justify-center border border-white/20 shadow-inner font-inter relative">
                                     <ShieldAlert className="w-10 h-10 text-white" />
-                                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-4 border-primary rounded-full animate-pulse" />
+                                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-4 border-slate-800 rounded-full animate-pulse" />
                                 </div>
                                 <div className="font-inter">
                                     <div className="flex items-center gap-3 mb-2 font-inter">
-                                        <h3 className="text-2xl font-black tracking-tight font-inter italic-none">{selectedIncident.violation_type}</h3>
-                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-black uppercase tracking-widest font-inter">Logged</span>
+                                        <h3 className="text-2xl font-black tracking-tight italic-none font-inter">{selectedIncident.violation_type}</h3>
+                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[9px] font-black uppercase tracking-widest font-inter">Logged Audit</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
                                         <Mail className="w-3 h-3" />
-                                        <span className="text-[11px] font-bold font-inter italic-none">safety.audit-#{selectedIncident.id}@infrapilot.com</span>
+                                        <span className="text-[10px] font-bold font-inter italic-none uppercase tracking-widest">safety.audit-#{selectedIncident.id}</span>
                                     </div>
-                                    <div className="px-3 py-1 bg-white/20 rounded-full inline-block font-inter">
-                                        <span className="text-[10px] font-black uppercase tracking-widest font-inter">AUDIT DATE: {selectedIncident.date}</span>
+                                    <div className="px-4 py-1.5 bg-white/15 rounded-xl border border-white/10 inline-block font-inter shadow-sm">
+                                        <span className="text-[9px] font-black uppercase tracking-widest font-inter">Audit Sequence: {selectedIncident.date}</span>
                                     </div>
                                 </div>
                             </div>
@@ -711,28 +626,28 @@ const SafetyChecklistPage = () => {
                             {/* Operational Intelligence style section */}
                             <div className="font-inter">
                                 <div className="flex items-center gap-2 mb-6 font-inter">
-                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
+                                    <div className="p-2 bg-blue-50 rounded-xl font-inter border border-blue-100 shadow-sm">
                                         <Briefcase className="w-4 h-4 text-primary" />
                                     </div>
-                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Site Audit Intelligence</p>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] font-inter">Audit Parameters</p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
+                                <div className="grid grid-cols-2 gap-x-12 gap-y-8 font-inter">
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Responsible Person</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedIncident.responsible_person}</p>
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Safety Officer</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none uppercase tracking-widest">{selectedIncident.responsible_person}</p>
                                     </div>
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Status</p>
-                                        <p className="text-sm font-black text-emerald-500 font-inter italic-none uppercase tracking-widest">Active Archive</p>
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Vault Status</p>
+                                        <p className="text-sm font-black text-emerald-500 font-inter italic-none uppercase tracking-widest">Active Audit</p>
                                     </div>
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Violation ID</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">#{selectedIncident.id}</p>
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Intelligence ID</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none tracking-widest">#SFT-{selectedIncident.id}</p>
                                     </div>
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Injury Audit</p>
-                                        <p className={`text-sm font-black font-inter italic-none ${selectedIncident.injury_details && !selectedIncident.injury_details.toLowerCase().includes('no') ? 'text-rose-500' : 'text-emerald-500'}`}>
-                                            {selectedIncident.injury_details || "No Injury"}
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Trauma Audit</p>
+                                        <p className={`text-sm font-black font-inter italic-none uppercase tracking-widest ${selectedIncident.injury_details && !selectedIncident.injury_details.toLowerCase().includes('no') ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                            {selectedIncident.injury_details || "No Trauma Detected"}
                                         </p>
                                     </div>
                                 </div>
@@ -741,15 +656,15 @@ const SafetyChecklistPage = () => {
                             {/* Work Narrative style section */}
                             <div className="font-inter">
                                 <div className="flex items-center gap-2 mb-6 font-inter">
-                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
+                                    <div className="p-2 bg-blue-50 rounded-xl font-inter border border-blue-100 shadow-sm">
                                         <Activity className="w-4 h-4 text-primary" />
                                     </div>
-                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Operational Narrative</p>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] font-inter">Operational Intelligence</p>
                                 </div>
                                 <div className="grid grid-cols-1 gap-6 font-inter">
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Observation Details</p>
-                                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm text-slate-600 leading-relaxed font-inter italic-none">
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter ml-1">Observation Narrative</p>
+                                        <div className="p-5 bg-slate-50 rounded-[1.5rem] border border-slate-100 text-xs font-bold text-slate-600 leading-relaxed font-inter italic-none shadow-inner">
                                             "{selectedIncident.description}"
                                         </div>
                                     </div>
@@ -759,12 +674,12 @@ const SafetyChecklistPage = () => {
                             {/* Logistics style section */}
                             <div className="font-inter">
                                 <div className="flex items-center gap-2 mb-6 font-inter">
-                                    <div className="p-2 bg-emerald-50 rounded-lg font-inter">
+                                    <div className="p-2 bg-emerald-50 rounded-xl font-inter border border-emerald-100 shadow-sm">
                                         <FileText className="w-4 h-4 text-emerald-600" />
                                     </div>
-                                    <p className="text-[11px] font-black text-emerald-600 uppercase tracking-[0.15em] font-inter">Compliance Protocol</p>
+                                    <p className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em] font-inter">Remediation Protocol</p>
                                 </div>
-                                <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 text-sm text-emerald-800 font-bold font-inter italic-none leading-relaxed">
+                                <div className="p-5 bg-emerald-50 rounded-[1.5rem] border border-emerald-100 text-xs font-black text-emerald-800 font-inter italic-none leading-relaxed shadow-inner uppercase tracking-widest">
                                     {selectedIncident.action_taken}
                                 </div>
                             </div>
@@ -772,9 +687,9 @@ const SafetyChecklistPage = () => {
 
                         <button
                             onClick={() => setIsViewModalOpen(false)}
-                            className="w-full py-5 bg-slate-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all shadow-xl active:scale-95 font-inter italic-none"
+                            className="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.3em] transition-all shadow-2xl active:scale-95 font-inter italic-none mb-2"
                         >
-                            Dismiss Audit Insight
+                            Dismiss Audit Intelligence
                         </button>
                     </div>
                 )}
@@ -785,8 +700,8 @@ const SafetyChecklistPage = () => {
                 onClose={() => setIsDeleteModalOpen(false)}
                 onConfirm={handleDeleteConfirm}
                 title="Discard Audit Entry"
-                message="Are you sure you want to delete this safety record? This action will permanently remove the entry from the project ledger."
-                confirmText="Archive Record"
+                message="Are you sure you want to discard this safety intelligence record from the project vault? This action is permanent."
+                confirmText="Archive Intelligence"
                 type="danger"
             />
         </>

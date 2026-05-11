@@ -27,6 +27,8 @@ import {
 
 const conditionColors: Record<string, string> = {
     'GOOD': 'bg-emerald-600',
+    'FAIR': 'bg-teal-600',
+    'POOR': 'bg-orange-500',
     'REPAIR': 'bg-rose-600',
     'SERVICE': 'bg-amber-600',
     'DAMAGED': 'bg-rose-700',
@@ -45,6 +47,7 @@ const MachineryPage = () => {
     const [conditionFilter, setConditionFilter] = useState("All");
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<number | null>(null);
+    const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Operational" | "Repair">("All");
 
     const [projectId, setProjectId] = useState<number>(0);
 
@@ -87,7 +90,7 @@ const MachineryPage = () => {
             const data = await equipmentService.getEquipment(projectId);
             console.log("Machinery API Raw Response:", data);
             
-            const items = Array.isArray(data) ? data : (data.items || data.data || []);
+            const items = data.items || [];
             console.log(`Successfully synced ${items.length} machinery items (200 OK)`);
             setMachineryList(items);
         } catch (err) {
@@ -148,14 +151,19 @@ const MachineryPage = () => {
                 item.equipment_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 item.operator_name.toLowerCase().includes(searchTerm.toLowerCase());
             const matchesCondition = conditionFilter === "All" || item.condition === conditionFilter;
-            return matchesSearch && matchesCondition;
+            
+            let matchesStat = true;
+            if (activeStatFilter === "Operational") matchesStat = item.condition === "GOOD";
+            else if (activeStatFilter === "Repair") matchesStat = item.condition === "REPAIR" || item.condition === "DAMAGED";
+            
+            return matchesSearch && matchesCondition && matchesStat;
         });
-    }, [machineryList, searchTerm, conditionFilter]);
+    }, [machineryList, searchTerm, conditionFilter, activeStatFilter]);
 
     // Summary stats
     const totalAssets = machineryList.length;
     const operationalCount = machineryList.filter(m => m.condition === "GOOD").length;
-    const repairCount = machineryList.filter(m => m.condition === "REPAIR").length;
+    const repairCount = machineryList.filter(m => m.condition === "REPAIR" || m.condition === "DAMAGED").length;
     const totalFuelUsed = machineryList.reduce((acc, m) => acc + Number(m.fuel_used || 0), 0);
 
     return (
@@ -182,27 +190,33 @@ const MachineryPage = () => {
 
                 {/* ── Summary Stats ───────────────────────────── */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                    <StatCard
-                        title="Active Assets"
-                        value={totalAssets.toString()}
-                        sub="Registered Units"
-                        accent="text-slate-800"
-                        icon={<Activity className="w-5 h-5" />}
-                    />
-                    <StatCard
-                        title="Operational"
-                        value={operationalCount.toString()}
-                        sub="Optimal Condition"
-                        accent="text-emerald-500"
-                        icon={<Settings2 className="w-5 h-5" />}
-                    />
-                    <StatCard
-                        title="Under Repair"
-                        value={repairCount.toString()}
-                        sub="Needs Attention"
-                        accent="text-rose-500"
-                        icon={<Wrench className="w-5 h-5" />}
-                    />
+                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer transition-all ${activeStatFilter === "All" ? "ring-2 ring-slate-800 rounded-xl bg-white shadow-lg scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Active Assets"
+                            value={totalAssets.toString()}
+                            sub="Registered Units"
+                            accent="text-slate-800"
+                            icon={<Activity className={`w-5 h-5 ${activeStatFilter === "All" ? "text-slate-800" : "text-slate-400"}`} />}
+                        />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("Operational")} className={`cursor-pointer transition-all ${activeStatFilter === "Operational" ? "ring-2 ring-emerald-500 rounded-xl bg-emerald-50 shadow-lg scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Operational"
+                            value={operationalCount.toString()}
+                            sub="Optimal Condition"
+                            accent="text-emerald-500"
+                            icon={<Settings2 className={`w-5 h-5 ${activeStatFilter === "Operational" ? "text-emerald-500" : "text-slate-400"}`} />}
+                        />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("Repair")} className={`cursor-pointer transition-all ${activeStatFilter === "Repair" ? "ring-2 ring-rose-500 rounded-xl bg-rose-50 shadow-lg scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Under Repair"
+                            value={repairCount.toString()}
+                            sub="Needs Attention"
+                            accent="text-rose-500"
+                            icon={<Wrench className={`w-5 h-5 ${activeStatFilter === "Repair" ? "text-rose-500" : "text-slate-400"}`} />}
+                        />
+                    </div>
                     <StatCard
                         title="Total Fuel"
                         value={`${totalFuelUsed}L`}
@@ -236,7 +250,11 @@ const MachineryPage = () => {
                             <option value="All">All Conditions</option>
                             <option value="GOOD">Good / Optimal</option>
                             <option value="FAIR">Fair / Functional</option>
+                            <option value="POOR">Poor Condition</option>
                             <option value="REPAIR">Needs Repair</option>
+                            <option value="SERVICE">Under Service</option>
+                            <option value="DAMAGED">Damaged</option>
+                            <option value="MAINTENANCE">Scheduled Maint.</option>
                         </select>
                     </div>
 
@@ -253,7 +271,7 @@ const MachineryPage = () => {
                                         <th className="px-6 py-4">Asset Details</th>
                                         <th className="px-6 py-4">Operator</th>
                                         <th className="px-6 py-4">Utilization</th>
-                                        <th className="px-6 py-4">Fuel Log</th>
+                                        <th className="px-6 py-4">Maintenance</th>
                                         <th className="px-6 py-4">Status</th>
                                         <th className="px-6 py-4 text-right">Actions</th>
                                     </tr>
@@ -272,10 +290,13 @@ const MachineryPage = () => {
                                                     <span className="text-xs font-semibold text-slate-600">{item.operator_name}</span>
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <span className="text-sm font-bold text-slate-800">{item.working_hours} h</span>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-bold text-slate-800">{item.working_hours} h</span>
+                                                        <span className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">{item.fuel_used} L Fuel</span>
+                                                    </div>
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <span className="text-sm font-bold text-blue-600">{item.fuel_used} L</span>
+                                                    <span className="text-xs font-semibold text-slate-600">{item.maintenance_date || 'N/A'}</span>
                                                 </td>
                                                  <td className="px-6 py-4">
                                                     <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
@@ -432,12 +453,15 @@ const MachineryPage = () => {
                                 </div>
                                 <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Last Verified</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">2026-04-10</p>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Maintenance Date</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{viewingEquipment.maintenance_date || 'N/A'}</p>
                                     </div>
                                     <div className="font-inter">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">System Integrity</p>
-                                        <p className="text-sm font-black text-emerald-500 font-inter italic-none">Fully Operational</p>
+                                        <p className={`text-sm font-black font-inter italic-none ${['GOOD', 'FAIR', 'SERVICE'].includes(viewingEquipment.condition) ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                            {['GOOD', 'FAIR'].includes(viewingEquipment.condition) ? 'Fully Operational' : 
+                                             viewingEquipment.condition === 'SERVICE' ? 'Maintenance Active' : 'System Critical'}
+                                        </p>
                                     </div>
                                 </div>
                             </div>

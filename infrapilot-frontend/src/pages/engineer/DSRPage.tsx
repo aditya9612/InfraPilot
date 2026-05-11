@@ -17,13 +17,13 @@ import {
     Edit2,
     Trash2,
     Eye,
-    Filter,
     MapPin,
     AlertCircle,
     Briefcase,
     Phone,
     Mail,
-    Image as ImageIcon
+    Image as ImageIcon,
+    RotateCcw
 } from "lucide-react";
 
 import { dsrService } from "../../services/dsrService";
@@ -47,40 +47,15 @@ const statusColors: Record<string, string> = {
     Rejected: "bg-rose-600",
 };
 
-// ─── Demo Data ──────────────────────────────────────────────────────────────
-const DEMO_DSR: DsrItem[] = [
-    {
-        id: 101,
-        business_id: "DSR-101",
-        project_id: 1,
-        report_date: new Date().toISOString().split("T")[0],
-        report_type: "Daily",
-        site_location: "Main Bridge Pier 04",
-        weather: "Sunny",
-        work_done: "Completed reinforcement for pile cap. Inspection done by consultant.",
-        work_planned: "Start shuttering and concrete pouring for pile cap.",
-        total_labour: 24,
-        skilled_labour: 8,
-        unskilled_labour: 16,
-        contractor_id: 1,
-        machinery_used: "Transit Mixer (2), Excavator (1)",
-        material_received: "Steel (5 MT), Cement (100 bags)",
-        material_used: "Steel (3 MT), Binding wire (20 kg)",
-        status: "Verified",
-        remarks: "Work progressing as per schedule.",
-        issues: "",
-        safety_observations: "All workers using PPE correctly.",
-        latitude: 18.5204,
-        longitude: 73.8567
-    },
-];
-
 const DSRPage = () => {
     const [dsrList, setDsrList] = useState<DsrItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
     const [projectId, setProjectId] = useState<number | null>(null);
+
+    // Filter state for StatCards
+    const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Compliance" | "Pending" | "Efficiency">("All");
 
     // Modal States
     const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -95,7 +70,7 @@ const DSRPage = () => {
             const userStr = localStorage.getItem("infrapilot_user");
             const user = userStr ? JSON.parse(userStr) : {};
             const pId = user?.project_id || user?.user?.project_id;
-            setProjectId(pId ? Number(pId) : 1);
+            setProjectId(pId ? Number(pId) : 36);
         };
         resolveProjectId();
     }, []);
@@ -104,28 +79,18 @@ const DSRPage = () => {
         if (!projectId) return;
         setIsLoading(true);
         try {
-            let apiData: DsrItem[] = [];
-            try {
-                const response = await dsrService.getDsrByProject(projectId);
-                apiData = response.items;
-            } catch (err) {
-                console.warn("API unavailable, using demo data.");
-            }
+            const response = await dsrService.getDsrByProject(projectId);
+            const apiData = response.items;
 
-            if (apiData.length === 0) {
-                setDsrList(DEMO_DSR);
-            } else {
-                // Fetch photos for each DSR item to show in the list
-                const itemsWithPhotos = await Promise.all(apiData.map(async (item) => {
-                    try {
-                        const photos = await dsrService.getDsrPhotos(item.id);
-                        return { ...item, photos };
-                    } catch (e) {
-                        return item;
-                    }
-                }));
-                setDsrList(itemsWithPhotos);
-            }
+            const itemsWithPhotos = await Promise.all(apiData.map(async (item: any) => {
+                try {
+                    const photos = await dsrService.getDsrPhotos(item.id);
+                    return { ...item, photos };
+                } catch (e) {
+                    return item;
+                }
+            }));
+            setDsrList(itemsWithPhotos);
         } catch (error) {
             toast.error("Failed to sync DSR logs");
         } finally {
@@ -133,14 +98,16 @@ const DSRPage = () => {
         }
     }, [projectId]);
 
+    useEffect(() => {
+        fetchDsr();
+    }, [fetchDsr]);
+
     const handleView = async (id: number) => {
         try {
             const data = await dsrService.getDsrById(id);
             setSelectedDsr(data);
             setIsDetailOpen(true);
         } catch (error) {
-            console.error("Failed to fetch DSR details:", error);
-            // Fallback to existing item in list
             const localItem = dsrList.find(item => item.id === id);
             if (localItem) {
                 setSelectedDsr(localItem);
@@ -151,13 +118,26 @@ const DSRPage = () => {
         }
     };
 
-    useEffect(() => {
-        fetchDsr();
-    }, [fetchDsr]);
+    const handleEdit = async (id: number) => {
+        setIsLoading(true);
+        try {
+            const data = await dsrService.getDsrById(id);
+            setSelectedDsr(data);
+            setIsEditOpen(true);
+        } catch (error) {
+            const localItem = dsrList.find(item => item.id === id);
+            if (localItem) {
+                setSelectedDsr(localItem);
+                setIsEditOpen(true);
+            }
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const handleCreate = async (data: CreateDsrRequest) => {
         try {
-            await dsrService.createDsr({ ...data, project_id: projectId || 1 });
+            await dsrService.createDsr({ ...data, project_id: projectId || 36 });
             toast.success("DSR submitted successfully!");
             fetchDsr();
             setIsCreateOpen(false);
@@ -190,20 +170,35 @@ const DSRPage = () => {
     };
 
     const filteredList = useMemo(() => {
-        return dsrList.filter(dsr => {
+        let data = dsrList;
+
+        // Apply StatCard Filter
+        if (activeStatFilter === "Compliance") {
+            data = data.filter(d => d.status === "Verified" || d.status === "Approved");
+        } else if (activeStatFilter === "Pending") {
+            data = data.filter(d => d.status === "Submitted" || d.status === "Draft");
+        }
+
+        return data.filter(dsr => {
             const matchesSearch = dsr.work_done.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 (dsr.business_id && dsr.business_id.toLowerCase().includes(searchTerm.toLowerCase())) ||
                 dsr.site_location.toLowerCase().includes(searchTerm.toLowerCase());
             const matchesStatus = statusFilter === "All" || dsr.status === statusFilter;
             return matchesSearch && matchesStatus;
         });
-    }, [dsrList, searchTerm, statusFilter]);
+    }, [dsrList, searchTerm, statusFilter, activeStatFilter]);
 
-    const stats = {
-        total: dsrList.length,
-        verified: dsrList.filter(d => d.status === "Verified" || d.status === "Approved").length,
-        pending: dsrList.filter(d => d.status === "Submitted" || d.status === "Draft").length,
-    };
+    const stats = useMemo(() => {
+        const total = dsrList.length;
+        const verified = dsrList.filter(d => d.status === "Verified" || d.status === "Approved").length;
+        const pending = dsrList.filter(d => d.status === "Submitted" || d.status === "Draft").length;
+        return {
+            total,
+            verified,
+            pending,
+            complianceRate: `${total > 0 ? Math.round((verified / total) * 100) : 0}%`
+        };
+    }, [dsrList]);
 
     return (
         <>
@@ -225,36 +220,44 @@ const DSRPage = () => {
                     </button>
                 </div>
 
-                {/* ── Summary Stats ───────────────────────────── */}
+                {/* ── Summary Stats with Interactive Filtering ───────────────────────────── */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                    <StatCard
-                        title="Total Logs"
-                        value={stats.total.toString()}
-                        sub="Verified Archives"
-                        accent="text-slate-800"
-                        icon={<FileText className="w-5 h-5" />}
-                    />
-                    <StatCard
-                        title="Compliance"
-                        value={`${Math.round((stats.verified / (stats.total || 1)) * 100)}%`}
-                        sub="Verification Rate"
-                        accent="text-emerald-500"
-                        icon={<CheckCircle2 className="w-5 h-5" />}
-                    />
-                    <StatCard
-                        title="Pending Audit"
-                        value={stats.pending.toString()}
-                        sub="Action Required"
-                        accent="text-rose-500"
-                        icon={<AlertTriangle className="w-5 h-5" />}
-                    />
-                    <StatCard
-                        title="Efficiency"
-                        value="94%"
-                        sub="Project Momentum"
-                        accent="text-blue-500"
-                        icon={<Activity className="w-5 h-5" />}
-                    />
+                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary bg-primary/5 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Total Logs"
+                            value={stats.total.toString()}
+                            sub="Verified Archives"
+                            accent="text-slate-800"
+                            icon={<FileText className={`w-5 h-5 ${activeStatFilter === "All" ? "text-primary scale-110" : "text-slate-400 group-hover:text-primary"} transition-all`} />}
+                        />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("Compliance")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Compliance" ? "ring-2 ring-emerald-500 bg-emerald-50/50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Compliance"
+                            value={stats.complianceRate}
+                            sub="Verification Rate"
+                            accent="text-emerald-500"
+                            icon={<CheckCircle2 className={`w-5 h-5 ${activeStatFilter === "Compliance" ? "text-emerald-500 scale-110" : "text-slate-400 group-hover:text-emerald-500"} transition-all`} />}
+                        />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("Pending")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Pending" ? "ring-2 ring-rose-500 bg-rose-50/50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Pending Audit"
+                            value={stats.pending.toString()}
+                            sub="Action Required"
+                            accent="text-rose-500"
+                            icon={<AlertTriangle className={`w-5 h-5 ${activeStatFilter === "Pending" ? "text-rose-500 scale-110" : "text-slate-400 group-hover:text-rose-500"} transition-all`} />}
+                        />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("Efficiency")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Efficiency" ? "ring-2 ring-blue-500 bg-blue-50/50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Efficiency"
+                            value="94%"
+                            sub="Project Momentum"
+                            accent="text-blue-500"
+                            icon={<Activity className={`w-5 h-5 ${activeStatFilter === "Efficiency" ? "text-blue-500 scale-110" : "text-slate-400 group-hover:text-blue-500"} transition-all`} />}
+                        />
+                    </div>
                 </div>
 
                 {/* ── Filter Bar & Registry Container ───────────────────────────────────────────── */}
@@ -270,15 +273,15 @@ const DSRPage = () => {
                                 placeholder="Search by activity, location or ID..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
+                                className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter font-bold"
                             />
                         </div>
-                        <div className="flex items-center gap-2 font-inter">
-                            <Filter className="w-4 h-4 text-slate-400" />
+                        <div className="flex items-center gap-3 font-inter">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status:</span>
                             <select
                                 value={statusFilter}
                                 onChange={(e) => setStatusFilter(e.target.value)}
-                                className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none cursor-pointer font-inter"
+                                className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-black text-slate-600 outline-none cursor-pointer font-inter uppercase tracking-widest"
                             >
                                 <option value="All">All Status</option>
                                 <option value="Draft">Draft</option>
@@ -286,6 +289,11 @@ const DSRPage = () => {
                                 <option value="Verified">Verified</option>
                                 <option value="Rejected">Rejected</option>
                             </select>
+                            {activeStatFilter !== "All" && (
+                                <button onClick={() => setActiveStatFilter("All")} className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors">
+                                    <RotateCcw className="w-4 h-4" />
+                                </button>
+                            )}
                         </div>
                     </div>
 
@@ -327,7 +335,7 @@ const DSRPage = () => {
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${dsr.status ? statusBadge[dsr.status] : "bg-slate-100 text-slate-500"}`}>
+                                                    <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${dsr.status ? statusBadge[dsr.status] : "bg-slate-100 text-slate-500"} font-inter`}>
                                                         {dsr.status}
                                                     </span>
                                                 </td>
@@ -342,10 +350,10 @@ const DSRPage = () => {
                                                         {dsr.photos && dsr.photos.length > 0 ? (
                                                             dsr.photos.slice(0, 3).map((photo) => (
                                                                 <div key={photo.id} className="w-12 h-12 rounded-xl overflow-hidden border-2 border-white shadow-sm hover:z-10 transition-transform hover:scale-110">
-                                                                    <img 
-                                                                        src={photo.url.startsWith('http') ? photo.url : `${API_BASE_URL}/${photo.url}`} 
-                                                                        alt="Site" 
-                                                                        className="w-full h-full object-cover" 
+                                                                    <img
+                                                                        src={photo.url.startsWith('http') ? photo.url : `${API_BASE_URL}/${photo.url}`}
+                                                                        alt="Site"
+                                                                        className="w-full h-full object-cover"
                                                                     />
                                                                 </div>
                                                             ))
@@ -374,7 +382,7 @@ const DSRPage = () => {
                                                             <Eye className="w-4 h-4" />
                                                         </button>
                                                         <button
-                                                            onClick={() => { setSelectedDsr(dsr); setIsEditOpen(true); }}
+                                                            onClick={() => handleEdit(dsr.id)}
                                                             className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
                                                         >
                                                             <Edit2 className="w-4 h-4" />
@@ -415,13 +423,13 @@ const DSRPage = () => {
                         {/* ── Profile Style Header ────────────────── */}
                         <div className={`${selectedDsr.status ? statusColors[selectedDsr.status] : 'bg-primary'} rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter`}>
                             <div className="relative z-10 flex items-center gap-6 font-inter">
-                                <div className="w-24 h-24 bg-blue-400/30 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/20 relative font-inter">
+                                <div className="w-24 h-24 bg-white/20 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/20 relative font-inter">
                                     <span className="text-4xl font-black font-inter">D</span>
                                     <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-4 border-primary rounded-full animate-pulse" />
                                 </div>
                                 <div className="font-inter">
                                     <div className="flex items-center gap-3 mb-2 font-inter">
-                                        <h3 className="text-2xl font-black tracking-tight font-inter">{selectedDsr.business_id || `DSR-${selectedDsr.id}`}</h3>
+                                        <h3 className="text-2xl font-black tracking-tight font-inter italic-none">{selectedDsr.business_id || `DSR-${selectedDsr.id}`}</h3>
                                         <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-black uppercase tracking-widest font-inter">{selectedDsr.status || 'Verified'}</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
@@ -441,10 +449,10 @@ const DSRPage = () => {
                                 <div className="grid grid-cols-2 gap-4">
                                     {selectedDsr.photos.map((photo) => (
                                         <div key={photo.id} className="rounded-2xl overflow-hidden border border-slate-100 shadow-sm aspect-[4/3] group relative">
-                                            <img 
-                                                src={photo.url.startsWith('http') ? photo.url : `${API_BASE_URL}/${photo.url}`} 
-                                                alt="Site Documentation" 
-                                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                                            <img
+                                                src={photo.url.startsWith('http') ? photo.url : `${API_BASE_URL}/${photo.url}`}
+                                                alt="Site Documentation"
+                                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                             />
                                             <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
                                         </div>
@@ -543,7 +551,7 @@ const DSRPage = () => {
 
                         <button
                             onClick={() => setIsDetailOpen(false)}
-                            className={`w-full py-5 ${selectedDsr.status ? statusColors[selectedDsr.status] : 'bg-primary'} text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all shadow-xl active:scale-95 font-inter italic-none`}
+                            className={`w-full py-5 ${selectedDsr.status ? statusColors[selectedDsr.status] : 'bg-primary'} text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all shadow-xl active:scale-95 font-inter italic-none shadow-primary/20`}
                         >
                             Dismiss DSR Insight
                         </button>
@@ -556,7 +564,7 @@ const DSRPage = () => {
                 isOpen={isCreateOpen}
                 onClose={() => setIsCreateOpen(false)}
                 onSubmit={handleCreate}
-                projectId={projectId || 1}
+                projectId={projectId || 36}
             />
 
             <EditDSRModal
@@ -564,6 +572,7 @@ const DSRPage = () => {
                 onClose={() => setIsEditOpen(false)}
                 onSubmit={handleUpdate}
                 dsr={selectedDsr}
+                projectId={projectId || 36}
             />
 
 

@@ -20,7 +20,8 @@ import {
   User,
   ShieldAlert,
   Briefcase,
-  Mail
+  Mail,
+  RotateCcw
 } from "lucide-react";
 
 import { qcService } from "../../../services/qcService";
@@ -42,6 +43,9 @@ const QCInspectionPage = () => {
     const [filterStatus, setFilterStatus] = useState("All");
     const [filterType, setFilterType] = useState("All");
     const [searchTerm, setSearchTerm] = useState("");
+
+    // Interactive StatCard Filter
+    const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Compliance" | "Failed" | "Momentum">("All");
     
     // Modal States
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);
@@ -190,7 +194,7 @@ const QCInspectionPage = () => {
             status: qc.status,
             engineer_name: qc.engineer_name,
             remarks: qc.remarks,
-            report_file: null // We don't have the File object from the string URL
+            report_file: null
         });
         setIsEditModalOpen(true);
     };
@@ -198,7 +202,16 @@ const QCInspectionPage = () => {
     // ─── HELPERS ─────────────────────────────────────────────────────────
 
     const filteredList = useMemo(() => {
-        return qcList.filter(q => {
+        let data = qcList;
+
+        // Apply StatCard Filter
+        if (activeStatFilter === "Compliance") {
+            data = data.filter(q => q.status === "Pass");
+        } else if (activeStatFilter === "Failed") {
+            data = data.filter(q => q.status === "Fail");
+        }
+
+        return data.filter(q => {
             const matchesSearch = searchTerm === "" || 
                                 q.engineer_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                                 q.test_type.toLowerCase().includes(searchTerm.toLowerCase());
@@ -206,7 +219,7 @@ const QCInspectionPage = () => {
             const matchesStatus = filterStatus === "All" || q.status === filterStatus;
             return matchesSearch && matchesType && matchesStatus;
         });
-    }, [qcList, searchTerm, filterType, filterStatus]);
+    }, [qcList, searchTerm, filterType, filterStatus, activeStatFilter]);
 
     const stats = useMemo(() => {
         const total = qcList.length;
@@ -230,8 +243,6 @@ const QCInspectionPage = () => {
         Fail: "bg-rose-600",
     };
 
-    // ─── RENDER ──────────────────────────────────────────────────────────
-
     return (
         <>
             <Navbar title="QC Inspection" breadcrumb={["Engineer", "Quality Control", "Inspection Vault"]} />
@@ -252,36 +263,44 @@ const QCInspectionPage = () => {
                     </button>
                 </div>
 
-                {/* ── Summary Stats ───────────────────────────── */}
+                {/* ── Summary Stats with Interactive Filtering ───────────────────────────── */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                    <StatCard
-                        title="Total Audits"
-                        value={stats.total.toString()}
-                        sub="Verified Logs"
-                        accent="text-slate-800"
-                        icon={<FileText className="w-5 h-5" />}
-                    />
-                    <StatCard
-                        title="Compliance"
-                        value={`${stats.compliance}%`}
-                        sub="Pass Rate"
-                        accent="text-emerald-500"
-                        icon={<CheckCircle2 className="w-5 h-5" />}
-                    />
-                    <StatCard
-                        title="Failed Tests"
-                        value={stats.failed.toString()}
-                        sub="Action Required"
-                        accent="text-rose-500"
-                        icon={<AlertTriangle className="w-5 h-5" />}
-                    />
-                    <StatCard
-                        title="Audit Momentum"
-                        value="98%"
-                        sub="Project Efficiency"
-                        accent="text-blue-500"
-                        icon={<Activity className="w-5 h-5" />}
-                    />
+                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary bg-primary/5 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Total Audits"
+                            value={stats.total.toString()}
+                            sub="Verified Logs"
+                            accent="text-slate-800"
+                            icon={<FileText className={`w-5 h-5 ${activeStatFilter === "All" ? "text-primary scale-110" : "text-slate-400 group-hover:text-primary"} transition-all`} />}
+                        />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("Compliance")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Compliance" ? "ring-2 ring-emerald-500 bg-emerald-50/50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Compliance"
+                            value={`${stats.compliance}%`}
+                            sub="Pass Rate"
+                            accent="text-emerald-500"
+                            icon={<CheckCircle2 className={`w-5 h-5 ${activeStatFilter === "Compliance" ? "text-emerald-500 scale-110" : "text-slate-400 group-hover:text-emerald-500"} transition-all`} />}
+                        />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("Failed")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Failed" ? "ring-2 ring-rose-500 bg-rose-50/50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Failed Tests"
+                            value={stats.failed.toString()}
+                            sub="Action Required"
+                            accent="text-rose-500"
+                            icon={<AlertTriangle className={`w-5 h-5 ${activeStatFilter === "Failed" ? "text-rose-500 scale-110" : "text-slate-400 group-hover:text-rose-500"} transition-all`} />}
+                        />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("Momentum")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Momentum" ? "ring-2 ring-blue-500 bg-blue-50/50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Audit Momentum"
+                            value="98%"
+                            sub="Project Efficiency"
+                            accent="text-blue-500"
+                            icon={<Activity className={`w-5 h-5 ${activeStatFilter === "Momentum" ? "text-blue-500 scale-110" : "text-slate-400 group-hover:text-blue-500"} transition-all`} />}
+                        />
+                    </div>
                 </div>
 
                 {/* ── Tab Bar ────────────────────────────────────────────── */}
@@ -313,15 +332,15 @@ const QCInspectionPage = () => {
                                 placeholder="Search by test type or engineer..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
+                                className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter font-bold"
                             />
                         </div>
-                        <div className="flex items-center gap-2 font-inter">
-                            <Filter className="w-4 h-4 text-slate-400" />
+                        <div className="flex items-center gap-3 font-inter">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Filters:</span>
                             <select
                                 value={filterType}
                                 onChange={(e) => setFilterType(e.target.value)}
-                                className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none cursor-pointer font-inter"
+                                className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-black text-slate-600 outline-none cursor-pointer font-inter uppercase tracking-widest"
                             >
                                 <option value="All">All Types</option>
                                 {INSPECTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
@@ -329,12 +348,17 @@ const QCInspectionPage = () => {
                             <select
                                 value={filterStatus}
                                 onChange={(e) => setFilterStatus(e.target.value)}
-                                className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none cursor-pointer font-inter"
+                                className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-black text-slate-600 outline-none cursor-pointer font-inter uppercase tracking-widest"
                             >
                                 <option value="All">All Status</option>
                                 <option value="Pass">Pass</option>
                                 <option value="Fail">Fail</option>
                             </select>
+                            {activeStatFilter !== "All" && (
+                                <button onClick={() => setActiveStatFilter("All")} className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors">
+                                    <RotateCcw className="w-4 h-4" />
+                                </button>
+                            )}
                         </div>
                     </div>
 
@@ -376,13 +400,13 @@ const QCInspectionPage = () => {
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${statusBadge[qc.status]}`}>
+                                                    <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${statusBadge[qc.status]}`}>
                                                         {qc.status}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex flex-col font-inter">
-                                                        <p className="text-[10px] font-black text-slate-800 font-inter">Result: {qc.result}</p>
+                                                        <p className="text-[10px] font-black text-slate-800 font-inter italic-none">Result: {qc.result}</p>
                                                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest font-inter">Std: {qc.standard_value}</p>
                                                     </div>
                                                 </td>
@@ -432,7 +456,7 @@ const QCInspectionPage = () => {
 
             {/* ── MODALS ────────────────────────────────────────────────── */}
 
-            {/* New / Edit Modal (Standardized to DSR/Equipment style) */}
+            {/* New / Edit Modal */}
             <Modal
                 isOpen={isNewModalOpen || isEditModalOpen}
                 onClose={() => { setIsNewModalOpen(false); setIsEditModalOpen(false); }}
@@ -457,18 +481,15 @@ const QCInspectionPage = () => {
                 }
             >
                 <form className="p-6 space-y-6">
-                    {/* Identification & Protocol */}
                     <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm font-inter">
-                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 font-inter uppercase tracking-widest text-[10px]">
-                            Identification & Protocol
-                        </h3>
+                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-50 pb-2">Identification & Protocol</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-inter">
                             <div>
                                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Inspection Category *</label>
                                 <select 
                                     value={formData.inspection_type}
                                     onChange={(e) => setFormData({...formData, inspection_type: e.target.value})}
-                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
                                 >
                                     {INSPECTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                 </select>
@@ -478,7 +499,7 @@ const QCInspectionPage = () => {
                                 <select 
                                     value={formData.test_type}
                                     onChange={(e) => setFormData({...formData, test_type: e.target.value})}
-                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
                                 >
                                     {TEST_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                 </select>
@@ -490,17 +511,14 @@ const QCInspectionPage = () => {
                                     placeholder="e.g. Rahul Sharma"
                                     value={formData.engineer_name}
                                     onChange={(e) => setFormData({...formData, engineer_name: e.target.value})}
-                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
                                 />
                             </div>
                         </div>
                     </div>
 
-                    {/* Result Matrix */}
                     <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm font-inter">
-                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 font-inter uppercase tracking-widest text-[10px]">
-                            Result Matrix
-                        </h3>
+                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-50 pb-2">Result Matrix</h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 font-inter">
                             <div>
                                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Observed Value *</label>
@@ -510,7 +528,7 @@ const QCInspectionPage = () => {
                                     placeholder="0.00"
                                     value={formData.result}
                                     onChange={(e) => setFormData({...formData, result: Number(e.target.value)})}
-                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
                                 />
                             </div>
                             <div>
@@ -521,7 +539,7 @@ const QCInspectionPage = () => {
                                     placeholder="0.00"
                                     value={formData.standard_value}
                                     onChange={(e) => setFormData({...formData, standard_value: Number(e.target.value)})}
-                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
                                 />
                             </div>
                             <div>
@@ -529,7 +547,7 @@ const QCInspectionPage = () => {
                                 <select 
                                     value={formData.status}
                                     onChange={(e) => setFormData({...formData, status: e.target.value})}
-                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
                                 >
                                     <option value="Pass">Pass (Compliant)</option>
                                     <option value="Fail">Fail (Non-Compliant)</option>
@@ -542,37 +560,15 @@ const QCInspectionPage = () => {
                                     placeholder="Any observations or deviations noticed during the test..."
                                     value={formData.remarks || ""}
                                     onChange={(e) => setFormData({...formData, remarks: e.target.value})}
-                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none font-inter"
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none font-inter"
                                 />
-                            </div>
-                            <div className="md:col-span-3 font-inter">
-                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Technical Documents / Report</label>
-                                <div className="flex items-center gap-4 p-4 bg-slate-50 border border-slate-200 border-dashed rounded-xl transition-all hover:bg-slate-100/50">
-                                    <div className="p-2 bg-white rounded-lg shadow-sm">
-                                        <FileText className="w-5 h-5 text-primary" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <input 
-                                            type="file"
-                                            onChange={(e) => setFormData({...formData, report_file: e.target.files?.[0] || null})}
-                                            className="block w-full text-xs text-slate-500 file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
-                                        />
-                                        <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-widest font-bold">PDF, JPEG or PNG (Max 5MB)</p>
-                                    </div>
-                                    {formData.report_file && (
-                                        <div className="flex items-center gap-1 px-2 py-1 bg-emerald-50 rounded-lg">
-                                            <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                                            <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Ready</span>
-                                        </div>
-                                    )}
-                                </div>
                             </div>
                         </div>
                     </div>
                 </form>
             </Modal>
 
-            {/* View Detail Modal (Standardized to DSR style) */}
+            {/* View Detail Modal */}
             <Modal
                 isOpen={isViewModalOpen}
                 onClose={() => setIsViewModalOpen(false)}
@@ -581,7 +577,6 @@ const QCInspectionPage = () => {
             >
                 {selectedQc && (
                     <div className="p-6 font-inter text-inter italic-none">
-                        {/* ── Profile Style Header ────────────────── */}
                         <div className={`${statusColors[selectedQc.status]} rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter`}>
                             <div className="relative z-10 flex items-center gap-6 font-inter">
                                 <div className="w-24 h-24 bg-white/20 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/20 relative font-inter">
@@ -590,7 +585,7 @@ const QCInspectionPage = () => {
                                 </div>
                                 <div className="font-inter">
                                     <div className="flex items-center gap-3 mb-2 font-inter">
-                                        <h3 className="text-2xl font-black tracking-tight font-inter italic-none">{selectedQc.test_type}</h3>
+                                        <h3 className="text-2xl font-black tracking-tight font-inter italic-none uppercase">{selectedQc.test_type}</h3>
                                         <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-black uppercase tracking-widest font-inter">{selectedQc.status}</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
@@ -605,7 +600,6 @@ const QCInspectionPage = () => {
                         </div>
 
                         <div className="space-y-8 px-2 mb-10 font-inter">
-                            {/* Operational Intelligence style section */}
                             <div className="font-inter">
                                 <div className="flex items-center gap-2 mb-6 font-inter">
                                     <div className="p-2 bg-blue-50 rounded-lg font-inter">
@@ -616,7 +610,7 @@ const QCInspectionPage = () => {
                                 <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
                                     <div className="font-inter">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Inspection Category</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedQc.inspection_type}</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none uppercase">{selectedQc.inspection_type}</p>
                                     </div>
                                     <div className="font-inter">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Final Status</p>
@@ -635,40 +629,6 @@ const QCInspectionPage = () => {
                                 </div>
                             </div>
 
-                            {/* Technical Documents Section */}
-                            {selectedQc.report_file && (
-                                <div className="font-inter">
-                                    <div className="flex items-center gap-2 mb-6 font-inter">
-                                        <div className="p-2 bg-blue-50 rounded-lg font-inter">
-                                            <FileText className="w-4 h-4 text-primary" />
-                                        </div>
-                                        <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Supporting Evidence</p>
-                                    </div>
-                                    <a 
-                                        href={selectedQc.report_file} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer"
-                                        className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl group hover:border-primary transition-all mb-8"
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-white rounded-lg shadow-sm group-hover:shadow-md transition-all">
-                                                <FileText className="w-4 h-4 text-primary" />
-                                            </div>
-                                            <div className="font-inter">
-                                                <p className="text-xs font-black text-slate-800 font-inter italic-none">Inspection Report Document</p>
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">View or Download File</p>
-                                            </div>
-                                        </div>
-                                        <div className="p-2 bg-white rounded-lg opacity-0 group-hover:opacity-100 transition-all text-primary">
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                            </svg>
-                                        </div>
-                                    </a>
-                                </div>
-                            )}
-
-                            {/* Technical Narrative style section */}
                             <div className="font-inter">
                                 <div className="flex items-center gap-2 mb-6 font-inter">
                                     <div className="p-2 bg-blue-50 rounded-lg font-inter">
@@ -689,7 +649,7 @@ const QCInspectionPage = () => {
 
                         <button
                             onClick={() => setIsViewModalOpen(false)}
-                            className={`w-full py-5 ${statusColors[selectedQc.status]} text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all shadow-xl active:scale-95 font-inter italic-none`}
+                            className={`w-full py-5 ${statusColors[selectedQc.status]} text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all shadow-xl active:scale-95 font-inter italic-none shadow-primary/20`}
                         >
                             Dismiss Audit Insight
                         </button>
@@ -697,7 +657,6 @@ const QCInspectionPage = () => {
                 )}
             </Modal>
 
-            {/* Delete Modal */}
             <ConfirmModal
                 isOpen={isDeleteModalOpen}
                 onClose={() => setIsDeleteModalOpen(false)}

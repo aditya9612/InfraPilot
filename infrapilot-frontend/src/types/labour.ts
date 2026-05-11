@@ -78,6 +78,7 @@ export interface CheckInRequest {
     latitude: number;
     longitude: number;
     location_address: string;
+    resolved_address?: string;
     task_description: string;
     check_in_image: string | null;
 }
@@ -86,6 +87,7 @@ export interface CheckOutRequest {
     latitude: number;
     longitude: number;
     location_address: string;
+    resolved_address?: string;
     overtime_hours: number;
     overtime_rate: number;
     check_out_image: string | null;

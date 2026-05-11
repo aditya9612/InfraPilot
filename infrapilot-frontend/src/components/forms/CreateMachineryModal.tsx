@@ -168,7 +168,11 @@ const CreateMachineryModal: React.FC<CreateMachineryModalProps> = ({
               <select name="condition" value={formData.condition} onChange={handleChange} className={inputClasses(errors.condition)}>
                 <option value="GOOD">Good / Optimal</option>
                 <option value="FAIR">Fair / Functional</option>
+                <option value="POOR">Poor / Needs Maintenance</option>
                 <option value="REPAIR">Needs Repair</option>
+                <option value="SERVICE">Under Service</option>
+                <option value="DAMAGED">Damaged</option>
+                <option value="MAINTENANCE">Scheduled Maintenance</option>
               </select>
               {errors.condition && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.condition}</p>}
             </div>

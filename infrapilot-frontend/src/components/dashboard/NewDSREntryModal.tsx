@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import Modal from "../common/Modal";
 import type { CreateDsrRequest } from "../../types/dsr";
 import toast from "react-hot-toast";
-import { X as XIcon, Upload } from "lucide-react";
+import { X as XIcon, Upload, RotateCcw } from "lucide-react";
 
 interface NewDSREntryModalProps {
   isOpen: boolean;
@@ -33,6 +33,10 @@ const NewDSREntryModal = ({
     remarks: "",
     latitude: 18.5204,
     longitude: 73.8567,
+    resolved_address: "",
+    total_labour: 0,
+    skilled_labour: 0,
+    unskilled_labour: 0,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -56,12 +60,30 @@ const NewDSREntryModal = ({
 
   const captureGPS = () => {
     setGpsStatus("capturing");
+    // Clear old address to trigger the "Resolving..." placeholder
+    setFormData((prev: CreateDsrRequest) => ({ ...prev, resolved_address: undefined }));
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
+        async (pos) => {
           const { latitude, longitude } = pos.coords;
-          setFormData((prev: CreateDsrRequest) => ({ ...prev, latitude, longitude }));
-          setGpsStatus("captured");
+          try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`);
+            const data = await res.json();
+            const address = data.display_name || "";
+            
+            setFormData((prev: CreateDsrRequest) => ({
+              ...prev,
+              latitude,
+              longitude,
+              resolved_address: address,
+            }));
+            setGpsStatus("captured");
+          } catch (err) {
+            console.warn("Reverse Geocoding failed:", err);
+            setFormData((prev: CreateDsrRequest) => ({ ...prev, latitude, longitude }));
+            setGpsStatus("captured");
+            toast.error("Location captured, but address resolution failed.");
+          }
         },
         () => {
           setFormData((prev: CreateDsrRequest) => ({ ...prev, latitude: 18.5204, longitude: 73.8567 }));
@@ -125,6 +147,12 @@ const NewDSREntryModal = ({
     }
   };
 
+  const handleLabourChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    const numValue = value === "" ? 0 : Number(value);
+    setFormData((prev: any) => ({ ...prev, [name]: numValue }));
+  };
+
   const modalFooter = (
     <>
       <button
@@ -167,8 +195,8 @@ const NewDSREntryModal = ({
           <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 flex items-center justify-between">
             Site Documentation
             {photoPreview && (
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => { setPhotoFile(null); setPhotoPreview(null); }}
                 className="text-rose-500 hover:text-rose-600 transition-colors"
               >
@@ -176,14 +204,14 @@ const NewDSREntryModal = ({
               </button>
             )}
           </h3>
-          
+
           <div className="flex flex-col items-center justify-center">
             {photoPreview ? (
               <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-slate-100 shadow-sm group">
                 <img src={photoPreview} alt="Site" className="w-full h-full object-cover" />
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => fileInputRef.current?.click()}
                     className="px-6 py-2 bg-white text-slate-800 rounded-xl text-xs font-bold shadow-xl active:scale-95 transition-all"
                   >
@@ -193,37 +221,37 @@ const NewDSREntryModal = ({
               </div>
             ) : (
               <div className="w-full flex flex-col items-center gap-6">
-                  <input 
-                      type="file" 
-                      ref={fileInputRef}
-                      className="hidden" 
-                      accept="image/*"
-                      onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                              setPhotoFile(file);
-                              const reader = new FileReader();
-                              reader.onloadend = () => {
-                                  setPhotoPreview(reader.result as string);
-                              };
-                              reader.readAsDataURL(file);
-                              toast.success("Image uploaded successfully!");
-                          }
-                      }}
-                  />
-                  <button 
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="w-full py-12 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-4 bg-slate-50/50 hover:bg-slate-50 hover:border-primary/50 transition-all group"
-                  >
-                      <div className="p-4 bg-white rounded-full shadow-sm text-slate-400 group-hover:text-primary group-hover:scale-110 transition-all">
-                          <Upload className="w-8 h-8" />
-                      </div>
-                      <div className="text-center">
-                          <p className="text-sm font-bold text-slate-600">Upload Site Progress Photo</p>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Select from your device gallery</p>
-                      </div>
-                  </button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setPhotoFile(file);
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setPhotoPreview(reader.result as string);
+                      };
+                      reader.readAsDataURL(file);
+                      toast.success("Image uploaded successfully!");
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full py-12 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-4 bg-slate-50/50 hover:bg-slate-50 hover:border-primary/50 transition-all group"
+                >
+                  <div className="p-4 bg-white rounded-full shadow-sm text-slate-400 group-hover:text-primary group-hover:scale-110 transition-all">
+                    <Upload className="w-8 h-8" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-bold text-slate-600">Upload Site Progress Photo</p>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Select from your device gallery</p>
+                  </div>
+                </button>
               </div>
             )}
           </div>
@@ -289,16 +317,34 @@ const NewDSREntryModal = ({
                 <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.weather}</p>
               )}
             </div>
-            <div className="flex items-end pb-1">
-              <div className="flex flex-col gap-1 w-full">
-                <div className="flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${gpsStatus === "captured" ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : gpsStatus === "capturing" ? "bg-amber-500 animate-pulse" : "bg-rose-500"}`}></span>
-                    GPS: {gpsStatus.toUpperCase()}
+            <div className="md:col-span-2">
+              <div className="flex flex-col gap-3 w-full">
+                <div className="flex flex-col gap-2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2.5 h-2.5 rounded-full ${gpsStatus === "captured" ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" : gpsStatus === "capturing" ? "bg-amber-500 animate-pulse" : "bg-rose-500"}`}></span>
+                      <span className="text-[10px] font-black text-slate-800 uppercase tracking-[0.1em]">GPS: {gpsStatus.toUpperCase()}</span>
+                    </div>
+                    <button type="button" onClick={captureGPS} className="text-primary hover:text-blue-700 transition-colors font-black text-[10px] uppercase tracking-widest bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-sm flex items-center gap-1.5 active:scale-95 transition-all">
+                      <RotateCcw className="w-2.5 h-2.5" />
+                      RECAPTURE
+                    </button>
                   </div>
-                  <button type="button" onClick={captureGPS} className="text-primary hover:text-blue-700 transition-colors tracking-normal normal-case font-bold text-xs">
-                    Recapture
-                  </button>
+
+                  {(formData.latitude || formData.longitude) && (
+                    <div className="flex flex-col gap-2 mt-1 border-t border-slate-100 pt-2">
+                      {(formData.resolved_address || gpsStatus === "capturing" || gpsStatus === "captured") && (
+                        <div className="bg-emerald-50/50 px-3 py-2.5 rounded-xl border border-emerald-100/50">
+                          <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1">LIVE CAPTURED ADDRESS</p>
+                          <p className="text-[11px] font-bold text-slate-700 leading-relaxed min-h-[1.5em]">
+                            {gpsStatus === "capturing" && !formData.resolved_address 
+                              ? "Resolving location address..." 
+                              : formData.resolved_address || (gpsStatus === "captured" ? "Site location identified (Address details pending...)" : "Awaiting GPS signal...")}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -401,6 +447,48 @@ const NewDSREntryModal = ({
               {errors.material_used && (
                 <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.material_used}</p>
               )}
+            </div>
+          </div>
+        </div>
+
+        {/* Labour Statistics */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
+            Labour Statistics
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className={labelClasses}>Total Labour</label>
+              <input
+                type="number"
+                name="total_labour"
+                value={formData.total_labour}
+                onChange={handleLabourChange}
+                className={inputClasses()}
+                placeholder="0"
+              />
+            </div>
+            <div>
+              <label className={labelClasses}>Skilled Labour</label>
+              <input
+                type="number"
+                name="skilled_labour"
+                value={formData.skilled_labour}
+                onChange={handleLabourChange}
+                className={inputClasses()}
+                placeholder="0"
+              />
+            </div>
+            <div>
+              <label className={labelClasses}>Unskilled Labour</label>
+              <input
+                type="number"
+                name="unskilled_labour"
+                value={formData.unskilled_labour}
+                onChange={handleLabourChange}
+                className={inputClasses()}
+                placeholder="0"
+              />
             </div>
           </div>
         </div>

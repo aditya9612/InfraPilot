@@ -21,7 +21,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   Mail,
-  Briefcase
+  Briefcase,
+  RotateCcw
 } from "lucide-react";
 
 import { safetyService } from "../../../services/safetyService";
@@ -71,6 +72,7 @@ const IncidentReportPage = () => {
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [projectId, setProjectId] = useState<number>(36);
+    const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Month" | "Critical" | "Compliance">("All");
     
     // Form State
     const [formData, setFormData] = useState<CreateIncidentRequest>({
@@ -157,10 +159,21 @@ const IncidentReportPage = () => {
             let matchesDate = true;
             if (startDate && item.date < startDate) matchesDate = false;
             if (endDate && item.date > endDate) matchesDate = false;
+
+            // Apply StatCard Filter
+            let matchesStat = true;
+            if (activeStatFilter === "Month") {
+                const itemDate = new Date(item.date);
+                matchesStat = itemDate.getMonth() === new Date().getMonth() && itemDate.getFullYear() === new Date().getFullYear();
+            } else if (activeStatFilter === "Critical") {
+                matchesStat = !!(item.injury_details && !item.injury_details.toLowerCase().includes("no injury"));
+            } else if (activeStatFilter === "Compliance") {
+                matchesStat = !item.injury_details || item.injury_details.toLowerCase().includes("no injury");
+            }
             
-            return matchesSearch && matchesViolationType && matchesDate;
+            return matchesSearch && matchesViolationType && matchesDate && matchesStat;
         });
-    }, [incidents, searchTerm, startDate, endDate, filterViolationType]);
+    }, [incidents, searchTerm, startDate, endDate, filterViolationType, activeStatFilter]);
 
     // ─── HANDLERS ──────────────────────────────────────────────────────
 
@@ -290,34 +303,42 @@ const IncidentReportPage = () => {
 
                 {/* ── Summary Stats ───────────────────────────── */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                    <StatCard
-                        title="Total Reports"
-                        value={stats.total.toString()}
-                        sub="Incident Archives"
-                        accent="text-slate-800"
-                        icon={<FileText className="w-5 h-5" />}
-                    />
-                    <StatCard
-                        title="Compliance"
-                        value={`${stats.compliance}%`}
-                        sub="Incident-Free Rate"
-                        accent="text-emerald-500"
-                        icon={<CheckCircle2 className="w-5 h-5" />}
-                    />
-                    <StatCard
-                        title="Critical"
-                        value={stats.critical.toString()}
-                        sub="Injury Incidents"
-                        accent="text-rose-500"
-                        icon={<ShieldAlert className="w-5 h-5" />}
-                    />
-                    <StatCard
-                        title="Month Activity"
-                        value={stats.thisMonthCount.toString()}
-                        sub="Current Month"
-                        accent="text-blue-500"
-                        icon={<Activity className="w-5 h-5" />}
-                    />
+                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer transition-all ${activeStatFilter === "All" ? "ring-2 ring-slate-800 rounded-xl bg-white shadow-lg scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Total Reports"
+                            value={stats.total.toString()}
+                            sub="Incident Archives"
+                            accent="text-slate-800"
+                            icon={<FileText className={`w-5 h-5 ${activeStatFilter === "All" ? "text-slate-800" : "text-slate-400"}`} />}
+                        />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("Compliance")} className={`cursor-pointer transition-all ${activeStatFilter === "Compliance" ? "ring-2 ring-emerald-500 rounded-xl bg-emerald-50 shadow-lg scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Compliance"
+                            value={`${stats.compliance}%`}
+                            sub="Incident-Free Rate"
+                            accent="text-emerald-500"
+                            icon={<CheckCircle2 className={`w-5 h-5 ${activeStatFilter === "Compliance" ? "text-emerald-500" : "text-slate-400"}`} />}
+                        />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("Critical")} className={`cursor-pointer transition-all ${activeStatFilter === "Critical" ? "ring-2 ring-rose-500 rounded-xl bg-rose-50 shadow-lg scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Critical"
+                            value={stats.critical.toString()}
+                            sub="Injury Incidents"
+                            accent="text-rose-500"
+                            icon={<ShieldAlert className={`w-5 h-5 ${activeStatFilter === "Critical" ? "text-rose-500" : "text-slate-400"}`} />}
+                        />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("Month")} className={`cursor-pointer transition-all ${activeStatFilter === "Month" ? "ring-2 ring-blue-500 rounded-xl bg-blue-50 shadow-lg scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Month Activity"
+                            value={stats.thisMonthCount.toString()}
+                            sub="Current Month"
+                            accent="text-blue-500"
+                            icon={<Activity className={`w-5 h-5 ${activeStatFilter === "Month" ? "text-blue-500" : "text-slate-400"}`} />}
+                        />
+                    </div>
                 </div>
 
                 {/* ── Tabs ────────────────────────────────────────────────── */}
@@ -380,6 +401,15 @@ const IncidentReportPage = () => {
                                     {violationTypeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                                 </select>
                             </div>
+                            {activeStatFilter !== "All" && (
+                                <button 
+                                    onClick={() => setActiveStatFilter("All")}
+                                    className="p-2 text-slate-400 hover:text-rose-600 transition-colors"
+                                    title="Clear Stat Filter"
+                                >
+                                    <RotateCcw className="w-4 h-4" />
+                                </button>
+                            )}
                         </div>
                     </div>
 

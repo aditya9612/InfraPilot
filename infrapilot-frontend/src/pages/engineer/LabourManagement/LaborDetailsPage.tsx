@@ -42,15 +42,6 @@ const formatAadhaar = (value: string) => {
     return groups ? groups.join("-") : digits;
 };
 
-const formatMobile = (value: string) => {
-    let digits = value.replace(/\D/g, "");
-    if (digits.startsWith("91")) {
-        digits = digits.slice(2);
-    }
-    digits = digits.slice(0, 10);
-    return digits ? `+91 ${digits}` : "";
-};
-
 const LaborDetailsPage = () => {
     const [laborers, setLaborers] = useState<LabourItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -68,6 +59,7 @@ const LaborDetailsPage = () => {
     const [isDeleting, setIsDeleting] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Active" | "Skilled">("All");
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
@@ -244,6 +236,12 @@ const LaborDetailsPage = () => {
         skilled: laborers.filter(l => l.skill_type === "Skilled").length,
     };
 
+    const filteredLaborers = laborers.filter(l => {
+        if (activeStatFilter === "Active") return l.status === "Active";
+        if (activeStatFilter === "Skilled") return l.skill_type === "Skilled";
+        return true;
+    });
+
     return (
         <>
             <Navbar title="Personnel Registry" breadcrumb={["Engineer", "Workforce", "Detail Directory"]} />
@@ -266,9 +264,15 @@ const LaborDetailsPage = () => {
 
                 {/* ── Summary Stats ───────────────────────────── */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                    <StatCard title="Personnel Database" value={stats.total.toString()} sub="Total Records" accent="text-slate-800" icon={<Users className="w-5 h-5" />} />
-                    <StatCard title="Active Assets" value={stats.active.toString()} sub="Currently Deployed" accent="text-blue-500" icon={<UserCheck className="w-5 h-5" />} />
-                    <StatCard title="Technical Skill" value={stats.skilled.toString()} sub="Skilled Laborers" accent="text-emerald-500" icon={<ShieldCheck className="w-5 h-5" />} />
+                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer transition-all ${activeStatFilter === "All" ? "ring-2 ring-slate-800 rounded-xl bg-white shadow-lg scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard title="Personnel Database" value={stats.total.toString()} sub="Total Records" accent="text-slate-800" icon={<Users className={`w-5 h-5 ${activeStatFilter === "All" ? "text-slate-800" : "text-slate-400"}`} />} />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("Active")} className={`cursor-pointer transition-all ${activeStatFilter === "Active" ? "ring-2 ring-blue-500 rounded-xl bg-blue-50 shadow-lg scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard title="Active Assets" value={stats.active.toString()} sub="Currently Deployed" accent="text-blue-500" icon={<UserCheck className={`w-5 h-5 ${activeStatFilter === "Active" ? "text-blue-500" : "text-slate-400"}`} />} />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("Skilled")} className={`cursor-pointer transition-all ${activeStatFilter === "Skilled" ? "ring-2 ring-emerald-500 rounded-xl bg-emerald-50 shadow-lg scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard title="Technical Skill" value={stats.skilled.toString()} sub="Skilled Laborers" accent="text-emerald-500" icon={<ShieldCheck className={`w-5 h-5 ${activeStatFilter === "Skilled" ? "text-emerald-500" : "text-slate-400"}`} />} />
+                    </div>
                     <StatCard title="Database Integrity" value="99.4%" sub="System Health" accent="text-indigo-500" icon={<Activity className="w-5 h-5" />} />
                 </div>
 
@@ -311,7 +315,7 @@ const LaborDetailsPage = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50 font-inter">
-                                    {laborers.map((labor) => (
+                                    {filteredLaborers.map((labor) => (
                                         <tr key={labor.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                             <td className="px-6 py-4">
                                                 <span className="text-[10px] font-black text-primary uppercase tracking-widest bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100 font-inter">

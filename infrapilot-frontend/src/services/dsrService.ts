@@ -17,20 +17,27 @@ export const dsrService = {
    * POST /api/v1/dsr
    */
   async createDsr(data: CreateDsrRequest): Promise<DsrItem> {
-    const formData = new FormData();
-    Object.entries(data).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        if (key === "dsr_image" && value instanceof File) {
-          formData.append(key, value);
-        } else {
-          formData.append(key, String(value));
+    // If we have an image, we must use FormData
+    if (data.dsr_image instanceof File) {
+      const formData = new FormData();
+      Object.entries(data).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          if (key === "dsr_image" && value instanceof File) {
+            formData.append(key, value);
+          } else {
+            formData.append(key, String(value));
+          }
         }
-      }
-    });
+      });
 
-    const response = await api.post<DsrItem>("/dsr", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+      const response = await api.post<DsrItem>("/dsr", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      return response.data;
+    }
+
+    // Otherwise send as JSON to preserve types (like numbers for project_id, latitude, longitude)
+    const response = await api.post<DsrItem>("/dsr", data);
     return response.data;
   },
 
@@ -62,20 +69,12 @@ export const dsrService = {
    * PUT /api/v1/dsr/{id}
    */
   async updateDsr(id: number, data: UpdateDsrRequest): Promise<DsrItem> {
-    const formData = new FormData();
-    Object.entries(data).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        if (key === "dsr_image" && value instanceof File) {
-          formData.append(key, value);
-        } else {
-          formData.append(key, String(value));
-        }
-      }
-    });
-
-    const response = await api.put<DsrItem>(`/dsr/${id}`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    // Force JSON for PUT requests as per backend requirements.
+    // We remove dsr_image from the payload because it's handled via a separate upload endpoint
+    // and its presence as a string/null can cause 422 errors in some backend schemas.
+    const { dsr_image, ...payload } = data;
+    
+    const response = await api.put<DsrItem>(`/dsr/${id}`, payload);
     return response.data;
   },
 

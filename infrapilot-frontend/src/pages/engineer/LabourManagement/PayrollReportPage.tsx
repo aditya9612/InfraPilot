@@ -8,8 +8,9 @@ import {
     TrendingUp, 
     Filter,
     ArrowUpRight,
-    ArrowDownRight,
-    Download
+    Download,
+    RotateCcw,
+    Activity
 } from "lucide-react";
 import { paymentService } from '../../../services/paymentService';
 import { labourService } from '../../../services/labourService';
@@ -28,6 +29,7 @@ const PayrollReportPage: React.FC = () => {
     const [reports, setReports] = useState<any[]>([]);
     const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
     const [isLoading, setIsLoading] = useState(true);
+    const [activeStatFilter, setActiveStatFilter] = useState<"All" | "High" | "OT" | "Summary">("All");
     const [isExportingExcel, setIsExportingExcel] = useState(false);
     const [isExportingPDF, setIsExportingPDF] = useState(false);
     const [projectId, setProjectId] = useState<number | null>(null);
@@ -174,46 +176,49 @@ const PayrollReportPage: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
-                    {/* Summary Cards */}
-                    <div className="lg:col-span-1 space-y-6">
+                {/* ── Summary Stats with Interactive Filtering ───────────────────────────── */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary bg-primary/5 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Total Payout"
                             value="₹2.63L"
-                            sub="Current Month"
+                            sub="All Wage Items"
                             accent="text-slate-800"
-                            icon={<FileText className="w-5 h-5" />}
+                            icon={<FileText className={`w-5 h-5 ${activeStatFilter === "All" ? "text-primary scale-110" : "text-slate-400 group-hover:text-primary"} transition-all`} />}
                         />
-                        <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
-                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Payroll Breakdown</h3>
-                            <div className="space-y-6">
-                                <div className="flex justify-between items-center">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-emerald-50 text-emerald-500 rounded-lg"><ArrowDownRight className="w-4 h-4" /></div>
-                                        <span className="text-xs font-bold text-slate-600">Base Wages</span>
-                                    </div>
-                                    <span className="text-sm font-bold text-slate-800">₹2.45L</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-amber-50 text-amber-500 rounded-lg"><TrendingUp className="w-4 h-4" /></div>
-                                        <span className="text-xs font-bold text-slate-600">Overtime Pay</span>
-                                    </div>
-                                    <span className="text-sm font-bold text-slate-800">₹18,000</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-rose-50 text-rose-500 rounded-lg"><ArrowUpRight className="w-4 h-4" /></div>
-                                        <span className="text-xs font-bold text-slate-600">Advance Recovered</span>
-                                    </div>
-                                    <span className="text-sm font-bold text-slate-800">₹12,400</span>
-                                </div>
-                            </div>
-                        </div>
                     </div>
+                    <div onClick={() => setActiveStatFilter("High")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "High" ? "ring-2 ring-emerald-500 bg-emerald-50/50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="High Payouts"
+                            value="12"
+                            sub="Above ₹5k Threshold"
+                            accent="text-emerald-500"
+                            icon={<TrendingUp className={`w-5 h-5 ${activeStatFilter === "High" ? "text-emerald-500 scale-110" : "text-slate-400 group-hover:text-emerald-500"} transition-all`} />}
+                        />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("OT")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "OT" ? "ring-2 ring-amber-500 bg-amber-50/50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="OT Intensive"
+                            value="8"
+                            sub="Shifts with Overtime"
+                            accent="text-amber-500"
+                            icon={<Activity className={`w-5 h-5 ${activeStatFilter === "OT" ? "text-amber-500 scale-110" : "text-slate-400 group-hover:text-amber-500"} transition-all`} />}
+                        />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("Summary")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Summary" ? "ring-2 ring-rose-500 bg-rose-50/50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Advance Adjusted"
+                            value="₹12.4k"
+                            sub="Recovery Target"
+                            accent="text-rose-500"
+                            icon={<ArrowUpRight className={`w-5 h-5 ${activeStatFilter === "Summary" ? "text-rose-500 scale-110" : "text-slate-400 group-hover:text-rose-500"} transition-all`} />}
+                        />
+                    </div>
+                </div>
 
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
                     {/* Chart Card */}
-                    <div className="lg:col-span-2 bg-primary rounded-[2.5rem] p-8 shadow-xl relative overflow-hidden">
+                    <div className="lg:col-span-3 bg-primary rounded-[2.5rem] p-8 shadow-xl relative overflow-hidden">
                         <div className="relative z-10 h-full flex flex-col">
                             <div className="flex justify-between items-start mb-8">
                                 <div>
@@ -224,7 +229,7 @@ const PayrollReportPage: React.FC = () => {
                                     +12.4% vs Mar
                                 </span>
                             </div>
-                            <div className="flex-1 min-h-[200px]">
+                            <div className="flex-1 min-h-[250px]">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <AreaChart data={chartData}>
                                         <defs>
@@ -270,6 +275,12 @@ const PayrollReportPage: React.FC = () => {
                                 <Filter className="w-4 h-4" />
                             </button>
                         </div>
+                        {activeStatFilter !== "All" && (
+                            <button onClick={() => setActiveStatFilter("All")} className="px-4 py-2 text-slate-400 hover:text-rose-500 transition-colors flex items-center gap-2">
+                                <RotateCcw className="w-4 h-4" />
+                                <span className="text-[10px] font-black uppercase tracking-widest">Clear Stat Filter</span>
+                            </button>
+                        )}
                     </div>
 
                     <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200">
@@ -291,7 +302,11 @@ const PayrollReportPage: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
-                                    {reports.map((r, idx) => (
+                                    {reports.filter(r => {
+                                        if (activeStatFilter === "High") return r.total_payout > 5000;
+                                        if (activeStatFilter === "OT") return r.overtime_wages > 0;
+                                        return true;
+                                    }).map((r, idx) => (
                                         <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
                                             <td className="px-6 py-4">
                                                 <span className="text-sm font-bold text-slate-800">

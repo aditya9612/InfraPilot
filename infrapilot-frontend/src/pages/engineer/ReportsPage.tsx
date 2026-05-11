@@ -1,8 +1,16 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
+import { 
+    FileText, 
+    TrendingUp, 
+    AlertTriangle, 
+    Activity,
+    RotateCcw
+} from "lucide-react";
+import StatCard from "../../components/common/StatCard";
 import { reportService } from "../../services/reportService";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
@@ -116,23 +124,13 @@ const reportTypes: ReportType[] = [
     },
 ];
 
-// ─── Stat Summary ───────────────────────────────────────────────────────────────
-
-const statCards = [
-    { label: "Total Reports", value: "42", sub: "+3 this week", accent: "text-primary" },
-    { label: "Generated Today", value: "5", sub: "All 5 types", accent: "text-emerald-500" },
-    { label: "Avg. Report Size", value: "1.8 MB", sub: "Across all types", accent: "text-amber-500" },
-    { label: "Open Issues", value: "3", sub: "2 High Priority", accent: "text-rose-500" },
-];
-
-
-
 // ─── Main Component ─────────────────────────────────────────────────────────────
 
 const ReportsPage = () => {
     const [selectedReport, setSelectedReport] = useState<ReportType | null>(null);
     const [loadingId, setLoadingId] = useState<string | null>(null);
     const [activeFilter, setActiveFilter] = useState("All");
+    const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Recent" | "Large" | "Issues">("All");
     const [isInitialLoading, setIsInitialLoading] = useState(true);
     const [dynamicReports, setDynamicReports] = useState<ReportType[]>(reportTypes);
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
@@ -166,9 +164,10 @@ const ReportsPage = () => {
             const updatedReports = [...reportTypes];
 
             // 1. Daily Report Mapping
-            if (daily?.dsr) {
-                updatedReports[0] = {
-                    ...updatedReports[0],
+            const dailyIdx = updatedReports.findIndex(r => r.id === "daily");
+            if (dailyIdx !== -1 && daily?.dsr) {
+                updatedReports[dailyIdx] = {
+                    ...updatedReports[dailyIdx],
                     metrics: [
                         { label: "Total Labor", value: `${daily.dsr.total_labour || 0} Workers`, accent: "text-blue-600" },
                         { label: "Work Done", value: daily.dsr.work_done?.substring(0, 20) + (daily.dsr.work_done?.length > 20 ? "..." : "") || "N/A" },
@@ -179,9 +178,10 @@ const ReportsPage = () => {
             }
 
             // 2. Weekly Progress Mapping
-            if (weekly) {
-                updatedReports[1] = {
-                    ...updatedReports[1],
+            const weeklyIdx = updatedReports.findIndex(r => r.id === "weekly");
+            if (weeklyIdx !== -1 && weekly) {
+                updatedReports[weeklyIdx] = {
+                    ...updatedReports[weeklyIdx],
                     metrics: [
                         { label: "Total Progress", value: `${weekly.weekly_progress_percent || 0}%`, accent: "text-emerald-600" },
                         { label: "Active Tasks", value: `${weekly.tasks_count || 0}` },
@@ -192,9 +192,10 @@ const ReportsPage = () => {
             }
 
             // 3. Labour Mapping
-            if (labour?.labour_summary) {
-                updatedReports[2] = {
-                    ...updatedReports[2],
+            const laborIdx = updatedReports.findIndex(r => r.id === "labor");
+            if (laborIdx !== -1 && labour?.labour_summary) {
+                updatedReports[laborIdx] = {
+                    ...updatedReports[laborIdx],
                     metrics: labour.labour_summary.map((l: any) => ({
                         label: l.skill_type,
                         value: String(l.count),
@@ -204,10 +205,11 @@ const ReportsPage = () => {
             }
 
             // 4. Material Mapping
-            if (material && material.length > 0) {
+            const materialIdx = updatedReports.findIndex(r => r.id === "material");
+            if (materialIdx !== -1 && material && material.length > 0) {
                 const first = material[0];
-                updatedReports[3] = {
-                    ...updatedReports[3],
+                updatedReports[materialIdx] = {
+                    ...updatedReports[materialIdx],
                     metrics: [
                         { label: "Material", value: first.material_name, accent: "text-indigo-600" },
                         { label: "Stock", value: `${first.remaining_stock}`, accent: "text-rose-500" },
@@ -218,9 +220,10 @@ const ReportsPage = () => {
             }
 
             // 5. Issues Mapping
-            if (issues) {
-                updatedReports[4] = {
-                    ...updatedReports[4],
+            const issueIdx = updatedReports.findIndex(r => r.id === "issue");
+            if (issueIdx !== -1 && issues) {
+                updatedReports[issueIdx] = {
+                    ...updatedReports[issueIdx],
                     metrics: [
                         { label: "Open Issues", value: String(issues.open || 0), accent: "text-rose-500" },
                         { label: "Closed Issues", value: String(issues.closed || 0), accent: "text-emerald-600" },
@@ -246,7 +249,7 @@ const ReportsPage = () => {
     const handleExportCSV = () => {
         const headers = ["ID", "Name", "Description", "Frequency", "Size", "Last Generated"];
         const escape = (val: string | number) => `"${String(val).replace(/"/g, '""')}"`;
-        const rows = filtered.map(r => [
+        const rows = filtered.map((r: ReportType) => [
             escape(r.id), escape(r.name), escape(r.description),
             escape(r.frequency), escape(r.size), escape(r.lastGenerated)
         ].join(","));
@@ -325,9 +328,38 @@ const ReportsPage = () => {
         }
     };
 
-    const filtered = activeFilter === "All"
-        ? dynamicReports
-        : dynamicReports.filter(r => r.frequency === activeFilter);
+    const filtered = useMemo(() => {
+        let data = activeFilter === "All"
+            ? dynamicReports
+            : dynamicReports.filter(r => r.frequency === activeFilter);
+
+        if (activeStatFilter === "Recent") {
+            data = data.filter(r => r.lastGenerated.toLowerCase().includes("today"));
+        } else if (activeStatFilter === "Large") {
+            data = data.filter(r => parseFloat(r.size) > 1.5);
+        } else if (activeStatFilter === "Issues") {
+            data = data.filter(r => r.id === "issue");
+        }
+
+        return data;
+    }, [activeFilter, activeStatFilter, dynamicReports]);
+
+    const reportsStats = useMemo(() => {
+        const total = dynamicReports.length;
+        const generatedToday = dynamicReports.filter(r => r.lastGenerated.toLowerCase().includes("today")).length;
+        
+        // Find issue report and extract open issues count
+        const issueReport = dynamicReports.find(r => r.id === "issue");
+        // Look for metric that contains "Open Issue" in label
+        const openIssuesMetric = issueReport?.metrics.find(m => m.label.includes("Open Issue"));
+        const openIssues = openIssuesMetric ? parseInt(openIssuesMetric.value.replace(/[^0-9]/g, "")) || 0 : 0;
+        
+        // Calculate total size
+        const totalSize = dynamicReports.reduce((acc, r) => acc + parseFloat(r.size || "0"), 0);
+        const avgSize = total > 0 ? (totalSize / total).toFixed(1) : "0";
+
+        return { total, generatedToday, openIssues, avgSize };
+    }, [dynamicReports]);
 
     return (
         <>
@@ -374,13 +406,42 @@ const ReportsPage = () => {
                         Report Overview
                     </h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {statCards.map((s) => (
-                            <div key={s.label} className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
-                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">{s.label}</p>
-                                <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
-                                <p className="text-[10px] text-slate-400 mt-1.5 font-medium">{s.sub}</p>
-                            </div>
-                        ))}
+                        <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary bg-primary/5 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                            <StatCard
+                                title="Total Reports"
+                                value={reportsStats.total.toString()}
+                                sub="Available in Catalog"
+                                accent="text-primary"
+                                icon={<FileText className={`w-5 h-5 ${activeStatFilter === "All" ? "text-primary scale-110" : "text-slate-400 group-hover:text-primary"} transition-all`} />}
+                            />
+                        </div>
+                        <div onClick={() => setActiveStatFilter("Recent")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Recent" ? "ring-2 ring-emerald-500 bg-emerald-50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                            <StatCard
+                                title="Generated Today"
+                                value={reportsStats.generatedToday.toString()}
+                                sub="Recent Site Logs"
+                                accent="text-emerald-500"
+                                icon={<Activity className={`w-5 h-5 ${activeStatFilter === "Recent" ? "text-emerald-500 scale-110" : "text-slate-400 group-hover:text-emerald-500"} transition-all`} />}
+                            />
+                        </div>
+                        <div onClick={() => setActiveStatFilter("Large")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Large" ? "ring-2 ring-amber-500 bg-amber-50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                            <StatCard
+                                title="Avg. Report Size"
+                                value={`${reportsStats.avgSize} MB`}
+                                sub="Inventory Volume"
+                                accent="text-amber-500"
+                                icon={<TrendingUp className={`w-5 h-5 ${activeStatFilter === "Large" ? "text-amber-500 scale-110" : "text-slate-400 group-hover:text-amber-500"} transition-all`} />}
+                            />
+                        </div>
+                        <div onClick={() => setActiveStatFilter("Issues")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Issues" ? "ring-2 ring-rose-500 bg-rose-50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                            <StatCard
+                                title="Open Issues"
+                                value={reportsStats.openIssues.toString()}
+                                sub="High Priority Items"
+                                accent="text-rose-500"
+                                icon={<AlertTriangle className={`w-5 h-5 ${activeStatFilter === "Issues" ? "text-rose-500 scale-110" : "text-slate-400 group-hover:text-rose-500"} transition-all`} />}
+                            />
+                        </div>
                     </div>
                 </div>
 
@@ -453,6 +514,12 @@ const ReportsPage = () => {
                         </div>
                     </div>
 
+                    {activeStatFilter !== "All" && (
+                        <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors">
+                            <RotateCcw className="w-4 h-4" />
+                        </button>
+                    )}
+
                     {/* Export Buttons */}
                     <div className="ml-auto flex items-end pb-0.5 gap-2">
                         <button
@@ -481,7 +548,7 @@ const ReportsPage = () => {
 
                     {/* Cards Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {filtered.map((report) => (
+                        {filtered.map((report: ReportType) => (
                             <div
                                 key={report.id}
                                 className="relative bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hover:shadow-md hover:border-slate-200 transition-all flex flex-col gap-5 group"
@@ -514,7 +581,7 @@ const ReportsPage = () => {
 
                                 {/* Metrics preview */}
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-4 border-y border-slate-50">
-                                    {report.metrics.map((m, i) => (
+                                    {report.metrics.map((m: ReportMetric, i: number) => (
                                         <div key={i}>
                                             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">{m.label}</p>
                                             <p className={`text-sm font-black text-slate-800 ${m.accent ?? ""}`}>{m.value}</p>
@@ -632,7 +699,7 @@ const ReportsPage = () => {
                             <div>
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Performance Metrics</p>
                                 <div className="grid grid-cols-2 gap-y-6 gap-x-12">
-                                    {selectedReport.metrics.map((m, i) => (
+                                    {selectedReport.metrics.map((m: ReportMetric, i: number) => (
                                         <div key={i}>
                                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{m.label.toUpperCase()}</p>
                                             <p className={`text-sm font-black ${m.accent || "text-slate-800"}`}>{m.value}</p>
