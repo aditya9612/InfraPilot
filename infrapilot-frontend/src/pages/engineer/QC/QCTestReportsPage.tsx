@@ -21,7 +21,7 @@ const QCTestReportsPage = () => {
     // Core Data States
     const [qcList, setQcList] = useState<QcItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [projectId, setProjectId] = useState<number>(1);
+    const [projectId, setProjectId] = useState<number | null>(null);
     
     // UI States
     const [activeTab] = useState<"Inspection" | "Test Reports">("Test Reports");
@@ -36,9 +36,12 @@ const QCTestReportsPage = () => {
                 const pId = user?.project_id || user?.user?.project_id;
                 if (pId) {
                     setProjectId(Number(pId));
+                } else {
+                    setProjectId(1);
                 }
             } catch (e) {
                 console.error("Failed to resolve project ID", e);
+                setProjectId(1);
             }
         }
     }, []);
@@ -46,6 +49,7 @@ const QCTestReportsPage = () => {
     // ─── INITIALIZATION ──────────────────────────────────────────────────
 
     const fetchData = useCallback(async () => {
+        if (projectId === null) return;
         setIsLoading(true);
         try {
             const res = await qcService.listQc(projectId);

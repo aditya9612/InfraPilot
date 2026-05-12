@@ -63,7 +63,7 @@ const EngineerDashboard = () => {
         <>
             <Navbar title="Site Overview" breadcrumb={["InfraPilot", "Engineer", "Dashboard"]} />
 
-            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
+            <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
 
                 {/* ── Header ─────────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">

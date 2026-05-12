@@ -38,17 +38,22 @@ const statusBadge: Record<string, string> = {
 const DailyProgressEntryPage = () => {
   const { user } = useAuth();
   const engineer_id = Number(user?.id) || 1;
-  const [projectId, setProjectId] = useState<number>(36);
+  const [projectId, setProjectId] = useState<number | null>(null);
 
   useEffect(() => {
     const userStr = localStorage.getItem("infrapilot_user");
     if (userStr) {
       try {
         const user = JSON.parse(userStr);
-        const pId = user?.project_id || user?.user?.project_id || user?.id;
-        if (pId) setProjectId(Number(pId));
+        const pId = user?.project_id || user?.user?.project_id;
+        if (pId) {
+          setProjectId(Number(pId));
+        } else {
+          setProjectId(36);
+        }
       } catch (e) {
         console.error("Failed to resolve project ID", e);
+        setProjectId(36);
       }
     }
   }, []);
@@ -77,8 +82,9 @@ const DailyProgressEntryPage = () => {
   const [selectedEntry, setSelectedEntry] = useState<DailyEntry | null>(null);
 
   const loadSummary = useCallback(async () => {
+    if (!projectId) return;
     try {
-      const data = await workProgressService.getProjectSummary(projectId);
+      const data = await workProgressService.getProjectSummary(projectId || 0);
       setSummary(data);
     } catch (err) {
       console.error(err);
@@ -86,8 +92,9 @@ const DailyProgressEntryPage = () => {
   }, [projectId]);
 
   const loadActivities = useCallback(async () => {
+    if (!projectId) return;
     try {
-      const data = await workProgressService.listActivities(projectId, engineer_id);
+      const data = await workProgressService.listActivities(projectId || 0, engineer_id);
       setActivitiesList(data);
     } catch (err) {
       console.error(err);
@@ -237,7 +244,7 @@ const DailyProgressEntryPage = () => {
   return (
     <>
       <Navbar title="Field Progress Terminal" breadcrumb={["Engineer", "Work Progress", "Field Logs"]} />
-      <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
+      <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
         
         {/* ── Header ──────────────────────────────────────────────── */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
@@ -311,7 +318,7 @@ const DailyProgressEntryPage = () => {
         </div>
 
         {/* ── Registry Container ───────────────────────────────────────────── */}
-        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-12 font-inter">
+        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
             {/* Integrated Filter Bar */}
             <div className="p-6 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-slate-50/30 font-inter">
                 <div className="relative flex-1 max-w-md font-inter">
@@ -359,7 +366,7 @@ const DailyProgressEntryPage = () => {
                 </div>
             </div>
 
-            <div className="p-10 font-inter">
+            <div className="flex-1 overflow-auto p-10 font-inter scrollbar-thin scrollbar-thumb-slate-200">
                 {activeTab === 'today' ? (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 font-inter">
                         {loading ? (

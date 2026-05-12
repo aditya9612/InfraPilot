@@ -37,17 +37,22 @@ const statusBadge: Record<string, string> = {
 const ActivityListPage = () => {
   const { user } = useAuth();
   const engineer_id = Number(user?.id) || 1;
-  const [projectId, setProjectId] = useState<number>(36);
+  const [projectId, setProjectId] = useState<number | null>(null);
 
   useEffect(() => {
     const userStr = localStorage.getItem("infrapilot_user");
     if (userStr) {
       try {
         const user = JSON.parse(userStr);
-        const pId = user?.project_id || user?.user?.project_id || user?.id;
-        if (pId) setProjectId(Number(pId));
+        const pId = user?.project_id || user?.user?.project_id;
+        if (pId) {
+          setProjectId(Number(pId));
+        } else {
+          setProjectId(36);
+        }
       } catch (e) {
         console.error("Failed to resolve project ID", e);
+        setProjectId(36);
       }
     }
   }, []);
@@ -76,9 +81,10 @@ const ActivityListPage = () => {
   }, [engineer_id]);
 
   const loadActivities = async () => {
+    if (!projectId) return;
     try {
       setLoading(true);
-      const data = await workProgressService.listActivities(projectId, engineer_id);
+      const data = await workProgressService.listActivities(projectId || 0, engineer_id);
       setActivities(data);
     } catch (err) {
       toast.error("Failed to load activities");
@@ -173,7 +179,7 @@ const ActivityListPage = () => {
   return (
     <>
       <Navbar title="Activity List" breadcrumb={["InfraPilot", "Engineer", "Work Progress"]} />
-      <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
+      <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
         
         {/* ── Header ──────────────────────────────────────────────── */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
@@ -231,7 +237,7 @@ const ActivityListPage = () => {
         </div>
 
         {/* ── Filter Bar & Registry Container ───────────────────────────────────────────── */}
-        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-12 font-inter">
+        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
           {/* Integrated Filter Bar */}
           <div className="p-6 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-slate-50/30 font-inter">
             <div className="relative flex-1 max-w-md font-inter">
@@ -267,7 +273,7 @@ const ActivityListPage = () => {
             </div>
           </div>
 
-          <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+          <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
             <table className="w-full text-left font-inter min-w-[1200px]">
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
@@ -375,7 +381,7 @@ const ActivityListPage = () => {
         isOpen={isAddModalOpen} 
         onClose={() => setIsAddModalOpen(false)} 
         onSubmit={handleAddSubmit}
-        projectId={projectId}
+        projectId={projectId || 0}
         engineerId={engineer_id}
       />
 

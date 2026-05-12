@@ -217,7 +217,7 @@ const MaterialRequestPage = () => {
         <>
             <Navbar title="Material Requests" breadcrumb={["Engineer", "Approvals", "Material Requisition"]} />
 
-            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
+            <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
                     <div className="font-inter">
@@ -286,7 +286,7 @@ const MaterialRequestPage = () => {
                 </div>
 
                 {/* ── Registry Container ───────────────────────────────────────────── */}
-                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-12 font-inter">
+                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
                     <div className="p-6 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-slate-50/30 font-inter">
                         <div className="relative flex-1 max-w-md font-inter">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
@@ -307,7 +307,7 @@ const MaterialRequestPage = () => {
                         )}
                     </div>
 
-                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                    <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
                         <table className="w-full text-left font-inter min-w-[1200px]">
                             <thead>
                                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">

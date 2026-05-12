@@ -9,7 +9,6 @@ import {
   Plus, 
   Trash2,
   CheckCircle2,
-  Clock,
   PlusSquare,
   ClipboardList,
   Search,
@@ -18,8 +17,7 @@ import {
   FileText,
   RotateCcw,
   Layout,
-  Layers,
-  ArrowRight
+  Layers
 } from "lucide-react";
 
 import { checklistService } from "../../../services/checklistService";
@@ -40,7 +38,6 @@ const ChecklistsPage = () => {
     const [projectId, setProjectId] = useState<number>(36);
     
     // UI States
-    const [isLoading, setIsLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     
@@ -79,7 +76,6 @@ const ChecklistsPage = () => {
     }, []);
 
     const fetchData = useCallback(async () => {
-        setIsLoading(true);
         try {
             const [clRes, logsRes] = await Promise.all([
                 checklistService.listChecklists(),
@@ -89,8 +85,6 @@ const ChecklistsPage = () => {
             setLogs(logsRes.items || []);
         } catch (err) {
             toast.error("Failed to sync checklist vault");
-        } finally {
-            setIsLoading(false);
         }
     }, [projectId]);
 
@@ -242,7 +236,7 @@ const ChecklistsPage = () => {
         <>
             <Navbar title="Checklists" breadcrumb={["Engineer", "Execution", "Checklist Vault"]} />
 
-            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
+            <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
                     <div className="font-inter">

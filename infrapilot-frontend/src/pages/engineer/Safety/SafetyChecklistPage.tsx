@@ -60,11 +60,11 @@ const SafetyChecklistPage = () => {
     // Filter State
     const [filterViolationType, setFilterViolationType] = useState("");
     
-    const [projectId, setProjectId] = useState<number>(36);
+    const [projectId, setProjectId] = useState<number | null>(null);
 
     // Form State
     const [formData, setFormData] = useState<CreateSafetyRequest>({
-        project_id: 36,
+        project_id: 0,
         date: new Date().toISOString().split("T")[0],
         violation_type: "No Helmet",
         description: "",
@@ -81,14 +81,18 @@ const SafetyChecklistPage = () => {
         if (userStr) {
             try {
                 const user = JSON.parse(userStr);
-                const pId = user?.project_id || user?.user?.project_id || user?.id;
+                const pId = user?.project_id || user?.user?.project_id;
                 if (pId) {
                     const finalPId = Number(pId);
                     setProjectId(finalPId);
                     setFormData((prev: CreateSafetyRequest) => ({ ...prev, project_id: finalPId }));
+                } else {
+                    setProjectId(36);
+                    setFormData((prev: CreateSafetyRequest) => ({ ...prev, project_id: 36 }));
                 }
             } catch (e) {
                 console.error("Failed to resolve project ID", e);
+                setProjectId(36);
             }
         }
     }, []);
@@ -96,6 +100,7 @@ const SafetyChecklistPage = () => {
     // ─── DATA FETCHING ──────────────────────────────────────────────────
 
     const fetchData = useCallback(async () => {
+        if (!projectId) return;
         setIsLoading(true);
         try {
             const response = await safetyService.listIncidents(projectId, filterViolationType || undefined);
@@ -171,7 +176,7 @@ const SafetyChecklistPage = () => {
             fetchData();
             // Reset form
             setFormData({
-                project_id: projectId,
+                project_id: projectId || 0,
                 date: new Date().toISOString().split("T")[0],
                 violation_type: "No Helmet",
                 description: "",
@@ -262,7 +267,7 @@ const SafetyChecklistPage = () => {
         <>
             <Navbar title="Safety Management" breadcrumb={["Engineer", "Safety", "Checklist Vault"]} />
 
-            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
+            <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
                     <div className="font-inter">
@@ -336,7 +341,7 @@ const SafetyChecklistPage = () => {
                 </div>
 
                 {/* ── Registry Container ───────────────────────────────────────────── */}
-                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-12 font-inter">
+                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
                     {/* Integrated Filter Bar */}
                     <div className="p-6 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-slate-50/30 font-inter">
                         <div className="relative flex-1 max-w-md font-inter">
@@ -376,7 +381,7 @@ const SafetyChecklistPage = () => {
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                    <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
                         {isLoading ? (
                             <div className="p-20 text-center font-inter">
                                 <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4 font-inter" />
@@ -599,7 +604,7 @@ const SafetyChecklistPage = () => {
                 {selectedIncident && (
                     <div className="p-6 font-inter text-inter italic-none">
                         {/* ── Profile Style Header ────────────────── */}
-                        <div className={`${selectedIncident.violation_type === 'Electrical Hazard' || selectedIncident.violation_type === 'Fire Hazard' ? 'bg-rose-600 shadow-rose-600/20' : 'bg-primary shadow-primary/20'} rounded-[2.5rem] p-8 mb-8 text-white shadow-2xl relative overflow-hidden font-inter`}>
+                        <div className="bg-primary rounded-[2.5rem] p-8 mb-8 text-white shadow-2xl relative overflow-hidden font-inter">
                             <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl" />
                             <div className="relative z-10 flex items-center gap-8 font-inter">
                                 <div className="w-24 h-24 bg-white/20 backdrop-blur-xl rounded-[2rem] flex items-center justify-center border border-white/20 shadow-inner font-inter relative">
@@ -687,7 +692,7 @@ const SafetyChecklistPage = () => {
 
                         <button
                             onClick={() => setIsViewModalOpen(false)}
-                            className="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.3em] transition-all shadow-2xl active:scale-95 font-inter italic-none mb-2"
+                            className="w-full py-5 bg-primary text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.3em] transition-all shadow-2xl shadow-primary/20 active:scale-95 font-inter italic-none mb-2"
                         >
                             Dismiss Audit Intelligence
                         </button>

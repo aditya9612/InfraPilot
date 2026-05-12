@@ -12,7 +12,6 @@ import {
   Eye,
   Edit2,
   Trash2,
-  Filter,
   FileText,
   CheckCircle2,
   AlertTriangle,
@@ -56,11 +55,11 @@ const QCInspectionPage = () => {
     // Selection States
     const [selectedQc, setSelectedQc] = useState<QcItem | null>(null);
     const [deleteId, setDeleteId] = useState<number | null>(null);
-    const [projectId, setProjectId] = useState<number>(1);
+    const [projectId, setProjectId] = useState<number | null>(null);
     
     // Form States
     const [formData, setFormData] = useState<CreateQcRequest>({
-        project_id: 1,
+        project_id: 0,
         task_id: null,
         dsr_id: null,
         inspection_type: "General",
@@ -84,9 +83,14 @@ const QCInspectionPage = () => {
                     const resolvedId = Number(pId);
                     setProjectId(resolvedId);
                     setFormData(prev => ({ ...prev, project_id: resolvedId }));
+                } else {
+                    // Fallback to project 1 if none assigned, or handle as error
+                    setProjectId(1);
+                    setFormData(prev => ({ ...prev, project_id: 1 }));
                 }
             } catch (e) {
                 console.error("Failed to resolve project ID", e);
+                setProjectId(1);
             }
         }
     }, []);
@@ -94,6 +98,7 @@ const QCInspectionPage = () => {
     // ─── INITIALIZATION ──────────────────────────────────────────────────
 
     const fetchData = useCallback(async () => {
+        if (projectId === null) return;
         setIsLoading(true);
         try {
             const res = await qcService.listQc(projectId);
@@ -162,7 +167,7 @@ const QCInspectionPage = () => {
 
     const resetForm = () => {
         setFormData({
-            project_id: projectId,
+            project_id: projectId || 0,
             task_id: null,
             dsr_id: null,
             inspection_type: "General",
@@ -184,7 +189,7 @@ const QCInspectionPage = () => {
     const openEdit = (qc: QcItem) => {
         setSelectedQc(qc);
         setFormData({
-            project_id: projectId,
+            project_id: projectId || 0,
             task_id: qc.task_id,
             dsr_id: qc.dsr_id,
             inspection_type: qc.inspection_type,
@@ -238,16 +243,12 @@ const QCInspectionPage = () => {
         Fail: "bg-red-100 text-red-600",
     };
 
-    const statusColors: Record<string, string> = {
-        Pass: "bg-emerald-600",
-        Fail: "bg-rose-600",
-    };
 
     return (
         <>
             <Navbar title="QC Inspection" breadcrumb={["Engineer", "Quality Control", "Inspection Vault"]} />
 
-            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
+            <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
@@ -320,7 +321,7 @@ const QCInspectionPage = () => {
                 </div>
 
                 {/* ── Registry Container ───────────────────────────────────────────── */}
-                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-12 font-inter">
+                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
                     {/* Integrated Filter Bar */}
                     <div className="p-6 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-slate-50/30 font-inter">
                         <div className="relative flex-1 max-w-md font-inter">
@@ -362,7 +363,7 @@ const QCInspectionPage = () => {
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                    <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
                         {isLoading ? (
                             <div className="p-20 text-center text-slate-400 font-inter">
                                 <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
@@ -420,7 +421,7 @@ const QCInspectionPage = () => {
                                                     <div className="flex items-center justify-end gap-2 transition-opacity font-inter">
                                                         <button
                                                             onClick={() => handleViewDetails(qc)}
-                                                            className={`p-2 text-white rounded-xl shadow-lg transition-all active:scale-95 font-inter ${statusColors[qc.status]} shadow-${statusColors[qc.status].split('-')[1]}/20`}
+                                                            className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-95 font-inter"
                                                         >
                                                             <Eye className="w-4 h-4" />
                                                         </button>
@@ -577,7 +578,7 @@ const QCInspectionPage = () => {
             >
                 {selectedQc && (
                     <div className="p-6 font-inter text-inter italic-none">
-                        <div className={`${statusColors[selectedQc.status]} rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter`}>
+                        <div className="bg-primary rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter">
                             <div className="relative z-10 flex items-center gap-6 font-inter">
                                 <div className="w-24 h-24 bg-white/20 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/20 relative font-inter">
                                     <ShieldAlert className="w-10 h-10 text-white" />
@@ -649,7 +650,7 @@ const QCInspectionPage = () => {
 
                         <button
                             onClick={() => setIsViewModalOpen(false)}
-                            className={`w-full py-5 ${statusColors[selectedQc.status]} text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all shadow-xl active:scale-95 font-inter italic-none shadow-primary/20`}
+                            className="w-full py-5 bg-primary text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all shadow-xl shadow-primary/20 active:scale-95 font-inter italic-none"
                         >
                             Dismiss Audit Insight
                         </button>

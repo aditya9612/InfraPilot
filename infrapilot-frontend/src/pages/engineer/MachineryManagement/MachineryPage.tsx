@@ -54,23 +54,29 @@ const MachineryPage = () => {
     useEffect(() => {
         const initializeProject = async () => {
             try {
-                // Try discovery via service first
+                // Prioritize localStorage for Site Engineers
+                const userStr = localStorage.getItem("infrapilot_user");
+                if (userStr) {
+                    const user = JSON.parse(userStr);
+                    const pId = user?.project_id || user?.user?.project_id;
+                    if (pId) {
+                        setProjectId(Number(pId));
+                        return;
+                    }
+                }
+
+                // Fallback to discovery
                 const res = await projectService.getProjects();
                 const projects = Array.isArray(res) ? res : (res.items || []);
                 if (projects.length > 0) {
                     const pId = projects[0].project_id || projects[0].id;
-                    console.log("Machinery Discovery: Using Project ID:", pId);
                     setProjectId(Number(pId));
-                    return;
+                } else {
+                    setProjectId(36);
                 }
-
-                // Fallback to local storage
-                const userStr = localStorage.getItem("infrapilot_user");
-                const user = userStr ? JSON.parse(userStr) : {};
-                const pId = user?.project_id || user?.user?.project_id || 0;
-                setProjectId(Number(pId));
             } catch (err) {
                 console.error("Machinery Discovery Failed:", err);
+                setProjectId(36);
             }
         };
         initializeProject();
@@ -170,7 +176,7 @@ const MachineryPage = () => {
         <>
             <Navbar title="Machinery & Equipment" breadcrumb={["Engineer", "Machinery", "Asset List"]} />
 
-            <PageTransition className="p-6 bg-slate-50 min-h-screen">
+            <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
@@ -227,7 +233,7 @@ const MachineryPage = () => {
                 </div>
 
                 {/* ── Filter Bar ───────────────────────────────────────────── */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-8">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
                     <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4">
                         <div className="relative flex-1 max-w-md">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
@@ -258,7 +264,7 @@ const MachineryPage = () => {
                         </select>
                     </div>
 
-                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                    <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
                         {isLoading ? (
                             <div className="p-20 text-center text-slate-400">
                                 <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />

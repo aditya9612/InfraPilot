@@ -8,8 +8,34 @@ import type {
   UsagePayload,
   PurchasePayload,
   InventoryLog,
-  MaterialReport
+  MaterialReport,
+  MaterialLog
 } from "../types/material";
+
+export type {
+  Material,
+  MaterialCreate,
+  MaterialUpdate,
+  Supplier,
+  SupplierCreate,
+  UsagePayload,
+  PurchasePayload,
+  InventoryLog,
+  MaterialReport,
+  MaterialItem,
+  InventoryItem,
+  MaterialLog,
+  CreateMaterialRequest,
+  IssueType,
+  RateType
+} from "../types/material";
+
+const mapMaterial = (m: any): Material => ({
+  ...m,
+  material_id: m.material_id ?? m.id,
+  total_value: m.total_value ?? m.total_amount ?? 0,
+  avg_rate: m.avg_rate ?? m.purchase_rate ?? 0
+});
 
 export const materialService = {
   /**
@@ -21,7 +47,8 @@ export const materialService = {
       params: { project_id, skip, limit }
     });
     const data = response.data;
-    return Array.isArray(data) ? data : ((data as any).items || (data as any).data || []);
+    const items = Array.isArray(data) ? data : ((data as any).items || (data as any).data || []);
+    return items.map(mapMaterial);
   },
 
   /**
@@ -30,7 +57,7 @@ export const materialService = {
    */
   async getMaterial(id: number): Promise<Material> {
     const response = await api.get<Material>(`/materials/${id}`);
-    return response.data;
+    return mapMaterial(response.data);
   },
 
   /**
@@ -39,7 +66,7 @@ export const materialService = {
    */
   async createMaterial(data: MaterialCreate): Promise<Material> {
     const response = await api.post<Material>("/materials", data);
-    return response.data;
+    return mapMaterial(response.data);
   },
 
   /**
@@ -48,7 +75,7 @@ export const materialService = {
    */
   async updateMaterial(id: number, data: MaterialUpdate): Promise<Material> {
     const response = await api.put<Material>(`/materials/${id}`, data);
-    return response.data;
+    return mapMaterial(response.data);
   },
 
   /**
@@ -65,7 +92,7 @@ export const materialService = {
    */
   async recordUsage(material_id: number, data: UsagePayload): Promise<Material> {
     const response = await api.post<Material>(`/materials/${material_id}/usage`, data);
-    return response.data;
+    return mapMaterial(response.data);
   },
 
   /**
@@ -74,17 +101,18 @@ export const materialService = {
    */
   async recordPurchase(material_id: number, data: PurchasePayload): Promise<Material> {
     const response = await api.post<Material>(`/materials/${material_id}/purchase`, data);
-    return response.data;
+    return mapMaterial(response.data);
   },
 
   /**
    * Get inventory summary
    * GET /api/v1/materials/inventory
    */
-  async getInventory(): Promise<any[]> {
+  async getInventory(): Promise<Material[]> {
     const response = await api.get<any[]>("/materials/inventory");
     const data = response.data;
-    return Array.isArray(data) ? data : ((data as any).items || (data as any).data || []);
+    const items = Array.isArray(data) ? data : ((data as any).items || (data as any).data || []);
+    return items.map(mapMaterial);
   },
 
   /**

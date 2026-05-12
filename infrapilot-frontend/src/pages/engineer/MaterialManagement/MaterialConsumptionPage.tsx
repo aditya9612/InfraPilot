@@ -12,7 +12,7 @@ import {
   Search,
   RotateCcw
 } from "lucide-react";
-import { materialService, type InventoryItem, type MaterialLog } from "../../../services/materialService";
+import { materialService, type InventoryItem, type MaterialLog, type IssueType } from "../../../services/materialService";
 
 const ISSUE_TYPES = ["SITE", "STORE"];
 
@@ -21,7 +21,7 @@ const MaterialConsumptionPage = () => {
   const [logs, setLogs] = useState<MaterialLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [projectId, setProjectId] = useState<number>(1);
+  const [projectId, setProjectId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
   // Interactive StatCard Filter
@@ -36,11 +36,12 @@ const MaterialConsumptionPage = () => {
   });
 
   const fetchData = useCallback(async () => {
+    if (!projectId) return;
     setIsLoading(true);
     try {
       const [invList, lList] = await Promise.all([
         materialService.getInventory(),
-        materialService.getLogs({ project_id: projectId, type: "USAGE" })
+        materialService.getLogs({ project_id: projectId || 0, type: "USAGE" })
       ]);
       setInventory(invList || []);
       setLogs(lList || []);
@@ -56,12 +57,15 @@ const MaterialConsumptionPage = () => {
     if (userStr) {
       try {
         const user = JSON.parse(userStr);
-        const pId = user?.project_id || user?.user?.project_id || user?.id;
+        const pId = user?.project_id || user?.user?.project_id;
         if (pId) {
           setProjectId(Number(pId));
+        } else {
+          setProjectId(36);
         }
       } catch (e) {
         console.error("Failed to resolve project ID", e);
+        setProjectId(36);
       }
     }
   }, []);
@@ -75,9 +79,10 @@ const MaterialConsumptionPage = () => {
     if (!selectedInventory) return;
     setIsSubmitting(true);
     try {
-      await materialService.recordUsage(selectedInventory.material_id, {
+      await materialService.recordUsage(selectedInventory.id, {
         ...usageData,
-        project_id: projectId
+        issue_type: usageData.issue_type as IssueType,
+        project_id: projectId || 0
       });
       toast.success("Material usage recorded!");
       setIsUsageModalOpen(false);
@@ -115,7 +120,7 @@ const MaterialConsumptionPage = () => {
   return (
     <>
       <Navbar title="Material Consumption" breadcrumb={["Engineer", "Logistics", "Material Consumption"]} />
-      <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
+      <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
           <div className="font-inter">
@@ -171,7 +176,7 @@ const MaterialConsumptionPage = () => {
         </div>
 
         {/* Consumption Registry Container */}
-        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-12 font-inter">
+        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
           <div className="p-6 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-slate-50/30 font-inter">
             <div className="relative flex-1 max-w-md font-inter">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
@@ -192,7 +197,7 @@ const MaterialConsumptionPage = () => {
             )}
           </div>
 
-          <div className="overflow-x-auto font-inter">
+          <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
             <table className="w-full text-left font-inter min-w-[1000px]">
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">

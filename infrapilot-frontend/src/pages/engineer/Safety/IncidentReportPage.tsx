@@ -71,12 +71,12 @@ const IncidentReportPage = () => {
     const [filterViolationType, setFilterViolationType] = useState("");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
-    const [projectId, setProjectId] = useState<number>(36);
+    const [projectId, setProjectId] = useState<number | null>(null);
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Month" | "Critical" | "Compliance">("All");
     
     // Form State
     const [formData, setFormData] = useState<CreateIncidentRequest>({
-        project_id: 36,
+        project_id: 0,
         date: new Date().toISOString().split("T")[0],
         violation_type: "No Helmet",
         description: "",
@@ -98,9 +98,13 @@ const IncidentReportPage = () => {
                     const resolvedId = Number(pId);
                     setProjectId(resolvedId);
                     setFormData(prev => ({ ...prev, project_id: resolvedId }));
+                } else {
+                    setProjectId(36);
+                    setFormData(prev => ({ ...prev, project_id: 36 }));
                 }
             } catch (e) {
                 console.error("Failed to resolve project ID", e);
+                setProjectId(36);
             }
         }
     }, []);
@@ -108,6 +112,7 @@ const IncidentReportPage = () => {
     // ─── DATA FETCHING ──────────────────────────────────────────────────
 
     const fetchData = useCallback(async () => {
+        if (!projectId) return;
         setIsLoading(true);
         try {
             const response = await safetyService.listIncidents(projectId, filterViolationType || undefined);
@@ -187,13 +192,13 @@ const IncidentReportPage = () => {
         if (e) e.preventDefault();
         setIsSubmitting(true);
         try {
-            const response = await safetyService.createIncident({ ...formData, project_id: projectId });
+            const response = await safetyService.createIncident({ ...formData, project_id: projectId || 0 });
             toast.success("Incident reported successfully!");
             setIncidents(prev => [response, ...prev]);
             setIsNewModalOpen(false);
             // Reset form
             setFormData({
-                project_id: projectId,
+                project_id: projectId || 0,
                 date: new Date().toISOString().split("T")[0],
                 violation_type: "No Helmet",
                 description: "",
@@ -284,7 +289,7 @@ const IncidentReportPage = () => {
         <>
             <Navbar title="Safety Management" breadcrumb={["Engineer", "Safety", "Incident Logs"]} />
 
-            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
+            <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
@@ -358,7 +363,7 @@ const IncidentReportPage = () => {
                 </div>
 
                 {/* ── Registry Container ───────────────────────────────────────────── */}
-                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-12 font-inter">
+                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
                     {/* Integrated Filter Bar */}
                     <div className="p-6 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-slate-50/30 font-inter">
                         <div className="relative flex-1 max-w-md font-inter">
@@ -413,7 +418,7 @@ const IncidentReportPage = () => {
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                    <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
                         {isLoading ? (
                             <div className="p-20 text-center text-slate-400 font-inter">
                                 <div className="inline-block w-8 h-8 border-4 border-rose-600/20 border-t-rose-600 rounded-full animate-spin mb-4" />
@@ -464,7 +469,7 @@ const IncidentReportPage = () => {
                                                     <div className="flex items-center justify-end gap-2 transition-opacity font-inter">
                                                         <button
                                                             onClick={() => handleViewClick(item.id)}
-                                                            className="p-2 text-white bg-rose-600 rounded-xl shadow-lg shadow-rose-600/20 transition-all active:scale-95 font-inter"
+                                                            className="p-2 text-white bg-primary rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-95 font-inter"
                                                         >
                                                             <Eye className="w-4 h-4" />
                                                         </button>
@@ -666,11 +671,11 @@ const IncidentReportPage = () => {
                 {selectedIncident && (
                     <div className="p-6 font-inter text-inter italic-none">
                         {/* ── Profile Style Header ────────────────── */}
-                        <div className="bg-rose-600 rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter">
+                        <div className="bg-primary rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter">
                             <div className="relative z-10 flex items-center gap-6 font-inter">
                                 <div className="w-24 h-24 bg-white/20 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/20 relative font-inter">
                                     <ShieldAlert className="w-10 h-10 text-white" />
-                                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-4 border-rose-600 rounded-full animate-pulse" />
+                                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-4 border-primary rounded-full animate-pulse" />
                                 </div>
                                 <div className="font-inter">
                                     <div className="flex items-center gap-3 mb-2 font-inter">
@@ -753,7 +758,7 @@ const IncidentReportPage = () => {
 
                         <button
                             onClick={() => setIsViewModalOpen(false)}
-                            className="w-full py-5 bg-slate-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all shadow-xl active:scale-95 font-inter italic-none"
+                            className="w-full py-5 bg-primary text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all shadow-xl shadow-primary/20 active:scale-95 font-inter italic-none"
                         >
                             Dismiss Response Insight
                         </button>

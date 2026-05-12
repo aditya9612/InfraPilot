@@ -39,13 +39,6 @@ const statusBadge: Record<string, string> = {
     Rejected: "bg-red-100 text-red-600",
 };
 
-const statusColors: Record<string, string> = {
-    Draft: "bg-slate-500",
-    Submitted: "bg-primary",
-    Approved: "bg-emerald-600",
-    Verified: "bg-emerald-600",
-    Rejected: "bg-rose-600",
-};
 
 const DSRPage = () => {
     const [dsrList, setDsrList] = useState<DsrItem[]>([]);
@@ -67,10 +60,22 @@ const DSRPage = () => {
 
     useEffect(() => {
         const resolveProjectId = async () => {
-            const userStr = localStorage.getItem("infrapilot_user");
-            const user = userStr ? JSON.parse(userStr) : {};
-            const pId = user?.project_id || user?.user?.project_id;
-            setProjectId(pId ? Number(pId) : 36);
+            try {
+                const userStr = localStorage.getItem("infrapilot_user");
+                if (userStr) {
+                    const user = JSON.parse(userStr);
+                    const pId = user?.project_id || user?.user?.project_id;
+                    if (pId) {
+                        setProjectId(Number(pId));
+                    } else {
+                        // Default fallback for Site Engineer context
+                        setProjectId(36);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to resolve project context", err);
+                setProjectId(36);
+            }
         };
         resolveProjectId();
     }, []);
@@ -79,17 +84,30 @@ const DSRPage = () => {
         if (!projectId) return;
         setIsLoading(true);
         try {
-            const response = await dsrService.getDsrByProject(projectId);
+            const response = await dsrService.getDsrByProject(projectId || 0);
             const apiData = response.items;
 
+            // Resolve photos for each item, prioritizing the item's own photos array if populated
             const itemsWithPhotos = await Promise.all(apiData.map(async (item: any) => {
-                try {
-                    const photos = await dsrService.getDsrPhotos(item.id);
-                    return { ...item, photos };
-                } catch (e) {
-                    return item;
+                let photos = item.photos?.map((p: any) => ({
+                    id: p.id,
+                    url: p.url || p.file_url // Map both url and file_url for robustness
+                })) || [];
+
+                // If photos array is empty, fallback to standalone photos API
+                if (photos.length === 0) {
+                    try {
+                        const extraPhotos = await dsrService.getDsrPhotos(item.id);
+                        if (extraPhotos && extraPhotos.length > 0) {
+                            photos = extraPhotos;
+                        }
+                    } catch (e) {
+                        // Fail silently for photos to show the rest of the DSR data
+                    }
                 }
+                return { ...item, photos };
             }));
+
             setDsrList(itemsWithPhotos);
         } catch (error) {
             toast.error("Failed to sync DSR logs");
@@ -137,12 +155,17 @@ const DSRPage = () => {
 
     const handleCreate = async (data: CreateDsrRequest) => {
         try {
-            await dsrService.createDsr({ ...data, project_id: projectId || 36 });
+            const payload = { ...data, project_id: projectId || 0 };
+            await dsrService.createDsr(payload);
             toast.success("DSR submitted successfully!");
-            fetchDsr();
             setIsCreateOpen(false);
+            // Small delay to allow backend persistence if needed, though usually not necessary
+            setTimeout(() => {
+                fetchDsr();
+            }, 500);
         } catch (error) {
-            toast.error("Failed to submit DSR");
+            console.error("DSR Creation Failed:", error);
+            toast.error("Failed to submit DSR. Please check all fields.");
         }
     };
 
@@ -204,7 +227,7 @@ const DSRPage = () => {
         <>
             <Navbar title="Daily Site Reports" breadcrumb={["Engineer", "Site Records", "DSR Vault"]} />
 
-            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
+            <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
@@ -261,7 +284,7 @@ const DSRPage = () => {
                 </div>
 
                 {/* ── Filter Bar & Registry Container ───────────────────────────────────────────── */}
-                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-12 font-inter">
+                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
                     {/* Integrated Filter Bar */}
                     <div className="p-6 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-slate-50/30 font-inter">
                         <div className="relative flex-1 max-w-md font-inter">
@@ -297,7 +320,7 @@ const DSRPage = () => {
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                    <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
                         {isLoading ? (
                             <div className="p-20 text-center text-slate-400 font-inter">
                                 <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
@@ -351,7 +374,7 @@ const DSRPage = () => {
                                                             dsr.photos.slice(0, 3).map((photo) => (
                                                                 <div key={photo.id} className="w-12 h-12 rounded-xl overflow-hidden border-2 border-white shadow-sm hover:z-10 transition-transform hover:scale-110">
                                                                     <img
-                                                                        src={photo.url.startsWith('http') ? photo.url : `${API_BASE_URL}/${photo.url}`}
+                                                                        src={photo.url?.startsWith('http') ? photo.url : `${API_BASE_URL.replace('/api/v1', '')}/${photo.url}`}
                                                                         alt="Site"
                                                                         className="w-full h-full object-cover"
                                                                     />
@@ -377,7 +400,7 @@ const DSRPage = () => {
                                                     <div className="flex items-center justify-end gap-2 transition-opacity font-inter">
                                                         <button
                                                             onClick={() => handleView(dsr.id)}
-                                                            className={`p-2 text-white rounded-xl shadow-lg transition-all active:scale-95 font-inter ${dsr.status ? statusColors[dsr.status] : 'bg-primary'} ${dsr.status ? `shadow-${statusColors[dsr.status].split('-')[1]}/20` : 'shadow-primary/20'}`}
+                                                            className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-95 font-inter"
                                                         >
                                                             <Eye className="w-4 h-4" />
                                                         </button>
@@ -421,7 +444,7 @@ const DSRPage = () => {
                 {selectedDsr && (
                     <div className="p-6 font-inter text-inter italic-none">
                         {/* ── Profile Style Header ────────────────── */}
-                        <div className={`${selectedDsr.status ? statusColors[selectedDsr.status] : 'bg-primary'} rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter`}>
+                        <div className="bg-primary rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter">
                             <div className="relative z-10 flex items-center gap-6 font-inter">
                                 <div className="w-24 h-24 bg-white/20 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/20 relative font-inter">
                                     <span className="text-4xl font-black font-inter">D</span>
@@ -450,7 +473,7 @@ const DSRPage = () => {
                                     {selectedDsr.photos.map((photo) => (
                                         <div key={photo.id} className="rounded-2xl overflow-hidden border border-slate-100 shadow-sm aspect-[4/3] group relative">
                                             <img
-                                                src={photo.url.startsWith('http') ? photo.url : `${API_BASE_URL}/${photo.url}`}
+                                                src={photo.url?.startsWith('http') ? photo.url : `${API_BASE_URL.replace('/api/v1', '')}/${photo.url}`}
                                                 alt="Site Documentation"
                                                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                             />
@@ -551,7 +574,7 @@ const DSRPage = () => {
 
                         <button
                             onClick={() => setIsDetailOpen(false)}
-                            className={`w-full py-5 ${selectedDsr.status ? statusColors[selectedDsr.status] : 'bg-primary'} text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all shadow-xl active:scale-95 font-inter italic-none shadow-primary/20`}
+                            className="w-full py-5 bg-primary text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all shadow-xl shadow-primary/20 active:scale-95 font-inter italic-none"
                         >
                             Dismiss DSR Insight
                         </button>

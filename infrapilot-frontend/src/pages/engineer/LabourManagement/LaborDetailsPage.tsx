@@ -80,32 +80,27 @@ const LaborDetailsPage = () => {
     useEffect(() => {
         const initializeProject = async () => {
             try {
-                // Try to get project from localStorage first
                 const userStr = localStorage.getItem("infrapilot_user");
-                const user = userStr ? JSON.parse(userStr) : {};
-                const storedPId = user?.project_id || user?.user?.project_id;
-                
-                if (storedPId) {
-                    console.log("Using Stored Project ID:", storedPId);
-                    setProjectId(Number(storedPId));
-                } else {
-                    // If not in storage, fetch from server to see which project the user belongs to
-                    console.log("Project ID not found in storage. Fetching from server...");
-                    const projectsResponse = await projectService.getProjects(1, 0);
-                    const projects = Array.isArray(projectsResponse) ? projectsResponse : (projectsResponse.items || []);
-                    
-                    if (projects && projects.length > 0) {
-                        const firstPId = projects[0].project_id || projects[0].id;
-                        console.log("Auto-discovered Project ID:", firstPId);
-                        setProjectId(Number(firstPId));
-                    } else {
-                        console.warn("No projects found for user. Defaulting to ID 1.");
-                        setProjectId(1);
+                if (userStr) {
+                    const user = JSON.parse(userStr);
+                    const storedPId = user?.project_id || user?.user?.project_id;
+                    if (storedPId) {
+                        setProjectId(Number(storedPId));
+                        return;
                     }
                 }
+
+                // Discovery Fallback
+                const projectsResponse = await projectService.getProjects(1, 0);
+                const projects = Array.isArray(projectsResponse) ? projectsResponse : (projectsResponse.items || []);
+                if (projects && projects.length > 0) {
+                    setProjectId(Number(projects[0].project_id || projects[0].id));
+                } else {
+                    setProjectId(36);
+                }
             } catch (err) {
-                console.error("Failed to discover project context:", err);
-                setProjectId(1);
+                console.error("Labour Details Project Resolution Error:", err);
+                setProjectId(36);
             }
         };
         initializeProject();
@@ -116,7 +111,7 @@ const LaborDetailsPage = () => {
         setIsLoading(true);
         try {
             console.log(`Synchronizing Personnel Registry for Project: ${projectId}`);
-            const response = await labourService.getLabours(projectId, { 
+            const response = await labourService.getLabours(projectId || 0, { 
                 limit: 50, 
                 offset: 0,
                 search: searchTerm,
@@ -246,7 +241,7 @@ const LaborDetailsPage = () => {
         <>
             <Navbar title="Personnel Registry" breadcrumb={["Engineer", "Workforce", "Detail Directory"]} />
 
-            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
+            <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
@@ -277,7 +272,7 @@ const LaborDetailsPage = () => {
                 </div>
 
                 {/* ── Main Container ───────────────────────────────────────────── */}
-                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-12 font-inter">
+                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
                     <div className="p-6 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-slate-50/30 font-inter">
                         <div className="relative flex-1 max-w-md font-inter">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
@@ -293,7 +288,7 @@ const LaborDetailsPage = () => {
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto font-inter">
+                    <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
                         {isLoading ? (
                             <div className="p-20 text-center text-slate-400 font-inter">
                                 <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />

@@ -134,7 +134,7 @@ const ReportsPage = () => {
     const [isInitialLoading, setIsInitialLoading] = useState(true);
     const [dynamicReports, setDynamicReports] = useState<ReportType[]>(reportTypes);
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
-    const [projectId, setProjectId] = useState<number>(36); // Fallback to 36 as per Site Engineer access
+    const [projectId, setProjectId] = useState<number | null>(null);
 
     // Resolve Project ID from session
     useEffect(() => {
@@ -142,23 +142,29 @@ const ReportsPage = () => {
         if (userStr) {
             try {
                 const user = JSON.parse(userStr);
-                const pId = user?.project_id || user?.user?.project_id || user?.id; // Try multiple paths
-                if (pId) setProjectId(Number(pId));
+                const pId = user?.project_id || user?.user?.project_id;
+                if (pId) {
+                    setProjectId(Number(pId));
+                } else {
+                    setProjectId(36);
+                }
             } catch (e) {
                 console.error("Failed to resolve project ID", e);
+                setProjectId(36);
             }
         }
     }, []);
 
     const fetchReports = useCallback(async () => {
+        if (!projectId) return;
         setIsInitialLoading(true);
         try {
             const [daily, weekly, labour, material, issues] = await Promise.all([
-                reportService.getDailyReport(projectId, selectedDate).catch(() => null),
-                reportService.getWeeklyProgress(projectId).catch(() => null),
-                reportService.getLabourReport(projectId).catch(() => null),
-                reportService.getMaterialReport(projectId).catch(() => null),
-                reportService.getIssueReport(projectId).catch(() => null)
+                reportService.getDailyReport(projectId || 0, selectedDate).catch(() => null),
+                reportService.getWeeklyProgress(projectId || 0).catch(() => null),
+                reportService.getLabourReport(projectId || 0).catch(() => null),
+                reportService.getMaterialReport(projectId || 0).catch(() => null),
+                reportService.getIssueReport(projectId || 0).catch(() => null)
             ]);
 
             const updatedReports = [...reportTypes];
@@ -240,7 +246,7 @@ const ReportsPage = () => {
         } finally {
             setIsInitialLoading(false);
         }
-    }, []);
+    }, [projectId, selectedDate]);
 
     useEffect(() => {
         fetchReports();
@@ -268,7 +274,7 @@ const ReportsPage = () => {
         setLoadingId("global-pdf");
         toast.loading("Generating Official Daily PDF...", { id: "global-pdf" });
         try {
-            const blob = await reportService.exportDailyPDF(projectId, selectedDate);
+            const blob = await reportService.exportDailyPDF(projectId || 0, selectedDate);
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
@@ -294,16 +300,16 @@ const ReportsPage = () => {
             const today = new Date().toISOString().split("T")[0];
 
             if (report.id === "daily") {
-                blob = await reportService.exportDailyPDF(projectId, selectedDate);
+                blob = await reportService.exportDailyPDF(projectId || 0, selectedDate);
                 filename = `Daily_Report_${selectedDate}.pdf`;
             } else if (report.id === "material") {
-                blob = await reportService.exportMaterialExcel(projectId);
+                blob = await reportService.exportMaterialExcel(projectId || 0);
                 filename = `Material_Report_${today}.xlsx`;
             } else if (report.id === "labor") {
-                blob = await reportService.exportLabourExcel(projectId);
+                blob = await reportService.exportLabourExcel(projectId || 0);
                 filename = `Labour_Deployment_${today}.xlsx`;
             } else if (report.id === "issue") {
-                blob = await reportService.exportIssueExcel(projectId);
+                blob = await reportService.exportIssueExcel(projectId || 0);
                 filename = `Issue_Registry_${today}.xlsx`;
             } else {
                 // Fallback for others (Weekly, etc.)
@@ -368,7 +374,7 @@ const ReportsPage = () => {
                 breadcrumb={["InfraPilot", "Engineer", "Reports"]}
             />
 
-            <PageTransition className="p-4 md:p-8 bg-slate-50 min-h-screen font-inter">
+            <PageTransition className="p-4 md:p-8 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
 
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
@@ -544,7 +550,7 @@ const ReportsPage = () => {
                 </div>
 
                 {/* ── Report Cards Grid ───────────────────────────── */}
-                <div>
+                <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 pr-2">
 
                     {/* Cards Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

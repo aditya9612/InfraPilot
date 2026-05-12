@@ -20,7 +20,7 @@ import {
   Search,
   RotateCcw
 } from "lucide-react";
-import { materialService, type MaterialItem, type MaterialLog, type CreateMaterialRequest } from "../../../services/materialService";
+import { materialService, type MaterialItem, type MaterialLog, type CreateMaterialRequest, type IssueType, type RateType } from "../../../services/materialService";
 
 const CATEGORIES = ["Construction", "Electrical", "Plumbing", "Finishing", "Other"];
 const UNITS = ["Bags", "Kg", "Ton", "Litre", "Nos", "Sqft", "Rft", "Cum"];
@@ -32,7 +32,7 @@ const MaterialReceiptPage = () => {
   const [logs, setLogs] = useState<MaterialLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [projectId, setProjectId] = useState<number>(1);
+  const [projectId, setProjectId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
   // Interactive StatCard Filter
@@ -50,7 +50,7 @@ const MaterialReceiptPage = () => {
 
   // Form States
   const [formData, setFormData] = useState<Partial<CreateMaterialRequest>>({
-    project_id: projectId,
+    project_id: projectId || 0,
     material_name: "",
     category: "Construction",
     unit: "Bags",
@@ -69,11 +69,12 @@ const MaterialReceiptPage = () => {
   });
 
   const fetchData = useCallback(async () => {
+    if (!projectId) return;
     setIsLoading(true);
     try {
       const [mList, lList] = await Promise.all([
         materialService.listMaterials(projectId),
-        materialService.getLogs({ project_id: projectId, type: "PURCHASE" })
+        materialService.getLogs({ project_id: projectId || 0, type: "PURCHASE" })
       ]);
       setMaterials(mList || []);
       setLogs(lList || []);
@@ -89,14 +90,18 @@ const MaterialReceiptPage = () => {
     if (userStr) {
       try {
         const user = JSON.parse(userStr);
-        const pId = user?.project_id || user?.user?.project_id || user?.id;
+        const pId = user?.project_id || user?.user?.project_id;
         if (pId) {
           const finalPId = Number(pId);
           setProjectId(finalPId);
-          setFormData(prev => ({ ...prev, project_id: finalPId }));
+          setFormData((prev: Partial<CreateMaterialRequest>) => ({ ...prev, project_id: finalPId }));
+        } else {
+          setProjectId(36);
+          setFormData((prev: Partial<CreateMaterialRequest>) => ({ ...prev, project_id: 36 }));
         }
       } catch (e) {
         console.error("Failed to resolve project ID", e);
+        setProjectId(36);
       }
     }
   }, []);
@@ -151,7 +156,8 @@ const MaterialReceiptPage = () => {
     try {
       await materialService.recordPurchase(selectedMaterial.id, {
         ...purchaseData,
-        project_id: projectId
+        issue_type: purchaseData.issue_type as IssueType,
+        project_id: projectId || 0
       });
       toast.success("Purchase recorded successfully!");
       setIsPurchaseModalOpen(false);
@@ -221,7 +227,7 @@ const MaterialReceiptPage = () => {
   return (
     <>
       <Navbar title="Material Receipt" breadcrumb={["Engineer", "Logistics", "Material Receipt"]} />
-      <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
+      <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
         {/* Header Row */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
           <div className="font-inter">
@@ -232,7 +238,7 @@ const MaterialReceiptPage = () => {
             <button
               onClick={() => {
                 setFormData({
-                    project_id: projectId,
+                    project_id: projectId || 0,
                     material_name: "",
                     category: "Construction",
                     unit: "Bags",
@@ -309,7 +315,7 @@ const MaterialReceiptPage = () => {
         </div>
 
         {/* Materials Registry Container */}
-        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-12 font-inter">
+        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
           <div className="p-6 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-slate-50/30 font-inter">
             <div className="relative flex-1 max-w-md font-inter">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
@@ -330,7 +336,7 @@ const MaterialReceiptPage = () => {
             )}
           </div>
 
-          <div className="overflow-x-auto font-inter scrollbar-thin scrollbar-thumb-slate-200">
+          <div className="flex-1 overflow-auto font-inter scrollbar-thin scrollbar-thumb-slate-200">
             <table className="w-full text-left font-inter min-w-[1400px]">
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
@@ -621,7 +627,7 @@ const MaterialReceiptPage = () => {
                   <select
                       required
                       value={formData.rate_type}
-                      onChange={(e) => setFormData({ ...formData, rate_type: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, rate_type: e.target.value as RateType })}
                       className={inputClasses}
                   >
                       {RATE_TYPES.map(r => <option key={r} value={r}>{r}</option>)}
