@@ -6,6 +6,8 @@ import { sidebarMenus, type MenuItem } from "../../config/sidebarMenu";
 import ConfirmModal from "./ConfirmModal";
 import type { JSX } from "react";
 import logo from "../../assets/logo.png";
+import { communicationService } from "../../services/communicationService";
+import { useEffect } from "react";
 
 // ... (icons remain unchanged)
 
@@ -664,6 +666,21 @@ const icons: Record<string, JSX.Element> = {
       <line x1="3" y1="10" x2="21" y2="10" strokeWidth="1.8" />
     </svg>
   ),
+  info: (
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+      />
+    </svg>
+  ),
 };
 
 const Chevron = ({ isOpen }: { isOpen?: boolean }) => (
@@ -689,16 +706,21 @@ interface SidebarProps {
 const SidebarItem = ({
   item,
   onClose,
+  unreadCount,
   depth = 0,
 }: {
   item: MenuItem;
   onClose?: () => void;
+  unreadCount?: number;
   depth?: number;
 }) => {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(location.pathname.startsWith(item.path));
   const hasSubNav = item.subNav && item.subNav.length > 0;
   const isParentActive = hasSubNav && location.pathname.startsWith(item.path);
+
+  // Badge logic
+  const showBadge = (item.label === 'Messages' || item.label === 'Communication') && (unreadCount ?? 0) > 0;
 
   if (hasSubNav) {
     return (
@@ -714,7 +736,14 @@ const SidebarItem = ({
           <span className={isParentActive ? "text-primary" : "text-slate-400"}>
             {icons[item.icon]}
           </span>
-          <span className="flex-1 text-left">{item.label}</span>
+          <span className="flex-1 text-left flex items-center justify-between">
+            {item.label}
+            {showBadge && item.label === 'Communication' && (
+               <span className="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center shadow-sm">
+                  {unreadCount}
+               </span>
+            )}
+          </span>
           <Chevron isOpen={isOpen} />
         </button>
         <AnimatePresence initial={false}>
@@ -732,6 +761,7 @@ const SidebarItem = ({
                     key={subItem.path}
                     item={subItem}
                     onClose={onClose}
+                    unreadCount={unreadCount}
                     depth={depth + 1}
                   />
                 ))}
@@ -769,7 +799,14 @@ const SidebarItem = ({
           <span className={isActive ? "text-primary" : "text-slate-400"}>
             {icons[item.icon]}
           </span>
-          <span className="flex-1">{item.label}</span>
+          <span className="flex-1 flex items-center justify-between">
+            {item.label}
+            {showBadge && item.label === 'Messages' && (
+               <span className="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center shadow-sm">
+                  {unreadCount}
+               </span>
+            )}
+          </span>
           {!hasSubNav && depth === 0 && <Chevron />}
         </>
       )}
@@ -780,6 +817,23 @@ const SidebarItem = ({
 const Sidebar = ({ onClose }: SidebarProps) => {
   const { user, logout } = useAuth();
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (user?.role === 'Client') {
+      const fetchUnread = async () => {
+        try {
+          const res = await communicationService.getUnreadCount(1); // project_id = 1
+          setUnreadCount(res.unread || 0);
+        } catch (error) {
+          console.error("Failed to fetch unread count:", error);
+        }
+      };
+      fetchUnread();
+      const interval = setInterval(fetchUnread, 30000); // Poll every 30s
+      return () => clearInterval(interval);
+    }
+  }, [user]);
 
   if (!user) return null;
   const menu = sidebarMenus[user.role];
@@ -794,17 +848,12 @@ const Sidebar = ({ onClose }: SidebarProps) => {
 
   return (
     <aside className="w-full h-full bg-white border-r border-slate-100 flex flex-col shadow-sm shrink-0">
-      {/* Logo container */}
-      <div className="px-6 py-3 border-b border-slate-100 flex items-center justify-center relative">
+      <div className="px-6 py-6 border-b border-slate-100 flex items-center justify-center relative">
         <Link
           to={rolePaths[user.role]}
-          className="flex items-center justify-center transition-transform hover:scale-[1.02] active:scale-[0.98]"
+          className="flex items-center gap-2 group transition-transform duration-300 hover:scale-105"
         >
-          <img
-            src={logo}
-            alt="InfraPilot Logo"
-            className="h-16 w-auto object-contain"
-          />
+          <img src={logo} alt="InfraPilot Logo" className="h-14 w-auto" />
         </Link>
         {onClose && (
           <button
@@ -831,7 +880,7 @@ const Sidebar = ({ onClose }: SidebarProps) => {
       {/* Nav */}
       <nav className="flex-1 px-3 pt-1 pb-3 overflow-y-auto">
         {menu.map((item) => (
-          <SidebarItem key={item.path} item={item} onClose={onClose} />
+          <SidebarItem key={item.path} item={item} onClose={onClose} unreadCount={unreadCount} />
         ))}
       </nav>
 

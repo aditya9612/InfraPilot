@@ -50,6 +50,7 @@ import ClientMonthlyProgressReportPage from "../pages/client/reports/ClientMonth
 import ClientFinancialReportPage from "../pages/client/reports/ClientFinancialReportPage";
 import ClientWorkSummaryPage from "../pages/client/reports/ClientWorkSummaryPage";
 import ClientSettingsPage from "../pages/client/ClientSettingsPage";
+import ClientWorkFocusDetailsPage from "../pages/client/ClientWorkFocusDetailsPage";
 
 // Engineer Pages
 import EngineerDashboard from "../pages/engineer/EngineerDashboard";
@@ -368,6 +369,7 @@ function AppRoutes() {
               <Route path="/client/reports/monthly" element={<ClientMonthlyProgressReportPage />} />
               <Route path="/client/reports/financial" element={<ClientFinancialReportPage />} />
               <Route path="/client/reports/work" element={<ClientWorkSummaryPage />} />
+              <Route path="/client/work-focus-details" element={<ClientWorkFocusDetailsPage />} />
               <Route path="/client/settings" element={<ClientSettingsPage />} />
             </Route>
           </Route>

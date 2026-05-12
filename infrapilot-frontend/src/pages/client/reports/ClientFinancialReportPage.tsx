@@ -234,39 +234,39 @@ const ClientFinancialReportPage = () => (
         <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">Real-time budget utilization vs actual expenditure analysis</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
 
         {/* Bar Chart */}
-        <div className="bg-white rounded-[40px] p-10 shadow-sm border border-slate-100 h-[450px] flex flex-col">
-          <div className="mb-8">
-            <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-1">Cumulative Spent (₹ Cr)</h2>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Total expenditure tracked over the last 6 months</p>
+        <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 h-[400px] flex flex-col">
+          <div className="mb-6">
+            <h2 className="text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-1">Cumulative Spent (₹ Cr)</h2>
+            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Total expenditure tracked over the last 6 months</p>
           </div>
           <div className="flex-1">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 10, fontWeight: 700 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 10, fontWeight: 700 }} unit="Cr" />
-                <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: "24px", border: "none", boxShadow: "0 20px 40px rgba(0,0,0,0.1)" }} />
-                <Bar dataKey="cost" fill="#6366F1" radius={[4, 4, 0, 0]} barSize={40} />
+                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 9, fontWeight: 700 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 9, fontWeight: 700 }} unit="Cr" />
+                <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: "16px", border: "none", boxShadow: "0 20px 40px rgba(0,0,0,0.1)" }} />
+                <Bar dataKey="cost" fill="#6366F1" radius={[4, 4, 0, 0]} barSize={32} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
         {/* Audit Summary + Download */}
-        <div className="bg-white rounded-[40px] p-10 shadow-sm border border-slate-100 flex flex-col justify-between">
+        <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 flex flex-col justify-between">
           <div>
-            <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-10">Quarterly Audit Summary</h2>
-            <div className="space-y-6">
+            <h2 className="text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-8">Quarterly Audit Summary</h2>
+            <div className="space-y-4">
               {stats.map((stat, i) => (
-                <div key={i} className="flex items-center justify-between p-6 bg-slate-50 rounded-[32px] border border-slate-100">
+                <div key={i} className="flex items-center justify-between p-5 bg-slate-50 rounded-2xl border border-slate-100">
                   <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
-                    <p className={`text-2xl font-black tracking-tighter ${stat.color}`}>{stat.val}</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
+                    <p className={`text-xl font-bold tracking-tight ${stat.color}`}>{stat.val}</p>
                   </div>
-                  <span className="text-[10px] font-black text-slate-400 bg-white px-3 py-1 rounded-full shadow-sm">{stat.change}</span>
+                  <span className="text-[9px] font-bold text-slate-400 bg-white px-2 py-0.5 rounded-full shadow-sm">{stat.change}</span>
                 </div>
               ))}
             </div>
@@ -274,11 +274,8 @@ const ClientFinancialReportPage = () => (
 
           <button
             onClick={downloadAuditPdf}
-            className="w-full mt-8 py-5 bg-slate-900 text-white rounded-3xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 hover:bg-indigo-700"
+            className="w-full mt-6 py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest shadow-xl shadow-blue-500/10 hover:scale-[1.01] active:scale-95 transition-all flex items-center justify-center gap-3 hover:bg-indigo-700"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
             Download Detailed Audit PDF
           </button>
         </div>

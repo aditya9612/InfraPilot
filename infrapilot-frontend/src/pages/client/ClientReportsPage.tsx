@@ -111,13 +111,13 @@ const ClientReportsPage = () => (
     <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Reports"]} />
     <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
       <div className="mb-8">
-        <h1 className="text-3xl font-black text-slate-800 tracking-tight">Project Reports</h1>
-        <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">Detailed analytics & monthly performance summaries</p>
+        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Project Reports</h1>
+        <p className="text-slate-400 font-semibold mt-1 uppercase tracking-widest text-[10px]">Detailed analytics & monthly performance summaries</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-          <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-6">Progress Growth (Cumulative %)</h2>
+        <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
+          <h2 className="text-xs font-bold text-slate-800 uppercase tracking-widest mb-6">Progress Growth (Cumulative %)</h2>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={reportData}>
@@ -131,8 +131,8 @@ const ClientReportsPage = () => (
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-          <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-6">Cumulative Spent (₹ Cr)</h2>
+        <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
+          <h2 className="text-xs font-bold text-slate-800 uppercase tracking-widest mb-6">Cumulative Spent (₹ Cr)</h2>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={reportData}>
@@ -147,8 +147,8 @@ const ClientReportsPage = () => (
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-        <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-6">Monthly Report Archive</h2>
+      <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
+        <h2 className="text-xs font-bold text-slate-800 uppercase tracking-widest mb-6">Monthly Report Archive</h2>
         <div className="space-y-3">
           {[
             { name: "Monthly Execution Report - March 2026", date: "02 Apr 2026", type: "PDF" },
@@ -162,7 +162,7 @@ const ClientReportsPage = () => (
               className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl hover:bg-blue-50 transition-colors border border-transparent hover:border-blue-100 cursor-pointer group"
             >
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-red-500 font-black text-[10px] shadow-sm">{item.type}</div>
+                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-red-500 font-bold text-[10px] shadow-sm">{item.type}</div>
                 <div>
                   <p className="text-sm font-bold text-slate-700">{item.name}</p>
                   <p className="text-[10px] text-slate-400 font-bold">{item.date}</p>

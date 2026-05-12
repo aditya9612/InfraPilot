@@ -320,19 +320,19 @@ const InventoryPage = () => {
           <div>
             {isMaster ? (
               <>
-                <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+                <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
                   Supplier Database
                 </h1>
-                <p className="text-slate-500 text-sm font-medium mt-1">
+                <p className="text-slate-500 text-sm mt-1">
                   Manage all your material suppliers and strategic contacts.
                 </p>
               </>
             ) : (
               <>
-                <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+                <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
                   Project Site Inventory
                 </h1>
-                <p className="text-slate-500 text-sm font-medium mt-1">
+                <p className="text-slate-500 text-sm mt-1">
                   Track and secure inventory across multiple project sites.
                 </p>
               </>

@@ -37,14 +37,14 @@ const photos = [
 
 
 
-const tags = ["All", "Structure", "Foundation", "Masonry", "Equipment", "Safety"];
+const tags = ["All", "Structure", "Foundation", "Masonry", "Safety", "Equipment"];
 
 const ClientPhotosPage = () => {
   const [activeTag, setActiveTag] = useState("All");
 
   // "All" tab → one representative (latest) photo per category
   const filteredPhotos = activeTag === "All"
-    ? ["Structure", "Foundation", "Masonry", "Equipment", "Safety"].map(
+    ? ["Structure", "Foundation", "Masonry", "Safety", "Equipment"].map(
         (cat) => photos.find((p) => p.tag === cat)!
       )
     : photos.filter((p) => p.tag === activeTag);
@@ -55,15 +55,15 @@ const ClientPhotosPage = () => {
       <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
           <div>
-            <h1 className="text-3xl font-black text-slate-800 tracking-tight">Project Photo Gallery</h1>
-            <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">A visual chronicle of your project's transformation</p>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Project Photo Gallery</h1>
+            <p className="text-slate-400 font-semibold mt-1 uppercase tracking-widest text-[10px]">A visual chronicle of your project's transformation</p>
           </div>
-          <div className="flex gap-2 flex-wrap bg-white p-2 rounded-[24px] shadow-sm border border-slate-100">
+          <div className="flex gap-1.5 md:gap-2 bg-white p-2 rounded-[24px] shadow-sm border border-slate-100 overflow-x-auto no-scrollbar">
             {tags.map((tag) => (
               <button
                 key={tag}
                 onClick={() => setActiveTag(tag)}
-                className={`px-5 py-2 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${
+                className={`px-5 py-2 rounded-xl text-[9px] font-bold uppercase tracking-widest transition-all ${
                   activeTag === tag
                     ? "bg-slate-900 text-white shadow-lg"
                     : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
@@ -81,36 +81,36 @@ const ClientPhotosPage = () => {
             <svg className="w-16 h-16 mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
-            <p className="text-sm font-black uppercase tracking-widest">No photos in this category yet</p>
+            <p className="text-sm font-bold uppercase tracking-widest">No photos in this category yet</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredPhotos.map(photo => (
-              <div key={photo.id} className="group bg-white rounded-[40px] overflow-hidden shadow-sm border border-slate-100 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-500 flex flex-col">
+              <div key={photo.id} className="group bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 hover:shadow-xl hover:shadow-blue-500/10 transition-all duration-500 flex flex-col">
                 <div className="aspect-[4/3] overflow-hidden relative">
                   <img src={photo.url} alt={photo.desc} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                  <div className="absolute top-5 left-5">
-                    <span className="bg-white/90 backdrop-blur-md text-[9px] font-black uppercase tracking-widest text-slate-800 px-4 py-2 rounded-2xl shadow-sm border border-white/20">
+                  <div className="absolute top-4 left-4">
+                    <span className="bg-white/90 backdrop-blur-md text-[8px] font-bold uppercase tracking-widest text-slate-800 px-3 py-1.5 rounded-lg shadow-sm border border-white/20">
                       {photo.tag}
                     </span>
                   </div>
-                  <div className="absolute bottom-5 left-5 right-5 transform translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">
-                    <p className="text-white text-[10px] font-black uppercase tracking-widest">Captured on {photo.date}</p>
+                  <div className="absolute bottom-4 left-4 right-4 transform translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">
+                    <p className="text-white text-[9px] font-bold uppercase tracking-widest">Captured on {photo.date}</p>
                   </div>
                 </div>
-                <div className="p-8 flex-1 flex flex-col justify-between">
+                <div className="p-6 flex-1 flex flex-col justify-between">
                   <div>
-                    <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-3 flex items-center gap-2">
-                      <span className="w-4 h-0.5 bg-primary rounded-full" />
+                    <p className="text-[9px] font-bold text-primary uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                      <span className="w-3 h-0.5 bg-primary rounded-full" />
                       Site Activity
                     </p>
-                    <p className="text-sm font-bold text-slate-700 leading-relaxed mb-6 italic">"{photo.desc}"</p>
+                    <p className="text-xs font-bold text-slate-700 leading-relaxed mb-4 italic">"{photo.desc}"</p>
                   </div>
-                  <div className="flex items-center justify-between pt-6 border-t border-slate-50">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{photo.date}</span>
-                    <button className="w-10 h-10 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg hover:scale-110 transition-transform active:scale-95">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" /></svg>
+                  <div className="flex items-center justify-between pt-4 border-t border-slate-50">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{photo.date}</span>
+                    <button className="w-8 h-8 bg-slate-900 rounded-xl flex items-center justify-center text-white shadow-lg hover:scale-110 transition-transform active:scale-95">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" /></svg>
                     </button>
                   </div>
                 </div>

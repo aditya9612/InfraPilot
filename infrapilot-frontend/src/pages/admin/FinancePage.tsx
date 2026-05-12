@@ -179,16 +179,7 @@ const FinancePage = () => {
   const handleDownloadPDF = async (id: number) => {
     try {
       toast.loading("Downloading PDF...", { id: "pdf-loading" });
-      const blob = await financeService.getInvoicePdf(id);
-      
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", `Invoice_${id}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      await financeService.getInvoicePdf(id);
       
       toast.success("Invoice PDF downloaded!", {
         id: "pdf-loading",
@@ -328,7 +319,7 @@ const FinancePage = () => {
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
               {subPage.charAt(0).toUpperCase() + subPage.slice(1)} Management
             </h1>
-            <p className="text-slate-500 text-sm">
+            <p className="text-slate-500 text-sm mt-1">
               Review, authorize and track project-wise financial documentation.
             </p>
           </div>

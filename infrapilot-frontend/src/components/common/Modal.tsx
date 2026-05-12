@@ -42,7 +42,7 @@ const Modal = ({ isOpen, onClose, title, children, footer, maxWidth = "max-w-3xl
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ type: "spring", stiffness: 350, damping: 30 }}
-            className={`relative w-full ${maxWidth} max-h-[90vh] bg-white shadow-2xl rounded-3xl flex flex-col overflow-hidden`}
+            className={`relative w-full ${maxWidth} max-h-[90vh] bg-white shadow-2xl rounded-2xl flex flex-col overflow-hidden`}
           >
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-white shrink-0">

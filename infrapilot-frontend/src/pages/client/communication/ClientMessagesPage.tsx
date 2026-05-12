@@ -54,14 +54,53 @@ const nowTimeStr = () => {
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
+import { communicationService } from "../../../services/communicationService";
+import toast from "react-hot-toast";
+
 const ClientMessagesPage = () => {
   const [threads, setThreads] = useState<Thread[]>(contacts);
   const [selectedId, setSelectedId] = useState<number>(1);
   const [threadMessages, setThreadMessages] = useState<Record<number, Message[]>>(initialThreadMessages);
   const [input, setInput] = useState("");
+  const [isSending, setIsSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
 
-  // Use query params to select thread on mount
+  const fetchMessages = async () => {
+    try {
+      const data = await communicationService.getMessages(1); // project_id = 1
+      
+      const newThreadMessages: Record<number, Message[]> = { ...initialThreadMessages };
+      
+      data.forEach((m: any) => {
+        const msg: Message = {
+          id: m.id,
+          text: m.parent_id ? `↳ Reply: ${m.message}` : m.message,
+          from: m.created_by === 1 ? "You" : "Project Lead",
+          time: new Date(m.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', ' •'),
+          mine: m.created_by === 1,
+          attachment: m.attachment_url
+        };
+
+        // Mark as read and delivered if it's from project lead
+        if (!msg.mine) {
+           communicationService.markMessageDelivered(msg.id).catch(() => {});
+           communicationService.markMessageRead(msg.id).catch(() => {});
+        }
+
+        const threadId = m.created_by === 1 ? selectedId : 1;
+        if (!newThreadMessages[threadId]) newThreadMessages[threadId] = [];
+        if (!newThreadMessages[threadId].some(x => x.id === msg.id)) {
+          newThreadMessages[threadId].push(msg);
+        }
+      });
+
+      setThreadMessages(newThreadMessages);
+    } catch (error) {
+      console.error("Failed to fetch messages:", error);
+    }
+  };
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const contactId = params.get("contactId");
@@ -71,6 +110,7 @@ const ClientMessagesPage = () => {
         setSelectedId(idNum);
       }
     }
+    fetchMessages();
   }, []);
 
   const selected = threads.find((t) => t.id === selectedId)!;
@@ -89,33 +129,52 @@ const ClientMessagesPage = () => {
     );
   };
 
-  // Send a message
-  const sendMessage = () => {
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+
+  const sendMessage = async () => {
     const text = input.trim();
-    if (!text) return;
+    if (!text || isSending) return;
 
-    const newMsg: Message = {
-      id: Date.now(),
-      text,
-      from: "Mr. Sharma",
-      time: nowTimeStr(),
-      mine: true,
-      attachment: null,
-    };
+    try {
+      setIsSending(true);
+      const payload = {
+        message: text,
+        attachment_url: editingMessage?.attachment || null,
+        parent_id: replyTo?.id || null
+      };
 
-    setThreadMessages((prev) => ({
-      ...prev,
-      [selectedId]: [...(prev[selectedId] ?? []), newMsg],
-    }));
+      if (editingMessage) {
+        await communicationService.updateMessage(editingMessage.id, payload);
+        toast.success("Message updated");
+      } else {
+        await communicationService.sendMessage(1, payload);
+      }
 
-    // Update last message preview in sidebar
-    setThreads((prev) =>
-      prev.map((t) =>
-        t.id === selectedId ? { ...t, time: "Just now" } : t
-      )
-    );
+      await fetchMessages();
+      setInput("");
+      setReplyTo(null);
+      setEditingMessage(null);
+    } catch (error) {
+      toast.error(editingMessage ? "Failed to update message." : "Failed to send message.");
+    } finally {
+      setIsSending(false);
+    }
+  };
 
-    setInput("");
+  const handleEditMessage = (msg: Message) => {
+    setEditingMessage(msg);
+    setInput(msg.text);
+    setReplyTo(null);
+  };
+
+  const handleDeleteMessage = async (id: number) => {
+    try {
+      await communicationService.deleteMessage(id);
+      toast.success("Message deleted");
+      await fetchMessages();
+    } catch (error) {
+      toast.error("Failed to delete message.");
+    }
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -130,11 +189,11 @@ const ClientMessagesPage = () => {
       <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Communication", "Messages"]} />
       <div className="p-6 bg-slate-50 min-h-screen font-inter pb-6">
         <div className="mb-6">
-          <h1 className="text-3xl font-black text-slate-800 tracking-tight">Project Messaging</h1>
-          <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">Real-time threaded communication with your project leads</p>
+          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Project Messaging</h1>
+          <p className="text-slate-400 font-semibold mt-1 uppercase tracking-widest text-[10px]">Real-time threaded communication with your project leads</p>
         </div>
 
-        <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden flex" style={{ height: "calc(100vh - 220px)", minHeight: "500px" }}>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex" style={{ height: "calc(100vh - 220px)", minHeight: "500px" }}>
 
           {/* ── Thread / Contact List ───────────────────────────────────────── */}
           <div className="w-80 border-r border-slate-100 flex flex-col shrink-0">
@@ -162,12 +221,12 @@ const ClientMessagesPage = () => {
                   }`}
                 >
                   <div className="flex items-center gap-4">
-                    <div className={`w-11 h-11 rounded-2xl ${t.color} flex items-center justify-center text-white font-black text-sm shrink-0 shadow-lg shadow-blue-500/10`}>
+                    <div className={`w-11 h-11 rounded-2xl ${t.color} flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-lg shadow-blue-500/10`}>
                       {t.avatar}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between">
-                        <p className="text-xs font-black text-slate-800 tracking-tight">{t.from}</p>
+                        <p className="text-xs font-bold text-slate-800 tracking-tight">{t.from}</p>
                         <p className="text-[10px] text-slate-400 font-bold whitespace-nowrap ml-2">{t.time}</p>
                       </div>
                       <p className={`text-[11px] font-bold truncate mt-1 ${t.unread ? "text-slate-800" : "text-slate-400"}`}>
@@ -187,14 +246,14 @@ const ClientMessagesPage = () => {
             {/* Chat header */}
             <div className="px-8 py-5 bg-white border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className={`w-12 h-12 rounded-2xl ${selected.color} flex items-center justify-center text-white font-black text-lg shadow-xl shadow-blue-500/10`}>
+                <div className={`w-12 h-12 rounded-2xl ${selected.color} flex items-center justify-center text-white font-bold text-lg shadow-xl shadow-blue-500/10`}>
                   {selected.avatar}
                 </div>
                 <div>
-                  <p className="text-base font-black text-slate-800 tracking-tight">{selected.from}</p>
+                  <p className="text-base font-bold text-slate-800 tracking-tight">{selected.from}</p>
                   <div className="flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{selected.role}</p>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{selected.role}</p>
                   </div>
                 </div>
               </div>
@@ -210,26 +269,60 @@ const ClientMessagesPage = () => {
               {messages.map((msg) => (
                 <div key={msg.id} className={`flex ${msg.mine ? "justify-end" : "justify-start"}`}>
                   <div className="flex flex-col gap-1">
-                    <p className={`text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1 ${msg.mine ? "text-right" : "text-left"}`}>
+                    <p className={`text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1 ${msg.mine ? "text-right" : "text-left"}`}>
                       {msg.mine ? "You" : msg.from} • {msg.time.split("•")[0]}
                     </p>
-                    <div className={`max-w-md shadow-sm px-6 py-4 rounded-[28px] ${msg.mine ? "bg-slate-900 text-white rounded-br-sm" : "bg-white text-slate-800 rounded-bl-sm border border-slate-100"}`}>
+                    <div className={`max-w-md shadow-sm px-6 py-4 rounded-[28px] relative group ${msg.mine ? "bg-slate-900 text-white rounded-br-sm" : "bg-white text-slate-800 rounded-bl-sm border border-slate-100"}`}>
                       <p className="text-[13px] font-bold leading-relaxed">{msg.text}</p>
+                      
+                      {/* Edit/Delete Buttons for mine (visible on hover) */}
+                      {msg.mine && (
+                        <div className="absolute -left-20 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all scale-75 group-hover:scale-100">
+                          <button 
+                            onClick={() => handleEditMessage(msg)}
+                            className="p-2 bg-white rounded-full shadow-md text-slate-400 hover:text-blue-500 transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteMessage(msg.id)}
+                            className="p-2 bg-white rounded-full shadow-md text-slate-400 hover:text-red-500 transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Reply Button (visible on hover) */}
+                      {!msg.mine && (
+                        <button 
+                          onClick={() => setReplyTo(msg)}
+                          className="absolute -right-10 top-1/2 -translate-y-1/2 p-2 bg-white rounded-full shadow-md text-slate-400 hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-all scale-75 group-hover:scale-100"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                          </svg>
+                        </button>
+                      )}
 
                       {/* Attachment */}
                       {msg.attachment && (
                         <div className={`mt-4 p-4 rounded-2xl border flex items-center justify-between gap-4 ${msg.mine ? "bg-slate-800 border-white/10" : "bg-slate-50 border-slate-100"}`}>
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center text-xs border border-white/5">📄</div>
-                            <p className={`text-[10px] font-black truncate max-w-[150px] ${msg.mine ? "text-slate-300" : "text-slate-600"}`}>{msg.attachment}</p>
+                            <p className={`text-[10px] font-bold truncate max-w-[150px] ${msg.mine ? "text-slate-300" : "text-slate-600"}`}>{msg.attachment}</p>
                           </div>
-                          <button className={`text-[9px] font-black uppercase tracking-widest ${msg.mine ? "text-blue-400" : "text-primary"} hover:underline`}>Download</button>
+                          <button className={`text-[9px] font-bold uppercase tracking-widest ${msg.mine ? "text-blue-400" : "text-primary"} hover:underline`}>Download</button>
                         </div>
                       )}
 
                       {/* Time + tick */}
                       <div className={`flex items-center gap-1.5 mt-2 justify-end text-slate-400`}>
-                        <p className="text-[9px] font-black uppercase tracking-widest">{msg.time.split("•")[1]}</p>
+                        <p className="text-[9px] font-bold uppercase tracking-widest">{msg.time.split("•")[1]}</p>
                         {msg.mine && (
                           <svg className="w-3 h-3 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" />
@@ -246,7 +339,32 @@ const ClientMessagesPage = () => {
 
             {/* Input bar */}
             <div className="px-8 py-6 bg-white border-t border-slate-100">
-              <div className="flex items-center gap-4 bg-slate-50 rounded-3xl px-6 py-4 border border-slate-100 focus-within:border-primary transition-all shadow-inner">
+              {/* Reply/Edit Indicator */}
+              {replyTo && (
+                <div className="mb-3 px-4 py-2 bg-blue-50 border-l-4 border-l-blue-600 rounded-r-xl flex items-center justify-between animate-in fade-in slide-in-from-bottom-2">
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-bold text-blue-600 uppercase tracking-widest">Replying to {replyTo.from}</p>
+                    <p className="text-[11px] text-slate-600 truncate italic font-medium">"{replyTo.text}"</p>
+                  </div>
+                  <button onClick={() => setReplyTo(null)} className="text-slate-400 hover:text-rose-500 transition-colors">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </div>
+              )}
+
+              {editingMessage && (
+                <div className="mb-3 px-4 py-2 bg-emerald-50 border-l-4 border-l-emerald-600 rounded-r-xl flex items-center justify-between animate-in fade-in slide-in-from-bottom-2">
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-bold text-emerald-600 uppercase tracking-widest">Editing message</p>
+                    <p className="text-[11px] text-slate-600 truncate italic font-medium">"{editingMessage.text}"</p>
+                  </div>
+                  <button onClick={() => { setEditingMessage(null); setInput(""); }} className="text-slate-400 hover:text-rose-500 transition-colors">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </div>
+              )}
+              
+              <div className="flex items-center gap-4 bg-slate-50 rounded-2xl px-6 py-4 border border-slate-100 focus-within:border-primary transition-all shadow-inner">
                 <button className="text-slate-400 hover:text-primary transition-colors">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
@@ -256,13 +374,13 @@ const ClientMessagesPage = () => {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Type your response here..."
+                  placeholder={editingMessage ? "Update your message..." : replyTo ? "Type your reply..." : "Type your response here..."}
                   className="flex-1 text-sm text-slate-700 outline-none bg-transparent placeholder:text-slate-400 font-bold"
                 />
                 <button
                   onClick={sendMessage}
-                  disabled={!input.trim()}
-                  className="w-10 h-10 bg-primary rounded-2xl flex items-center justify-center text-white shadow-xl shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
+                  disabled={!input.trim() || isSending}
+                  className={`w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 ${editingMessage ? "bg-emerald-600 shadow-emerald-500/20" : "bg-primary shadow-blue-500/20 hover:scale-105 active:scale-95"}`}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 12h14M12 5l7 7-7 7" />

@@ -5,17 +5,6 @@ import {
 } from "recharts";
 import { motion } from "framer-motion";
 
-const summaryData = [
-  { label: "OVERALL PROGRESS", main: "68%", sub: "PHASE 3 IN PROGRESS", icon: "📊", iconBg: "bg-blue-50" },
-  { label: "BUDGET / SPENT", main: "₹8.2Cr / ₹5.3Cr", sub: "ACTUAL VS PROJECTION", icon: "📉", iconBg: "bg-indigo-50" },
-  { label: "TOTAL PAID / PENDING", main: "₹4.8Cr / ₹0.5Cr", sub: "FINANCIAL CLEARANCE", icon: "💰", iconBg: "bg-emerald-50" },
-  { label: "EXPECTED COMPLETION", main: "12 Oct 2026", sub: "TARGET TIMELINE", icon: "📅", iconBg: "bg-amber-50" },
-  { label: "DAYS REMAINING", main: "188 Days", sub: "OPERATIONAL RUNWAY", icon: "⏳", iconBg: "bg-orange-50" },
-  { label: "OPEN ISSUES", main: "3 Open", sub: "VARIATION APPROVALS", icon: "⚠️", iconBg: "bg-red-50" },
-  { label: "LATEST UPDATE", main: "Slab Reinforcement", sub: "TODAY'S EXECUTION", icon: "🚀", iconBg: "bg-purple-50" },
-  { label: "CLIENT ACCOUNT", main: "Mock Client", sub: "CLIENT ACCESS", icon: "👤", iconBg: "bg-slate-50" },
-];
-
 const auditData = [
   { name: "Phase 1", projected: 1.2, actual: 1.1 },
   { name: "Phase 2", projected: 2.5, actual: 2.8, alert: true },
@@ -34,6 +23,17 @@ const siteEvidence = [
   { title: "Brickwork progress - L1", date: "30 MAR 2026", img: "/photos/masonry.png" },
 ];
 
+const summaryData = [
+  { label: "Completion Progress", main: "68%", sub: "Phase 3 In-Progress" },
+  { label: "Total Project Value", main: "₹22.2 Cr", sub: "Sanctioned Budget" },
+  { label: "Total Expenses", main: "₹15.1 Cr", sub: "Actual Spent to Date" },
+  { label: "Budget Utilization", main: "68.01%", sub: "Efficiency Ratio" },
+  { label: "Fund Availability", main: "₹7.1 Cr", sub: "Remaining Balance" },
+  { label: "Milestone Tracking", main: "12 / 18", sub: "Completed / Total" },
+  { label: "Task Execution", main: "94 / 142", sub: "Completed / Total" },
+  { label: "Project Timeline", main: "142 Days", sub: "Oct 15 - Sept 30" },
+];
+
 const ClientOverviewPage = () => {
   return (
     <>
@@ -41,14 +41,61 @@ const ClientOverviewPage = () => {
       <div className="p-8 bg-[#F8FAFC] min-h-screen font-inter pb-16">
         
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
           <div>
-            <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">PROJECT COMMAND CENTER</p>
-            <h1 className="text-4xl font-black text-slate-900 tracking-tight">Skyline Tower Project</h1>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-2">PROJECT COMMAND CENTER</p>
+            <h2 className="text-3xl font-bold text-slate-800 tracking-tighter">Skyline Tower Project</h2>
+            <div className="flex items-center gap-2 mt-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">PROJECT STATUS: HEALTHY</p>
+            </div>
           </div>
-          <div className="flex items-center gap-2 bg-white px-5 py-3 rounded-2xl shadow-sm border border-slate-100 ring-1 ring-slate-100/50">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Project Status: Healthy</span>
+          <div className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-100 rounded-2xl shadow-sm">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Global Status: <span className="text-slate-800">Planned</span></p>
+          </div>
+        </div>
+
+        {/* Project Overview Section */}
+        <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm mb-12">
+          <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-50">
+            <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.3em]">Project Overview</h3>
+            <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[9px] font-black uppercase tracking-widest rounded-full border border-emerald-100">On Track</span>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-y-8 gap-x-12">
+            <div>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Project Name</p>
+              <p className="text-xs font-bold text-slate-800">Skyline Tower - Phase 3 Extension</p>
+            </div>
+            <div>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Location</p>
+              <p className="text-xs font-bold text-slate-800">Worli, Mumbai South Central</p>
+            </div>
+            <div>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Project Type</p>
+              <p className="text-xs font-bold text-slate-800">Residential High-Rise (A+ Category)</p>
+            </div>
+            <div>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Start Date / End Date</p>
+              <p className="text-xs font-bold text-slate-800">Oct 15, 2025 / Sept 30, 2026</p>
+            </div>
+            <div>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Project Manager</p>
+              <p className="text-xs font-bold text-slate-800">Rajesh Kumar (PMP Certified)</p>
+            </div>
+            <div>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Site Engineer</p>
+              <p className="text-xs font-bold text-slate-800">Amit Sharma (M.Tech Structural)</p>
+            </div>
+            <div>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Contractor Name</p>
+              <p className="text-xs font-bold text-slate-800">Precision Buildcon Pvt Ltd</p>
+            </div>
+            <div>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Total Budget</p>
+              <p className="text-xs font-bold text-slate-800">₹22,20,00,000.00 (Incl. GST)</p>
+            </div>
           </div>
         </div>
 
@@ -60,15 +107,12 @@ const ClientOverviewPage = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
-              className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100/60 flex flex-col items-start gap-6 group hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300"
+              className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100/60 flex flex-col items-start gap-3 group hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300"
             >
-              <div className={`w-14 h-14 rounded-2xl ${card.iconBg} flex items-center justify-center text-2xl shadow-inner transition-transform group-hover:scale-110 duration-300`}>
-                {card.icon}
-              </div>
               <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1.5">{card.label}</p>
-                <h3 className="text-2xl font-black text-slate-800 tracking-tight">{card.main}</h3>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1.5">{card.sub}</p>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">{card.label}</p>
+                <h3 className="text-xl font-bold text-slate-800 tracking-tight">{card.main}</h3>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1.5">{card.sub}</p>
               </div>
             </motion.div>
           ))}
@@ -104,26 +148,26 @@ const ClientOverviewPage = () => {
                  </p>
                  <div className="flex gap-4 mt-8">
                     <div className="h-10 px-6 rounded-xl bg-slate-100 text-slate-400 text-xs font-bold flex items-center justify-center cursor-not-allowed">PREVIOUS</div>
-                    <div className="h-10 px-6 rounded-xl bg-blue-600 text-white text-xs font-bold flex items-center justify-center hover:bg-blue-700 transition-colors shadow-lg shadow-blue-500/20">VIEW DETAILS</div>
+                    <Link to="/client/work-focus-details" className="h-10 px-6 rounded-xl bg-blue-600 text-white text-xs font-bold flex items-center justify-center hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20">VIEW DETAILS</Link>
                  </div>
                </div>
             </div>
 
             {/* Cost Audit Bar Chart */}
-            <div className="bg-white rounded-[40px] p-10 shadow-sm border border-slate-100">
-               <div className="flex justify-between items-center mb-10">
+            <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+               <div className="flex justify-between items-center mb-8">
                  <div>
-                   <h2 className="text-xl font-black text-slate-800 tracking-tight mb-1">Cost Management Audit</h2>
-                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">PROJECTED BUDGET VS ACTUAL REAL-TIME SPENT (₹ CR)</p>
+                   <h2 className="text-lg font-bold text-slate-800 tracking-tight mb-1">Cost Management Audit</h2>
+                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">PROJECTED BUDGET VS ACTUAL REAL-TIME SPENT (₹ CR)</p>
                  </div>
-                 <div className="flex items-center gap-6">
-                   <div className="flex items-center gap-2">
-                     <div className="w-3 h-3 rounded-full bg-slate-100" />
-                     <span className="text-[10px] font-bold text-slate-400 uppercase">PROJECTED</span>
+                 <div className="flex items-center gap-4">
+                   <div className="flex items-center gap-1.5">
+                     <div className="w-2.5 h-2.5 rounded-full bg-slate-100" />
+                     <span className="text-[9px] font-bold text-slate-400 uppercase">PROJECTED</span>
                    </div>
-                   <div className="flex items-center gap-2">
-                     <div className="w-3 h-3 rounded-full bg-blue-600" />
-                     <span className="text-[10px] font-bold text-slate-400 uppercase">ACTUAL</span>
+                   <div className="flex items-center gap-1.5">
+                     <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />
+                     <span className="text-[9px] font-bold text-slate-400 uppercase">ACTUAL</span>
                    </div>
                  </div>
                </div>
@@ -154,35 +198,40 @@ const ClientOverviewPage = () => {
           <div className="lg:col-span-4 space-y-8">
             
             {/* Variation Alert */}
-            <div className="bg-gradient-to-br from-red-50/50 to-white rounded-[40px] p-8 shadow-sm border border-red-100/50 flex flex-col items-center text-center relative">
-               <div className="w-16 h-16 rounded-2xl bg-white shadow-xl shadow-red-500/10 flex items-center justify-center text-3xl mb-6 ring-1 ring-red-100">
-                 ⚠️
-               </div>
-               <p className="text-[11px] font-black text-red-500 uppercase tracking-widest italic mb-2">VARIATION ALERT</p>
-               <h3 className="text-lg font-bold text-slate-800 leading-tight mb-6">
+            <div className="bg-gradient-to-br from-red-50/50 to-white rounded-3xl p-6 shadow-sm border border-red-100/50 flex flex-col items-center text-center relative">
+               <p className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-2 italic">VARIATION ALERT</p>
+               <h3 className="text-sm font-bold text-slate-800 leading-tight mb-4">
                  Phase 2 structural budget variation of ₹20L requires signature.
                </h3>
-               <button className="w-full py-4 bg-red-600 hover:bg-red-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl transition-all shadow-xl shadow-red-600/20 active:scale-95">
+               <button className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl transition-all shadow-xl shadow-red-600/20 active:scale-95">
                  SIGN NOW
                </button>
             </div>
 
             {/* Live Feed */}
-            <div className="bg-white rounded-[40px] p-8 shadow-sm border border-slate-100">
-               <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-[0.2em] mb-8">LIVE EXECUTION FEED</h3>
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+               <h3 className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-8">LIVE EXECUTION FEED</h3>
                <div className="space-y-8 relative">
                  <div className="absolute left-[13px] top-2 bottom-2 w-px bg-slate-100" />
                  {executionFeed.map((item, i) => (
-                   <div key={i} className="flex gap-4 relative">
-                     <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] shrink-0 z-10 border-4 border-white ${item.status === 'done' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>
-                       {item.status === 'done' ? '✓' : '•'}
-                     </div>
-                     <div>
-                        <p className="text-sm font-bold text-slate-800 leading-snug mb-1">{item.text}</p>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{item.time}</p>
-                     </div>
-                   </div>
-                 ))}
+                  <div key={i} className="flex gap-4 group hover:translate-x-1 transition-transform cursor-pointer">
+                    <div className={`w-1 h-10 rounded-full shrink-0 ${item.status === 'done' ? 'bg-emerald-500' : 'bg-slate-200'}`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-4">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.time}</p>
+                        <button 
+                          className="p-1 rounded bg-slate-50 text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                          title="Download DSR"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </button>
+                      </div>
+                      <p className="text-xs font-bold text-slate-800 leading-tight mt-1">{item.text}</p>
+                    </div>
+                  </div>
+                ))}
                </div>
             </div>
 
@@ -211,24 +260,23 @@ const ClientOverviewPage = () => {
         </div>
 
         {/* Site Evidence Gallery */}
-        <div>
-           <div className="flex justify-between items-center mb-8">
-              <h2 className="text-2xl font-black text-slate-800 tracking-tight">Recent Site Evidence</h2>
-              <button className="text-[10px] font-black text-blue-600 uppercase tracking-widest border-b-2 border-blue-600 pb-1">EXPLORE FULL GALLERY</button>
-           </div>
-           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {siteEvidence.map((item, i) => (
-                <div key={i} className="group cursor-pointer">
-                   <div className="aspect-[4/3] rounded-[32px] overflow-hidden mb-4 bg-slate-200 border border-slate-100 shadow-sm relative">
-                      <img src={item.img} alt={item.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+           <div>
+              <div className="flex justify-between items-center mb-6">
+                 <h2 className="text-xl font-bold text-slate-800 tracking-tight">Recent Site Evidence</h2>
+                 <button className="text-[9px] font-bold text-blue-600 uppercase tracking-widest border-b border-blue-600 pb-0.5">EXPLORE FULL GALLERY</button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                 {siteEvidence.map((item, i) => (
+                   <div key={i} className="group cursor-pointer">
+                      <div className="aspect-[4/3] rounded-2xl overflow-hidden mb-3 bg-slate-200 border border-slate-100 shadow-sm relative">
+                         <img src={item.img} alt={item.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                      </div>
+                      <h4 className="text-xs font-bold text-slate-800 tracking-tight group-hover:text-blue-600 transition-colors">{item.title}</h4>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">{item.date}</p>
                    </div>
-                   <h4 className="text-sm font-black text-slate-800 tracking-tight group-hover:text-blue-600 transition-colors">{item.title}</h4>
-                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{item.date}</p>
-                </div>
-              ))}
+                 ))}
+              </div>
            </div>
-        </div>
       </div>
     </>
   );

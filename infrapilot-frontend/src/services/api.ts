@@ -1,6 +1,7 @@
 import axios from "axios";
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL;
+console.log("🛠️ API Base URL Initialized:", API_BASE_URL);
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -17,7 +18,6 @@ api.interceptors.request.use(
     if (userString) {
       try {
         const user = JSON.parse(userString);
-        // Robust token extraction: supports nested access_token or flat string
         const token = user.token?.access_token || user.token;
         if (token && typeof token === 'string') {
           config.headers.Authorization = `Bearer ${token}`;
@@ -26,6 +26,8 @@ api.interceptors.request.use(
         console.error("Auth Interceptor: Failed to parse user object", e);
       }
     }
+    const fullUrl = `${config.baseURL || ""}${config.url}`;
+    console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${fullUrl}`, config.headers);
     return config;
   },
   (error) => Promise.reject(error),
@@ -36,7 +38,20 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Re-enabled: Clear session on authentication failure to allow fresh login
+      const userString = localStorage.getItem('infrapilot_user');
+      if (userString) {
+        try {
+          const user = JSON.parse(userString);
+          const token = user.token?.access_token || user.token;
+          // Do NOT auto-logout mock/dev users — they use fake tokens
+          if (token === 'mock_test_token_client_transparency') {
+            console.warn('Mock user received 401 — suppressing auto-logout.');
+            return Promise.reject(error);
+          }
+        } catch (e) {
+          // Ignore parse error, fall through to logout
+        }
+      }
       localStorage.removeItem('infrapilot_user');
       window.location.href = '/login';
     }

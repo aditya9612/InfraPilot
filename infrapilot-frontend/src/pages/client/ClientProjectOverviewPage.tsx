@@ -28,15 +28,15 @@ const ClientProjectOverviewPage = () => (
       {/* Project Details Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
         <div className="lg:col-span-2 bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-          <h2 className="text-base font-black text-slate-800 uppercase tracking-widest text-[11px] mb-8">Core Project Details</h2>
+          <h2 className="text-base font-black text-slate-800 uppercase tracking-widest text-[11px] mb-8">Core Project Specifications</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-y-8 gap-x-12">
             {[
-              { label: "Project Name", value: "Skyline Tower Residency", icon: "🏢" },
-              { label: "Location", value: "Sector 45, Hinjawadi, Pune, MH", icon: "📍" },
-              { label: "Project Type", value: "High-Rise Residential (G+8)", icon: "🏗️" },
-              { label: "Total Budget", value: "₹8,20,00,000 (Eight Point Two Crore)", icon: "💰" },
-              { label: "Start Date", value: "12 Jan 2025", icon: "📅" },
-              { label: "End Date (EST)", value: "12 Oct 2026", icon: "🏁" },
+              { label: "Project Name", value: "Skyline Tower - Phase 3 Extension", icon: "🏢" },
+              { label: "Location", value: "Worli, Mumbai South Central", icon: "📍" },
+              { label: "Project Type", value: "Residential High-Rise (A+ Category)", icon: "🏗️" },
+              { label: "Total Budget", value: "₹22,20,00,000.00 (Incl. GST)", icon: "💰" },
+              { label: "Start Date", value: "15 Oct 2025", icon: "📅" },
+              { label: "End Date (EST)", value: "30 Sept 2026", icon: "🏁" },
               { label: "Project Status", value: "On Track", icon: "🟢", status: "On Track" },
             ].map((item, i) => (
               <div key={i} className="flex items-start gap-4">
@@ -52,18 +52,19 @@ const ClientProjectOverviewPage = () => (
 
         {/* Project Stakeholders */}
         <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-          <h2 className="text-base font-black text-slate-800 uppercase tracking-widest text-[11px] mb-8">Key Personnel</h2>
+          <h2 className="text-base font-black text-slate-800 uppercase tracking-widest text-[11px] mb-8">Management & Execution</h2>
           <div className="space-y-6">
             {[
-              { label: "Project Manager", value: "Mr. Rajesh Mehta", role: "Project Manager", avatar: "RM", color: "bg-blue-600" },
-              { label: "Site Engineer", value: "Ms. Anjali Desai", role: "Sr. Site Engineer", avatar: "AD", color: "bg-emerald-600" },
-              { label: "Contractor Name", value: "Vikram Buildcon Pvt. Ltd.", role: "Lead Contractor", avatar: "VB", color: "bg-purple-600" },
+              { label: "Project Manager", value: "Rajesh Kumar", role: "PMP Certified", avatar: "RK", color: "bg-blue-600" },
+              { label: "Site Engineer", value: "Amit Sharma", role: "M.Tech Structural", avatar: "AS", color: "bg-emerald-600" },
+              { label: "Contractor Name", value: "Precision Buildcon Pvt Ltd", role: "Lead Contractor", avatar: "PB", color: "bg-purple-600" },
             ].map((p, i) => (
               <div key={i} className="flex items-center gap-4">
                 <div className={`w-11 h-11 rounded-2xl ${p.color} flex items-center justify-center text-white font-black text-xs shrink-0 shadow-lg shadow-blue-500/10`}>{p.avatar}</div>
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{p.label}</p>
                   <p className="text-sm font-bold text-slate-800 leading-tight">{p.value}</p>
+                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">{p.role}</p>
                 </div>
               </div>
             ))}

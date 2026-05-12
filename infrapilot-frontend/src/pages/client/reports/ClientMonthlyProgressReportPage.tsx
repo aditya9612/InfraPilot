@@ -245,32 +245,22 @@ const ClientMonthlyProgressReportPage = () => (
 
         <div className="divide-y divide-slate-50">
           {reports.map((report, i) => (
-            <div key={i} className="p-8 hover:bg-slate-50 transition-all flex items-center justify-between group cursor-pointer">
+            <div key={i} className="p-6 hover:bg-slate-50 transition-all flex items-center justify-between group cursor-pointer border-b border-slate-50 last:border-0">
               <div className="flex items-center gap-6">
-                {/* PDF icon */}
-                <div className="w-14 h-14 bg-red-50 text-red-600 rounded-2xl flex flex-col items-center justify-center shadow-inner border border-red-100 group-hover:scale-110 transition-transform shrink-0">
-                  <span className="text-[10px] font-black uppercase tracking-tighter leading-none mb-1">PDF</span>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
                 <div>
-                  <h3 className="text-sm font-black text-slate-800 tracking-tight group-hover:text-primary transition-colors">{report.name}</h3>
-                  <div className="flex gap-4 mt-1.5 flex-wrap">
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Released: {report.date}</p>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Category: {report.category}</p>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Size: {report.size}</p>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Progress: {report.progress}%</p>
+                  <h3 className="text-xs font-black text-slate-800 tracking-tight group-hover:text-primary transition-colors">{report.name}</h3>
+                  <div className="flex gap-4 mt-1 flex-wrap">
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Released: {report.date}</p>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Category: {report.category}</p>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Size: {report.size}</p>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Progress: {report.progress}%</p>
                   </div>
                 </div>
               </div>
               <button
                 onClick={() => downloadPdf(report)}
-                className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl opacity-0 group-hover:opacity-100 transition-all transform translate-x-4 group-hover:translate-x-0 shadow-xl shadow-blue-500/20 shrink-0 hover:bg-primary"
+                className="flex items-center gap-2 px-5 py-2 bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-blue-500/10 hover:bg-primary transition-all active:scale-95 shrink-0"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
                 Download PDF
               </button>
             </div>

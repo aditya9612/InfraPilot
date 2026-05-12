@@ -362,6 +362,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
   ],
   Client: [
     { label: "Dashboard", path: "/client", icon: "grid" },
+    { label: "Project Overview", path: "/client/project-overview", icon: "info" },
     { label: "Work Progress", path: "/client/progress", icon: "bar-chart" },
     {
       label: "Financials",
