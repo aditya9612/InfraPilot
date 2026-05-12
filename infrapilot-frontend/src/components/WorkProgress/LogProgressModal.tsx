@@ -86,11 +86,11 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
           </h3>
           {activity ? (
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Logging For</p>
-              <h4 className="text-lg font-black text-slate-800 italic-none">{activity.activity_name}</h4>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Logging For</p>
+              <h4 className="text-lg font-bold text-slate-800">{activity.activity_name}</h4>
               <div className="flex items-center justify-between mt-2">
-                <span className="text-xs font-bold text-slate-500 italic-none">Current: {activity.completion_percentage.toFixed(1)}%</span>
-                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{activity.unit}</span>
+                <span className="text-xs font-bold text-slate-500">Current: {activity.completion_percentage.toFixed(1)}%</span>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{activity.unit}</span>
               </div>
             </div>
           ) : (
@@ -119,17 +119,17 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
           <div className="space-y-4">
             <div>
               <label className={labelClasses}>Field Log Date*</label>
-              <input 
+              <input
                 required type="date" className={inputClasses}
-                value={formData.entry_date} onChange={e => setFormData({...formData, entry_date: e.target.value})}
+                value={formData.entry_date} onChange={e => setFormData({ ...formData, entry_date: e.target.value })}
               />
             </div>
             <div>
               <label className={labelClasses}>Quantity Executed {selectedActivity ? `(${selectedActivity.unit})` : ""}*</label>
-              <input 
+              <input
                 required type="number" min="0" step="any" placeholder="Enter field volume"
                 className={inputClasses}
-                value={formData.today_progress} onChange={e => setFormData({...formData, today_progress: Number(e.target.value)})}
+                value={formData.today_progress} onChange={e => setFormData({ ...formData, today_progress: Number(e.target.value) })}
               />
             </div>
           </div>
@@ -140,10 +140,10 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
           <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
             Field Narrative
           </h3>
-          <textarea 
+          <textarea
             rows={3} placeholder="Describe site conditions or obstacles (optional)..."
-            className={`${inputClasses} resize-none font-inter italic-none`}
-            value={formData.remarks} onChange={e => setFormData({...formData, remarks: e.target.value})}
+            className={`${inputClasses} resize-none font-inter`}
+            value={formData.remarks} onChange={e => setFormData({ ...formData, remarks: e.target.value })}
           />
         </div>
       </form>

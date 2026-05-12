@@ -8,13 +8,10 @@ import UploadPhotoModal from "../../components/forms/UploadPhotoModal";
 import toast from "react-hot-toast";
 import {
     Camera,
-    Tag,
     MapPin,
     Search,
     Trash2,
-    Activity,
     Filter,
-    Image as ImageIcon,
     Upload,
     Eye,
     Calendar,
@@ -195,7 +192,7 @@ const SitePhotosPage = () => {
         locations: new Set(photos.map(p => p.location_tag)).size,
     };
 
-    const labelClasses = "block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
+    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
 
     return (
         <>
@@ -205,8 +202,8 @@ const SitePhotosPage = () => {
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
                     <div className="font-inter">
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight italic-none font-inter">Evidence Documentation Ledger</h1>
-                        <p className="text-slate-500 text-sm italic-none font-inter">
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Evidence Documentation Ledger</h1>
+                        <p className="text-slate-500 text-sm font-inter">
                             Maintain a chronological visual archive of project progress milestones.
                         </p>
                     </div>
@@ -222,48 +219,40 @@ const SitePhotosPage = () => {
 
                 {/* ── Interactive Stats ───────────────────────────── */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
-                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-slate-800 bg-slate-100 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                       <StatCard
                           title="Total Evidence"
                           value={stats.total.toString()}
                           sub="Project Archive"
-                          accent="text-slate-800"
-                          icon={<ImageIcon className={`w-5 h-5 ${activeStatFilter === "All" ? "text-slate-800 scale-110" : "text-slate-400 group-hover:text-slate-800"} transition-all`} />}
-                      />
+                          accent="text-slate-800" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("Recent")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Recent" ? "ring-2 ring-emerald-500 bg-emerald-50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div onClick={() => setActiveStatFilter("Recent")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Recent" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                       <StatCard
                           title="Recent Logs"
                           value={stats.thisWeek.toString()}
                           sub="Past 7 Days"
-                          accent="text-emerald-500"
-                          icon={<Activity className={`w-5 h-5 ${activeStatFilter === "Recent" ? "text-emerald-500 scale-110" : "text-slate-400 group-hover:text-emerald-500"} transition-all`} />}
-                      />
+                          accent="text-emerald-500" />
                     </div>
                     <div onClick={() => setActiveStatFilter("All")} className="cursor-pointer group transition-all rounded-xl hover:scale-[1.01]">
                       <StatCard
                           title="Scoped Tasks"
                           value={stats.activities.toString()}
                           sub="Tracked Milestones"
-                          accent="text-amber-500"
-                          icon={<Tag className="w-5 h-5 text-amber-500" />}
-                      />
+                          accent="text-amber-500" />
                     </div>
                     <div onClick={() => setActiveStatFilter("All")} className="cursor-pointer group transition-all rounded-xl hover:scale-[1.01]">
                       <StatCard
                           title="Zonal Units"
                           value={stats.locations.toString()}
                           sub="Capture Points"
-                          accent="text-indigo-500"
-                          icon={<MapPin className="w-5 h-5 text-indigo-500" />}
-                      />
+                          accent="text-indigo-500" />
                     </div>
                 </div>
 
                 {/* ── Evidence Vault Container ───────────────────────────────────────────── */}
-                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
                     {/* Integrated Filter Bar */}
-                    <div className="p-6 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-slate-50/30 font-inter">
+                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
                         <div className="relative flex-1 max-w-md font-inter">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                                 <Search className="w-4 h-4" />
@@ -273,7 +262,7 @@ const SitePhotosPage = () => {
                                 placeholder="Search by description or audit ID..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
+                                className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
                             />
                         </div>
                         <div className="flex flex-wrap items-center gap-3 font-inter">
@@ -282,7 +271,7 @@ const SitePhotosPage = () => {
                                 <select
                                     value={filterActivity}
                                     onChange={(e) => setFilterActivity(e.target.value)}
-                                    className="bg-transparent text-xs font-black uppercase tracking-widest text-slate-600 outline-none cursor-pointer pr-2 font-inter"
+                                    className="bg-transparent text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer pr-2 font-inter"
                                 >
                                     <option>All Activities</option>
                                     {ACTIVITY_TAGS.map(t => <option key={t} value={t}>{t}</option>)}
@@ -293,7 +282,7 @@ const SitePhotosPage = () => {
                                 <select
                                     value={filterLocation}
                                     onChange={(e) => setFilterLocation(e.target.value)}
-                                    className="bg-transparent text-xs font-black uppercase tracking-widest text-slate-600 outline-none cursor-pointer pr-2 font-inter"
+                                    className="bg-transparent text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer pr-2 font-inter"
                                 >
                                     <option>All Locations</option>
                                     {LOCATION_TAGS.map(t => <option key={t} value={t}>{t}</option>)}
@@ -312,14 +301,14 @@ const SitePhotosPage = () => {
                         {isLoading ? (
                             <div className="py-32 text-center font-inter">
                                 <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4 font-inter" />
-                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 font-inter">Syncing evidence vault...</p>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing evidence vault...</p>
                             </div>
                         ) : filteredPhotos.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 font-inter">
                                 {filteredPhotos.map(photo => (
                                     <div
                                         key={photo.id}
-                                        className="group bg-white rounded-[2rem] border border-slate-100 overflow-hidden hover:shadow-2xl hover:shadow-primary/10 hover:-translate-y-2 transition-all duration-500 flex flex-col font-inter"
+                                        className="group bg-white rounded-2xl border border-slate-100 overflow-hidden hover:shadow-2xl hover:shadow-primary/10 hover:-translate-y-2 transition-all duration-500 flex flex-col font-inter"
                                     >
                                         <div className="aspect-[4/3] relative overflow-hidden bg-slate-100 font-inter">
                                             <img
@@ -329,7 +318,7 @@ const SitePhotosPage = () => {
                                             />
                                             {/* Design System Overlays */}
                                             <div className="absolute top-4 left-4 z-10 font-inter">
-                                                <span className="px-3 py-1 bg-white/90 backdrop-blur-md text-[9px] font-black text-slate-800 rounded-lg uppercase tracking-widest shadow-sm border border-white/20 font-inter">
+                                                <span className="px-3 py-1 bg-white/90 backdrop-blur-md text-[10px] font-bold text-slate-800 rounded-lg uppercase tracking-widest shadow-sm border border-white/20 font-inter">
                                                     {photo.activity_tag}
                                                 </span>
                                             </div>
@@ -355,23 +344,23 @@ const SitePhotosPage = () => {
 
                                         <div className="p-6 flex flex-col flex-1 font-inter">
                                             <div className="flex items-center justify-between mb-4 font-inter">
-                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-inter">AUDIT-#{photo.id}</span>
-                                                <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100 font-inter">Live Progress</span>
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">AUDIT-#{photo.id}</span>
+                                                <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100 font-inter">Live Progress</span>
                                             </div>
 
-                                            <p className="text-[13px] font-black text-slate-600 leading-relaxed line-clamp-3 mb-6 flex-1 italic-none font-inter uppercase tracking-tight">
+                                            <p className="text-[13px] font-bold text-slate-600 leading-relaxed line-clamp-3 mb-6 flex-1 font-inter uppercase tracking-tight">
                                                 {photo.description}
                                             </p>
 
                                             <div className="flex items-center gap-3 pt-5 border-t border-slate-50 mt-auto font-inter">
-                                                <div className="w-10 h-10 rounded-2xl bg-primary text-white flex items-center justify-center text-[11px] font-black border-2 border-white shadow-lg shrink-0 font-inter">
+                                                <div className="w-10 h-10 rounded-2xl bg-primary text-white flex items-center justify-center text-[11px] font-bold border-2 border-white shadow-lg shrink-0 font-inter">
                                                     {photo.uploaded_by.split(" ").map(n => n[0]).join("")}
                                                 </div>
                                                 <div className="overflow-hidden font-inter">
-                                                    <p className="text-xs font-black text-slate-800 truncate uppercase tracking-widest font-inter">{photo.uploaded_by}</p>
+                                                    <p className="text-xs font-bold text-slate-800 truncate uppercase tracking-widest font-inter">{photo.uploaded_by}</p>
                                                     <div className="flex items-center gap-1.5 text-slate-400 font-inter">
                                                         <Calendar className="w-3 h-3 shrink-0" />
-                                                        <p className="text-[9px] font-black uppercase tracking-widest truncate font-inter">{photo.time} • {photo.date}</p>
+                                                        <p className="text-[10px] font-bold uppercase tracking-widest truncate font-inter">{photo.time} • {photo.date}</p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -380,16 +369,15 @@ const SitePhotosPage = () => {
                                 ))}
                             </div>
                         ) : (
-                            <div className="py-32 text-center font-inter italic-none">
+                            <div className="py-32 text-center font-inter">
                                 <Camera className="w-16 h-16 mx-auto mb-6 opacity-10 text-slate-800" />
-                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 opacity-50 font-inter italic-none">No evidence artifacts discovered in the project vault.</p>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 opacity-50 font-inter">No evidence artifacts discovered in the project vault.</p>
                             </div>
                         )}
                     </div>
                 </div>
             </PageTransition>
 
-            {/* ── Detail Insight Modal ────────────────────────────────── */}
             <Modal
                 isOpen={!!selectedPhoto}
                 onClose={() => setSelectedPhoto(null)}
@@ -397,52 +385,52 @@ const SitePhotosPage = () => {
                 maxWidth="max-w-xl"
             >
                 {selectedPhoto && (
-                    <div className="p-6 font-inter italic-none">
-                        <div className="bg-slate-900 rounded-[2.5rem] p-10 mb-8 text-white shadow-2xl relative overflow-hidden font-inter">
+                    <div className="p-6 font-inter">
+                        <div className="bg-slate-900 rounded-2xl p-10 mb-8 text-white shadow-2xl relative overflow-hidden font-inter">
                             <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 rounded-full -mr-32 -mt-32 blur-3xl" />
                             <div className="relative z-10 font-inter">
-                                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400 mb-3 font-inter">Intelligence Artifact Record</p>
-                                <h3 className="text-2xl font-black tracking-tight leading-tight mb-8 font-inter italic-none">{selectedPhoto.location_tag}</h3>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-blue-400 mb-3 font-inter">Intelligence Artifact Record</p>
+                                <h3 className="text-2xl font-bold tracking-tight leading-tight mb-8 font-inter">{selectedPhoto.location_tag}</h3>
                                 <div className="grid grid-cols-2 gap-6 font-inter">
-                                    <div className="bg-white/5 backdrop-blur-xl rounded-[1.5rem] p-5 border border-white/10 font-inter">
-                                        <p className="text-[9px] font-black uppercase tracking-widest text-white/40 mb-1.5 font-inter">Reference Code</p>
-                                        <p className="text-xl font-black text-blue-400 font-inter">#LOG-{selectedPhoto.id}</p>
+                                    <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10 font-inter">
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1.5 font-inter">Reference Code</p>
+                                        <p className="text-xl font-bold text-blue-400 font-inter">#LOG-{selectedPhoto.id}</p>
                                     </div>
-                                    <div className="bg-white/5 backdrop-blur-xl rounded-[1.5rem] p-5 border border-white/10 font-inter">
-                                        <p className="text-[9px] font-black uppercase tracking-widest text-white/40 mb-1.5 font-inter">Capture Sequence</p>
-                                        <p className="text-xl font-black font-inter italic-none">{selectedPhoto.date}</p>
+                                    <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10 font-inter">
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1.5 font-inter">Capture Sequence</p>
+                                        <p className="text-xl font-bold font-inter">{selectedPhoto.date}</p>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="rounded-[2.5rem] overflow-hidden border-8 border-slate-50 shadow-2xl mb-8 aspect-video group relative font-inter">
+                        <div className="rounded-2xl overflow-hidden border-8 border-slate-50 shadow-2xl mb-8 aspect-video group relative font-inter">
                             <img src={selectedPhoto.url} alt="Site Artifact" className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110 font-inter" />
-                            <div className="absolute inset-0 ring-1 ring-inset ring-black/10 rounded-[2.5rem]" />
+                            <div className="absolute inset-0 ring-1 ring-inset ring-black/10 rounded-2xl" />
                         </div>
 
                         <div className="space-y-8 px-2 mb-10 font-inter">
                             <div className="font-inter">
                                 <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-3')}>Observation Intelligence</p>
-                                <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 text-[13px] font-black text-slate-600 leading-relaxed font-inter italic-none uppercase tracking-tight shadow-inner">
+                                <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 text-[13px] font-bold text-slate-600 leading-relaxed font-inter uppercase tracking-tight shadow-inner">
                                     "{selectedPhoto.description}"
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-8 font-inter">
                                 <div className="font-inter">
                                     <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-1.5')}>Milestone Domain</p>
-                                    <p className="text-sm font-black text-blue-600 uppercase tracking-widest font-inter italic-none">{selectedPhoto.activity_tag}</p>
+                                    <p className="text-sm font-bold text-blue-600 uppercase tracking-widest font-inter">{selectedPhoto.activity_tag}</p>
                                 </div>
                                 <div className="font-inter">
                                     <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-1.5')}>Responsible Engineer</p>
-                                    <p className="text-sm font-black text-slate-800 uppercase tracking-widest font-inter italic-none">{selectedPhoto.uploaded_by}</p>
+                                    <p className="text-sm font-bold text-slate-800 uppercase tracking-widest font-inter">{selectedPhoto.uploaded_by}</p>
                                 </div>
                             </div>
                         </div>
 
                         <button
                             onClick={() => setSelectedPhoto(null)}
-                            className="w-full py-5 bg-primary text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.4em] hover:bg-blue-600 transition-all shadow-2xl shadow-primary/30 active:scale-95 font-inter italic-none mb-2"
+                            className="w-full py-5 bg-primary text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-blue-600 transition-all shadow-2xl shadow-primary/30 active:scale-95 font-inter mb-2"
                         >
                             Dismiss Artifact Analysis
                         </button>

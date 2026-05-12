@@ -5,21 +5,21 @@ import StatCard from "../../../components/common/StatCard";
 import Modal from "../../../components/common/Modal";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
-import { 
-  AlertTriangle, 
-  Clock, 
-  CheckCircle2, 
-  Search, 
-  Plus, 
-  Edit2, 
-  Trash2,
-  Eye,
-  Activity,
-  Filter,
-  Mail,
-  FileText,
-  RotateCcw,
-  Briefcase
+import {
+    AlertTriangle,
+    Clock,
+    CheckCircle2,
+    Search,
+    Plus,
+    Edit2,
+    Trash2,
+    Eye,
+    Activity,
+    Filter,
+    Mail,
+    FileText,
+    RotateCcw,
+    Briefcase
 } from "lucide-react";
 
 import { issueService } from "../../../services/issueService";
@@ -111,7 +111,7 @@ const IssueTrackerPage = () => {
             if (!formData.status) newErrors.status = "Required";
             if (!formData.resolution.trim()) newErrors.resolution = "Required";
         }
-        
+
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -173,7 +173,7 @@ const IssueTrackerPage = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         if (!projectId || !formData.project_id) {
             toast.error("Critical Error: Active project not detected.");
             return;
@@ -218,11 +218,11 @@ const IssueTrackerPage = () => {
 
         // Apply StatCard Filter
         if (activeStatFilter === "Pending") {
-          data = data.filter(i => i.status === "Open" || i.status === "In Progress");
+            data = data.filter(i => i.status === "Open" || i.status === "In Progress");
         } else if (activeStatFilter === "High") {
-          data = data.filter(i => i.priority === "High");
+            data = data.filter(i => i.priority === "High");
         } else if (activeStatFilter === "Resolved") {
-          data = data.filter(i => i.status === "Closed" || i.status === "Resolved");
+            data = data.filter(i => i.status === "Closed" || i.status === "Resolved");
         }
 
         return data.filter(i => {
@@ -241,7 +241,7 @@ const IssueTrackerPage = () => {
         closed: issueData.filter(i => i.status === "Closed" || i.status === "Resolved").length,
     };
 
-    const labelClasses = "block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
+    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
     const inputClasses = (error?: string) => `
         w-full px-4 py-2.5 bg-slate-50 border 
         ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
@@ -256,17 +256,17 @@ const IssueTrackerPage = () => {
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
                     <div className="font-inter">
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight italic-none font-inter">Constraint Management Vault</h1>
-                        <p className="text-slate-500 text-sm italic-none font-inter">
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Constraint Management Vault</h1>
+                        <p className="text-slate-500 text-sm font-inter">
                             Identify, track, and resolve site impediments to ensure project flow.
                         </p>
                     </div>
                     <button
-                        onClick={() => { 
-                            setFormMode("create"); 
-                            setFormData({ ...INITIAL_FORM_DATA, project_id: projectId || 0 }); 
-                            setErrors({}); 
-                            setIsFormModalOpen(true); 
+                        onClick={() => {
+                            setFormMode("create");
+                            setFormData({ ...INITIAL_FORM_DATA, project_id: projectId || 0 });
+                            setErrors({});
+                            setIsFormModalOpen(true);
                         }}
                         className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
                     >
@@ -276,48 +276,40 @@ const IssueTrackerPage = () => {
                 </div>
 
                 {/* ── Interactive Stats ───────────────────────────── */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
-                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-slate-800 bg-slate-100 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                      <StatCard
-                          title="Total Logs"
-                          value={stats.total.toString()}
-                          sub="Project Archive"
-                          accent="text-slate-800"
-                          icon={<Activity className={`w-5 h-5 ${activeStatFilter === "All" ? "text-slate-800 scale-110" : "text-slate-400 group-hover:text-slate-800"} transition-all`} />}
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
+                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Total Logs"
+                            value={stats.total.toString()}
+                            sub="Project Archive"
+                            accent="text-slate-800" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("Pending")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Pending" ? "ring-2 ring-rose-500 bg-rose-50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                      <StatCard
-                          title="Pending"
-                          value={stats.open.toString()}
-                          sub="Action Required"
-                          accent="text-rose-500"
-                          icon={<AlertTriangle className={`w-5 h-5 ${activeStatFilter === "Pending" ? "text-rose-500 scale-110" : "text-slate-400 group-hover:text-rose-500"} transition-all`} />}
-                      />
+                    <div onClick={() => setActiveStatFilter("Pending")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Pending" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Pending"
+                            value={stats.open.toString()}
+                            sub="Action Required"
+                            accent="text-rose-500" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("High")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "High" ? "ring-2 ring-amber-500 bg-amber-50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                      <StatCard
-                          title="High Priority"
-                          value={stats.high.toString()}
-                          sub="Critical Impact"
-                          accent="text-amber-500"
-                          icon={<Clock className={`w-5 h-5 ${activeStatFilter === "High" ? "text-amber-500 scale-110" : "text-slate-400 group-hover:text-amber-500"} transition-all`} />}
-                      />
+                    <div onClick={() => setActiveStatFilter("High")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "High" ? "ring-2 ring-amber-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="High Priority"
+                            value={stats.high.toString()}
+                            sub="Critical Impact"
+                            accent="text-amber-500" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("Resolved")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Resolved" ? "ring-2 ring-emerald-500 bg-emerald-50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                      <StatCard
-                          title="Resolved"
-                          value={stats.closed.toString()}
-                          sub="Resolution Rate"
-                          accent="text-emerald-500"
-                          icon={<CheckCircle2 className={`w-5 h-5 ${activeStatFilter === "Resolved" ? "text-emerald-500 scale-110" : "text-slate-400 group-hover:text-emerald-500"} transition-all`} />}
-                      />
+                    <div onClick={() => setActiveStatFilter("Resolved")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Resolved" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Resolved"
+                            value={stats.closed.toString()}
+                            sub="Resolution Rate"
+                            accent="text-emerald-500" />
                     </div>
                 </div>
 
                 {/* ── Registry Container ───────────────────────────────────────────── */}
-                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
-                    <div className="p-6 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-slate-50/30 font-inter">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
+                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
                         <div className="relative flex-1 max-w-md font-inter">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                                 <Search className="w-4 h-4" />
@@ -327,29 +319,29 @@ const IssueTrackerPage = () => {
                                 placeholder="Search by title or description..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
+                                className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
                             />
                         </div>
                         <div className="flex items-center gap-3 font-inter">
                             <div className="flex items-center gap-2 font-inter">
                                 <Filter className="w-4 h-4 text-slate-400" />
-                                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-black uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter">
+                                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter">
                                     <option value="All">All Status</option>
                                     <option value="Open">Open</option>
                                     <option value="In Progress">In Progress</option>
                                     <option value="Closed">Closed</option>
                                 </select>
                             </div>
-                            <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-black uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter">
+                            <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter">
                                 <option value="All">All Priority</option>
                                 <option value="High">High</option>
                                 <option value="Medium">Medium</option>
                                 <option value="Low">Low</option>
                             </select>
                             {activeStatFilter !== "All" && (
-                              <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter">
-                                <RotateCcw className="w-4 h-4" />
-                              </button>
+                                <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter">
+                                    <RotateCcw className="w-4 h-4" />
+                                </button>
                             )}
                         </div>
                     </div>
@@ -358,7 +350,7 @@ const IssueTrackerPage = () => {
                         {isLoading ? (
                             <div className="p-20 text-center font-inter">
                                 <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4 font-inter" />
-                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 font-inter">Syncing issue vault...</p>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing issue vault...</p>
                             </div>
                         ) : (
                             <table className="w-full text-left font-inter min-w-[1200px]">
@@ -377,44 +369,44 @@ const IssueTrackerPage = () => {
                                             <tr key={issue.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                                 <td className="px-6 py-4 font-inter">
                                                     <div className="flex flex-col font-inter">
-                                                        <span className="text-sm font-bold text-slate-800 font-inter italic-none">{issue.title}</span>
-                                                        <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest font-inter">#{issue.business_id || `ISS-${issue.id}`} • {issue.category}</span>
+                                                        <span className="text-sm font-bold text-slate-800 font-inter">{issue.title}</span>
+                                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">#{issue.business_id || `ISS-${issue.id}`} • {issue.category}</span>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 font-inter">
-                                                    <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border font-inter ${STATUS_COLORS[issue.status] || 'bg-slate-50 text-slate-400 border-slate-100'}`}>
+                                                    <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border font-inter ${STATUS_COLORS[issue.status] || 'bg-slate-50 text-slate-400 border-slate-100'}`}>
                                                         {issue.status}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 font-inter">
-                                                    <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border font-inter ${PRIORITY_COLORS[issue.priority]}`}>
+                                                    <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border font-inter ${PRIORITY_COLORS[issue.priority]}`}>
                                                         {issue.priority}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 font-inter">
-                                                  <div className="flex flex-col font-inter">
-                                                    <span className="text-xs font-bold text-slate-500 font-inter italic-none">{issue.reported_date}</span>
-                                                    <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest font-inter">Reported</span>
-                                                  </div>
+                                                    <div className="flex flex-col font-inter">
+                                                        <span className="text-xs font-bold text-slate-500 font-inter">{issue.reported_date}</span>
+                                                        <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest font-inter">Reported</span>
+                                                    </div>
                                                 </td>
                                                 <td className="px-6 py-4 text-right font-inter">
                                                     <div className="flex items-center justify-end gap-2 font-inter">
-                                                        <button 
-                                                            onClick={() => { setSelectedIssue(issue); }} 
+                                                        <button
+                                                            onClick={() => { setSelectedIssue(issue); }}
                                                             className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-95 font-inter"
                                                             title="View Intelligence"
                                                         >
                                                             <Eye className="w-4 h-4" />
                                                         </button>
-                                                        <button 
-                                                            onClick={() => { setFormMode("edit"); setFormData({ ...issue, assigned_to: issue.assigned_to || "" } as any); setErrors({}); setIsFormModalOpen(true); }} 
+                                                        <button
+                                                            onClick={() => { setFormMode("edit"); setFormData({ ...issue, assigned_to: issue.assigned_to || "" } as any); setErrors({}); setIsFormModalOpen(true); }}
                                                             className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
                                                             title="Modify Record"
                                                         >
                                                             <Edit2 className="w-4 h-4" />
                                                         </button>
-                                                        <button 
-                                                            onClick={() => { setIssueToDelete(issue.id); setIsDeleteModalOpen(true); }} 
+                                                        <button
+                                                            onClick={() => { setIssueToDelete(issue.id); setIsDeleteModalOpen(true); }}
                                                             className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"
                                                             title="Discard Log"
                                                         >
@@ -426,7 +418,7 @@ const IssueTrackerPage = () => {
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan={5} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter italic-none">
+                                            <td colSpan={5} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
                                                 No site issues found in the project ledger matching the criteria.
                                             </td>
                                         </tr>
@@ -446,28 +438,28 @@ const IssueTrackerPage = () => {
                 maxWidth="max-w-xl"
             >
                 {selectedIssue && (
-                    <div className="p-6 font-inter text-inter italic-none">
+                    <div className="p-6 font-inter">
                         {/* ── Profile Style Header ────────────────── */}
-                        <div className="bg-primary rounded-[2.5rem] p-8 mb-8 text-white shadow-2xl relative overflow-hidden font-inter">
+                        <div className="bg-primary rounded-xl p-8 mb-8 text-white shadow-2xl relative overflow-hidden font-inter">
                             <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl" />
                             <div className="relative z-10 flex items-center gap-8 font-inter">
-                                <div className="w-24 h-24 bg-white/20 backdrop-blur-xl rounded-[2rem] flex items-center justify-center border border-white/20 shadow-inner font-inter relative">
-                                    <span className="text-4xl font-black font-inter italic-none">{selectedIssue.title.charAt(0)}</span>
+                                <div className="w-24 h-24 bg-white/20 backdrop-blur-xl rounded-xl flex items-center justify-center border border-white/20 shadow-inner font-inter relative">
+                                    <span className="text-4xl font-bold font-inter">{selectedIssue.title.charAt(0)}</span>
                                     <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-4 border-slate-800 rounded-full animate-pulse" />
                                 </div>
                                 <div className="font-inter">
                                     <div className="flex items-center gap-3 mb-2 font-inter">
-                                        <h3 className="text-2xl font-black tracking-tight font-inter italic-none truncate max-w-[200px]">{selectedIssue.title}</h3>
-                                        <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${selectedIssue.status === 'Closed' ? 'bg-emerald-500/20 text-emerald-100' : 'bg-amber-500/20 text-amber-100'}`}>
+                                        <h3 className="text-2xl font-bold tracking-tight font-inter truncate max-w-[200px]">{selectedIssue.title}</h3>
+                                        <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-widest ${selectedIssue.status === 'Closed' ? 'bg-emerald-500/20 text-emerald-100' : 'bg-amber-500/20 text-amber-100'}`}>
                                             {selectedIssue.status}
                                         </span>
                                     </div>
                                     <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
                                         <Mail className="w-3 h-3" />
-                                        <span className="text-[10px] font-bold font-inter italic-none uppercase tracking-widest">issue.ref-#{selectedIssue.id}</span>
+                                        <span className="text-[10px] font-bold font-inter uppercase tracking-widest">issue.ref-#{selectedIssue.id}</span>
                                     </div>
                                     <div className="px-4 py-1.5 bg-white/15 rounded-xl border border-white/10 inline-block font-inter shadow-sm">
-                                        <span className="text-[9px] font-black uppercase tracking-widest font-inter">PRIORITY: {selectedIssue.priority}</span>
+                                        <span className="text-[9px] font-bold uppercase tracking-widest font-inter">PRIORITY: {selectedIssue.priority}</span>
                                     </div>
                                 </div>
                             </div>
@@ -480,20 +472,20 @@ const IssueTrackerPage = () => {
                                     <div className="p-2 bg-blue-50 rounded-xl font-inter border border-blue-100 shadow-sm">
                                         <Briefcase className="w-4 h-4 text-primary" />
                                     </div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] font-inter">Issue Parameters</p>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] font-inter">Issue Parameters</p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-x-12 gap-y-8 font-inter">
                                     <div className="font-inter">
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Category Profile</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none uppercase tracking-widest">{selectedIssue.category}</p>
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Category Profile</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter uppercase tracking-widest">{selectedIssue.category}</p>
                                     </div>
                                     <div className="font-inter">
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Urgency Level</p>
-                                        <p className="text-sm font-black text-rose-500 font-inter italic-none uppercase tracking-widest">{selectedIssue.priority}</p>
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Urgency Level</p>
+                                        <p className="text-sm font-bold text-rose-500 font-inter uppercase tracking-widest">{selectedIssue.priority}</p>
                                     </div>
                                     <div className="font-inter col-span-2">
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter ml-1">Narrative Insight</p>
-                                        <div className="p-5 bg-slate-50 rounded-[1.5rem] border border-slate-100 text-xs font-bold text-slate-600 leading-relaxed font-inter italic-none shadow-inner">
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2 font-inter ml-1">Narrative Insight</p>
+                                        <div className="p-5 bg-slate-50 rounded-xl border border-slate-100 text-xs font-bold text-slate-600 leading-relaxed font-inter shadow-inner">
                                             "{selectedIssue.description}"
                                         </div>
                                     </div>
@@ -507,9 +499,9 @@ const IssueTrackerPage = () => {
                                         <div className="p-2 bg-emerald-50 rounded-xl font-inter border border-emerald-100 shadow-sm">
                                             <FileText className="w-4 h-4 text-emerald-600" />
                                         </div>
-                                        <p className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em] font-inter">Resolution Strategy</p>
+                                        <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-[0.2em] font-inter">Resolution Strategy</p>
                                     </div>
-                                    <div className="p-5 bg-emerald-50 rounded-[1.5rem] border border-emerald-100 text-xs font-black text-emerald-800 font-inter italic-none leading-relaxed shadow-inner uppercase tracking-widest">
+                                    <div className="p-5 bg-emerald-50 rounded-xl border border-emerald-100 text-xs font-bold text-emerald-800 font-inter leading-relaxed shadow-inner uppercase tracking-widest">
                                         {selectedIssue.resolution}
                                     </div>
                                 </div>
@@ -521,24 +513,24 @@ const IssueTrackerPage = () => {
                                     <div className="p-2 bg-blue-50 rounded-xl font-inter border border-blue-100 shadow-sm">
                                         <Activity className="w-4 h-4 text-primary" />
                                     </div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] font-inter">Sequence Audit</p>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] font-inter">Sequence Audit</p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-x-12 gap-y-8 font-inter">
                                     <div className="font-inter">
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Initial Report</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none tracking-widest">{selectedIssue.reported_date}</p>
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Initial Report</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter tracking-widest">{selectedIssue.reported_date}</p>
                                     </div>
                                     <div className="font-inter">
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Reference Hash</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none tracking-widest">ISS-#{selectedIssue.id}</p>
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Reference Hash</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter tracking-widest">ISS-#{selectedIssue.id}</p>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <button 
+                        <button
                             onClick={() => setSelectedIssue(null)}
-                            className="w-full py-5 bg-primary text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.3em] transition-all shadow-2xl active:scale-95 font-inter italic-none mb-2"
+                            className="w-full py-5 bg-primary text-white rounded-xl text-[10px] font-bold uppercase tracking-[0.3em] transition-all shadow-2xl active:scale-95 font-inter mb-2"
                         >
                             Dismiss Analysis
                         </button>
@@ -561,7 +553,7 @@ const IssueTrackerPage = () => {
                             form="issue-form"
                             type="submit"
                             disabled={isSubmitting}
-                            className="flex-[2] py-3 bg-primary text-white rounded-xl font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
+                            className="flex-[2] py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
                         >
                             {isSubmitting ? "Syncing..." : formMode === 'create' ? "Commit Log" : "Push Update"}
                         </button>
@@ -569,10 +561,10 @@ const IssueTrackerPage = () => {
                 }
             >
                 <form id="issue-form" onSubmit={handleSubmit} className="p-6 space-y-8 font-inter">
-                    <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm font-inter">
-                        <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
-                          <Activity className="w-4 h-4 text-primary" />
-                          Issue Intelligence Profile
+                    <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm font-inter">
+                        <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
+                            <Activity className="w-4 h-4 text-primary" />
+                            Issue Intelligence Profile
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
                             <div className="md:col-span-2 font-inter">
@@ -582,7 +574,7 @@ const IssueTrackerPage = () => {
                             <div className="font-inter">
                                 <label className={labelClasses}>Report Sequence (Date) <span className="text-rose-500">*</span></label>
                                 <input name="reported_date" type="date" value={formData.reported_date} onChange={handleInputChange} className={inputClasses(errors.reported_date)} />
-                                {errors.reported_date && <p className="mt-1.5 text-[9px] text-rose-500 font-black uppercase tracking-widest ml-1">{errors.reported_date}</p>}
+                                {errors.reported_date && <p className="mt-1.5 text-[9px] text-rose-500 font-bold uppercase tracking-widest ml-1">{errors.reported_date}</p>}
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Category Domain <span className="text-rose-500">*</span></label>
@@ -591,7 +583,7 @@ const IssueTrackerPage = () => {
                                     <option value="Safety">Safety</option>
                                     <option value="Delay">Delay</option>
                                 </select>
-                                {errors.category && <p className="mt-1.5 text-[9px] text-rose-500 font-black uppercase tracking-widest ml-1">{errors.category}</p>}
+                                {errors.category && <p className="mt-1.5 text-[9px] text-rose-500 font-bold uppercase tracking-widest ml-1">{errors.category}</p>}
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Impact Matrix (Priority) <span className="text-rose-500">*</span></label>
@@ -600,15 +592,15 @@ const IssueTrackerPage = () => {
                                     <option value="Medium">Medium Impact</option>
                                     <option value="High">High Impact</option>
                                 </select>
-                                {errors.priority && <p className="mt-1.5 text-[9px] text-rose-500 font-black uppercase tracking-widest ml-1">{errors.priority}</p>}
+                                {errors.priority && <p className="mt-1.5 text-[9px] text-rose-500 font-bold uppercase tracking-widest ml-1">{errors.priority}</p>}
                             </div>
                         </div>
                     </div>
 
-                    <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm font-inter">
-                        <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
-                          <FileText className="w-4 h-4 text-primary" />
-                          Technical Narrative
+                    <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm font-inter">
+                        <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
+                            <FileText className="w-4 h-4 text-primary" />
+                            Technical Narrative
                         </h3>
                         <div className="font-inter">
                             <label className={labelClasses}>Detailed Observation <span className="text-rose-500">*</span></label>
@@ -617,10 +609,10 @@ const IssueTrackerPage = () => {
                     </div>
 
                     {formMode === 'edit' && (
-                        <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm font-inter">
-                            <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
-                              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                              Remediation Workflow
+                        <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm font-inter">
+                            <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
+                                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                                Remediation Workflow
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
                                 <div className="font-inter">
@@ -630,12 +622,12 @@ const IssueTrackerPage = () => {
                                         <option value="In Progress">In Progress</option>
                                         <option value="Closed">Closed</option>
                                     </select>
-                                    {errors.status && <p className="mt-1.5 text-[9px] text-rose-500 font-black uppercase tracking-widest ml-1">{errors.status}</p>}
+                                    {errors.status && <p className="mt-1.5 text-[9px] text-rose-500 font-bold uppercase tracking-widest ml-1">{errors.status}</p>}
                                 </div>
                                 <div className="font-inter">
                                     <label className={labelClasses}>Remediation summary <span className="text-rose-500">*</span></label>
                                     <input name="resolution" value={formData.resolution} onChange={handleInputChange} placeholder="How was this constraint resolved?" className={inputClasses(errors.resolution)} />
-                                    {errors.resolution && <p className="mt-1.5 text-[9px] text-rose-500 font-black uppercase tracking-widest ml-1">{errors.resolution}</p>}
+                                    {errors.resolution && <p className="mt-1.5 text-[9px] text-rose-500 font-bold uppercase tracking-widest ml-1">{errors.resolution}</p>}
                                 </div>
                             </div>
                         </div>

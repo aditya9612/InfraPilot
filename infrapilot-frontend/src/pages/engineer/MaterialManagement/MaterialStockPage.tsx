@@ -4,8 +4,6 @@ import PageTransition from "../../../components/common/PageTransition";
 import StatCard from "../../../components/common/StatCard";
 import toast from "react-hot-toast";
 import { 
-  FileDown, 
-  Table as TableIcon, 
   Filter,
   History,
   TrendingUp,
@@ -14,9 +12,7 @@ import {
   Layers,
   Search,
   RotateCcw,
-  Package,
-  IndianRupee,
-  Activity
+  Package
 } from "lucide-react";
 import { materialService, type InventoryItem, type MaterialLog, type MaterialReport } from "../../../services/materialService";
 
@@ -145,72 +141,62 @@ const MaterialStockPage = () => {
         {/* ── Header ──────────────────────────────────────────────── */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
           <div className="font-inter">
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter uppercase italic-none">Strategic Stock Registry</h1>
-            <p className="text-slate-500 text-sm font-inter italic-none">Real-time inventory valuation and procurement momentum audit.</p>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Strategic Stock Registry</h1>
+            <p className="text-slate-500 text-sm font-inter">Real-time inventory valuation and procurement momentum audit.</p>
           </div>
           <div className="flex items-center gap-3 font-inter">
             <button
               onClick={handleExportPdf}
               disabled={isExporting}
-              className="flex items-center gap-2 px-6 py-2.5 bg-white border border-rose-200 text-rose-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-50 transition-all active:scale-95 disabled:opacity-50 font-inter shadow-sm"
+              className="flex items-center gap-2 px-5 py-2.5 bg-white text-rose-600 hover:bg-rose-50 disabled:opacity-50 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border border-slate-200 shadow-sm"
             >
-              <FileDown className="w-4 h-4" />
-              Export PDF
+              PDF Report
             </button>
             <button
               onClick={handleExportExcel}
               disabled={isExporting}
-              className="flex items-center gap-2 px-6 py-2.5 bg-white border border-emerald-200 text-emerald-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-50 transition-all active:scale-95 disabled:opacity-50 font-inter shadow-sm"
+              className="flex items-center justify-center px-8 py-3 bg-emerald-50 text-emerald-800 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all border border-emerald-100 shadow-sm hover:bg-emerald-100 active:scale-95 disabled:opacity-50"
             >
-              <TableIcon className="w-4 h-4" />
-              Export Excel
+              {isExporting ? 'Generating...' : 'EXCEL SHEET'}
             </button>
           </div>
         </div>
 
         {/* ── Interactive Stats ───────────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
-          <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary bg-primary/5 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
+          <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
             <StatCard
               title="Inventory Scope"
               value={stats.totalItems.toString()}
               sub="Resource Types"
-              accent="text-slate-800"
-              icon={<Package className={`w-5 h-5 ${activeStatFilter === "All" ? "text-primary scale-110" : "text-slate-400 group-hover:text-primary"} transition-all`} />}
-            />
+              accent="text-slate-800" />
           </div>
           <div className="cursor-default group transition-all rounded-xl hover:scale-[1.01]">
             <StatCard
               title="Valuation"
               value={`₹${(stats.totalValue / 100000).toFixed(1)}L`}
               sub="Gross Stock Value"
-              accent="text-emerald-500"
-              icon={<IndianRupee className="w-5 h-5 text-emerald-500" />}
-            />
+              accent="text-emerald-500" />
           </div>
-          <div onClick={() => setActiveStatFilter("Critical")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Critical" ? "ring-2 ring-rose-500 bg-rose-50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+          <div onClick={() => setActiveStatFilter("Critical")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Critical" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
             <StatCard
               title="Critical Stock"
               value={stats.criticalCount.toString()}
               sub="Refill Required"
-              accent="text-rose-500"
-              icon={<TrendingDown className={`w-5 h-5 ${activeStatFilter === "Critical" ? "text-rose-500 scale-110" : "text-slate-400 group-hover:text-rose-500"} transition-all`} />}
-            />
+              accent="text-rose-500" />
           </div>
-          <div onClick={() => setActiveStatFilter("HighValue")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "HighValue" ? "ring-2 ring-amber-500 bg-amber-50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+          <div onClick={() => setActiveStatFilter("HighValue")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "HighValue" ? "ring-2 ring-amber-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
             <StatCard
               title="Strategic Asset"
               value={stats.highValueCount.toString()}
               sub="High-Value Items"
-              accent="text-amber-500"
-              icon={<Activity className={`w-5 h-5 ${activeStatFilter === "HighValue" ? "text-amber-500 scale-110" : "text-slate-400 group-hover:text-amber-500"} transition-all`} />}
-            />
+              accent="text-amber-500" />
           </div>
         </div>
 
         {/* ── Filter Bar & Card Grid ───────────────────────────────────────────── */}
-        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
-            <div className="p-6 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-slate-50/30 font-inter">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
+            <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
                 <div className="relative flex-1 max-w-md font-inter">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-inter">
                         <Search className="w-4 h-4" />
@@ -220,7 +206,7 @@ const MaterialStockPage = () => {
                         placeholder="Search resource name or identity..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter shadow-inner"
+                        className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter shadow-inner"
                     />
                 </div>
                 {activeStatFilter !== "All" && (
@@ -235,44 +221,40 @@ const MaterialStockPage = () => {
                   {isLoading ? (
                       <div className="col-span-full py-20 text-center font-inter">
                           <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4 font-inter" />
-                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 font-inter">Syncing Inventory Vault...</p>
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing Inventory Vault...</p>
                       </div>
                   ) : filteredInventory.length > 0 ? filteredInventory.map((inv) => (
-                    <div key={inv.material_id} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-500 group font-inter relative overflow-hidden">
-                      <div className="absolute -top-10 -right-10 w-32 h-32 bg-slate-50 rounded-full group-hover:scale-[2] transition-transform duration-1000 opacity-30" />
-                      
-                      <div className="relative z-10 font-inter">
-                          <div className="flex items-center justify-between mb-6 font-inter">
+                    <div key={inv.material_id} className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-500 group font-inter relative overflow-hidden">
+                                <div className="flex items-center justify-between mb-6 font-inter">
                             <div className="p-3.5 bg-slate-50 rounded-2xl text-slate-400 group-hover:text-primary group-hover:bg-primary/10 transition-all font-inter border border-slate-100 shadow-inner">
                               <Box className="w-6 h-6 font-inter" />
                             </div>
-                            <span className="text-[10px] font-black text-slate-400 bg-slate-50 px-3.5 py-1.5 rounded-full uppercase tracking-[0.1em] font-inter border border-slate-100 shadow-sm">ID-#{inv.material_id}</span>
+                            <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-3.5 py-1.5 rounded-full uppercase tracking-[0.1em] font-inter border border-slate-100 shadow-sm">ID-#{inv.material_id}</span>
                           </div>
                           
-                          <h3 className="text-xl font-black text-slate-800 mb-2 font-inter tracking-tight italic-none uppercase leading-tight">{inv.material_name}</h3>
+                          <h3 className="text-xl font-bold text-slate-800 mb-2 font-inter tracking-tight leading-tight">{inv.material_name}</h3>
                           
                           <div className="flex items-baseline gap-2 mb-8 font-inter">
-                            <span className={`text-4xl font-black tracking-tighter font-inter ${inv.remaining_stock < 10 ? 'text-rose-500' : 'text-emerald-500'}`}>{inv.remaining_stock.toLocaleString()}</span>
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-inter">{inv.unit}</span>
+                            <span className={`text-4xl font-bold tracking-tighter font-inter ${inv.remaining_stock < 10 ? 'text-rose-500' : 'text-emerald-500'}`}>{inv.remaining_stock.toLocaleString()}</span>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">{inv.unit}</span>
                           </div>
                           
                           <div className="grid grid-cols-2 gap-6 border-t border-slate-50 pt-6 font-inter">
                             <div className="font-inter">
-                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 font-inter">Strategic Rate</p>
-                                <p className="text-base font-black text-slate-700 font-inter italic-none">₹{inv.avg_rate?.toLocaleString()}</p>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1 font-inter">Strategic Rate</p>
+                                <p className="text-base font-bold text-slate-700 font-inter">₹{inv.avg_rate?.toLocaleString()}</p>
                             </div>
                             <div className="text-right font-inter">
-                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 font-inter">Total Valuation</p>
-                                <p className="text-base font-black text-slate-900 font-inter italic-none uppercase tracking-tight">₹{inv.total_value?.toLocaleString()}</p>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1 font-inter">Total Valuation</p>
+                                <p className="text-base font-bold text-slate-900 font-inter uppercase tracking-tight">₹{inv.total_value?.toLocaleString()}</p>
                             </div>
                           </div>
                       </div>
-                    </div>
                   )) : (
                     <div className="col-span-full py-32 text-center bg-slate-50/50 rounded-[3rem] border-2 border-dashed border-slate-200 font-inter">
                         <Package className="w-16 h-16 text-slate-200 mx-auto mb-6" />
-                        <h3 className="text-xl font-black text-slate-400 tracking-tight italic-none uppercase font-inter">Registry Exhausted</h3>
-                        <p className="text-slate-400 text-sm font-bold uppercase tracking-widest italic-none mt-2 font-inter">No matching resources found in the current intelligence scope.</p>
+                        <h3 className="text-xl font-bold text-slate-400 tracking-tight uppercase font-inter">Registry Exhausted</h3>
+                        <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mt-2 font-inter">No matching resources found in the current intelligence scope.</p>
                     </div>
                   )}
                 </div>
@@ -280,11 +262,11 @@ const MaterialStockPage = () => {
         </div>
 
         {/* ── Financial Material Report ───────────────────────────────────────────── */}
-        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-12 font-inter">
-          <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/30 font-inter">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-12 font-inter">
+          <div className="p-4 border-b border-slate-50 flex items-center justify-between bg-white font-inter">
             <div className="flex items-center gap-3 font-inter">
                 <Layers className="w-5 h-5 text-slate-400 font-inter" />
-                <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest font-inter italic-none">Strategic Financial Matrix</h3>
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest font-inter">Strategic Financial Matrix</h3>
             </div>
           </div>
           <div className="overflow-x-auto font-inter scrollbar-thin scrollbar-thumb-slate-200">
@@ -295,16 +277,15 @@ const MaterialStockPage = () => {
                   <th className="px-6 py-4 font-inter text-center">Procured (Qty)</th>
                   <th className="px-6 py-4 font-inter text-center">Utilized (Qty)</th>
                   <th className="px-6 py-4 font-inter text-center">Residual (Stock)</th>
-                  <th className="px-6 py-4 font-inter text-right">Commitment Value</th>
-                  <th className="px-6 py-4 font-inter text-right text-rose-500">Unsettled Dues</th>
+                  <th className="px-6 py-4 font-inter text-right">Total Cost</th>
+                  <th className="px-6 py-4 font-inter text-right">Pending Pay</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 font-inter">
-                {report.length > 0 ? (
-                  report.map((rep) => (
+                {report.length > 0 ? report.map((rep) => (
                     <tr key={rep.material_id} className="hover:bg-slate-50/50 transition-colors font-inter group">
                       <td className="px-6 py-4 font-inter">
-                        <span className="text-sm font-black text-slate-800 font-inter italic-none uppercase tracking-tight">{rep.material_name}</span>
+                        <span className="text-sm font-bold text-slate-800 font-inter tracking-tight">{rep.material_name}</span>
                       </td>
                       <td className="px-6 py-4 text-center font-inter">
                         <span className="text-xs font-bold text-slate-600 font-inter tabular-nums">{rep.total_purchased.toLocaleString()}</span>
@@ -313,21 +294,20 @@ const MaterialStockPage = () => {
                         <span className="text-xs font-bold text-slate-600 font-inter tabular-nums">{rep.total_used.toLocaleString()}</span>
                       </td>
                       <td className="px-6 py-4 text-center font-inter">
-                        <span className={`text-sm font-black font-inter tabular-nums ${rep.remaining_stock < 10 ? 'text-rose-500' : 'text-emerald-600'}`}>
+                        <span className={`text-sm font-bold font-inter tabular-nums ${rep.remaining_stock < 10 ? 'text-rose-500' : 'text-emerald-600'}`}>
                           {rep.remaining_stock.toLocaleString()}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right font-inter">
-                        <span className="text-sm font-black text-slate-900 font-inter tabular-nums italic-none">₹{rep.total_cost?.toLocaleString()}</span>
+                        <span className="text-sm font-bold text-slate-900 font-inter tabular-nums">₹{rep.total_cost?.toLocaleString()}</span>
                       </td>
                       <td className="px-6 py-4 text-right font-inter">
-                        <span className="text-sm font-black text-rose-500 font-inter tabular-nums italic-none">₹{rep.payment_pending?.toLocaleString()}</span>
+                        <span className="text-sm font-bold text-rose-500 font-inter tabular-nums">₹{rep.payment_pending?.toLocaleString()}</span>
                       </td>
                     </tr>
-                  ))
-                ) : (
+                  )) : (
                   <tr>
-                    <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-black uppercase tracking-widest text-[10px] font-inter italic-none">Strategic ledger is currently empty.</td>
+                    <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">Strategic ledger is currently empty.</td>
                   </tr>
                 )}
               </tbody>
@@ -336,18 +316,18 @@ const MaterialStockPage = () => {
         </div>
 
         {/* ── Transaction History ───────────────────────────────────────────── */}
-        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden font-inter">
-          <div className="p-6 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/30 font-inter">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden font-inter">
+          <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white font-inter">
             <div className="flex items-center gap-3 font-inter">
                 <History className="w-5 h-5 text-slate-400 font-inter" />
-                <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest font-inter italic-none">Historical Audit Ledger</h3>
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest font-inter">Historical Audit Ledger</h3>
             </div>
-            <div className="flex items-center gap-3 px-5 py-2.5 bg-white border border-slate-200 rounded-2xl font-inter shadow-sm">
+            <div className="flex items-center gap-3 px-5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-inter shadow-sm">
                 <Filter className="w-4 h-4 text-slate-400 font-inter" />
                 <select 
                     value={logFilter}
                     onChange={(e) => setLogFilter(e.target.value)}
-                    className="text-[10px] font-black text-slate-600 focus:outline-none uppercase tracking-[0.2em] cursor-pointer font-inter"
+                    className="text-[10px] font-bold text-slate-600 focus:outline-none uppercase tracking-[0.2em] cursor-pointer font-inter"
                 >
                     <option value="All">All Operations</option>
                     <option value="PURCHASE">Procurement</option>
@@ -371,32 +351,32 @@ const MaterialStockPage = () => {
                 {logs.length > 0 ? (
                   logs.map((log) => (
                     <tr key={log.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
-                      <td className="px-6 py-4 text-xs font-bold text-slate-500 font-inter italic-none">{new Date(log.created_at).toLocaleDateString('en-GB')}</td>
+                      <td className="px-6 py-4 text-xs font-bold text-slate-500 font-inter">{new Date(log.created_at).toLocaleDateString('en-GB')}</td>
                       <td className="px-6 py-4 font-inter">
                         <div className="flex items-center gap-3 font-inter">
-                            <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest font-inter border shadow-sm ${logBadge(log.type)}`}>
+                            <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest font-inter border shadow-sm ${logBadge(log.type)}`}>
                                 {log.type}
                             </span>
                             {log.type === "PURCHASE" ? <TrendingUp className="w-3.5 h-3.5 text-emerald-500 font-inter" /> : <TrendingDown className="w-3.5 h-3.5 text-orange-500 font-inter" />}
                         </div>
                       </td>
                       <td className="px-6 py-4 text-center font-inter">
-                        <span className={`text-sm font-black font-inter tabular-nums ${log.type === 'PURCHASE' ? 'text-emerald-600' : 'text-rose-500'}`}>
+                        <span className={`text-sm font-bold font-inter tabular-nums ${log.type === 'PURCHASE' ? 'text-emerald-600' : 'text-rose-500'}`}>
                           {log.type === 'PURCHASE' ? '+' : '-'}{log.quantity.toLocaleString()}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right text-xs font-bold text-slate-500 font-inter tabular-nums">₹{log.rate.toLocaleString()}</td>
                       <td className="px-6 py-4 text-right font-inter">
-                        <span className="text-sm font-black text-slate-800 font-inter tabular-nums italic-none">₹{log.total_amount?.toLocaleString()}</span>
+                        <span className="text-sm font-bold text-slate-800 font-inter tabular-nums">₹{log.total_amount?.toLocaleString()}</span>
                       </td>
                       <td className="px-6 py-4 text-right font-inter">
-                        <span className="text-sm font-black text-emerald-600 font-inter tabular-nums italic-none">₹{log.amount_paid?.toLocaleString()}</span>
+                        <span className="text-sm font-bold text-emerald-600 font-inter tabular-nums">₹{log.amount_paid?.toLocaleString()}</span>
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-black uppercase tracking-widest text-[10px] font-inter italic-none">Audit history exhausted for the selected scope.</td>
+                    <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">Audit history exhausted for the selected scope.</td>
                   </tr>
                 )}
               </tbody>

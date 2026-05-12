@@ -4,13 +4,10 @@ import PageTransition from '../../../components/common/PageTransition';
 import StatCard from '../../../components/common/StatCard';
 import { 
     FileText, 
-    FileSpreadsheet, 
     TrendingUp, 
     Filter,
-    ArrowUpRight,
     Download,
-    RotateCcw,
-    Activity
+    RotateCcw
 } from "lucide-react";
 import { paymentService } from '../../../services/paymentService';
 import { labourService } from '../../../services/labourService';
@@ -153,14 +150,14 @@ const PayrollReportPage: React.FC = () => {
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight italic-none">Fiscal Payroll Analysis</h1>
-                        <p className="text-slate-500 text-sm italic-none">Historical man-power costing and wage distribution trends.</p>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Fiscal Payroll Analysis</h1>
+                        <p className="text-slate-500 text-sm">Historical man-power costing and wage distribution trends.</p>
                     </div>
                     <div className="flex gap-3">
                         <button 
                             onClick={handleExportPDF}
                             disabled={isExportingPDF}
-                            className="flex items-center justify-center gap-2 px-6 py-3 bg-rose-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-600/20 hover:bg-rose-700 transition-all active:scale-95 disabled:opacity-50"
+                            className="flex items-center justify-center gap-2 px-6 py-3 bg-white text-rose-600 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border border-slate-200 shadow-sm hover:bg-rose-50 active:scale-95 disabled:opacity-50"
                         >
                             {isExportingPDF ? <TrendingUp className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
                             {isExportingPDF ? 'Generating PDF...' : 'Export PDF'}
@@ -168,64 +165,55 @@ const PayrollReportPage: React.FC = () => {
                         <button 
                             onClick={handleExportExcel}
                             disabled={isExportingExcel}
-                            className="flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 transition-all active:scale-95 disabled:opacity-50"
+                            className="flex items-center justify-center px-8 py-3 bg-emerald-50 text-emerald-800 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all border border-emerald-100 shadow-sm hover:bg-emerald-100 active:scale-95 disabled:opacity-50"
                         >
-                            {isExportingExcel ? <TrendingUp className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}
-                            {isExportingExcel ? 'Exporting Excel...' : 'Export to Excel'}
+                            {isExportingExcel ? 'Generating...' : 'EXCEL SHEET'}
                         </button>
                     </div>
                 </div>
 
                 {/* ── Summary Stats with Interactive Filtering ───────────────────────────── */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary bg-primary/5 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Total Payout"
                             value="₹2.63L"
                             sub="All Wage Items"
-                            accent="text-slate-800"
-                            icon={<FileText className={`w-5 h-5 ${activeStatFilter === "All" ? "text-primary scale-110" : "text-slate-400 group-hover:text-primary"} transition-all`} />}
-                        />
+                            accent="text-slate-800" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("High")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "High" ? "ring-2 ring-emerald-500 bg-emerald-50/50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div onClick={() => setActiveStatFilter("High")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "High" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="High Payouts"
                             value="12"
                             sub="Above ₹5k Threshold"
-                            accent="text-emerald-500"
-                            icon={<TrendingUp className={`w-5 h-5 ${activeStatFilter === "High" ? "text-emerald-500 scale-110" : "text-slate-400 group-hover:text-emerald-500"} transition-all`} />}
-                        />
+                            accent="text-emerald-500" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("OT")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "OT" ? "ring-2 ring-amber-500 bg-amber-50/50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div onClick={() => setActiveStatFilter("OT")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "OT" ? "ring-2 ring-amber-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="OT Intensive"
                             value="8"
                             sub="Shifts with Overtime"
-                            accent="text-amber-500"
-                            icon={<Activity className={`w-5 h-5 ${activeStatFilter === "OT" ? "text-amber-500 scale-110" : "text-slate-400 group-hover:text-amber-500"} transition-all`} />}
-                        />
+                            accent="text-amber-500" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("Summary")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Summary" ? "ring-2 ring-rose-500 bg-rose-50/50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div onClick={() => setActiveStatFilter("Summary")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Summary" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Advance Adjusted"
                             value="₹12.4k"
                             sub="Recovery Target"
-                            accent="text-rose-500"
-                            icon={<ArrowUpRight className={`w-5 h-5 ${activeStatFilter === "Summary" ? "text-rose-500 scale-110" : "text-slate-400 group-hover:text-rose-500"} transition-all`} />}
-                        />
+                            accent="text-rose-500" />
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
                     {/* Chart Card */}
-                    <div className="lg:col-span-3 bg-primary rounded-[2.5rem] p-8 shadow-xl relative overflow-hidden">
+                    <div className="lg:col-span-3 bg-primary rounded-2xl p-8 shadow-xl relative overflow-hidden">
                         <div className="relative z-10 h-full flex flex-col">
                             <div className="flex justify-between items-start mb-8">
                                 <div>
-                                    <h3 className="text-lg font-bold text-white italic-none uppercase tracking-tight">Payroll Momentum</h3>
+                                    <h3 className="text-lg font-bold text-white uppercase tracking-tight">Payroll Momentum</h3>
                                     <p className="text-white/70 text-xs font-bold">Monthly wage expenditure trend analysis.</p>
                                 </div>
-                                <span className="px-3 py-1 bg-white/20 text-white text-[10px] font-black uppercase tracking-widest rounded-lg">
+                                <span className="px-3 py-1 bg-white/20 text-white text-[10px] font-bold uppercase tracking-widest rounded-lg">
                                     +12.4% vs Mar
                                 </span>
                             </div>
@@ -253,8 +241,8 @@ const PayrollReportPage: React.FC = () => {
                 </div>
 
                 {/* ── Report Container ───────────────────────────────────────────── */}
-                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
-                    <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
+                    <div className="p-4 border-b border-slate-50 flex items-center justify-between bg-white">
                         <div className="flex gap-2">
                             {[
                                 { id: 'daily', label: 'Daily Analysis' },
@@ -264,7 +252,7 @@ const PayrollReportPage: React.FC = () => {
                                 <button
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id as any)}
-                                    className={`px-6 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === tab.id ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-white text-slate-400 border border-slate-100 hover:bg-slate-50'}`}
+                                    className={`px-6 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === tab.id ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-slate-50 text-slate-400 border border-slate-200 hover:bg-slate-100'}`}
                                 >
                                     {tab.label}
                                 </button>
@@ -278,7 +266,7 @@ const PayrollReportPage: React.FC = () => {
                         {activeStatFilter !== "All" && (
                             <button onClick={() => setActiveStatFilter("All")} className="px-4 py-2 text-slate-400 hover:text-rose-500 transition-colors flex items-center gap-2">
                                 <RotateCcw className="w-4 h-4" />
-                                <span className="text-[10px] font-black uppercase tracking-widest">Clear Stat Filter</span>
+                                <span className="text-[10px] font-bold uppercase tracking-widest">Clear Stat Filter</span>
                             </button>
                         )}
                     </div>
@@ -287,7 +275,7 @@ const PayrollReportPage: React.FC = () => {
                         {isLoading ? (
                             <div className="p-20 text-center text-slate-400 font-inter">
                                 <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
-                                <p className="text-[10px] font-black uppercase tracking-widest">Generating reports...</p>
+                                <p className="text-[10px] font-bold uppercase tracking-widest">Generating reports...</p>
                             </div>
                         ) : (
                             <table className="w-full text-left min-w-[1000px]">

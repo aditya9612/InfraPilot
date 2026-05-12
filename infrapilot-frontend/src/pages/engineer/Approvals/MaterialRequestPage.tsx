@@ -5,9 +5,6 @@ import StatCard from "../../../components/common/StatCard";
 import Modal from "../../../components/common/Modal";
 import toast from "react-hot-toast";
 import {
-    Package,
-    CheckCircle2,
-    Clock,
     TrendingUp,
     Search,
     Plus,
@@ -18,7 +15,6 @@ import {
     RotateCcw,
     FileText,
     User,
-    ArrowRight,
     Box
 } from "lucide-react";
 import { siteRequestService } from "../../../services/siteRequestService";
@@ -198,7 +194,7 @@ const MaterialRequestPage = () => {
         fulfillment: Math.round((requestData.filter(r => r.status === "Approved").length / (requestData.length || 1)) * 100)
     };
 
-    const labelClasses = "block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
+    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
     const inputClasses = (error?: string) => `
         w-full px-4 py-2.5 bg-slate-50 border 
         ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
@@ -221,8 +217,8 @@ const MaterialRequestPage = () => {
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
                     <div className="font-inter">
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight italic-none font-inter">Procurement Requisition Ledger</h1>
-                        <p className="text-slate-500 text-sm italic-none font-inter">Formal procurement requests for structural and consumable site resources.</p>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Procurement Requisition Ledger</h1>
+                        <p className="text-slate-500 text-sm font-inter">Formal procurement requests for structural and consumable site resources.</p>
                     </div>
                     <button
                         onClick={() => {
@@ -246,48 +242,41 @@ const MaterialRequestPage = () => {
                 </div>
 
                 {/* ── Interactive Stats ───────────────────────────── */}
+                {/* ── Scrollable Content Area ────────────────────────── */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
-                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-slate-800 bg-slate-100 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                       <StatCard
                           title="Total Logs"
                           value={stats.total.toString()}
                           sub="All Requests"
-                          accent="text-slate-800"
-                          icon={<Package className={`w-5 h-5 ${activeStatFilter === "All" ? "text-slate-800 scale-110" : "text-slate-400 group-hover:text-slate-800"} transition-all`} />}
-                      />
+                          accent="text-slate-800" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("Approved")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Approved" ? "ring-2 ring-emerald-500 bg-emerald-50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div onClick={() => setActiveStatFilter("Approved")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Approved" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                       <StatCard
                           title="Approved"
                           value={stats.approved.toString()}
                           sub="Released for Site"
-                          accent="text-emerald-500"
-                          icon={<CheckCircle2 className={`w-5 h-5 ${activeStatFilter === "Approved" ? "text-emerald-500 scale-110" : "text-slate-400 group-hover:text-emerald-500"} transition-all`} />}
-                      />
+                          accent="text-emerald-500" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("Pending")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Pending" ? "ring-2 ring-amber-500 bg-amber-50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div onClick={() => setActiveStatFilter("Pending")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Pending" ? "ring-2 ring-amber-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                       <StatCard
                           title="Pending Review"
                           value={stats.pending.toString()}
                           sub="PM Validation"
-                          accent="text-amber-500"
-                          icon={<Clock className={`w-5 h-5 ${activeStatFilter === "Pending" ? "text-amber-500 scale-110" : "text-slate-400 group-hover:text-amber-500"} transition-all`} />}
-                      />
+                          accent="text-amber-500" />
                     </div>
                     <div className="cursor-default group transition-all rounded-xl hover:scale-[1.01]">
                       <StatCard
                           title="Fulfillment"
                           value={`${stats.fulfillment}%`}
                           sub="Procurement Yield"
-                          accent="text-blue-500"
-                          icon={<TrendingUp className="w-5 h-5 text-blue-500" />}
-                      />
+                          accent="text-blue-500" />
                     </div>
                 </div>
 
                 {/* ── Registry Container ───────────────────────────────────────────── */}
-                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
-                    <div className="p-6 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-slate-50/30 font-inter">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
+                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
                         <div className="relative flex-1 max-w-md font-inter">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                                 <Search className="w-4 h-4" />
@@ -297,7 +286,7 @@ const MaterialRequestPage = () => {
                                 placeholder="Search by material type or requisition ID..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
+                                className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
                             />
                         </div>
                         {activeStatFilter !== "All" && (
@@ -324,7 +313,7 @@ const MaterialRequestPage = () => {
                                         <td colSpan={5} className="px-6 py-20 text-center font-inter">
                                             <div className="flex flex-col items-center gap-3 font-inter">
                                                 <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 font-inter">Syncing requisition intelligence...</p>
+                                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing requisition intelligence...</p>
                                             </div>
                                         </td>
                                     </tr>
@@ -333,25 +322,25 @@ const MaterialRequestPage = () => {
                                         <tr key={request.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                             <td className="px-6 py-4 font-inter">
                                                 <div className="flex flex-col font-inter">
-                                                    <span className="text-sm font-bold text-slate-800 font-inter italic-none">{request.request_type}</span>
-                                                    <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest font-inter">REQ-#{request.id}</span>
+                                                    <span className="text-sm font-bold text-slate-800 font-inter">{request.request_type}</span>
+                                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">REQ-#{request.id}</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 font-inter">
-                                                <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border font-inter ${getStatusStyle(request.status)}`}>
+                                                <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border font-inter ${getStatusStyle(request.status)}`}>
                                                     {request.status}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 font-inter">
                                                 <div className="flex items-center gap-2 font-inter">
                                                   <Box className="w-3.5 h-3.5 text-blue-500" />
-                                                  <span className="text-sm font-black text-blue-600 font-inter italic-none">{request.quantity} Units</span>
+                                                  <span className="text-sm font-bold text-blue-600 font-inter">{request.quantity} Units</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 font-inter">
                                                 <div className="flex items-center gap-2 font-inter">
                                                   <User className="w-3.5 h-3.5 text-slate-400" />
-                                                  <span className="text-xs font-black text-slate-500 uppercase tracking-widest font-inter italic-none">User #{request.requested_by || "SYST"}</span>
+                                                  <span className="text-xs font-bold text-slate-500 uppercase tracking-widest font-inter">User #{request.requested_by || "SYST"}</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-right font-inter">
@@ -391,7 +380,7 @@ const MaterialRequestPage = () => {
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={5} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter italic-none">
+                                        <td colSpan={5} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
                                             No procurement requisitions discovered in the project vault.
                                         </td>
                                     </tr>
@@ -410,20 +399,20 @@ const MaterialRequestPage = () => {
                 maxWidth="max-w-xl"
             >
                 {selectedRequest && (
-                    <div className="p-6 font-inter italic-none">
-                        <div className={`rounded-[2.5rem] p-10 mb-8 text-white shadow-2xl relative overflow-hidden font-inter ${selectedRequest.status === 'Approved' ? 'bg-emerald-600' : selectedRequest.status === 'Pending' ? 'bg-amber-600' : 'bg-rose-600'}`}>
+                    <div className="p-6 font-inter">
+                        <div className={`rounded-2xl p-10 mb-8 text-white shadow-2xl relative overflow-hidden font-inter ${selectedRequest.status === 'Approved' ? 'bg-emerald-600' : selectedRequest.status === 'Pending' ? 'bg-amber-600' : 'bg-rose-600'}`}>
                             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl" />
                             <div className="relative z-10 font-inter">
-                                <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60 mb-3 font-inter">Procurement Artifact Record</p>
-                                <h3 className="text-2xl font-black tracking-tight leading-tight mb-8 font-inter italic-none">{selectedRequest.request_type}</h3>
+                                <p className="text-[10px] font-bold uppercase tracking-[0.3em] opacity-60 mb-3 font-inter">Procurement Artifact Record</p>
+                                <h3 className="text-2xl font-bold tracking-tight leading-tight mb-8 font-inter">{selectedRequest.request_type}</h3>
                                 <div className="grid grid-cols-2 gap-6 font-inter">
-                                    <div className="bg-white/15 backdrop-blur-xl rounded-[1.5rem] p-5 border border-white/10 font-inter">
-                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1.5 font-inter">Operational Status</p>
-                                        <p className="text-xl font-black font-inter italic-none tracking-widest">{selectedRequest.status.toUpperCase()}</p>
+                                    <div className="bg-white/15 backdrop-blur-xl rounded-2xl p-5 border border-white/10 font-inter">
+                                        <p className="text-[9px] font-bold uppercase tracking-widest opacity-60 mb-1.5 font-inter">Operational Status</p>
+                                        <p className="text-xl font-bold font-inter tracking-widest">{selectedRequest.status.toUpperCase()}</p>
                                     </div>
-                                    <div className="bg-white/15 backdrop-blur-xl rounded-[1.5rem] p-5 border border-white/10 font-inter">
-                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1.5 font-inter">Quantum Required</p>
-                                        <p className="text-xl font-black font-inter italic-none">{selectedRequest.quantity} UNITS</p>
+                                    <div className="bg-white/15 backdrop-blur-xl rounded-2xl p-5 border border-white/10 font-inter">
+                                        <p className="text-[9px] font-bold uppercase tracking-widest opacity-60 mb-1.5 font-inter">Quantum Required</p>
+                                        <p className="text-xl font-bold font-inter">{selectedRequest.quantity} UNITS</p>
                                     </div>
                                 </div>
                             </div>
@@ -432,25 +421,25 @@ const MaterialRequestPage = () => {
                         <div className="space-y-8 px-2 mb-10 font-inter">
                             <div className="font-inter">
                                 <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-3')}>Requirement Narrative</p>
-                                <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 text-[13px] font-black text-slate-600 leading-relaxed font-inter italic-none uppercase tracking-tight shadow-inner">
+                                <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 text-[13px] font-bold text-slate-600 leading-relaxed font-inter uppercase tracking-tight shadow-inner">
                                     "{selectedRequest.description}"
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-8 font-inter">
                                 <div className="font-inter">
                                     <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-1.5')}>Originating Engineer</p>
-                                    <p className="text-sm font-black text-slate-800 font-inter italic-none uppercase tracking-widest">User #{selectedRequest.requested_by || "SYST"}</p>
+                                    <p className="text-sm font-bold text-slate-800 font-inter uppercase tracking-widest">User #{selectedRequest.requested_by || "SYST"}</p>
                                 </div>
                                 <div className="font-inter">
                                     <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-1.5')}>Approving Authority</p>
-                                    <p className="text-sm font-black text-blue-600 font-inter italic-none uppercase tracking-widest">{selectedRequest.approved_by ? `User ${selectedRequest.approved_by}` : "Pending Review"}</p>
+                                    <p className="text-sm font-bold text-blue-600 font-inter uppercase tracking-widest">{selectedRequest.approved_by ? `User ${selectedRequest.approved_by}` : "Pending Review"}</p>
                                 </div>
                             </div>
                         </div>
 
                         <button
                             onClick={() => setSelectedRequest(null)}
-                            className={`w-full py-5 text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.4em] transition-all shadow-2xl active:scale-95 font-inter italic-none mb-2 ${selectedRequest.status === 'Approved' ? 'bg-emerald-600 shadow-emerald-600/30 hover:bg-emerald-700' :
+                            className={`w-full py-5 text-white rounded-xl text-[10px] font-bold uppercase tracking-[0.4em] transition-all shadow-2xl active:scale-95 font-inter mb-2 ${selectedRequest.status === 'Approved' ? 'bg-emerald-600 shadow-emerald-600/30 hover:bg-emerald-700' :
                                     selectedRequest.status === 'Pending' ? 'bg-amber-600 shadow-amber-600/30 hover:bg-amber-700' :
                                         'bg-rose-600 shadow-rose-600/30 hover:bg-rose-700'
                                 }`}
@@ -473,7 +462,7 @@ const MaterialRequestPage = () => {
                       <button 
                           onClick={handleSubmit}
                           disabled={isSubmitting}
-                          className="flex-[2] py-3 bg-primary text-white rounded-xl font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
+                          className="flex-[2] py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
                       >
                           {isSubmitting ? "Syncing..." : "Commit Requisition"}
                       </button>
@@ -481,7 +470,7 @@ const MaterialRequestPage = () => {
                 }
             >
                 <form id="request-form" onSubmit={handleSubmit} className="p-6 space-y-8 font-inter">
-                    <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm font-inter">
+                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
                         <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
                           <Box className="w-4 h-4 text-primary" />
                           Requisition Core Identity
@@ -516,7 +505,7 @@ const MaterialRequestPage = () => {
                         </div>
                     </div>
 
-                    <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm font-inter">
+                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
                         <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
                           <FileText className="w-4 h-4 text-primary" />
                           Technical Specifications Narrative
@@ -535,7 +524,7 @@ const MaterialRequestPage = () => {
                         </div>
                     </div>
 
-                    <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm font-inter">
+                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
                         <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
                           <TrendingUp className="w-4 h-4 text-primary" />
                           Supply Chain Authorization
@@ -543,7 +532,7 @@ const MaterialRequestPage = () => {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-inter">
                             <div className="font-inter">
                                 <label className={labelClasses}>Requesting Engineer</label>
-                                <input name="requestedBy" value={formData.requestedBy} readOnly className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black text-slate-400 uppercase tracking-widest font-inter" />
+                                <input name="requestedBy" value={formData.requestedBy} readOnly className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-400 uppercase tracking-widest font-inter" />
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Authority Designation <span className="text-rose-500">*</span></label>

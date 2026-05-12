@@ -241,7 +241,7 @@ const LaborDetailsPage = () => {
         <>
             <Navbar title="Personnel Registry" breadcrumb={["Engineer", "Workforce", "Detail Directory"]} />
 
-            <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
+            <PageTransition className="p-6 bg-slate-50 min-h-screen overflow-hidden font-inter flex flex-col">
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
@@ -259,28 +259,28 @@ const LaborDetailsPage = () => {
 
                 {/* ── Summary Stats ───────────────────────────── */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer transition-all ${activeStatFilter === "All" ? "ring-2 ring-slate-800 rounded-xl bg-white shadow-lg scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard title="Personnel Database" value={stats.total.toString()} sub="Total Records" accent="text-slate-800" icon={<Users className={`w-5 h-5 ${activeStatFilter === "All" ? "text-slate-800" : "text-slate-400"}`} />} />
+                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard title="Personnel Database" value={stats.total.toString()} sub="Total Records" accent="text-slate-800" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("Active")} className={`cursor-pointer transition-all ${activeStatFilter === "Active" ? "ring-2 ring-blue-500 rounded-xl bg-blue-50 shadow-lg scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard title="Active Assets" value={stats.active.toString()} sub="Currently Deployed" accent="text-blue-500" icon={<UserCheck className={`w-5 h-5 ${activeStatFilter === "Active" ? "text-blue-500" : "text-slate-400"}`} />} />
+                    <div onClick={() => setActiveStatFilter("Active")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Active" ? "ring-2 ring-blue-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard title="Active Assets" value={stats.active.toString()} sub="Currently Deployed" accent="text-blue-500" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("Skilled")} className={`cursor-pointer transition-all ${activeStatFilter === "Skilled" ? "ring-2 ring-emerald-500 rounded-xl bg-emerald-50 shadow-lg scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard title="Technical Skill" value={stats.skilled.toString()} sub="Skilled Laborers" accent="text-emerald-500" icon={<ShieldCheck className={`w-5 h-5 ${activeStatFilter === "Skilled" ? "text-emerald-500" : "text-slate-400"}`} />} />
+                    <div onClick={() => setActiveStatFilter("Skilled")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Skilled" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard title="Technical Skill" value={stats.skilled.toString()} sub="Skilled Laborers" accent="text-emerald-500" />
                     </div>
-                    <StatCard title="Database Integrity" value="99.4%" sub="System Health" accent="text-indigo-500" icon={<Activity className="w-5 h-5" />} />
+                    <StatCard title="Database Integrity" value="99.4%" sub="System Health" accent="text-indigo-500" />
                 </div>
 
                 {/* ── Main Container ───────────────────────────────────────────── */}
-                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
-                    <div className="p-6 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-slate-50/30 font-inter">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
+                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
                         <div className="relative flex-1 max-w-md font-inter">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
-                            <input type="text" placeholder="Search by name, ID or Aadhaar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter" />
+                            <input type="text" placeholder="Search by name, ID or Aadhaar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter" />
                         </div>
                         <div className="flex items-center gap-2 font-inter">
                             <Filter className="w-4 h-4 text-slate-400" />
-                            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none cursor-pointer font-inter">
+                            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none cursor-pointer font-inter uppercase tracking-widest">
                                 <option value="All">All Status</option>
                                 <option value="Active">Active</option>
                                 <option value="Inactive">Inactive</option>
@@ -292,7 +292,7 @@ const LaborDetailsPage = () => {
                         {isLoading ? (
                             <div className="p-20 text-center text-slate-400 font-inter">
                                 <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
-                                <p className="text-[10px] font-black uppercase tracking-widest">Parsing Personnel Records...</p>
+                                <p className="text-[10px] font-bold uppercase tracking-widest">Parsing Personnel Records...</p>
                             </div>
                         ) : (
                             <table className="w-full text-left font-inter">
@@ -313,7 +313,7 @@ const LaborDetailsPage = () => {
                                     {filteredLaborers.map((labor) => (
                                         <tr key={labor.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                             <td className="px-6 py-4">
-                                                <span className="text-[10px] font-black text-primary uppercase tracking-widest bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100 font-inter">
+                                                <span className="text-[10px] font-bold text-primary uppercase tracking-widest bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100 font-inter">
                                                     {labor.worker_code}
                                                 </span>
                                             </td>
@@ -324,16 +324,16 @@ const LaborDetailsPage = () => {
                                                 <span className="text-xs font-bold text-slate-500 font-inter">{labor.aadhaar_number}</span>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className="text-xs font-black text-slate-700 font-inter uppercase tracking-tight">{labor.skill_type}</span>
+                                                <span className="text-xs font-bold text-slate-700 font-inter uppercase tracking-tight">{labor.skill_type}</span>
                                             </td>
                                             <td className="px-6 py-4 text-center">
-                                                <span className="text-sm font-black text-slate-800 tabular-nums font-inter italic-none">₹{labor.daily_wage_rate}</span>
+                                                <span className="text-sm font-bold text-slate-800 tabular-nums font-inter">₹{labor.daily_wage_rate}</span>
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <span className="text-xs font-bold text-slate-500 font-inter">{labor.contractor_id}</span>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest font-inter ${labor.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest font-inter ${labor.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
                                                     {labor.status}
                                                 </span>
                                             </td>
@@ -375,20 +375,20 @@ const LaborDetailsPage = () => {
                 title={formMode === 'create' ? 'Register New Personnel' : 'Update Personnel Profile'} 
                 maxWidth="max-w-4xl"
                 footer={
-                    <>
-                        <button onClick={() => setIsFormModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">
+                    <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
+                        <button onClick={() => setIsFormModalOpen(false)} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter">
                             Cancel
                         </button>
                         <button
                             form="personnel-form"
                             type="submit"
                             disabled={isSubmitting}
-                            className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                            className="flex-[2] py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 font-inter"
                         >
                             {isSubmitting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                             {formMode === 'create' ? 'Confirm Registration' : 'Update Profile'}
                         </button>
-                    </>
+                    </div>
                 }
             >
                 <form id="personnel-form" onSubmit={handleSubmit} className="space-y-6">
@@ -454,23 +454,23 @@ const LaborDetailsPage = () => {
                 {selectedLaborer && (
                     <div className="p-6 font-inter text-inter italic-none">
                         {/* ── Profile Style Header ────────────────── */}
-                        <div className="bg-primary rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter">
+                        <div className="bg-primary rounded-2xl p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter">
                             <div className="relative z-10 flex items-center gap-6 font-inter">
-                                <div className="w-24 h-24 bg-blue-400/30 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/20 relative font-inter">
-                                    <span className="text-4xl font-black font-inter">{selectedLaborer.labour_name.charAt(0)}</span>
+                                <div className="w-24 h-24 bg-blue-400/30 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 relative font-inter">
+                                    <span className="text-4xl font-bold font-inter">{selectedLaborer.labour_name.charAt(0)}</span>
                                     <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-4 border-primary rounded-full animate-pulse" />
                                 </div>
                                 <div className="font-inter">
                                     <div className="flex items-center gap-3 mb-2 font-inter">
-                                        <h3 className="text-2xl font-black tracking-tight font-inter">{selectedLaborer.labour_name}</h3>
-                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-black uppercase tracking-widest font-inter">{selectedLaborer.skill_type}</span>
+                                        <h3 className="text-2xl font-bold tracking-tight font-inter">{selectedLaborer.labour_name}</h3>
+                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest font-inter">{selectedLaborer.skill_type}</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
                                         <Mail className="w-3 h-3" />
-                                        <span className="text-[11px] font-bold font-inter italic-none">worker.{selectedLaborer.worker_code.toLowerCase()}@infrapilot.com</span>
+                                        <span className="text-[11px] font-bold font-inter">worker.{selectedLaborer.worker_code.toLowerCase()}@infrapilot.com</span>
                                     </div>
                                     <div className="px-3 py-1 bg-white/20 rounded-full inline-block font-inter">
-                                        <span className="text-[10px] font-black uppercase tracking-widest font-inter">DAILY WAGE: ₹{selectedLaborer.daily_wage_rate}</span>
+                                        <span className="text-[10px] font-bold uppercase tracking-widest font-inter">DAILY WAGE: ₹{selectedLaborer.daily_wage_rate}</span>
                                     </div>
                                 </div>
                             </div>
@@ -483,7 +483,7 @@ const LaborDetailsPage = () => {
                                     <div className="p-2 bg-blue-50 rounded-lg font-inter">
                                         <Briefcase className="w-4 h-4 text-primary" />
                                     </div>
-                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Professional Information</p>
+                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] font-inter">Professional Information</p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
                                     <div className="font-inter">
@@ -511,7 +511,7 @@ const LaborDetailsPage = () => {
                                     <div className="p-2 bg-blue-50 rounded-lg font-inter">
                                         <Phone className="w-4 h-4 text-primary" />
                                     </div>
-                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Audit Trail & Logistics</p>
+                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] font-inter">Audit Trail & Logistics</p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
                                     <div className="font-inter">
@@ -531,7 +531,7 @@ const LaborDetailsPage = () => {
                                     <div className="p-2 bg-blue-50 rounded-lg font-inter">
                                         <FileText className="w-4 h-4 text-primary" />
                                     </div>
-                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Deployment Status</p>
+                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] font-inter">Deployment Status</p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
                                     <div className="font-inter">
@@ -548,7 +548,7 @@ const LaborDetailsPage = () => {
 
                         <button 
                             onClick={() => setIsDetailModalOpen(false)}
-                            className="w-full py-5 bg-primary text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] hover:bg-blue-600 transition-all shadow-xl shadow-primary/20 active:scale-95 font-inter italic-none"
+                            className="w-full py-5 bg-primary text-white rounded-xl text-[11px] font-bold uppercase tracking-[0.2em] hover:bg-blue-600 transition-all shadow-xl shadow-primary/20 active:scale-95 font-inter mb-2"
                         >
                             Dismiss Profile Insight
                         </button>

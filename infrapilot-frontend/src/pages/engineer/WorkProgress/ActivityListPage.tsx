@@ -4,16 +4,12 @@ import PageTransition from "../../../components/common/PageTransition";
 import StatCard from "../../../components/common/StatCard";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
-import { 
-  Plus, 
-  Search, 
-  Eye, 
-  Edit2, 
-  Trash2, 
-  Clock,
-  Layout,
-  CheckCircle2,
-  TrendingUp,
+import {
+  Plus,
+  Search,
+  Eye,
+  Edit2,
+  Trash2,
   ClipboardList,
   RotateCcw
 } from "lucide-react";
@@ -116,7 +112,7 @@ const ActivityListPage = () => {
 
     return data.filter(a =>
       (searchTerm === "" || a.activity_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-       (a.boq_code && String(a.boq_code).toLowerCase().includes(searchTerm.toLowerCase()))) &&
+        (a.boq_code && String(a.boq_code).toLowerCase().includes(searchTerm.toLowerCase()))) &&
       (filterStatus === "All Status" || a.status === filterStatus)
     );
   }, [activities, searchTerm, filterStatus, activeStatFilter]);
@@ -180,12 +176,12 @@ const ActivityListPage = () => {
     <>
       <Navbar title="Activity List" breadcrumb={["InfraPilot", "Engineer", "Work Progress"]} />
       <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
-        
+
         {/* ── Header ──────────────────────────────────────────────── */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight italic-none">Project Work Progress</h1>
-            <p className="text-slate-500 text-sm italic-none">Historical record of project activities and BOQ execution momentum.</p>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Project Work Progress</h1>
+            <p className="text-slate-500 text-sm">Historical record of project activities and BOQ execution momentum.</p>
           </div>
           <button
             onClick={() => setIsAddModalOpen(true)}
@@ -197,67 +193,59 @@ const ActivityListPage = () => {
         </div>
 
         {/* ── Summary Stats with Interactive Filtering ───────────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary bg-primary/5 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
             <StatCard
               title="Total Tasks"
               value={stats.total.toString()}
               sub="Active Ledger"
-              accent="text-slate-800"
-              icon={<Layout className={`w-5 h-5 ${activeStatFilter === "All" ? "text-primary scale-110" : "text-slate-400 group-hover:text-primary"} transition-all`} />}
-            />
+              accent="text-slate-800" />
           </div>
-          <div onClick={() => setActiveStatFilter("Compliance")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Compliance" ? "ring-2 ring-blue-500 bg-blue-50/50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+          <div onClick={() => setActiveStatFilter("Compliance")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Compliance" ? "ring-2 ring-blue-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
             <StatCard
               title="Compliance"
               value={`${Math.round((stats.completed / (stats.total || 1)) * 100)}%`}
               sub="Completion Rate"
-              accent="text-blue-500"
-              icon={<CheckCircle2 className={`w-5 h-5 ${activeStatFilter === "Compliance" ? "text-blue-500 scale-110" : "text-slate-400 group-hover:text-blue-500"} transition-all`} />}
-            />
+              accent="text-blue-500" />
           </div>
-          <div onClick={() => setActiveStatFilter("Delayed")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Delayed" ? "ring-2 ring-rose-500 bg-rose-50/50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+          <div onClick={() => setActiveStatFilter("Delayed")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Delayed" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
             <StatCard
               title="Behind Schedule"
               value={stats.delayed.toString()}
               sub="Action Required"
-              accent="text-rose-500"
-              icon={<Clock className={`w-5 h-5 ${activeStatFilter === "Delayed" ? "text-rose-500 scale-110" : "text-slate-400 group-hover:text-rose-500"} transition-all`} />}
-            />
+              accent="text-rose-500" />
           </div>
-          <div onClick={() => setActiveStatFilter("Execution")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Execution" ? "ring-2 ring-emerald-500 bg-emerald-50/50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+          <div onClick={() => setActiveStatFilter("Execution")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Execution" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
             <StatCard
               title="Execution"
               value={stats.onTrack.toString()}
               sub="On Track Items"
-              accent="text-emerald-500"
-              icon={<TrendingUp className={`w-5 h-5 ${activeStatFilter === "Execution" ? "text-emerald-500 scale-110" : "text-slate-400 group-hover:text-emerald-500"} transition-all`} />}
-            />
+              accent="text-emerald-500" />
           </div>
         </div>
 
         {/* ── Filter Bar & Registry Container ───────────────────────────────────────────── */}
-        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
           {/* Integrated Filter Bar */}
-          <div className="p-6 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-slate-50/30 font-inter">
+          <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
             <div className="relative flex-1 max-w-md font-inter">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                 <Search className="w-4 h-4" />
               </span>
-              <input 
+              <input
                 type="text"
                 placeholder="Search by activity name or BOQ code..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
+                className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
               />
             </div>
             <div className="flex items-center gap-3 font-inter">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status:</span>
-              <select 
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status:</span>
+              <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-black text-slate-600 outline-none cursor-pointer font-inter uppercase tracking-widest"
+                className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer font-inter uppercase tracking-widest"
               >
                 <option value="All Status">All Status</option>
                 <option value="Not Started">Not Started</option>
@@ -290,82 +278,82 @@ const ActivityListPage = () => {
                 {loading ? (
                   <tr>
                     <td colSpan={7} className="px-6 py-20 text-center font-inter">
-                        <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 font-inter">Syncing Ledger...</p>
+                      <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing Ledger...</p>
                     </td>
                   </tr>
                 ) : filteredActivities.length > 0 ? filteredActivities.map((a) => (
                   <tr key={a.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                     <td className="px-6 py-4 font-inter">
-                        <span className="font-mono text-[10px] text-slate-400 font-bold uppercase tracking-wider font-inter">{a.boq_code || "No BOQ"}</span>
+                      <span className="font-mono text-[10px] text-slate-400 font-bold uppercase tracking-wider font-inter">{a.boq_code || "No BOQ"}</span>
                     </td>
                     <td className="px-6 py-4 font-inter">
-                      <p className="font-bold text-slate-800 text-sm font-inter italic-none">{a.activity_name}</p>
+                      <p className="font-bold text-slate-800 text-sm font-inter">{a.activity_name}</p>
                     </td>
                     <td className="px-6 py-4 font-inter">
-                        <div className="flex flex-col font-inter">
-                            <span className="text-[10px] font-black text-slate-800 font-inter">{a.total_completed} / {a.planned_quantity} {a.unit}</span>
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest font-inter">{a.remaining_quantity} Remaining</span>
-                        </div>
+                      <div className="flex flex-col font-inter">
+                        <span className="text-[10px] font-bold text-slate-800 font-inter">{a.total_completed} / {a.planned_quantity} {a.unit}</span>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest font-inter">{a.remaining_quantity} Remaining</span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 font-inter">
                       <div className="flex items-center gap-3 font-inter">
                         <div className="flex-1 bg-slate-100 rounded-full h-1.5 overflow-hidden font-inter">
-                          <div 
-                            className={`h-full rounded-full transition-all duration-700 ${getProgressColor(a.completion_percentage)}`} 
-                            style={{ width: `${a.completion_percentage}%` }} 
+                          <div
+                            className={`h-full rounded-full transition-all duration-700 ${getProgressColor(a.completion_percentage)}`}
+                            style={{ width: `${a.completion_percentage}%` }}
                           />
                         </div>
-                        <span className="text-xs font-black text-slate-800 font-inter">{a.completion_percentage.toFixed(1)}%</span>
+                        <span className="text-xs font-bold text-slate-800 font-inter">{a.completion_percentage.toFixed(1)}%</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 font-inter">
-                        <div className="flex flex-col font-inter">
-                            <span className="text-xs font-bold text-slate-600 font-inter italic-none">{a.start_date}</span>
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest font-inter">To {a.end_date}</span>
-                        </div>
+                      <div className="flex flex-col font-inter">
+                        <span className="text-xs font-bold text-slate-600 font-inter">{a.start_date}</span>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest font-inter">To {a.end_date}</span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 font-inter">
-                      <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${statusBadge[a.status] || "bg-slate-100 text-slate-500"} font-inter`}>
+                      <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border ${statusBadge[a.status] || "bg-slate-100 text-slate-500"} font-inter`}>
                         {a.status}
                       </span>
                     </td>
                     <td className="px-6 py-4 font-inter">
                       <div className="flex items-center justify-end gap-2 font-inter">
-                        <button 
-                            onClick={() => { setSelectedActivity(a); setIsViewModalOpen(true); }} 
-                            className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-95 font-inter" 
-                            title="View Insight"
+                        <button
+                          onClick={() => { setSelectedActivity(a); setIsViewModalOpen(true); }}
+                          className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-95 font-inter"
+                          title="View Insight"
                         >
-                            <Eye className="w-4 h-4" />
+                          <Eye className="w-4 h-4" />
                         </button>
-                        <button 
-                            onClick={() => { setSelectedActivity(a); setIsEditModalOpen(true); }} 
-                            className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter" 
-                            title="Modify Record"
+                        <button
+                          onClick={() => { setSelectedActivity(a); setIsEditModalOpen(true); }}
+                          className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
+                          title="Modify Record"
                         >
-                            <Edit2 className="w-4 h-4" />
+                          <Edit2 className="w-4 h-4" />
                         </button>
-                        <button 
-                            onClick={() => { setSelectedActivity(a); setIsLogModalOpen(true); }} 
-                            className="p-2 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all font-inter" 
-                            title="Log Field Entry"
+                        <button
+                          onClick={() => { setSelectedActivity(a); setIsLogModalOpen(true); }}
+                          className="p-2 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all font-inter"
+                          title="Log Field Entry"
                         >
-                            <ClipboardList className="w-4 h-4" />
+                          <ClipboardList className="w-4 h-4" />
                         </button>
-                        <button 
-                            onClick={() => { setDeleteId(a.id); setIsDeleteModalOpen(true); }} 
-                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter" 
-                            title="Archive Entry"
+                        <button
+                          onClick={() => { setDeleteId(a.id); setIsDeleteModalOpen(true); }}
+                          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"
+                          title="Archive Entry"
                         >
-                            <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
                   </tr>
                 )) : (
                   <tr>
-                    <td colSpan={7} className="px-6 py-20 text-center text-slate-400 italic-none font-inter">
+                    <td colSpan={7} className="px-6 py-20 text-center text-slate-400 font-inter">
                       No activities found in the project registry.
                     </td>
                   </tr>
@@ -377,31 +365,31 @@ const ActivityListPage = () => {
       </PageTransition>
 
       {/* Modals */}
-      <AddActivityModal 
-        isOpen={isAddModalOpen} 
-        onClose={() => setIsAddModalOpen(false)} 
+      <AddActivityModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
         onSubmit={handleAddSubmit}
         projectId={projectId || 0}
         engineerId={engineer_id}
       />
 
-      <EditActivityModal 
-        isOpen={isEditModalOpen} 
-        onClose={() => setIsEditModalOpen(false)} 
+      <EditActivityModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
         onSubmit={handleEditSubmit}
         activity={selectedActivity}
       />
 
-      <ActivityDetailModal 
-        isOpen={isViewModalOpen} 
-        onClose={() => setIsViewModalOpen(false)} 
+      <ActivityDetailModal
+        isOpen={isViewModalOpen}
+        onClose={() => setIsViewModalOpen(false)}
         activity={selectedActivity}
         onEdit={() => setIsEditModalOpen(true)}
       />
 
-      <LogProgressModal 
-        isOpen={isLogModalOpen} 
-        onClose={() => setIsLogModalOpen(false)} 
+      <LogProgressModal
+        isOpen={isLogModalOpen}
+        onClose={() => setIsLogModalOpen(false)}
         onSubmit={handleLogSubmit}
         activity={selectedActivity}
         engineerId={engineer_id}

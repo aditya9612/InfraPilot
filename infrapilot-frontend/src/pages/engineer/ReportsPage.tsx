@@ -374,12 +374,12 @@ const ReportsPage = () => {
                 breadcrumb={["InfraPilot", "Engineer", "Reports"]}
             />
 
-            <PageTransition className="p-4 md:p-8 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
+            <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
 
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
                     <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
                             Site Engineer
                         </p>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
@@ -408,7 +408,7 @@ const ReportsPage = () => {
 
                 {/* ── Stat Cards ───────────────────────────────────────────── */}
                 <div className="mb-8">
-                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">
+                    <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">
                         Report Overview
                     </h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -417,36 +417,28 @@ const ReportsPage = () => {
                                 title="Total Reports"
                                 value={reportsStats.total.toString()}
                                 sub="Available in Catalog"
-                                accent="text-primary"
-                                icon={<FileText className={`w-5 h-5 ${activeStatFilter === "All" ? "text-primary scale-110" : "text-slate-400 group-hover:text-primary"} transition-all`} />}
-                            />
+                                accent="text-primary" />
                         </div>
                         <div onClick={() => setActiveStatFilter("Recent")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Recent" ? "ring-2 ring-emerald-500 bg-emerald-50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
                             <StatCard
                                 title="Generated Today"
                                 value={reportsStats.generatedToday.toString()}
                                 sub="Recent Site Logs"
-                                accent="text-emerald-500"
-                                icon={<Activity className={`w-5 h-5 ${activeStatFilter === "Recent" ? "text-emerald-500 scale-110" : "text-slate-400 group-hover:text-emerald-500"} transition-all`} />}
-                            />
+                                accent="text-emerald-500" />
                         </div>
                         <div onClick={() => setActiveStatFilter("Large")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Large" ? "ring-2 ring-amber-500 bg-amber-50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
                             <StatCard
                                 title="Avg. Report Size"
                                 value={`${reportsStats.avgSize} MB`}
                                 sub="Inventory Volume"
-                                accent="text-amber-500"
-                                icon={<TrendingUp className={`w-5 h-5 ${activeStatFilter === "Large" ? "text-amber-500 scale-110" : "text-slate-400 group-hover:text-amber-500"} transition-all`} />}
-                            />
+                                accent="text-amber-500" />
                         </div>
                         <div onClick={() => setActiveStatFilter("Issues")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Issues" ? "ring-2 ring-rose-500 bg-rose-50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
                             <StatCard
                                 title="Open Issues"
                                 value={reportsStats.openIssues.toString()}
                                 sub="High Priority Items"
-                                accent="text-rose-500"
-                                icon={<AlertTriangle className={`w-5 h-5 ${activeStatFilter === "Issues" ? "text-rose-500 scale-110" : "text-slate-400 group-hover:text-rose-500"} transition-all`} />}
-                            />
+                                accent="text-rose-500" />
                         </div>
                     </div>
                 </div>
@@ -469,7 +461,7 @@ const ReportsPage = () => {
 
                     {/* Search */}
                     <div className="flex flex-col gap-0.5 min-w-[200px]">
-                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Search</label>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Search</label>
                         <div className="relative">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -486,7 +478,7 @@ const ReportsPage = () => {
 
                     {/* Date Picker */}
                     <div className="flex flex-col gap-0.5 min-w-[150px]">
-                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Report Date</label>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Report Date</label>
                         <div className="relative">
                             <input
                                 type="date"
@@ -499,7 +491,7 @@ const ReportsPage = () => {
 
                     {/* Filter Dropdown */}
                     <div className="flex flex-col gap-0.5 min-w-[150px]">
-                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Frequency</label>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Frequency</label>
                         <div className="relative">
                             <select
                                 value={activeFilter}
@@ -572,7 +564,7 @@ const ReportsPage = () => {
                                             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">
                                                 {report.frequency}
                                             </p>
-                                            <h3 className="text-base font-black text-slate-800 leading-tight">
+                                            <h3 className="text-base font-bold text-slate-800 leading-tight">
                                                 {report.name}
                                             </h3>
                                         </div>
@@ -590,7 +582,7 @@ const ReportsPage = () => {
                                     {report.metrics.map((m: ReportMetric, i: number) => (
                                         <div key={i}>
                                             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">{m.label}</p>
-                                            <p className={`text-sm font-black text-slate-800 ${m.accent ?? ""}`}>{m.value}</p>
+                                            <p className={`text-sm font-bold text-slate-800 ${m.accent ?? ""}`}>{m.value}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -653,15 +645,15 @@ const ReportsPage = () => {
                 maxWidth="max-w-2xl"
             >
                 {selectedReport && (
-                    <div className="bg-white p-6 italic-none text-inter">
+                    <div className="bg-white p-6 text-inter">
                         {/* ── Blue Hero Card ────────────────────────────────── */}
-                        <div className="bg-blue-600 rounded-[2rem] p-8 text-white shadow-xl mb-8 relative overflow-hidden">
+                        <div className="bg-blue-600 rounded-2xl p-8 text-white shadow-xl mb-8 relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl" />
 
                             <div className="relative z-10">
-                                <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-2">Analytics Registry</p>
+                                <p className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-2">Analytics Registry</p>
                                 <div className="flex items-center justify-between mb-8">
-                                    <h3 className="text-2xl font-black tracking-tight leading-tight">{selectedReport.name}</h3>
+                                    <h3 className="text-2xl font-bold tracking-tight leading-tight">{selectedReport.name}</h3>
                                     <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-2xl">
                                         {selectedReport.icon}
                                     </div>
@@ -669,12 +661,12 @@ const ReportsPage = () => {
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">File Context</p>
-                                        <p className="text-xl font-black">{selectedReport.size}</p>
+                                        <p className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-1">File Context</p>
+                                        <p className="text-xl font-bold">{selectedReport.size}</p>
                                     </div>
                                     <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Frequency</p>
-                                        <p className="text-xl font-black">{selectedReport.frequency.toUpperCase()}</p>
+                                        <p className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-1">Frequency</p>
+                                        <p className="text-xl font-bold">{selectedReport.frequency.toUpperCase()}</p>
                                     </div>
                                 </div>
                             </div>
@@ -684,38 +676,38 @@ const ReportsPage = () => {
                         <div className="space-y-8 mb-10 px-1">
                             {/* Report Identity */}
                             <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Report Identity</p>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Report Identity</p>
                                 <div className="grid grid-cols-2 gap-y-6 gap-x-12">
                                     <div className="col-span-2">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Description & Scope</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Description & Scope</p>
                                         <p className="text-sm font-medium text-slate-600 leading-relaxed font-inter italic">{selectedReport.description}</p>
                                     </div>
                                     <div>
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Last Generated</p>
-                                        <p className="text-sm font-black text-slate-800 tabular-nums">{selectedReport.lastGenerated}</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Last Generated</p>
+                                        <p className="text-sm font-bold text-slate-800 tabular-nums">{selectedReport.lastGenerated}</p>
                                     </div>
                                     <div>
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">System Status</p>
-                                        <p className="text-sm font-black text-emerald-600">VERIFIED / READY</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">System Status</p>
+                                        <p className="text-sm font-bold text-emerald-600">VERIFIED / READY</p>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Logic Summary */}
                             <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Performance Metrics</p>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Performance Metrics</p>
                                 <div className="grid grid-cols-2 gap-y-6 gap-x-12">
                                     {selectedReport.metrics.map((m: ReportMetric, i: number) => (
                                         <div key={i}>
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{m.label.toUpperCase()}</p>
-                                            <p className={`text-sm font-black ${m.accent || "text-slate-800"}`}>{m.value}</p>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">{m.label.toUpperCase()}</p>
+                                            <p className={`text-sm font-bold ${m.accent || "text-slate-800"}`}>{m.value}</p>
                                         </div>
                                     ))}
                                 </div>
                             </div>
 
                             <div className="pt-2">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Report Metadata</p>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Report Metadata</p>
                                 <p className="text-xs font-medium text-slate-600 leading-relaxed italic bg-slate-50 p-4 rounded-2xl border border-slate-100 uppercase tracking-tight">
                                     Generation Logic: Standardized System Export | Integrity: 100% SECURE
                                 </p>
@@ -726,13 +718,13 @@ const ReportsPage = () => {
                         <div className="flex items-center gap-4 pt-6 border-t border-slate-50">
                             <button
                                 onClick={() => setSelectedReport(null)}
-                                className="flex-1 py-4 bg-slate-50 hover:bg-slate-100 text-slate-500 text-[10px] font-black rounded-2xl transition-all uppercase tracking-widest"
+                                className="flex-1 py-4 bg-slate-50 hover:bg-slate-100 text-slate-500 text-[10px] font-bold rounded-2xl transition-all uppercase tracking-widest"
                             >
                                 Close
                             </button>
                             <button
                                 onClick={() => { handleExport(selectedReport); setSelectedReport(null); }}
-                                className="flex-[1.5] py-4 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black rounded-2xl shadow-lg shadow-blue-200 transition-all uppercase tracking-widest flex items-center justify-center gap-2"
+                                className="flex-[1.5] py-4 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded-2xl shadow-lg shadow-blue-200 transition-all uppercase tracking-widest flex items-center justify-center gap-2"
                             >
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />

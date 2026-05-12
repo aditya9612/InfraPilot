@@ -10,15 +10,11 @@ import { equipmentService } from "../../../services/equipmentService";
 import type { Equipment } from "../../../services/equipmentService";
 import { projectService } from "../../../services/projectService";
 import { 
-  Wrench, 
-  Settings2, 
-  Fuel, 
   Search, 
   Plus, 
   Edit2, 
   Trash2,
   Eye,
-  Activity,
   Briefcase,
   Phone,
   Mail,
@@ -195,46 +191,38 @@ const MachineryPage = () => {
                 </div>
 
                 {/* ── Summary Stats ───────────────────────────── */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer transition-all ${activeStatFilter === "All" ? "ring-2 ring-slate-800 rounded-xl bg-white shadow-lg scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Active Assets"
                             value={totalAssets.toString()}
                             sub="Registered Units"
-                            accent="text-slate-800"
-                            icon={<Activity className={`w-5 h-5 ${activeStatFilter === "All" ? "text-slate-800" : "text-slate-400"}`} />}
-                        />
+                            accent="text-slate-800" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("Operational")} className={`cursor-pointer transition-all ${activeStatFilter === "Operational" ? "ring-2 ring-emerald-500 rounded-xl bg-emerald-50 shadow-lg scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div onClick={() => setActiveStatFilter("Operational")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Operational" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Operational"
                             value={operationalCount.toString()}
                             sub="Optimal Condition"
-                            accent="text-emerald-500"
-                            icon={<Settings2 className={`w-5 h-5 ${activeStatFilter === "Operational" ? "text-emerald-500" : "text-slate-400"}`} />}
-                        />
+                            accent="text-emerald-500" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("Repair")} className={`cursor-pointer transition-all ${activeStatFilter === "Repair" ? "ring-2 ring-rose-500 rounded-xl bg-rose-50 shadow-lg scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div onClick={() => setActiveStatFilter("Repair")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Repair" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Under Repair"
                             value={repairCount.toString()}
                             sub="Needs Attention"
-                            accent="text-rose-500"
-                            icon={<Wrench className={`w-5 h-5 ${activeStatFilter === "Repair" ? "text-rose-500" : "text-slate-400"}`} />}
-                        />
+                            accent="text-rose-500" />
                     </div>
                     <StatCard
                         title="Total Fuel"
                         value={`${totalFuelUsed}L`}
                         sub="Consumption Log"
-                        accent="text-blue-500"
-                        icon={<Fuel className="w-5 h-5" />}
-                    />
+                        accent="text-blue-500" />
                 </div>
 
                 {/* ── Filter Bar ───────────────────────────────────────────── */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
-                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4">
+                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white">
                         <div className="relative flex-1 max-w-md">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
                                 <Search className="w-4 h-4" />
@@ -265,10 +253,10 @@ const MachineryPage = () => {
                     </div>
 
                     <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
-                        {isLoading ? (
+                         {isLoading ? (
                             <div className="p-20 text-center text-slate-400">
                                 <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
-                                <p className="text-[10px] font-black uppercase tracking-widest">Syncing telemetry...</p>
+                                <p className="text-[10px] font-bold uppercase tracking-widest">Syncing telemetry...</p>
                             </div>
                         ) : (
                             <table className="w-full text-left font-inter min-w-[1200px]">
@@ -293,7 +281,7 @@ const MachineryPage = () => {
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <span className="text-xs font-semibold text-slate-600">{item.operator_name}</span>
+                                                    <span className="text-xs font-bold text-slate-600">{item.operator_name}</span>
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex flex-col">
@@ -302,10 +290,10 @@ const MachineryPage = () => {
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <span className="text-xs font-semibold text-slate-600">{item.maintenance_date || 'N/A'}</span>
+                                                    <span className="text-xs font-bold text-slate-600">{item.maintenance_date || 'N/A'}</span>
                                                 </td>
                                                  <td className="px-6 py-4">
-                                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
+                                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${
                                                         item.condition === 'GOOD' ? 'bg-emerald-50 text-emerald-600' : 
                                                         (item.condition === 'REPAIR' || item.condition === 'DAMAGED') ? 'bg-rose-50 text-rose-600 animate-pulse' : 
                                                         item.condition === 'SERVICE' ? 'bg-amber-50 text-amber-600' :
@@ -340,7 +328,7 @@ const MachineryPage = () => {
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan={6} className="px-6 py-20 text-center text-slate-400 italic">
+                                            <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
                                                 No equipment logs found matching your filters.
                                             </td>
                                         </tr>
@@ -376,25 +364,25 @@ const MachineryPage = () => {
                 maxWidth="max-w-xl"
             >
                 {viewingEquipment && (
-                    <div className="p-6 font-inter text-inter italic-none">
+                    <div className="p-6 font-inter">
                         {/* ── Profile Style Header ────────────────── */}
-                        <div className={`${conditionColors[viewingEquipment.condition as keyof typeof conditionColors] || 'bg-primary'} rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter`}>
+                        <div className={`${conditionColors[viewingEquipment.condition as keyof typeof conditionColors] || 'bg-primary'} rounded-2xl p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter`}>
                             <div className="relative z-10 flex items-center gap-6 font-inter">
-                                <div className="w-24 h-24 bg-blue-400/30 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/20 relative font-inter">
-                                    <span className="text-4xl font-black font-inter">{viewingEquipment.equipment_name.charAt(0)}</span>
+                                <div className="w-24 h-24 bg-blue-400/30 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 relative font-inter">
+                                    <span className="text-4xl font-bold font-inter">{viewingEquipment.equipment_name.charAt(0)}</span>
                                     <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-4 border-primary rounded-full animate-pulse" />
                                 </div>
                                 <div className="font-inter">
                                     <div className="flex items-center gap-3 mb-2 font-inter">
-                                        <h3 className="text-2xl font-black tracking-tight font-inter">{viewingEquipment.equipment_name}</h3>
-                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-black uppercase tracking-widest font-inter">{viewingEquipment.equipment_code}</span>
+                                        <h3 className="text-2xl font-bold tracking-tight font-inter">{viewingEquipment.equipment_name}</h3>
+                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest font-inter">{viewingEquipment.equipment_code}</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
                                         <Mail className="w-3 h-3" />
-                                        <span className="text-[11px] font-bold font-inter italic-none">asset.ref-{viewingEquipment.id}@infrapilot.com</span>
+                                        <span className="text-[11px] font-bold font-inter">asset.ref-{viewingEquipment.id}@infrapilot.com</span>
                                     </div>
                                     <div className="px-3 py-1 bg-white/20 rounded-full inline-block font-inter">
-                                        <span className="text-[10px] font-black uppercase tracking-widest font-inter">CONDITION: {viewingEquipment.condition}</span>
+                                        <span className="text-[10px] font-bold uppercase tracking-widest font-inter">CONDITION: {viewingEquipment.condition}</span>
                                     </div>
                                 </div>
                             </div>
@@ -407,24 +395,24 @@ const MachineryPage = () => {
                                     <div className="p-2 bg-blue-50 rounded-lg font-inter">
                                         <Briefcase className="w-4 h-4 text-primary" />
                                     </div>
-                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Asset Utilization</p>
+                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] font-inter">Asset Utilization</p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Operator Identity</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{viewingEquipment.operator_name}</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Operator Identity</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter">{viewingEquipment.operator_name}</p>
                                     </div>
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Working Hours</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{viewingEquipment.working_hours} Hrs</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Working Hours</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter">{viewingEquipment.working_hours} Hrs</p>
                                     </div>
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Fuel Consumption</p>
-                                        <p className="text-sm font-black text-blue-600 font-inter italic-none">{viewingEquipment.fuel_used} Liters</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Fuel Consumption</p>
+                                        <p className="text-sm font-bold text-blue-600 font-inter">{viewingEquipment.fuel_used} Liters</p>
                                     </div>
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Asset Health</p>
-                                        <p className={`text-sm font-black font-inter italic-none ${viewingEquipment.condition === 'GOOD' ? 'text-emerald-500' : 'text-rose-500'}`}>{viewingEquipment.condition}</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Asset Health</p>
+                                        <p className={`text-sm font-bold font-inter ${viewingEquipment.condition === 'GOOD' ? 'text-emerald-500' : 'text-rose-500'}`}>{viewingEquipment.condition}</p>
                                     </div>
                                 </div>
                             </div>
@@ -435,16 +423,16 @@ const MachineryPage = () => {
                                     <div className="p-2 bg-blue-50 rounded-lg font-inter">
                                         <Phone className="w-4 h-4 text-primary" />
                                     </div>
-                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Fiscal Intelligence</p>
+                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] font-inter">Fiscal Intelligence</p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Rental Value (₹)</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">₹{viewingEquipment.rental_cost.toLocaleString()}</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Rental Value (₹)</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter">₹{viewingEquipment.rental_cost.toLocaleString()}</p>
                                     </div>
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Audit ID</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">AST-{viewingEquipment.id}X99</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Audit ID</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter">AST-{viewingEquipment.id}X99</p>
                                     </div>
                                 </div>
                             </div>
@@ -455,16 +443,16 @@ const MachineryPage = () => {
                                     <div className="p-2 bg-blue-50 rounded-lg font-inter">
                                         <FileText className="w-4 h-4 text-primary" />
                                     </div>
-                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Maintenance Status</p>
+                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] font-inter">Maintenance Status</p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Maintenance Date</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{viewingEquipment.maintenance_date || 'N/A'}</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Maintenance Date</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter">{viewingEquipment.maintenance_date || 'N/A'}</p>
                                     </div>
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">System Integrity</p>
-                                        <p className={`text-sm font-black font-inter italic-none ${['GOOD', 'FAIR', 'SERVICE'].includes(viewingEquipment.condition) ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">System Integrity</p>
+                                        <p className={`text-sm font-bold font-inter ${['GOOD', 'FAIR', 'SERVICE'].includes(viewingEquipment.condition) ? 'text-emerald-500' : 'text-rose-500'}`}>
                                             {['GOOD', 'FAIR'].includes(viewingEquipment.condition) ? 'Fully Operational' : 
                                              viewingEquipment.condition === 'SERVICE' ? 'Maintenance Active' : 'System Critical'}
                                         </p>
@@ -475,7 +463,7 @@ const MachineryPage = () => {
 
                         <button 
                             onClick={() => setViewingEquipment(null)}
-                            className={`w-full py-5 ${conditionColors[viewingEquipment.condition as keyof typeof conditionColors] || 'bg-primary'} text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all shadow-xl active:scale-95 font-inter italic-none`}
+                            className={`w-full py-5 ${conditionColors[viewingEquipment.condition as keyof typeof conditionColors] || 'bg-primary'} text-white rounded-xl text-[11px] font-bold uppercase tracking-[0.2em] transition-all shadow-xl active:scale-95 font-inter`}
                         >
                             Dismiss Asset Insight
                         </button>

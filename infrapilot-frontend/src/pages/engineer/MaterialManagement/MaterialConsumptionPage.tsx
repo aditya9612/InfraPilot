@@ -5,9 +5,7 @@ import Modal from "../../../components/common/Modal";
 import StatCard from "../../../components/common/StatCard";
 import toast from "react-hot-toast";
 import { 
-  Package, 
   Activity, 
-  Database,
   ClipboardCheck,
   Search,
   RotateCcw
@@ -124,8 +122,8 @@ const MaterialConsumptionPage = () => {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
           <div className="font-inter">
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight italic-none">Material Consumption Ledger</h1>
-            <p className="text-slate-500 text-sm italic-none">Track and manage project material usage across site locations.</p>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Material Consumption Ledger</h1>
+            <p className="text-slate-500 text-sm">Track and manage project material usage across site locations.</p>
           </div>
           <button
             onClick={() => {
@@ -145,39 +143,33 @@ const MaterialConsumptionPage = () => {
         </div>
 
         {/* Stats with Interactive Filtering */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 font-inter">
-          <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-blue-500 bg-blue-50/50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 font-inter">
+          <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
             <StatCard
               title="Total Materials"
               value={stats.totalMaterials.toString()}
               sub="Inventory scope"
-              icon={<Package className={`w-5 h-5 ${activeStatFilter === "All" ? "text-blue-500 scale-110" : "text-slate-400 group-hover:text-blue-500"} transition-all`} />}
-              accent="text-blue-500"
-            />
+              accent="text-blue-500" />
           </div>
-          <div onClick={() => setActiveStatFilter("Stock")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Stock" ? "ring-2 ring-orange-500 bg-orange-50/50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+          <div onClick={() => setActiveStatFilter("Stock")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Stock" ? "ring-2 ring-orange-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
             <StatCard
               title="Remaining Stock"
               value={stats.totalRemaining.toLocaleString()}
               sub="Available on site"
-              icon={<Database className={`w-5 h-5 ${activeStatFilter === "Stock" ? "text-orange-500 scale-110" : "text-slate-400 group-hover:text-orange-500"} transition-all`} />}
-              accent="text-orange-500"
-            />
+              accent="text-orange-500" />
           </div>
-          <div onClick={() => setActiveStatFilter("Value")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Value" ? "ring-2 ring-emerald-500 bg-emerald-50/50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+          <div onClick={() => setActiveStatFilter("Value")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Value" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
             <StatCard
               title="Inventory Value"
               value={`₹${stats.totalValue.toLocaleString()}`}
               sub="Current valuation"
-              icon={<Activity className={`w-5 h-5 ${activeStatFilter === "Value" ? "text-emerald-500 scale-110" : "text-slate-400 group-hover:text-emerald-500"} transition-all`} />}
-              accent="text-emerald-500"
-            />
+              accent="text-emerald-500" />
           </div>
         </div>
 
         {/* Consumption Registry Container */}
-        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
-          <div className="p-6 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-slate-50/30 font-inter">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
+          <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
             <div className="relative flex-1 max-w-md font-inter">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                 <Search className="w-4 h-4" />
@@ -187,7 +179,7 @@ const MaterialConsumptionPage = () => {
                 placeholder="Search by material name or ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
+                className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
               />
             </div>
             {activeStatFilter !== "All" && (
@@ -214,7 +206,7 @@ const MaterialConsumptionPage = () => {
                   <tr>
                     <td colSpan={6} className="px-6 py-20 text-center font-inter">
                       <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin font-inter mb-4" />
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 font-inter">Syncing inventory...</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing inventory...</p>
                     </td>
                   </tr>
                 ) : filteredInventory.length > 0 ? (
@@ -223,11 +215,11 @@ const MaterialConsumptionPage = () => {
                       <td className="px-6 py-4 font-inter">
                         <div className="flex flex-col font-inter">
                           <span className="text-sm font-bold text-slate-800 font-inter">{inv.material_name}</span>
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-inter">MID-#{inv.material_id}</span>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">MID-#{inv.material_id}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-center font-inter">
-                        <span className={`text-sm font-black font-inter ${inv.remaining_stock > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                        <span className={`text-sm font-bold font-inter ${inv.remaining_stock > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
                           {inv.remaining_stock.toLocaleString()}
                         </span>
                       </td>
@@ -236,7 +228,7 @@ const MaterialConsumptionPage = () => {
                         <span className="text-xs font-bold text-slate-500 font-inter">₹{inv.avg_rate?.toLocaleString()}</span>
                       </td>
                       <td className="px-6 py-4 text-right font-inter">
-                        <span className="text-sm font-black text-slate-800 font-inter">₹{inv.total_value?.toLocaleString()}</span>
+                        <span className="text-sm font-bold text-slate-800 font-inter">₹{inv.total_value?.toLocaleString()}</span>
                       </td>
                       <td className="px-6 py-4 text-right font-inter">
                         <button 
@@ -245,7 +237,7 @@ const MaterialConsumptionPage = () => {
                             setUsageData({ quantity: 0, issue_type: "SITE" });
                             setIsUsageModalOpen(true);
                           }}
-                          className="px-4 py-2 bg-slate-50 text-slate-600 hover:text-white hover:bg-rose-500 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-slate-200 hover:border-rose-500 font-inter active:scale-95"
+                          className="px-4 py-2 bg-slate-50 text-slate-600 hover:text-white hover:bg-rose-500 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border border-slate-200 hover:border-rose-500 font-inter active:scale-95"
                         >
                           Use Material
                         </button>
@@ -254,7 +246,7 @@ const MaterialConsumptionPage = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter italic-none">
+                    <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
                       No matching materials found in the inventory vault.
                     </td>
                   </tr>
@@ -265,9 +257,9 @@ const MaterialConsumptionPage = () => {
         </div>
 
         {/* Usage Logs Container */}
-        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden font-inter">
-          <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/30 font-inter">
-            <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest font-inter italic-none">Material Audit Logs (Usage)</h3>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden font-inter">
+          <div className="p-4 border-b border-slate-50 flex items-center justify-between bg-white font-inter">
+            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest font-inter">Material Audit Logs (Usage)</h3>
           </div>
           <div className="overflow-x-auto font-inter">
             <table className="w-full text-left font-inter min-w-[800px]">
@@ -286,20 +278,20 @@ const MaterialConsumptionPage = () => {
                     <tr key={log.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                       <td className="px-6 py-4 text-xs font-bold text-slate-500 font-inter uppercase tracking-widest">{new Date(log.created_at).toLocaleDateString()}</td>
                       <td className="px-6 py-4 font-inter">
-                        <span className="font-bold text-slate-700 text-sm font-inter uppercase italic-none">
+                        <span className="font-bold text-slate-700 text-sm font-inter uppercase">
                             {inventory.find(inv => inv.material_id === log.material_id)?.material_name || `MID: ${log.material_id}`}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-center font-black text-rose-500 text-sm font-inter italic-none">-{log.quantity}</td>
+                      <td className="px-6 py-4 text-center font-bold text-rose-500 text-sm font-inter">-{log.quantity}</td>
                       <td className="px-6 py-4 font-inter">
-                        <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-200 font-inter">{log.issue_type}</span>
+                        <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-[9px] font-bold uppercase tracking-widest border border-slate-200 font-inter">{log.issue_type}</span>
                       </td>
-                      <td className="px-6 py-4 text-xs font-bold text-slate-400 font-inter italic-none">Project Audit-#{log.project_id}</td>
+                      <td className="px-6 py-4 text-xs font-bold text-slate-400 font-inter">Project Audit-#{log.project_id}</td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter italic-none">No historical usage records found.</td>
+                    <td colSpan={5} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">No historical usage records found.</td>
                   </tr>
                 )}
               </tbody>
@@ -325,7 +317,7 @@ const MaterialConsumptionPage = () => {
             <button
               disabled={isSubmitting || usageData.quantity <= 0 || usageData.quantity > (selectedInventory?.remaining_stock || 0)}
               onClick={handleUsageSubmit}
-              className="flex-[2] py-3 bg-rose-500 text-white rounded-xl font-black uppercase tracking-widest shadow-xl shadow-rose-500/20 hover:bg-rose-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
+              className="flex-[2] py-3 bg-rose-500 text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-rose-500/20 hover:bg-rose-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
             >
               {isSubmitting ? "Syncing..." : "Confirm Disbursement"}
             </button>
@@ -338,15 +330,15 @@ const MaterialConsumptionPage = () => {
                   <ClipboardCheck className="w-5 h-5 text-rose-500 font-inter" />
               </div>
               <div className="font-inter">
-                  <p className="text-[10px] font-black text-rose-800 uppercase tracking-widest mb-1 font-inter">Audit Context</p>
-                  <p className="text-xs font-black text-rose-600 font-inter italic-none">{selectedInventory?.material_name}</p>
-                  <p className="text-[10px] text-rose-500 font-bold font-inter italic-none mt-1">Vault Balance: {selectedInventory?.remaining_stock} {selectedInventory?.unit}</p>
+                  <p className="text-[10px] font-bold text-rose-800 uppercase tracking-widest mb-1 font-inter">Audit Context</p>
+                  <p className="text-xs font-bold text-rose-600 font-inter">{selectedInventory?.material_name}</p>
+                  <p className="text-[10px] text-rose-500 font-bold font-inter mt-1">Vault Balance: {selectedInventory?.remaining_stock} {selectedInventory?.unit}</p>
               </div>
           </div>
           
           <div className="space-y-5 font-inter">
             <div className="font-inter">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Resource Selection *</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Resource Selection *</label>
                 <select
                     required
                     value={selectedInventory?.material_id || ""}
@@ -357,7 +349,7 @@ const MaterialConsumptionPage = () => {
                 </select>
             </div>
             <div className="font-inter">
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Disbursement Quantity *</label>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Disbursement Quantity *</label>
               <input
                 required
                 type="number"
@@ -367,10 +359,10 @@ const MaterialConsumptionPage = () => {
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-inter"
                 placeholder="0"
               />
-              <p className="text-[9px] text-slate-400 font-black uppercase mt-1.5 ml-1 tracking-widest font-inter italic-none">Limit: {selectedInventory?.remaining_stock} {selectedInventory?.unit}</p>
+              <p className="text-[9px] text-slate-400 font-bold uppercase mt-1.5 ml-1 tracking-widest font-inter">Limit: {selectedInventory?.remaining_stock} {selectedInventory?.unit}</p>
             </div>
             <div className="font-inter">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Logistics Channel *</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Logistics Channel *</label>
                 <select
                     required
                     value={usageData.issue_type}

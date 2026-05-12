@@ -33,9 +33,9 @@ const ActivityDetailModal = ({ isOpen, onClose, activity, onEdit }: ActivityDeta
               <span className="text-2xl font-black">{activity.completion_percentage.toFixed(1)}%</span>
             </div>
             <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
-              <div 
-                className="h-full bg-white rounded-full transition-all duration-700" 
-                style={{ width: `${activity.completion_percentage}%` }} 
+              <div
+                className="h-full bg-white rounded-full transition-all duration-700"
+                style={{ width: `${activity.completion_percentage}%` }}
               />
             </div>
           </div>
@@ -75,8 +75,8 @@ const ActivityDetailModal = ({ isOpen, onClose, activity, onEdit }: ActivityDeta
         {/* Footer Actions */}
         <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
           <button onClick={onClose} className="px-6 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-all">Close</button>
-          <button 
-            onClick={() => { onClose(); onEdit(); }} 
+          <button
+            onClick={() => { onClose(); onEdit(); }}
             className="px-6 py-2 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
           >
             Edit Activity

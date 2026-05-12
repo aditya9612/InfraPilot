@@ -72,17 +72,17 @@ const EditDailyEntryModal = ({ isOpen, onClose, onSubmit, entry }: EditDailyEntr
           <div className="space-y-4">
             <div>
               <label className={labelClasses}>Quantity Executed*</label>
-              <input 
+              <input
                 required type="number" min="0" step="any" className={inputClasses}
-                value={formData.today_progress} onChange={e => setFormData({...formData, today_progress: Number(e.target.value)})}
+                value={formData.today_progress} onChange={e => setFormData({ ...formData, today_progress: Number(e.target.value) })}
               />
             </div>
             <div>
               <label className={labelClasses}>Operational Narrative</label>
-              <textarea 
-                rows={3} className={`${inputClasses} resize-none font-inter italic-none`}
+              <textarea
+                rows={3} className={`${inputClasses} resize-none font-inter`}
                 placeholder="Optional remarks..."
-                value={formData.remarks} onChange={e => setFormData({...formData, remarks: e.target.value})}
+                value={formData.remarks} onChange={e => setFormData({ ...formData, remarks: e.target.value })}
               />
             </div>
           </div>

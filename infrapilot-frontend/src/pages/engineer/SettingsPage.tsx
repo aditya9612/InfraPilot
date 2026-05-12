@@ -324,7 +324,6 @@ const SettingsPage = () => {
                 {/* ── Main Settings Grid ───────────────────────────────────── */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-                    {/* ─ 0. Profile & Account ──────────────────────────────── */}
                     <div id="profile" className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 lg:col-span-2">
                         <SectionHeader
                             title="Profile & Account"
@@ -470,7 +469,6 @@ const SettingsPage = () => {
                                 </select>
                             </div>
 
-                            {/* Project cards */}
                             <div className="space-y-2 mt-2">
                                 {projects.map(p => (
                                     <button
@@ -506,7 +504,6 @@ const SettingsPage = () => {
                         />
 
                         <div className="space-y-5">
-                            {/* Unit System */}
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Unit System</label>
                                 <div className="grid grid-cols-2 gap-3">
@@ -525,7 +522,6 @@ const SettingsPage = () => {
                                 </div>
                             </div>
 
-                            {/* Mass Unit */}
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                                     Mass / Weight
@@ -546,7 +542,6 @@ const SettingsPage = () => {
                                 </div>
                             </div>
 
-                            {/* Length Unit */}
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                                     Length / Distance
@@ -567,7 +562,6 @@ const SettingsPage = () => {
                                 </div>
                             </div>
 
-                            {/* Live summary */}
                             <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 mt-2">
                                 <div>
                                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Current Units</p>
@@ -627,7 +621,6 @@ const SettingsPage = () => {
                             }
                         />
 
-                        {/* Dropdown prefs */}
                         <div className="grid grid-cols-1 gap-4">
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Language</label>
@@ -670,7 +663,6 @@ const SettingsPage = () => {
                             </div>
                         </div>
 
-                        {/* Toggle prefs */}
                         <div className="space-y-3">
                             {prefItems.map(item => (
                                 <div
@@ -694,7 +686,6 @@ const SettingsPage = () => {
                             ))}
                         </div>
 
-                        {/* Info notice */}
                         <div className="flex items-start gap-3 p-4 bg-amber-50 rounded-xl border border-amber-100 lg:mt-auto">
                             <span className="text-lg shrink-0">⚠️</span>
                             <div>
@@ -732,3 +723,4 @@ const SettingsPage = () => {
 };
 
 export default SettingsPage;
+

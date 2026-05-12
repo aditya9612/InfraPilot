@@ -9,8 +9,6 @@ import {
   Plus, 
   Package, 
   ShoppingCart, 
-  DollarSign, 
-  Clock, 
   Eye, 
   Edit2, 
   Trash2,
@@ -219,10 +217,10 @@ const MaterialReceiptPage = () => {
     }
   };
 
-  const labelClasses = "block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
+  const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
   const inputClasses = "w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none transition-all placeholder:text-slate-400 focus:ring-2 focus:ring-primary/20 focus:border-primary font-inter";
   const sectionClasses = "bg-white p-5 rounded-2xl border border-slate-100 shadow-sm font-inter";
-  const sectionTitleClasses = "text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-50 pb-2 flex items-center gap-2 font-inter";
+  const sectionTitleClasses = "text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-50 pb-2 flex items-center gap-2 font-inter";
 
   return (
     <>
@@ -231,8 +229,8 @@ const MaterialReceiptPage = () => {
         {/* Header Row */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
           <div className="font-inter">
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight italic-none font-inter">Material Procurement Ledger</h1>
-            <p className="text-slate-500 text-sm italic-none font-inter">Register new materials and track acquisition history.</p>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Material Procurement Ledger</h1>
+            <p className="text-slate-500 text-sm font-inter">Register new materials and track acquisition history.</p>
           </div>
           <div className="flex items-center gap-3 font-inter">
             <button
@@ -275,48 +273,40 @@ const MaterialReceiptPage = () => {
         </div>
 
         {/* Stats Row with Interactive Filtering */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
-          <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-blue-500 bg-blue-50/50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
+          <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
             <StatCard
               title="Total Materials"
               value={stats.totalMaterials.toString()}
               sub="Types registered"
-              icon={<Package className={`w-5 h-5 ${activeStatFilter === "All" ? "text-blue-500 scale-110" : "text-slate-400 group-hover:text-blue-500"} transition-all`} />}
-              accent="text-blue-500"
-            />
+              accent="text-blue-500" />
           </div>
-          <div onClick={() => setActiveStatFilter("Purchased")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Purchased" ? "ring-2 ring-emerald-500 bg-emerald-50/50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+          <div onClick={() => setActiveStatFilter("Purchased")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Purchased" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
             <StatCard
               title="Total Purchased"
               value={stats.totalPurchased.toLocaleString()}
               sub="Total units"
-              icon={<ShoppingCart className={`w-5 h-5 ${activeStatFilter === "Purchased" ? "text-emerald-500 scale-110" : "text-slate-400 group-hover:text-emerald-500"} transition-all`} />}
-              accent="text-emerald-500"
-            />
+              accent="text-emerald-500" />
           </div>
-          <div onClick={() => setActiveStatFilter("Amount")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Amount" ? "ring-2 ring-amber-500 bg-amber-50/50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+          <div onClick={() => setActiveStatFilter("Amount")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Amount" ? "ring-2 ring-amber-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
             <StatCard
               title="Total Amount"
               value={`₹${stats.totalAmount.toLocaleString()}`}
               sub="Gross purchase value"
-              icon={<DollarSign className={`w-5 h-5 ${activeStatFilter === "Amount" ? "text-amber-500 scale-110" : "text-slate-400 group-hover:text-amber-500"} transition-all`} />}
-              accent="text-amber-500"
-            />
+              accent="text-amber-500" />
           </div>
-          <div onClick={() => setActiveStatFilter("Pending")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Pending" ? "ring-2 ring-rose-500 bg-rose-50/50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+          <div onClick={() => setActiveStatFilter("Pending")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Pending" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
             <StatCard
               title="Payment Pending"
               value={`₹${stats.paymentPending.toLocaleString()}`}
               sub="Outstanding balance"
-              icon={<Clock className={`w-5 h-5 ${activeStatFilter === "Pending" ? "text-rose-500 scale-110" : "text-slate-400 group-hover:text-rose-500"} transition-all`} />}
-              accent="text-rose-500"
-            />
+              accent="text-rose-500" />
           </div>
         </div>
 
         {/* Materials Registry Container */}
-        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
-          <div className="p-6 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-slate-50/30 font-inter">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
+          <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
             <div className="relative flex-1 max-w-md font-inter">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                 <Search className="w-4 h-4" />
@@ -326,7 +316,7 @@ const MaterialReceiptPage = () => {
                 placeholder="Search by material name or code..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
+                className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
               />
             </div>
             {activeStatFilter !== "All" && (
@@ -357,30 +347,30 @@ const MaterialReceiptPage = () => {
                   <tr>
                     <td colSpan={10} className="px-6 py-20 text-center font-inter">
                       <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4 font-inter" />
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 font-inter">Syncing registry...</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing registry...</p>
                     </td>
                   </tr>
                 ) : filteredMaterials.length > 0 ? (
                   filteredMaterials.map((m) => (
                     <tr key={m.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                       <td className="px-6 py-4 font-inter">
-                        <span className="text-[10px] font-black text-slate-400 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 font-inter uppercase tracking-widest">{m.material_code}</span>
+                        <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 font-inter uppercase tracking-widest">{m.material_code}</span>
                       </td>
                       <td className="px-6 py-4 font-inter">
-                        <span className="text-sm font-bold text-slate-800 font-inter italic-none">{m.material_name}</span>
+                        <span className="text-sm font-bold text-slate-800 font-inter">{m.material_name}</span>
                       </td>
                       <td className="px-6 py-4 font-inter">
-                        <span className="text-[10px] font-black text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg uppercase border border-slate-100 font-inter tracking-widest">{m.category}</span>
+                        <span className="text-[10px] font-bold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg uppercase border border-slate-100 font-inter tracking-widest">{m.category}</span>
                       </td>
                       <td className="px-6 py-4 font-inter">
                         <div className="flex flex-col font-inter">
-                          <span className="text-xs font-bold text-slate-700 font-inter italic-none truncate max-w-[120px]">{m.supplier_name || `SID-#{m.supplier_id}`}</span>
-                          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter italic-none">Vendor</span>
+                          <span className="text-xs font-bold text-slate-700 font-inter truncate max-w-[120px]">{m.supplier_name || `SID-#{m.supplier_id}`}</span>
+                          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">Vendor</span>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-center font-inter">
                         <div className="flex flex-col font-inter">
-                          <span className="text-sm font-black text-slate-800 font-inter italic-none">{m.quantity_purchased.toLocaleString()}</span>
+                          <span className="text-sm font-bold text-slate-800 font-inter">{m.quantity_purchased.toLocaleString()}</span>
                           <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest font-inter">{m.unit}</span>
                         </div>
                       </td>
@@ -388,13 +378,13 @@ const MaterialReceiptPage = () => {
                         <span className="text-xs font-bold text-slate-500 font-inter tabular-nums">₹{m.purchase_rate.toLocaleString()}</span>
                       </td>
                       <td className="px-6 py-4 text-right font-inter">
-                        <span className="text-sm font-black text-slate-800 font-inter tabular-nums">₹{m.total_amount?.toLocaleString()}</span>
+                        <span className="text-sm font-bold text-slate-800 font-inter tabular-nums">₹{m.total_amount?.toLocaleString()}</span>
                       </td>
                       <td className="px-6 py-4 text-right font-inter">
-                        <span className="text-sm font-black text-rose-600 font-inter tabular-nums">₹{m.payment_pending?.toLocaleString()}</span>
+                        <span className="text-sm font-bold text-rose-600 font-inter tabular-nums">₹{m.payment_pending?.toLocaleString()}</span>
                       </td>
                       <td className="px-6 py-4 font-inter">
-                        <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${alertBadge(m.alert_type)} font-inter`}>
+                        <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border ${alertBadge(m.alert_type)} font-inter`}>
                           {m.alert_type?.replace('_', ' ')}
                         </span>
                       </td>
@@ -463,7 +453,7 @@ const MaterialReceiptPage = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={10} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter italic-none">No material resources found in the project vault.</td>
+                    <td colSpan={10} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">No material resources found in the project vault.</td>
                   </tr>
                 )}
               </tbody>
@@ -472,9 +462,9 @@ const MaterialReceiptPage = () => {
         </div>
 
         {/* Purchase Logs Container */}
-        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden font-inter">
-          <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/30 font-inter">
-            <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest font-inter italic-none">Historical Purchase Logs</h3>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden font-inter">
+          <div className="p-4 border-b border-slate-50 flex items-center justify-between bg-white font-inter">
+            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest font-inter">Historical Purchase Logs</h3>
           </div>
           <div className="overflow-x-auto font-inter">
             <table className="w-full text-left font-inter min-w-[1000px]">
@@ -495,29 +485,29 @@ const MaterialReceiptPage = () => {
                       <td className="px-6 py-4 text-xs font-bold text-slate-500 font-inter uppercase tracking-widest">{new Date(log.created_at).toLocaleDateString()}</td>
                       <td className="px-6 py-4 font-inter">
                         <div className="flex flex-col font-inter">
-                            <span className="font-bold text-slate-800 text-sm font-inter italic-none">
+                            <span className="font-bold text-slate-800 text-sm font-inter">
                                 {materials.find(m => m.id === log.material_id)?.material_name || `MID-#{log.material_id}`}
                             </span>
-                            <span className="text-[10px] font-black text-slate-400 font-inter tracking-widest uppercase">
+                            <span className="text-[10px] font-bold text-slate-400 font-inter tracking-widest uppercase">
                                 {materials.find(m => m.id === log.material_id)?.material_code || "Unknown Code"}
                             </span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-center font-black text-slate-800 text-sm font-inter italic-none">+{log.quantity.toLocaleString()}</td>
+                      <td className="px-6 py-4 text-center font-bold text-slate-800 text-sm font-inter">+{log.quantity.toLocaleString()}</td>
                       <td className="px-6 py-4 text-right font-inter">
                         <span className="text-xs font-bold text-slate-500 font-inter tabular-nums">₹{log.rate.toLocaleString()}</span>
                       </td>
                       <td className="px-6 py-4 text-right font-inter">
-                        <span className="text-sm font-black text-slate-800 font-inter tabular-nums">₹{log.total_amount?.toLocaleString()}</span>
+                        <span className="text-sm font-bold text-slate-800 font-inter tabular-nums">₹{log.total_amount?.toLocaleString()}</span>
                       </td>
                       <td className="px-6 py-4 text-right font-inter">
-                        <span className="text-sm font-black text-emerald-600 font-inter tabular-nums">₹{log.amount_paid?.toLocaleString()}</span>
+                        <span className="text-sm font-bold text-emerald-600 font-inter tabular-nums">₹{log.amount_paid?.toLocaleString()}</span>
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter italic-none">No acquisition history recorded for this project.</td>
+                    <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">No acquisition history recorded for this project.</td>
                   </tr>
                 )}
               </tbody>
@@ -699,7 +689,7 @@ const MaterialReceiptPage = () => {
             <button
               disabled={isSubmitting || purchaseData.quantity <= 0}
               onClick={handlePurchaseSubmit}
-              className="flex-[2] py-3 bg-emerald-500 text-white rounded-xl font-black uppercase tracking-widest shadow-xl shadow-emerald-500/20 hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-70 font-inter"
+              className="flex-[2] py-3 bg-emerald-500 text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-emerald-500/20 hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-70 font-inter"
             >
               {isSubmitting ? "Syncing..." : "Confirm Acquisition"}
             </button>
@@ -772,21 +762,21 @@ const MaterialReceiptPage = () => {
         maxWidth="max-w-2xl"
       >
         {selectedMaterial && (
-            <div className="p-6 font-inter space-y-8 italic-none">
-                <div className="bg-primary rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden font-inter">
+            <div className="p-6 font-inter space-y-8">
+                <div className="bg-primary rounded-2xl p-8 text-white shadow-2xl relative overflow-hidden font-inter">
                     <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -mr-20 -mt-20 blur-3xl" />
                     <div className="relative z-10 flex items-center gap-8 font-inter">
-                        <div className="w-24 h-24 bg-white/10 backdrop-blur-xl rounded-[2rem] flex items-center justify-center border border-white/20 shadow-inner group relative font-inter">
+                        <div className="w-24 h-24 bg-white/10 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-white/20 shadow-inner group relative font-inter">
                             <Package className="w-10 h-10 text-white" />
                         </div>
                         <div className="flex-1 font-inter">
                             <div className="flex items-center gap-3 mb-2 font-inter">
-                                <h3 className="text-2xl font-black tracking-tight uppercase">{selectedMaterial.material_name}</h3>
-                                <span className="px-3 py-0.5 bg-white/20 rounded-lg text-[10px] font-black uppercase tracking-widest">{selectedMaterial.material_code}</span>
+                                <h3 className="text-2xl font-bold tracking-tight uppercase">{selectedMaterial.material_name}</h3>
+                                <span className="px-3 py-0.5 bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest">{selectedMaterial.material_code}</span>
                             </div>
                             <div className="bg-white/15 px-4 py-2 rounded-xl border border-white/10 inline-flex items-center gap-3 font-inter">
-                                <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Category:</span>
-                                <span className="text-xs font-black uppercase tracking-widest">{selectedMaterial.category}</span>
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-white/60">Category:</span>
+                                <span className="text-xs font-bold uppercase tracking-widest">{selectedMaterial.category}</span>
                             </div>
                         </div>
                     </div>
@@ -794,26 +784,26 @@ const MaterialReceiptPage = () => {
 
                 <div className="grid grid-cols-2 gap-8 px-2 font-inter">
                     <div className="font-inter">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter">Total Acquisition</p>
-                        <p className="text-xl font-black text-slate-800 font-inter italic-none">{selectedMaterial.quantity_purchased.toLocaleString()} {selectedMaterial.unit}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 font-inter">Total Acquisition</p>
+                        <p className="text-xl font-bold text-slate-800 font-inter">{selectedMaterial.quantity_purchased.toLocaleString()} {selectedMaterial.unit}</p>
                     </div>
                     <div className="font-inter">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter">Total Commitment</p>
-                        <p className="text-xl font-black text-slate-800 font-inter italic-none">₹{selectedMaterial.total_amount?.toLocaleString()}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 font-inter">Total Commitment</p>
+                        <p className="text-xl font-bold text-slate-800 font-inter">₹{selectedMaterial.total_amount?.toLocaleString()}</p>
                     </div>
                     <div className="font-inter">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter">Payment Disbursed</p>
-                        <p className="text-xl font-black text-emerald-600 font-inter italic-none">₹{selectedMaterial.payment_given?.toLocaleString()}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 font-inter">Payment Disbursed</p>
+                        <p className="text-xl font-bold text-emerald-600 font-inter">₹{selectedMaterial.payment_given?.toLocaleString()}</p>
                     </div>
                     <div className="font-inter">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter">Pending Dues</p>
-                        <p className="text-xl font-black text-rose-600 font-inter italic-none">₹{selectedMaterial.payment_pending?.toLocaleString()}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 font-inter">Pending Dues</p>
+                        <p className="text-xl font-bold text-rose-600 font-inter">₹{selectedMaterial.payment_pending?.toLocaleString()}</p>
                     </div>
                 </div>
 
                 <button 
                     onClick={() => setIsDetailModalOpen(false)}
-                    className="w-full py-5 bg-primary text-white rounded-[1.5rem] text-[11px] font-black uppercase tracking-[0.2em] hover:bg-blue-600 transition-all shadow-2xl shadow-primary/20 active:scale-95 font-inter italic-none"
+                    className="w-full py-5 bg-primary text-white rounded-xl text-[11px] font-bold uppercase tracking-[0.2em] hover:bg-blue-600 transition-all shadow-lg shadow-primary/20 active:scale-95 font-inter"
                 >
                     Dismiss Resource Insight
                 </button>

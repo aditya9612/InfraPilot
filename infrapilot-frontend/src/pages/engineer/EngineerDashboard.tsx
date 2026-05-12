@@ -90,26 +90,22 @@ const EngineerDashboard = () => {
                             title="Total Labor Today"
                             value="145"
                             sub="85 Skilled · 60 Unskilled"
-                            accent="text-primary"
-                        />
+                            accent="text-primary" />
                         <StatCard
                             title="Active Activities"
                             value="12"
                             sub="Foundations, Column Casting"
-                            accent="text-blue-500"
-                        />
+                            accent="text-blue-500" />
                         <StatCard
                             title="Material Stock Status"
                             value="OK"
                             sub="Cement: OK · Steel: Low"
-                            accent="text-emerald-500"
-                        />
+                            accent="text-emerald-500" />
                         <StatCard
                             title="Open Issues"
                             value="4"
                             sub="2 High Priority"
-                            accent="text-rose-500"
-                        />
+                            accent="text-rose-500" />
                     </div>
                 </div>
 

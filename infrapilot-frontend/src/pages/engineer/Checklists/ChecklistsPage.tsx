@@ -13,11 +13,9 @@ import {
   ClipboardList,
   Search,
   Activity,
-  AlertCircle,
   FileText,
   RotateCcw,
-  Layout,
-  Layers
+  Layout
 } from "lucide-react";
 
 import { checklistService } from "../../../services/checklistService";
@@ -229,19 +227,19 @@ const ChecklistsPage = () => {
         }
     };
 
-    const labelClasses = "block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
+    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
     const inputClasses = "w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter";
 
     return (
         <>
             <Navbar title="Checklists" breadcrumb={["Engineer", "Execution", "Checklist Vault"]} />
 
-            <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+            <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
                     <div className="font-inter">
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight italic-none font-inter">Checklist Intelligence Ledger</h1>
-                        <p className="text-slate-500 text-sm italic-none font-inter">Systematic verification protocols and site execution logs.</p>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Checklist Intelligence Ledger</h1>
+                        <p className="text-slate-500 text-sm font-inter">Systematic verification protocols and site execution logs.</p>
                     </div>
                     <button
                         onClick={() => setIsNewModalOpen(true)}
@@ -253,42 +251,34 @@ const ChecklistsPage = () => {
                 </div>
 
                 {/* ── Interactive Stats ───────────────────────────── */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
-                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-slate-800 bg-slate-100 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
+                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                       <StatCard
                           title="Total Vault"
                           value={stats.total.toString()}
                           sub="Protocols Logged"
-                          accent="text-slate-800"
-                          icon={<Layers className={`w-5 h-5 ${activeStatFilter === "All" ? "text-slate-800 scale-110" : "text-slate-400 group-hover:text-slate-800"} transition-all`} />}
-                      />
+                          accent="text-slate-800" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("Done")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Done" ? "ring-2 ring-emerald-500 bg-emerald-50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div onClick={() => setActiveStatFilter("Done")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Done" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                       <StatCard
                           title="Compliance"
                           value={`${stats.compliance}%`}
                           sub="Audit Success"
-                          accent="text-emerald-500"
-                          icon={<CheckCircle2 className={`w-5 h-5 ${activeStatFilter === "Done" ? "text-emerald-500 scale-110" : "text-slate-400 group-hover:text-emerald-500"} transition-all`} />}
-                      />
+                          accent="text-emerald-500" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("Pending")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Pending" ? "ring-2 ring-rose-500 bg-rose-50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div onClick={() => setActiveStatFilter("Pending")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Pending" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                       <StatCard
                           title="Pending Audits"
                           value={stats.pending.toString()}
                           sub="Attention Required"
-                          accent="text-rose-500"
-                          icon={<AlertCircle className={`w-5 h-5 ${activeStatFilter === "Pending" ? "text-rose-500 scale-110" : "text-slate-400 group-hover:text-rose-500"} transition-all`} />}
-                      />
+                          accent="text-rose-500" />
                     </div>
                     <div className="cursor-default group transition-all rounded-xl hover:scale-[1.01]">
                       <StatCard
                           title="Global Health"
                           value="94%"
                           sub="Process Momentum"
-                          accent="text-blue-500"
-                          icon={<Activity className="w-5 h-5 text-blue-500" />}
-                      />
+                          accent="text-blue-500" />
                     </div>
                 </div>
 
@@ -298,7 +288,7 @@ const ChecklistsPage = () => {
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab as any)}
-                            className={`pb-4 text-[10px] font-black uppercase tracking-widest transition-all relative whitespace-nowrap font-inter ${
+                            className={`pb-4 text-[10px] font-bold uppercase tracking-widest transition-all relative whitespace-nowrap font-inter ${
                                 activeTab === tab ? "text-primary" : "text-slate-400 hover:text-slate-600"
                             }`}
                         >
@@ -310,17 +300,19 @@ const ChecklistsPage = () => {
                     ))}
                 </div>
 
+                {/* ── Scrollable Content Area ────────────────────────── */}
+                <div className="flex-1 overflow-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200">
                 {/* ── Protocols Registry ──────────────────────────────── */}
                 <div className="mb-12 font-inter">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 font-inter">
                       {checklists.filter(c => c.type === activeTab).map((cl) => (
-                          <div key={cl.id} className="bg-white rounded-[2rem] p-8 shadow-sm border border-slate-100 hover:shadow-2xl hover:shadow-primary/5 transition-all duration-500 group relative overflow-hidden font-inter">
+                          <div key={cl.id} className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 hover:shadow-2xl hover:shadow-primary/5 transition-all duration-500 group relative overflow-hidden font-inter">
                               <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-primary/10 transition-colors" />
                               
                               <div className="flex items-start justify-between mb-8 relative z-10 font-inter">
                                   <div className="flex-1 font-inter">
-                                      <h3 className="text-lg font-black text-slate-800 group-hover:text-primary transition-colors leading-tight mb-2 font-inter italic-none">{cl.name}</h3>
-                                      <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border font-inter ${typeColors[cl.type] || "bg-slate-50 text-slate-400"}`}>
+                                      <h3 className="text-lg font-bold text-slate-800 group-hover:text-primary transition-colors leading-tight mb-2 font-inter">{cl.name}</h3>
+                                      <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest border font-inter ${typeColors[cl.type] || "bg-slate-50 text-slate-400"}`}>
                                           {cl.type}
                                       </span>
                                   </div>
@@ -331,12 +323,12 @@ const ChecklistsPage = () => {
 
                               <div className="space-y-6 mb-8 relative z-10 font-inter">
                                   <div className="flex items-center justify-between font-inter">
-                                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-inter">Intelligence Domain</span>
-                                      <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest font-inter">VERIFIED VAULT</span>
+                                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">Intelligence Domain</span>
+                                      <span className="text-[10px] font-bold text-slate-800 uppercase tracking-widest font-inter">VERIFIED VAULT</span>
                                   </div>
                                   <div className="flex items-center justify-between font-inter">
-                                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-inter">Reference Hash</span>
-                                      <span className="text-[10px] font-black text-primary uppercase tracking-widest font-inter">LOG-#{cl.id}</span>
+                                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">Reference Hash</span>
+                                      <span className="text-[10px] font-bold text-primary uppercase tracking-widest font-inter">LOG-#{cl.id}</span>
                                   </div>
                               </div>
 
@@ -347,7 +339,7 @@ const ChecklistsPage = () => {
                                       title="Add Item"
                                   >
                                       <PlusSquare className="w-4 h-4" />
-                                      <span className="text-[9px] font-black uppercase tracking-widest">Append</span>
+                                      <span className="text-[10px] font-bold uppercase tracking-widest">Append</span>
                                   </button>
                                   <button 
                                       onClick={() => { setSelectedChecklist(cl); setIsExecuteModalOpen(true); }}
@@ -355,7 +347,7 @@ const ChecklistsPage = () => {
                                       title="Execute Audit"
                                   >
                                       <CheckCircle2 className="w-4 h-4" />
-                                      <span className="text-[9px] font-black uppercase tracking-widest">Audit</span>
+                                      <span className="text-[10px] font-bold uppercase tracking-widest">Audit</span>
                                   </button>
                                   <button 
                                       onClick={() => { setDeleteId(cl.id); setIsDeleteModalOpen(true); }}
@@ -363,23 +355,23 @@ const ChecklistsPage = () => {
                                       title="Archive"
                                   >
                                       <Trash2 className="w-4 h-4" />
-                                      <span className="text-[9px] font-black uppercase tracking-widest">Discard</span>
+                                      <span className="text-[10px] font-bold uppercase tracking-widest">Discard</span>
                                   </button>
                               </div>
                           </div>
                       ))}
                       {checklists.filter(c => c.type === activeTab).length === 0 && (
-                          <div className="col-span-full py-32 text-center bg-white rounded-[2rem] border-4 border-dashed border-slate-50 font-inter">
+                          <div className="col-span-full py-32 text-center bg-white rounded-2xl border-4 border-dashed border-slate-50 font-inter">
                               <Layout className="w-16 h-16 mx-auto mb-6 text-slate-200" />
-                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic-none font-inter">No technical protocols discovered in the {activeTab} domain.</p>
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">No technical protocols discovered in the {activeTab} domain.</p>
                           </div>
                       )}
                   </div>
                 </div>
 
                 {/* ── Execution Intelligence Registry ────────────────────────────── */}
-                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-12 font-inter">
-                    <div className="p-6 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-slate-50/30 font-inter">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-12 font-inter flex flex-col">
+                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
                         <div className="relative flex-1 max-w-md font-inter">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                                 <Search className="w-4 h-4" />
@@ -414,14 +406,14 @@ const ChecklistsPage = () => {
                                         <tr key={log.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                             <td className="px-6 py-4 font-inter">
                                                 <div className="flex flex-col font-inter">
-                                                  <span className="text-sm font-bold text-slate-800 font-inter italic-none">
+                                                  <span className="text-sm font-bold text-slate-800 font-inter">
                                                       {checklists.find(c => c.id === log.checklist_id)?.name || "Ref: #" + log.checklist_id}
                                                   </span>
-                                                  <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest font-inter">LOG-#{log.id}</span>
+                                                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">LOG-#{log.id}</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 font-inter">
-                                                <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border font-inter ${
+                                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest border font-inter ${
                                                     log.status === 'Done' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'
                                                 }`}>
                                                     {log.status}
@@ -430,28 +422,29 @@ const ChecklistsPage = () => {
                                             <td className="px-6 py-4 font-inter">
                                                 <div className="flex items-center gap-2 font-inter max-w-xs">
                                                   <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                                  <span className="text-xs font-bold text-slate-600 italic-none font-inter uppercase tracking-tight truncate">
+                                                  <span className="text-xs font-bold text-slate-600 font-inter uppercase tracking-tight truncate">
                                                       {log.remarks}
                                                   </span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-right font-inter">
                                                 <div className="flex flex-col items-end font-inter">
-                                                  <span className="text-xs font-bold text-slate-800 font-inter italic-none">{log.created_at ? new Date(log.created_at).toLocaleDateString() : "Live Audit"}</span>
-                                                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-inter">Timestamp</span>
+                                                  <span className="text-xs font-bold text-slate-800 font-inter">{log.created_at ? new Date(log.created_at).toLocaleDateString() : "Live Audit"}</span>
+                                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">Timestamp</span>
                                                 </div>
                                             </td>
                                         </tr>
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={4} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter italic-none">
+                                        <td colSpan={4} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
                                             No execution intelligence artifacts discovered in the project vault.
                                         </td>
                                     </tr>
                                 )}
                             </tbody>
                         </table>
+                    </div>
                     </div>
                 </div>
             </PageTransition>
@@ -470,7 +463,7 @@ const ChecklistsPage = () => {
                         <button 
                             onClick={handleCreateChecklist}
                             disabled={isSubmitting}
-                            className="flex-[2] py-3 bg-primary text-white rounded-xl font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
+                            className="flex-[2] py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
                         >
                             {isSubmitting ? "Syncing..." : "Commit Protocol"}
                         </button>
@@ -478,8 +471,8 @@ const ChecklistsPage = () => {
                 }
             >
                 <div className="p-6 space-y-8 font-inter">
-                    <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm font-inter">
-                        <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
+                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
+                        <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
                           <Activity className="w-4 h-4 text-primary" />
                           Protocol Intelligence Profile
                         </h3>
@@ -510,8 +503,8 @@ const ChecklistsPage = () => {
                         </div>
                     </div>
 
-                    <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm font-inter">
-                        <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
+                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
+                        <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
                           <CheckCircle2 className="w-4 h-4 text-primary" />
                           Verification Points Matrix
                         </h3>
@@ -526,7 +519,7 @@ const ChecklistsPage = () => {
                             <button 
                                 type="button"
                                 onClick={addTempItem}
-                                className="px-6 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all active:scale-95 font-inter"
+                                className="px-6 bg-slate-900 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-slate-800 transition-all active:scale-95 font-inter"
                             >
                                 Append Point
                             </button>
@@ -536,8 +529,8 @@ const ChecklistsPage = () => {
                             {newChecklistItems.map((item, idx) => (
                                 <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl group/item hover:bg-blue-50 hover:border-blue-100 transition-all font-inter">
                                     <div className="flex items-center gap-4 font-inter">
-                                        <div className="w-6 h-6 bg-primary text-white rounded-lg flex items-center justify-center text-[10px] font-black font-inter">{idx + 1}</div>
-                                        <span className="text-xs font-black text-slate-700 uppercase tracking-tight font-inter">{item}</span>
+                                        <div className="w-6 h-6 bg-primary text-white rounded-lg flex items-center justify-center text-[10px] font-bold font-inter">{idx + 1}</div>
+                                        <span className="text-xs font-bold text-slate-700 uppercase tracking-tight font-inter">{item}</span>
                                     </div>
                                     <button 
                                         onClick={() => setNewChecklistItems(prev => prev.filter((_, i) => i !== idx))}
@@ -548,8 +541,8 @@ const ChecklistsPage = () => {
                                 </div>
                             ))}
                             {newChecklistItems.length === 0 && (
-                                <div className="py-12 text-center border-2 border-dashed border-slate-100 rounded-[1.5rem] font-inter">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 font-inter">No verification points added. Minimum 1 required.</p>
+                                <div className="py-12 text-center border-2 border-dashed border-slate-100 rounded-2xl font-inter">
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">No verification points added. Minimum 1 required.</p>
                                 </div>
                             )}
                         </div>
@@ -569,7 +562,7 @@ const ChecklistsPage = () => {
                         <button 
                             onClick={handleAddItem}
                             disabled={isSubmitting}
-                            className="flex-[2] py-3 bg-primary text-white rounded-xl font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
+                            className="flex-[2] py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
                         >
                             {isSubmitting ? "Syncing..." : "Append Point"}
                         </button>
@@ -600,7 +593,7 @@ const ChecklistsPage = () => {
                         <button 
                             onClick={handleExecuteChecklist}
                             disabled={isSubmitting}
-                            className="flex-[2] py-3 bg-emerald-600 text-white rounded-xl font-black uppercase tracking-widest shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all active:scale-95 disabled:opacity-50 font-inter"
+                            className="flex-[2] py-3 bg-emerald-600 text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all active:scale-95 disabled:opacity-50 font-inter"
                         >
                             {isSubmitting ? "Syncing..." : "Commit Field Audit"}
                         </button>
@@ -608,11 +601,11 @@ const ChecklistsPage = () => {
                 }
             >
                 <div className="p-6 space-y-8 font-inter">
-                    <div className="p-6 bg-slate-900 rounded-[1.5rem] border border-slate-800 text-white shadow-2xl relative overflow-hidden font-inter">
+                    <div className="p-6 bg-slate-900 rounded-2xl border border-slate-800 text-white shadow-2xl relative overflow-hidden font-inter">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full -mr-16 -mt-16 blur-2xl" />
                         <div className="relative z-10 font-inter">
-                          <p className="text-[9px] font-black text-white/40 uppercase tracking-[0.2em] mb-2 font-inter">Active Protocol Execution</p>
-                          <p className="text-lg font-black tracking-tight font-inter italic-none">{selectedChecklist?.name}</p>
+                          <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2 font-inter">Active Protocol Execution</p>
+                          <p className="text-lg font-bold tracking-tight font-inter">{selectedChecklist?.name}</p>
                         </div>
                     </div>
                     
@@ -624,7 +617,7 @@ const ChecklistsPage = () => {
                                     key={s}
                                     type="button"
                                     onClick={() => setExecuteStatus(s as any)}
-                                    className={`flex-1 py-4 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all border font-inter ${
+                                    className={`flex-1 py-4 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border font-inter ${
                                         executeStatus === s 
                                             ? (s === "Done" ? "bg-emerald-600 border-emerald-600 text-white shadow-xl shadow-emerald-200 scale-[1.02]" : "bg-amber-500 border-yellow-500 text-white shadow-xl shadow-yellow-200 scale-[1.02]") 
                                             : "bg-white border-slate-200 text-slate-400 hover:bg-slate-50"

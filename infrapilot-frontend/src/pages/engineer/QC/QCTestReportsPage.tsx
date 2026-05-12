@@ -5,10 +5,6 @@ import Navbar from "../../../components/common/Navbar";
 import StatCard from "../../../components/common/StatCard";
 import toast from "react-hot-toast";
 import { 
-  BarChart3, 
-  TrendingUp,
-  TrendingDown,
-  Activity,
   User
 } from "lucide-react";
 
@@ -112,51 +108,43 @@ const QCTestReportsPage = () => {
         <>
             <Navbar title="QC Test Reports" breadcrumb={["Engineer", "Quality Control", "Analytical Insights"]} />
 
-            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
+            <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight italic-none">Test Analytics Vault</h1>
-                        <p className="text-slate-500 text-sm italic-none">Comprehensive analysis and historical breakdown of site quality tests.</p>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Test Analytics Vault</h1>
+                        <p className="text-slate-500 text-sm">Comprehensive analysis and historical breakdown of site quality tests.</p>
                     </div>
                 </div>
 
                 {/* ── Summary Stats ───────────────────────────── */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer transition-all ${activeStatFilter === "All" ? "ring-2 ring-slate-800 rounded-xl bg-white shadow-lg scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Total Tests"
                             value={stats.total.toString()}
                             sub="Analytic Samples"
-                            accent="text-slate-800"
-                            icon={<BarChart3 className={`w-5 h-5 ${activeStatFilter === "All" ? "text-slate-800" : "text-slate-400"}`} />}
-                        />
+                            accent="text-slate-800" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("Pass")} className={`cursor-pointer transition-all ${activeStatFilter === "Pass" ? "ring-2 ring-emerald-500 rounded-xl bg-emerald-50 shadow-lg scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div onClick={() => setActiveStatFilter("Pass")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Pass" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Pass Rate"
                             value={`${stats.passRate}%`}
                             sub="Compliance Velocity"
-                            accent="text-emerald-500"
-                            icon={<TrendingUp className={`w-5 h-5 ${activeStatFilter === "Pass" ? "text-emerald-500" : "text-slate-400"}`} />}
-                        />
+                            accent="text-emerald-500" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("Fail")} className={`cursor-pointer transition-all ${activeStatFilter === "Fail" ? "ring-2 ring-rose-500 rounded-xl bg-rose-50 shadow-lg scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div onClick={() => setActiveStatFilter("Fail")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Fail" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Failures"
                             value={stats.failCount.toString()}
                             sub="Critical Deviations"
-                            accent="text-rose-500"
-                            icon={<TrendingDown className={`w-5 h-5 ${activeStatFilter === "Fail" ? "text-rose-500" : "text-slate-400"}`} />}
-                        />
+                            accent="text-rose-500" />
                     </div>
                     <StatCard
                         title="Data Quality"
                         value="100%"
                         sub="Verification Level"
-                        accent="text-blue-500"
-                        icon={<Activity className="w-5 h-5" />}
-                    />
+                        accent="text-blue-500" />
                 </div>
 
                 {/* ── Tab Bar ────────────────────────────────────────────── */}
@@ -175,20 +163,22 @@ const QCTestReportsPage = () => {
                     </button>
                 </div>
 
+                {/* ── Scrollable Content Area ────────────────────────── */}
+                <div className="flex-1 overflow-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200">
                 {isLoading ? (
                     <div className="py-20 text-center text-slate-400 font-inter">
                         <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
-                        <p className="text-[10px] font-black uppercase tracking-widest">Analyzing test data...</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest">Analyzing test data...</p>
                     </div>
                 ) : (
                     <>
                         {qcList.length > 0 ? (
                             <div className="space-y-10">
                                 {/* Test Type Breakdown Table */}
-                                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden font-inter">
-                                    <div className="p-6 border-b border-slate-50 bg-slate-50/30">
-                                        <h3 className="text-lg font-bold text-slate-800">Test Protocol Breakdown</h3>
-                                    </div>
+                                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden font-inter">
+                                     <div className="p-4 border-b border-slate-50 bg-white">
+                                         <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Test Protocol Breakdown</h3>
+                                     </div>
                                     <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200">
                                         <table className="w-full text-left font-inter">
                                             <thead>
@@ -208,13 +198,13 @@ const QCTestReportsPage = () => {
                                                         </td>
                                                         <td className="px-6 py-4 text-center text-sm font-medium text-slate-600 font-inter">{row.total}</td>
                                                         <td className="px-6 py-4 text-center">
-                                                            <span className="px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black uppercase tracking-widest">{row.passed}</span>
+                                                            <span className="px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold uppercase tracking-widest">{row.passed}</span>
                                                         </td>
                                                         <td className="px-6 py-4 text-center">
-                                                            <span className="px-2.5 py-1 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-black uppercase tracking-widest">{row.failed}</span>
+                                                            <span className="px-2.5 py-1 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-bold uppercase tracking-widest">{row.failed}</span>
                                                         </td>
                                                         <td className="px-6 py-4 text-right">
-                                                            <span className="text-sm font-black text-primary font-inter">{row.passRate}</span>
+                                                            <span className="text-sm font-bold text-primary font-inter">{row.passRate}</span>
                                                         </td>
                                                     </tr>
                                                 ))}
@@ -224,11 +214,11 @@ const QCTestReportsPage = () => {
                                 </div>
 
                                 {/* All Inspections Table */}
-                                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden font-inter">
-                                    <div className="p-6 border-b border-slate-50 bg-slate-50/30 flex justify-between items-center">
-                                        <h3 className="text-lg font-bold text-slate-800">Operational Audit Ledger</h3>
-                                        <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-[10px] font-black uppercase tracking-widest font-inter">Archive Active</span>
-                                    </div>
+                                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden font-inter">
+                                     <div className="p-4 border-b border-slate-50 bg-white flex justify-between items-center">
+                                         <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Operational Audit Ledger</h3>
+                                         <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-[10px] font-bold uppercase tracking-widest font-inter">Archive Active</span>
+                                     </div>
                                     <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200">
                                         <table className="w-full text-left font-inter min-w-[1200px]">
                                             <thead>
@@ -247,7 +237,7 @@ const QCTestReportsPage = () => {
                                                         <td className="px-6 py-4">
                                                             <div className="flex flex-col font-inter">
                                                                 <span className="text-sm font-bold text-slate-800 font-inter">{qc.inspection_type}</span>
-                                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-inter">AUDIT-#{qc.id}</span>
+                                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">AUDIT-#{qc.id}</span>
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4">
@@ -255,23 +245,23 @@ const QCTestReportsPage = () => {
                                                         </td>
                                                         <td className="px-6 py-4 text-center">
                                                             <div className="flex flex-col font-inter items-center">
-                                                                <p className="text-[10px] font-black text-slate-800 font-inter">{qc.result}</p>
-                                                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest font-inter">TH: {qc.standard_value}</p>
+                                                                <p className="text-[10px] font-bold text-slate-800 font-inter">{qc.result}</p>
+                                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">TH: {qc.standard_value}</p>
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4">
-                                                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${qc.status === 'Pass' ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
+                                                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${qc.status === 'Pass' ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
                                                                 {qc.status}
                                                             </span>
                                                         </td>
                                                         <td className="px-6 py-4">
                                                             <div className="flex items-center gap-2 font-inter">
                                                                 <User className="w-3.5 h-3.5 text-slate-400" />
-                                                                <p className="text-[10px] font-black text-slate-800 font-inter uppercase tracking-widest">{qc.engineer_name}</p>
+                                                                <p className="text-[10px] font-bold text-slate-800 font-inter uppercase tracking-widest">{qc.engineer_name}</p>
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4">
-                                                            <span className="text-xs text-slate-400 line-clamp-1 max-w-[200px] font-inter italic-none" title={qc.remarks || ""}>
+                                                            <span className="text-xs text-slate-400 line-clamp-1 max-w-[200px] font-inter" title={qc.remarks || ""}>
                                                                 {qc.remarks || "-"}
                                                             </span>
                                                         </td>
@@ -283,7 +273,7 @@ const QCTestReportsPage = () => {
                                 </div>
                             </div>
                         ) : (
-                            <div className="py-20 text-center bg-white rounded-[2rem] border-2 border-dashed border-slate-200 font-inter">
+                            <div className="py-20 text-center bg-white rounded-2xl border-2 border-dashed border-slate-200 font-inter">
                                 <p className="text-4xl mb-4">📊</p>
                                 <h3 className="text-lg font-bold text-slate-400 font-inter">No test reports available</h3>
                                 <p className="text-slate-400 text-sm font-inter">Complete inspections to generate data insights</p>
@@ -291,6 +281,7 @@ const QCTestReportsPage = () => {
                         )}
                     </>
                 )}
+                </div>
             </PageTransition>
         </>
     );

@@ -9,8 +9,6 @@ import ConfirmModal from "../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 import {
     FileText,
-    CheckCircle2,
-    AlertTriangle,
     Activity,
     Search,
     Plus,
@@ -20,8 +18,7 @@ import {
     MapPin,
     AlertCircle,
     Briefcase,
-    Phone,
-    Mail,
+    Calendar,
     Image as ImageIcon,
     RotateCcw
 } from "lucide-react";
@@ -231,12 +228,12 @@ const DSRPage = () => {
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight italic-none">Project Daily Ledger</h1>
-                        <p className="text-slate-500 text-sm italic-none">Historical record of activities, labour, and material movements.</p>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Project Daily Ledger</h1>
+                        <p className="text-slate-500 text-sm">Historical record of activities, labour, and material movements.</p>
                     </div>
                     <button
                         onClick={() => setIsCreateOpen(true)}
-                        className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                     >
                         <Plus className="w-4 h-4" />
                         Log DSR Entry
@@ -245,50 +242,42 @@ const DSRPage = () => {
 
                 {/* ── Summary Stats with Interactive Filtering ───────────────────────────── */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary bg-primary/5 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer transition-all ${activeStatFilter === "All" ? "ring-2 ring-primary/20 rounded-xl" : ""}`}>
                         <StatCard
                             title="Total Logs"
                             value={stats.total.toString()}
                             sub="Verified Archives"
-                            accent="text-slate-800"
-                            icon={<FileText className={`w-5 h-5 ${activeStatFilter === "All" ? "text-primary scale-110" : "text-slate-400 group-hover:text-primary"} transition-all`} />}
-                        />
+                            accent="text-slate-800" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("Compliance")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Compliance" ? "ring-2 ring-emerald-500 bg-emerald-50/50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div onClick={() => setActiveStatFilter("Compliance")} className={`cursor-pointer transition-all ${activeStatFilter === "Compliance" ? "ring-2 ring-emerald-500/20 rounded-xl" : ""}`}>
                         <StatCard
                             title="Compliance"
                             value={stats.complianceRate}
                             sub="Verification Rate"
-                            accent="text-emerald-500"
-                            icon={<CheckCircle2 className={`w-5 h-5 ${activeStatFilter === "Compliance" ? "text-emerald-500 scale-110" : "text-slate-400 group-hover:text-emerald-500"} transition-all`} />}
-                        />
+                            accent="text-emerald-500" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("Pending")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Pending" ? "ring-2 ring-rose-500 bg-rose-50/50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div onClick={() => setActiveStatFilter("Pending")} className={`cursor-pointer transition-all ${activeStatFilter === "Pending" ? "ring-2 ring-rose-500/20 rounded-xl" : ""}`}>
                         <StatCard
                             title="Pending Audit"
                             value={stats.pending.toString()}
                             sub="Action Required"
-                            accent="text-rose-500"
-                            icon={<AlertTriangle className={`w-5 h-5 ${activeStatFilter === "Pending" ? "text-rose-500 scale-110" : "text-slate-400 group-hover:text-rose-500"} transition-all`} />}
-                        />
+                            accent="text-rose-500" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("Efficiency")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Efficiency" ? "ring-2 ring-blue-500 bg-blue-50/50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div onClick={() => setActiveStatFilter("Efficiency")} className={`cursor-pointer transition-all ${activeStatFilter === "Efficiency" ? "ring-2 ring-blue-500/20 rounded-xl" : ""}`}>
                         <StatCard
                             title="Efficiency"
                             value="94%"
                             sub="Project Momentum"
-                            accent="text-blue-500"
-                            icon={<Activity className={`w-5 h-5 ${activeStatFilter === "Efficiency" ? "text-blue-500 scale-110" : "text-slate-400 group-hover:text-blue-500"} transition-all`} />}
-                        />
+                            accent="text-blue-500" />
                     </div>
                 </div>
 
                 {/* ── Filter Bar & Registry Container ───────────────────────────────────────────── */}
-                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter min-h-[400px]">
                     {/* Integrated Filter Bar */}
-                    <div className="p-6 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-slate-50/30 font-inter">
+                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
                         <div className="relative flex-1 max-w-md font-inter">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
                                 <Search className="w-4 h-4" />
                             </span>
                             <input
@@ -296,15 +285,15 @@ const DSRPage = () => {
                                 placeholder="Search by activity, location or ID..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter font-bold"
+                                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
                             />
                         </div>
                         <div className="flex items-center gap-3 font-inter">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status:</span>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status:</span>
                             <select
                                 value={statusFilter}
                                 onChange={(e) => setStatusFilter(e.target.value)}
-                                className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-black text-slate-600 outline-none cursor-pointer font-inter uppercase tracking-widest"
+                                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer font-inter uppercase tracking-widest"
                             >
                                 <option value="All">All Status</option>
                                 <option value="Draft">Draft</option>
@@ -358,13 +347,13 @@ const DSRPage = () => {
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${dsr.status ? statusBadge[dsr.status] : "bg-slate-100 text-slate-500"} font-inter`}>
+                                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${dsr.status ? statusBadge[dsr.status] : "bg-slate-100 text-slate-500"} font-inter`}>
                                                         {dsr.status}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex flex-col font-inter">
-                                                        <p className="text-[10px] font-black text-slate-800 font-inter">{dsr.total_labour} Labour</p>
+                                                        <p className="text-[10px] font-bold text-slate-800 font-inter">{dsr.total_labour} Labour</p>
                                                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest font-inter">{dsr.weather} Weather</p>
                                                     </div>
                                                 </td>
@@ -390,23 +379,23 @@ const DSRPage = () => {
                                                             </div>
                                                         )}
                                                         {dsr.photos && dsr.photos.length > 3 && (
-                                                            <div className="w-12 h-12 rounded-xl bg-slate-100 border-2 border-white flex items-center justify-center text-[10px] font-black text-slate-500 z-0">
+                                                            <div className="w-12 h-12 rounded-xl bg-slate-100 border-2 border-white flex items-center justify-center text-[10px] font-bold text-slate-500 z-0">
                                                                 +{dsr.photos.length - 3}
                                                             </div>
                                                         )}
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
-                                                    <div className="flex items-center justify-end gap-2 transition-opacity font-inter">
+                                                    <div className="flex items-center justify-end gap-2 font-inter">
                                                         <button
                                                             onClick={() => handleView(dsr.id)}
-                                                            className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-95 font-inter"
+                                                            className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
                                                         >
                                                             <Eye className="w-4 h-4" />
                                                         </button>
                                                         <button
                                                             onClick={() => handleEdit(dsr.id)}
-                                                            className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
+                                                            className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all font-inter"
                                                         >
                                                             <Edit2 className="w-4 h-4" />
                                                         </button>
@@ -422,7 +411,7 @@ const DSRPage = () => {
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan={6} className="px-6 py-20 text-center text-slate-400 italic-none font-inter">
+                                            <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-inter">
                                                 No daily reports found in the project vault.
                                             </td>
                                         </tr>
@@ -443,32 +432,34 @@ const DSRPage = () => {
             >
                 {selectedDsr && (
                     <div className="p-6 font-inter text-inter italic-none">
-                        {/* ── Profile Style Header ────────────────── */}
-                        <div className="bg-primary rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter">
-                            <div className="relative z-10 flex items-center gap-6 font-inter">
-                                <div className="w-24 h-24 bg-white/20 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/20 relative font-inter">
-                                    <span className="text-4xl font-black font-inter">D</span>
-                                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-4 border-primary rounded-full animate-pulse" />
+                        {/* ── Header Information ────────────────── */}
+                        <div className="flex items-center gap-6 mb-8 border-b border-slate-50 pb-8">
+                            <div className="w-20 h-20 bg-slate-900 rounded-3xl flex items-center justify-center text-white text-3xl font-bold shadow-lg">
+                                D
+                            </div>
+                            <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-1">
+                                    <h3 className="text-2xl font-bold text-slate-800 tracking-tight">{selectedDsr.business_id || `DSR-${selectedDsr.id}`}</h3>
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest ${selectedDsr.status ? statusBadge[selectedDsr.status] : "bg-slate-100 text-slate-500"}`}>
+                                        {selectedDsr.status}
+                                    </span>
                                 </div>
-                                <div className="font-inter">
-                                    <div className="flex items-center gap-3 mb-2 font-inter">
-                                        <h3 className="text-2xl font-black tracking-tight font-inter italic-none">{selectedDsr.business_id || `DSR-${selectedDsr.id}`}</h3>
-                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-black uppercase tracking-widest font-inter">{selectedDsr.status || 'Verified'}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
-                                        <Mail className="w-3 h-3" />
-                                        <span className="text-[11px] font-bold font-inter italic-none">dsr.ref-{selectedDsr.id}@infrapilot.com</span>
-                                    </div>
-                                    <div className="px-3 py-1 bg-white/20 rounded-full inline-block font-inter">
-                                        <span className="text-[10px] font-black uppercase tracking-widest font-inter">LOG DATE: {selectedDsr.report_date}</span>
-                                    </div>
+                                <div className="flex items-center gap-4 text-slate-400 text-xs font-medium">
+                                    <span className="flex items-center gap-1.5">
+                                        <Calendar className="w-3.5 h-3.5" />
+                                        {selectedDsr.report_date}
+                                    </span>
+                                    <span className="flex items-center gap-1.5">
+                                        <MapPin className="w-3.5 h-3.5" />
+                                        {selectedDsr.site_location}
+                                    </span>
                                 </div>
                             </div>
                         </div>
 
                         {(selectedDsr.photos && selectedDsr.photos.length > 0) ? (
-                            <div className="px-2 mb-8 font-inter">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 font-inter text-center">Site Media Gallery ({selectedDsr.photos.length})</p>
+                            <div className="mb-8">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Site Documentation ({selectedDsr.photos.length})</p>
                                 <div className="grid grid-cols-2 gap-4">
                                     {selectedDsr.photos.map((photo) => (
                                         <div key={photo.id} className="rounded-2xl overflow-hidden border border-slate-100 shadow-sm aspect-[4/3] group relative">
@@ -477,96 +468,91 @@ const DSRPage = () => {
                                                 alt="Site Documentation"
                                                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                             />
-                                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
                                         </div>
                                     ))}
                                 </div>
                             </div>
                         ) : selectedDsr.dsr_image && (
-                            <div className="px-2 mb-8 font-inter text-center">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 font-inter">Site Documentation</p>
-                                <div className="rounded-[2rem] overflow-hidden border border-slate-100 shadow-sm aspect-video">
+                            <div className="mb-8">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Site Documentation</p>
+                                <div className="rounded-2xl overflow-hidden border border-slate-100 shadow-sm aspect-video">
                                     <img src={selectedDsr.dsr_image} alt="Site Documentation" className="w-full h-full object-cover" />
                                 </div>
                             </div>
                         )}
 
-                        <div className="space-y-8 px-2 mb-10 font-inter">
-                            {/* Professional Information style section */}
-                            <div className="font-inter">
-                                <div className="flex items-center gap-2 mb-6 font-inter">
-                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
-                                        <Briefcase className="w-4 h-4 text-primary" />
+                        <div className="space-y-8 mb-10">
+                            {/* Operational Intelligence style section */}
+                            <div>
+                                <div className="flex items-center gap-2 mb-6">
+                                    <div className="p-2 bg-blue-50 rounded-lg text-primary">
+                                        <Briefcase className="w-4 h-4" />
                                     </div>
-                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Operational Intelligence</p>
+                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Operational Intelligence</p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Site Location</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedDsr.site_location}</p>
+                                <div className="grid grid-cols-2 gap-x-12 gap-y-6">
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Weather Condition</p>
+                                        <p className="text-sm font-bold text-slate-800">{selectedDsr.weather}</p>
                                     </div>
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Weather Condition</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedDsr.weather}</p>
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Total Personnel</p>
+                                        <p className="text-sm font-bold text-slate-800">{selectedDsr.total_labour || 0} Units</p>
                                     </div>
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Total Personnel</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedDsr.total_labour || 0} Units</p>
-                                    </div>
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Registry ID</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedDsr.business_id || `DSR-${selectedDsr.id}`}</p>
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Registry ID</p>
+                                        <p className="text-sm font-bold text-slate-800">{selectedDsr.business_id || `DSR-${selectedDsr.id}`}</p>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Contact Details style section */}
-                            <div className="font-inter">
-                                <div className="flex items-center gap-2 mb-6 font-inter">
-                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
-                                        <Phone className="w-4 h-4 text-primary" />
+                            {/* Work Narrative style section */}
+                            <div>
+                                <div className="flex items-center gap-2 mb-6">
+                                    <div className="p-2 bg-blue-50 rounded-lg text-primary">
+                                        <Activity className="w-4 h-4" />
                                     </div>
-                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Work Narrative</p>
+                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Work Narrative</p>
                                 </div>
-                                <div className="grid grid-cols-1 gap-6 font-inter">
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Work Completed Today</p>
-                                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm text-slate-600 leading-relaxed font-inter italic-none">
+                                <div className="grid grid-cols-1 gap-6">
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Work Completed Today</p>
+                                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm text-slate-600 leading-relaxed font-medium">
                                             "{selectedDsr.work_done}"
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Assignments style section */}
-                            <div className="font-inter">
-                                <div className="flex items-center gap-2 mb-6 font-inter">
-                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
-                                        <FileText className="w-4 h-4 text-primary" />
+                            {/* Resource Logistics style section */}
+                            <div>
+                                <div className="flex items-center gap-2 mb-6">
+                                    <div className="p-2 bg-blue-50 rounded-lg text-primary">
+                                        <FileText className="w-4 h-4" />
                                     </div>
-                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Resource Logistics</p>
+                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Resource Logistics</p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Material Received</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedDsr.material_received || "Nil"}</p>
+                                <div className="grid grid-cols-2 gap-x-12 gap-y-6">
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Material Received</p>
+                                        <p className="text-sm font-bold text-slate-800">{selectedDsr.material_received || "Nil"}</p>
                                     </div>
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Machinery Used</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedDsr.machinery_used || "Nil"}</p>
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Machinery Used</p>
+                                        <p className="text-sm font-bold text-slate-800">{selectedDsr.machinery_used || "Nil"}</p>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Issues section */}
-                            <div className="font-inter">
-                                <div className="flex items-center gap-2 mb-6 font-inter">
-                                    <div className="p-2 bg-rose-50 rounded-lg font-inter">
-                                        <AlertCircle className="w-4 h-4 text-rose-500" />
+                            <div>
+                                <div className="flex items-center gap-2 mb-6">
+                                    <div className="p-2 bg-rose-50 rounded-lg text-rose-500">
+                                        <AlertCircle className="w-4 h-4" />
                                     </div>
-                                    <p className="text-[11px] font-black text-rose-500 uppercase tracking-[0.15em] font-inter">Constraints & Observations</p>
+                                    <p className="text-[11px] font-bold text-rose-500 uppercase tracking-widest">Constraints & Observations</p>
                                 </div>
-                                <div className="p-4 bg-rose-50 rounded-2xl border border-rose-100 text-sm text-rose-600 font-medium font-inter italic-none">
+                                <div className="p-4 bg-rose-50 rounded-2xl border border-rose-100 text-sm text-rose-600 font-medium">
                                     {selectedDsr.issues || "No operational constraints reported today."}
                                 </div>
                             </div>
@@ -574,9 +560,9 @@ const DSRPage = () => {
 
                         <button
                             onClick={() => setIsDetailOpen(false)}
-                            className="w-full py-5 bg-primary text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all shadow-xl shadow-primary/20 active:scale-95 font-inter italic-none"
+                            className="w-full py-4 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                         >
-                            Dismiss DSR Insight
+                            Dismiss Report
                         </button>
                     </div>
                 )}

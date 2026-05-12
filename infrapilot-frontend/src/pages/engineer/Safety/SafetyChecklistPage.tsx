@@ -16,9 +16,6 @@ import {
   ShieldAlert,
   AlertCircle,
   FileText,
-  CheckCircle2,
-  AlertTriangle,
-  Activity,
   Filter,
   Mail,
   Briefcase,
@@ -260,7 +257,7 @@ const SafetyChecklistPage = () => {
 
     // ─── RENDER HELPERS ────────────────────────────────────────────────
 
-    const labelClasses = "block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
+    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
     const inputClasses = "w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter";
 
     return (
@@ -271,8 +268,8 @@ const SafetyChecklistPage = () => {
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
                     <div className="font-inter">
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight italic-none font-inter">Safety Audit Registry</h1>
-                        <p className="text-slate-500 text-sm italic-none font-inter">Historical record of safety inspections and site compliance audits.</p>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Safety Audit Registry</h1>
+                        <p className="text-slate-500 text-sm font-inter">Historical record of safety inspections and site compliance audits.</p>
                     </div>
                     <button
                         type="button"
@@ -285,55 +282,47 @@ const SafetyChecklistPage = () => {
                 </div>
 
                 {/* ── Interactive Stats ───────────────────────────── */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
-                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-slate-800 bg-slate-100 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
+                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                       <StatCard
                           title="Total Audits"
                           value={stats.total.toString()}
                           sub="Verified Logs"
-                          accent="text-slate-800"
-                          icon={<FileText className={`w-5 h-5 ${activeStatFilter === "All" ? "text-slate-800 scale-110" : "text-slate-400 group-hover:text-slate-800"} transition-all`} />}
-                      />
+                          accent="text-slate-800" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("Compliance")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Compliance" ? "ring-2 ring-emerald-500 bg-emerald-50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div onClick={() => setActiveStatFilter("Compliance")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Compliance" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                       <StatCard
                           title="Compliance"
                           value={`${stats.compliance}%`}
                           sub="Safe Operations"
-                          accent="text-emerald-500"
-                          icon={<CheckCircle2 className={`w-5 h-5 ${activeStatFilter === "Compliance" ? "text-emerald-500 scale-110" : "text-slate-400 group-hover:text-emerald-500"} transition-all`} />}
-                      />
+                          accent="text-emerald-500" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("HighRisk")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "HighRisk" ? "ring-2 ring-rose-500 bg-rose-50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div onClick={() => setActiveStatFilter("HighRisk")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "HighRisk" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                       <StatCard
                           title="High Risks"
                           value={stats.critical.toString()}
                           sub="Critical Hazards"
-                          accent="text-rose-500"
-                          icon={<AlertTriangle className={`w-5 h-5 ${activeStatFilter === "HighRisk" ? "text-rose-500 scale-110" : "text-slate-400 group-hover:text-rose-500"} transition-all`} />}
-                      />
+                          accent="text-rose-500" />
                     </div>
                     <div className="cursor-default group transition-all rounded-xl hover:scale-[1.01]">
                       <StatCard
                           title="Site Safety"
                           value={`${stats.momentum}%`}
                           sub="Safety Momentum"
-                          accent="text-blue-500"
-                          icon={<Activity className="w-5 h-5 text-blue-500" />}
-                      />
+                          accent="text-blue-500" />
                     </div>
                 </div>
 
                 {/* ── Tabs ────────────────────────────────────────────────── */}
                 <div className="flex items-center gap-8 border-b border-slate-200 mb-8 font-inter">
                     <button 
-                        className="pb-4 text-sm font-black uppercase tracking-widest text-primary border-b-2 border-primary transition-all font-inter"
+                        className="pb-4 text-sm font-bold uppercase tracking-widest text-primary border-b-2 border-primary transition-all font-inter"
                         onClick={() => navigate("/engineer/safety/checklist")}
                     >
                         Safety Checklist
                     </button>
                     <button 
-                        className="pb-4 text-sm font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-all font-inter"
+                        className="pb-4 text-sm font-bold uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-all font-inter"
                         onClick={() => navigate("/engineer/safety/incident")}
                     >
                         Incident Report
@@ -341,19 +330,19 @@ const SafetyChecklistPage = () => {
                 </div>
 
                 {/* ── Registry Container ───────────────────────────────────────────── */}
-                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
                     {/* Integrated Filter Bar */}
-                    <div className="p-6 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-slate-50/30 font-inter">
+                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
                         <div className="relative flex-1 max-w-md font-inter">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                                <Search className="w-4 h-4" />
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-inter">
+                                <Search className="w-4 h-4 font-inter" />
                             </span>
                             <input
                                 type="text"
-                                placeholder="Search by observation, officer or type..."
+                                placeholder="Search by description or officer..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
+                                className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
                             />
                         </div>
                         <div className="flex items-center gap-3 font-inter">
@@ -362,7 +351,7 @@ const SafetyChecklistPage = () => {
                               <select
                                   value={filterViolationType}
                                   onChange={(e) => setFilterViolationType(e.target.value)}
-                                  className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-black uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter shadow-sm"
+                                  className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter shadow-sm"
                               >
                                   <option value="">All Violation Types</option>
                                   <option value="No Helmet">No Helmet</option>
@@ -385,7 +374,7 @@ const SafetyChecklistPage = () => {
                         {isLoading ? (
                             <div className="p-20 text-center font-inter">
                                 <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4 font-inter" />
-                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 font-inter">Syncing safety vault...</p>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing safety vault...</p>
                             </div>
                         ) : (
                             <table className="w-full text-left font-inter min-w-[1000px]">
@@ -404,21 +393,21 @@ const SafetyChecklistPage = () => {
                                             <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                                 <td className="px-6 py-4 font-inter">
                                                     <div className="flex flex-col font-inter">
-                                                        <span className="text-sm font-bold text-slate-800 font-inter italic-none">{item.date}</span>
-                                                        <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest font-inter">AUDIT-#{item.id}</span>
+                                                        <span className="text-sm font-bold text-slate-800 font-inter">{item.date}</span>
+                                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">AUDIT-#{item.id}</span>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 font-inter">
                                                     <div className="flex flex-col max-w-xs font-inter">
-                                                        <span className="text-xs font-bold text-slate-700 truncate font-inter italic-none">{item.description}</span>
-                                                        <div className="flex items-center gap-1 text-[9px] text-slate-400 font-black uppercase tracking-widest font-inter">
+                                                        <span className="text-xs font-bold text-slate-700 truncate font-inter">{item.description}</span>
+                                                        <div className="flex items-center gap-1 text-[9px] text-slate-400 font-bold uppercase tracking-widest font-inter">
                                                             <AlertCircle className="w-3 h-3 text-orange-500" />
-                                                            <span className="truncate font-inter italic-none">{item.action_taken}</span>
+                                                            <span className="truncate font-inter">{item.action_taken}</span>
                                                         </div>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 font-inter">
-                                                    <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border font-inter ${violationTypeColors[item.violation_type] || "bg-slate-100 text-slate-500 border-slate-200"}`}>
+                                                    <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border font-inter ${violationTypeColors[item.violation_type] || "bg-slate-100 text-slate-500 border-slate-200"}`}>
                                                         {item.violation_type}
                                                     </span>
                                                 </td>
@@ -427,7 +416,7 @@ const SafetyChecklistPage = () => {
                                                         <div className="w-6 h-6 bg-slate-100 rounded-full flex items-center justify-center font-inter">
                                                           <User className="w-3 h-3 text-slate-500" />
                                                         </div>
-                                                        <p className="text-[10px] font-black text-slate-700 font-inter italic-none uppercase tracking-widest">{item.responsible_person}</p>
+                                                        <p className="text-[10px] font-bold text-slate-700 font-inter uppercase tracking-widest">{item.responsible_person}</p>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 text-right font-inter">
@@ -459,7 +448,7 @@ const SafetyChecklistPage = () => {
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan={5} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter italic-none">
+                                            <td colSpan={5} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
                                                 No matching safety records found in the project vault.
                                             </td>
                                         </tr>
@@ -471,11 +460,10 @@ const SafetyChecklistPage = () => {
                 </div>
             </PageTransition>
 
-            {/* ── New / Edit Modal ─────────────────────────── */}
             <Modal
                 isOpen={isNewModalOpen || isEditModalOpen}
                 onClose={() => { setIsNewModalOpen(false); setIsEditModalOpen(false); }}
-                title={isEditModalOpen ? "Modify Audit Intelligence" : "Commit Safety Audit Entry"}
+                title={isEditModalOpen ? "Modify Safety Intelligence" : "Record New Safety Audit"}
                 maxWidth="max-w-2xl"
                 footer={
                     <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
@@ -489,7 +477,7 @@ const SafetyChecklistPage = () => {
                             type="button"
                             onClick={isEditModalOpen ? handleUpdateSubmit : handleCreateSubmit}
                             disabled={isSubmitting}
-                            className="flex-[2] py-3 bg-primary text-white rounded-xl font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
+                            className="flex-[2] py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
                         >
                             {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Push Changes" : "Commit Entry")}
                         </button>
@@ -545,7 +533,7 @@ const SafetyChecklistPage = () => {
                                     onChange={handleInputChange}
                                     className="w-5 h-5 rounded-lg border-slate-300 text-primary focus:ring-primary/20 transition-all cursor-pointer font-inter"
                                 />
-                                <label className="text-[11px] font-black uppercase tracking-widest text-slate-700 cursor-pointer font-inter">PPE Compliance Verified</label>
+                                <label className="text-[11px] font-bold uppercase tracking-widest text-slate-700 cursor-pointer font-inter">PPE Compliance Verified</label>
                             </div>
                         <div className="md:col-span-2 font-inter">
                             <label className={labelClasses}>Incident Narrative <span className="text-rose-500">*</span></label>
@@ -602,9 +590,9 @@ const SafetyChecklistPage = () => {
                 maxWidth="max-w-xl"
             >
                 {selectedIncident && (
-                    <div className="p-6 font-inter text-inter italic-none">
+                    <div className="p-6 font-inter">
                         {/* ── Profile Style Header ────────────────── */}
-                        <div className="bg-primary rounded-[2.5rem] p-8 mb-8 text-white shadow-2xl relative overflow-hidden font-inter">
+                        <div className="bg-primary rounded-2xl p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter">
                             <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl" />
                             <div className="relative z-10 flex items-center gap-8 font-inter">
                                 <div className="w-24 h-24 bg-white/20 backdrop-blur-xl rounded-[2rem] flex items-center justify-center border border-white/20 shadow-inner font-inter relative">
@@ -613,86 +601,75 @@ const SafetyChecklistPage = () => {
                                 </div>
                                 <div className="font-inter">
                                     <div className="flex items-center gap-3 mb-2 font-inter">
-                                        <h3 className="text-2xl font-black tracking-tight italic-none font-inter">{selectedIncident.violation_type}</h3>
-                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[9px] font-black uppercase tracking-widest font-inter">Logged Audit</span>
+                                        <h3 className="text-2xl font-bold tracking-tight font-inter">{selectedIncident.violation_type}</h3>
+                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[9px] font-bold uppercase tracking-widest font-inter">Logged Audit</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
                                         <Mail className="w-3 h-3" />
-                                        <span className="text-[10px] font-bold font-inter italic-none uppercase tracking-widest">safety.audit-#{selectedIncident.id}</span>
+                                        <span className="text-[10px] font-bold font-inter uppercase tracking-widest">safety.audit-#{selectedIncident.id}</span>
                                     </div>
                                     <div className="px-4 py-1.5 bg-white/15 rounded-xl border border-white/10 inline-block font-inter shadow-sm">
-                                        <span className="text-[9px] font-black uppercase tracking-widest font-inter">Audit Sequence: {selectedIncident.date}</span>
+                                        <span className="text-[9px] font-bold uppercase tracking-widest font-inter">Audit Sequence: {selectedIncident.date}</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="space-y-8 px-2 mb-10 font-inter">
-                            {/* Operational Intelligence style section */}
+                        <div className="grid grid-cols-2 gap-x-12 gap-y-8 font-inter mb-8">
                             <div className="font-inter">
-                                <div className="flex items-center gap-2 mb-6 font-inter">
-                                    <div className="p-2 bg-blue-50 rounded-xl font-inter border border-blue-100 shadow-sm">
-                                        <Briefcase className="w-4 h-4 text-primary" />
-                                    </div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] font-inter">Audit Parameters</p>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Safety Officer</p>
+                                <p className="text-sm font-bold text-slate-800 font-inter uppercase tracking-widest">{selectedIncident.responsible_person}</p>
+                            </div>
+                            <div className="font-inter">
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Vault Status</p>
+                                <p className="text-sm font-bold text-emerald-500 font-inter uppercase tracking-widest">Active Audit</p>
+                            </div>
+                            <div className="font-inter">
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Intelligence ID</p>
+                                <p className="text-sm font-bold text-slate-800 font-inter tracking-widest">#SFT-{selectedIncident.id}</p>
+                            </div>
+                            <div className="font-inter">
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Trauma Audit</p>
+                                <p className={`text-sm font-bold font-inter uppercase tracking-widest ${selectedIncident.injury_details && !selectedIncident.injury_details.toLowerCase().includes('no') ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                    {selectedIncident.injury_details || "No Trauma Detected"}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Work Narrative style section */}
+                        <div className="font-inter">
+                            <div className="flex items-center gap-2 mb-6 font-inter">
+                                <div className="p-2 bg-blue-50 rounded-xl font-inter border border-blue-100 shadow-sm">
+                                    <Briefcase className="w-4 h-4 text-primary" />
                                 </div>
-                                <div className="grid grid-cols-2 gap-x-12 gap-y-8 font-inter">
-                                    <div className="font-inter">
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Safety Officer</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none uppercase tracking-widest">{selectedIncident.responsible_person}</p>
-                                    </div>
-                                    <div className="font-inter">
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Vault Status</p>
-                                        <p className="text-sm font-black text-emerald-500 font-inter italic-none uppercase tracking-widest">Active Audit</p>
-                                    </div>
-                                    <div className="font-inter">
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Intelligence ID</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none tracking-widest">#SFT-{selectedIncident.id}</p>
-                                    </div>
-                                    <div className="font-inter">
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Trauma Audit</p>
-                                        <p className={`text-sm font-black font-inter italic-none uppercase tracking-widest ${selectedIncident.injury_details && !selectedIncident.injury_details.toLowerCase().includes('no') ? 'text-rose-500' : 'text-emerald-500'}`}>
-                                            {selectedIncident.injury_details || "No Trauma Detected"}
-                                        </p>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] font-inter">Audit Parameters</p>
+                            </div>
+                            <div className="grid grid-cols-1 gap-6 font-inter mb-8">
+                                <div className="font-inter">
+                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2 font-inter ml-1">Observation Narrative</p>
+                                    <div className="p-5 bg-slate-50 rounded-[1.5rem] border border-slate-100 text-xs font-bold text-slate-600 leading-relaxed font-inter shadow-inner">
+                                        "{selectedIncident.description}"
                                     </div>
                                 </div>
                             </div>
+                        </div>
 
-                            {/* Work Narrative style section */}
-                            <div className="font-inter">
-                                <div className="flex items-center gap-2 mb-6 font-inter">
-                                    <div className="p-2 bg-blue-50 rounded-xl font-inter border border-blue-100 shadow-sm">
-                                        <Activity className="w-4 h-4 text-primary" />
-                                    </div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] font-inter">Operational Intelligence</p>
+                        {/* Logistics style section */}
+                        <div className="font-inter">
+                            <div className="flex items-center gap-2 mb-6 font-inter">
+                                <div className="p-2 bg-emerald-50 rounded-xl font-inter border border-emerald-100 shadow-sm">
+                                    <FileText className="w-4 h-4 text-emerald-600" />
                                 </div>
-                                <div className="grid grid-cols-1 gap-6 font-inter">
-                                    <div className="font-inter">
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter ml-1">Observation Narrative</p>
-                                        <div className="p-5 bg-slate-50 rounded-[1.5rem] border border-slate-100 text-xs font-bold text-slate-600 leading-relaxed font-inter italic-none shadow-inner">
-                                            "{selectedIncident.description}"
-                                        </div>
-                                    </div>
-                                </div>
+                                <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-[0.2em] font-inter">Remediation Protocol</p>
                             </div>
-
-                            {/* Logistics style section */}
-                            <div className="font-inter">
-                                <div className="flex items-center gap-2 mb-6 font-inter">
-                                    <div className="p-2 bg-emerald-50 rounded-xl font-inter border border-emerald-100 shadow-sm">
-                                        <FileText className="w-4 h-4 text-emerald-600" />
-                                    </div>
-                                    <p className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em] font-inter">Remediation Protocol</p>
-                                </div>
-                                <div className="p-5 bg-emerald-50 rounded-[1.5rem] border border-emerald-100 text-xs font-black text-emerald-800 font-inter italic-none leading-relaxed shadow-inner uppercase tracking-widest">
-                                    {selectedIncident.action_taken}
-                                </div>
+                            <div className="p-5 bg-emerald-50 rounded-[1.5rem] border border-emerald-100 text-xs font-bold text-emerald-800 font-inter leading-relaxed shadow-inner uppercase tracking-widest">
+                                {selectedIncident.action_taken}
                             </div>
                         </div>
 
                         <button
                             onClick={() => setIsViewModalOpen(false)}
-                            className="w-full py-5 bg-primary text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.3em] transition-all shadow-2xl shadow-primary/20 active:scale-95 font-inter italic-none mb-2"
+                            className="w-full py-5 mt-8 bg-primary text-white rounded-[1.5rem] text-[10px] font-bold uppercase tracking-[0.3em] transition-all shadow-2xl shadow-primary/20 active:scale-95 font-inter mb-2"
                         >
                             Dismiss Audit Intelligence
                         </button>
