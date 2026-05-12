@@ -4,16 +4,72 @@ import ProjectTable from "../../components/dashboard/ProjectTable";
 import CostChart from "../../components/dashboard/CostChart";
 import RiskAnalysis from "../../components/dashboard/RiskAnalysis";
 import TaskOverview from "../../components/dashboard/TaskOverview";
-import TeamPerformance from "../../components/dashboard/TeamPerformance";
+import ResourceOrchestrator from "../../components/dashboard/ResourceOrchestrator";
 import ActivityFeed from "../../components/dashboard/ActivityFeed";
+import { useState, useEffect } from "react";
+import { projectService } from "../../services/projectService";
+import { Link } from "react-router-dom";
+import { Clock, AlertCircle, CheckCircle, TrendingUp } from "lucide-react";
+import ComplianceScorecards from "../../components/dashboard/ComplianceScorecards";
+import { qcService } from "../../services/qcService";
+import { safetyService } from "../../services/safetyService";
 
 const ManagerDashboard = () => {
+  const [projects, setProjects] = useState<any[]>([]);
+  const [qcMetrics, setQcMetrics] = useState({ total: 0, failures: 0 });
+  const [safetyMetrics, setSafetyMetrics] = useState({ total: 0, incidents: 0 });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const [pData, qcData, safetyData] = await Promise.all([
+          projectService.getProjects(),
+          qcService.listQc(0), // 0 to get overall if backend supports it, otherwise fallback
+          safetyService.listIncidents(0)
+        ]);
+
+        setProjects(Array.isArray(pData) ? pData : pData.items || []);
+
+        // Populate metrics (Demo fallback handled by services)
+        setQcMetrics({
+          total: qcData.meta.total,
+          failures: qcData.items.filter(i => i.status === "Fail").length
+        });
+        setSafetyMetrics({
+          total: safetyData.meta.total,
+          incidents: safetyData.items.length
+        });
+
+      } catch (err) {
+        console.error("Dashboard Load Failure:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDashboardData();
+  }, []);
+
+  const activeProjects = projects.filter(p => p.status === "ONGOING").length;
+  const delayedProjects = projects.filter(p => p.status === "DELAYED").length;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-slate-500 font-medium animate-pulse">Syncing Site Intelligence...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <Navbar
-        title="Project Manager Dashboard"
+        title="PM Command Center"
         breadcrumb={["InfraPilot", "Dashboard", "Manager"]}
-        action={{ label: "Generate Report" }}
+        action={{ label: "Intelligence Report" }}
       />
 
       <main className="p-6 bg-slate-50/50 min-h-[calc(100vh-4rem)] overflow-y-auto">
@@ -22,130 +78,46 @@ const ManagerDashboard = () => {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
               <h1 className="text-2xl font-bold text-slate-800">
-                Welcome, Project Manager
+                Oversight Command: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
               </h1>
               <p className="text-sm text-slate-500">
-                Here's what's happening across your projects today, March 30,
-                2026.
+                Real-time site intelligence and approval queue.
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-sm">
-                <span className="text-xs font-semibold text-slate-400 uppercase">
-                  Project:
-                </span>
-                <select className="text-sm font-bold text-slate-700 outline-none bg-transparent">
-                  <option>All Projects</option>
-                  <option>Skyline Residency</option>
-                  <option>Metropolis Hub</option>
-                </select>
-              </div>
-              <button className="bg-primary text-white text-sm font-bold px-4 py-2 rounded-lg shadow-sm hover:bg-blue-600 transition-colors flex items-center gap-2">
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-                New Project
-              </button>
+              <Link to="/manager/approvals" className="px-4 py-2 bg-amber-500 text-white text-sm font-bold rounded-lg shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                Approval Queue
+              </Link>
             </div>
           </div>
-          f{/* KPI Summary Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
-              title="Total Projects"
-              value="12"
-              sub="8 Active, 4 Completed"
-              icon={
-                <svg
-                  className="w-5 h-5 text-primary"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                  />
-                </svg>
-              }
-              trend={{ value: "2 this month", isUp: true }}
+              title="Total Managed Projects"
+              value={projects.length.toString()}
+              sub={`${activeProjects} Active Site Deployments`}
+              icon={<CheckCircle className="w-5 h-5 text-primary" />}
             />
             <StatCard
-              title="Overall Progress"
-              value="68%"
-              sub="Across all active sites"
+              title="Avg. Completion"
+              value={`${Math.round(projects.reduce((acc, curr) => acc + (curr.completion_percentage || 0), 0) / (projects.length || 1))}%`}
+              sub="Consolidated Progress"
               accent="text-emerald-600"
-              icon={
-                <svg
-                  className="w-5 h-5 text-emerald-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                  />
-                </svg>
-              }
-              trend={{ value: "4.2%", isUp: true }}
+              icon={<TrendingUp className="w-5 h-5 text-emerald-600" />}
             />
             <StatCard
-              title="Delayed Projects"
-              value="03"
-              sub="Critical attention required"
+              title="Delayed Sites"
+              value={delayedProjects > 9 ? delayedProjects.toString() : `0${delayedProjects}`}
+              sub="Immediate Mitigation Needed"
               accent="text-rose-600"
-              icon={
-                <svg
-                  className="w-5 h-5 text-rose-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                  />
-                </svg>
-              }
-              trend={{ value: "1 new", isUp: false }}
+              icon={<AlertCircle className="w-5 h-5 text-rose-600" />}
             />
             <StatCard
-              title="Budget Utilization"
-              value="₹42.8Cr"
-              sub="Total spent vs ₹85Cr budget"
+              title="Pending Reviews"
+              value="07"
+              sub="Authorizations Pending"
               accent="text-amber-600"
-              icon={
-                <svg
-                  className="w-5 h-5 text-amber-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              }
-              trend={{ value: "12% hike", isUp: false }}
+              icon={<Clock className="w-5 h-5 text-amber-600" />}
             />
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -166,7 +138,8 @@ const ManagerDashboard = () => {
 
             {/* Sidebar Section */}
             <div className="space-y-6">
-              <TeamPerformance />
+              <ComplianceScorecards qc={qcMetrics} safety={safetyMetrics} />
+              <ResourceOrchestrator />
 
               {/* Critical Alerts Card */}
               <div className="bg-rose-50 border border-rose-100 rounded-xl p-5 shadow-sm">

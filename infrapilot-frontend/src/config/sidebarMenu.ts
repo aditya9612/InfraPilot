@@ -196,8 +196,37 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
   ProjectManager: [
     { label: "Dashboard", path: "/manager", icon: "grid" },
     { label: "Projects", path: "/manager/projects", icon: "folder" },
+    {
+      label: "Approvals",
+      path: "/manager/approvals",
+      icon: "check-circle",
+      subNav: [
+        { label: "DSR Approval", path: "/manager/approvals/dsr", icon: "clipboard-list" },
+        { label: "Material Approval", path: "/manager/approvals/material", icon: "package" },
+        { label: "Expense Approval", path: "/manager/approvals/expense", icon: "dollar-sign" },
+      ],
+    },
     { label: "BOQ", path: "/manager/boq", icon: "list" },
+    {
+      label: "Resources",
+      path: "/manager/resources",
+      icon: "users",
+      subNav: [
+        { label: "Deployment Hub", path: "/manager/resources/orchestrator", icon: "map" },
+        { label: "Site Engineers", path: "/manager/projects", icon: "user-check" },
+      ],
+    },
     { label: "Labour", path: "/manager/labour", icon: "users" },
+    {
+      label: "Compliance Hub",
+      path: "/manager/compliance",
+      icon: "shield",
+      subNav: [
+        { label: "QC Governance", path: "/manager/compliance/qc", icon: "check-circle" },
+        { label: "Safety Audit", path: "/manager/compliance/safety", icon: "alert-triangle" },
+      ],
+    },
+    { label: "Settings", path: "/manager/settings", icon: "settings" },
   ],
   SiteEngineer: [
     { label: "Dashboard", path: "/engineer", icon: "grid" },
@@ -212,11 +241,11 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       ],
     },
     {
-      label: "Labour Management",
+      label: "Labor Management",
       path: "/engineer/labor",
       icon: "users",
       subNav: [
-        { label: "Labour Registry", path: "/engineer/labor/list", icon: "list" },
+        { label: "Labor Registry", path: "/engineer/labor/list", icon: "list" },
         { label: "Daily Attendance", path: "/engineer/labor/attendance", icon: "calendar" },
         { label: "Salary & Advances", path: "/engineer/labor/payments", icon: "dollar-sign" },
         { label: "Payroll Reports", path: "/engineer/labor/reports", icon: "file-text" },

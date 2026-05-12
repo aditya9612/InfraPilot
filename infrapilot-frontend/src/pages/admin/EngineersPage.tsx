@@ -186,7 +186,7 @@ const EngineersPage = () => {
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
                   <th className="px-6 py-4">Engineer Information</th>
                   <th className="px-6 py-4">Assigned Projects & Weather</th>
-                  <th className="px-6 py-4">Specialization & Labor</th>
+                  <th className="px-6 py-4">Specialization & Labour</th>
                   <th className="px-6 py-4">Active Supervision</th>
                   <th className="px-6 py-4">Daily Report (DSR)</th>
                   <th className="px-6 py-4">Status</th>
@@ -231,7 +231,7 @@ const EngineersPage = () => {
                             {e.specialization || "General"}
                           </span>
                           <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tighter">
-                            Labor Force: <span className="text-primary">{e.laborCount || 0} Staff</span>
+                            Labour Force: <span className="text-primary">{e.laborCount || 0} Staff</span>
                           </p>
                         </div>
                       </td>

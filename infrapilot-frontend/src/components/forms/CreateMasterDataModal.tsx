@@ -110,11 +110,10 @@ const CreateMasterDataModal: React.FC<CreateMasterDataModalProps> = ({
               <input
                 type="text"
                 placeholder="e.g. Cement (OPC 53)"
-                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-medium ${
-                  errors.name 
-                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" 
+                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-medium ${errors.name
+                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
                     : "border-gray-200 focus:ring-primary/10 focus:border-primary"
-                }`}
+                  }`}
                 value={formData.name}
                 onChange={(e) => {
                   setFormData({ ...formData, name: e.target.value });
@@ -132,11 +131,10 @@ const CreateMasterDataModal: React.FC<CreateMasterDataModalProps> = ({
                 <input
                   type="text"
                   placeholder="MAT-CEM-01"
-                  className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-mono font-bold ${
-                    errors.code 
-                      ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" 
+                  className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-mono font-bold ${errors.code
+                      ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
                       : "border-gray-200 focus:ring-primary/10 focus:border-primary"
-                  }`}
+                    }`}
                   value={formData.code}
                   onChange={(e) => {
                     setFormData({ ...formData, code: e.target.value });
@@ -155,7 +153,7 @@ const CreateMasterDataModal: React.FC<CreateMasterDataModalProps> = ({
                   onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                 >
                   <option value="Material">Material</option>
-                  <option value="Labor">Labor</option>
+                  <option value="Labour">Labour</option>
                   <option value="Activity">Activity</option>
                   <option value="Unit">Unit</option>
                 </select>
@@ -169,11 +167,10 @@ const CreateMasterDataModal: React.FC<CreateMasterDataModalProps> = ({
               <input
                 type="text"
                 placeholder="e.g. Construction Material"
-                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-medium ${
-                  errors.category 
-                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" 
+                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-medium ${errors.category
+                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
                     : "border-gray-200 focus:ring-primary/10 focus:border-primary"
-                }`}
+                  }`}
                 value={formData.category}
                 onChange={(e) => {
                   setFormData({ ...formData, category: e.target.value });
