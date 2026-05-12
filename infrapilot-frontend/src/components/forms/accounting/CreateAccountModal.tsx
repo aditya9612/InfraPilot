@@ -10,6 +10,7 @@ interface CreateAccountModalProps {
   onSuccess: () => void;
   parentAccounts: ChartAccount[];
   onSubmitMock?: (data: any) => void;
+  initialData?: any;
 }
 
 const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
@@ -17,24 +18,48 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
   onClose,
   onSuccess,
   parentAccounts,
-  onSubmitMock
+  onSubmitMock,
+  initialData
 }) => {
   const [formData, setFormData] = useState({
-    account_name: "",
-    account_code: "",
-    account_type: "Asset" as AccountType,
-    parent_account_id: "",
-    opening_balance: 0,
-    description: ""
+    account_name: initialData?.account_name || "",
+    account_code: initialData?.account_code || "",
+    account_type: (initialData?.account_type || "Asset") as AccountType,
+    parent_account_id: initialData?.parent_account_id || "",
+    opening_balance: initialData?.opening_balance || 0,
+    description: initialData?.description || ""
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+      setErrors(prev => {
+        const { [name]: _, ...rest } = prev;
+        return rest;
+      });
+    }
+  };
+
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.account_name.trim()) newErrors.account_name = "Account name is required.";
+    if (!formData.account_code.toString().trim()) {
+      newErrors.account_code = "Account code is required.";
+    } else if (isNaN(Number(formData.account_code))) {
+      newErrors.account_code = "Account code must be numeric.";
+    }
+    if (!formData.description.trim()) newErrors.description = "Description is required.";
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.account_name || !formData.account_code) {
-      toast.error("Account name and code are required.");
-      return;
-    }
+    if (!validate()) return;
 
     if (onSubmitMock) {
       onSubmitMock(formData);
@@ -44,7 +69,7 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
     try {
       setIsSubmitting(true);
       await accountingService.createAccount(formData);
-      toast.success("Account created successfully!");
+      toast.success(initialData ? "Account updated successfully!" : "Account created successfully!");
       onSuccess();
       onClose();
       setFormData({
@@ -80,32 +105,39 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Create General Ledger Account"
+      title={initialData ? "Edit General Ledger Account" : "Create General Ledger Account"}
       maxWidth="max-w-xl"
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">Account Name</label>
+            <label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">Account Name <span className="text-red-500">*</span></label>
             <input
               type="text"
-              required
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+              name="account_name"
+              className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.account_name ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none transition-all`}
               placeholder="e.g. Bank of India - 1234"
               value={formData.account_name}
-              onChange={e => setFormData({ ...formData, account_name: e.target.value })}
+              onChange={handleChange}
             />
+            {errors.account_name && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.account_name}</p>}
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">Account Code</label>
+            <label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">Account Code <span className="text-red-500">*</span></label>
             <input
-              type="text"
-              required
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-              placeholder="e.g. 1010-001"
+              type="number"
+              name="account_code"
+              className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.account_code ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none transition-all font-bold`}
+              placeholder="e.g. 101001"
               value={formData.account_code}
-              onChange={e => setFormData({ ...formData, account_code: e.target.value })}
+              onChange={handleChange}
+              onKeyDown={(e) => {
+                if (["e", "E", "+", "-", "."].includes(e.key)) {
+                  e.preventDefault();
+                }
+              }}
             />
+            {errors.account_code && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.account_code}</p>}
           </div>
         </div>
 
@@ -150,14 +182,16 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">Description</label>
+          <label className="text-xs font-black text-slate-500 uppercase tracking-widest ml-1">Description <span className="text-red-500">*</span></label>
           <textarea
+            name="description"
             rows={2}
-            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none resize-none"
+            className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.description ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none transition-all resize-none`}
             placeholder="Describe the purpose of this account..."
             value={formData.description}
-            onChange={e => setFormData({ ...formData, description: e.target.value })}
+            onChange={handleChange}
           />
+          {errors.description && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.description}</p>}
         </div>
 
         <div className="pt-4 flex gap-3">

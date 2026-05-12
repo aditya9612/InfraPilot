@@ -7,6 +7,9 @@ import CreateExpenseModal from "../../components/forms/CreateExpenseModal";
 import toast from "react-hot-toast";
 import type { ChartAccount, AccountType } from "../../types/accounting";
 import { expenseService } from "../../services/expenseService";
+import { Eye, Edit2, Trash2, Plus } from "lucide-react";
+import ViewAccountModal from "../../components/forms/accounting/ViewAccountModal";
+import ConfirmModal from "../../components/common/ConfirmModal";
 
 const MOCK_COA: ChartAccount[] = [
   {
@@ -125,6 +128,10 @@ const ChartOfAccountsPage = () => {
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(
     new Set(["1", "2", "4"]),
   );
+  const [viewingAccount, setViewingAccount] = useState<ChartAccount | null>(null);
+  const [editingAccount, setEditingAccount] = useState<ChartAccount | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [accountToDelete, setAccountToDelete] = useState<ChartAccount | null>(null);
 
   useEffect(() => {
     if (category) {
@@ -150,15 +157,50 @@ const ChartOfAccountsPage = () => {
   };
 
   const handleCreateAccount = (newAccountData: any) => {
-    const newAccount: ChartAccount = {
-      ...newAccountData,
-      id: Math.random().toString(36).substr(2, 9),
-      current_balance: newAccountData.opening_balance || 0,
-      is_active: true,
-    };
-    setCoa((prev) => [...prev, newAccount]);
-    toast.success("Account created successfully!");
+    if (editingAccount) {
+      setCoa(prev => prev.map(acc => acc.id === editingAccount.id ? { ...acc, ...newAccountData } : acc));
+      toast.success("Account updated successfully!");
+    } else {
+      const newAccount: ChartAccount = {
+        ...newAccountData,
+        id: Math.random().toString(36).substr(2, 9),
+        current_balance: newAccountData.opening_balance || 0,
+        is_active: true,
+      };
+      setCoa((prev) => [...prev, newAccount]);
+      toast.success("Account created successfully!");
+    }
     setIsModalOpen(false);
+    setEditingAccount(null);
+  };
+
+  const handleDeleteAccount = () => {
+    if (accountToDelete) {
+      const recursiveDeleteAndPromote = (accounts: ChartAccount[], targetId: string): ChartAccount[] => {
+        let newAccounts: ChartAccount[] = [];
+
+        for (const acc of accounts) {
+          if (acc.id === targetId) {
+            // If this is the account to delete, promote its children
+            if (acc.children) {
+              newAccounts = [...newAccounts, ...acc.children];
+            }
+          } else {
+            // Otherwise, keep it and process its children
+            newAccounts.push({
+              ...acc,
+              children: acc.children ? recursiveDeleteAndPromote(acc.children, targetId) : undefined
+            });
+          }
+        }
+        return newAccounts;
+      };
+
+      setCoa(prev => recursiveDeleteAndPromote(prev, accountToDelete.id));
+      toast.success("Account removed. Sub-accounts have been promoted.");
+      setIsDeleteModalOpen(false);
+      setAccountToDelete(null);
+    }
   };
 
   // Called when Create button is clicked on the Expenses tab
@@ -201,7 +243,7 @@ const ChartOfAccountsPage = () => {
     return (
       <div key={acc.id}>
         <div
-          className={`flex items-center px-6 py-5 border-b border-slate-50 hover:bg-slate-50/50 transition-colors group cursor-pointer`}
+          className={`flex items-center px-6 py-4 border-b border-slate-50 hover:bg-slate-50/50 transition-colors group cursor-pointer`}
           style={{ paddingLeft: `${level * 2 + 1.5}rem` }}
           onClick={() => hasChildren && toggleExpand(acc.id)}
         >
@@ -241,9 +283,38 @@ const ChartOfAccountsPage = () => {
             </p>
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Valuation</p>
           </div>
-          <div className="w-32 text-right opacity-0 group-hover:opacity-100 transition-all">
-            <button className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-primary hover:text-white transition-all">
-              + Sub Account
+          <div className="w-32 text-right opacity-100 flex justify-end gap-2">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                setViewingAccount(acc);
+              }}
+              className="p-1.5 text-slate-400 hover:text-primary transition-all"
+              title="View Details"
+            >
+              <Eye className="w-4 h-4" />
+            </button>
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditingAccount(acc);
+                setIsModalOpen(true);
+              }}
+              className="p-1.5 text-slate-400 hover:text-amber-500 transition-all"
+              title="Edit Account"
+            >
+              <Edit2 className="w-4 h-4" />
+            </button>
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                setAccountToDelete(acc);
+                setIsDeleteModalOpen(true);
+              }}
+              className="p-1.5 text-slate-400 hover:text-rose-500 transition-all"
+              title="Delete Account"
+            >
+              <Trash2 className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -287,8 +358,8 @@ const ChartOfAccountsPage = () => {
           </button>
         </div>
 
-        <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden">
-          <div className="bg-slate-50/50 px-6 py-5 border-b border-slate-100 flex items-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="bg-slate-50/50 px-6 py-5 border-b border-slate-100 flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">
             <div className="w-10"></div>
             <div className="flex-1 flex gap-6">
               <div className="w-20 text-center">GL Code</div>
@@ -333,12 +404,35 @@ const ChartOfAccountsPage = () => {
       ) : (
         <CreateAccountModal
           isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingAccount(null);
+          }}
           onSuccess={() => {}}
           parentAccounts={coa}
           onSubmitMock={handleCreateAccount}
+          initialData={editingAccount}
         />
       )}
+
+      <ViewAccountModal 
+        isOpen={!!viewingAccount}
+        onClose={() => setViewingAccount(null)}
+        account={viewingAccount}
+      />
+
+      <ConfirmModal 
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setAccountToDelete(null);
+        }}
+        onConfirm={handleDeleteAccount}
+        title="Delete Ledger Account"
+        message={`Are you sure you want to remove "${accountToDelete?.account_name}"? This action cannot be undone and may affect financial reports.`}
+        confirmText="Delete Account"
+        type="danger"
+      />
     </>
   );
 };

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import toast from "react-hot-toast";
 import Modal from "../common/Modal";
 
 interface CreateAssetModalProps {
@@ -25,6 +24,17 @@ const CreateAssetModal: React.FC<CreateAssetModalProps> = ({
     current_value: 0,
     location: "",
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.asset_name.trim()) newErrors.asset_name = "Asset name is required.";
+    if (!formData.category.trim()) newErrors.category = "Category is required.";
+    if (formData.cost <= 0) newErrors.cost = "Cost must be greater than 0.";
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
 
   useEffect(() => {
     if (initialData) {
@@ -54,15 +64,13 @@ const CreateAssetModal: React.FC<CreateAssetModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.asset_name || !formData.category || formData.cost <= 0) {
-      toast.error("Please fill in Asset Name, Category and Cost");
-      return;
-    }
+    if (!validate()) return;
     onSubmit({
         ...formData,
         current_value: initialData ? formData.current_value : formData.cost 
     });
   };
+
 
   return (
     <Modal
@@ -76,22 +84,28 @@ const CreateAssetModal: React.FC<CreateAssetModalProps> = ({
           {/* Column 1 */}
           <div className="space-y-4">
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Asset Name</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Asset Name <span className="text-red-500">*</span></label>
               <input
                 type="text"
-                required
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.asset_name ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none font-bold transition-all`}
                 placeholder="e.g. JCB Excavator"
                 value={formData.asset_name}
-                onChange={e => setFormData({ ...formData, asset_name: e.target.value })}
+                onChange={e => {
+                    setFormData({ ...formData, asset_name: e.target.value });
+                    if (errors.asset_name) setErrors(prev => ({ ...prev, asset_name: "" }));
+                }}
               />
+              {errors.asset_name && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{errors.asset_name}</p>}
             </div>
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Category</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Category <span className="text-red-500">*</span></label>
               <select
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.category ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none transition-all`}
                 value={formData.category}
-                onChange={e => setFormData({ ...formData, category: e.target.value })}
+                onChange={e => {
+                    setFormData({ ...formData, category: e.target.value });
+                    if (errors.category) setErrors(prev => ({ ...prev, category: "" }));
+                }}
               >
                 <option value="">Select Category</option>
                 <option value="Heavy Machinery">Heavy Machinery</option>
@@ -100,6 +114,7 @@ const CreateAssetModal: React.FC<CreateAssetModalProps> = ({
                 <option value="Vehicles">Vehicles</option>
                 <option value="Office Furniture">Office Furniture</option>
               </select>
+              {errors.category && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{errors.category}</p>}
             </div>
             <div>
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Purchase Date</label>
@@ -126,15 +141,18 @@ const CreateAssetModal: React.FC<CreateAssetModalProps> = ({
           {/* Column 2 */}
           <div className="space-y-4">
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Asset Cost (₹)</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Asset Cost (₹) <span className="text-red-500">*</span></label>
               <input
                 type="number"
                 min="0"
-                required
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none font-bold"
+                className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.cost ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none font-bold transition-all`}
                 value={formData.cost || ""}
-                onChange={e => setFormData({ ...formData, cost: parseFloat(e.target.value) || 0 })}
+                onChange={e => {
+                    setFormData({ ...formData, cost: parseFloat(e.target.value) || 0 });
+                    if (errors.cost) setErrors(prev => ({ ...prev, cost: "" }));
+                }}
               />
+              {errors.cost && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{errors.cost}</p>}
             </div>
             <div>
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Depreciation Rate (% P.A.)</label>

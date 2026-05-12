@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import toast from "react-hot-toast";
 import Modal from "../common/Modal";
 import type { Invoice, InvoiceType, InvoiceStatus, InvoiceCreateData } from "../../types/invoice";
 import type { Project } from "../../types/project";
@@ -43,6 +42,8 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
     reference_id: "",
     tax_percent: 5,
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
 
   const [calculated, setCalculated] = useState({
     base_total: 0,
@@ -119,13 +120,42 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
     }
   }, [formData.quantity, formData.rate, formData.amount, formData.gst_percent, formData.tax_percent, formData.type]);
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+      setErrors(prev => {
+        const { [name]: _, ...rest } = prev;
+        return rest;
+      });
+    }
+  };
+
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+    if (formData.type === "labour") {
+      if (!formData.project_id) newErrors.project_id = "Project is required.";
+      if (!formData.owner_id) newErrors.owner_id = "Owner is required.";
+      if (!formData.reference_id) newErrors.reference_id = "Reference ID is required.";
+      if (!formData.amount || Number(formData.amount) <= 0) newErrors.amount = "Amount must be greater than 0.";
+      if (!formData.work_description.trim()) newErrors.work_description = "Description is required.";
+    } else {
+      if (!formData.invoice_number.trim()) newErrors.invoice_number = "Invoice number is required.";
+      if (!formData.client_name.trim()) newErrors.client_name = "Client name is required.";
+      if (!formData.project_id) newErrors.project_id = "Project is required.";
+      if (!formData.work_description.trim()) newErrors.work_description = "Description is required.";
+      if (formData.quantity <= 0) newErrors.quantity = "Quantity must be greater than 0.";
+      if (formData.rate <= 0) newErrors.rate = "Rate must be greater than 0.";
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validate()) return;
+
     if (formData.type === "labour") {
-      if (!formData.project_id || !formData.owner_id || !formData.reference_id || !formData.amount) {
-        toast.error("Please fill in required fields (Project, Owner, Ref ID, Amount)");
-        return;
-      }
       const submissionData: InvoiceCreateData = {
         project_id: Number(formData.project_id),
         owner_id: Number(formData.owner_id),
@@ -141,10 +171,6 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
       };
       onSubmit(submissionData);
     } else {
-      if (!formData.project_id || !formData.invoice_number || !formData.client_name) {
-        toast.error("Please fill in required fields (Invoice #, Client, Project)");
-        return;
-      }
       const submissionData = {
         ...formData,
         amount: calculated.base_total,
@@ -178,71 +204,76 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
             {!isLabour && (
               <>
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Invoice Number</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Invoice Number <span className="text-red-500">*</span></label>
                   <input
                     type="text"
-                    required
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                    name="invoice_number"
+                    className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.invoice_number ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none transition-all`}
                     placeholder="INV-2024-001"
                     value={formData.invoice_number}
-                    onChange={e => setFormData({ ...formData, invoice_number: e.target.value })}
+                    onChange={handleChange}
                   />
+                  {errors.invoice_number && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.invoice_number}</p>}
                 </div>
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Client Name</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Client Name <span className="text-red-500">*</span></label>
                   <input
                     type="text"
-                    required
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                    name="client_name"
+                    className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.client_name ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none transition-all`}
                     placeholder="e.g. Aditya Enterprises"
                     value={formData.client_name}
-                    onChange={e => setFormData({ ...formData, client_name: e.target.value })}
+                    onChange={handleChange}
                   />
+                  {errors.client_name && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.client_name}</p>}
                 </div>
               </>
             )}
 
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Project</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Project <span className="text-red-500">*</span></label>
               <select
-                required
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                name="project_id"
+                className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.project_id ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none transition-all`}
                 value={formData.project_id}
-                onChange={e => setFormData({ ...formData, project_id: e.target.value })}
+                onChange={handleChange}
               >
                 <option value="">Select Project</option>
                 {resolvedProjects.map(p => (
                   <option key={p.id} value={p.id}>{p.project_name}</option>
                 ))}
               </select>
+              {errors.project_id && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.project_id}</p>}
             </div>
 
             {isLabour && (
               <>
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Owner</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Owner <span className="text-red-500">*</span></label>
                   <select
-                    required
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                    name="owner_id"
+                    className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.owner_id ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none transition-all`}
                     value={formData.owner_id}
-                    onChange={e => setFormData({ ...formData, owner_id: e.target.value })}
+                    onChange={handleChange}
                   >
                     <option value="">Select Owner</option>
                     {owners.map(o => (
                       <option key={o.id} value={o.id}>{o.name}</option>
                     ))}
                   </select>
+                  {errors.owner_id && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.owner_id}</p>}
                 </div>
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Reference ID</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Reference ID <span className="text-red-500">*</span></label>
                   <input
                     type="number"
-                    required
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                    name="reference_id"
+                    className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.reference_id ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none transition-all`}
                     placeholder="e.g. 1"
                     value={formData.reference_id}
-                    onChange={e => setFormData({ ...formData, reference_id: e.target.value })}
+                    onChange={handleChange}
                   />
+                  {errors.reference_id && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.reference_id}</p>}
                 </div>
               </>
             )}
@@ -274,48 +305,63 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
           {/* Column 2 */}
           <div className="space-y-4">
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Description</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Description <span className="text-red-500">*</span></label>
               <textarea
+                name="work_description"
                 rows={isLabour ? 3 : 2}
-                required={isLabour}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none resize-none"
+                className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.work_description ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none transition-all resize-none`}
                 placeholder={isLabour ? "e.g. Construction invoice for Wing A" : "e.g. Civil construction work..."}
                 value={formData.work_description}
-                onChange={e => setFormData({ ...formData, work_description: e.target.value })}
+                onChange={handleChange}
               />
+              {errors.work_description && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.work_description}</p>}
             </div>
 
             {isLabour ? (
               <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Base Amount (₹)</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Base Amount (₹) <span className="text-red-500">*</span></label>
                 <input
                   type="number"
-                  required
+                  name="amount"
                   min="0"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none font-bold text-slate-800"
+                  className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.amount ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none transition-all font-bold text-slate-800`}
                   value={formData.amount}
-                  onChange={e => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+                  onChange={e => {
+                    handleChange(e);
+                    setFormData(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }));
+                  }}
                 />
+                {errors.amount && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.amount}</p>}
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Quantity</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Quantity <span className="text-red-500">*</span></label>
                   <input
                     type="number"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                    name="quantity"
+                    className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.quantity ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none transition-all`}
                     value={formData.quantity}
-                    onChange={e => setFormData({ ...formData, quantity: parseFloat(e.target.value) || 0 })}
+                    onChange={e => {
+                      handleChange(e);
+                      setFormData(prev => ({ ...prev, quantity: parseFloat(e.target.value) || 0 }));
+                    }}
                   />
+                  {errors.quantity && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.quantity}</p>}
                 </div>
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Rate (₹)</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Rate (₹) <span className="text-red-500">*</span></label>
                   <input
                     type="number"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                    name="rate"
+                    className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.rate ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none transition-all`}
                     value={formData.rate}
-                    onChange={e => setFormData({ ...formData, rate: parseFloat(e.target.value) || 0 })}
+                    onChange={e => {
+                      handleChange(e);
+                      setFormData(prev => ({ ...prev, rate: parseFloat(e.target.value) || 0 }));
+                    }}
                   />
+                  {errors.rate && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.rate}</p>}
                 </div>
               </div>
             )}

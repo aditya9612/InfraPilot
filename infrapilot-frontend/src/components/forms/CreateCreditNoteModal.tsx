@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import toast from "react-hot-toast";
 import Modal from "../common/Modal";
 
 interface CreateCreditNoteModalProps {
@@ -25,6 +24,9 @@ const CreateCreditNoteModal: React.FC<CreateCreditNoteModalProps> = ({
     status: "Approved",
   });
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+
   useEffect(() => {
     if (initialData) {
       setFormData({
@@ -49,12 +51,35 @@ const CreateCreditNoteModal: React.FC<CreateCreditNoteModalProps> = ({
     }
   }, [initialData, isOpen]);
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: name === "amount" ? parseFloat(value) || 0 : value
+    }));
+    if (errors[name]) {
+      setErrors(prev => {
+        const { [name]: _, ...rest } = prev;
+        return rest;
+      });
+    }
+  };
+
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.cn_no.trim()) newErrors.cn_no = "Credit note number is required.";
+    if (!formData.ref_invoice.trim()) newErrors.ref_invoice = "Reference invoice is required.";
+    if (!formData.client.trim()) newErrors.client = "Client name is required.";
+    if (!formData.date) newErrors.date = "Date is required.";
+    if (formData.amount <= 0) newErrors.amount = "Amount must be greater than 0.";
+    if (!formData.reason.trim()) newErrors.reason = "Reason for adjustment is required.";
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.ref_invoice || !formData.client || formData.amount <= 0) {
-      toast.error("Please fill in Ref Invoice, Client and Adjustment Amount");
-      return;
-    }
+    if (!validate()) return;
     onSubmit(formData);
   };
 
@@ -70,71 +95,78 @@ const CreateCreditNoteModal: React.FC<CreateCreditNoteModalProps> = ({
           {/* Column 1 */}
           <div className="space-y-4">
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Credit Note #</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Credit Note # <span className="text-red-500">*</span></label>
               <input
                 type="text"
-                required
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-rose-500/20 outline-none font-bold"
+                name="cn_no"
+                className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.cn_no ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-rose-500/20"} rounded-xl text-sm outline-none transition-all font-bold`}
                 value={formData.cn_no}
-                onChange={e => setFormData({ ...formData, cn_no: e.target.value })}
+                onChange={handleChange}
               />
+              {errors.cn_no && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.cn_no}</p>}
             </div>
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Reference Invoice</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Reference Invoice <span className="text-red-500">*</span></label>
               <input
                 type="text"
-                required
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-rose-500/20 outline-none"
+                name="ref_invoice"
+                className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.ref_invoice ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-rose-500/20"} rounded-xl text-sm outline-none transition-all`}
                 placeholder="e.g. INV/24/082"
                 value={formData.ref_invoice}
-                onChange={e => setFormData({ ...formData, ref_invoice: e.target.value })}
+                onChange={handleChange}
               />
+              {errors.ref_invoice && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.ref_invoice}</p>}
             </div>
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Client Name</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Client Name <span className="text-red-500">*</span></label>
               <input
                 type="text"
-                required
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-rose-500/20 outline-none"
+                name="client"
+                className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.client ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-rose-500/20"} rounded-xl text-sm outline-none transition-all`}
                 placeholder="e.g. Reliance Industries"
                 value={formData.client}
-                onChange={e => setFormData({ ...formData, client: e.target.value })}
+                onChange={handleChange}
               />
+              {errors.client && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.client}</p>}
             </div>
           </div>
 
           {/* Column 2 */}
           <div className="space-y-4">
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Issuance Date</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Issuance Date <span className="text-red-500">*</span></label>
               <input
                 type="date"
-                required
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-rose-500/20 outline-none"
+                name="date"
+                className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.date ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-rose-500/20"} rounded-xl text-sm outline-none transition-all`}
                 value={formData.date}
-                onChange={e => setFormData({ ...formData, date: e.target.value })}
+                onChange={handleChange}
               />
+              {errors.date && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.date}</p>}
             </div>
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Adjustment Amount (₹)</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Adjustment Amount (₹) <span className="text-red-500">*</span></label>
               <input
                 type="number"
-                required
+                name="amount"
                 min="0"
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-rose-500/20 outline-none font-bold text-rose-600"
+                className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.amount ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-rose-500/20"} rounded-xl text-sm outline-none transition-all font-bold text-rose-600`}
                 value={formData.amount || ""}
-                onChange={e => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+                onChange={handleChange}
               />
+              {errors.amount && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.amount}</p>}
             </div>
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Reason for Adjustment</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Reason for Adjustment <span className="text-red-500">*</span></label>
               <textarea
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-rose-500/20 outline-none resize-none"
+                name="reason"
+                className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.reason ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-rose-500/20"} rounded-xl text-sm outline-none resize-none transition-all`}
                 rows={3}
                 placeholder="e.g. Quantity correction, Damaged returns..."
                 value={formData.reason}
-                onChange={e => setFormData({ ...formData, reason: e.target.value })}
+                onChange={handleChange}
               />
+              {errors.reason && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.reason}</p>}
             </div>
           </div>
         </div>

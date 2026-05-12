@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import toast from "react-hot-toast";
 import Modal from "../common/Modal";
 
 interface CreateJVModalProps {
@@ -23,6 +22,17 @@ const CreateJVModal: React.FC<CreateJVModalProps> = ({
     narration: "",
     reference: `JV-${new Date().getFullYear().toString().slice(-2)}-00${Math.floor(Math.random() * 10)}`,
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.debit_account.trim()) newErrors.debit_account = "Debit account is required.";
+    if (!formData.credit_account.trim()) newErrors.credit_account = "Credit account is required.";
+    if (formData.amount <= 0) newErrors.amount = "Amount must be greater than 0.";
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
 
   useEffect(() => {
     if (initialData) {
@@ -48,12 +58,10 @@ const CreateJVModal: React.FC<CreateJVModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.debit_account || !formData.credit_account || formData.amount <= 0) {
-      toast.error("Please fill in all accounting legs and amount");
-      return;
-    }
+    if (!validate()) return;
     onSubmit(formData);
   };
+
 
   return (
     <Modal
@@ -87,43 +95,52 @@ const CreateJVModal: React.FC<CreateJVModalProps> = ({
         </div>
 
         <div className="space-y-4">
-            <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-100 relative">
+            <div className={`p-5 rounded-2xl ${errors.debit_account ? "bg-red-50 border border-red-200" : "bg-emerald-50 border border-emerald-100"} relative`}>
                 <div className="absolute top-4 right-4 px-2 py-0.5 bg-emerald-600 text-white text-[9px] font-black rounded uppercase tracking-wider">Debit</div>
-                <label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1.5 block">Debit Account (Ledger)</label>
+                <label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1.5 block">Debit Account (Ledger) <span className="text-red-500">*</span></label>
                 <input
                     type="text"
-                    required
-                    className="w-full px-4 py-2.5 bg-white border border-emerald-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 font-black"
+                    className={`w-full px-4 py-2.5 bg-white border ${errors.debit_account ? "border-red-400" : "border-emerald-200"} rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 font-black`}
                     placeholder="Search account head..."
                     value={formData.debit_account}
-                    onChange={e => setFormData({ ...formData, debit_account: e.target.value })}
+                    onChange={e => {
+                        setFormData({ ...formData, debit_account: e.target.value });
+                        if (errors.debit_account) setErrors(prev => ({ ...prev, debit_account: "" }));
+                    }}
                 />
+                {errors.debit_account && <p className="text-[10px] text-red-500 mt-1 font-bold">{errors.debit_account}</p>}
             </div>
 
-            <div className="p-5 rounded-2xl bg-rose-50 border border-rose-100 relative">
+            <div className={`p-5 rounded-2xl ${errors.credit_account ? "bg-red-50 border border-red-200" : "bg-rose-50 border border-rose-100"} relative`}>
                 <div className="absolute top-4 right-4 px-2 py-0.5 bg-rose-600 text-white text-[9px] font-black rounded uppercase tracking-wider">Credit</div>
-                <label className="text-[10px] font-black text-rose-600 uppercase tracking-widest mb-1.5 block">Credit Account (Ledger)</label>
+                <label className="text-[10px] font-black text-rose-600 uppercase tracking-widest mb-1.5 block">Credit Account (Ledger) <span className="text-red-500">*</span></label>
                 <input
                     type="text"
-                    required
-                    className="w-full px-4 py-2.5 bg-white border border-rose-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-rose-500/20 font-black"
+                    className={`w-full px-4 py-2.5 bg-white border ${errors.credit_account ? "border-red-400" : "border-rose-200"} rounded-xl text-sm outline-none focus:ring-2 focus:ring-rose-500/20 font-black`}
                     placeholder="Search account head..."
                     value={formData.credit_account}
-                    onChange={e => setFormData({ ...formData, credit_account: e.target.value })}
+                    onChange={e => {
+                        setFormData({ ...formData, credit_account: e.target.value });
+                        if (errors.credit_account) setErrors(prev => ({ ...prev, credit_account: "" }));
+                    }}
                 />
+                {errors.credit_account && <p className="text-[10px] text-red-500 mt-1 font-bold">{errors.credit_account}</p>}
             </div>
         </div>
 
         <div>
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Amount (₹)</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Amount (₹) <span className="text-red-500">*</span></label>
             <input
                 type="number"
-                required
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-lg font-black tracking-tight outline-none focus:ring-2 focus:ring-primary/20"
+                className={`w-full px-4 py-3 bg-slate-50 border ${errors.amount ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-lg font-black tracking-tight outline-none transition-all`}
                 placeholder="0.00"
                 value={formData.amount || ""}
-                onChange={e => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+                onChange={e => {
+                    setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 });
+                    if (errors.amount) setErrors(prev => ({ ...prev, amount: "" }));
+                }}
             />
+            {errors.amount && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{errors.amount}</p>}
             {formData.amount > 0 && (
                 <div className="flex items-center gap-2 mt-2 ml-1">
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>

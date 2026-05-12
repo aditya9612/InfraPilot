@@ -44,7 +44,7 @@ api.interceptors.response.use(
           const user = JSON.parse(userString);
           const token = user.token?.access_token || user.token;
           // Do NOT auto-logout mock/dev users — they use fake tokens
-          if (token === 'mock_test_token_client_transparency') {
+          if (token === 'mock_test_token_client_transparency' || token === 'mock_accountant_token') {
             console.warn('Mock user received 401 — suppressing auto-logout.');
             return Promise.reject(error);
           }

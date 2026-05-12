@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import toast from "react-hot-toast";
 import Modal from "../common/Modal";
 
 interface CreateTaxRecordModalProps {
@@ -27,6 +26,17 @@ const CreateTaxRecordModal: React.FC<CreateTaxRecordModalProps> = ({
     status: "Draft",
     date: new Date().toISOString().split('T')[0],
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.gstin.trim()) newErrors.gstin = "GSTIN is required.";
+    if (!formData.invoice_number.trim()) newErrors.invoice_number = "Invoice number is required.";
+    if (formData.taxable_amount <= 0) newErrors.taxable_amount = "Taxable value must be > 0.";
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
 
   useEffect(() => {
     if (initialData) {
@@ -60,10 +70,7 @@ const CreateTaxRecordModal: React.FC<CreateTaxRecordModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.gstin || !formData.invoice_number) {
-      toast.error("Please fill in GSTIN and Document Number");
-      return;
-    }
+    if (!validate()) return;
     onSubmit(formData);
   };
 
@@ -93,26 +100,32 @@ const CreateTaxRecordModal: React.FC<CreateTaxRecordModalProps> = ({
               </select>
             </div>
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">GSTIN</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">GSTIN <span className="text-red-500">*</span></label>
               <input
                 type="text"
-                required
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none font-black tracking-wider uppercase"
+                className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.gstin ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none font-black tracking-wider uppercase transition-all`}
                 placeholder="e.g. 27AADCB2230M1Z2"
                 value={formData.gstin}
-                onChange={e => setFormData({ ...formData, gstin: e.target.value })}
+                onChange={e => {
+                    setFormData({ ...formData, gstin: e.target.value });
+                    if (errors.gstin) setErrors(prev => ({ ...prev, gstin: "" }));
+                }}
               />
+              {errors.gstin && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{errors.gstin}</p>}
             </div>
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Document # / Ref</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Document # / Ref <span className="text-red-500">*</span></label>
               <input
                 type="text"
-                required
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none font-bold"
+                className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.invoice_number ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none font-bold transition-all`}
                 placeholder="INV-2024-001"
                 value={formData.invoice_number}
-                onChange={e => setFormData({ ...formData, invoice_number: e.target.value })}
+                onChange={e => {
+                    setFormData({ ...formData, invoice_number: e.target.value });
+                    if (errors.invoice_number) setErrors(prev => ({ ...prev, invoice_number: "" }));
+                }}
               />
+              {errors.invoice_number && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{errors.invoice_number}</p>}
             </div>
             <div>
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Record Date</label>
@@ -129,14 +142,18 @@ const CreateTaxRecordModal: React.FC<CreateTaxRecordModalProps> = ({
           {/* Column 2 */}
           <div className="space-y-4">
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Taxable Value (₹)</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Taxable Value (₹) <span className="text-red-500">*</span></label>
               <input
                 type="number"
                 min="0"
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none font-black"
+                className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.taxable_amount ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none font-black transition-all`}
                 value={formData.taxable_amount}
-                onChange={e => setFormData({ ...formData, taxable_amount: parseFloat(e.target.value) || 0 })}
+                onChange={e => {
+                    setFormData({ ...formData, taxable_amount: parseFloat(e.target.value) || 0 });
+                    if (errors.taxable_amount) setErrors(prev => ({ ...prev, taxable_amount: "" }));
+                }}
               />
+              {errors.taxable_amount && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{errors.taxable_amount}</p>}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>

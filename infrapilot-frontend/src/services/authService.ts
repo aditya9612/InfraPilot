@@ -20,7 +20,7 @@ export const authService = {
    */
   async login(mobile: string): Promise<LoginResponse> {
     // MOCK OTP SEND FOR DEVELOPMENT
-    if (mobile === "4444444444") {
+    if (mobile === "4444444444" || mobile === "9999999991") {
       return {
         message: "OTP sent successfully (MOCK)",
         mobile: mobile
@@ -37,13 +37,13 @@ export const authService = {
    */
   async verifyOtp(mobile: string, otp: string): Promise<VerifyOtpResponse> {
     // MOCK LOGIN FOR DEVELOPMENT
-    if (mobile === "4444444444" && otp === "123456") {
+    if ((mobile === "4444444444" || mobile === "9999999991") && otp === "123456") {
       return {
         token: {
-          access_token: "mock_test_token_client_transparency",
+          access_token: mobile === "9999999991" ? "mock_accountant_token" : "mock_test_token_client_transparency",
           token_type: "bearer"
         },
-        user_id: 999
+        user_id: mobile === "9999999991" ? 100 : 999
       };
     }
 
@@ -70,6 +70,13 @@ export const authService = {
           full_name: "InfraPilot Client",
           role: "Client",
           mobile_number: "4444444444"
+        };
+      }
+      if (user.mobile === "9999999991") {
+        return {
+          full_name: "InfraPilot Accountant",
+          role: "Accountant",
+          mobile_number: "9999999991"
         };
       }
     }
@@ -143,7 +150,7 @@ const isMockUser = () => {
     if (!stored) return false;
     const user = JSON.parse(stored);
     const token = user.token?.access_token || user.token;
-    return token === 'mock_test_token_client_transparency';
+    return token === 'mock_test_token_client_transparency' || token === 'mock_accountant_token';
   } catch {
     return false;
   }

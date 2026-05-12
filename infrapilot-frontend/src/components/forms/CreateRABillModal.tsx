@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import toast from "react-hot-toast";
 import Modal from "../common/Modal";
 
 interface CreateRABillModalProps {
@@ -25,6 +24,9 @@ const CreateRABillModal: React.FC<CreateRABillModalProps> = ({
     certified_by: "",
   });
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+
   useEffect(() => {
     if (initialData) {
       setFormData({
@@ -49,12 +51,35 @@ const CreateRABillModal: React.FC<CreateRABillModalProps> = ({
     }
   }, [initialData, isOpen]);
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: name === "amount" ? parseFloat(value) || 0 : value
+    }));
+    if (errors[name]) {
+      setErrors(prev => {
+        const { [name]: _, ...rest } = prev;
+        return rest;
+      });
+    }
+  };
+
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.bill_no.trim()) newErrors.bill_no = "Bill number is required.";
+    if (!formData.project.trim()) newErrors.project = "Project name is required.";
+    if (!formData.client.trim()) newErrors.client = "Client name is required.";
+    if (!formData.date) newErrors.date = "Date is required.";
+    if (formData.amount <= 0) newErrors.amount = "Amount must be greater than 0.";
+    if (!formData.certified_by.trim()) newErrors.certified_by = "Certifying body is required.";
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.project || !formData.client || formData.amount <= 0) {
-      toast.error("Please fill in Project, Client and Bill Amount");
-      return;
-    }
+    if (!validate()) return;
     onSubmit(formData);
   };
 
@@ -70,71 +95,78 @@ const CreateRABillModal: React.FC<CreateRABillModalProps> = ({
           {/* Column 1 */}
           <div className="space-y-4">
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">RA Bill Number</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">RA Bill Number <span className="text-red-500">*</span></label>
               <input
                 type="text"
-                required
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                name="bill_no"
+                className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.bill_no ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none transition-all`}
                 value={formData.bill_no}
-                onChange={e => setFormData({ ...formData, bill_no: e.target.value })}
+                onChange={handleChange}
               />
+              {errors.bill_no && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.bill_no}</p>}
             </div>
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Project Name</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Project Name <span className="text-red-500">*</span></label>
               <input
                 type="text"
-                required
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                name="project"
+                className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.project ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none transition-all`}
                 placeholder="e.g. Site Alpha - Mumbai"
                 value={formData.project}
-                onChange={e => setFormData({ ...formData, project: e.target.value })}
+                onChange={handleChange}
               />
+              {errors.project && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.project}</p>}
             </div>
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Client Name</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Client Name <span className="text-red-500">*</span></label>
               <input
                 type="text"
-                required
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                name="client"
+                className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.client ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none transition-all`}
                 placeholder="e.g. Reliance Industries"
                 value={formData.client}
-                onChange={e => setFormData({ ...formData, client: e.target.value })}
+                onChange={handleChange}
               />
+              {errors.client && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.client}</p>}
             </div>
           </div>
 
           {/* Column 2 */}
           <div className="space-y-4">
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Submission Date</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Submission Date <span className="text-red-500">*</span></label>
               <input
                 type="date"
-                required
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                name="date"
+                className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.date ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none transition-all`}
                 value={formData.date}
-                onChange={e => setFormData({ ...formData, date: e.target.value })}
+                onChange={handleChange}
               />
+              {errors.date && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.date}</p>}
             </div>
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Bill Amount (₹)</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Bill Amount (₹) <span className="text-red-500">*</span></label>
               <input
                 type="number"
-                required
+                name="amount"
                 min="0"
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none font-bold"
+                className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.amount ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none transition-all font-bold`}
                 value={formData.amount || ""}
-                onChange={e => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+                onChange={handleChange}
               />
+              {errors.amount && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.amount}</p>}
             </div>
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">PMC / Certifying Body</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">PMC / Certifying Body <span className="text-red-500">*</span></label>
               <input
                 type="text"
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                name="certified_by"
+                className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.certified_by ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none transition-all`}
                 placeholder="e.g. PMC - Tata Projects"
                 value={formData.certified_by}
-                onChange={e => setFormData({ ...formData, certified_by: e.target.value })}
+                onChange={handleChange}
               />
+              {errors.certified_by && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.certified_by}</p>}
             </div>
           </div>
         </div>

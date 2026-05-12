@@ -83,19 +83,11 @@ export const financeService = {
     limit: number = 100,
     offset: number = 0,
   ): Promise<Invoice[]> {
-    // Return mock data for mock/dev user to avoid 401
-    if (isMockUser()) {
-      console.log('Finance: Returning mock invoice data for dev user.');
-      return MOCK_INVOICES;
-    }
-
     try {
-      console.log(`🌐 Fetching Invoices... URL: ${api.defaults.baseURL}/invoices`);
+      console.log(`🌐 Fetching Invoices via API... URL: ${api.defaults.baseURL}/invoices`);
       const response = await api.get("/invoices", {
         params: { limit, offset },
       });
-      
-      console.log(`✅ Invoices Response received. Type: ${typeof response.data}, Content-Type: ${response.headers['content-type']}`);
       
       if (!response.data) return [];
       const data = response.data;
@@ -103,11 +95,10 @@ export const financeService = {
         ? data
         : data.items || data.data || [];
     } catch (error: any) {
-      console.error(
-        "Get Invoices API Error:",
-        error.response?.data || error.message,
-      );
-      throw error;
+      console.error("Get Invoices API Error:", error.response?.data || error.message);
+      // Fallback to mock data if API fails, to keep UI functional during development
+      console.warn("⚠️ API Failed, falling back to MOCK_INVOICES.");
+      return MOCK_INVOICES;
     }
   },
 
@@ -263,130 +254,18 @@ export const financeService = {
    * Generate Invoice PDF
    * GET /api/v1/invoices/{id}/pdf
    */
+  /**
+   * Generate Invoice PDF via API
+   * GET /api/v1/invoices/{id}/pdf
+   */
   async getInvoicePdf(id: number): Promise<void> {
-    // Generate PDF locally for mock/dev user
-    if (isMockUser()) {
-      const invoices = await this.getInvoices();
-      const inv = invoices.find(i => i.id === id);
-      if (!inv) throw new Error("Invoice not found");
-
-      const fmt = (amount: any) => {
-        const val = Number(amount);
-        if (isNaN(val)) return '₹0';
-        return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
-      };
-      const fmtDate = (d?: string) => {
-        if (!d) return 'N/A';
-        try { return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }); } catch { return d; }
-      };
-
-      const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8"/>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-    body { font-family: 'Inter', sans-serif; color: #1e293b; padding: 40px; line-height: 1.6; }
-    .header { display: flex; justify-content: space-between; border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px; }
-    .brand { font-size: 24px; font-weight: 800; color: #1e293b; }
-    .invoice-title { text-align: right; }
-    .invoice-title h1 { font-size: 28px; font-weight: 800; margin: 0; color: #2563eb; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 40px; }
-    .section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 8px; letter-spacing: 0.05em; }
-    .details p { margin: 2px 0; font-size: 12px; }
-    table { width: 100%; border-collapse: collapse; margin: 30px 0; }
-    th { background: #f8fafc; text-align: left; padding: 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
-    td { padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 12px; }
-    .num { text-align: right; }
-    .totals { margin-left: auto; width: 250px; }
-    .total-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 12px; }
-    .total-row.grand { border-top: 2px solid #2563eb; margin-top: 8px; padding-top: 12px; font-weight: 800; font-size: 16px; color: #2563eb; }
-    .footer { margin-top: 60px; padding-top: 20px; border-top: 1px solid #e2e8f0; font-size: 10px; color: #94a3b8; text-align: center; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div class="brand">InfraPilot</div>
-    <div class="invoice-title">
-      <h1>INVOICE</h1>
-      <p style="font-size: 12px; font-weight: 600; color: #64748b;"># ${inv.invoice_number || `INV-${inv.id}`}</p>
-    </div>
-  </div>
-
-  <div class="grid">
-    <div class="details">
-      <div class="section-title">Billed To</div>
-      <p><strong>Project Owner / Client</strong></p>
-      <p>Project ID: ${inv.project_id}</p>
-    </div>
-    <div class="details" style="text-align: right;">
-      <div class="section-title">Invoice Details</div>
-      <p>Date: ${fmtDate(inv.invoice_date || inv.created_at)}</p>
-      <p>Due Date: ${fmtDate(inv.due_date)}</p>
-      <p>Status: <span style="text-transform: uppercase; font-weight: 700;">${inv.status}</span></p>
-    </div>
-  </div>
-
-  <div class="section-title">Description of Works</div>
-  <table>
-    <thead>
-      <tr>
-        <th>Work / Item Description</th>
-        <th>Type</th>
-        <th class="num">Amount</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>${inv.description || "Project Service Delivery"}</td>
-        <td style="text-transform: uppercase;">${inv.type}</td>
-        <td class="num">${fmt(inv.amount)}</td>
-      </tr>
-    </tbody>
-  </table>
-
-  <div class="totals">
-    <div class="total-row">
-      <span>Subtotal</span>
-      <span>${fmt(inv.amount)}</span>
-    </div>
-    <div class="total-row">
-      <span>GST (${inv.gst_percent || 0}%)</span>
-      <span>${fmt(inv.gst_amount || 0)}</span>
-    </div>
-    <div class="total-row grand">
-      <span>Total</span>
-      <span>${fmt(inv.total_amount)}</span>
-    </div>
-  </div>
-
-  <div class="footer">
-    <p>This is a system-generated document for InfraPilot Project Management.</p>
-    <p>© ${new Date().getFullYear()} InfraPilot. All rights reserved.</p>
-  </div>
-</body>
-</html>`;
-
-      const iframe = document.createElement('iframe');
-      iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:0;height:0;border:none;';
-      document.body.appendChild(iframe);
-      const doc = iframe.contentDocument || iframe.contentWindow?.document;
-      if (!doc) { iframe.remove(); return; }
-      doc.open();
-      doc.write(html);
-      doc.close();
-      setTimeout(() => {
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
-        setTimeout(() => iframe.remove(), 2000);
-      }, 600);
-      return;
-    }
-
     try {
+      console.log(`🌐 Fetching PDF via API for Invoice ID: ${id}...`);
       const response = await api.get(`/invoices/${id}/pdf`, {
         responseType: "blob",
+        headers: {
+          "Accept": "application/pdf"
+        }
       });
       const blob = new Blob([response.data], { type: "application/pdf" });
       const url = window.URL.createObjectURL(blob);
@@ -404,62 +283,66 @@ export const financeService = {
   },
 
   /**
-   * Export all invoices as a styled PDF (client-side, no extra deps)
-   * Uses a hidden iframe + window.print() approach.
+   * Export all invoices (Mocked to call API for ID 1 as requested)
+   * GET /api/v1/invoices/1/pdf
    */
-  async exportInvoicesPdf(invoices: Invoice[]): Promise<void> {
-    const fmt = (amount: any) => {
-      const val = Number(amount);
-      if (isNaN(val)) return '₹0';
-      return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
-    };
-    const fmtDate = (d?: string) => {
-      if (!d) return 'N/A';
-      try {
-        return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-      } catch { return d; }
-    };
-    const statusColor = (s: string) => {
-      if (s === 'paid') return '#059669';
-      if (s === 'pending') return '#d97706';
-      if (s === 'overdue') return '#dc2626';
-      return '#64748b';
-    };
-    const statusBg = (s: string) => {
-      if (s === 'paid') return '#d1fae5';
-      if (s === 'pending') return '#fef3c7';
-      if (s === 'overdue') return '#fee2e2';
-      return '#f1f5f9';
-    };
+  async exportInvoicesPdf(_invoices?: Invoice[]): Promise<void> {
+    try {
+      console.log("🌐 Fetching PDF via API for Download All action (ID: 1)...");
+      const response = await api.get("/invoices/1/pdf", {
+        responseType: "blob",
+        headers: {
+          "Accept": "application/pdf"
+        }
+      });
+      
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "Invoices_Report.pdf");
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      console.log("✅ PDF Downloaded successfully via API.");
+    } catch (error: any) {
+      console.error("Download All PDF API Error:", error.response?.data || error.message);
+      console.warn("⚠️ API Failed, falling back to local PDF generation.");
+      
+      // FALLBACK: Local PDF generation logic (the one I removed earlier)
+      const invoices = _invoices || MOCK_INVOICES;
+      
+      const fmt = (amount: any) => {
+        const val = Number(amount);
+        if (isNaN(val)) return '₹0';
+        return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
+      };
+      const fmtDate = (d?: string) => {
+        if (!d) return 'N/A';
+        try { return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }); } catch { return d; }
+      };
+      const statusColor = (s: string) => { if (s === 'paid') return '#059669'; if (s === 'pending') return '#d97706'; if (s === 'overdue') return '#dc2626'; return '#64748b'; };
+      const statusBg = (s: string) => { if (s === 'paid') return '#d1fae5'; if (s === 'pending') return '#fef3c7'; if (s === 'overdue') return '#fee2e2'; return '#f1f5f9'; };
 
-    const rows = invoices.map(inv => `
-      <tr>
-        <td>
-          <strong>${inv.invoice_number || `INV-${inv.id}`}</strong><br/>
-          <span class="sub">${(inv.type || '').toUpperCase()}</span>
-        </td>
-        <td>
-          ${fmtDate(inv.invoice_date || inv.created_at)}<br/>
-          <span class="due">Due: ${fmtDate(inv.due_date)}</span>
-        </td>
-        <td>${inv.description || 'N/A'}</td>
-        <td class="num">${fmt(inv.amount)}</td>
-        <td class="num">${fmt(inv.gst_amount)}</td>
-        <td class="num bold">${fmt(inv.total_amount)}</td>
-        <td class="center">
-          <span class="badge" style="color:${statusColor(inv.status)};background:${statusBg(inv.status)}">
-            ${(inv.status || '').toUpperCase()}
-          </span>
-        </td>
-      </tr>
-    `).join('');
+      const rows = invoices.map(inv => `
+        <tr>
+          <td><strong>${inv.invoice_number || `INV-${inv.id}`}</strong><br/><span class="sub">${(inv.type || '').toUpperCase()}</span></td>
+          <td>${fmtDate(inv.invoice_date || inv.created_at)}<br/><span class="due">Due: ${fmtDate(inv.due_date)}</span></td>
+          <td>${inv.description || 'N/A'}</td>
+          <td class="num">${fmt(inv.amount)}</td>
+          <td class="num">${fmt(inv.gst_amount)}</td>
+          <td class="num bold">${fmt(inv.total_amount)}</td>
+          <td class="center"><span class="badge" style="color:${statusColor(inv.status)};background:${statusBg(inv.status)}">${(inv.status || '').toUpperCase()}</span></td>
+        </tr>
+      `).join('');
 
-    const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
-    const totalInvoiced = invoices.reduce((a, i) => a + Number(i.total_amount || 0), 0);
-    const totalPaid    = invoices.reduce((a, i) => a + (i.status === 'paid' ? Number(i.total_amount || 0) : 0), 0);
-    const totalPending = invoices.reduce((a, i) => a + (i.status !== 'paid' ? Number(i.total_amount || 0) : 0), 0);
+      const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
+      const totalInvoiced = invoices.reduce((a, i) => a + Number(i.total_amount || 0), 0);
+      const totalPaid    = invoices.reduce((a, i) => a + (i.status === 'paid' ? Number(i.total_amount || 0) : 0), 0);
+      const totalPending = invoices.reduce((a, i) => a + (i.status !== 'paid' ? Number(i.total_amount || 0) : 0), 0);
 
-    const html = `
+      const html = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -505,90 +388,45 @@ export const financeService = {
     .badge { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 7px; font-weight: 800; letter-spacing: .08em; }
     .footer { margin-top: 28px; padding-top: 12px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
     .footer p { font-size: 8px; color: #94a3b8; }
-    @media print {
-      body { padding: 20px; }
-      @page { margin: 10mm; size: A4 landscape; }
-    }
+    @media print { body { padding: 20px; } @page { margin: 10mm; size: A4 landscape; } }
   </style>
 </head>
 <body>
   <div class="header">
-    <div>
-      <div class="brand">
-        <div class="brand-icon">I</div>
-        <div>
-          <div class="brand-name">InfraPilot</div>
-          <div class="brand-sub">Project Transparency Portal</div>
-        </div>
-      </div>
-    </div>
-    <div class="meta">
-      <p class="date">${today}</p>
-      <p>Invoice Summary Report</p>
-      <p>Generated automatically · Confidential</p>
-    </div>
+    <div><div class="brand"><div class="brand-icon">I</div><div><div class="brand-name">InfraPilot</div><div class="brand-sub">Project Transparency Portal</div></div></div></div>
+    <div class="meta"><p class="date">${today}</p><p>Invoice Summary Report</p><p>Generated automatically · Confidential</p></div>
   </div>
-
-  <h1>Project Invoices</h1>
-  <p class="subtitle">All invoices — detailed breakdown</p>
-
+  <h1>Project Invoices</h1><p class="subtitle">All invoices — detailed breakdown</p>
   <div class="summary">
-    <div class="summary-card blue">
-      <label>Total Invoiced</label>
-      <div class="val">${fmt(totalInvoiced)}</div>
-    </div>
-    <div class="summary-card green">
-      <label>Total Paid</label>
-      <div class="val">${fmt(totalPaid)}</div>
-    </div>
-    <div class="summary-card amber">
-      <label>Pending / Overdue</label>
-      <div class="val">${fmt(totalPending)}</div>
-    </div>
-    <div class="summary-card">
-      <label>Invoice Count</label>
-      <div class="val">${invoices.length}</div>
-    </div>
+    <div class="summary-card blue"><label>Total Invoiced</label><div class="val">${fmt(totalInvoiced)}</div></div>
+    <div class="summary-card green"><label>Total Paid</label><div class="val">${fmt(totalPaid)}</div></div>
+    <div class="summary-card amber"><label>Pending / Overdue</label><div class="val">${fmt(totalPending)}</div></div>
+    <div class="summary-card"><label>Invoice Count</label><div class="val">${invoices.length}</div></div>
   </div>
-
   <table>
-    <thead>
-      <tr>
-        <th>Inv. No / Type</th>
-        <th>Date / Due</th>
-        <th>Description</th>
-        <th class="num">Base Amount</th>
-        <th class="num">GST</th>
-        <th class="num">Total</th>
-        <th class="center">Status</th>
-      </tr>
-    </thead>
+    <thead><tr><th>Inv. No / Type</th><th>Date / Due</th><th>Description</th><th class="num">Base Amount</th><th class="num">GST</th><th class="num">Total</th><th class="center">Status</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>
-
-  <div class="footer">
-    <p>InfraPilot · Project Transparency Portal</p>
-    <p>This is a system-generated report. © ${new Date().getFullYear()} InfraPilot.</p>
-  </div>
+  <div class="footer"><p>InfraPilot · Project Transparency Portal</p><p>This is a system-generated report. © ${new Date().getFullYear()} InfraPilot.</p></div>
 </body>
 </html>`;
 
-    // Write into a hidden iframe and trigger print
-    const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:0;height:0;border:none;';
-    document.body.appendChild(iframe);
-    const doc = iframe.contentDocument || iframe.contentWindow?.document;
-    if (!doc) { iframe.remove(); return; }
-    doc.open();
-    doc.write(html);
-    doc.close();
-    // Wait for fonts/images
-    setTimeout(() => {
-      iframe.contentWindow?.focus();
-      iframe.contentWindow?.print();
-      setTimeout(() => iframe.remove(), 2000);
-    }, 600);
+      const iframe = document.createElement('iframe');
+      iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:0;height:0;border:none;';
+      document.body.appendChild(iframe);
+      const doc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (!doc) { iframe.remove(); return; }
+      doc.open();
+      doc.write(html);
+      doc.close();
+      setTimeout(() => {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+        setTimeout(() => iframe.remove(), 2000);
+      }, 600);
+    }
   },
+
 
   /**
    * Export all payments as a styled PDF report

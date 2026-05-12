@@ -33,20 +33,24 @@ const ClientInvoicesPage = () => {
   const handleDownloadPdf = async (id: number) => {
     try {
       await financeService.getInvoicePdf(id);
-    } catch (err) {
+    } catch (err: any) {
       console.error("ClientInvoicesPage: Download PDF error:", err);
-      alert("Failed to download PDF. Please try again.");
+      const msg = err.response?.data?.detail || err.message || "Unknown error";
+      alert(`Failed to download PDF: ${msg}`);
     }
   };
 
   const handleDownloadAllPdf = async () => {
     try {
       await financeService.exportInvoicesPdf(safeInvoices);
-    } catch (err) {
+    } catch (err: any) {
       console.error("ClientInvoicesPage: Download PDF error:", err);
-      alert("Failed to download PDF. Please try again.");
+      const msg = err.response?.data?.detail || err.message || "Unknown error";
+      alert(`Failed to download PDF: ${msg}`);
     }
   };
+
+
 
   const formatCurrency = (amount: any) => {
     try {

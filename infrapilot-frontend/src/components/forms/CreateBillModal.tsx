@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import toast from "react-hot-toast";
 import Modal from "../common/Modal";
 
 interface CreateBillModalProps {
@@ -26,6 +25,8 @@ const CreateBillModal: React.FC<CreateBillModalProps> = ({
     status: "pending",
     due_date: new Date().toISOString().split('T')[0],
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
 
   const [calculated, setCalculated] = useState({
     base_total: 0,
@@ -72,12 +73,35 @@ const CreateBillModal: React.FC<CreateBillModalProps> = ({
     });
   }, [formData.quantity, formData.rate, formData.gst_percent]);
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: (name === "quantity" || name === "rate") ? parseFloat(value) || 0 : (name === "gst_percent" ? parseInt(value) : value)
+    }));
+    if (errors[name]) {
+      setErrors(prev => {
+        const { [name]: _, ...rest } = prev;
+        return rest;
+      });
+    }
+  };
+
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.vendor_name.trim()) newErrors.vendor_name = "Vendor/Contractor name is required.";
+    if (!formData.bill_number.trim()) newErrors.bill_number = "Bill number is required.";
+    if (!formData.item.trim()) newErrors.item = "Material/Service description is required.";
+    if (formData.quantity <= 0) newErrors.quantity = "Qty > 0.";
+    if (formData.rate < 0) newErrors.rate = "Rate >= 0.";
+    if (!formData.due_date) newErrors.due_date = "Due date is required.";
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.vendor_name || !formData.bill_number || !formData.item) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
+    if (!validate()) return;
 
     const submissionData = {
       ...formData,
@@ -101,93 +125,99 @@ const CreateBillModal: React.FC<CreateBillModalProps> = ({
           {/* Column 1 */}
           <div className="space-y-4">
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Vendor / Contractor Name</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Vendor / Contractor Name <span className="text-red-500">*</span></label>
               <input
                 type="text"
-                required
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                name="vendor_name"
+                className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.vendor_name ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none transition-all`}
                 placeholder="e.g. Mahaveer Cements"
                 value={formData.vendor_name}
-                onChange={e => setFormData({ ...formData, vendor_name: e.target.value })}
+                onChange={handleChange}
               />
+              {errors.vendor_name && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.vendor_name}</p>}
             </div>
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Bill / Reference Number</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Bill / Reference Number <span className="text-red-500">*</span></label>
               <input
                 type="text"
-                required
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                name="bill_number"
+                className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.bill_number ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none transition-all`}
                 placeholder="BILL/2024/001"
                 value={formData.bill_number}
-                onChange={e => setFormData({ ...formData, bill_number: e.target.value })}
+                onChange={handleChange}
               />
+              {errors.bill_number && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.bill_number}</p>}
             </div>
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Category</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Category <span className="text-red-500">*</span></label>
               <select
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                name="category"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-primary/20 outline-none"
                 value={formData.category}
-                onChange={e => setFormData({ ...formData, category: e.target.value })}
+                onChange={handleChange}
               >
                 <option value="vendor">Material Vendor</option>
                 <option value="contractor">Sub-Contractor</option>
               </select>
             </div>
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Due Date</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Due Date <span className="text-red-500">*</span></label>
               <input
                 type="date"
-                required
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                name="due_date"
+                className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.due_date ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none transition-all`}
                 value={formData.due_date}
-                onChange={e => setFormData({ ...formData, due_date: e.target.value })}
+                onChange={handleChange}
               />
+              {errors.due_date && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.due_date}</p>}
             </div>
           </div>
 
           {/* Column 2 */}
           <div className="space-y-4">
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Material / Service Description</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Material / Service Description <span className="text-red-500">*</span></label>
               <input
                 type="text"
-                required
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                name="item"
+                className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.item ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none transition-all`}
                 placeholder="e.g. Reinforcement Steel"
                 value={formData.item}
-                onChange={e => setFormData({ ...formData, item: e.target.value })}
+                onChange={handleChange}
               />
+              {errors.item && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.item}</p>}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Quantity</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Quantity <span className="text-red-500">*</span></label>
                 <input
                   type="number"
+                  name="quantity"
                   min="1"
-                  required
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                  className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.quantity ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none transition-all`}
                   value={formData.quantity}
-                  onChange={e => setFormData({ ...formData, quantity: parseFloat(e.target.value) || 0 })}
+                  onChange={handleChange}
                 />
               </div>
               <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Rate (₹)</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Rate (₹) <span className="text-red-500">*</span></label>
                 <input
                   type="number"
+                  name="rate"
                   min="0"
-                  required
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                  className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.rate ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none transition-all`}
                   value={formData.rate}
-                  onChange={e => setFormData({ ...formData, rate: parseFloat(e.target.value) || 0 })}
+                  onChange={handleChange}
                 />
               </div>
             </div>
             <div>
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">GST (%)</label>
               <select
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                name="gst_percent"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-primary/20 outline-none"
                 value={formData.gst_percent}
-                onChange={e => setFormData({ ...formData, gst_percent: parseInt(e.target.value) })}
+                onChange={handleChange}
               >
                 <option value={0}>0%</option>
                 <option value={5}>5%</option>
@@ -199,9 +229,10 @@ const CreateBillModal: React.FC<CreateBillModalProps> = ({
             <div>
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Payment Status</label>
               <select
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                name="status"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-primary/20 outline-none"
                 value={formData.status}
-                onChange={e => setFormData({ ...formData, status: e.target.value })}
+                onChange={handleChange}
               >
                 <option value="pending">Pending</option>
                 <option value="partial">Partial</option>

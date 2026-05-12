@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import toast from "react-hot-toast";
 import Modal from "../common/Modal";
 
 interface CreateTransactionModalProps {
@@ -25,6 +24,17 @@ const CreateTransactionModal: React.FC<CreateTransactionModalProps> = ({
     linked_id: "",
     remarks: "",
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.party_name.trim()) newErrors.party_name = "Party name is required.";
+    if (!formData.amount || Number(formData.amount) <= 0) newErrors.amount = "Amount must be > 0.";
+    if (!formData.date) newErrors.date = "Date is required.";
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
 
   useEffect(() => {
     if (initialData) {
@@ -54,10 +64,7 @@ const CreateTransactionModal: React.FC<CreateTransactionModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.amount || !formData.party_name) {
-      toast.error("Please fill in Party Name and Amount");
-      return;
-    }
+    if (!validate()) return;
     onSubmit({
       ...formData,
       amount: Number(formData.amount),
@@ -104,43 +111,51 @@ const CreateTransactionModal: React.FC<CreateTransactionModalProps> = ({
           </div>
           <div>
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">
-              Amount (₹)
+              Amount (₹) <span className="text-red-500">*</span>
             </label>
             <input
               type="number"
-              required
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none font-bold"
+              className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.amount ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none font-bold transition-all`}
               placeholder="0.00"
               value={formData.amount}
-              onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, amount: e.target.value });
+                if (errors.amount) setErrors(prev => ({ ...prev, amount: "" }));
+              }}
             />
+            {errors.amount && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{errors.amount}</p>}
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">
-              Party Name
+              Party Name <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
-              required
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+              className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.party_name ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none transition-all`}
               placeholder="Client or Vendor Name"
               value={formData.party_name}
-              onChange={(e) => setFormData({ ...formData, party_name: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, party_name: e.target.value });
+                if (errors.party_name) setErrors(prev => ({ ...prev, party_name: "" }));
+              }}
             />
+            {errors.party_name && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{errors.party_name}</p>}
           </div>
           <div>
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">
-              Date
+              Date <span className="text-red-500">*</span>
             </label>
             <input
               type="date"
-              required
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+              className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.date ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none transition-all`}
               value={formData.date}
-              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, date: e.target.value });
+                if (errors.date) setErrors(prev => ({ ...prev, date: "" }));
+              }}
             />
           </div>
         </div>

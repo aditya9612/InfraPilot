@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import toast from "react-hot-toast";
 import Modal from "../common/Modal";
 
 interface ProcessPayrollModalProps {
@@ -25,6 +24,17 @@ const ProcessPayrollModal: React.FC<ProcessPayrollModalProps> = ({
     deductions: 0,
     payment_status: "Pending",
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.employee_name.trim()) newErrors.employee_name = "Employee name is required.";
+    if (!formData.role.trim()) newErrors.role = "Role is required.";
+    if (formData.basic_salary <= 0) newErrors.basic_salary = "Basic pay must be > 0.";
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
 
   useEffect(() => {
     if (initialData) {
@@ -54,10 +64,7 @@ const ProcessPayrollModal: React.FC<ProcessPayrollModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.employee_name || !formData.role) {
-      toast.error("Please fill in Employee Name and Role");
-      return;
-    }
+    if (!validate()) return;
 
     const net_pay = formData.basic_salary + formData.overtime - formData.deductions;
 
@@ -91,26 +98,32 @@ const ProcessPayrollModal: React.FC<ProcessPayrollModalProps> = ({
               </select>
             </div>
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Employee / Party Name</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Employee / Party Name <span className="text-red-500">*</span></label>
               <input
                 type="text"
-                required
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none font-bold"
+                className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.employee_name ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none font-bold transition-all`}
                 placeholder="e.g. John Doe"
                 value={formData.employee_name}
-                onChange={e => setFormData({ ...formData, employee_name: e.target.value })}
+                onChange={e => {
+                    setFormData({ ...formData, employee_name: e.target.value });
+                    if (errors.employee_name) setErrors(prev => ({ ...prev, employee_name: "" }));
+                }}
               />
+              {errors.employee_name && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{errors.employee_name}</p>}
             </div>
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Role / Designation</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Role / Designation <span className="text-red-500">*</span></label>
               <input
                 type="text"
-                required
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none font-bold"
+                className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.role ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none font-bold transition-all`}
                 placeholder="e.g. Site Engineer"
                 value={formData.role}
-                onChange={e => setFormData({ ...formData, role: e.target.value })}
+                onChange={e => {
+                    setFormData({ ...formData, role: e.target.value });
+                    if (errors.role) setErrors(prev => ({ ...prev, role: "" }));
+                }}
               />
+              {errors.role && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{errors.role}</p>}
             </div>
             <div>
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Attendance (Days)</label>
@@ -128,14 +141,18 @@ const ProcessPayrollModal: React.FC<ProcessPayrollModalProps> = ({
           {/* Column 2 */}
           <div className="space-y-4">
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Basic Pay (₹)</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Basic Pay (₹) <span className="text-red-500">*</span></label>
               <input
                 type="number"
                 min="0"
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none font-black"
+                className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.basic_salary ? "border-red-500 ring-1 ring-red-500/20" : "border-slate-200 focus:ring-primary/20"} rounded-xl text-sm outline-none font-black transition-all`}
                 value={formData.basic_salary}
-                onChange={e => setFormData({ ...formData, basic_salary: parseFloat(e.target.value) || 0 })}
+                onChange={e => {
+                    setFormData({ ...formData, basic_salary: parseFloat(e.target.value) || 0 });
+                    if (errors.basic_salary) setErrors(prev => ({ ...prev, basic_salary: "" }));
+                }}
               />
+              {errors.basic_salary && <p className="text-[10px] text-red-500 mt-1 ml-1 font-bold">{errors.basic_salary}</p>}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
