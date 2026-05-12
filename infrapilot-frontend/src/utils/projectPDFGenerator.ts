@@ -136,3 +136,127 @@ export const generateEngineerReportPDF = (engineer: any) => {
     // Download
     doc.save(`Site_Report_${engineer.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
 };
+
+/**
+ * Generates a comprehensive project report PDF with all site data.
+ */
+export const generateDetailedProjectPDF = (
+    project: Project,
+    members: any[],
+    milestones: any[],
+    expenses: any[],
+    tasks: any[]
+) => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.width;
+    const primaryColor: [number, number, number] = [37, 99, 235];
+    const secondaryColor: [number, number, number] = [71, 85, 105];
+
+    // --- Header ---
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(20, 30, 45);
+    doc.text("Project Intelligence Report", 15, 20);
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, 15, 28);
+    doc.text(`Project ID: PRJ-${project.id}`, 15, 34);
+
+    // --- Overview Section ---
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text("1. Project Overview", 15, 48);
+
+    autoTable(doc, {
+        startY: 52,
+        body: [
+            ['Project Name', project.project_name],
+            ['Current Status', project.status],
+            ['Site Progress', `${project.completion_percentage}%`],
+            ['Timeline', `${project.start_date} to ${project.end_date}`],
+            ['Budget', `₹${project.budget?.toLocaleString() || 0}`]
+        ],
+        theme: 'plain',
+        styles: { fontSize: 10, cellPadding: 2 },
+        columnStyles: { 0: { fontStyle: 'bold', cellWidth: 40 } }
+    });
+
+    // --- Team Registry ---
+    let nextY = (doc as any).lastAutoTable.finalY + 15;
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("2. Personnel & Team Registry", 15, nextY);
+
+    autoTable(doc, {
+        startY: nextY + 4,
+        head: [['Full Name', 'Role', 'Email']],
+        body: members.map(m => [m.full_name, m.role, m.email]),
+        headStyles: { fillColor: primaryColor }
+    });
+
+    // --- Milestones ---
+    nextY = (doc as any).lastAutoTable.finalY + 15;
+    if (nextY > 250) { doc.addPage(); nextY = 20; }
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("3. Project Milestones", 15, nextY);
+
+    autoTable(doc, {
+        startY: nextY + 4,
+        head: [['Title', 'Status', 'Deadline']],
+        body: milestones.map(m => [m.title, m.status || 'Pending', m.end_date]),
+        headStyles: { fillColor: [79, 70, 229] } // Indigo
+    });
+
+    // --- Work Items (Tasks) ---
+    nextY = (doc as any).lastAutoTable.finalY + 15;
+    if (nextY > 250) { doc.addPage(); nextY = 20; }
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("4. Site Task Intelligence", 15, nextY);
+
+    autoTable(doc, {
+        startY: nextY + 4,
+        head: [['Task Title', 'Status', 'Progress']],
+        body: tasks.map(t => [t.title, t.status, `${t.completion_percentage}%`]),
+        headStyles: { fillColor: [16, 185, 129] } // Emerald
+    });
+
+    // --- Finance Summary ---
+    nextY = (doc as any).lastAutoTable.finalY + 15;
+    if (nextY > 250) { doc.addPage(); nextY = 20; }
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("5. Financial Ledger", 15, nextY);
+
+    const totalExpense = expenses.reduce((acc, curr) => acc + curr.amount, 0);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+    doc.text(`Total Site Expenses to Date: ₹${totalExpense.toLocaleString()}`, 15, nextY + 8);
+
+    autoTable(doc, {
+        startY: nextY + 12,
+        head: [['Date', 'Description', 'Category', 'Amount']],
+        body: expenses.map(e => [e.date, e.description, e.category, `₹${e.amount.toLocaleString()}`]),
+        headStyles: { fillColor: [245, 158, 11] } // Amber
+    });
+
+    // --- Footer ---
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        const bottomY = doc.internal.pageSize.height - 10;
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "italic");
+        doc.setTextColor(150, 150, 150);
+        doc.text(`InfraPilot Intelligence Report | Page ${i} of ${pageCount}`, pageWidth / 2, bottomY, { align: "center" });
+    }
+
+    // Download
+    const filename = `ProjectReport_${project.project_name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(filename);
+};

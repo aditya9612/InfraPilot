@@ -224,6 +224,22 @@ const icons: Record<string, JSX.Element> = {
       />
     </svg>
   ),
+  "clipboard-list": (
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+      />
+      <path d="M8 12h8M8 16h8M8 20h8" />
+    </svg>
+  ),
   file: (
     <svg
       className="w-4 h-4"
@@ -287,6 +303,21 @@ const icons: Record<string, JSX.Element> = {
         d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"
         strokeLinecap="round"
         strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  ),
+  "shopping-cart": (
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <circle cx="9" cy="21" r="1" strokeWidth="1.8" />
+      <circle cx="20" cy="21" r="1" strokeWidth="1.8" />
+      <path
+        d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"
         strokeWidth="1.8"
       />
     </svg>
@@ -386,6 +417,28 @@ const icons: Record<string, JSX.Element> = {
         strokeLinejoin="round"
         strokeWidth="1.8"
       />
+    </svg>
+  ),
+  map: (
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" strokeWidth="1.8" />
+      <line x1="8" y1="2" x2="8" y2="18" strokeWidth="1.8" />
+      <line x1="16" y1="6" x2="16" y2="22" strokeWidth="1.8" />
+    </svg>
+  ),
+  shield: (
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" strokeWidth="1.8" />
     </svg>
   ),
   camera: (

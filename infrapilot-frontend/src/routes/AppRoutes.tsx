@@ -36,6 +36,11 @@ import ProjectDetailsPage from "../pages/projects/ProjectDetailsPage";
 import AllInvoicesPage from "../pages/admin/AllInvoicesPage";
 import CreateInvoicePage from "../pages/admin/CreateInvoicePage";
 import QuotationsPage from "../pages/admin/QuotationsPage";
+import ManagerApprovalsPage from "../pages/manager/ApprovalsPage";
+import QCGovernancePage from "../pages/manager/QCGovernancePage";
+import DSRApprovalPage from "../pages/manager/DSRApprovalPage";
+import ResourceOrchestratorPage from "../pages/manager/ResourceOrchestratorPage";
+import ManagerSettingsPage from "../pages/manager/ManagerSettingsPage";
 
 // Client Pages
 import ClientOverviewPage from "../pages/client/ClientOverviewPage";
@@ -176,7 +181,8 @@ function AppRoutes() {
               <Route path="/admin/finance/payments" element={<FinancePage />} />
               <Route path="/admin/finance/expenses" element={<FinancePage />} />
               <Route path="/admin/finance/profit" element={<FinancePage />} />
-              <Route path="/admin/approvals" element={<ApprovalsPage />} />
+              <Route path="approvals" element={<ApprovalsPage />} />
+              <Route path="compliance/qc" element={<QCGovernancePage />} />
               <Route
                 path="/admin/approvals/material"
                 element={<ApprovalsPage />}
@@ -237,15 +243,20 @@ function AppRoutes() {
               <Route path="/admin/settings" element={<SettingsPage />} />
             </Route>
             {/* Manager Specific Routes */}
-            <Route
-              element={<ProtectedRoute allowedRoles={["ProjectManager"]} />}
-            >
-              <Route path="/manager" element={<ManagerDashboard />} />
-              <Route path="/manager/projects" element={<ProjectsPage />} />
-              <Route
-                path="/manager/projects/:id"
-                element={<ProjectDetailsPage />}
-              />
+            <Route path="/manager" element={<ProtectedRoute allowedRoles={["ProjectManager"]} />}>
+              <Route index element={<ManagerDashboard />} />
+              <Route path="projects" element={<ProjectsPage />} />
+              <Route path="projects/:id" element={<ProjectDetailsPage />} />
+              <Route path="approvals" element={<ManagerApprovalsPage />} />
+              <Route path="approvals/dsr" element={<DSRApprovalPage />} />
+              <Route path="approvals/material" element={<ManagerApprovalsPage />} />
+              <Route path="approvals/expense" element={<ManagerApprovalsPage />} />
+              <Route path="boq" element={<BOQPage />} />
+              <Route path="labour" element={<LaborDetailsPage />} />
+              <Route path="resources/orchestrator" element={<ResourceOrchestratorPage />} />
+              <Route path="compliance/qc" element={<QCGovernancePage />} />
+              <Route path="compliance/safety" element={<SafetyChecklistPage />} />
+              <Route path="settings" element={<ManagerSettingsPage />} />
             </Route>
 
             {/* Client Specific Routes */}

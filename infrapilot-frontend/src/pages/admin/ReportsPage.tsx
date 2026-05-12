@@ -73,7 +73,7 @@ const ReportsPage = () => {
               </select>
             </div>
             <div className="flex gap-2">
-              {["Progress", "Financial", "Labor", "Material", "Performance"].map((type) => (
+              {["Progress", "Financial", "Labour", "Material", "Performance"].map((type) => (
                 <button
                   key={type}
                   className="px-3 py-1.5 bg-slate-50 text-slate-500 hover:bg-slate-100 rounded-xl text-xs font-bold transition-all"

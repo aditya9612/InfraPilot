@@ -224,7 +224,7 @@ const EngineerProfilePage: React.FC = () => {
                                         <Users className="w-5 h-5" />
                                     </div>
                                     <div>
-                                        <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Labor Density</h4>
+                                        <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Labour Density</h4>
                                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Total: {engineer.laborCount} Staff</p>
                                     </div>
                                 </div>

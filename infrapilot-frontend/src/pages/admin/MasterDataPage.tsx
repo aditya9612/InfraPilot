@@ -11,7 +11,7 @@ import MasterDataDetailsModal from "../../components/dashboard/MasterDataDetails
 
 const initialMasterData = [
   { id: 1, name: "Cement (OPC 53)", code: "MAT-CEM-01", category: "Construction Material", type: "Material" },
-  { id: 2, name: "Skilled Mason", code: "LAB-SKL-01", category: "Human Resource", type: "Labor" },
+  { id: 2, name: "Skilled Mason", code: "LAB-SKL-01", category: "Human Resource", type: "Labour" },
   { id: 3, name: "Excavation", code: "ACT-CIV-01", category: "Civil Works", type: "Activity" },
   { id: 4, name: "Cubic Meter", code: "UNT-CUM", category: "Measurement", type: "Unit" },
 ];
@@ -21,7 +21,7 @@ const MasterDataPage = () => {
   const [items, setItems] = useState(initialMasterData);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("All");
-  
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [viewingItem, setViewingItem] = useState<any>(null);
@@ -29,10 +29,10 @@ const MasterDataPage = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<number | null>(null);
 
-  const filteredItems = items.filter(item => 
+  const filteredItems = items.filter(item =>
     (activeTab === "All" || item.type === activeTab) &&
-    (item.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-     item.code.toLowerCase().includes(searchTerm.toLowerCase()))
+    (item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.code.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const handleCreateOrUpdate = (data: any) => {
@@ -82,7 +82,7 @@ const MasterDataPage = () => {
   return (
     <>
       <Navbar title="Master Data Console" breadcrumb={["Admin", "Master Data"]} />
-      
+
       <PageTransition key={location.pathname} className="p-6 bg-slate-50 min-h-screen">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
@@ -90,13 +90,13 @@ const MasterDataPage = () => {
             <p className="text-slate-500 text-sm">Manage reusable data entities across the entire platform.</p>
           </div>
           <div className="flex gap-2">
-            <button 
+            <button
               onClick={downloadSchema}
               className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
             >
               Download Schema
             </button>
-            <button 
+            <button
               onClick={() => {
                 setEditingItem(null);
                 setIsModalOpen(true);
@@ -111,7 +111,7 @@ const MasterDataPage = () => {
         {/* Master Data Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <StatCard title="Materials" value={items.filter(i => i.type === "Material").length.toString()} sub="Active SKUs" accent="text-primary" />
-          <StatCard title="Labor Types" value={items.filter(i => i.type === "Labor").length.toString()} sub="Specialized roles" accent="text-violet-500" />
+          <StatCard title="Labour Types" value={items.filter(i => i.type === "Labour").length.toString()} sub="Specialized roles" accent="text-violet-500" />
           <StatCard title="Activity Types" value={items.filter(i => i.type === "Activity").length.toString()} sub="Standard procedures" accent="text-amber-500" />
           <StatCard title="Units" value={items.filter(i => i.type === "Unit").length.toString()} sub="Measurement metrics" accent="text-emerald-500" />
         </div>
@@ -133,8 +133,8 @@ const MasterDataPage = () => {
               />
             </div>
             <div className="flex gap-2">
-              {["All", "Material", "Labor", "Activity", "Unit"].map((tab) => (
-                <button 
+              {["All", "Material", "Labour", "Activity", "Unit"].map((tab) => (
+                <button
                   key={tab}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${activeTab === tab ? "bg-primary text-white shadow-md shadow-primary/20" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}
                   onClick={() => setActiveTab(tab)}
@@ -167,42 +167,41 @@ const MasterDataPage = () => {
                     </td>
                     <td className="px-6 py-4 text-xs font-semibold text-slate-500">{item.category}</td>
                     <td className="px-6 py-4">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                        item.type === "Material" ? "bg-blue-50 text-blue-600" : 
-                        item.type === "Labor" ? "bg-violet-50 text-violet-600" : 
-                        item.type === "Activity" ? "bg-amber-50 text-amber-600" : "bg-emerald-50 text-emerald-600"
-                      }`}>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${item.type === "Material" ? "bg-blue-50 text-blue-600" :
+                          item.type === "Labour" ? "bg-violet-50 text-violet-600" :
+                            item.type === "Activity" ? "bg-amber-50 text-amber-600" : "bg-emerald-50 text-emerald-600"
+                        }`}>
                         {item.type}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-3">
-                        <button 
+                        <button
                           onClick={() => {
                             setViewingItem(item);
                             setIsViewModalOpen(true);
                           }}
-                          className="p-1.5 text-slate-400 hover:text-primary transition-all duration-200" 
+                          className="p-1.5 text-slate-400 hover:text-primary transition-all duration-200"
                           title="View Details"
                         >
                           <Eye className="w-4.5 h-4.5" strokeWidth={1.5} />
                         </button>
-                        <button 
+                        <button
                           onClick={() => {
                             setEditingItem(item);
                             setIsModalOpen(true);
                           }}
-                          className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200" 
+                          className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200"
                           title="Edit Entity"
                         >
                           <Edit2 className="w-4.5 h-4.5" strokeWidth={1.5} />
                         </button>
-                        <button 
+                        <button
                           onClick={() => {
                             setItemToDelete(item.id);
                             setIsDeleteModalOpen(true);
                           }}
-                          className="p-1.5 text-slate-400 hover:text-rose-500 transition-all duration-200" 
+                          className="p-1.5 text-slate-400 hover:text-rose-500 transition-all duration-200"
                           title="Delete"
                         >
                           <Trash2 className="w-4.5 h-4.5" strokeWidth={1.5} />

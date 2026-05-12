@@ -8,41 +8,32 @@ import {
 } from "lucide-react";
 import RequestIntegrationModal from "../../components/admin/integrations/RequestIntegrationModal";
 import IntegrationDocsModal from "../../components/admin/integrations/IntegrationDocsModal";
+import razorpayImage from "../../assets/razorpay.png";
+import whatsappImage from "../../assets/images.jpeg";
+import driveImage from "../../assets/download.png";
+import tallyImage from "../../assets/tally-prime.png";
+import awsImage from "../../assets/downloadaws.png";
 
 // ─── Official Brand SVG Components ─────────────────────────────────────────
 
 const WhatsAppLogo = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" className={className} fill="currentColor">
-    <path d="M12.031 2.097c-5.517 0-9.997 4.48-9.997 9.997 0 1.764.462 3.473 1.332 4.978L2 22l5.143-1.35c1.464.798 3.102 1.218 4.772 1.218 5.517 0 9.997-4.48 9.997-9.997 0-5.517-4.48-9.997-9.997-9.997zm6.34 14.542c-.26.732-1.503 1.354-2.072 1.44-.504.076-1.161.13-1.84-.112-2.88-1.026-4.743-4.004-4.887-4.195-.143-.19-1.164-1.548-1.164-2.946 0-1.398.718-2.085 1.006-2.37.26-.26.575-.325.767-.325.19 0 .382.002.548.01.173.008.406-.065.635.497.26.635.885 2.15.962 2.306.077.156.128.338.026.545-.103.208-.155.338-.307.52-.153.18-.32.403-.457.541-.153.153-.312.32-.134.624.178.304.79 1.298 1.696 2.102.834.738 1.54 1.05 1.844 1.178.304.128.483.107.664-.1.181-.208.775-.902.983-1.212.208-.309.416-.26.702-.156.286.104 1.82.858 2.132 1.014.312.156.52.234.598.364s.078.96-.182 1.692z" />
-  </svg>
+  <img src={whatsappImage} alt="WhatsApp" className={className} />
 );
 
 const TallyLogo = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect width="24" height="24" rx="4" fill="#006699" />
-    <path d="M7 7h10v2h-4v8h-2v-8H7V7z" fill="white" />
-  </svg>
+  <img src={tallyImage} alt="TallyPrime" className={className} />
 );
 
 const GoogleDriveLogo = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M8.5 3.5l4 7h-8l4-7z" fill="#00AA47" />
-    <path d="M12.5 10.5l4 7h-8l4-7z" fill="#FFBA00" />
-    <path d="M15.5 3.5l4 7h-8l4-7z" fill="#0066DA" />
-  </svg>
+  <img src={driveImage} alt="Google Drive" className={className} />
 );
 
 const AWSS3Logo = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" className={className} fill="currentColor">
-    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" />
-    <path d="M12 6c-3.31 0-6 2.69-6 6h2c0-2.21 1.79-4 4-4s4 1.79 4 4h2c0-3.31-2.69-6-6-6z" fill="#FF9900" />
-  </svg>
+  <img src={awsImage} alt="AWS" className={className} />
 );
 
 const RazorpayLogo = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" className={className} fill="currentColor">
-    <path d="M21.947 5.166l-2.181 3.527-2.181 3.527L10.364 24H0L11.564 3.754 13.745 0h8.202z" fill="#3395FF" />
-  </svg>
+  <img src={razorpayImage} alt="Razorpay" className={className} />
 );
 
 const IntegrationsPage = () => {
@@ -120,8 +111,8 @@ const IntegrationsPage = () => {
                         onClick={() => toggleConnection(int.id)}
                         disabled={connectingId !== null}
                         className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all min-w-[100px] flex items-center justify-center ${int.status === "Connected"
-                            ? "bg-rose-50 text-rose-500 hover:bg-rose-100"
-                            : "bg-primary/5 text-primary hover:bg-primary/10"
+                          ? "bg-rose-50 text-rose-500 hover:bg-rose-100"
+                          : "bg-primary/5 text-primary hover:bg-primary/10"
                           } ${connectingId === int.id ? "opacity-70" : ""}`}
                       >
                         {connectingId === int.id ? (

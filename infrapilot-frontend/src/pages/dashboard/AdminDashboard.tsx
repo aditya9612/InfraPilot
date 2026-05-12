@@ -666,7 +666,7 @@ const AdminDashboard = () => {
             </div>
             <div>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                Labor Today
+                Labour Today
               </p>
               <p className="text-lg font-bold text-slate-800">
                 1,240{" "}
