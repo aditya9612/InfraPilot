@@ -35,7 +35,7 @@ export interface CreateQcRequest {
   remarks?: string | null;
   task_id?: number | null;
   dsr_id?: number | null;
-  report_file?: File | null;
+  report_file?: string | null;
 }
 
 export const qcService = {
@@ -52,46 +52,44 @@ export const qcService = {
   },
 
   createQc: async (data: CreateQcRequest): Promise<any> => {
-    const formData = new FormData();
-    formData.append("project_id", String(data.project_id));
-    formData.append("inspection_type", data.inspection_type);
-    formData.append("test_type", data.test_type);
-    formData.append("result", String(data.result));
-    formData.append("standard_value", String(data.standard_value));
-    formData.append("status", data.status);
-    formData.append("engineer_name", data.engineer_name);
-    formData.append("remarks", data.remarks ?? "");
-    formData.append("task_id", "");
-    formData.append("dsr_id", "");
-    if (data.report_file) {
-      formData.append("report_file", data.report_file);
-    }
+    // Backend expects all fields as QUERY PARAMETERS (not JSON body)
+    // and optional file upload as multipart/form-data body
+    const params: any = {
+      project_id: Number(data.project_id),
+      inspection_type: data.inspection_type,
+      test_type: data.test_type,
+      result: Number(data.result),
+      standard_value: Number(data.standard_value),
+      status: data.status,
+      engineer_name: data.engineer_name,
+    };
 
-    const response = await api.post("/qc", formData, {
-      headers: { "Content-Type": "multipart/form-data" }
-    });
+    if (data.remarks) params.remarks = data.remarks;
+    if (data.task_id) params.task_id = Number(data.task_id);
+    if (data.dsr_id) params.dsr_id = Number(data.dsr_id);
+
+    const response = await api.post("/qc", null, { params });
     return response.data;
   },
 
   updateQc: async (qcId: number, data: CreateQcRequest): Promise<any> => {
-    const formData = new FormData();
-    formData.append("project_id", String(data.project_id));
-    formData.append("inspection_type", data.inspection_type);
-    formData.append("test_type", data.test_type);
-    formData.append("result", String(data.result));
-    formData.append("standard_value", String(data.standard_value));
-    formData.append("status", data.status);
-    formData.append("engineer_name", data.engineer_name);
-    formData.append("remarks", data.remarks ?? "");
-    formData.append("task_id", "");
-    formData.append("dsr_id", "");
-    if (data.report_file) {
-      formData.append("report_file", data.report_file);
-    }
+    // Backend expects JSON body for PUT
+    const payload: any = {
+      project_id: Number(data.project_id),
+      inspection_type: data.inspection_type,
+      test_type: data.test_type,
+      result: Number(data.result),
+      standard_value: Number(data.standard_value),
+      status: data.status,
+      engineer_name: data.engineer_name,
+    };
 
-    const response = await api.put(`/qc/${qcId}`, formData, {
-      headers: { "Content-Type": "multipart/form-data" }
-    });
+    if (data.remarks) payload.remarks = data.remarks;
+    if (data.task_id) payload.task_id = Number(data.task_id);
+    if (data.dsr_id) payload.dsr_id = Number(data.dsr_id);
+    if (data.report_file) payload.report_file = data.report_file;
+
+    const response = await api.put(`/qc/${qcId}`, payload);
     return response.data;
   },
 

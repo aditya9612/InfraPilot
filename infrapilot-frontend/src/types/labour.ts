@@ -60,6 +60,8 @@ export interface AttendanceRecord {
     status: string;
     task_description?: string;
     total_wage?: number;
+    overtime_rate?: number;
+    attendance_id?: number | string;
     // UI specific
     selfie_url?: string;
 }

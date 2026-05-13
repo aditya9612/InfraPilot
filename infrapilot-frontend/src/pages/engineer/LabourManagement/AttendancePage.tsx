@@ -79,13 +79,30 @@ const AttendancePage: React.FC = () => {
         if (projectId === null) return;
         setIsLoading(true);
         try {
+            console.log("Syncing Attendance Registry for Project:", projectId);
             const [attendanceRes, labourRes] = await Promise.all([
-                labourService.getAttendanceList(projectId || 0),
-                labourService.getLabours(projectId || 0)
+                labourService.getAttendanceList(projectId),
+                labourService.getLabours(projectId)
             ]);
-            setAttendances(attendanceRes.items || []);
+            
+            const rawAttendances = attendanceRes.items || [];
+            const labourMap = new Map((labourRes.items || []).map(l => [l.id, l]));
+            
+            const enrichedAttendances = rawAttendances.map((a: AttendanceRecord) => {
+                const labour = labourMap.get(a.labour_id);
+                return {
+                    ...a,
+                    labour_name: a.labour_name && a.labour_name !== "Unknown" ? a.labour_name : (labour?.labour_name || "Unknown Worker"),
+                    worker_code: a.worker_code && !a.worker_code.startsWith('LAB-??') ? a.worker_code : (labour?.worker_code || "N/A"),
+                    skill_type: labour?.skill_type || "General"
+                };
+            });
+
+            console.log("Registry Enriched. Records found:", enrichedAttendances.length);
+            setAttendances(enrichedAttendances);
             setLabours(labourRes.items || []);
         } catch (error: any) {
+            console.error("Attendance Sync Failed:", error);
             toast.error('Failed to load attendance data');
         } finally {
             setIsLoading(false);
@@ -95,14 +112,23 @@ const AttendancePage: React.FC = () => {
     const fetchAttendanceDetails = async (attendance: AttendanceRecord) => {
         setLoadingAttendanceId(attendance.id);
         try {
+            console.log("Refetching detailed audit for worker:", attendance.labour_name);
             const details = await labourService.getLabourAttendance(attendance.labour_id);
+            
+            // Ensure we find the exact matching record or use the latest one
             const record = Array.isArray(details) 
-                ? details.find((d: any) => d.id === attendance.id) || details[0]
+                ? (details.find((d: any) => (d.id || d.attendance_id) === (attendance.id || attendance.attendance_id)) || details[0])
                 : details;
-            setSelectedAttendance(record || attendance);
+            
+            if (record) {
+                console.log("Refetch SUCCESS. Audit detail resolved:", record);
+                setSelectedAttendance({ ...attendance, ...record });
+            } else {
+                setSelectedAttendance(attendance);
+            }
             setIsDetailModalOpen(true);
         } catch (error) {
-            toast.error('Failed to fetch detailed audit logs');
+            console.warn('Audit refetch failed. Falling back to registry data.');
             setSelectedAttendance(attendance);
             setIsDetailModalOpen(true);
         } finally {
@@ -121,22 +147,30 @@ const AttendancePage: React.FC = () => {
     }, [attendances]);
 
     const stats = useMemo(() => {
-        const total = attendances.length;
-        const present = activeWorkers.length;
-        const absent = labours.length - present;
+        const total = labours.length;
+        // Workers currently on-site (In-time set, Out-time empty)
+        const present = attendances.filter(a => !a.out_time).length;
+        // Total workers in roster minus anyone who checked in today
+        const checkedInIds = new Set(attendances.map(a => a.labour_id));
+        const absent = labours.filter(l => !checkedInIds.has(l.id)).length;
+        
         const otWorkers = attendances.filter(a => a.overtime_hours > 0).length;
-        return { total, present, absent, otWorkers };
-    }, [attendances, activeWorkers, labours]);
+        
+        // Sum total working + overtime hours for the day
+        const manHours = attendances.reduce((acc, a) => acc + (a.working_hours || 0) + (a.overtime_hours || 0), 0);
+        
+        return { total, present, absent, otWorkers, manHours: Math.round(manHours) };
+    }, [attendances, labours]);
 
     const filteredAttendances = useMemo(() => {
-        if (activeStatFilter === "Absent") {
-            // Find labors who haven't checked in yet
-            const presentIds = new Set(attendances.map(a => a.labour_id));
-            const absentLabours = labours.filter(l => !presentIds.has(l.id));
+        // Start with the full roster of workers
+        const roster = labours.map(l => {
+            const attendance = attendances.find(a => a.labour_id === l.id);
+            if (attendance) return attendance;
             
-            // Map them to an attendance-like object for the table
-            return absentLabours.map(l => ({
-                id: l.id, // using actual ID as number
+            // Return a virtual 'Absent' record for workers not checked in
+            return {
+                id: l.id,
                 labour_id: l.id,
                 labour_name: l.labour_name,
                 worker_code: l.worker_code,
@@ -145,28 +179,41 @@ const AttendancePage: React.FC = () => {
                 out_time: null,
                 working_hours: 0,
                 overtime_hours: 0,
-                task_id: null,
+                status: "Absent",
                 check_in_address: '',
                 check_out_address: null,
                 check_in_image: null,
-                check_out_image: null,
-                status: "Absent"
-            } as AttendanceRecord));
-        }
+                check_out_image: null
+            } as AttendanceRecord;
+        });
 
-        let data = attendances;
+        let data = roster;
 
         // Apply StatCard Filter
         if (activeStatFilter === "Present") {
-            data = data.filter(a => !a.out_time);
+            data = data.filter(a => a.status !== "Absent" && !a.out_time);
+        } else if (activeStatFilter === "Absent") {
+            data = data.filter(a => a.status === "Absent");
         } else if (activeStatFilter === "OT") {
             data = data.filter(a => a.overtime_hours > 0);
         }
 
+        console.log("Filtering Registry: Total Roster:", data.length, "Search:", searchTerm, "Status Filter:", statusFilter);
+        
         return data.filter(a => {
-            const matchesSearch = a.labour_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                a.worker_code?.toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesStatus = statusFilter === 'All' || a.status === statusFilter;
+            const matchesSearch = !searchTerm || 
+                                 a.labour_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                 a.worker_code?.toLowerCase().includes(searchTerm.toLowerCase());
+            
+            // Aggressive status matching
+            let currentStatus = a.status?.toLowerCase();
+            if (a.out_time && a.out_time !== '—' && currentStatus !== 'absent') {
+                currentStatus = 'completed';
+            }
+
+            const matchesStatus = statusFilter === 'All' || 
+                                 (currentStatus === statusFilter.toLowerCase());
+                                 
             return matchesSearch && matchesStatus;
         });
     }, [attendances, labours, searchTerm, statusFilter, activeStatFilter]);
@@ -175,7 +222,7 @@ const AttendancePage: React.FC = () => {
         <>
             <Navbar title="Daily Attendance" breadcrumb={["Engineer", "Human Resources", "Attendance Registry"]} />
             
-            <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
+            <PageTransition className="p-6 bg-slate-50 font-inter flex flex-col min-h-screen">
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
@@ -217,14 +264,14 @@ const AttendancePage: React.FC = () => {
                     <div onClick={() => setActiveStatFilter("Efficiency")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Efficiency" ? "ring-2 ring-blue-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Man-Hours"
-                            value="384h"
+                            value={`${stats.manHours}h`}
                             sub="Daily Productivity"
                             accent="text-blue-500" />
                     </div>
                 </div>
 
                 {/* ── Registry Table Container ───────────────────────────────────────────── */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 mb-6 font-inter">
                     <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white">
                         <div className="relative flex-1 max-w-md">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
@@ -247,7 +294,8 @@ const AttendancePage: React.FC = () => {
                             >
                                 <option value="All">All Status</option>
                                 <option value="present">Present</option>
-                                <option value="absent">Completed</option>
+                                <option value="completed">Completed</option>
+                                <option value="absent">Absent</option>
                             </select>
                             {activeStatFilter !== "All" && (
                                 <button onClick={() => setActiveStatFilter("All")} className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors">
@@ -257,7 +305,7 @@ const AttendancePage: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200">
+                    <div className="overflow-x-auto">
                         {isLoading ? (
                             <div className="p-20 text-center text-slate-400 font-inter">
                                 <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
@@ -363,6 +411,13 @@ const AttendancePage: React.FC = () => {
                                 </tbody>
                             </table>
                         )}
+                        {!isLoading && filteredAttendances.length === 0 && (
+                            <div className="flex-1 flex flex-col items-center justify-center p-20 text-slate-400 bg-slate-50/30">
+                                <Activity className="w-12 h-12 mb-4 opacity-20" />
+                                <p className="text-[10px] font-bold uppercase tracking-widest">No matching attendance records found</p>
+                                <p className="text-xs text-slate-400 mt-2">Adjust your filters or search terms</p>
+                            </div>
+                        )}
                     </div>
 
                     {/* Dual Action Section: Check-In & Check-Out */}
@@ -420,8 +475,27 @@ const AttendancePage: React.FC = () => {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {activeWorkers.length > 0 ? activeWorkers.map((a) => (
                                         <button 
-                                            key={a.id}
-                                            onClick={() => setCheckOutTarget(a)}
+                                            key={a.id || `active-${a.labour_id}`}
+                                            onClick={async () => {
+                                                if (!a.id || a.id === a.labour_id) {
+                                                    setLoadingAttendanceId(a.labour_id);
+                                                    try {
+                                                        const history = await labourService.getLabourAttendance(a.labour_id);
+                                                        const latest = Array.isArray(history) ? history[0] : history;
+                                                        if (latest && (latest.id || latest.attendance_id)) {
+                                                            setCheckOutTarget({ ...a, id: latest.id || latest.attendance_id });
+                                                        } else {
+                                                            setCheckOutTarget(a);
+                                                        }
+                                                    } catch (err) {
+                                                        setCheckOutTarget(a);
+                                                    } finally {
+                                                        setLoadingAttendanceId(null);
+                                                    }
+                                                } else {
+                                                    setCheckOutTarget(a);
+                                                }
+                                            }}
                                             className="bg-slate-50 p-4 rounded-2xl border border-slate-100 hover:bg-slate-100 transition-all text-left group"
                                         >
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{a.worker_code || 'LAB--'}</p>
@@ -429,10 +503,16 @@ const AttendancePage: React.FC = () => {
                                             <div className="flex items-center justify-between">
                                                 <div className="flex flex-col">
                                                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">In Time: {a.in_time}</span>
-                                                    <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">{a.working_hours} hrs Active</span>
+                                                    <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">
+                                                        {loadingAttendanceId === a.labour_id ? 'Resolving ID...' : `${a.working_hours} hrs Active`}
+                                                    </span>
                                                 </div>
                                                 <div className="w-10 h-10 bg-white text-rose-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform border border-slate-100">
-                                                    <LogOut className="w-5 h-5" />
+                                                    {loadingAttendanceId === a.labour_id ? (
+                                                        <Clock className="w-5 h-5 animate-spin" />
+                                                    ) : (
+                                                        <LogOut className="w-5 h-5" />
+                                                    )}
                                                 </div>
                                             </div>
                                         </button>
@@ -452,6 +532,7 @@ const AttendancePage: React.FC = () => {
                     onClose={() => setCheckInTarget(null)} 
                     labour={checkInTarget}
                     onSuccess={fetchData}
+                    projectId={projectId}
                 />
                 <CheckOutModal 
                     isOpen={!!checkOutTarget} 
@@ -557,6 +638,31 @@ const AttendancePage: React.FC = () => {
                                                 </>
                                             )}
                                         </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4 font-inter">
+                                <div className="flex items-center gap-3 mb-4 font-inter">
+                                    <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100">
+                                        <Activity className="w-4 h-4" />
+                                    </div>
+                                    <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Daily Activity & Task Audit</h3>
+                                </div>
+                                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 font-inter">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 font-inter text-slate-400">Work Description</p>
+                                    <p className="text-sm font-bold text-slate-700 leading-relaxed font-inter italic">
+                                        "{selectedAttendance.task_description || 'No work description provided for this shift.'}"
+                                    </p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4 font-inter">
+                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 font-inter">
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1 font-inter">Overtime Rate</p>
+                                        <p className="text-xs font-bold text-slate-700 font-inter">₹{selectedAttendance.overtime_rate || 0}/hr</p>
+                                    </div>
+                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 font-inter">
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1 font-inter">Earnings Estimate</p>
+                                        <p className="text-xs font-bold text-emerald-600 font-inter">₹{selectedAttendance.total_wage || 0}</p>
                                     </div>
                                 </div>
                             </div>

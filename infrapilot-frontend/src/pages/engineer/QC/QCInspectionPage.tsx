@@ -17,10 +17,14 @@ import {
   ShieldAlert,
   Briefcase,
   Mail,
-  RotateCcw
+  RotateCcw,
+  CheckCircle2,
+  Image as ImageIcon,
+  Camera
 } from "lucide-react";
 
 import { qcService } from "../../../services/qcService";
+import { projectService } from "../../../services/projectService";
 import type { QcItem, CreateQcRequest } from "../../../services/qcService";
 
 const INSPECTION_TYPES = ["General", "Concrete", "Steel", "Electrical", "Plumbing", "Finishing"];
@@ -48,6 +52,7 @@ const QCInspectionPage = () => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [viewLoadingId, setViewLoadingId] = useState<number | null>(null);
     
     // Selection States
     const [selectedQc, setSelectedQc] = useState<QcItem | null>(null);
@@ -56,40 +61,54 @@ const QCInspectionPage = () => {
     
     // Form States
     const [formData, setFormData] = useState<CreateQcRequest>({
-        project_id: 0,
+        project_id: 36,
         task_id: null,
         dsr_id: null,
         inspection_type: "General",
         test_type: "Visual Check",
-        result: 0,
-        standard_value: 0,
+        result: 1,
+        standard_value: 1,
         status: "Pass",
         engineer_name: "",
         remarks: "",
-        report_file: null
+        report_file: ""
     });
 
     // ─── PROJECT RESOLUTION ─────────────────────────────────────────────
     useEffect(() => {
-        const userStr = localStorage.getItem("infrapilot_user");
-        if (userStr) {
+        const initializeProject = async () => {
             try {
-                const user = JSON.parse(userStr);
-                const pId = user?.project_id || user?.user?.project_id;
-                if (pId) {
-                    const resolvedId = Number(pId);
+                const userStr = localStorage.getItem("infrapilot_user");
+                if (userStr) {
+                    const user = JSON.parse(userStr);
+                    const pId = user?.project_id || user?.user?.project_id;
+                    if (pId) {
+                        const resolvedId = Number(pId);
+                        setProjectId(resolvedId);
+                        setFormData(prev => ({ ...prev, project_id: resolvedId, engineer_name: user.full_name || user.username || "" }));
+                        return;
+                    }
+                }
+
+                // Discovery Fallback
+                console.warn("QC Control: No project_id in user context, attempting discovery fallback");
+                const projectsResponse = await projectService.getProjects(1, 0);
+                const projects = Array.isArray(projectsResponse) ? projectsResponse : (projectsResponse.items || []);
+                if (projects && projects.length > 0) {
+                    const resolvedId = Number(projects[0].project_id || projects[0].id);
                     setProjectId(resolvedId);
                     setFormData(prev => ({ ...prev, project_id: resolvedId }));
                 } else {
-                    // Fallback to project 1 if none assigned, or handle as error
-                    setProjectId(1);
-                    setFormData(prev => ({ ...prev, project_id: 1 }));
+                    setProjectId(36);
+                    setFormData(prev => ({ ...prev, project_id: 36 }));
                 }
             } catch (e) {
                 console.error("Failed to resolve project ID", e);
-                setProjectId(1);
+                setProjectId(36);
+                setFormData(prev => ({ ...prev, project_id: 36 }));
             }
-        }
+        };
+        initializeProject();
     }, []);
 
     // ─── INITIALIZATION ──────────────────────────────────────────────────
@@ -116,6 +135,11 @@ const QCInspectionPage = () => {
     const handleCreateSubmit = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
         
+        if (!formData.engineer_name.trim()) {
+            toast.error("Please enter the Engineer In-Charge name");
+            return;
+        }
+
         setIsSubmitting(true);
         try {
             await qcService.createQc(formData);
@@ -123,8 +147,10 @@ const QCInspectionPage = () => {
             setIsNewModalOpen(false);
             resetForm();
             fetchData();
-        } catch (err) {
-            toast.error("Failed to create QC inspection");
+        } catch (err: any) {
+            console.error("QC Create Error:", err.response?.data || err.message);
+            const errorMsg = err.response?.data?.detail || err.response?.data?.message || "Failed to create QC inspection";
+            toast.error(errorMsg);
         } finally {
             setIsSubmitting(false);
         }
@@ -134,14 +160,21 @@ const QCInspectionPage = () => {
         if (e) e.preventDefault();
         if (!selectedQc) return;
 
+        if (!formData.engineer_name.trim()) {
+            toast.error("Please enter the Engineer In-Charge name");
+            return;
+        }
+
         setIsSubmitting(true);
         try {
             await qcService.updateQc(selectedQc.id, formData);
             toast.success("QC inspection updated successfully!");
             setIsEditModalOpen(false);
             fetchData();
-        } catch (err) {
-            toast.error("Failed to update QC inspection");
+        } catch (err: any) {
+            console.error("QC Update Error:", err.response?.data || err.message);
+            const errorMsg = err.response?.data?.detail || err.response?.data?.message || "Failed to update QC inspection";
+            toast.error(errorMsg);
         } finally {
             setIsSubmitting(false);
         }
@@ -164,29 +197,40 @@ const QCInspectionPage = () => {
 
     const resetForm = () => {
         setFormData({
-            project_id: projectId || 0,
+            project_id: projectId || 36,
             task_id: null,
             dsr_id: null,
             inspection_type: "General",
             test_type: "Visual Check",
-            result: 0,
-            standard_value: 0,
+            result: 1,
+            standard_value: 1,
             status: "Pass",
             engineer_name: "",
             remarks: "",
-            report_file: null
+            report_file: ""
         });
     };
 
-    const handleViewDetails = (qc: QcItem) => {
-        setSelectedQc(qc);
-        setIsViewModalOpen(true);
+    const handleViewDetails = async (qc: QcItem) => {
+        setViewLoadingId(qc.id);
+        try {
+            const data = await qcService.getQc(qc.id);
+            setSelectedQc(data);
+            setIsViewModalOpen(true);
+        } catch (error) {
+            console.error("Failed to fetch QC details:", error);
+            setSelectedQc(qc);
+            setIsViewModalOpen(true);
+            toast.error("Using cached data. Live fetch failed.");
+        } finally {
+            setViewLoadingId(null);
+        }
     };
 
     const openEdit = (qc: QcItem) => {
         setSelectedQc(qc);
         setFormData({
-            project_id: projectId || 0,
+            project_id: projectId || 36,
             task_id: qc.task_id,
             dsr_id: qc.dsr_id,
             inspection_type: qc.inspection_type,
@@ -196,7 +240,7 @@ const QCInspectionPage = () => {
             status: qc.status,
             engineer_name: qc.engineer_name,
             remarks: qc.remarks,
-            report_file: null
+            report_file: qc.report_file || ""
         });
         setIsEditModalOpen(true);
     };
@@ -206,7 +250,6 @@ const QCInspectionPage = () => {
     const filteredList = useMemo(() => {
         let data = qcList;
 
-        // Apply StatCard Filter
         if (activeStatFilter === "Compliance") {
             data = data.filter(q => q.status === "Pass");
         } else if (activeStatFilter === "Failed") {
@@ -214,11 +257,16 @@ const QCInspectionPage = () => {
         }
 
         return data.filter(q => {
+            const term = searchTerm.toLowerCase();
             const matchesSearch = searchTerm === "" || 
-                                q.engineer_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                q.test_type.toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesType = filterType === "All" || q.inspection_type === filterType;
-            const matchesStatus = filterStatus === "All" || q.status === filterStatus;
+                                q.engineer_name.toLowerCase().includes(term) || 
+                                q.test_type.toLowerCase().includes(term) ||
+                                q.inspection_type.toLowerCase().includes(term) ||
+                                q.status.toLowerCase().includes(term) ||
+                                (q.remarks || "").toLowerCase().includes(term) ||
+                                String(q.id).includes(term);
+            const matchesType = filterType === "All" || (q.inspection_type || "").toLowerCase().trim() === filterType.toLowerCase().trim();
+            const matchesStatus = filterStatus === "All" || (q.status || "").toLowerCase().trim() === filterStatus.toLowerCase().trim();
             return matchesSearch && matchesType && matchesStatus;
         });
     }, [qcList, searchTerm, filterType, filterStatus, activeStatFilter]);
@@ -240,13 +288,11 @@ const QCInspectionPage = () => {
         Fail: "bg-red-100 text-red-600",
     };
 
-
     return (
         <>
             <Navbar title="QC Inspection" breadcrumb={["Engineer", "Quality Control", "Inspection Vault"]} />
 
-            <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
-                {/* ── Header ──────────────────────────────────────────────── */}
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Quality Control Ledger</h1>
@@ -261,40 +307,22 @@ const QCInspectionPage = () => {
                     </button>
                 </div>
 
-                {/* ── Summary Stats with Interactive Filtering ───────────────────────────── */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard
-                            title="Total Audits"
-                            value={stats.total.toString()}
-                            sub="Verified Logs"
-                            accent="text-slate-800" />
+                        <StatCard title="Total Audits" value={stats.total.toString()} sub="Verified Logs" accent="text-slate-800" />
                     </div>
                     <div onClick={() => setActiveStatFilter("Compliance")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Compliance" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard
-                            title="Compliance"
-                            value={`${stats.compliance}%`}
-                            sub="Pass Rate"
-                            accent="text-emerald-500" />
+                        <StatCard title="Compliance" value={`${stats.compliance}%`} sub="Pass Rate" accent="text-emerald-500" />
                     </div>
                     <div onClick={() => setActiveStatFilter("Failed")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Failed" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard
-                            title="Failed Tests"
-                            value={stats.failed.toString()}
-                            sub="Action Required"
-                            accent="text-rose-500" />
+                        <StatCard title="Failed Tests" value={stats.failed.toString()} sub="Action Required" accent="text-rose-500" />
                     </div>
                     <div onClick={() => setActiveStatFilter("Momentum")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Momentum" ? "ring-2 ring-blue-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard
-                            title="Audit Momentum"
-                            value="98%"
-                            sub="Project Efficiency"
-                            accent="text-blue-500" />
+                        <StatCard title="Audit Momentum" value="98%" sub="Project Efficiency" accent="text-blue-500" />
                     </div>
                 </div>
 
-                {/* ── Tab Bar ────────────────────────────────────────────── */}
-                <div className="flex items-center gap-8 border-b border-slate-200 mb-8">
+                <div className="flex items-center gap-8 border-b border-slate-200 mb-8 font-inter">
                     <button 
                         onClick={() => navigate("/engineer/qc/inspection")}
                         className={`pb-4 text-sm font-bold transition-all relative ${activeTab === "Inspection" ? "text-primary border-b-2 border-primary" : "text-slate-500 hover:text-slate-700"}`}
@@ -309,9 +337,7 @@ const QCInspectionPage = () => {
                     </button>
                 </div>
 
-                {/* ── Registry Container ───────────────────────────────────────────── */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
-                    {/* Integrated Filter Bar */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex flex-col">
                     <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
                         <div className="relative flex-1 max-w-md font-inter">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
@@ -352,7 +378,7 @@ const QCInspectionPage = () => {
                         </div>
                     </div>
 
-                    <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
                         {isLoading ? (
                             <div className="p-20 text-center text-slate-400 font-inter">
                                 <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
@@ -362,12 +388,12 @@ const QCInspectionPage = () => {
                             <table className="w-full text-left font-inter min-w-[1000px]">
                                 <thead>
                                     <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
-                                        <th className="px-6 py-4 font-inter">Audit Details</th>
-                                        <th className="px-6 py-4 font-inter">Test Description</th>
-                                        <th className="px-6 py-4 font-inter">Status</th>
-                                        <th className="px-6 py-4 font-inter">Values</th>
-                                        <th className="px-6 py-4 font-inter">Auditor</th>
-                                        <th className="px-6 py-4 text-right font-inter">Actions</th>
+                                        <th className="px-6 py-4">Audit Details</th>
+                                        <th className="px-6 py-4">Test Description</th>
+                                        <th className="px-6 py-4">Status</th>
+                                        <th className="px-6 py-4">Values</th>
+                                        <th className="px-6 py-4">Auditor</th>
+                                        <th className="px-6 py-4 text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50 font-inter">
@@ -407,12 +433,17 @@ const QCInspectionPage = () => {
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
-                                                    <div className="flex items-center justify-end gap-2 transition-opacity font-inter">
+                                                    <div className="flex items-center justify-end gap-2 font-inter">
                                                         <button
                                                             onClick={() => handleViewDetails(qc)}
-                                                            className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-95 font-inter"
+                                                            disabled={viewLoadingId === qc.id}
+                                                            className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
                                                         >
-                                                            <Eye className="w-4 h-4" />
+                                                            {viewLoadingId === qc.id ? (
+                                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                            ) : (
+                                                                <Eye className="w-4 h-4" />
+                                                            )}
                                                         </button>
                                                         <button
                                                             onClick={() => openEdit(qc)}
@@ -432,7 +463,7 @@ const QCInspectionPage = () => {
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-inter">
+                                            <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-inter font-bold uppercase tracking-widest text-[10px]">
                                                 No quality audits found in the project vault.
                                             </td>
                                         </tr>
@@ -444,61 +475,119 @@ const QCInspectionPage = () => {
                 </div>
             </PageTransition>
 
-            {/* ── MODALS ────────────────────────────────────────────────── */}
-
-            {/* New / Edit Modal */}
             <Modal
                 isOpen={isNewModalOpen || isEditModalOpen}
-                onClose={() => { setIsNewModalOpen(false); setIsEditModalOpen(false); }}
-                title={isEditModalOpen ? "Modify QC Inspection" : "Register New Inspection"}
-                maxWidth="max-w-4xl"
+                onClose={() => { setIsNewModalOpen(false); setIsEditModalOpen(false); resetForm(); }}
+                title={isEditModalOpen ? "Modify QC Inspection" : "Log QC Entry"}
+                maxWidth="max-w-2xl"
                 footer={
-                    <div className="flex justify-end gap-3 px-6 pb-6">
-                        <button 
-                            onClick={() => { setIsNewModalOpen(false); setIsEditModalOpen(false); }}
-                            className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors font-inter"
+                    <div className="flex justify-end gap-3 px-6 pb-6 font-inter">
+                        <button
+                            type="button"
+                            onClick={() => { setIsNewModalOpen(false); setIsEditModalOpen(false); resetForm(); }}
+                            className="px-5 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors font-inter"
                         >
                             Cancel
                         </button>
-                        <button 
+                        <button
+                            type="button"
                             onClick={() => isEditModalOpen ? handleUpdateSubmit() : handleCreateSubmit()}
                             disabled={isSubmitting}
-                            className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all disabled:opacity-50 font-inter"
+                            className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95 disabled:opacity-50 font-inter"
                         >
-                             {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Push Changes" : "Commit Entry")}
-                         </button>
-                     </div>
-                 }
+                            {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Update Inspection" : "Commit Entry")}
+                        </button>
+                    </div>
+                }
             >
-                <form className="p-6 space-y-6">
-                    <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm font-inter">
-                        <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-50 pb-2">Identification & Protocol</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-inter">
+                <div className="p-6 space-y-6 bg-slate-50/30 font-inter max-h-[70vh] overflow-y-auto scrollbar-thin">
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.1em] mb-4 border-b border-slate-50 pb-2 flex items-center gap-2">
+                            <Camera className="w-3.5 h-3.5 text-primary" />
+                            Audit Evidence
+                        </h3>
+                        <div className="space-y-4 font-inter">
+                            <div className="group relative border-2 border-dashed border-slate-200 hover:border-primary/50 rounded-2xl p-8 transition-all bg-slate-50/50 hover:bg-blue-50/30 flex flex-col items-center justify-center cursor-pointer overflow-hidden font-inter">
+                                <input 
+                                    type="file" 
+                                    accept="image/*"
+                                    className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                            toast.success(`Selected: ${file.name}`);
+                                            setFormData({...formData, report_file: file.name});
+                                        }
+                                    }}
+                                />
+                                <div className="p-4 bg-white rounded-2xl shadow-sm mb-3 group-hover:scale-110 transition-transform font-inter">
+                                    <ImageIcon className="w-8 h-8 text-primary" />
+                                </div>
+                                <div className="text-center font-inter">
+                                    <p className="text-xs font-bold text-slate-700 mb-1 font-inter">Click to Capture or Upload</p>
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">PNG, JPG or PDF up to 10MB</p>
+                                </div>
+                            </div>
+                            {formData.report_file && (
+                                <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-100 rounded-xl font-inter">
+                                    <div className="flex items-center gap-3 font-inter">
+                                        <div className="p-2 bg-white rounded-lg font-inter">
+                                            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                                        </div>
+                                        <div className="font-inter">
+                                            <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest leading-none mb-1 font-inter">Ready for Sync</p>
+                                            <p className="text-[11px] font-bold text-slate-600 truncate max-w-[200px] font-inter">{formData.report_file}</p>
+                                        </div>
+                                    </div>
+                                    <button 
+                                        type="button"
+                                        onClick={() => setFormData({...formData, report_file: ""})}
+                                        className="p-2 hover:bg-emerald-100 rounded-lg transition-colors text-emerald-600 font-inter"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.1em] mb-4 border-b border-slate-50 pb-2 flex items-center gap-2">
+                            <Briefcase className="w-3.5 h-3.5 text-primary" />
+                            Audit Intelligence
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Inspection Category *</label>
-                                <select 
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Project Identifier</label>
+                                <div className="px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm font-bold text-slate-500 font-inter">
+                                    PROJECT-{projectId || 36}
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Inspection Category *</label>
+                                <select
                                     value={formData.inspection_type}
                                     onChange={(e) => setFormData({...formData, inspection_type: e.target.value})}
-                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
                                 >
                                     {INSPECTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Test Protocol *</label>
-                                <select 
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Technical Test Type *</label>
+                                <select
                                     value={formData.test_type}
                                     onChange={(e) => setFormData({...formData, test_type: e.target.value})}
-                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
                                 >
                                     {TEST_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                 </select>
                             </div>
-                            <div className="md:col-span-2">
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Conducting Engineer *</label>
-                                <input 
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Engineer In-Charge *</label>
+                                <input
                                     type="text"
-                                    placeholder="e.g. Rahul Sharma"
+                                    placeholder="Enter auditor name..."
                                     value={formData.engineer_name}
                                     onChange={(e) => setFormData({...formData, engineer_name: e.target.value})}
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
@@ -507,58 +596,69 @@ const QCInspectionPage = () => {
                         </div>
                     </div>
 
-                    <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm font-inter">
-                        <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-50 pb-2">Result Matrix</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 font-inter">
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.1em] mb-4 border-b border-slate-50 pb-2 flex items-center gap-2">
+                            <Activity className="w-3.5 h-3.5 text-primary" />
+                            Measurement Analysis
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Observed Value *</label>
-                                <input 
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Observed Value *</label>
+                                <input
                                     type="number"
                                     min="0"
-                                    placeholder="0.00"
+                                    placeholder="0"
                                     value={formData.result}
                                     onChange={(e) => setFormData({...formData, result: Number(e.target.value)})}
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
                                 />
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Standard Threshold *</label>
-                                <input 
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Standard Threshold *</label>
+                                <input
                                     type="number"
                                     min="0"
-                                    placeholder="0.00"
+                                    placeholder="0"
                                     value={formData.standard_value}
                                     onChange={(e) => setFormData({...formData, standard_value: Number(e.target.value)})}
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
                                 />
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Final Status *</label>
-                                <select 
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Audit Status *</label>
+                                <select
                                     value={formData.status}
                                     onChange={(e) => setFormData({...formData, status: e.target.value})}
-                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
+                                    className={`w-full px-4 py-2.5 border rounded-xl text-sm font-bold outline-none transition-all font-inter cursor-pointer ${formData.status === 'Pass' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-rose-50 border-rose-100 text-rose-700'}`}
                                 >
-                                    <option value="Pass">Pass (Compliant)</option>
-                                    <option value="Fail">Fail (Non-Compliant)</option>
+                                    <option value="Pass">Pass / Compliant</option>
+                                    <option value="Fail">Fail / Non-Compliant</option>
                                 </select>
-                            </div>
-                            <div className="md:col-span-3 font-inter">
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Technical Remarks</label>
-                                <textarea 
-                                    rows={3}
-                                    placeholder="Any observations or deviations noticed during the test..."
-                                    value={formData.remarks || ""}
-                                    onChange={(e) => setFormData({...formData, remarks: e.target.value})}
-                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none font-inter"
-                                />
                             </div>
                         </div>
                     </div>
-                </form>
+
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.1em] mb-4 border-b border-slate-50 pb-2 flex items-center gap-2">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+                            Technical Narrative
+                        </h3>
+                        <div>
+                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                                Detailed Remarks <span className="normal-case text-slate-300">(optional)</span>
+                            </label>
+                            <textarea
+                                rows={3}
+                                placeholder="Describe observations, deviations or site notes for the ledger..."
+                                value={formData.remarks || ""}
+                                onChange={(e) => setFormData({...formData, remarks: e.target.value})}
+                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none font-inter placeholder:text-slate-300"
+                            />
+                        </div>
+                    </div>
+                </div>
             </Modal>
 
-            {/* View Detail Modal */}
             <Modal
                 isOpen={isViewModalOpen}
                 onClose={() => setIsViewModalOpen(false)}
@@ -646,7 +746,6 @@ const QCInspectionPage = () => {
                     </div>
                 )}
             </Modal>
-
 
             <ConfirmModal
                 isOpen={isDeleteModalOpen}

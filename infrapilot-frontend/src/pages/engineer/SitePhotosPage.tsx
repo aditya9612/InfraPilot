@@ -6,6 +6,7 @@ import Modal from "../../components/common/Modal";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import UploadPhotoModal from "../../components/forms/UploadPhotoModal";
 import toast from "react-hot-toast";
+import { API_BASE_URL } from "../../services/api";
 import {
     Camera,
     MapPin,
@@ -13,7 +14,6 @@ import {
     Trash2,
     Filter,
     Upload,
-    Eye,
     Calendar,
     RotateCcw
 } from "lucide-react";
@@ -40,39 +40,7 @@ const LOCATION_TAGS = [
     "North Zone",
 ];
 
-// ─── Demo Data ──────────────────────────────────────────────────────────────
-const DEMO_PHOTOS: SitePhoto[] = [
-    {
-        id: 101,
-        url: "https://images.unsplash.com/photo-1541888946425-d81bb19480c5?auto=format&fit=crop&w=800&q=80",
-        date: "2026-04-13",
-        time: "10:30 AM",
-        activity_tag: "Foundation Work",
-        location_tag: "Block A – Ground Floor",
-        description: "Base slab reinforcement work completed for Block A. Concrete grade M25. Quality approved by QC lead.",
-        uploaded_by: "Karan Singh",
-    },
-    {
-        id: 102,
-        url: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=800&q=80",
-        date: "2026-04-12",
-        time: "03:45 PM",
-        activity_tag: "RCC Column Casting",
-        location_tag: "Block B – First Floor",
-        description: "Column C24 shuttering inspection completed. All alignments verified by site engineer.",
-        uploaded_by: "Karan Singh",
-    },
-    {
-        id: 103,
-        url: "https://images.unsplash.com/photo-1590725140246-20acdee442be?auto=format&fit=crop&w=800&q=80",
-        date: "2026-04-11",
-        time: "08:00 AM",
-        activity_tag: "Safety Audit",
-        location_tag: "North Zone",
-        description: "Morning safety walk completed. All PPE compliance confirmed. No violations found during audit.",
-        uploaded_by: "Karan Singh",
-    },
-];
+
 
 const SitePhotosPage = () => {
     const [photos, setPhotos] = useState<SitePhoto[]>([]);
@@ -114,20 +82,10 @@ const SitePhotosPage = () => {
         if (!projectId) return;
         setIsLoading(true);
         try {
-            let apiData: SitePhoto[] = [];
-            try {
-                const response = await sitePhotoService.getPhotos({ project_id: projectId || 0 });
-                apiData = response.items || [];
-            } catch (err) {
-                console.warn("API unavailable, using demo data.");
-            }
-
-            if (apiData.length === 0) {
-                setPhotos(DEMO_PHOTOS);
-            } else {
-                setPhotos(apiData);
-            }
+            const response = await sitePhotoService.getPhotos({ project_id: projectId });
+            setPhotos(response.items || []);
         } catch (error) {
+            console.error("Failed to fetch photos:", error);
             toast.error("Failed to sync evidence logs");
         } finally {
             setIsLoading(false);
@@ -140,12 +98,13 @@ const SitePhotosPage = () => {
 
     const handleUpload = async (formData: FormData) => {
         try {
-            const newPhoto = await sitePhotoService.uploadPhoto(formData);
+            await sitePhotoService.uploadPhoto(formData);
             toast.success("Evidence uploaded successfully!");
-            setPhotos(prev => [newPhoto, ...prev]);
+            // Refresh the entire list from the server to ensure all metadata is synchronized
+            await fetchPhotos();
         } catch (error) {
+            console.error("Upload Error:", error);
             toast.error("Failed to upload photo");
-            throw error;
         }
     };
 
@@ -166,10 +125,10 @@ const SitePhotosPage = () => {
 
         // Apply StatCard Filter
         if (activeStatFilter === "Recent") {
-          // Filter photos from last 7 days
-          const sevenDaysAgo = new Date();
-          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-          data = data.filter(p => new Date(p.date) >= sevenDaysAgo);
+            // Filter photos from last 7 days
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+            data = data.filter(p => new Date(p.date) >= sevenDaysAgo);
         }
 
         return data.filter(p => {
@@ -220,32 +179,32 @@ const SitePhotosPage = () => {
                 {/* ── Interactive Stats ───────────────────────────── */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                      <StatCard
-                          title="Total Evidence"
-                          value={stats.total.toString()}
-                          sub="Project Archive"
-                          accent="text-slate-800" />
+                        <StatCard
+                            title="Total Evidence"
+                            value={stats.total.toString()}
+                            sub="Project Archive"
+                            accent="text-slate-800" />
                     </div>
                     <div onClick={() => setActiveStatFilter("Recent")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Recent" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                      <StatCard
-                          title="Recent Logs"
-                          value={stats.thisWeek.toString()}
-                          sub="Past 7 Days"
-                          accent="text-emerald-500" />
+                        <StatCard
+                            title="Recent Logs"
+                            value={stats.thisWeek.toString()}
+                            sub="Past 7 Days"
+                            accent="text-emerald-500" />
                     </div>
                     <div onClick={() => setActiveStatFilter("All")} className="cursor-pointer group transition-all rounded-xl hover:scale-[1.01]">
-                      <StatCard
-                          title="Scoped Tasks"
-                          value={stats.activities.toString()}
-                          sub="Tracked Milestones"
-                          accent="text-amber-500" />
+                        <StatCard
+                            title="Scoped Tasks"
+                            value={stats.activities.toString()}
+                            sub="Tracked Milestones"
+                            accent="text-amber-500" />
                     </div>
                     <div onClick={() => setActiveStatFilter("All")} className="cursor-pointer group transition-all rounded-xl hover:scale-[1.01]">
-                      <StatCard
-                          title="Zonal Units"
-                          value={stats.locations.toString()}
-                          sub="Capture Points"
-                          accent="text-indigo-500" />
+                        <StatCard
+                            title="Zonal Units"
+                            value={stats.locations.toString()}
+                            sub="Capture Points"
+                            accent="text-indigo-500" />
                     </div>
                 </div>
 
@@ -289,9 +248,9 @@ const SitePhotosPage = () => {
                                 </select>
                             </div>
                             {activeStatFilter !== "All" && (
-                              <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter">
-                                <RotateCcw className="w-4 h-4" />
-                              </button>
+                                <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter">
+                                    <RotateCcw className="w-4 h-4" />
+                                </button>
                             )}
                         </div>
                     </div>
@@ -312,7 +271,7 @@ const SitePhotosPage = () => {
                                     >
                                         <div className="aspect-[4/3] relative overflow-hidden bg-slate-100 font-inter">
                                             <img
-                                                src={photo.url}
+                                                src={photo.url?.startsWith('http') ? photo.url : `${API_BASE_URL}/${photo.url?.replace(/^\//, '')}`}
                                                 alt={photo.activity_tag}
                                                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 font-inter"
                                             />
@@ -325,13 +284,7 @@ const SitePhotosPage = () => {
 
                                             {/* Interactive Actions */}
                                             <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex items-center justify-center gap-3 z-20 font-inter">
-                                                <button
-                                                    onClick={() => setSelectedPhoto(photo)}
-                                                    className="p-4 bg-primary text-white rounded-2xl scale-90 group-hover:scale-100 transition-all duration-500 shadow-xl shadow-primary/30"
-                                                    title="Analyze Record"
-                                                >
-                                                    <Eye className="w-6 h-6" />
-                                                </button>
+
                                                 <button
                                                     onClick={() => { setPhotoToDelete(photo.id); setIsDeleteModalOpen(true); }}
                                                     className="p-4 bg-white text-rose-500 rounded-2xl scale-90 group-hover:scale-100 transition-all duration-500 shadow-xl"
@@ -354,7 +307,7 @@ const SitePhotosPage = () => {
 
                                             <div className="flex items-center gap-3 pt-5 border-t border-slate-50 mt-auto font-inter">
                                                 <div className="w-10 h-10 rounded-2xl bg-primary text-white flex items-center justify-center text-[11px] font-bold border-2 border-white shadow-lg shrink-0 font-inter">
-                                                    {photo.uploaded_by.split(" ").map(n => n[0]).join("")}
+                                                    {(photo.uploaded_by || "Infra Pilot").split(" ").map(n => n[0]).join("")}
                                                 </div>
                                                 <div className="overflow-hidden font-inter">
                                                     <p className="text-xs font-bold text-slate-800 truncate uppercase tracking-widest font-inter">{photo.uploaded_by}</p>

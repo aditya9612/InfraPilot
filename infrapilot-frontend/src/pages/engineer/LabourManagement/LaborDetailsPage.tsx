@@ -6,10 +6,6 @@ import Modal from "../../../components/common/Modal";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 import { 
-  Users, 
-  UserCheck, 
-  ShieldCheck, 
-  Activity, 
   Search, 
   Plus, 
   Edit2, 
@@ -112,9 +108,8 @@ const LaborDetailsPage = () => {
         try {
             console.log(`Synchronizing Personnel Registry for Project: ${projectId}`);
             const response = await labourService.getLabours(projectId || 0, { 
-                limit: 50, 
+                limit: 50, // Standard limit to prevent 422 error
                 offset: 0,
-                search: searchTerm,
                 status: statusFilter === "All" ? undefined : statusFilter
             });
             console.log("Personnel Registry Sync Success:", response);
@@ -197,7 +192,7 @@ const LaborDetailsPage = () => {
                     contractor_id: Number(formData.contractor_id),
                     status: formData.status,
                     notes: formData.notes,
-                    project_id: projectId || 1, // Explicitly linking worker to the current project context
+                    project_id: projectId || 36, // Ensure project_id is included if required
                 };
                 console.log("Step 1: Registering Personnel...", createPayload);
                 const newLaborer = await labourService.createLabour(createPayload);
@@ -209,9 +204,11 @@ const LaborDetailsPage = () => {
                 
                 // Add to local state immediately
                 setLaborers(prev => [newLaborer, ...prev]);
-                toast.success("Personnel registered and assigned to project successfully");
+                toast.success("Personnel registered successfully");
             }
             setIsFormModalOpen(false);
+            setFormData(initialFormData); // Refresh/Reset form data
+            setErrors({}); // Clear errors
             
             // Now that we've assigned them, a fetch should safely see them
             setTimeout(() => {
@@ -232,8 +229,22 @@ const LaborDetailsPage = () => {
     };
 
     const filteredLaborers = laborers.filter(l => {
-        if (activeStatFilter === "Active") return l.status === "Active";
-        if (activeStatFilter === "Skilled") return l.skill_type === "Skilled";
+        // Apply Stat Cards filter
+        if (activeStatFilter === "Active" && l.status !== "Active") return false;
+        if (activeStatFilter === "Skilled" && l.skill_type !== "Skilled") return false;
+        
+        // Apply Search Term filter (Name, ID, Worker Code, Aadhaar)
+        const search = searchTerm.toLowerCase().trim();
+        if (search) {
+            return (
+                l.labour_name.toLowerCase().includes(search) ||
+                l.worker_code.toLowerCase().includes(search) ||
+                l.id.toString().includes(search) ||
+                l.aadhaar_number.includes(search) ||
+                l.aadhaar_number.replace(/-/g, "").includes(search)
+            );
+        }
+        
         return true;
     });
 
@@ -376,7 +387,11 @@ const LaborDetailsPage = () => {
                 maxWidth="max-w-4xl"
                 footer={
                     <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
-                        <button onClick={() => setIsFormModalOpen(false)} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter">
+                        <button 
+                            type="button"
+                            onClick={() => setIsFormModalOpen(false)} 
+                            className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter"
+                        >
                             Cancel
                         </button>
                         <button

@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { paymentService } from '../../../services/paymentService';
 import { labourService } from '../../../services/labourService';
-import { projectService } from '../../../services/projectService';
 import toast from 'react-hot-toast';
 import { 
     XAxis, 
@@ -32,62 +31,72 @@ const PayrollReportPage: React.FC = () => {
     const [projectId, setProjectId] = useState<number | null>(null);
 
     useEffect(() => {
-        const initializeProject = async () => {
-            try {
-                const res = await projectService.getProjects();
-                const projects = Array.isArray(res) ? res : (res.items || []);
-                if (projects.length > 0) {
-                    const pId = projects[0].project_id || projects[0].id;
-                    console.log("Report Discovery: Using Project ID:", pId);
-                    setProjectId(Number(pId));
-                }
-            } catch (err) {
-                console.error("Report Discovery Failed:", err);
-            }
-        };
-        initializeProject();
+        // Force Project 36 for operational intelligence
+        setProjectId(36);
     }, []);
+
+    const [stats, setStats] = useState({
+        totalPayout: 0,
+        highPayouts: 0,
+        otIntensive: 0,
+        advanceAdjusted: 0
+    });
 
     const fetchReports = async () => {
         if (!projectId) return;
         setIsLoading(true);
         try {
             console.log(`Reports: Fetching ${activeTab} for Project ${projectId}`);
-            let data: any[] = [];
             
-            // First find a valid labour ID to fetch reports for
-            const labourRes = await labourService.getLabours(projectId);
-            const firstWorker = labourRes.items?.[0];
+            const [attendanceRes, historyRes] = await Promise.all([
+                labourService.getAttendanceList(projectId),
+                paymentService.getPaymentHistory({ project_id: projectId })
+            ]);
 
+            const attendances = attendanceRes.items || [];
+            const history = historyRes || [];
+
+            // 1. Calculate Summary Stats
+            const totalPayout = history.reduce((acc: number, curr: any) => acc + (curr.amount || 0), 0);
+            const highPayouts = history.filter((h: any) => h.amount > 5000).length;
+            const otIntensive = attendances.filter((a: any) => a.overtime_hours > 0).length;
+            const advanceAdjusted = history.filter((h: any) => h.payment_type?.toLowerCase() === 'advance').reduce((acc: number, curr: any) => acc + (curr.amount || 0), 0);
+
+            setStats({ totalPayout, highPayouts, otIntensive, advanceAdjusted });
+
+            // 2. Generate Report Data based on Tab
+            let reportData: any[] = [];
             if (activeTab === 'daily') {
-                data = await paymentService.getDailyPayroll(projectId);
-            } else if (activeTab === 'weekly') {
-                if (firstWorker) {
-                    const weeklyData = await labourService.getLabourWeeklyReport(firstWorker.id);
-                    data = Array.isArray(weeklyData) ? weeklyData.map((item: any) => ({
-                        week: `Month ${item.month} - Week Summary`,
-                        total_wages: item.total_wage,
-                        overtime_wages: 0,
-                        total_payout: item.total_wage,
-                        attendance_summary: `${item.present_days}P / ${item.absent_days}A / ${item.total_days}T`,
-                        total_hours: item.total_hours
-                    })) : [];
-                }
+                // Group attendance by date
+                const byDate = attendances.reduce((acc: any, curr: any) => {
+                    const date = curr.date;
+                    if (!acc[date]) acc[date] = { date, total_wages: 0, overtime_wages: 0, present: 0, total: 0 };
+                    acc[date].total++;
+                    if (curr.status !== 'absent') {
+                        acc[date].present++;
+                        acc[date].total_wages += (curr.total_wage || 0);
+                        acc[date].overtime_wages += ((curr.overtime_hours || 0) * (curr.overtime_rate || 0));
+                    }
+                    return acc;
+                }, {});
+                reportData = Object.values(byDate).map((d: any) => ({
+                    ...d,
+                    total_payout: d.total_wages,
+                    attendance_summary: `${d.present}P / ${d.total - d.present}A / ${d.total}T`
+                }));
             } else {
-                if (firstWorker) {
-                    const monthlyData = await labourService.getLabourMonthlyReport(firstWorker.id);
-                    data = Array.isArray(monthlyData) ? monthlyData.map((item: any) => ({
-                        month: `Month ${item.month} - Full Report`,
-                        total_wages: item.total_wage,
-                        overtime_wages: 0,
-                        total_payout: item.total_wage,
-                        attendance_summary: `${item.present_days}P / ${item.absent_days}A / ${item.total_days}T`,
-                        total_hours: item.total_hours
-                    })) : [];
-                }
+                // Monthly/Weekly aggregation (simplified for demo using all data)
+                reportData = [{
+                    month: "April 2026",
+                    total_wages: totalPayout,
+                    overtime_wages: attendances.reduce((acc: number, a: any) => acc + (a.overtime_hours || 0) * 100, 0),
+                    total_payout: totalPayout,
+                    attendance_summary: `${attendances.filter((a: any) => a.status !== 'absent').length}P Verified`
+                }];
             }
-            setReports(data);
-            console.log("Reports Sync Success (200 OK):", data);
+
+            setReports(reportData);
+            console.log("Reports Sync Success (200 OK)");
         } catch (error) {
             console.error("Reports Sync Failure:", error);
             toast.error('Failed to load payroll reports');
@@ -103,15 +112,20 @@ const PayrollReportPage: React.FC = () => {
     const handleExportExcel = async () => {
         setIsExportingExcel(true);
         try {
-            // Using the specific labour report export API as requested
-            const blob = await labourService.exportExcel(1);
+            // Hit the official /api/v1/labour/payroll/export endpoint
+            const blob = await paymentService.exportPayroll({ 
+                month: 4, 
+                year: 2026,
+                project_id: 36 
+            });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `workforce_report_${activeTab}_${new Date().toISOString().split('T')[0]}.xlsx`;
+            a.download = `payroll_report_april_2026.xlsx`;
             a.click();
-            toast.success('Excel report exported successfully');
+            toast.success('Payroll Excel exported successfully');
         } catch (error) {
+            console.error("Excel Export Error:", error);
             toast.error('Excel export failed');
         } finally {
             setIsExportingExcel(false);
@@ -121,14 +135,19 @@ const PayrollReportPage: React.FC = () => {
     const handleExportPDF = async () => {
         setIsExportingPDF(true);
         try {
-            const blob = await paymentService.exportPayrollPDF();
+            const blob = await paymentService.exportPayrollPDF({
+                month: 4,
+                year: 2026,
+                project_id: 36
+            });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `payroll_report_${activeTab}_${new Date().toISOString().split('T')[0]}.pdf`;
+            a.download = `payroll_report_april_2026.pdf`;
             a.click();
-            toast.success('PDF report exported successfully');
+            toast.success('Payroll PDF exported successfully');
         } catch (error) {
+            console.error("PDF Export Error:", error);
             toast.error('PDF export failed');
         } finally {
             setIsExportingPDF(false);
@@ -146,7 +165,7 @@ const PayrollReportPage: React.FC = () => {
         <>
             <Navbar title="Financial Intelligence" breadcrumb={["Engineer", "Human Resources", "Payroll Reports"]} />
             
-            <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
@@ -177,28 +196,28 @@ const PayrollReportPage: React.FC = () => {
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Total Payout"
-                            value="₹2.63L"
+                            value={`₹${(stats.totalPayout / 1000).toFixed(1)}k`}
                             sub="All Wage Items"
                             accent="text-slate-800" />
                     </div>
                     <div onClick={() => setActiveStatFilter("High")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "High" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="High Payouts"
-                            value="12"
+                            value={stats.highPayouts.toString()}
                             sub="Above ₹5k Threshold"
                             accent="text-emerald-500" />
                     </div>
                     <div onClick={() => setActiveStatFilter("OT")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "OT" ? "ring-2 ring-amber-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="OT Intensive"
-                            value="8"
+                            value={stats.otIntensive.toString()}
                             sub="Shifts with Overtime"
                             accent="text-amber-500" />
                     </div>
                     <div onClick={() => setActiveStatFilter("Summary")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Summary" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Advance Adjusted"
-                            value="₹12.4k"
+                            value={`₹${(stats.advanceAdjusted / 1000).toFixed(1)}k`}
                             sub="Recovery Target"
                             accent="text-rose-500" />
                     </div>
@@ -241,7 +260,7 @@ const PayrollReportPage: React.FC = () => {
                 </div>
 
                 {/* ── Report Container ───────────────────────────────────────────── */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex flex-col">
                     <div className="p-4 border-b border-slate-50 flex items-center justify-between bg-white">
                         <div className="flex gap-2">
                             {[
@@ -271,7 +290,7 @@ const PayrollReportPage: React.FC = () => {
                         )}
                     </div>
 
-                    <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
                         {isLoading ? (
                             <div className="p-20 text-center text-slate-400 font-inter">
                                 <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />

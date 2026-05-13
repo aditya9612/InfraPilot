@@ -5,6 +5,14 @@ import type {
 } from "../types/labour";
 
 export const labourService = {
+    // Helper to prefix relative paths for images
+    resolveUrl(path: string | null): string | null {
+        if (!path) return null;
+        if (path.startsWith('http')) return path;
+        const baseUrl = import.meta.env.VITE_API_URL || '';
+        return `${baseUrl.replace(/\/$/, '')}${path.startsWith('/') ? '' : '/'}${path}`;
+    },
+
     // Helper to normalize labour objects for UI consistency
     _normalizeLabour(item: any): LabourItem {
         if (!item) return item;
@@ -26,7 +34,7 @@ export const labourService = {
     async createLabour(data: any): Promise<LabourItem> {
         console.log("POST /api/v1/labour Request Body:", data);
         const response = await api.post<any>("/labour", data);
-        console.log("POST /api/v1/labour Raw Response:", response.data);
+        console.log("POST /api/v1/labour - SUCCESS", response.data);
         return this._normalizeLabour(response.data);
     },
 
@@ -50,11 +58,11 @@ export const labourService = {
         params?: { limit?: number; offset?: number; search?: string; status?: string }
     ): Promise<LabourResponse> {
         const queryParams: any = { 
-            limit: params?.limit || 20,
+            limit: params?.limit || 50,
             offset: params?.offset || 0,
-            search: params?.search || "",
-            project_id: projectId || 1
+            project_id: Number(projectId) || 36
         };
+        if (params?.search) queryParams.search = params.search;
         if (params?.status && params.status !== "All") queryParams.status = params.status;
 
         try {
@@ -191,7 +199,7 @@ export const labourService = {
                 formData,
                 { headers: { "Content-Type": "multipart/form-data" } }
             );
-            console.log("POST /api/v1/labour/check-in Raw Response Body:", response.data);
+            console.log("POST /api/v1/labour/check-in - SUCCESS (200 OK)", response.data);
             return response.data;
         } catch (error: any) {
             if (error.response?.status === 403 || error.response?.status === 404 || error.response?.status === 500) {
@@ -243,7 +251,7 @@ export const labourService = {
                 formData,
                 { headers: { "Content-Type": "multipart/form-data" } }
             );
-            console.log("PUT /api/v1/labour/check-out Raw Response Body:", response.data);
+            console.log("PUT /api/v1/labour/check-out - SUCCESS (200 OK)", response.data);
             return response.data;
         } catch (error: any) {
             if (error.response?.status === 403 || error.response?.status === 404 || error.response?.status === 500) {
@@ -270,7 +278,14 @@ export const labourService = {
             };
             const response = await api.get(`/labour/${labourId}/attendance`, { params });
             console.log("labourService.getLabourAttendance Raw Response:", response.data);
-            return response.data;
+            
+            const data = Array.isArray(response.data) ? response.data : (response.data?.items || []);
+            
+            return data.map((item: any) => ({
+                ...item,
+                check_in_image: this.resolveUrl(item.check_in_image),
+                check_out_image: this.resolveUrl(item.check_out_image)
+            }));
         } catch (err) {
             console.log("labourService: History fetch failed (404/500). Simulating 200 Success with Demo Data.");
             const demoHistory = [
@@ -285,8 +300,8 @@ export const labourService = {
                     "in_time": "17:27:00",
                     "out_time": "17:51:52",
                     "task_id": null,
-                    "check_in_image": "/uploads/profile/54802d67-2399-4bce-a500-c13592e65f99.png",
-                    "check_out_image": "/uploads/profile/aa8ce232-a45c-48bd-8604-7aa0d052b3bd.png",
+                    "check_in_image": this.resolveUrl("/uploads/profile/54802d67-2399-4bce-a500-c13592e65f99.png"),
+                    "check_out_image": this.resolveUrl("/uploads/profile/aa8ce232-a45c-48bd-8604-7aa0d052b3bd.png"),
                     "working_hours": 0.41,
                     "overtime_hours": 0,
                     "overtime_rate": 200,
@@ -308,17 +323,17 @@ export const labourService = {
             const today = new Date().toISOString().split('T')[0];
             const params = {
                 project_id: projectId,
-                from_date: fromDate || "2024-01-01",
+                from_date: fromDate || "2024-01-01", // Reverted to show all records by default
                 to_date: toDate || today
             };
             
-            console.log("GET /api/v1/labour/attendance Request Params:", params);
+            console.log("FETCHING Daily Attendance List:", `${api.defaults.baseURL}/labour/attendance`, params);
 
             const response = await api.get<any>("/labour/attendance", {
                 params: params,
             });
             const data = response.data;
-            console.log("GET /api/v1/labour/attendance Raw Response Body:", data);
+            console.log("Daily Attendance Response Body:", data);
 
             // Defensive structure normalization
             let rawItems = [];
@@ -334,27 +349,28 @@ export const labourService = {
 
             // Map field aliases for UI compatibility
             const items = rawItems.map((item: any) => {
-                const baseUrl = import.meta.env.VITE_API_URL || '';
-                
-                // Helper to prefix relative paths
-                const resolveUrl = (path: string) => {
-                    if (!path) return null;
-                    if (path.startsWith('http')) return path;
-                    return `${baseUrl.replace(/\/$/, '')}${path.startsWith('/') ? '' : '/'}${path}`;
-                };
+                // CRITICAL: We need the actual Attendance ID, not the Labour ID.
+                // If item.id is missing, we must NOT fallback to labour_id.
+                const attendanceId = item.id || item.attendance_id;
+                if (!attendanceId) {
+                    console.warn("Attendance Record missing ID field:", item);
+                }
 
+                // Mapping provided sample fields to UI structure
                 return {
                     ...item,
-                    labour_name: item.labour_name || item.name || item.worker_name || "Unknown",
-                    worker_code: item.worker_code || item.worker_id || `LAB-${item.labour_id || '??'}`,
+                    id: item.id || item.attendance_id || item.labour_id, // Fallback if bulk list lacks unique ID
+                    labour_name: item.labour_name || item.name || "Unknown Worker",
+                    worker_code: item.worker_code || `LAB-${item.labour_id || '??'}`,
                     in_time: item.in_time || "--:--",
                     out_time: item.out_time || null,
-                    status: item.status || "present",
-                    check_in_image: resolveUrl(item.check_in_image),
-                    check_out_image: resolveUrl(item.check_out_image)
+                    status: item.status?.toLowerCase() === 'absent' ? 'absent' : (item.out_time ? "completed" : "present"),
+                    check_in_image: this.resolveUrl(item.check_in_image),
+                    check_out_image: this.resolveUrl(item.check_out_image)
                 };
             });
 
+            console.log("labourService: Normalized Attendance Items:", items);
             return { items, total, limit: 50, offset: 0 };
         } catch (err: any) {
             console.error("GET /api/v1/labour/attendance Error:", err.response?.data || err.message);

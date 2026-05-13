@@ -1,6 +1,7 @@
 export interface SitePhoto {
     id: number;
-    url: string;
+    url?: string;
+    photo_url?: string;
     date: string;
     time: string;
     activity_tag: string;

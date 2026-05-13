@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import { qcService } from "../../../services/qcService";
+import { projectService } from "../../../services/projectService";
 import type { QcItem } from "../../../services/qcService";
 
 const QCTestReportsPage = () => {
@@ -25,21 +26,33 @@ const QCTestReportsPage = () => {
 
     // ─── PROJECT RESOLUTION ─────────────────────────────────────────────
     useEffect(() => {
-        const userStr = localStorage.getItem("infrapilot_user");
-        if (userStr) {
+        const initializeProject = async () => {
             try {
-                const user = JSON.parse(userStr);
-                const pId = user?.project_id || user?.user?.project_id;
-                if (pId) {
-                    setProjectId(Number(pId));
+                const userStr = localStorage.getItem("infrapilot_user");
+                if (userStr) {
+                    const user = JSON.parse(userStr);
+                    const pId = user?.project_id || user?.user?.project_id;
+                    if (pId) {
+                        setProjectId(Number(pId));
+                        return;
+                    }
+                }
+
+                // Discovery Fallback
+                console.warn("QC Reports: No project_id in user context, attempting discovery fallback");
+                const projectsResponse = await projectService.getProjects(1, 0);
+                const projects = Array.isArray(projectsResponse) ? projectsResponse : (projectsResponse.items || []);
+                if (projects && projects.length > 0) {
+                    setProjectId(Number(projects[0].project_id || projects[0].id));
                 } else {
-                    setProjectId(1);
+                    setProjectId(36);
                 }
             } catch (e) {
                 console.error("Failed to resolve project ID", e);
-                setProjectId(1);
+                setProjectId(36);
             }
-        }
+        };
+        initializeProject();
     }, []);
 
     // ─── INITIALIZATION ──────────────────────────────────────────────────

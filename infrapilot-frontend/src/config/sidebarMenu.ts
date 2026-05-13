@@ -241,11 +241,11 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       ],
     },
     {
-      label: "Labor Management",
+      label: "Labour Management",
       path: "/engineer/labor",
       icon: "users",
       subNav: [
-        { label: "Labor Registry", path: "/engineer/labor/list", icon: "list" },
+        { label: "Labour Registry", path: "/engineer/labor/list", icon: "list" },
         { label: "Daily Attendance", path: "/engineer/labor/attendance", icon: "calendar" },
         { label: "Salary & Advances", path: "/engineer/labor/payments", icon: "dollar-sign" },
         { label: "Payroll Reports", path: "/engineer/labor/reports", icon: "file-text" },

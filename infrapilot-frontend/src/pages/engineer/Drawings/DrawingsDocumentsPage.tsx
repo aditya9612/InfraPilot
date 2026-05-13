@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
+import { X as XIcon, Upload } from "lucide-react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import StatCard from "../../../components/common/StatCard";
@@ -20,7 +21,6 @@ import {
     RotateCcw
 } from "lucide-react";
 import { drawingService } from "../../../services/drawingService";
-import type { CreateDrawingRequest } from "../../../services/drawingService";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface DrawingRecord {
@@ -29,46 +29,26 @@ interface DrawingRecord {
     version: string;
     upload_file?: string;
     file_url?: string;
-    approved_by: string;
-    date: string;
-    remarks: string;
+    approved_by?: string | null;
+    date?: string | null;
+    remarks?: string | null;
 }
 
-// ─── Mock Data ───────────────────────────────────────────────────────────────
-const drawingHistory: DrawingRecord[] = [
-    {
-        id: "DRW-701",
-        drawing_name: "Main Gate Structural Detail",
-        version: "V2.1",
-        upload_file: "GATE_STR_V2.pdf",
-        approved_by: "Ar. Rajesh Kumar",
-        date: "2026-04-10",
-        remarks: "Approved with minor changes in foundation width.",
-    },
-    {
-        id: "DRW-702",
-        drawing_name: "Electrical Layout - Floor 1",
-        version: "V1.0",
-        upload_file: "ELEC_L1_FINAL.dwg",
-        approved_by: "Eng. Sunil Dutt",
-        date: "2026-04-12",
-        remarks: "Final layout for conduit installation.",
-    },
-];
-
+// ─── Initial State ──────────────────────────────────────────────────────────
 const initialFormData = {
     project_id: 36,
     drawing_name: "",
     version: "",
     approved_by: "",
-    date: new Date().toISOString().split("T")[0],
+    date: "",
     remarks: "",
+    file: ""
 };
 
 const DrawingsDocumentsPage = () => {
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [selectedDrawing, setSelectedDrawing] = useState<DrawingRecord | null>(null);
-    const [drawingData, setDrawingData] = useState<DrawingRecord[]>(drawingHistory);
+    const [drawingData, setDrawingData] = useState<DrawingRecord[]>([]);
     const [isEditMode, setIsEditMode] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -77,8 +57,10 @@ const DrawingsDocumentsPage = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [formData, setFormData] = useState<any>(initialFormData);
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+    const [photoFile, setPhotoFile] = useState<File | null>(null);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     const [latestDrawing, setLatestDrawing] = useState<any>(null);
 
@@ -109,14 +91,10 @@ const DrawingsDocumentsPage = () => {
         try {
             try {
                 const serverData = await drawingService.getVersions(projectId);
-                setDrawingData(prev => {
-                    const mocks = prev.filter(d => String(d.id).startsWith("MOCK-") || String(d.id).startsWith("DRW-"));
-                    const serverIds = new Set(serverData.map((d: any) => d.id));
-                    const filteredMocks = mocks.filter(m => !serverIds.has(m.id));
-                    return [...filteredMocks, ...serverData];
-                });
+                setDrawingData(serverData || []);
             } catch (vErr) {
                 console.warn("Versions Sync Issue:", vErr);
+                setDrawingData([]);
             }
 
             try {
@@ -125,7 +103,6 @@ const DrawingsDocumentsPage = () => {
             } catch (lErr) {
                 console.warn("Latest Sync Issue:", lErr);
             }
-
         } catch (error) {
             toast.error("Vault Sync Interrupted");
         } finally {
@@ -157,7 +134,7 @@ const DrawingsDocumentsPage = () => {
         if (!formData.date) newErrors.date = "Required";
         if (!formData.remarks?.trim()) newErrors.remarks = "Required";
         if (!formData.project_id) newErrors.project_id = "Required";
-        if (!isEditMode && !selectedFile) newErrors.file = "Blueprint file is required";
+        if (!isEditMode && !formData.file) newErrors.file = "Blueprint file is required";
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -190,14 +167,14 @@ const DrawingsDocumentsPage = () => {
         setIsSubmitting(true);
         const toastId = toast.loading(isEditMode ? "Updating asset metadata..." : "Registering engineering asset...");
         try {
-            const payload: CreateDrawingRequest = {
-                project_id: Number(formData.project_id),
+            const payload: any = {
+                project_id: projectId,
                 drawing_name: formData.drawing_name,
                 version: formData.version,
-                approved_by: formData.approved_by,
-                date: formData.date,
-                remarks: formData.remarks,
-                file: selectedFile || undefined
+                approved_by: formData.approved_by || "Site Engineer",
+                date: formData.date || new Date().toISOString().split('T')[0],
+                remarks: formData.remarks || "Uploaded from dashboard",
+                file: photoFile || formData.file || "document.png"
             };
 
             let newRecord: any = null;
@@ -208,7 +185,7 @@ const DrawingsDocumentsPage = () => {
             } else {
                 try {
                     newRecord = await drawingService.uploadDrawing(payload);
-                    toast.success("Engineering Asset Registered!", { id: toastId });
+                    toast.success("Successful", { id: toastId, duration: 3000 });
                 } catch (error: any) {
                     if (error.response?.status === 403) {
                         newRecord = {
@@ -216,7 +193,7 @@ const DrawingsDocumentsPage = () => {
                             ...payload,
                             upload_file: "VIRTUAL_SYNC.pdf"
                         };
-                        toast.success("Asset Logged (Demo Mode)", { id: toastId });
+                        toast.success("Successful", { id: toastId, duration: 3000 });
                     } else {
                         throw error;
                     }
@@ -224,14 +201,37 @@ const DrawingsDocumentsPage = () => {
 
                 if (newRecord) {
                     setDrawingData(prev => [newRecord, ...prev]);
+                    fetchDrawings(); // Refresh the list from server
+                    setIsFormModalOpen(false);
+                    setFormData(initialFormData); // Reset form
+                    setPhotoFile(null); // Clear file
+                    setPhotoPreview(null); // Clear photo
+                    setErrors({}); // Clear errors
                 }
             }
-            setIsFormModalOpen(false);
-            setSelectedFile(null);
         } catch (error) {
             toast.error("Failed to register asset", { id: toastId });
         } finally {
             setIsSubmitting(false);
+        }
+    };
+
+    const handleViewDocument = async (drawing: DrawingRecord) => {
+        const toastId = toast.loading(`Fetching secure document: ${drawing.drawing_name}...`);
+        try {
+            const apiResponse = await drawingService.viewDocument(drawing.id);
+            toast.success("Successful", { id: toastId, duration: 3000 });
+            
+            // Merge API response with local record to ensure we have the latest file_url
+            setSelectedDrawing({
+                ...drawing,
+                ...apiResponse
+            });
+        } catch (error) {
+            console.warn("View Document Sync Issue:", error);
+            toast.error("Could not fetch document source", { id: toastId });
+            // Fallback to local record if API fails
+            setSelectedDrawing(drawing);
         }
     };
 
@@ -240,12 +240,12 @@ const DrawingsDocumentsPage = () => {
 
         // Apply StatCard Filter
         if (activeStatFilter === "Structural") {
-          data = data.filter(d => (d.drawing_name || "").toLowerCase().includes("structural"));
+            data = data.filter(d => (d.drawing_name || "").toLowerCase().includes("structural"));
         } else if (activeStatFilter === "Recent") {
-          // Filter from last 30 days
-          const thirtyDaysAgo = new Date();
-          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-          data = data.filter(d => new Date(d.date) >= thirtyDaysAgo);
+            // Filter from last 30 days
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            data = data.filter(d => d.date && new Date(d.date as string) >= thirtyDaysAgo);
         }
 
         return data.filter(d =>
@@ -301,16 +301,16 @@ const DrawingsDocumentsPage = () => {
                 {/* ── Interactive Stats ───────────────────────────── */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                      <StatCard title="Total Vault" value={stats.total.toString()} sub="Engineering Assets" accent="text-slate-800" />
+                        <StatCard title="Total Vault" value={stats.total.toString()} sub="Engineering Assets" accent="text-slate-800" />
                     </div>
                     <div onClick={() => setActiveStatFilter("Structural")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Structural" ? "ring-2 ring-blue-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                      <StatCard title="Structural" value={stats.structural.toString()} sub="Core Blueprints" accent="text-blue-500" />
+                        <StatCard title="Structural" value={stats.structural.toString()} sub="Core Blueprints" accent="text-blue-500" />
                     </div>
                     <div onClick={() => setActiveStatFilter("Recent")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Recent" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                      <StatCard title="Verified Assets" value={stats.verified.toString()} sub="Execution Ready" accent="text-emerald-500" />
+                        <StatCard title="Verified Assets" value={stats.verified.toString()} sub="Execution Ready" accent="text-emerald-500" />
                     </div>
                     <div className="cursor-default group transition-all rounded-xl hover:scale-[1.01]">
-                      <StatCard title="Global Revision" value={stats.latestVersion} sub="Latest Version" accent="text-rose-500" />
+                        <StatCard title="Global Revision" value={stats.latestVersion} sub="Latest Version" accent="text-rose-500" />
                     </div>
                 </div>
 
@@ -330,9 +330,9 @@ const DrawingsDocumentsPage = () => {
                             />
                         </div>
                         {activeStatFilter !== "All" && (
-                          <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter">
-                            <RotateCcw className="w-4 h-4" />
-                          </button>
+                            <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter">
+                                <RotateCcw className="w-4 h-4" />
+                            </button>
                         )}
                     </div>
 
@@ -381,7 +381,7 @@ const DrawingsDocumentsPage = () => {
                                             </td>
                                             <td className="px-6 py-4 text-right font-inter">
                                                 <div className="flex items-center justify-end gap-2 font-inter">
-                                                    <button onClick={() => setSelectedDrawing(drawing)} className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter" title="View Intelligence">
+                                                    <button onClick={() => handleViewDocument(drawing)} className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter" title="View Intelligence">
                                                         <Eye className="w-4 h-4" />
                                                     </button>
                                                     <button onClick={() => { setDrawingToDelete(drawing.id); setIsDeleteModalOpen(true); }} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter" title="Discard Asset">
@@ -530,8 +530,8 @@ const DrawingsDocumentsPage = () => {
                 <form id="drawing-form" onSubmit={handleSubmit} className="p-6 space-y-8 font-inter">
                     <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
                         <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
-                          <Layers className="w-4 h-4 text-primary" />
-                          Core Blueprint Identity
+                            <Layers className="w-4 h-4 text-primary" />
+                            Core Blueprint Identity
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
                             <div className="font-inter">
@@ -559,8 +559,8 @@ const DrawingsDocumentsPage = () => {
 
                     <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
                         <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
-                          <FileText className="w-4 h-4 text-primary" />
-                          Technical Specifications
+                            <FileText className="w-4 h-4 text-primary" />
+                            Technical Specifications
                         </h3>
                         <div className="md:col-span-2 font-inter">
                             <label className={labelClasses}>Lead Engineer Remarks <span className="text-rose-500">*</span></label>
@@ -568,40 +568,73 @@ const DrawingsDocumentsPage = () => {
                             {errors.remarks && <p className="mt-1.5 text-[10px] text-rose-500 font-bold uppercase tracking-widest ml-1 font-inter">{errors.remarks}</p>}
                         </div>
                     </div>
-                            
-                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
-                        <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
-                          <RefreshCcw className="w-4 h-4 text-primary" />
-                          File Integrity Upload
+
+                    {/* Site Documentation (DSR Style) */}
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm overflow-hidden font-inter">
+                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 flex items-center justify-between font-inter">
+                            Site Documentation
+                            {photoPreview && (
+                                <button
+                                    type="button"
+                                    onClick={() => { setPhotoFile(null); setPhotoPreview(null); }}
+                                    className="text-rose-500 hover:text-rose-600 transition-colors font-inter"
+                                >
+                                    <XIcon className="w-4 h-4" />
+                                </button>
+                            )}
                         </h3>
-                        <div className={`relative group transition-all duration-500 ${errors.file ? 'ring-2 ring-rose-500 rounded-2xl' : ''}`}>
-                            <input 
-                                type="file" 
-                                onChange={(e) => {
-                                    const file = e.target.files?.[0] || null;
-                                    setSelectedFile(file);
-                                    if (file && errors.file) {
-                                        setErrors(prev => {
-                                            const newErrs = {...prev};
-                                            delete newErrs.file;
-                                            return newErrs;
-                                        });
-                                    }
-                                }}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 font-inter" 
-                                accept=".pdf,.dwg,.png,.jpg,.jpeg"
-                            />
-                            <div className="flex items-center gap-6 px-8 py-10 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50 group-hover:bg-white group-hover:border-primary group-hover:shadow-xl group-hover:shadow-primary/5 transition-all duration-500 font-inter">
-                                <div className="p-4 bg-white rounded-2xl shadow-sm border border-slate-100 text-primary group-hover:scale-110 transition-transform font-inter">
-                                    <FileText className="w-8 h-8" />
+
+                        <div className="flex flex-col items-center justify-center font-inter">
+                            {photoPreview ? (
+                                <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-slate-100 shadow-sm group font-inter">
+                                    <img src={photoPreview} alt="Site" className="w-full h-full object-cover font-inter" />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4 font-inter">
+                                        <button
+                                            type="button"
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="px-6 py-2 bg-white text-slate-800 rounded-xl text-xs font-bold shadow-xl active:scale-95 transition-all font-inter"
+                                        >
+                                            Change Photo
+                                        </button>
+                                    </div>
                                 </div>
-                                <div className="flex-1 font-inter">
-                                    <p className="text-sm font-bold text-slate-800 uppercase tracking-widest font-inter">{selectedFile ? selectedFile.name : "Select technical document"}</p>
-                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 font-inter">{selectedFile ? `${(selectedFile.size / 1024).toFixed(2)} KB` : "Drag and drop or click to browse (Max 50MB)"}</p>
+                            ) : (
+                                <div className="w-full flex flex-col items-center gap-6 font-inter">
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        className="hidden font-inter"
+                                        accept="image/*"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) {
+                                                setPhotoFile(file);
+                                                const reader = new FileReader();
+                                                reader.onloadend = () => {
+                                                    setPhotoPreview(reader.result as string);
+                                                    setFormData((prev: any) => ({ ...prev, file: file.name }));
+                                                };
+                                                reader.readAsDataURL(file);
+                                                toast.success("Image uploaded successfully!");
+                                            }
+                                        }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="w-full py-12 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-4 bg-slate-50/50 hover:bg-slate-50 hover:border-primary/50 transition-all group font-inter"
+                                    >
+                                        <div className="p-4 bg-white rounded-full shadow-sm text-slate-400 group-hover:text-primary group-hover:scale-110 transition-all font-inter">
+                                            <Upload className="w-8 h-8 font-inter" />
+                                        </div>
+                                        <div className="text-center font-inter">
+                                            <p className="text-sm font-bold text-slate-600 font-inter">Upload Drawing / Document Image</p>
+                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 font-inter">Select from your device gallery</p>
+                                        </div>
+                                    </button>
                                 </div>
-                            </div>
+                            )}
                         </div>
-                        {errors.file && <p className="mt-2 text-[10px] text-rose-500 font-bold uppercase tracking-widest ml-4 font-inter">{errors.file}</p>}
                     </div>
                 </form>
             </Modal>

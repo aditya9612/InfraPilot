@@ -60,11 +60,17 @@ const CheckOutModal: React.FC<Props> = ({ isOpen, onClose, attendance, onSuccess
                             ...prev, 
                             latitude,
                             longitude,
-                            resolved_address: address,
+                            location_address: address,
+                            resolved_address: address
                         }));
                     } catch (err) {
                         console.warn("Reverse Geocoding failed:", err);
-                        setFormData(prev => ({ ...prev, latitude, longitude }));
+                        setFormData(prev => ({ 
+                            ...prev, 
+                            latitude, 
+                            longitude,
+                            location_address: `Site Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})` 
+                        }));
                         toast.error("Location captured, but address resolution failed.");
                     } finally {
                         setIsLocating(false);
@@ -104,11 +110,23 @@ const CheckOutModal: React.FC<Props> = ({ isOpen, onClose, attendance, onSuccess
             payload.append("overtime_rate", String(formData.overtime_rate));
             if (formData.check_out_image) payload.append("check_out_image", formData.check_out_image);
             
-            console.log("Executing Check-Out API: PUT /labour/attendance/" + attendance.id + "/check-out");
-            await labourService.checkOut(attendance.id, payload);
-            toast.success(`Check-out successful`);
+            // Extremely aggressive ID discovery
+            console.log("Check-Out Diagnostic - Attendance Object:", attendance);
+            const attendanceId = attendance.id || attendance.attendance_id || attendance.labour_id;
+            
+            if (!attendanceId) {
+                console.error("CRITICAL: Missing all ID variants (id, attendance_id, labour_id). Object:", attendance);
+                toast.error("Error: Worker identification failed (Missing ID)");
+                setIsSubmitting(false);
+                return;
+            }
+
+            console.log("SUCCESS: Resolved ID " + attendanceId + ". Hitting PUT API...");
+            await labourService.checkOut(attendanceId, payload);
+            console.log("Check-Out Success! Triggering Registry Refetch...");
             onSuccess();
             onClose();
+            toast.success(`Check-out confirmed successfully`);
         } catch (error) {
             toast.error('Check-out failed');
         } finally {

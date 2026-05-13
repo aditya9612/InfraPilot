@@ -8,8 +8,33 @@ export const sitePhotoService = {
      */
     async getPhotos(params?: any): Promise<SitePhotoResponse> {
         try {
-            const response = await api.get("/site-photos", { params });
-            return response.data;
+            const response = await api.get("/site-photos", { 
+                params: {
+                    project_id: params?.project_id || 1,
+                    activity_tag: params?.activity_tag || "",
+                    location_tag: params?.location_tag || "",
+                    start_date: params?.start_date || "",
+                    end_date: params?.end_date || ""
+                } 
+            });
+            
+            // Defensive structure normalization for production data
+            const rawData = response.data;
+            let items: SitePhoto[] = [];
+            
+            if (Array.isArray(rawData)) {
+                items = rawData;
+            } else if (rawData && typeof rawData === 'object') {
+                items = rawData.items || rawData.data || (Array.isArray(rawData) ? rawData : []);
+            }
+            
+            // Normalize photo_url to url for UI compatibility
+            const normalizedItems = items.map((p: any) => ({
+                ...p,
+                url: p.url || p.photo_url
+            }));
+
+            return { items: normalizedItems };
         } catch (error: any) {
             console.error("Get Site Photos API Error:", error.response?.data || error.message);
             throw error;
@@ -30,27 +55,15 @@ export const sitePhotoService = {
                 params: { project_id: projectId },
                 headers: { "Content-Type": "multipart/form-data" }
             });
-            return response.data;
+
+            // Normalize photo_url to url for UI
+            const result = response.data;
+            return {
+                ...result,
+                url: result.url || result.photo_url
+            };
         } catch (error: any) {
-            const status = error.response?.status;
-            if (status === 403 || status === 404 || status === 500) {
-                console.warn(`[Virtual Success] Bypassing ${status} error for Site Photo upload.`);
-                
-                // Construct a high-fidelity mock response that matches the user's provided structure
-                const now = new Date();
-                const mockPhoto: SitePhoto = {
-                    id: Math.floor(Math.random() * 10000),
-                    activity_tag: data.get("activity_tag") as string || "General Site Progress",
-                    location_tag: data.get("location_tag") as string || "Main Site Area",
-                    date: data.get("date") as string || now.toISOString().split("T")[0],
-                    description: data.get("description") as string || "Site progress capture",
-                    uploaded_by: "Site Engineer",
-                    url: `/uploads/site_photos/virtual_${Date.now()}.png`, // Primary UI field
-                    time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                };
-                
-                return mockPhoto;
-            }
+            console.error("Upload Photo API Error:", error.response?.data || error.message);
             throw error;
         }
     },
@@ -64,10 +77,7 @@ export const sitePhotoService = {
             const response = await api.delete(`/site-photos/${id}`);
             return response.data;
         } catch (error: any) {
-            const status = error.response?.status;
-            if (status === 403 || status === 404 || status === 500) {
-                return { success: true, message: "Deleted (Virtual)" };
-            }
+            console.error("Delete Photo API Error:", error.response?.data || error.message);
             throw error;
         }
     }
