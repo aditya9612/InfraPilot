@@ -54,7 +54,6 @@ const nowTimeStr = () => {
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
-import { communicationService } from "../../../services/communicationService";
 import toast from "react-hot-toast";
 
 const ClientMessagesPage = () => {
@@ -67,38 +66,8 @@ const ClientMessagesPage = () => {
   const [replyTo, setReplyTo] = useState<Message | null>(null);
 
   const fetchMessages = async () => {
-    try {
-      const data = await communicationService.getMessages(1); // project_id = 1
-      
-      const newThreadMessages: Record<number, Message[]> = { ...initialThreadMessages };
-      
-      data.forEach((m: any) => {
-        const msg: Message = {
-          id: m.id,
-          text: m.parent_id ? `↳ Reply: ${m.message}` : m.message,
-          from: m.created_by === 1 ? "You" : "Project Lead",
-          time: new Date(m.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', ' •'),
-          mine: m.created_by === 1,
-          attachment: m.attachment_url
-        };
-
-        // Mark as read and delivered if it's from project lead
-        if (!msg.mine) {
-           communicationService.markMessageDelivered(msg.id).catch(() => {});
-           communicationService.markMessageRead(msg.id).catch(() => {});
-        }
-
-        const threadId = m.created_by === 1 ? selectedId : 1;
-        if (!newThreadMessages[threadId]) newThreadMessages[threadId] = [];
-        if (!newThreadMessages[threadId].some(x => x.id === msg.id)) {
-          newThreadMessages[threadId].push(msg);
-        }
-      });
-
-      setThreadMessages(newThreadMessages);
-    } catch (error) {
-      console.error("Failed to fetch messages:", error);
-    }
+    // No-op or artificial delay to simulate network
+    console.log("Mock Fetch Messages");
   };
 
   useEffect(() => {
@@ -135,30 +104,35 @@ const ClientMessagesPage = () => {
     const text = input.trim();
     if (!text || isSending) return;
 
-    try {
-      setIsSending(true);
-      const payload = {
-        message: text,
-        attachment_url: editingMessage?.attachment || null,
-        parent_id: replyTo?.id || null
+    setIsSending(true);
+    setTimeout(() => {
+      const newMsg: Message = {
+        id: Date.now(),
+        text: replyTo ? `↳ Reply to ${replyTo.from}: ${text}` : text,
+        from: "Mr. Sharma",
+        time: nowTimeStr(),
+        mine: true,
+        attachment: null
       };
 
       if (editingMessage) {
-        await communicationService.updateMessage(editingMessage.id, payload);
+        setThreadMessages(prev => ({
+          ...prev,
+          [selectedId]: prev[selectedId].map(m => m.id === editingMessage.id ? { ...m, text } : m)
+        }));
         toast.success("Message updated");
       } else {
-        await communicationService.sendMessage(1, payload);
+        setThreadMessages(prev => ({
+          ...prev,
+          [selectedId]: [...(prev[selectedId] || []), newMsg]
+        }));
       }
 
-      await fetchMessages();
       setInput("");
       setReplyTo(null);
       setEditingMessage(null);
-    } catch (error) {
-      toast.error(editingMessage ? "Failed to update message." : "Failed to send message.");
-    } finally {
       setIsSending(false);
-    }
+    }, 500);
   };
 
   const handleEditMessage = (msg: Message) => {
@@ -168,13 +142,11 @@ const ClientMessagesPage = () => {
   };
 
   const handleDeleteMessage = async (id: number) => {
-    try {
-      await communicationService.deleteMessage(id);
-      toast.success("Message deleted");
-      await fetchMessages();
-    } catch (error) {
-      toast.error("Failed to delete message.");
-    }
+    setThreadMessages(prev => ({
+      ...prev,
+      [selectedId]: prev[selectedId].filter(m => m.id !== id)
+    }));
+    toast.success("Message deleted");
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {

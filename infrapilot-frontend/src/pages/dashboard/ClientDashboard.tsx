@@ -8,10 +8,9 @@ import NewProjectModal from "../../components/dashboard/NewProjectModal";
 import CreateUserModal from "../../components/forms/CreateUserModal";
 import CreateBOQModal from "../../components/forms/CreateBOQModal";
 import CreateReportModal from "../../components/dashboard/CreateReportModal";
-import { projectService } from "../../services/projectService";
-import { boqService } from "../../services/boqService";
-import { userService } from "../../services/userService";
 import toast from "react-hot-toast";
+import { useEffect, useState } from "react";
+import { dashboardService, type ClientDashboardData } from "../../services/dashboardService";
 
 const costData = [
   { name: "Initial Phase", budget: 70000, actual: 6195 },
@@ -39,35 +38,32 @@ const ClientDashboard = () => {
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isBOQModalOpen, setIsBOQModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [stats, setStats] = useState<ClientDashboardData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadDashboard = async () => {
+      setIsLoading(true);
+      const data = await dashboardService.getClientDashboard(1);
+      setStats(data);
+      setIsLoading(false);
+    };
+    loadDashboard();
+  }, []);
 
   const handleCreateProject = async (data: any) => {
-    try {
-      await projectService.createProject(data);
-      toast.success("Project created successfully");
-      setIsNewProjectModalOpen(false);
-    } catch (error) {
-      toast.error("Failed to create project");
-    }
+    toast.success("Project created successfully (Mock Mode)");
+    setIsNewProjectModalOpen(false);
   };
 
   const handleCreateUser = async (data: any) => {
-    try {
-      await userService.createUser(data);
-      toast.success("User created successfully");
-      setIsUserModalOpen(false);
-    } catch (error) {
-      toast.error("Failed to create user");
-    }
+    toast.success("User created successfully (Mock Mode)");
+    setIsUserModalOpen(false);
   };
 
   const handleCreateBOQ = async (data: any) => {
-    try {
-      await boqService.createBoq(data);
-      toast.success("BOQ created successfully");
-      setIsBOQModalOpen(false);
-    } catch (error) {
-      toast.error("Failed to create BOQ");
-    }
+    toast.success("BOQ created successfully (Mock Mode)");
+    setIsBOQModalOpen(false);
   };
 
   const botMessages = [
@@ -126,13 +122,13 @@ const ClientDashboard = () => {
         {/* Vital Metrics Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-10">
           {[
-            { label: "Overall Progress", value: "50%", sub: "Project Halfway Mark", icon: "📊", color: "text-blue-600 bg-blue-50" },
-            { label: "Budget / Spent", value: "₹70,000 / ₹6,195", sub: "8.85% Budget Utilized", icon: "📉", color: "text-indigo-600 bg-indigo-50" },
-            { label: "Remaining Budget", value: "₹63,805", sub: "Available Funds", icon: "💰", color: "text-emerald-600 bg-emerald-50" },
-            { label: "Completion Date", value: "02 Apr 2026", sub: "Target Deadline", icon: "📅", color: "text-amber-600 bg-amber-50" },
-            { label: "Days Remaining", value: "0 Days", sub: "Deadline Reached", icon: "⏳", color: "text-orange-600 bg-orange-50" },
-            { label: "Milestones", value: "0 / 1", sub: "Completed / Total", icon: "🏆", color: "text-purple-600 bg-purple-50" },
-            { label: "Tasks", value: "0 / 1", sub: "Completed / Total", icon: "✅", color: "text-slate-600 bg-slate-50" },
+            { label: "Overall Progress", value: isLoading ? "..." : `${stats?.progress_percent}%`, sub: "Project Halfway Mark", icon: "📊", color: "text-blue-600 bg-blue-50" },
+            { label: "Budget / Spent", value: isLoading ? "..." : `₹${stats?.budget_total.toLocaleString()} / ₹${stats?.total_expense.toLocaleString()}`, sub: `${stats?.budget_used_percent}% Budget Utilized`, icon: "📉", color: "text-indigo-600 bg-indigo-50" },
+            { label: "Remaining Budget", value: isLoading ? "..." : `₹${stats?.remaining_budget.toLocaleString()}`, sub: "Available Funds", icon: "💰", color: "text-emerald-600 bg-emerald-50" },
+            { label: "Completion Date", value: isLoading ? "..." : stats?.end_date, sub: "Target Deadline", icon: "📅", color: "text-amber-600 bg-amber-50" },
+            { label: "Days Remaining", value: isLoading ? "..." : `${stats?.days_remaining} Days`, sub: "Deadline Reached", icon: "⏳", color: "text-orange-600 bg-orange-50" },
+            { label: "Milestones", value: isLoading ? "..." : `${stats?.milestones_completed} / ${stats?.milestones_total}`, sub: "Completed / Total", icon: "🏆", color: "text-purple-600 bg-purple-50" },
+            { label: "Tasks", value: isLoading ? "..." : `${stats?.tasks_completed} / ${stats?.tasks_total}`, sub: "Completed / Total", icon: "✅", color: "text-slate-600 bg-slate-50" },
             { label: "Client Account", value: user?.name || "Mock Client", sub: `${user?.role || "Premium"} Access`, icon: "👤", color: "text-slate-600 bg-slate-50" },
           ].map((card, i) => (
             <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 transition-all hover:shadow-xl hover:shadow-blue-500/5 group">
@@ -152,10 +148,10 @@ const ClientDashboard = () => {
                 <div className="relative w-56 h-56 flex items-center justify-center">
                   <svg className="w-full h-full transform -rotate-90">
                     <circle cx="112" cy="112" r="100" stroke="currentColor" strokeWidth="16" fill="transparent" className="text-slate-100" />
-                    <circle cx="112" cy="112" r="100" stroke="currentColor" strokeWidth="16" fill="transparent" strokeDasharray={628.3} strokeDashoffset={628.3 * (1 - 0.50)} className="text-primary rounded-full transition-all duration-1000 shadow-lg shadow-blue-500/20" />
+                    <circle cx="112" cy="112" r="100" stroke="currentColor" strokeWidth="16" fill="transparent" strokeDasharray={628.3} strokeDashoffset={628.3 * (1 - (stats?.progress_percent || 0) / 100)} className="text-primary rounded-full transition-all duration-1000 shadow-lg shadow-blue-500/20" />
                   </svg>
                   <div className="absolute flex flex-col items-center">
-                    <span className="text-2xl font-bold text-slate-800 tracking-tighter">50%</span>
+                    <span className="text-2xl font-bold text-slate-800 tracking-tighter">{isLoading ? "..." : `${stats?.progress_percent}%`}</span>
                     <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">Project Progress</span>
                   </div>
                 </div>
@@ -196,15 +192,18 @@ const ClientDashboard = () => {
                 </div>
               </div>
               <div className="h-72 w-full">
-              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                  <BarChart data={costData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                  <BarChart 
+                    data={stats ? [{ name: "Current Project", budget: stats.budget_total, actual: stats.total_expense }] : costData} 
+                    margin={{ top: 0, right: 0, left: -20, bottom: 0 }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} unit="" />
                     <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 20px 40px rgba(0,0,0,0.1)', padding: '16px' }} />
                     <Bar dataKey="budget" fill="#F1F5F9" radius={[12, 12, 0, 0]} barSize={40} />
                     <Bar dataKey="actual" fill="#2563EB" radius={[12, 12, 0, 0]} barSize={40}>
-                      {costData.map((entry, index) => (
+                      {(stats ? [{ name: "Current Project", budget: stats.budget_total, actual: stats.total_expense }] : costData).map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.actual > entry.budget ? '#EF4444' : '#2563EB'} />
                       ))}
                     </Bar>
@@ -220,12 +219,15 @@ const ClientDashboard = () => {
                   <div className="flex justify-between items-end">
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Key Milestones</p>
-                      <p className="text-base font-bold text-slate-800">0 / 1 Completed</p>
+                      <p className="text-base font-bold text-slate-800">{isLoading ? "..." : `${stats?.milestones_completed} / ${stats?.milestones_total}`} Completed</p>
                     </div>
-                    <span className="text-xs font-bold text-slate-400 italic">Target: 1 Milestone</span>
+                    <span className="text-xs font-bold text-slate-400 italic">Target: {stats?.milestones_total} Milestones</span>
                   </div>
                   <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="w-[0%] h-full bg-purple-500 transition-all duration-1000" />
+                    <div 
+                      className="h-full bg-purple-500 transition-all duration-1000" 
+                      style={{ width: `${(stats?.milestones_completed || 0) / (stats?.milestones_total || 1) * 100}%` }}
+                    />
                   </div>
                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Next: Foundation Structural Completion</p>
                 </div>
@@ -233,12 +235,15 @@ const ClientDashboard = () => {
                   <div className="flex justify-between items-end">
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Tasks</p>
-                      <p className="text-base font-bold text-slate-800">0 / 1 Completed</p>
+                      <p className="text-base font-bold text-slate-800">{isLoading ? "..." : `${stats?.tasks_completed} / ${stats?.tasks_total}`} Completed</p>
                     </div>
                     <span className="text-xs font-bold text-slate-400 italic">Current Sprint</span>
                   </div>
                   <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="w-[0%] h-full bg-blue-500 transition-all duration-1000" />
+                    <div 
+                      className="h-full bg-blue-500 transition-all duration-1000" 
+                      style={{ width: `${(stats?.tasks_completed || 0) / (stats?.tasks_total || 1) * 100}%` }}
+                    />
                   </div>
                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Active: Site Preparation & Leveling</p>
                 </div>

@@ -3,7 +3,6 @@ import Navbar from "../../components/common/Navbar";
 import { Plus, AlertCircle, Loader2 } from "lucide-react";
 import CreateIssueModal from "../../components/forms/CreateIssueModal";
 import toast from "react-hot-toast";
-import { issueService } from "../../services/issueService";
 
 const INITIAL_ISSUES = [
   { 
@@ -49,8 +48,8 @@ const INITIAL_ISSUES = [
 ];
 
 const ClientIssuesPage = () => {
-  const [issues, setIssues] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [issues, setIssues] = useState<any[]>(INITIAL_ISSUES);
+  const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [filters, setFilters] = useState({
     status: "",
@@ -59,39 +58,23 @@ const ClientIssuesPage = () => {
     search: ""
   });
 
-  const fetchIssues = async () => {
-    try {
-      setLoading(true);
-      const response = await issueService.getProjectIssues(1, filters); // project_id = 1
-      const rawItems = response.items || [];
+  const fetchIssues = () => {
+    // Simulation of fetching with filters
+    setLoading(true);
+    setTimeout(() => {
+      let filtered = [...INITIAL_ISSUES];
       
-      const mappedData = rawItems.map((item: any) => {
-        const dateObj = new Date(item.reported_date);
-        const formattedDate = dateObj.toLocaleDateString('en-GB', {
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric'
-        });
-
-        return {
-          id: item.business_id || `ISS-${item.id}`,
-          title: item.title,
-          type: item.category,
-          description: item.description,
-          reportedDate: formattedDate,
-          status: item.status || "Open",
-          impactLevel: item.priority || "Medium",
-          resolution: item.resolution
-        };
-      });
-
-      setIssues(mappedData);
-    } catch (error) {
-      toast.error("Failed to fetch project issues.");
-      setIssues([]); 
-    } finally {
+      if (filters.status) filtered = filtered.filter(i => i.status === filters.status);
+      if (filters.category) filtered = filtered.filter(i => i.type === filters.category);
+      if (filters.priority) filtered = filtered.filter(i => i.impactLevel === filters.priority);
+      if (filters.search) {
+        const s = filters.search.toLowerCase();
+        filtered = filtered.filter(i => i.title.toLowerCase().includes(s) || i.description.toLowerCase().includes(s));
+      }
+      
+      setIssues(filtered);
       setLoading(false);
-    }
+    }, 500);
   };
 
   useEffect(() => {
@@ -99,26 +82,24 @@ const ClientIssuesPage = () => {
   }, [filters]);
 
   const handleCreateIssue = async (data: any) => {
-    try {
-      const payload = {
-        project_id: 1,
-        title: data.title,
-        category: data.type,
-        description: data.description,
-        reported_date: new Date().toISOString().split('T')[0],
-        priority: data.impactLevel,
-      };
+    const newIssue = {
+      id: `ISS-${Math.floor(Math.random() * 1000)}`,
+      title: data.title,
+      type: data.type,
+      description: data.description,
+      reportedDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      status: "Open",
+      impactLevel: data.impactLevel,
+      resolution: ""
+    };
 
-      await issueService.createIssue(payload);
-      await fetchIssues(); // Refresh list
-
-      toast.success("Issue reported successfully!", {
-        style: { borderRadius: "12px", background: "#333", color: "#fff" },
-        icon: "🚩",
-      });
-    } catch (error) {
-      toast.error("Failed to report issue.");
-    }
+    setIssues([newIssue, ...issues]);
+    
+    toast.success("Issue reported successfully!", {
+      style: { borderRadius: "12px", background: "#333", color: "#fff" },
+      icon: "🚩",
+    });
+    setIsModalOpen(false);
   };
 
   return (

@@ -7,6 +7,29 @@ import autoTable from "jspdf-autotable";
 import { Download, FileText, Printer, Plus, Loader2 } from "lucide-react";
 import { dsrService } from "../../../services/dsrService";
 
+const INITIAL_DSR_DATA = [
+  { 
+    id: "DSR-2026-089", 
+    date: "01 Apr 2026", 
+    workDone: "Casting of Floor 4 slab completed with M25 concrete. Vibrators were used continuously during the pour.", 
+    workPlanned: "Removal of formwork from Floor 3 and preparation of Level 4 columns.",
+    labourCount: 28, 
+    materialUsed: "Cement: 120 bags, Steel: 2.1 Tons, Concrete: 45 Cum",
+    remarks: "Slab finish achieved as per specifications. No safety incidents reported.",
+    photos: ["https://images.unsplash.com/photo-1541888946425-d81bb19480c5?w=200&h=150&fit=crop", "https://images.unsplash.com/photo-1503387762-592dea58ef21?w=200&h=150&fit=crop"]
+  },
+  { 
+    id: "DSR-2026-088", 
+    date: "31 Mar 2026", 
+    workDone: "Placement of slab reinforcement for Floor 4. Inspection of electrical conduits by consultant.", 
+    workPlanned: "Casting of Floor 4 slab.",
+    labourCount: 24, 
+    materialUsed: "Steel: 4.5 Tons, PVC Conduits: 180m, Binding Wire: 40kg",
+    remarks: "Reinforcement checked and approved by PM. Concrete pump mobilization confirmed.",
+    photos: ["https://images.unsplash.com/photo-1590486803833-ffc45744a3ae?w=200&h=150&fit=crop"]
+  },
+];
+
 const INITIAL_DSR_REPORTS = [
   { 
     id: "DSR-2026-089", 
@@ -45,87 +68,38 @@ const ClientDSRSummaryPage = () => {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  useEffect(() => {
-    const fetchDsr = async () => {
-      try {
-        setLoading(true);
-        const data = await dsrService.getProjectDsr(1); // project_id = 1 as requested
-        
-        const mappedData = data.map((item: any) => {
-          const dateObj = new Date(item.report_date);
-          const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-          const formattedDate = `${dateObj.getDate().toString().padStart(2, '0')} ${months[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
-
-          return {
-            id: item.business_id || `DSR-${item.id}`,
-            date: formattedDate,
-            workDone: item.work_done,
-            workPlanned: item.work_planned,
-            labourCount: item.total_labour || 0,
-            materialUsed: item.material_used || "N/A",
-            remarks: item.remarks || "No additional remarks.",
-            photos: [] // Placeholder as API doesn't return photos yet
-          };
-        });
-
-        setReports(mappedData);
-      } catch (error) {
-        toast.error("Failed to fetch site reports.");
-        setReports(INITIAL_DSR_REPORTS); // Fallback to mock data if API fails
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDsr();
-  }, []);
-
-  const handleCreateDSR = async (data: any) => {
+  const fetchDsr = async () => {
+    setLoading(true);
     try {
-      // Map frontend data to API format
-      const dsrPayload = {
-        project_id: 1, // project_id = 1 as requested
-        report_date: data.date,
-        work_done: data.workDone,
-        work_planned: data.workPlanned,
-        total_labour: data.labourCount,
-        material_used: data.materialUsed,
-        remarks: data.remarks,
-        status: "Draft",
-        site_location: "Skyline Tower - Main Block", // Default or derived
-      };
-
-      await dsrService.createDsr(dsrPayload);
-      
-      // Refresh the list from API
-      const updatedData = await dsrService.getProjectDsr(1);
-      const mappedData = updatedData.map((item: any) => {
-        const dateObj = new Date(item.report_date);
-        const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-        const formattedDate = `${dateObj.getDate().toString().padStart(2, '0')} ${months[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
-
-        return {
-          id: item.business_id || `DSR-${item.id}`,
-          date: formattedDate,
-          workDone: item.work_done,
-          workPlanned: item.work_planned,
-          labourCount: item.total_labour || 0,
-          materialUsed: item.material_used || "N/A",
-          remarks: item.remarks || "No additional remarks.",
-          photos: []
-        };
-      });
-
-      setReports(mappedData);
-      
-      toast.success("Daily Site Report published successfully!", {
-        style: { borderRadius: "12px", background: "#333", color: "#fff" },
-        icon: "📋",
-      });
-    } catch (error) {
-      toast.error("Failed to publish site report.");
+      const response = await dsrService.getProjectDsr(1);
+      // Map API items to the UI structure if needed, or update UI to use API fields
+      const mappedReports = response.items.map(item => ({
+        id: item.business_id,
+        date: new Date(item.report_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+        workDone: item.work_done,
+        workPlanned: item.work_planned,
+        labourCount: item.total_labour,
+        materialUsed: item.material_used,
+        remarks: item.remarks,
+        photos: item.photos.map(p => {
+           // Handle relative URLs if necessary
+           return p.file_url.startsWith('http') ? p.file_url : `/${p.file_url}`;
+        })
+      }));
+      setReports(mappedReports);
+      if (reports.length > 0) {
+        toast.success("DSR Records Synced!");
+      }
+    } catch (err) {
+      toast.error("Failed to load site reports");
+    } finally {
+      setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchDsr();
+  }, []);
 
   const downloadDSR = (report: any) => {
     try {
@@ -198,16 +172,16 @@ const ClientDSRSummaryPage = () => {
             <p className="text-slate-400 font-semibold mt-1 uppercase tracking-widest text-[10px]">Detailed daily work progress, resource logs, and field reports</p>
           </div>
           <button 
-            onClick={() => setIsModalOpen(true)}
+            onClick={fetchDsr}
             className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
           >
-            <Plus size={18} strokeWidth={3} />
-            Create Daily Report
+            <Plus size={18} strokeWidth={3} className={loading ? "animate-spin" : ""} />
+            {loading ? "Syncing..." : "Fetch Daily Reports"}
           </button>
         </div>
 
         <div className="space-y-8">
-          {loading ? (
+          {loading && reports.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-32 text-slate-400">
               <Loader2 className="w-12 h-12 mb-4 animate-spin text-primary opacity-50" />
               <p className="text-sm font-bold uppercase tracking-widest">Fetching daily reports...</p>
@@ -319,15 +293,9 @@ const ClientDSRSummaryPage = () => {
               )}
             </div>
           ))
-        )}
+          )}
+        </div>
       </div>
-      </div>
-
-      <CreateDSRModal 
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSubmit={handleCreateDSR}
-      />
     </>
   );
 };

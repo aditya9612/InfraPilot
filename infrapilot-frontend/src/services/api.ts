@@ -19,15 +19,13 @@ api.interceptors.request.use(
       try {
         const user = JSON.parse(userString);
         const token = user.token?.access_token || user.token;
-        if (token && typeof token === 'string') {
+        if (token && typeof token === "string") {
           config.headers.Authorization = `Bearer ${token}`;
         }
       } catch (e) {
         console.error("Auth Interceptor: Failed to parse user object", e);
       }
     }
-    const fullUrl = `${config.baseURL || ""}${config.url}`;
-    console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${fullUrl}`, config.headers);
     return config;
   },
   (error) => Promise.reject(error),
@@ -38,22 +36,29 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      const userString = localStorage.getItem('infrapilot_user');
+      const userString = localStorage.getItem("infrapilot_user");
       if (userString) {
         try {
           const user = JSON.parse(userString);
           const token = user.token?.access_token || user.token;
-          // Do NOT auto-logout mock/dev users — they use fake tokens
-          if (token === 'mock_test_token_client_transparency' || token === 'mock_accountant_token') {
-            console.warn('Mock user received 401 — suppressing auto-logout.');
+          // Do NOT auto-logout mock users — they use static tokens
+          if (
+            token === "mock_test_token_client_transparency" ||
+            token === "mock_accountant_token"
+          ) {
+            console.warn("Mock session received 401 — suppressing auto-logout.");
             return Promise.reject(error);
           }
         } catch (e) {
-          // Ignore parse error, fall through to logout
+          // Ignore parse error
         }
       }
-      localStorage.removeItem('infrapilot_user');
-      window.location.href = '/login';
+      
+      // Clear storage and redirect to login
+      localStorage.removeItem("infrapilot_user");
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login";
+      }
     }
     return Promise.reject(error);
   },

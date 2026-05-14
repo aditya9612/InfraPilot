@@ -14,13 +14,24 @@ const team: TeamMember[] = [
   { id: "4", name: "Suresh Varma", role: "QC Engineer", completedTasks: 15, totalTasks: 18, productivity: 88 },
 ];
 
+import { useState } from "react";
+import TeamReportModal from "./TeamReportModal";
+
 const TeamPerformance = () => {
+  const [isReportOpen, setIsReportOpen] = useState(false);
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 h-full">
       <div className="flex justify-between items-center mb-6">
         <h3 className="font-bold text-slate-800">Team Performance</h3>
-        <button className="text-xs text-primary font-semibold hover:underline">Full Report</button>
+        <button 
+          onClick={() => setIsReportOpen(true)}
+          className="text-xs text-primary font-semibold hover:underline"
+        >
+          Full Report
+        </button>
       </div>
+
       <div className="space-y-6">
         {team.map((member) => (
           <div key={member.id} className="space-y-2">
@@ -44,6 +55,12 @@ const TeamPerformance = () => {
           </div>
         ))}
       </div>
+
+      <TeamReportModal 
+        isOpen={isReportOpen} 
+        onClose={() => setIsReportOpen(false)} 
+        team={team} 
+      />
     </div>
   );
 };

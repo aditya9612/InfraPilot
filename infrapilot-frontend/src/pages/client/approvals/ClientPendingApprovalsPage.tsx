@@ -2,8 +2,35 @@ import { useState, useEffect } from "react";
 import Navbar from "../../../components/common/Navbar";
 import { Plus } from "lucide-react";
 import CreateApprovalModal from "../../../components/forms/CreateApprovalModal";
-import { approvalService } from "../../../services/approvalService";
-import toast from "react-hot-toast";
+const INITIAL_APPROVALS_DATA = [
+   {
+      id: "APR-042",
+      requestType: "Billing",
+      description: "Phase 2 structural completion milestone payment request for slab and column work.",
+      amountQuantity: "₹45,50,000",
+      requestedBy: "Projects Dept (Rajesh M.)",
+      status: "Pending",
+      remarks: "Work verified by site engineer on 30th Mar. Quality certificates attached."
+   },
+   {
+      id: "APR-043",
+      requestType: "Material",
+      description: "Procurement of high-tensile reinforcement steel (Fe500D) for Phase 3 foundation.",
+      amountQuantity: "45 Tons",
+      requestedBy: "Procurement Team",
+      status: "Pending",
+      remarks: "Current market rate applied. Bulk discount included."
+   },
+   {
+      id: "APR-044",
+      requestType: "Design",
+      description: "Modification of balcony railing design from steel to toughened glass for improved aesthetics.",
+      amountQuantity: "All External Balconies",
+      requestedBy: "Lead Architect (Anjali D.)",
+      status: "Pending",
+      remarks: "No structural impact. Slight increase in material cost offset by maintenance savings."
+   }
+];
 
 const pendingApprovals = [
    {
@@ -35,33 +62,19 @@ const pendingApprovals = [
    }
 ];
 
+import toast from "react-hot-toast";
+
 const ClientPendingApprovalsPage = () => {
    const [isModalOpen, setIsModalOpen] = useState(false);
    const [approvals, setApprovals] = useState<any[]>([]);
    const [loading, setLoading] = useState(true);
 
    const fetchApprovals = async () => {
-      try {
-         setLoading(true);
-         const data = await approvalService.getApprovals(1); // project_id = 1
-         
-         const mapped = data.map((item: any) => ({
-            id: `APR-${item.id.toString().padStart(3, '0')}`,
-            db_id: item.id,
-            requestType: item.entity_type.charAt(0).toUpperCase() + item.entity_type.slice(1),
-            description: item.remarks || "No description provided for this request.",
-            amountQuantity: item.amount_quantity || "See details",
-            requestedBy: item.requested_by_name || "Project Engineering Team",
-            status: item.status,
-            remarks: item.remarks || "Under review"
-         }));
-
-         setApprovals(mapped);
-      } catch (error) {
-         toast.error("Failed to load approvals.");
-      } finally {
+      setLoading(true);
+      setTimeout(() => {
+         setApprovals(INITIAL_APPROVALS_DATA);
          setLoading(false);
-      }
+      }, 800);
    };
 
    useEffect(() => {
@@ -69,47 +82,46 @@ const ClientPendingApprovalsPage = () => {
    }, []);
 
    const handleCreateApproval = async (data: any) => {
-      try {
-         const payload = {
-            project_id: 1, 
-            title: data.title,
-            type: data.type,
+      setLoading(true);
+      setTimeout(() => {
+         const newApr = {
+            id: `APR-${Math.floor(Math.random() * 900 + 100)}`,
+            requestType: data.type,
             description: data.description,
-            amount_quantity: data.amountQuantity,
-            status: 'Pending',
+            amountQuantity: data.amountQuantity,
+            requestedBy: "Client (Self)",
+            status: "Pending",
+            remarks: "New request from portal"
          };
-         await approvalService.submitApproval(payload as any); // Type cast for now
+         setApprovals(prev => [newApr, ...prev]);
          toast.success("Approval request submitted!");
-         await fetchApprovals();
-      } catch (error) {
-         toast.error("Failed to submit request.");
-      }
+         setIsModalOpen(false);
+         setLoading(false);
+      }, 800);
    };
 
    const handleApprove = async (apr: any) => {
-      try {
-         await approvalService.approveApproval(apr.db_id, "Approved via Client Portal");
+      setLoading(true);
+      setTimeout(() => {
+         setApprovals(prev => prev.filter(a => a.id !== apr.id));
          toast.success("Request approved!", {
             style: { borderRadius: "12px", background: "#059669", color: "#fff" },
             icon: "✅",
          });
-         await fetchApprovals();
-      } catch (error) {
-         toast.error("Failed to approve request.");
-      }
+         setLoading(false);
+      }, 500);
    };
 
    const handleReject = async (apr: any) => {
-      try {
-         await approvalService.rejectApproval(apr.db_id, "Rejected after review");
+      setLoading(true);
+      setTimeout(() => {
+         setApprovals(prev => prev.filter(a => a.id !== apr.id));
          toast.success("Request rejected", {
             style: { borderRadius: "12px", background: "#dc2626", color: "#fff" },
             icon: "❌",
          });
-         await fetchApprovals();
-      } catch (error) {
-         toast.error("Failed to reject request.");
-      }
+         setLoading(false);
+      }, 500);
    };
 
    return (

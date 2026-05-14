@@ -11,7 +11,6 @@ import PurchaseActionModal from "../../components/inventory/PurchaseActionModal"
 import MaterialCostReportModal from "../../components/inventory/MaterialCostReportModal";
 import toast from "react-hot-toast";
 import ConfirmModal from "../../components/common/ConfirmModal";
-import { materialService } from "../../services/materialService";
 import { Edit2, PlusCircle, MinusCircle, Trash2 } from "lucide-react";
 
 // --- Mock Data (Exact API Schema) ---
@@ -144,7 +143,6 @@ const InventoryPage = () => {
         setSuppliers(prev => prev.map(s => s.id === selectedSupplier.id ? { ...data, id: s.id } : s));
         toast.success("Supplier updated successfully!");
       } else {
-        await materialService.createSupplier(data);
         setSuppliers((prev) => [...prev, { ...data, id: `s${prev.length + 1}` }]);
         toast.success("Supplier added successfully!");
       }

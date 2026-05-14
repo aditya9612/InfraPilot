@@ -1,6 +1,5 @@
 import Navbar from "../../components/common/Navbar";
 import { useState, useEffect } from "react";
-import { authService } from "../../services/authService";
 import { toast } from "react-hot-toast";
 
 const ClientSettingsPage = () => {
@@ -8,10 +7,10 @@ const ClientSettingsPage = () => {
   const [saving, setSaving] = useState(false);
   
   const [profile, setProfile] = useState({
-    full_name: "",
-    email: "",
-    mobile_number: "",
-    company: ""
+    full_name: "Mock Client",
+    email: "client@infrapilot.com",
+    mobile_number: "+91 98765 43210",
+    company: "Skyline Ventures"
   });
 
   const [notifications, setNotifications] = useState([
@@ -21,44 +20,15 @@ const ClientSettingsPage = () => {
   ]);
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        setLoading(true);
-        const data = await authService.getProfile();
-        setProfile({
-          full_name: data.full_name || "",
-          email: data.email || "",
-          mobile_number: data.mobile_number || "",
-          company: data.address || "Pune" // Using address as company for this view
-        });
-      } catch (error) {
-        toast.error("Failed to fetch profile settings.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProfile();
+    setLoading(false);
   }, []);
 
   const handleSave = async () => {
-    try {
-      setSaving(true);
-      // Constructing payload matching the requested API structure
-      const payload = {
-        full_name: profile.full_name,
-        email: profile.email,
-        mobile_number: profile.mobile_number,
-        designation: "Client", // Default for this portal
-        is_active: true
-      };
-      
-      await authService.updateProfile(payload);
-      toast.success("Settings saved successfully.");
-    } catch (error) {
-      toast.error("Failed to update settings.");
-    } finally {
+    setSaving(true);
+    setTimeout(() => {
+      toast.success("Settings saved successfully (Mock Mode).");
       setSaving(false);
-    }
+    }, 800);
   };
 
   const toggleNotification = (index: number) => {

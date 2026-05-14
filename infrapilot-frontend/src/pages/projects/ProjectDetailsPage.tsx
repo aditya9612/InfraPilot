@@ -2,7 +2,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useState, useMemo } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
-import { projectService } from "../../services/projectService";
 import type { Project } from "../../types/project";
 import KanbanBoard from "../../components/projects/KanbanBoard";
 import MilestoneTimeline from "../../components/projects/MilestoneTimeline";
@@ -16,6 +15,40 @@ import toast from "react-hot-toast";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import ScheduleProjectModal from "../../components/projects/ScheduleProjectModal";
 import { useEffect, useCallback } from "react";
+
+const MOCK_PROJECT: Project = {
+  id: 1,
+  project_name: "Ganga Heritage Site",
+  description: "Restoration of historical riverfront structures and development of sustainable public spaces.",
+  location: "Varanasi, UP",
+  status: "Ongoing",
+  start_date: "2026-01-15",
+  end_date: "2026-12-30",
+  completion_percentage: 65,
+  total_budget: 15000000,
+};
+
+const MOCK_MEMBERS = [
+  { id: 1, user_id: 101, name: "Karan Singh", role: "Site Engineer", email: "karan@infrapilot.in" },
+  { id: 2, user_id: 102, name: "Amit Sharma", role: "Project Manager", email: "amit@infrapilot.in" },
+];
+
+const MOCK_MILESTONES = [
+  { id: 1, title: "Foundation Restoration", status: "Completed", due_date: "2026-03-15" },
+  { id: 2, title: "Structural Reinforcement", status: "In Progress", due_date: "2026-07-20" },
+];
+
+const MOCK_TASKS = [
+  { id: 1, title: "Base excavation", status: "Completed", priority: "High", assigned_to: "Karan Singh" },
+  { id: 2, title: "Column reinforcement", status: "In Progress", priority: "Medium", assigned_to: "Amit Sharma" },
+];
+
+const MOCK_PL = {
+  total_revenue: 15000000,
+  total_expenses: 8500000,
+  net_profit: 6500000,
+  profit_margin: 43.33,
+};
 
 const ProjectDetailsPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -59,39 +92,17 @@ const ProjectDetailsPage = () => {
 
   const fetchProjectData = useCallback(async () => {
     if (!projectId) return;
-    try {
-      setLoading(true);
-      const [pData, mData, msData, tData, sData, prData, plData] =
-        await Promise.all([
-          projectService.getProjectById(projectId),
-          projectService.getProjectMembers(projectId),
-          projectService.getMilestones(projectId),
-          projectService.getTasks(projectId),
-          projectService.getProjectSchedule(projectId).catch(() => null),
-          projectService.getProjectProgress(projectId).catch(() => null),
-          projectService.getProjectProfitLoss(projectId).catch(() => null),
-        ]);
-
-      setProject(pData);
-      setSchedule(sData);
-      setProgress(prData);
-      setMembers(
-        Array.isArray(mData) ? mData : mData.items || mData.data || [],
-      );
-      setMilestones(
-        Array.isArray(msData) ? msData : msData.items || msData.data || [],
-      );
-      setTasks(Array.isArray(tData) ? tData : tData.items || tData.data || []);
-      setProfitLoss(plData);
-
-      // Expenses could be fetched from finance API if available,
-      // but for now we'll rely on the project data or separate logs
-    } catch (error) {
-      console.error("Failed to fetch project details:", error);
-      toast.error("Failed to load project data");
-    } finally {
+    setLoading(true);
+    setTimeout(() => {
+      setProject(MOCK_PROJECT);
+      setSchedule({ start_date: MOCK_PROJECT.start_date, end_date: MOCK_PROJECT.end_date });
+      setProgress({ completion_percentage: MOCK_PROJECT.completion_percentage, status: MOCK_PROJECT.status });
+      setMembers(MOCK_MEMBERS);
+      setMilestones(MOCK_MILESTONES);
+      setTasks(MOCK_TASKS);
+      setProfitLoss(MOCK_PL);
       setLoading(false);
-    }
+    }, 800);
   }, [projectId]);
 
   useEffect(() => {
@@ -99,68 +110,23 @@ const ProjectDetailsPage = () => {
   }, [fetchProjectData]);
 
   const handleCreateMilestone = async (milestoneData: any) => {
-    try {
-      await projectService.createMilestone(projectId, milestoneData);
-      toast.success("Milestone created successfully");
-      fetchProjectData();
-    } catch (error) {
-      toast.error("Failed to create milestone");
-    }
+    setMilestones(prev => [...prev, { id: Date.now(), ...milestoneData, status: "Planned" }]);
+    toast.success("Milestone created successfully");
   };
 
   const handleCreateTask = async (taskData: any) => {
-    try {
-      await projectService.createTask(projectId, taskData);
-      toast.success("Task created successfully");
-      fetchProjectData();
-    } catch (error) {
-      toast.error("Failed to create task");
-    }
+    setTasks(prev => [...prev, { id: Date.now(), ...taskData, status: "Todo" }]);
+    toast.success("Task created successfully");
   };
 
   const handleUpdateTask = async (updatedData: any) => {
-    try {
-      const { task_id, project_id: _pid, ...cleanData } = updatedData;
-
-      // Data scrubbing: Ensure we don't send IDs in the body as they are already in the URL
-      // This prevents payload bloat and potential 422/Network errors on strict backends
-      const payload = { ...cleanData };
-      delete (payload as any).task_id;
-      delete (payload as any).project_id;
-
-      // 1. Update core task info (title, description, etc)
-      await projectService.updateTask(projectId, task_id, payload);
-
-      // 2. Explicitly update progress history if percentage is provided.
-      if (payload.percentage !== undefined) {
-        await projectService
-          .updateTaskProgress(projectId, task_id, {
-            task_id: task_id,
-            percentage: payload.percentage,
-            completion_percentage: payload.percentage,
-            remarks: "Updated via edit modal",
-          })
-          .catch((err) =>
-            console.warn("Task progress history sync skipped:", err),
-          );
-      }
-
-      toast.success("Task updated successfully");
-      fetchProjectData();
-    } catch (error) {
-      console.error("Task Update Failed:", error);
-      toast.error("Failed to update task");
-    }
+    setTasks(prev => prev.map(t => t.id === updatedData.task_id ? { ...t, ...updatedData } : t));
+    toast.success("Task updated successfully");
   };
 
   const handleDeleteTask = async (taskId: number) => {
-    try {
-      await projectService.deleteTask(projectId, taskId);
-      toast.success("Task deleted");
-      fetchProjectData();
-    } catch (error) {
-      toast.error("Failed to delete task");
-    }
+    setTasks(prev => prev.filter(t => t.id !== taskId));
+    toast.success("Task deleted");
   };
 
   const handleTaskProgressUpdate = async (
@@ -168,37 +134,17 @@ const ProjectDetailsPage = () => {
     percentage: number,
     remarks: string,
   ) => {
-    try {
-      await projectService.updateTaskProgress(projectId, taskId, {
-        percentage,
-        remarks,
-      });
-      toast.success("Progress updated");
-      fetchProjectData();
-    } catch (error) {
-      toast.error("Failed to update progress");
-    }
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, completion_percentage: percentage } : t));
+    toast.success("Progress updated");
   };
 
   const handleTaskCommentAdd = async (taskId: number, content: string) => {
-    try {
-      await projectService.createTaskComment(projectId, taskId, { content });
-      toast.success("Comment added");
-      fetchProjectData();
-    } catch (error) {
-      toast.error("Failed to add comment");
-    }
+    toast.success("Comment added (Mock Mode)");
   };
 
   const handleEditMilestone = async (updatedData: any) => {
-    try {
-      const { milestone_id, ...data } = updatedData;
-      await projectService.updateMilestone(projectId, milestone_id, data);
-      toast.success("Milestone updated");
-      fetchProjectData();
-    } catch (error) {
-      toast.error("Failed to update milestone");
-    }
+    setMilestones(prev => prev.map(m => m.id === updatedData.milestone_id ? { ...m, ...updatedData } : m));
+    toast.success("Milestone updated");
   };
 
   const handleDeleteMilestoneClick = (id: number) => {
@@ -208,15 +154,10 @@ const ProjectDetailsPage = () => {
 
   const handleDeleteMilestoneConfirm = async () => {
     if (milestoneToDelete) {
-      try {
-        await projectService.deleteMilestone(projectId, milestoneToDelete);
-        toast.success("Milestone removed");
-        setIsDeleteMilestoneModalOpen(false);
-        setMilestoneToDelete(null);
-        fetchProjectData();
-      } catch (error) {
-        toast.error("Failed to remove milestone");
-      }
+      setMilestones(prev => prev.filter(m => m.id !== milestoneToDelete));
+      toast.success("Milestone removed");
+      setIsDeleteMilestoneModalOpen(false);
+      setMilestoneToDelete(null);
     }
   };
 
@@ -247,28 +188,14 @@ const ProjectDetailsPage = () => {
   }, [milestones]);
 
   const handleUpdateProject = async (updatedData: any) => {
-    try {
-      await projectService.updateProject(projectId, updatedData);
-      toast.success("Project updated");
-      fetchProjectData();
-    } catch (error) {
-      toast.error("Failed to update project");
-    }
+    setProject(prev => prev ? { ...prev, ...updatedData } : null);
+    toast.success("Project updated");
+    setIsEditModalOpen(false);
   };
 
   const handleAssignMember = async (newMembers: any[]) => {
-    try {
-      // API currently takes one member at a time
-      await Promise.all(
-        newMembers.map((m) =>
-          projectService.assignMember(projectId, m.user_id),
-        ),
-      );
-      toast.success("Team member(s) assigned!");
-      fetchProjectData();
-    } catch (error) {
-      toast.error("Failed to assign members");
-    }
+    setMembers(prev => [...prev, ...newMembers.map(m => ({ id: Date.now() + Math.random(), ...m }))]);
+    toast.success("Team member(s) assigned!");
   };
 
   const handleRemoveMemberClick = (memberId: number) => {
@@ -278,15 +205,10 @@ const ProjectDetailsPage = () => {
 
   const handleRemoveMemberConfirm = async () => {
     if (memberToDelete) {
-      try {
-        await projectService.removeMember(projectId, memberToDelete);
-        toast.success("Member removed from project");
-        setIsDeleteMemberModalOpen(false);
-        setMemberToDelete(null);
-        fetchProjectData();
-      } catch (error) {
-        toast.error("Failed to remove member");
-      }
+      setMembers(prev => prev.filter(m => m.id !== memberToDelete));
+      toast.success("Member removed from project");
+      setIsDeleteMemberModalOpen(false);
+      setMemberToDelete(null);
     }
   };
 

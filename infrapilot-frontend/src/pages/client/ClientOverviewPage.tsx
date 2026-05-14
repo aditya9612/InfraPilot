@@ -263,7 +263,7 @@ const ClientOverviewPage = () => {
            <div>
               <div className="flex justify-between items-center mb-6">
                  <h2 className="text-xl font-bold text-slate-800 tracking-tight">Recent Site Evidence</h2>
-                 <button className="text-[9px] font-bold text-blue-600 uppercase tracking-widest border-b border-blue-600 pb-0.5">EXPLORE FULL GALLERY</button>
+                 <Link to="/client/site-updates/photos" className="text-[9px] font-bold text-blue-600 uppercase tracking-widest border-b border-blue-600 pb-0.5 hover:text-blue-700 hover:border-blue-700 transition-colors">EXPLORE FULL GALLERY</Link>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                  {siteEvidence.map((item, i) => (

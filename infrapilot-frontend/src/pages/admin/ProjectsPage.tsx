@@ -7,7 +7,6 @@ import NewProjectModal from "../../components/dashboard/NewProjectModal";
 import EditProjectModal from "../../components/dashboard/EditProjectModal";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
-import { projectService } from "../../services/projectService";
 import type { Project, ProjectStatus } from "../../types/project";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -35,11 +34,18 @@ const statusDot: Record<ProjectStatus, string> = {
   "On Hold": "bg-warning",
 };
 
+const MOCK_PROJECTS: Project[] = [
+  { id: 1, project_name: "Skyline Residency", start_date: "2024-03-01", end_date: "2025-06-30", status: "Ongoing", completion_percentage: 65 },
+  { id: 2, project_name: "Metropolis Hub", start_date: "2024-04-15", end_date: "2026-02-20", status: "Planned", completion_percentage: 0 },
+  { id: 3, project_name: "Greenfield Airport", start_date: "2023-11-10", end_date: "2025-12-15", status: "Delayed", completion_percentage: 42 },
+  { id: 4, project_name: "Bridge over Godavari", start_date: "2023-01-05", end_date: "2024-03-30", status: "Completed", completion_percentage: 100 },
+];
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 const ProjectsPage = () => {
   const navigate = useNavigate();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [projects, setProjects] = useState<Project[]>(MOCK_PROJECTS);
+  const [isLoading, setIsLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [filterStatus, setFilterStatus] = useState<"All" | ProjectStatus>(
     "All",
@@ -54,65 +60,29 @@ const ProjectsPage = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
 
-  const fetchProjects = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      // Fetch all projects; status filtering is applied client-side to avoid
-      // backend validation errors on certain status values (e.g. Active, Delayed).
-      const res = await projectService.getProjects(100, 0, debouncedSearch);
-      const projectList = Array.isArray(res) ? res : (res.items || res.data || []);
-      setProjects(projectList);
-    } catch (error) {
-      toast.error("Failed to fetch projects");
-      console.error(error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [debouncedSearch]);
+  const fetchProjects = () => {
+    // Projects are initialized with mock data
+    setIsLoading(false);
+  };
 
   useEffect(() => {
     fetchProjects();
-  }, [fetchProjects]);
+  }, [debouncedSearch]);
 
   const handleCreateProject = async (projectData: any) => {
-    try {
-      await projectService.createProject(projectData);
-      toast.success("Project created successfully!");
-      setShowForm(false);
-      fetchProjects();
-    } catch (error) {
-      toast.error("Failed to create project");
-      console.error(error);
-    }
+    toast.success("Project created successfully! (Mock Mode)");
+    setShowForm(false);
   };
 
-  const handleEditClick = async (project: Project) => {
-    try {
-      const toastId = toast.loading("Fetching project details...");
-      const freshProject = await projectService.getProjectById(project.id);
-      setEditingProject(freshProject);
-      setIsEditModalOpen(true);
-      toast.dismiss(toastId);
-    } catch (error) {
-      toast.error("Failed to load project details");
-      // Fallback to existing project data if API fails
-      setEditingProject(project);
-      setIsEditModalOpen(true);
-    }
+  const handleEditClick = (project: Project) => {
+    setEditingProject(project);
+    setIsEditModalOpen(true);
   };
 
   const handleEditProject = async (updatedData: any) => {
-    if (!editingProject) return;
-    try {
-      await projectService.updateProject(editingProject.id, updatedData);
-      toast.success("Project updated successfully!");
-      setIsEditModalOpen(false);
-      setEditingProject(null);
-      fetchProjects();
-    } catch (error) {
-      toast.error("Failed to update project");
-      console.error(error);
-    }
+    toast.success("Project updated successfully! (Mock Mode)");
+    setIsEditModalOpen(false);
+    setEditingProject(null);
   };
 
   useEffect(() => {
@@ -134,7 +104,6 @@ const ProjectsPage = () => {
   };
 
   const handleViewProject = (id: number) => {
-    // Determine the base path based on the current URL (admin or manager)
     const basePath = window.location.pathname.startsWith("/admin")
       ? "/admin"
       : "/manager";
@@ -147,18 +116,9 @@ const ProjectsPage = () => {
   };
 
   const handleDeleteConfirm = async () => {
-    if (projectToDelete) {
-      try {
-        await projectService.deleteProject(projectToDelete);
-        toast.success("Project deleted successfully!");
-        setIsDeleteModalOpen(false);
-        setProjectToDelete(null);
-        fetchProjects();
-      } catch (error) {
-        toast.error("Failed to delete project");
-        console.error(error);
-      }
-    }
+    toast.success("Project deleted successfully! (Mock Mode)");
+    setIsDeleteModalOpen(false);
+    setProjectToDelete(null);
   };
 
   const handleDownloadCSV = () => {

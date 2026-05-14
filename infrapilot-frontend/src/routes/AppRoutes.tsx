@@ -3,8 +3,12 @@ import { useAuth } from "../context/AuthContext";
 import ProtectedRoute from "./ProtectedRoute";
 import DashboardLayout from "../components/common/DashboardLayout";
 import Login from "../pages/auth/Login";
+import LoadingScreen from "../components/common/LoadingScreen";
 import AdminDashboard from "../pages/dashboard/AdminDashboard";
 import ManagerDashboard from "../pages/dashboard/ManagerDashboard";
+import ManagerBOQPage from "../pages/manager/ManagerBOQPage";
+import ManagerMaterialsPage from "../pages/manager/ManagerMaterialsPage";
+import ManagerLabourPage from "../pages/manager/ManagerLabourPage";
 import AccountantDashboard from "../pages/dashboard/AccountantDashboard";
 import Unauthorized from "../pages/Unauthorized";
 import ProjectsPage from "../pages/admin/ProjectsPage";
@@ -97,8 +101,11 @@ import AccountantReportsPage from "../pages/accountant/AccountantReportsPage";
 import AccountantSettingsPage from "../pages/accountant/AccountantSettingsPage";
 
 const RootRedirect = () => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loading } = useAuth();
+  
+  if (loading) return <LoadingScreen />;
   if (!isAuthenticated) return <Login />;
+  
   const paths: Record<string, string> = {
     Admin: "/admin",
     ProjectManager: "/manager",
@@ -106,10 +113,18 @@ const RootRedirect = () => {
     Accountant: "/accountant",
     Client: "/client",
   };
-  return <Navigate to={paths[user!.role] || "/admin"} replace />;
+  
+  const targetPath = paths[user!.role as Role] || "/admin";
+  return <Navigate to={targetPath} replace />;
 };
 
 function AppRoutes() {
+  const { loading } = useAuth();
+
+  if (loading) {
+    return <LoadingScreen />;
+  }
+
   return (
     <BrowserRouter>
       <Routes>
@@ -231,10 +246,10 @@ function AppRoutes() {
             >
               <Route path="/manager" element={<ManagerDashboard />} />
               <Route path="/manager/projects" element={<ProjectsPage />} />
-              <Route
-                path="/manager/projects/:id"
-                element={<ProjectDetailsPage />}
-              />
+              <Route path="/manager/projects/:id" element={<ProjectDetailsPage />} />
+              <Route path="/manager/boq" element={<ManagerBOQPage />} />
+              <Route path="/manager/materials" element={<ManagerMaterialsPage />} />
+              <Route path="/manager/labour" element={<ManagerLabourPage />} />
             </Route>
 
             {/* Engineer Routes */}

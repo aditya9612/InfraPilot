@@ -3,11 +3,19 @@ import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
 import ConfirmModal from "../../components/common/ConfirmModal";
-import { measurementService } from "../../services/measurementService";
-import { projectService } from "../../services/projectService";
 import type { Measurement } from "../../types/measurement";
 import type { Project } from "../../types/project";
 import toast from "react-hot-toast";
+
+const MOCK_PROJECTS: Project[] = [
+  { id: 1, project_name: "Skyline Tower A", description: "Residential tower", location: "Mumbai", status: "Ongoing", start_date: "2026-01-01", end_date: "2027-12-31", total_budget: 50000000 },
+  { id: 2, project_name: "Metro Ph-II", description: "Metro rail project", location: "Delhi", status: "Ongoing", start_date: "2026-06-01", end_date: "2029-12-31", total_budget: 250000000 },
+];
+
+const MOCK_MEASUREMENTS: Measurement[] = [
+  { id: 1, project_id: 1, final_area: 1250, approved_rate: 450, extra_area: 120, extra_rate: 480, created_at: "2026-05-10" },
+  { id: 2, project_id: 1, final_area: 2800, approved_rate: 450, extra_area: 0, extra_rate: 0, created_at: "2026-05-12" },
+];
 import { 
   Ruler, 
   Trash2, 
@@ -37,34 +45,25 @@ const MeasurementPage = () => {
   // Initial load of projects
   useEffect(() => {
     const fetchProjects = async () => {
-      try {
-        setIsLoading(true);
-        const res = await projectService.getProjects(100);
-        const items = Array.isArray(res) ? res : res.items || [];
-        setProjects(items);
-        if (items.length > 0) {
-          setSelectedProject(items[0].id.toString());
+      setIsLoading(true);
+      setTimeout(() => {
+        setProjects(MOCK_PROJECTS);
+        if (MOCK_PROJECTS.length > 0) {
+          setSelectedProject(MOCK_PROJECTS[0].id.toString());
         }
-      } catch (error) {
-        toast.error("System offline: Project matrix inaccessible");
-      } finally {
         setIsLoading(false);
-      }
+      }, 500);
     };
     fetchProjects();
   }, []);
 
   const fetchData = useCallback(async () => {
     if (!selectedProject) return;
-    try {
-      setIsLoading(true);
-      const measData = await measurementService.getMeasurementsByProject(Number(selectedProject));
-      setMeasurements(measData);
-    } catch (error) {
-      setMeasurements([]);
-    } finally {
+    setIsLoading(true);
+    setTimeout(() => {
+      setMeasurements(MOCK_MEASUREMENTS.filter(m => m.project_id === Number(selectedProject)));
       setIsLoading(false);
-    }
+    }, 500);
   }, [selectedProject]);
 
   useEffect(() => {
@@ -78,8 +77,8 @@ const MeasurementPage = () => {
       return;
     }
 
-    try {
-      toast.loading("Broadcasting field data...", { id: "save" });
+    setIsLoading(true);
+    setTimeout(() => {
       const data = {
         project_id: Number(formData.project_id),
         final_area: Number(formData.final_area),
@@ -89,11 +88,12 @@ const MeasurementPage = () => {
       };
 
       if (editingItem) {
-        await measurementService.updateMeasurement(editingItem.id, data);
-        toast.success("Measurement record recalibrated", { id: "save" });
+        setMeasurements(prev => prev.map(m => m.id === editingItem.id ? { ...m, ...data } : m));
+        toast.success("Measurement record recalibrated");
       } else {
-        await measurementService.createMeasurement(data);
-        toast.success("New measurement synchronized", { id: "save" });
+        const newMeas = { id: Date.now(), ...data, created_at: new Date().toISOString() };
+        setMeasurements(prev => [newMeas, ...prev]);
+        toast.success("New measurement synchronized");
       }
 
       setIsModalOpen(false);
@@ -105,10 +105,8 @@ const MeasurementPage = () => {
         extra_area: "",
         extra_rate: ""
       });
-      fetchData();
-    } catch (error) {
-      toast.error("Transmission failed: Check node connectivity", { id: "save" });
-    }
+      setIsLoading(false);
+    }, 500);
   };
 
   const handleEdit = (m: Measurement) => {
@@ -125,15 +123,14 @@ const MeasurementPage = () => {
 
   const handleDelete = async () => {
     if (!targetId) return;
-    try {
-      await measurementService.deleteMeasurement(targetId);
+    setIsLoading(true);
+    setTimeout(() => {
+      setMeasurements(prev => prev.filter(m => m.id !== targetId));
       toast.success("Record purged from mainframes");
       setIsDeleteOpen(false);
       setTargetId(null);
-      fetchData();
-    } catch (error) {
-      toast.error("Purge aborted: Safety protocols active");
-    }
+      setIsLoading(false);
+    }, 500);
   };
 
   const totalFinal = measurements.reduce((acc, curr) => acc + (curr.final_area * curr.approved_rate), 0);

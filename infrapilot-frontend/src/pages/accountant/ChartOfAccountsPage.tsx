@@ -6,7 +6,6 @@ import CreateAccountModal from "../../components/forms/accounting/CreateAccountM
 import CreateExpenseModal from "../../components/forms/CreateExpenseModal";
 import toast from "react-hot-toast";
 import type { ChartAccount, AccountType } from "../../types/accounting";
-import { expenseService } from "../../services/expenseService";
 import { Eye, Edit2, Trash2, Plus } from "lucide-react";
 import ViewAccountModal from "../../components/forms/accounting/ViewAccountModal";
 import ConfirmModal from "../../components/common/ConfirmModal";
@@ -204,31 +203,13 @@ const ChartOfAccountsPage = () => {
   };
 
   // Called when Create button is clicked on the Expenses tab
-  // → POST /api/v1/expenses
   const handleCreateExpense = async (data: any) => {
     setIsSubmitting(true);
-    try {
-      const payload = {
-        project_id: data.project_id ? Number(data.project_id) : 1,
-        category: data.category,
-        description: data.remarks || data.description || "",
-        amount: Number(data.amount),
-        expense_date: data.expense_date,
-        payment_mode: data.payment_mode,
-        ...(data.boq_item_id ? { boq_item_id: Number(data.boq_item_id) } : {}),
-      };
-      await expenseService.createExpense(payload);
-      toast.success("Expense recorded successfully!");
+    setTimeout(() => {
+      toast.success("Expense recorded successfully! (Mock Mode)");
       setIsModalOpen(false);
-    } catch (error: any) {
-      console.error("Failed to create expense:", error);
-      toast.error(
-        error?.response?.data?.detail ||
-          "Failed to record expense. Please try again.",
-      );
-    } finally {
       setIsSubmitting(false);
-    }
+    }, 500);
   };
 
   const filteredCOA =

@@ -4,18 +4,15 @@ import StatCard from "../../components/common/StatCard";
 import InvoiceTable from "../../components/dashboard/InvoiceTable";
 import FinanceChart from "../../components/dashboard/FinanceChart";
 import BOQSummary from "../../components/dashboard/BOQSummary";
-import TransactionFeed from "../../components/dashboard/TransactionFeed";
-import { financeService } from "../../services/financeService";
-import { dashboardService } from "../../services/dashboardService";
 import CreateInvoiceModal from "../../components/forms/CreateInvoiceModal";
 import toast from "react-hot-toast";
 
 const AccountantDashboard = () => {
   const [stats, setStats] = useState({
-    total_revenue: 0,
-    total_invoices: 0,
-    pending_payments: 0,
-    total_expense: 0,
+    total_revenue: 128000000,
+    total_invoices: 450,
+    pending_payments: 24500000,
+    total_expense: 84000000,
   });
 
   const [showTypeSelector, setShowTypeSelector] = useState(false);
@@ -23,26 +20,12 @@ const AccountantDashboard = () => {
   const [activeCreateType, setActiveCreateType] = useState<any>("owner");
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const data = await dashboardService.getAccountantDashboard();
-        setStats(data);
-      } catch (error) {
-        console.error("Failed to fetch accountant dashboard stats:", error);
-      }
-    };
-
-    fetchStats();
+    // Stats are initialized with mock data
   }, []);
 
   const handleCreateOrUpdate = async (data: any) => {
-    try {
-      await financeService.createInvoice(data);
-      toast.success("Invoice created successfully");
-      setIsModalOpen(false);
-    } catch (error: any) {
-      toast.error(error.message || "Failed to create invoice");
-    }
+    toast.success("Invoice created successfully (Mock Mode)");
+    setIsModalOpen(false);
   };
   return (
     <>

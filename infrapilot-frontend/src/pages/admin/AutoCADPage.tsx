@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
-import api from "../../services/api";
+const MOCK_CAD_LOGS = [
+  { id: 1, project_name: "Skyline Tower A", file_path: "/uploads/cad/skyline_foundation_rev2.csv", area: 1250.45, created_at: "2026-05-10T10:30:00Z" },
+  { id: 2, project_name: "Metro Ph-II", file_path: "/uploads/cad/metro_tunnel_alignment.dxf", area: 45200.00, created_at: "2026-05-12T14:45:00Z" },
+];
 import toast from "react-hot-toast";
 import CADUploadStep from "../../components/cad/CADUploadStep";
 import CADConvertStep from "../../components/cad/CADConvertStep";
@@ -146,7 +149,7 @@ export default function AutoCADPage() {
   const [cadLogs, setCadLogs] = useState<any[]>([]);
 
   useEffect(() => {
-    api.get("/cad/logs").then((r) => setCadLogs(r.data)).catch(() => {});
+    setCadLogs(MOCK_CAD_LOGS);
   }, []);
 
   // ── Upload handlers ──────────────────────────────────────────────────────

@@ -1,7 +1,12 @@
 import { useState, useEffect } from "react";
 import Navbar from "../../../components/common/Navbar";
-import { financeService } from "../../../services/financeService";
 import type { Invoice } from "../../../types/invoice";
+
+const MOCK_INVOICES: Invoice[] = [
+  { id: 1, invoice_number: "INV-2026-001", type: "labour", description: "Excavation and foundation work", amount: 450000, gst_amount: 81000, total_amount: 531000, status: "paid", invoice_date: "2026-05-10", due_date: "2026-05-20" },
+  { id: 2, invoice_number: "INV-2026-002", type: "material", description: "Supply of 500 bags of cement", amount: 175000, gst_amount: 31500, total_amount: 206500, status: "pending", invoice_date: "2026-05-12", due_date: "2026-05-22" },
+  { id: 3, invoice_number: "INV-2026-003", type: "labour", description: "Column reinforcement work", amount: 280000, gst_amount: 50400, total_amount: 330400, status: "pending", invoice_date: "2026-05-14", due_date: "2026-05-24" },
+];
 
 const ClientInvoicesPage = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -14,40 +19,21 @@ const ClientInvoicesPage = () => {
   }, []);
 
   const fetchInvoices = async () => {
-    try {
-      console.log("ClientInvoicesPage: Fetching invoices...");
-      setLoading(true);
-      const data = await financeService.getInvoices();
-      console.log("ClientInvoicesPage: Data received:", data);
-      setInvoices(Array.isArray(data) ? data : []);
-      setError(null);
-    } catch (err: any) {
-      console.error("ClientInvoicesPage: Error fetching invoices:", err);
-      setError("Failed to load invoices: " + (err.message || "Unknown error"));
-      setInvoices([]);
-    } finally {
+    setLoading(true);
+    setTimeout(() => {
+      setInvoices(MOCK_INVOICES);
       setLoading(false);
-    }
+    }, 800);
   };
 
   const handleDownloadPdf = async (id: number) => {
-    try {
-      await financeService.getInvoicePdf(id);
-    } catch (err: any) {
-      console.error("ClientInvoicesPage: Download PDF error:", err);
-      const msg = err.response?.data?.detail || err.message || "Unknown error";
-      alert(`Failed to download PDF: ${msg}`);
-    }
+    console.log("Mock Download PDF for invoice:", id);
+    alert(`Mock Download: Invoice PDF generation triggered for ID ${id}`);
   };
 
   const handleDownloadAllPdf = async () => {
-    try {
-      await financeService.exportInvoicesPdf(safeInvoices);
-    } catch (err: any) {
-      console.error("ClientInvoicesPage: Download PDF error:", err);
-      const msg = err.response?.data?.detail || err.message || "Unknown error";
-      alert(`Failed to download PDF: ${msg}`);
-    }
+    console.log("Mock Download All Invoices PDF");
+    alert("Mock Download: Summary Invoices PDF generation triggered");
   };
 
 

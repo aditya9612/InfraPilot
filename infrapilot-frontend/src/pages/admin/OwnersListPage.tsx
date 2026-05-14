@@ -3,7 +3,6 @@ import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import OwnerDetailsModal from "../../components/dashboard/OwnerDetailsModal";
-import { ownerService } from "../../services/ownerService";
 import type { Owner } from "../../types/owner";
 import toast from "react-hot-toast";
 
@@ -98,9 +97,16 @@ const Avatar = ({ name }: { name: string }) => {
 };
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
+const MOCK_OWNERS: Owner[] = [
+  { id: 1, name: "Vikramaditya Singh", mobile: "9988776655", email: "vikram@singh-infra.com", address: "123 Heritage Tower, New Delhi", pan: "ABCDE1234F", owner_code: "OWN-001" },
+  { id: 2, name: "Anita Desai", mobile: "8877665544", email: "anita@desai-homes.in", address: "456 Skyline Heights, Mumbai", pan: "FGHIJ5678K", owner_code: "OWN-002" },
+  { id: 3, name: "Suresh Prabhu", mobile: "7766554433", email: "suresh@prabhu-cons.com", address: "789 Metro Park, Bangalore", pan: "KLMNO9012P", owner_code: "OWN-003" },
+];
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 export default function OwnersListPage() {
-  const [owners, setOwners] = useState<Owner[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [owners, setOwners] = useState<Owner[]>(MOCK_OWNERS);
+  const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Owner | null>(null);
@@ -114,24 +120,13 @@ export default function OwnersListPage() {
   );
   const [isSaving, setIsSaving] = useState(false);
 
-  const fetchOwners = useCallback(async (search = "") => {
-    try {
-      setLoading(true);
-      const data = await ownerService.getOwners(search);
-      setOwners(data);
-    } catch (error) {
-      console.error("Failed to sync owners:", error);
-      toast.error("Cloud synchronization failed");
-    } finally {
-      setLoading(false);
-    }
+  const fetchOwners = useCallback(() => {
+    // Owners are initialized with mock data
+    setLoading(false);
   }, []);
 
   useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      fetchOwners(searchTerm);
-    }, 500);
-    return () => clearTimeout(delayDebounceFn);
+    fetchOwners();
   }, [searchTerm, fetchOwners]);
 
   const openCreate = () => {
@@ -154,16 +149,9 @@ export default function OwnersListPage() {
     setIsModalOpen(true);
   };
 
-  const openView = async (o: Owner) => {
-    try {
-      toast.loading("Retrieving profile...", { id: "view-load" });
-      const fullOwner = await ownerService.getOwnerById(o.id);
-      setViewTarget(fullOwner);
-      setIsViewOpen(true);
-      toast.dismiss("view-load");
-    } catch (error) {
-      toast.error("Failed to fetch profile details", { id: "view-load" });
-    }
+  const openView = (o: Owner) => {
+    setViewTarget(o);
+    setIsViewOpen(true);
   };
 
   const openDelete = (o: Owner) => {
@@ -179,35 +167,34 @@ export default function OwnersListPage() {
     }
 
     setIsSaving(true);
-    try {
+    setTimeout(() => {
       if (editTarget) {
-        await ownerService.updateOwner(editTarget.id, form);
+        setOwners(prev => prev.map(o => o.id === editTarget.id ? { ...o, ...form } : o));
         toast.success("Owner profile updated successfully!");
       } else {
-        await ownerService.createOwner(form);
-        toast.success("Owner profile synchronized successfully!");
+        const newOwner: Owner = {
+          id: Date.now(),
+          ...form,
+          owner_code: `OWN-${Math.floor(Math.random() * 1000)}`
+        };
+        setOwners(prev => [newOwner, ...prev]);
+        toast.success("Owner profile registered successfully!");
       }
       setIsModalOpen(false);
-      fetchOwners(searchTerm);
-    } catch (error) {
-      toast.error("Synchronization failed. Check connectivity.");
-    } finally {
       setIsSaving(false);
-    }
+    }, 800);
   };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    try {
-      toast.loading("Terminating record...", { id: "del-load" });
-      await ownerService.deleteOwner(deleteTarget.id);
-      toast.success("Stakeholder purged from directory", { id: "del-load" });
+    setIsSaving(true);
+    setTimeout(() => {
+      setOwners(prev => prev.filter(o => o.id !== deleteTarget.id));
+      toast.success("Stakeholder purged from directory");
       setIsDeleteOpen(false);
       setDeleteTarget(null);
-      fetchOwners(searchTerm);
-    } catch (error) {
-       toast.error("Termination failed", { id: "del-load" });
-    }
+      setIsSaving(false);
+    }, 800);
   };
 
   const handleChange = (field: keyof Omit<Owner, "id">) => (value: string) => {

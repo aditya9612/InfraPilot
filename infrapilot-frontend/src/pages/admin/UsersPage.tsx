@@ -5,12 +5,17 @@ import CreateUserModal from "../../components/forms/CreateUserModal";
 import toast from "react-hot-toast";
 import UserDetailsModal from "../../components/dashboard/UserDetailsModal";
 import ConfirmModal from "../../components/common/ConfirmModal";
-import { userService } from "../../services/userService";
 import type { User } from "../../types/user";
 
+const MOCK_USERS: User[] = [
+  { user_id: 1, full_name: "Rajesh Kumar", email: "rajesh@infrapilot.com", mobile_number: "9876543210", role: "Admin", designation: "System Administrator", is_active: true, joining_date: "2024-01-10", pan_number: "ABCDE1234F", aadhaar_number: "1234 5678 9012" },
+  { user_id: 2, full_name: "Amit Sharma", email: "amit@infrapilot.com", mobile_number: "8765432109", role: "ProjectManager", designation: "Construction Head", is_active: true, joining_date: "2024-02-15", pan_number: "FGHIJ5678K", aadhaar_number: "2345 6789 0123" },
+  { user_id: 3, full_name: "Priya Nair", email: "priya@infrapilot.com", mobile_number: "7654321098", role: "Accountant", designation: "Fin Manager", is_active: true, joining_date: "2023-11-20", pan_number: "KLMNO9012P", aadhaar_number: "3456 7890 1234" },
+];
+
 const UsersPage = () => {
-  const [users, setUsers] = useState<User[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [users, setUsers] = useState<User[]>(MOCK_USERS);
+  const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [userToDelete, setUserToDelete] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -20,19 +25,8 @@ const UsersPage = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [roleFilter, setRoleFilter] = useState("All Roles");
 
-
-  const fetchUsers = async () => {
-    try {
-      setIsLoading(true);
-      const res = await userService.getAllUsers(100, 0);
-      const userList = Array.isArray(res) ? res : (res.items || res.data || []);
-      setUsers(userList);
-    } catch (error) {
-      toast.error("Failed to fetch users");
-      console.error(error);
-    } finally {
-      setIsLoading(false);
-    }
+  const fetchUsers = () => {
+    setIsLoading(false);
   };
 
   useEffect(() => {
@@ -40,21 +34,9 @@ const UsersPage = () => {
   }, []);
 
   const handleCreateOrUpdateUser = async (userData: any) => {
-    try {
-      if (editingUser) {
-        await userService.updateUser(editingUser.user_id, userData);
-        toast.success("User updated successfully!");
-      } else {
-        await userService.createUser(userData);
-        toast.success("User created successfully!");
-      }
-      setIsModalOpen(false);
-      setEditingUser(null);
-      fetchUsers();
-    } catch (error) {
-      toast.error(editingUser ? "Failed to update user" : "Failed to create user");
-      console.error(error);
-    }
+    toast.success(editingUser ? "User updated successfully! (Mock Mode)" : "User created successfully! (Mock Mode)");
+    setIsModalOpen(false);
+    setEditingUser(null);
   };
 
   const handleEditClick = (user: User) => {
@@ -68,35 +50,14 @@ const UsersPage = () => {
   };
 
   const handleDeleteUser = async () => {
-    if (userToDelete) {
-      try {
-        await userService.deleteUser(userToDelete);
-        toast.success("User deleted successfully!");
-        setIsDeleteModalOpen(false);
-        setUserToDelete(null);
-        fetchUsers();
-      } catch (error) {
-        toast.error("Failed to delete user");
-        console.error(error);
-      }
-    }
+    toast.success("User deleted successfully! (Mock Mode)");
+    setIsDeleteModalOpen(false);
+    setUserToDelete(null);
   };
 
-  const handleViewDetails = async (user: User) => {
-    try {
-      const toastId = toast.loading("Loading user details...");
-      const freshUser = await userService.getUserById(user.user_id);
-      toast.dismiss(toastId);
-      setViewingUser(freshUser);
-      setIsViewModalOpen(true);
-    } catch (error) {
-      toast.dismiss();
-      toast.error("Failed to fetch latest details");
-      console.error("Failed to fetch user by ID", error);
-      // Fallback to table row data
-      setViewingUser(user);
-      setIsViewModalOpen(true);
-    }
+  const handleViewDetails = (user: User) => {
+    setViewingUser(user);
+    setIsViewModalOpen(true);
   };
 
   const closeModal = () => {

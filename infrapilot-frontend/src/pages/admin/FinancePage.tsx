@@ -8,12 +8,24 @@ import CreateInvoiceModal from "../../components/forms/CreateInvoiceModal";
 import InvoiceDetailsModal from "../../components/dashboard/InvoiceDetailsModal";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import type { Invoice } from "../../types/invoice";
-import { projectService } from "../../services/projectService";
-import { financeService } from "../../services/financeService";
-import { expenseService } from "../../services/expenseService";
 import { generateInvoicePDF } from "../../utils/invoicePDFGenerator";
 import type { Project } from "../../types/project";
 import type { Expense } from "../../types/expense";
+
+const MOCK_PROJECTS: Project[] = [
+  { id: 1, project_name: "Skyline Tower A", description: "Residential tower", location: "Mumbai", status: "Ongoing", start_date: "2026-01-01", end_date: "2027-12-31", total_budget: 50000000 },
+  { id: 2, project_name: "Metro Ph-II", description: "Metro rail project", location: "Delhi", status: "Ongoing", start_date: "2026-06-01", end_date: "2029-12-31", total_budget: 250000000 },
+];
+
+const MOCK_INVOICES: Invoice[] = [
+  { id: 1, project_id: 1, description: "Structural foundation work", type: "labour", amount: 450000, gst_amount: 81000, tax_amount: 0, total_amount: 531000, status: "pending", created_at: "2026-05-10" },
+  { id: 2, project_id: 2, description: "Bulk cement supply", type: "material", amount: 1200000, gst_amount: 216000, tax_amount: 0, total_amount: 1416000, status: "paid", created_at: "2026-05-12" },
+];
+
+const MOCK_EXPENSES: Expense[] = [
+  { id: 1, project_id: 1, description: "Site office utilities", category: "Administrative", amount: 15000, payment_mode: "Cash", expense_date: "2026-05-11" },
+  { id: 2, project_id: 2, description: "JCB Rental", category: "Contractor", amount: 85000, payment_mode: "Bank Transfer", expense_date: "2026-05-13" },
+];
 import CreateExpenseModal from "../../components/forms/CreateExpenseModal";
 import { useEffect, useCallback } from "react";
 
@@ -51,54 +63,39 @@ const FinancePage = () => {
 
   // Fetch Projects
   const fetchProjects = useCallback(async () => {
-    try {
-      const res = await projectService.getProjects(100, 0);
-      const projectList = Array.isArray(res)
-        ? res
-        : res.items || res.data || [];
-      setProjects(projectList);
-    } catch (error) {
-      console.error("Finance: Failed to fetch projects", error);
-    } finally {
-    }
+    setIsSyncing(true);
+    setTimeout(() => {
+      setProjects(MOCK_PROJECTS);
+      setIsSyncing(false);
+    }, 500);
   }, []);
 
   // Fetch Invoices
-  // Note: /invoices/date-range backend route conflicts with /invoices/{id}.
-  // Date filtering is handled client-side until backend routing is fixed.
   const fetchInvoices = useCallback(async (type?: string, status?: string) => {
-    try {
-      let data: Invoice[];
-      
+    setIsSyncing(true);
+    setTimeout(() => {
+      let data = [...MOCK_INVOICES];
       if (status === "pending") {
-        data = await financeService.getPendingInvoices();
+        data = data.filter(i => i.status === "pending");
       } else if (type && type !== "all") {
-        data = await financeService.getInvoicesByType(type);
-      } else {
-        data = await financeService.getInvoices();
+        data = data.filter(i => i.type === type);
       }
-      
       setInvoices(data);
-    } catch (error) {
-      console.error("Finance: Failed to fetch invoices", error);
-    } finally {
-    }
+      setIsSyncing(false);
+    }, 500);
   }, []);
 
   // Fetch Expenses
   const fetchExpenses = useCallback(async (category?: string) => {
-    try {
-      let data: Expense[];
+    setIsSyncing(true);
+    setTimeout(() => {
+      let data = [...MOCK_EXPENSES];
       if (category && category !== "all") {
-        data = await expenseService.getExpensesByCategory(category);
-      } else {
-        data = await expenseService.listExpenses();
+        data = data.filter(e => e.category === category);
       }
       setExpenses(data);
-    } catch (error) {
-      console.error("Finance: Failed to fetch expenses", error);
-    } finally {
-    }
+      setIsSyncing(false);
+    }, 500);
   }, []);
 
   useEffect(() => {
@@ -115,32 +112,20 @@ const FinancePage = () => {
 
   // Handlers
   const handleCreateOrUpdate = async (data: any) => {
-    try {
+    setIsSyncing(true);
+    setTimeout(() => {
       if (selectedInvoice) {
-        const updated = await financeService.updateInvoice(
-          selectedInvoice.id,
-          data,
-        );
-        setInvoices((prev) =>
-          prev.map((inv) => (inv.id === selectedInvoice.id ? updated : inv)),
-        );
-        fetchInvoices();
+        setInvoices(prev => prev.map(inv => inv.id === selectedInvoice.id ? { ...inv, ...data } : inv));
         toast.success("Invoice updated successfully");
       } else {
-        const created = await financeService.createInvoice(data);
-        setInvoices((prev) => [created, ...prev]);
-        fetchInvoices();
+        const newInv = { id: Date.now(), ...data, status: "pending", created_at: new Date().toISOString() };
+        setInvoices(prev => [newInv, ...prev]);
         toast.success("Invoice created successfully");
       }
       setSelectedInvoice(null);
       setIsModalOpen(false);
-    } catch (error: any) {
-      const errorMessage = error.message || (selectedInvoice
-          ? "Failed to update invoice"
-          : "Failed to create invoice");
-      toast.error(errorMessage);
-    } finally {
-    }
+      setIsSyncing(false);
+    }, 800);
   };
 
   const handleDeleteClick = (id: number) => {
@@ -150,76 +135,56 @@ const FinancePage = () => {
 
   const handleDeleteInvoice = async () => {
     if (invoiceToDelete) {
-      try {
-          await financeService.deleteInvoice(invoiceToDelete);
-        setInvoices(invoices.filter((inv) => inv.id !== invoiceToDelete));
-        fetchInvoices();
+      setIsSyncing(true);
+      setTimeout(() => {
+        setInvoices(prev => prev.filter(inv => inv.id !== invoiceToDelete));
         toast.success("Invoice deleted");
         setIsDeleteModalOpen(false);
         setInvoiceToDelete(null);
-      } catch (error) {
-        toast.error("Failed to delete invoice");
-      } finally {
-        }
+        setIsSyncing(false);
+      }, 500);
     }
   };
 
   const handleMarkPaid = async (id: number) => {
-    try {
-      const updated = await financeService.markInvoicePaid(id);
-      setInvoices((prev) => prev.map((inv) => (inv.id === id ? updated : inv)));
+    setIsSyncing(true);
+    setTimeout(() => {
+      setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, status: "paid" } : inv));
       toast.success("Invoice marked as Paid");
       setIsDetailsModalOpen(false);
-    } catch (error) {
-      toast.error("Failed to mark invoice as paid");
-    } finally {
-    }
+      setIsSyncing(false);
+    }, 500);
   };
 
   const handleDownloadPDF = async (id: number) => {
-    try {
-      toast.loading("Downloading PDF...", { id: "pdf-loading" });
-      await financeService.getInvoicePdf(id);
-      
-      toast.success("Invoice PDF downloaded!", {
-        id: "pdf-loading",
-      });
-    } catch (error) {
-      toast.error("Failed to download PDF from server. Using fallback generator...", { id: "pdf-loading" });
-      
-      // Fallback to client-side generation
-      try {
-        const invoice = invoices.find((inv) => inv.id === id);
-        if (!invoice) throw new Error("Invoice not found");
+    toast.loading("Downloading PDF...", { id: "pdf-loading" });
+    setTimeout(() => {
+      const invoice = invoices.find((inv) => inv.id === id);
+      if (invoice) {
         const project = projects.find((p) => p.id === invoice.project_id);
         generateInvoicePDF(invoice, project);
-        toast.success("Client-side PDF generated!", { id: "pdf-loading" });
-      } catch (fallbackError) {
-        toast.error("Complete PDF generation failure", { id: "pdf-loading" });
+        toast.success("Invoice PDF generated!", { id: "pdf-loading" });
+      } else {
+        toast.error("Invoice not found", { id: "pdf-loading" });
       }
-    }
+    }, 1000);
   };
 
   const handleCreateOrUpdateExpense = async (data: any) => {
-    try {
+    setIsSyncing(true);
+    setTimeout(() => {
       if (selectedExpense) {
-        const updated = await expenseService.updateExpense(selectedExpense.id, data);
-        setExpenses((prev) =>
-          prev.map((e) => (e.id === selectedExpense.id ? updated : e)),
-        );
+        setExpenses(prev => prev.map(e => e.id === selectedExpense.id ? { ...e, ...data } : e));
         toast.success("Expense record updated");
       } else {
-        const created = await expenseService.createExpense(data);
-        setExpenses((prev) => [created, ...prev]);
+        const newExp = { id: Date.now(), ...data, expense_date: new Date().toISOString() };
+        setExpenses(prev => [newExp, ...prev]);
         toast.success("Expense record created");
       }
       setSelectedExpense(null);
       setIsExpenseModalOpen(false);
-      fetchExpenses();
-    } catch (error: any) {
-      toast.error(error.message || "Failed to process expense");
-    } finally {
-    }
+      setIsSyncing(false);
+    }, 800);
   };
 
   const handleDeleteExpenseClick = (id: number) => {
@@ -229,16 +194,14 @@ const FinancePage = () => {
 
   const handleDeleteExpense = async () => {
     if (expenseToDelete) {
-      try {
-          await expenseService.deleteExpense(expenseToDelete);
-        setExpenses(expenses.filter((e) => e.id !== expenseToDelete));
+      setIsSyncing(true);
+      setTimeout(() => {
+        setExpenses(prev => prev.filter(e => e.id !== expenseToDelete));
         toast.success("Expense deleted");
         setIsExpenseDeleteModalOpen(false);
         setExpenseToDelete(null);
-      } catch (error) {
-        toast.error("Failed to delete expense");
-      } finally {
-        }
+        setIsSyncing(false);
+      }, 500);
     }
   };
 

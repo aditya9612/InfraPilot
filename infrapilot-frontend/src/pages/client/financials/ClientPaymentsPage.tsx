@@ -1,5 +1,4 @@
 import Navbar from "../../../components/common/Navbar";
-import { financeService } from "../../../services/financeService";
 
 const payments = [
   { id: "PAY-1004", invoice: "INV-2026-42", amount: "₹38,40,000", date: "30 Mar 2026", method: "Bank Transfer", status: "Completed" },
@@ -11,12 +10,8 @@ const payments = [
 
 const ClientPaymentsPage = () => {
   const handleDownloadReceipts = async () => {
-    try {
-      await financeService.exportPaymentsPdf(payments);
-    } catch (err) {
-      console.error("Download Receipts Error:", err);
-      alert("Failed to download receipts. Please try again.");
-    }
+    console.log("Mock Download Receipts PDF");
+    alert("Mock Download: Payment Receipts PDF generation triggered");
   };
 
   return (

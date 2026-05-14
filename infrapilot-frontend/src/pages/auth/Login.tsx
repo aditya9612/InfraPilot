@@ -3,8 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import type { Role, User } from "../../context/AuthContext";
 import logo from "../../assets/logo.png";
-import { authService } from "../../services/authService";
 import toast from "react-hot-toast";
+import { authService } from "../../services/authService";
 
 type Step = "mobile" | "otp";
 
@@ -47,16 +47,16 @@ const Login = () => {
     }
     setError("");
     setLoading(true);
+    
     try {
-
       const response = await authService.login(mobile);
       toast.success(response.message || "OTP sent successfully!");
       setStep("otp");
       startResendTimer();
     } catch (err: any) {
-      setError(
-        err.response?.data?.message || "Failed to send OTP. Please try again.",
-      );
+      console.error("Login Error:", err);
+      setError(err.response?.data?.message || "Failed to send OTP. Please try again.");
+      toast.error("Authentication failed");
     } finally {
       setLoading(false);
     }
@@ -84,38 +84,28 @@ const Login = () => {
     setError("");
     setLoading(true);
     try {
-      let fullUser: User;
-      const verifyData = await authService.verifyOtp(mobile, otpValue);
-
-      // Temporary store to allow fetch profile
-      const tempUser = {
-        id: String(verifyData.user_id),
-        token: verifyData.token,
+      const { token, user_id } = await authService.verifyOtp(mobile, otpValue);
+      
+      // After verification, we need to get the full profile to know the role
+      const profile = await authService.getMe(mobile);
+      
+      const fullUser: User = {
+        id: user_id.toString(),
+        name: profile.full_name,
         mobile: mobile,
-      } as any;
-      localStorage.setItem("infrapilot_user", JSON.stringify(tempUser));
-
-      const profile = await authService.getMe();
-
-      fullUser = {
-        id: String(verifyData.user_id),
-        name: profile.full_name || "User",
-        mobile: mobile,
-        role: (profile.role as Role) || "Admin",
-        token: verifyData.token,
+        role: profile.role as Role,
+        token: token.access_token,
       };
 
       login(fullUser);
-      toast.success(`Welcome, ${fullUser.name}!`);
+      toast.success(`Welcome back, ${fullUser.name}!`);
 
-      // Redirect based on role
       const redirectPath = ROLE_PATHS[fullUser.role] || "/client";
       navigate(redirectPath);
     } catch (err: any) {
-      setError(
-        err.response?.data?.message || "Invalid OTP or verification failed.",
-      );
-      localStorage.removeItem("infrapilot_user");
+      console.error("Verification Error:", err);
+      setError(err.response?.data?.message || "Invalid OTP. Please check and try again.");
+      toast.error("Verification failed");
     } finally {
       setLoading(false);
     }
@@ -126,12 +116,13 @@ const Login = () => {
     setOtp(["", "", "", "", "", ""]);
     setError("");
     setLoading(true);
+    
     try {
-      const response = await authService.login(mobile);
-      toast.success(response.message || "OTP resent successfully!");
+      await authService.login(mobile);
+      toast.success("OTP resent successfully!");
       startResendTimer();
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to resend OTP.");
+      toast.error("Failed to resend OTP");
     } finally {
       setLoading(false);
     }

@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import Navbar from "../../components/common/Navbar";
-import { drawingService, type Drawing } from "../../services/drawingService";
 import { Loader2, FileText, Download } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -14,31 +13,15 @@ const tabs = ["All", "Agreement", "Drawing", "Invoice"];
 
 const ClientDocumentsPage = () => {
   const [activeTab, setActiveTab] = useState("All");
-  const [documents, setDocuments] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [documents, setDocuments] = useState<any[]>(MOCK_AGREEMENTS);
+  const [loading, setLoading] = useState(false);
 
-  const fetchDocuments = async () => {
-    try {
-      setLoading(true);
-      const drawings = await drawingService.getLatestDrawings(1); // project_id = 1
-      
-      const mappedDrawings = drawings.map((d: Drawing) => ({
-        name: d.drawing_name,
-        type: "Drawing",
-        uploadDate: new Date(d.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-        version: d.version,
-        size: "N/A",
-        raw: d
-      }));
-
-      setDocuments([...MOCK_AGREEMENTS, ...mappedDrawings]);
-    } catch (error) {
-      console.error("Failed to fetch drawings:", error);
-      toast.error("Failed to load project drawings.");
+  const fetchDocuments = () => {
+    setLoading(true);
+    setTimeout(() => {
       setDocuments(MOCK_AGREEMENTS);
-    } finally {
       setLoading(false);
-    }
+    }, 500);
   };
 
   useEffect(() => {
@@ -46,25 +29,16 @@ const ClientDocumentsPage = () => {
   }, []);
 
   const handleDownload = async (doc: any) => {
-    if (doc.type === "Drawing" && doc.raw) {
-      try {
-        await drawingService.downloadDrawing(doc.raw);
-        toast.success(`Downloading ${doc.name}...`);
-      } catch (err) {
-        toast.error("Failed to download drawing.");
-      }
-    } else {
-      // Mock download for agreements/invoices
-      const generated = new Date().toLocaleString("en-IN");
-      const html = `<!DOCTYPE html><html><head><style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');body{font-family:'Inter',sans-serif;padding:50px;}.header{border-bottom:3px solid #2563EB;padding-bottom:20px;margin-bottom:30px;}.brand{font-size:24px;font-weight:900;color:#2563EB;}.box{background:#f8fafc;padding:30px;border-radius:20px;border:1px solid #e2e8f0;}</style></head><body><div class="header"><div class="brand">InfraPilot</div><p>Generated: ${generated}</p></div><h2>${doc.name}</h2><div class="box"><p>Type: ${doc.type}</p><p>Version: ${doc.version}</p><p>Date: ${doc.uploadDate}</p></div></body></html>`;
-      const iframe = document.createElement("iframe");
-      iframe.style.cssText = "position:fixed;width:0;height:0;border:none;";
-      document.body.appendChild(iframe);
-      const d = iframe.contentWindow?.document;
-      if (!d) return;
-      d.open(); d.write(html); d.close();
-      setTimeout(() => { iframe.contentWindow?.focus(); iframe.contentWindow?.print(); setTimeout(() => iframe.remove(), 2000); }, 600);
-    }
+    toast.success(`Simulating download for ${doc.name}...`);
+    const generated = new Date().toLocaleString("en-IN");
+    const html = `<!DOCTYPE html><html><head><style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');body{font-family:'Inter',sans-serif;padding:50px;}.header{border-bottom:3px solid #2563EB;padding-bottom:20px;margin-bottom:30px;}.brand{font-size:24px;font-weight:900;color:#2563EB;}.box{background:#f8fafc;padding:30px;border-radius:20px;border:1px solid #e2e8f0;}</style></head><body><div class="header"><div class="brand">InfraPilot</div><p>Generated: ${generated}</p></div><h2>${doc.name}</h2><div class="box"><p>Type: ${doc.type}</p><p>Version: ${doc.version}</p><p>Date: ${doc.uploadDate}</p></div></body></html>`;
+    const iframe = document.createElement("iframe");
+    iframe.style.cssText = "position:fixed;width:0;height:0;border:none;";
+    document.body.appendChild(iframe);
+    const d = iframe.contentWindow?.document;
+    if (!d) return;
+    d.open(); d.write(html); d.close();
+    setTimeout(() => { iframe.contentWindow?.focus(); iframe.contentWindow?.print(); setTimeout(() => iframe.remove(), 2000); }, 600);
   };
 
   const filteredDocs = activeTab === "All"

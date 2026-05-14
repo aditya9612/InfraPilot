@@ -6,7 +6,6 @@ import CreateExpenseModal from "../../components/forms/CreateExpenseModal";
 import ViewExpenseModal from "../../components/forms/ViewExpenseModal";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
-import { expenseService } from "../../services/expenseService";
 import { Eye, Edit2, Trash2 } from "lucide-react";
 
 const MOCK_EXPENSES = [
@@ -95,48 +94,29 @@ const ExpensesPage = () => {
 
   const handleCreateExpense = async (data: any) => {
     setIsSubmitting(true);
-    try {
+    setTimeout(() => {
       if (selectedExpense) {
-        // Edit mode
         setExpenses(prev => prev.map(e => e.id === selectedExpense.id ? { ...e, ...data, amount: Number(data.amount), description: data.remarks || data.description } : e));
-        toast.success("Expense updated successfully!");
+        toast.success("Expense updated successfully! (Mock Mode)");
       } else {
-        // Build payload matching POST /api/v1/expenses
-        const payload = {
-            project_id: data.project_id ? Number(data.project_id) : 1,
-            category: data.category,
-            description: data.remarks || data.description || "",
-            amount: Number(data.amount),
-            expense_date: data.expense_date,
-            payment_mode: data.payment_mode,
-            ...(data.boq_item_id ? { boq_item_id: Number(data.boq_item_id) } : {}),
+        const newExpense = {
+          id: Date.now(),
+          expense_date: data.expense_date,
+          expense_type: data.expense_type || "Direct",
+          category: data.category,
+          amount: Number(data.amount),
+          paid_by: data.paid_by || "Admin",
+          payment_mode: data.payment_mode,
+          description: data.remarks || data.description || "",
+          status: "Active",
         };
-
-        const created = await expenseService.createExpense(payload);
-
-        // Prepend the server-returned record to the local list
-        setExpenses((prev) => [
-            {
-            ...created,
-            expense_type: data.expense_type || "Direct",
-            paid_by: data.paid_by || "",
-            status: "Active",
-            },
-            ...prev,
-        ]);
-        toast.success("Expense recorded successfully!");
+        setExpenses((prev) => [newExpense, ...prev]);
+        toast.success("Expense recorded successfully! (Mock Mode)");
       }
       setIsModalOpen(false);
       setSelectedExpense(null);
-    } catch (error: any) {
-      console.error("Failed to process expense:", error);
-      toast.error(
-        error?.response?.data?.detail ||
-          "Failed to process expense. Please try again.",
-      );
-    } finally {
       setIsSubmitting(false);
-    }
+    }, 500);
   };
 
   const filteredExpenses =

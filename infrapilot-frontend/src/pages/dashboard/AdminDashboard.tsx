@@ -21,9 +21,6 @@ import CreateUserModal from "../../components/forms/CreateUserModal";
 import PageTransition from "../../components/common/PageTransition";
 import CreateBOQModal from "../../components/forms/CreateBOQModal";
 import CreateReportModal from "../../components/dashboard/CreateReportModal";
-import { projectService } from "../../services/projectService";
-import { boqService } from "../../services/boqService";
-import { userService } from "../../services/userService";
 import type { Project, ProjectStatus } from "../../types/project";
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
@@ -61,6 +58,19 @@ const progressPulse: Record<ProjectStatus, string> = {
   "On Hold": "bg-warning",
 };
 
+const MOCK_PROJECTS: Project[] = [
+  { id: 1, project_name: "Skyline Tower", start_date: "2024-01-10", end_date: "2024-12-30", status: "Ongoing", completion_percentage: 45 },
+  { id: 2, project_name: "Green Valley Resort", start_date: "2024-02-15", end_date: "2024-11-20", status: "Planned", completion_percentage: 0 },
+  { id: 3, project_name: "Metro Station Hub", start_date: "2023-06-01", end_date: "2024-05-15", status: "Delayed", completion_percentage: 85 },
+  { id: 4, project_name: "Industrial Park A", start_date: "2023-08-10", end_date: "2024-04-10", status: "Completed", completion_percentage: 100 },
+];
+
+const MOCK_ALERTS = [
+  { user: "Rajesh Kumar", action: "reported material shortage at Metro Station Hub", time: "10:30 AM", type: "alert" },
+  { user: "System", action: "budget threshold exceeded for Skyline Tower", time: "Yesterday", type: "money" },
+  { user: "Amit Sharma", action: "uploaded 5 new site photos", time: "2 days ago", type: "photo" },
+];
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 const AdminDashboard = () => {
   const [activityFilter, setActivityFilter] = useState("All");
@@ -68,50 +78,10 @@ const AdminDashboard = () => {
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
   const [isBOQModalOpen, setIsBOQModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [alerts, setAlerts] = useState<any[]>([]);
-  const [projectAlertsData, setProjectAlertsData] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const fetchDashboardData = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const [pData, pAlerts, tAlerts] = await Promise.all([
-        projectService.getProjects(10, 0),
-        projectService.getProjectAlerts().catch(() => []),
-        projectService.getTaskAlerts().catch(() => []),
-      ]);
-
-      const projectsList = Array.isArray(pData)
-        ? pData
-        : pData.items || pData.data || [];
-      setProjects(projectsList);
-      setProjectAlertsData(Array.isArray(pAlerts) ? pAlerts : []);
-
-      // Combine alerts for activity feed
-      const combinedAlerts = [
-        ...(Array.isArray(pAlerts) ? pAlerts : []),
-        ...(Array.isArray(tAlerts) ? tAlerts : []),
-      ].map((a: any) => ({
-        user: a.user_name || "System",
-        action: a.message || a.detail || (a.project_name ? `${a.project_name} is ${a.status}` : "Alert reported"),
-        time: a.created_at
-          ? new Date(a.created_at).toLocaleTimeString()
-          : "Recent",
-        type: a.type || "alert",
-      }));
-      setAlerts(combinedAlerts);
-    } catch (error) {
-      console.error("Dashboard: Data Sync Error", error);
-      toast.error("Failed to sync dashboard data");
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData]);
+  const [projects, setProjects] = useState<Project[]>(MOCK_PROJECTS);
+  const [alerts, setAlerts] = useState<any[]>(MOCK_ALERTS);
+  const [projectAlertsData, setProjectAlertsData] = useState<any[]>(MOCK_PROJECTS.filter(p => p.status === "Delayed"));
+  const [isLoading, setIsLoading] = useState(false);
 
   const navigate = useNavigate();
 
@@ -139,35 +109,18 @@ const AdminDashboard = () => {
   };
 
   const handleCreateUser = async (userData: any) => {
-    try {
-      await userService.createUser(userData);
-      toast.success("User created successfully!");
-      setIsUserModalOpen(false);
-      fetchDashboardData(); // Refresh stats
-    } catch (error) {
-      toast.error("Failed to create user");
-    }
+    toast.success("User created successfully! (Mock Mode)");
+    setIsUserModalOpen(false);
   };
 
   const handleCreateProject = async (projectData: any) => {
-    try {
-      await projectService.createProject(projectData);
-      toast.success("Project created successfully!");
-      setIsNewProjectModalOpen(false);
-      fetchDashboardData();
-    } catch (error) {
-      toast.error("Failed to create project");
-    }
+    toast.success("Project created successfully! (Mock Mode)");
+    setIsNewProjectModalOpen(false);
   };
 
   const handleCreateBOQ = async (boqData: any) => {
-    try {
-      await boqService.createBoq(boqData);
-      toast.success("BOQ item created successfully!");
-      setIsBOQModalOpen(false);
-    } catch (error) {
-      toast.error("Failed to create BOQ item");
-    }
+    toast.success("BOQ item created successfully! (Mock Mode)");
+    setIsBOQModalOpen(false);
   };
 
   // Dynamic Statistics
