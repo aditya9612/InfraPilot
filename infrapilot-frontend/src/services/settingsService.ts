@@ -1,9 +1,9 @@
 import api from "./api";
-import type { 
-    UserSettings, 
-    UserProfile, 
-    UpdateSettingsRequest, 
-    UpdateProfileRequest 
+import type {
+    UserSettings,
+    UserProfile,
+    UpdateSettingsRequest,
+    UpdateProfileRequest
 } from "../types/settings";
 
 export const settingsService = {

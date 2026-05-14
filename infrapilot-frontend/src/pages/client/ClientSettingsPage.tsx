@@ -44,11 +44,11 @@ const ClientSettingsPage = () => {
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 italic">Primary Email</label>
-                  <input type="email" defaultValue="sharma@vikrambuild.com" className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-3.5 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-all shadow-inner" />
+                  <input type="email" defaultValue="sharma@vikrambuild.com" disabled className="w-full bg-slate-100 border border-slate-100 rounded-2xl px-6 py-3.5 text-sm font-bold text-slate-500 outline-none transition-all shadow-inner cursor-not-allowed" />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 italic">Contact Number</label>
-                  <input type="text" defaultValue="+91 98765 43210" className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-3.5 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-all shadow-inner" />
+                  <input type="text" defaultValue="+91 98765 43210" disabled className="w-full bg-slate-100 border border-slate-100 rounded-2xl px-6 py-3.5 text-sm font-bold text-slate-500 outline-none transition-all shadow-inner cursor-not-allowed" />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 italic">Company / Organization</label>

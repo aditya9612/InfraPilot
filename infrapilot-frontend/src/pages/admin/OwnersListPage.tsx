@@ -23,6 +23,8 @@ const validate = (form: Omit<Owner, "id">) => {
   if (!form.email || !form.email.trim()) e.email = "Email cannot be blank.";
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
     e.email = "Must be a valid email format.";
+  else if (/[A-Z]/.test(form.email))
+    e.email = "Email must be in lowercase.";
 
   if (!form.address || !form.address.trim()) e.address = "Address cannot be blank.";
 
@@ -72,11 +74,10 @@ const Field = ({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className={`w-full px-4 py-2.5 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all ${
-        error
-          ? "border-rose-100 focus:ring-rose-50 bg-rose-50/30"
-          : "border-gray-200 focus:ring-primary/10 focus:border-primary"
-      }`}
+      className={`w-full px-4 py-2.5 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all ${error
+        ? "border-rose-100 focus:ring-rose-50 bg-rose-50/30"
+        : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+        }`}
     />
     {error && <p className="mt-1 text-[11px] text-rose-500 font-medium">{error}</p>}
   </div>
@@ -206,7 +207,7 @@ export default function OwnersListPage() {
       setDeleteTarget(null);
       fetchOwners(searchTerm);
     } catch (error) {
-       toast.error("Termination failed", { id: "del-load" });
+      toast.error("Termination failed", { id: "del-load" });
     }
   };
 
@@ -216,6 +217,16 @@ export default function OwnersListPage() {
       finalValue = value.replace(/[^a-zA-Z\s]/g, "");
     } else if (field === "mobile") {
       finalValue = value.replace(/[^\d]/g, "").slice(0, 10);
+    } else if (field === "pan") {
+      const val = value.toUpperCase();
+      let filtered = "";
+      for (let i = 0; i < Math.min(val.length, 10); i++) {
+        const char = val[i];
+        if (i < 5 && /[A-Z]/.test(char)) filtered += char;
+        else if (i >= 5 && i < 9 && /[0-9]/.test(char)) filtered += char;
+        else if (i === 9 && /[A-Z]/.test(char)) filtered += char;
+      }
+      finalValue = filtered;
     }
     setForm((prev) => ({ ...prev, [field]: finalValue }));
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
@@ -267,8 +278,8 @@ export default function OwnersListPage() {
             </div>
             {loading && (
               <div className="flex items-center gap-3 bg-emerald-50/50 border border-emerald-100 px-4 py-2 rounded-xl">
-                 <div className="w-3 h-3 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-                 <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Accessing Cloud Directory...</span>
+                <div className="w-3 h-3 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Accessing Cloud Directory...</span>
               </div>
             )}
           </div>
@@ -329,10 +340,10 @@ export default function OwnersListPage() {
                       </td>
                       {/* Document Identity */}
                       <td className="px-8 py-5">
-                         <div className="flex flex-col gap-1">
-                           <span className="text-[10px] font-black text-slate-300 uppercase leading-none">PAN Identifier</span>
-                           <span className="text-sm font-black text-slate-700 font-mono tracking-tighter leading-none">{o.pan}</span>
-                         </div>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[10px] font-black text-slate-300 uppercase leading-none">PAN Identifier</span>
+                          <span className="text-sm font-black text-slate-700 font-mono tracking-tighter leading-none">{o.pan}</span>
+                        </div>
                       </td>
                       {/* Address */}
                       <td className="px-8 py-5 text-xs text-slate-400 font-bold max-w-[200px] truncate" title={o.address}>
@@ -390,7 +401,7 @@ export default function OwnersListPage() {
           {/* Footer */}
           <div className="p-5 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.35em]">
-               System Status: Cloud Synchronization Active
+              System Status: Cloud Synchronization Active
             </p>
           </div>
         </div>
@@ -459,7 +470,7 @@ export default function OwnersListPage() {
                     error={errors.mobile}
                     placeholder="10-digit primary sequence"
                   />
-                  
+
                   <div className="sm:col-span-2">
                     <Field
                       label="Email Address"
@@ -477,7 +488,7 @@ export default function OwnersListPage() {
                       label="Financial Identity (PAN)"
                       id="pan"
                       value={form.pan}
-                      onChange={(v) => handleChange("pan")(v.toUpperCase())}
+                      onChange={handleChange("pan")}
                       error={errors.pan}
                       placeholder="Format: ABCDE1234F"
                     />
@@ -496,11 +507,10 @@ export default function OwnersListPage() {
                       onChange={(e) => handleChange("address")(e.target.value)}
                       rows={3}
                       placeholder="Complete physical or business address..."
-                      className={`w-full px-4 py-2.5 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all resize-none ${
-                        errors.address
-                          ? "border-rose-100 focus:ring-rose-50 bg-rose-50/30"
-                          : "border-gray-200 focus:ring-primary/10 focus:border-primary"
-                      }`}
+                      className={`w-full px-4 py-2.5 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all resize-none ${errors.address
+                        ? "border-rose-100 focus:ring-rose-50 bg-rose-50/30"
+                        : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                        }`}
                     />
                     {errors.address && (
                       <p className="mt-1 text-[11px] text-rose-500 font-medium">
@@ -526,10 +536,10 @@ export default function OwnersListPage() {
                 className="px-8 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50"
               >
                 {isSaving ? (
-                   <div className="flex items-center gap-2">
-                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                     Processing...
-                   </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Processing...
+                  </div>
                 ) : editTarget ? (
                   "Update Profile"
                 ) : (

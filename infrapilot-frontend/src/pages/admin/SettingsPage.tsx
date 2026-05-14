@@ -110,9 +110,9 @@ const SettingsPage = () => {
                     <button
                       key={s.id}
                       onClick={() => setActiveSection(s.id)}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeSection === s.id
-                        ? "bg-primary text-white shadow-lg shadow-primary/20"
-                        : "text-slate-500 hover:bg-slate-50"
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeSection === s.id ?
+                        "bg-primary text-white shadow-lg shadow-primary/20" :
+                        "text-slate-500 hover:bg-slate-50"
                         }`}
                     >
                       <span>{s.icon}</span>
@@ -155,11 +155,11 @@ const SettingsPage = () => {
                           </div>
                           <div className="space-y-1.5">
                             <label className="text-xs font-bold text-slate-500 ml-1">Email</label>
-                            <input type="email" value={profile.email || ""} onChange={e => setProfile({ ...profile, email: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/10 outline-none" />
+                            <input type="email" value={profile.email || ""} disabled className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed outline-none" />
                           </div>
                           <div className="space-y-1.5">
                             <label className="text-xs font-bold text-slate-500 ml-1">Mobile Number</label>
-                            <input type="text" value={profile.mobile_number || ""} onChange={e => setProfile({ ...profile, mobile_number: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/10 outline-none" />
+                            <input type="text" value={profile.mobile_number || ""} disabled className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed outline-none" />
                           </div>
                           <div className="space-y-1.5">
                             <label className="text-xs font-bold text-slate-500 ml-1">Address</label>
@@ -297,7 +297,7 @@ const SettingsPage = () => {
 
           </div>
         </div>
-      </PageTransition>
+      </PageTransition >
     </>
   );
 };
