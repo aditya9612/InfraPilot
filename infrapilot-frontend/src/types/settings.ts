@@ -49,4 +49,5 @@ export interface UpdateProfileRequest {
     designation: string;
     joining_date: string;
     is_active: boolean;
+    profile_image?: File | string | null;
 }

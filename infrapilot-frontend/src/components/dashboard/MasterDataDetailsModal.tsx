@@ -39,7 +39,7 @@ const MasterDataDetailsModal: React.FC<MasterDataDetailsModalProps> = ({
             <div className="w-1 h-6 bg-primary rounded-full"></div>
             <h3 className="font-semibold text-gray-700">Basic information</h3>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <InfoItem label="Entity name" value={item.name} />
             <InfoItem label="System tag" value={item.type} />
@@ -51,7 +51,7 @@ const MasterDataDetailsModal: React.FC<MasterDataDetailsModalProps> = ({
             <div className="w-1 h-6 bg-primary rounded-full"></div>
             <h3 className="font-semibold text-gray-700">Classification</h3>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <InfoItem label="Unique code" value={item.code} isMono />
             <InfoItem label="Category group" value={item.category} />
@@ -63,7 +63,7 @@ const MasterDataDetailsModal: React.FC<MasterDataDetailsModalProps> = ({
             <div className="w-1 h-6 bg-primary rounded-full"></div>
             <h3 className="font-semibold text-gray-700">System metadata</h3>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <InfoItem label="Entity ID" value={`#MD-${item.id.toString().padStart(4, '0')}`} isMono />
             <InfoItem label="Creation status" value="Verified Master Entry" />
@@ -74,10 +74,10 @@ const MasterDataDetailsModal: React.FC<MasterDataDetailsModalProps> = ({
   );
 };
 
-const InfoItem: React.FC<{ label: string; value: string; isMono?: boolean }> = ({ 
-  label, 
-  value, 
-  isMono 
+const InfoItem: React.FC<{ label: string; value: string; isMono?: boolean }> = ({
+  label,
+  value,
+  isMono
 }) => (
   <div>
     <p className="text-xs font-medium text-gray-500 mb-1">

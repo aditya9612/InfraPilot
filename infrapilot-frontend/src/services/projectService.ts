@@ -11,27 +11,27 @@ export const projectService = {
     if (skip && skip !== 0) params.skip = skip;
     if (search) params.search = search;
     if (status && status !== "All") params.status = status;
-    
+
     try {
       const response = await api.get('/projects', { params });
       const data = response.data;
-      
+
       // Handle different possible response structures (array or wrapper object)
       const items = Array.isArray(data) ? data : (data.items || data.data || []);
-      
+
       // Map project_id to id for frontend compatibility
       const mappedItems = items.map((p: any) => ({
         ...p,
         id: p.project_id || p.id
       }));
-      
+
       if (Array.isArray(data)) return mappedItems;
-      
-      return { 
-        ...data, 
+
+      return {
+        ...data,
         items: mappedItems,
         // Also ensure data property is updated if it exists
-        data: data.data ? mappedItems : data.data 
+        data: data.data ? mappedItems : data.data
       };
     } catch (error: any) {
       if (error.response?.data) {

@@ -117,8 +117,6 @@ const SettingsPage = () => {
             setProfile(profileRes);
             setProjects(Array.isArray(projectsRes) ? projectsRes : (projectsRes.items || []));
 
-            console.log("Settings Refresh - Profile Data:", profileRes);
-
             // Map Settings
             setSelectedProject(settingsRes.default_project_id);
             setLengthUnit(settingsRes.unit || "Meter");
@@ -136,6 +134,9 @@ const SettingsPage = () => {
                 if (prefs.showWeather !== undefined) setPreferences(p => ({ ...p, showWeather: prefs.showWeather }));
                 if (prefs.showGPS !== undefined) setPreferences(p => ({ ...p, showGPS: prefs.showGPS }));
             }
+
+            // Map Profile
+            setProfileImage(profileRes.profile_image);
 
             // Map Profile Image (Handle relative paths)
             const resolvedPath = settingsService.resolveUrl(profileRes.profile_image);
@@ -257,15 +258,7 @@ const SettingsPage = () => {
             // Update local state immediately with returned data from API
             setSettings(updatedSettings);
             setProfile(updatedProfile);
-
-            // Re-resolve the image URL from the server response
-            const resolvedImage = settingsService.resolveUrl(updatedProfile.profile_image);
-            if (resolvedImage) {
-                setProfileImage(resolvedImage);
-            }
-
-            // Clear selected file after success
-            setSelectedFile(null);
+            setProfileImage(updatedProfile.profile_image);
 
             // Re-sync local derived states if needed
             setSelectedProject(updatedSettings.default_project_id);
@@ -435,8 +428,8 @@ const SettingsPage = () => {
                                             type="email"
                                             name="email"
                                             value={profile?.email || ""}
-                                            onChange={handleProfileChange}
-                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                            disabled
+                                            className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-sm font-semibold text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all cursor-not-allowed"
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1.5">
@@ -445,8 +438,8 @@ const SettingsPage = () => {
                                             type="tel"
                                             name="mobile_number"
                                             value={profile?.mobile_number || ""}
-                                            onChange={handleProfileChange}
-                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                            disabled
+                                            className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-sm font-semibold text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all cursor-not-allowed"
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1.5">

@@ -111,8 +111,8 @@ const CreateMasterDataModal: React.FC<CreateMasterDataModalProps> = ({
                 type="text"
                 placeholder="e.g. Cement (OPC 53)"
                 className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-medium ${errors.name
-                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
-                    : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                  ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                  : "border-gray-200 focus:ring-primary/10 focus:border-primary"
                   }`}
                 value={formData.name}
                 onChange={(e) => {
@@ -132,8 +132,8 @@ const CreateMasterDataModal: React.FC<CreateMasterDataModalProps> = ({
                   type="text"
                   placeholder="MAT-CEM-01"
                   className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-mono font-bold ${errors.code
-                      ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
-                      : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                    : "border-gray-200 focus:ring-primary/10 focus:border-primary"
                     }`}
                   value={formData.code}
                   onChange={(e) => {
@@ -168,8 +168,8 @@ const CreateMasterDataModal: React.FC<CreateMasterDataModalProps> = ({
                 type="text"
                 placeholder="e.g. Construction Material"
                 className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-medium ${errors.category
-                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
-                    : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                  ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                  : "border-gray-200 focus:ring-primary/10 focus:border-primary"
                   }`}
                 value={formData.category}
                 onChange={(e) => {

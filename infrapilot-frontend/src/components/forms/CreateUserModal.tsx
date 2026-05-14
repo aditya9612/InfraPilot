@@ -113,7 +113,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     if (!formData.designation)
       newErrors.designation = "Designation is required.";
 
-    if (!initialData && (!formData.password || formData.password.length < 6)) {
+    if (!initialData && formData.password && formData.password.length < 6) {
       newErrors.password = "Password must be at least 6 characters.";
     }
 
@@ -188,11 +188,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
           payload.profile_image = photo;
         }
 
-        onSubmit(payload);
-        const action = initialData ? "updated" : "created";
-        toast.success(`User ${formData.full_name} ${action} successfully!`, {
-          style: { borderRadius: "12px", background: "#333", color: "#fff" },
-        });
+        await onSubmit(payload);
         onClose();
       } catch (error) {
         console.error("Submission failed:", error);
@@ -319,7 +315,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
             {!initialData && (
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Password <span className="text-rose-500">*</span>
+                  Password
                 </label>
                 <input
                   type="password"

@@ -1,8 +1,9 @@
 import api from "./api";
-import type { 
-    UserSettings, 
-    UserProfile, 
-    UpdateSettingsRequest 
+import type {
+    UserSettings,
+    UserProfile,
+    UpdateSettingsRequest,
+    UpdateProfileRequest
 } from "../types/settings";
 
 export const settingsService = {
@@ -83,7 +84,7 @@ export const settingsService = {
      * Update User Profile
      * PUT /api/v1/settings/profile
      */
-    async updateProfile(data: any): Promise<UserProfile> {
+    async updateProfile(data: UpdateProfileRequest): Promise<UserProfile> {
         try {
             console.log("PUT /api/v1/settings/profile - Initiating Update", data);
             
