@@ -60,6 +60,8 @@ const DrawingsDocumentsPage = () => {
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     const [photoFile, setPhotoFile] = useState<File | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     const [latestDrawing, setLatestDrawing] = useState<any>(null);
@@ -113,6 +115,11 @@ const DrawingsDocumentsPage = () => {
     useEffect(() => {
         fetchDrawings();
     }, [fetchDrawings]);
+
+    // Reset pagination on filter change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, activeStatFilter]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -254,6 +261,13 @@ const DrawingsDocumentsPage = () => {
         );
     }, [drawingData, searchTerm, activeStatFilter]);
 
+    const paginatedDrawings = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return filteredDrawings.slice(startIndex, startIndex + itemsPerPage);
+    }, [filteredDrawings, currentPage]);
+
+    const totalPages = Math.ceil(filteredDrawings.length / itemsPerPage);
+
     const stats = {
         total: drawingData.length,
         structural: drawingData.filter(d => (d.drawing_name || "").toLowerCase().includes("structural")).length,
@@ -340,6 +354,7 @@ const DrawingsDocumentsPage = () => {
                         <table className="w-full text-left font-inter min-w-[1200px]">
                             <thead>
                                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
+                                    <th className="px-6 py-4 font-inter">Asset</th>
                                     <th className="px-6 py-4 font-inter">Engineering Asset</th>
                                     <th className="px-6 py-4 font-inter">Version Profile</th>
                                     <th className="px-6 py-4 font-inter">Approving Authority</th>
@@ -350,16 +365,28 @@ const DrawingsDocumentsPage = () => {
                             <tbody className="divide-y divide-slate-50 font-inter">
                                 {isLoading ? (
                                     <tr>
-                                        <td colSpan={5} className="px-6 py-20 text-center font-inter">
+                                        <td colSpan={6} className="px-6 py-20 text-center font-inter">
                                             <div className="flex flex-col items-center gap-3 font-inter">
                                                 <Loader2 className="w-8 h-8 text-primary animate-spin" />
                                                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing vault intelligence...</p>
                                             </div>
                                         </td>
                                     </tr>
-                                ) : filteredDrawings.length > 0 ? (
-                                    filteredDrawings.map((drawing) => (
+                                ) : paginatedDrawings.length > 0 ? (
+                                    paginatedDrawings.map((drawing) => (
                                         <tr key={drawing.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
+                                            <td className="px-6 py-4 font-inter">
+                                                <div className="w-12 h-12 rounded-xl bg-slate-100 overflow-hidden border border-slate-200 shadow-sm group-hover:scale-105 transition-transform font-inter">
+                                                    <img 
+                                                        src={drawingService.resolveUrl(drawing.file_url || drawing.upload_file || null) || ""} 
+                                                        alt="Drawing"
+                                                        className="w-full h-full object-cover font-inter"
+                                                        onError={(e) => {
+                                                            (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1541888086225-f6740f9e8753?w=100&q=80";
+                                                        }}
+                                                    />
+                                                </div>
+                                            </td>
                                             <td className="px-6 py-4 font-inter">
                                                 <div className="flex flex-col font-inter">
                                                     <span className="text-sm font-bold text-slate-800 font-inter">{drawing.drawing_name}</span>
@@ -393,7 +420,7 @@ const DrawingsDocumentsPage = () => {
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={5} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
+                                        <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
                                             No technical blueprints found in the project vault.
                                         </td>
                                     </tr>
@@ -401,6 +428,42 @@ const DrawingsDocumentsPage = () => {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* ── Pagination ────────────────────────────────────────── */}
+                    {totalPages > 1 && (
+                        <div className="p-4 border-t border-slate-50 flex items-center justify-between bg-white font-inter">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredDrawings.length)} of {filteredDrawings.length} entries
+                            </p>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                    disabled={currentPage === 1}
+                                    className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-primary disabled:opacity-30 disabled:hover:text-slate-500 transition-all border border-slate-100 rounded-lg"
+                                >
+                                    Previous
+                                </button>
+                                <div className="flex items-center gap-1">
+                                    {[...Array(totalPages)].map((_, i) => (
+                                        <button
+                                            key={i + 1}
+                                            onClick={() => setCurrentPage(i + 1)}
+                                            className={`w-8 h-8 rounded-lg text-[10px] font-bold transition-all ${currentPage === i + 1 ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-slate-400 hover:bg-slate-50"}`}
+                                        >
+                                            {i + 1}
+                                        </button>
+                                    ))}
+                                </div>
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                    disabled={currentPage === totalPages}
+                                    className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-primary disabled:opacity-30 disabled:hover:text-slate-500 transition-all border border-slate-100 rounded-lg"
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </PageTransition>
 
@@ -411,8 +474,12 @@ const DrawingsDocumentsPage = () => {
                         <div className="bg-primary rounded-2xl p-8 mb-8 text-white shadow-2xl relative overflow-hidden font-inter">
                             <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl" />
                             <div className="relative z-10 flex items-center gap-8 font-inter">
-                                <div className="w-24 h-24 bg-white/20 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-white/20 shadow-inner font-inter relative">
-                                    <span className="text-4xl font-bold font-inter">{selectedDrawing.drawing_name.charAt(0)}</span>
+                                <div className="w-24 h-24 bg-white/20 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-white/20 shadow-inner font-inter relative overflow-hidden">
+                                    <img 
+                                        src={drawingService.resolveUrl(selectedDrawing.file_url || selectedDrawing.upload_file || null) || ""} 
+                                        alt="Avatar" 
+                                        className="w-full h-full object-cover font-inter"
+                                    />
                                     <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-4 border-slate-800 rounded-full animate-pulse" />
                                 </div>
                                 <div className="font-inter">

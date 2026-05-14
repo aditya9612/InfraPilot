@@ -6,20 +6,20 @@ import StatCard from "../../../components/common/StatCard";
 import Modal from "../../../components/common/Modal";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
-import { 
-  Plus, 
-  Search, 
-  Eye, 
-  Edit2, 
-  Trash2,
-  Calendar,
-  ShieldAlert,
-  HeartPulse,
-  Filter,
-  CheckCircle2,
-  Mail,
-  Briefcase,
-  RotateCcw
+import {
+    Plus,
+    Search,
+    Eye,
+    Edit2,
+    Trash2,
+    Calendar,
+    ShieldAlert,
+    HeartPulse,
+    Filter,
+    CheckCircle2,
+    Mail,
+    Briefcase,
+    RotateCcw
 } from "lucide-react";
 
 import { safetyService } from "../../../services/safetyService";
@@ -53,24 +53,24 @@ const IncidentReportPage = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
-    
+
     // Modal States
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    
+
     // Selection States
     const [selectedIncident, setSelectedIncident] = useState<IncidentItem | null>(null);
     const [deleteId, setDeleteId] = useState<number | null>(null);
-    
+
     // Filter State
     const [filterViolationType, setFilterViolationType] = useState("");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [projectId, setProjectId] = useState<number | null>(null);
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Month" | "Critical" | "Compliance">("All");
-    
+
     // Form State
     const [formData, setFormData] = useState<CreateIncidentRequest>({
         project_id: 0,
@@ -80,7 +80,7 @@ const IncidentReportPage = () => {
         injury_details: "",
         action_taken: "",
         responsible_person: "",
-        safety_checklist_status: "Completed",
+        safety_checklist_status: "pending",
         ppe_compliance: true
     });
 
@@ -132,19 +132,19 @@ const IncidentReportPage = () => {
         const total = incidents.length;
         const currentMonth = new Date().getMonth();
         const currentYear = new Date().getFullYear();
-        
+
         const thisMonthCount = incidents.filter(item => {
             const itemDate = new Date(item.date);
             return itemDate.getMonth() === currentMonth && itemDate.getFullYear() === currentYear;
         }).length;
-        
-        const withInjuryCount = incidents.filter(item => 
+
+        const withInjuryCount = incidents.filter(item =>
             item.injury_details && !item.injury_details.toLowerCase().includes("no injury")
         ).length;
-        
-        return { 
-            total, 
-            thisMonthCount, 
+
+        return {
+            total,
+            thisMonthCount,
             critical: withInjuryCount,
             compliance: Math.round(((total - withInjuryCount) / (total || 1)) * 100)
         };
@@ -155,7 +155,7 @@ const IncidentReportPage = () => {
             const matchesSearch = item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 item.responsible_person.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 item.violation_type.toLowerCase().includes(searchTerm.toLowerCase());
-            
+
             const matchesViolationType = !filterViolationType || item.violation_type === filterViolationType;
 
             let matchesDate = true;
@@ -172,7 +172,7 @@ const IncidentReportPage = () => {
             } else if (activeStatFilter === "Compliance") {
                 matchesStat = !item.injury_details || item.injury_details.toLowerCase().includes("no injury");
             }
-            
+
             return matchesSearch && matchesViolationType && matchesDate && matchesStat;
         });
     }, [incidents, searchTerm, startDate, endDate, filterViolationType, activeStatFilter]);
@@ -202,7 +202,7 @@ const IncidentReportPage = () => {
                 injury_details: "",
                 action_taken: "",
                 responsible_person: "",
-                safety_checklist_status: "Completed",
+                safety_checklist_status: "pending",
                 ppe_compliance: true
             });
         } catch (error) {
@@ -234,7 +234,7 @@ const IncidentReportPage = () => {
                 injury_details: incident.injury_details,
                 action_taken: incident.action_taken,
                 responsible_person: incident.responsible_person,
-                safety_checklist_status: incident.safety_checklist_status || "Completed",
+                safety_checklist_status: incident.safety_checklist_status || "pending",
                 ppe_compliance: incident.ppe_compliance ?? true
             });
             setIsEditModalOpen(true);
@@ -246,7 +246,7 @@ const IncidentReportPage = () => {
     const handleUpdateSubmit = async (e?: React.BaseSyntheticEvent) => {
         if (e) e.preventDefault();
         if (!selectedIncident) return;
-        
+
         setIsSubmitting(true);
         try {
             const response = await safetyService.updateIncident(selectedIncident.id, formData);
@@ -304,7 +304,7 @@ const IncidentReportPage = () => {
                 </div>
 
                 {/* ── Summary Stats ───────────────────────────── */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Total Reports"
@@ -337,13 +337,13 @@ const IncidentReportPage = () => {
 
                 {/* ── Tabs ────────────────────────────────────────────────── */}
                 <div className="flex items-center gap-8 border-b border-slate-200 mb-8">
-                    <button 
+                    <button
                         className="pb-4 text-sm font-bold text-slate-400 hover:text-slate-600 transition-all"
                         onClick={() => navigate("/engineer/safety/checklist")}
                     >
                         Safety Checklist
                     </button>
-                    <button 
+                    <button
                         className="pb-4 text-sm font-bold text-rose-600 border-b-2 border-rose-600 transition-all"
                         onClick={() => navigate("/engineer/safety/incident")}
                     >
@@ -370,15 +370,15 @@ const IncidentReportPage = () => {
                         <div className="flex flex-wrap items-center gap-3 font-inter">
                             <div className="flex items-center gap-2 font-inter">
                                 <Calendar className="w-4 h-4 text-slate-400" />
-                                <input 
-                                    type="date" 
+                                <input
+                                    type="date"
                                     value={startDate}
                                     onChange={(e) => setStartDate(e.target.value)}
                                     className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-[10px] font-bold text-slate-600 outline-none font-inter"
                                 />
                                 <span className="text-[10px] font-bold text-slate-300 uppercase font-inter">TO</span>
-                                <input 
-                                    type="date" 
+                                <input
+                                    type="date"
                                     value={endDate}
                                     onChange={(e) => setEndDate(e.target.value)}
                                     className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-[10px] font-bold text-slate-600 outline-none font-inter"
@@ -396,7 +396,7 @@ const IncidentReportPage = () => {
                                 </select>
                             </div>
                             {activeStatFilter !== "All" && (
-                                <button 
+                                <button
                                     onClick={() => setActiveStatFilter("All")}
                                     className="p-2 text-slate-400 hover:text-rose-600 transition-colors"
                                     title="Clear Stat Filter"
@@ -500,7 +500,7 @@ const IncidentReportPage = () => {
                 maxWidth="max-w-2xl"
                 footer={
                     <div className="flex items-center justify-end gap-3 p-4 bg-slate-50/50 rounded-b-3xl font-inter">
-                        <button 
+                        <button
                             onClick={() => setIsNewModalOpen(false)}
                             className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-white rounded-xl transition-all"
                         >
@@ -530,24 +530,24 @@ const IncidentReportPage = () => {
                             </select>
                         </div>
                         <div>
-                            <label className={labelClasses}>Checklist Status <span className="text-rose-500">*</span></label>
-                            <select 
-                                name="safety_checklist_status" 
-                                value={formData.safety_checklist_status} 
-                                onChange={handleInputChange} 
+                            <label className={labelClasses}>Vault Status <span className="text-rose-500">*</span></label>
+                            <select
+                                name="safety_checklist_status"
+                                value={formData.safety_checklist_status}
+                                onChange={handleInputChange}
                                 className={inputClasses}
                                 required
                             >
-                                <option value="Completed">Completed</option>
-                                <option value="In Progress">In Progress</option>
-                                <option value="Pending">Pending</option>
+                                <option value="pending">pending</option>
+                                <option value="completed">completed</option>
+                                <option value="failed">failed</option>
                             </select>
                         </div>
                         <div className="flex items-center gap-3 pt-6">
-                            <input 
-                                name="ppe_compliance" 
+                            <input
+                                name="ppe_compliance"
                                 type="checkbox"
-                                checked={formData.ppe_compliance} 
+                                checked={formData.ppe_compliance}
                                 onChange={handleInputChange}
                                 className="w-5 h-5 rounded-lg border-slate-300 text-rose-600 focus:ring-rose-500/20 transition-all cursor-pointer"
                             />
@@ -607,24 +607,24 @@ const IncidentReportPage = () => {
                             </select>
                         </div>
                         <div>
-                            <label className={labelClasses}>Checklist Status <span className="text-rose-500">*</span></label>
-                            <select 
-                                name="safety_checklist_status" 
-                                value={formData.safety_checklist_status} 
-                                onChange={handleInputChange} 
+                            <label className={labelClasses}>Vault Status <span className="text-rose-500">*</span></label>
+                            <select
+                                name="safety_checklist_status"
+                                value={formData.safety_checklist_status}
+                                onChange={handleInputChange}
                                 className={inputClasses}
                                 required
                             >
-                                <option value="Completed">Completed</option>
-                                <option value="In Progress">In Progress</option>
-                                <option value="Pending">Pending</option>
+                                <option value="pending">pending</option>
+                                <option value="completed">completed</option>
+                                <option value="failed">failed</option>
                             </select>
                         </div>
                         <div className="flex items-center gap-3 pt-6">
-                            <input 
-                                name="ppe_compliance" 
+                            <input
+                                name="ppe_compliance"
                                 type="checkbox"
-                                checked={formData.ppe_compliance} 
+                                checked={formData.ppe_compliance}
                                 onChange={handleInputChange}
                                 className="w-5 h-5 rounded-lg border-slate-300 text-rose-600 focus:ring-rose-500/20 transition-all cursor-pointer"
                             />
@@ -680,7 +680,7 @@ const IncidentReportPage = () => {
                                     </div>
                                 </div>
                             </div>
-                            
+
                             {/* Stats */}
                             <div className="grid grid-cols-2 gap-x-12 gap-y-6 mt-8 pt-8 border-t border-white/10 font-inter">
                                 <div className="font-inter">

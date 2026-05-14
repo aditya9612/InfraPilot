@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 
 import { labourService } from "../../../services/labourService";
-import { projectService } from "../../../services/projectService";
 import type { LabourItem } from "../../../types/labour";
 
 const initialFormData = {
@@ -40,7 +39,7 @@ const formatAadhaar = (value: string) => {
 
 const LaborDetailsPage = () => {
     const [laborers, setLaborers] = useState<LabourItem[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [selectedLaborer, setSelectedLaborer] = useState<LabourItem | null>(null);
@@ -73,41 +72,13 @@ const LaborDetailsPage = () => {
         return Object.keys(newErrors).length === 0;
     };
 
-    useEffect(() => {
-        const initializeProject = async () => {
-            try {
-                const userStr = localStorage.getItem("infrapilot_user");
-                if (userStr) {
-                    const user = JSON.parse(userStr);
-                    const storedPId = user?.project_id || user?.user?.project_id;
-                    if (storedPId) {
-                        setProjectId(Number(storedPId));
-                        return;
-                    }
-                }
 
-                // Discovery Fallback
-                const projectsResponse = await projectService.getProjects(1, 0);
-                const projects = Array.isArray(projectsResponse) ? projectsResponse : (projectsResponse.items || []);
-                if (projects && projects.length > 0) {
-                    setProjectId(Number(projects[0].project_id || projects[0].id));
-                } else {
-                    setProjectId(36);
-                }
-            } catch (err) {
-                console.error("Labour Details Project Resolution Error:", err);
-                setProjectId(36);
-            }
-        };
-        initializeProject();
-    }, []);
 
     const fetchLaborers = useCallback(async () => {
-        if (projectId === null) return;
         setIsLoading(true);
         try {
             console.log(`Synchronizing Personnel Registry for Project: ${projectId}`);
-            const response = await labourService.getLabours(projectId || 0, { 
+            const response = await labourService.getLabours(projectId, { 
                 limit: 50, // Standard limit to prevent 422 error
                 offset: 0,
                 status: statusFilter === "All" ? undefined : statusFilter
@@ -192,7 +163,7 @@ const LaborDetailsPage = () => {
                     contractor_id: Number(formData.contractor_id),
                     status: formData.status,
                     notes: formData.notes,
-                    project_id: projectId || 36, // Ensure project_id is included if required
+                    project_id: projectId, // Only include if user has set a project
                 };
                 console.log("Step 1: Registering Personnel...", createPayload);
                 const newLaborer = await labourService.createLabour(createPayload);
@@ -296,6 +267,16 @@ const LaborDetailsPage = () => {
                                 <option value="Active">Active</option>
                                 <option value="Inactive">Inactive</option>
                             </select>
+                        </div>
+                        <div className="flex items-center gap-3 border-l border-slate-100 pl-4">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Project ID:</span>
+                            <input
+                                type="number"
+                                placeholder="ID"
+                                value={projectId || ''}
+                                onChange={(e) => setProjectId(e.target.value ? Number(e.target.value) : null)}
+                                className="w-20 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[10px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400"
+                            />
                         </div>
                     </div>
 
@@ -473,7 +454,7 @@ const LaborDetailsPage = () => {
                             <div className="relative z-10 flex items-center gap-6 font-inter">
                                 <div className="w-24 h-24 bg-blue-400/30 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 relative font-inter">
                                     <span className="text-4xl font-bold font-inter">{selectedLaborer.labour_name.charAt(0)}</span>
-                                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-4 border-primary rounded-full animate-pulse" />
+                                    <div className={`absolute -bottom-1 -right-1 w-6 h-6 ${selectedLaborer.status?.toLowerCase() === 'active' ? 'bg-emerald-500' : 'bg-rose-500'} border-4 border-primary rounded-full animate-pulse`} />
                                 </div>
                                 <div className="font-inter">
                                     <div className="flex items-center gap-3 mb-2 font-inter">

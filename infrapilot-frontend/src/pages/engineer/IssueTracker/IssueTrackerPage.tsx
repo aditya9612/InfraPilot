@@ -6,8 +6,6 @@ import Modal from "../../../components/common/Modal";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 import {
-    AlertTriangle,
-    Clock,
     CheckCircle2,
     Search,
     Plus,
@@ -50,34 +48,7 @@ const INITIAL_FORM_DATA = {
     resolution: "",
 };
 
-const DEMO_ISSUES: IssueItem[] = [
-    {
-        id: 1001,
-        business_id: "ISS-1001",
-        project_id: 1,
-        title: "Shortage of Grade-43 Cement",
-        category: "Material",
-        description: "Supply chain delay from local vendor is affecting structural concrete works in Zone B.",
-        reported_date: new Date().toISOString().split("T")[0],
-        priority: "High",
-        status: "Open",
-        assigned_to: null,
-        resolution: null,
-    },
-    {
-        id: 1002,
-        business_id: "ISS-1002",
-        project_id: 1,
-        title: "Pier 14 Design Approval Pending",
-        category: "Safety",
-        description: "Revised structural drawings for Pier 14 are stuck with the consultant since last Monday.",
-        reported_date: new Date(Date.now() - 86400000 * 2).toISOString().split("T")[0],
-        priority: "High",
-        status: "Open",
-        assigned_to: null,
-        resolution: null,
-    },
-];
+
 
 const IssueTrackerPage = () => {
     const [issueData, setIssueData] = useState<IssueItem[]>([]);
@@ -141,25 +112,20 @@ const IssueTrackerPage = () => {
         if (!projectId) return;
         setIsLoading(true);
         try {
-            let apiIssues: IssueItem[] = [];
-            try {
-                const response = await issueService.listIssuesByProject(projectId);
-                apiIssues = response.items;
-            } catch (err) {
-                console.warn("API unavailable, using demo data.");
-            }
-
-            if (apiIssues.length === 0) {
-                setIssueData(DEMO_ISSUES);
-            } else {
-                setIssueData(apiIssues);
-            }
+            const response = await issueService.getIssues({ 
+                project_id: projectId,
+                status: statusFilter,
+                priority: priorityFilter,
+                search: searchTerm
+            });
+            setIssueData(response.items || []);
         } catch (error) {
-            toast.error("Failed to sync issues");
+            console.error("Fetch Issues Failure:", error);
+            toast.error("Failed to sync project constraints");
         } finally {
             setIsLoading(false);
         }
-    }, [projectId]);
+    }, [projectId, statusFilter, priorityFilter, searchTerm]);
 
     useEffect(() => {
         fetchIssues();

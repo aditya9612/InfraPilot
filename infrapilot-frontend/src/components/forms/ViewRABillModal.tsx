@@ -38,7 +38,7 @@ const ViewRABillModal: React.FC<ViewRABillModalProps> = ({
         {/* Premium Header */}
         <div className="relative overflow-hidden bg-slate-800 rounded-2xl p-8 text-white shadow-2xl">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-32 -mt-32" />
-          
+
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
             <div className="space-y-2">
               <div className="flex items-center gap-3">
@@ -57,11 +57,10 @@ const ViewRABillModal: React.FC<ViewRABillModalProps> = ({
             </div>
 
             <div className="flex flex-col items-end gap-2 text-right">
-              <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg backdrop-blur-md border ${
-                isCertified ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-100" : 
-                isPending ? "bg-amber-500/20 border-amber-500/30 text-amber-100" : 
-                "bg-blue-500/20 border-blue-500/30 text-blue-100"
-              }`}>
+              <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg backdrop-blur-md border ${isCertified ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-100" :
+                  isPending ? "bg-amber-500/20 border-amber-500/30 text-amber-100" :
+                    "bg-blue-500/20 border-blue-500/30 text-blue-100"
+                }`}>
                 {record.status}
               </span>
               <p className="text-white/60 text-[10px] font-bold">Client: {record.client}</p>
@@ -94,10 +93,10 @@ const ViewRABillModal: React.FC<ViewRABillModalProps> = ({
             title="Financial Summary"
           >
             <div className="w-full bg-slate-50 p-6 rounded-[28px] border border-slate-100 flex items-center justify-between shadow-sm">
-                <div className="space-y-1">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Bill Amount</p>
-                    <p className="text-2xl font-black text-slate-900">₹{record.amount?.toLocaleString()}</p>
-                </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Bill Amount</p>
+                <p className="text-2xl font-black text-slate-900">₹{record.amount?.toLocaleString()}</p>
+              </div>
             </div>
           </Section>
 
@@ -112,7 +111,7 @@ const ViewRABillModal: React.FC<ViewRABillModalProps> = ({
             fullWidth
           >
             <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl text-[10px] font-bold text-slate-500 leading-relaxed">
-                RA Bills are generated based on site measurements certified by the Project Management Consultant (PMC). Final adjustments may be made at the time of Final Bill settlement.
+              RA Bills are generated based on site measurements certified by the Project Management Consultant (PMC). Final adjustments may be made at the time of Final Bill settlement.
             </div>
           </Section>
         </div>

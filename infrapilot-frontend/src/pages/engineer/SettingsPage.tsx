@@ -5,10 +5,11 @@ import PageTransition from "../../components/common/PageTransition";
 import { Upload, Trash2, User } from "lucide-react";
 import toast from "react-hot-toast";
 import { settingsService } from "../../services/settingsService";
-import type { 
-    UserSettings, 
-    UserProfile, 
-    UpdateSettingsRequest 
+import { projectService } from "../../services/projectService";
+import type {
+    UserSettings,
+    UserProfile,
+    UpdateSettingsRequest
 } from "../../types/settings";
 
 // ─── Toggle Switch ──────────────────────────────────────────────────────────────
@@ -53,7 +54,7 @@ const SectionHeader = ({
 const SettingsPage = () => {
     const [isSaving, setIsSaving] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
-    
+
     // ── Profile State ───────────────────────────────────────────────────
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [profileImage, setProfileImage] = useState<string | null>(null);
@@ -63,6 +64,7 @@ const SettingsPage = () => {
     // ── Settings State ──────────────────────────────────────────────────
     const [settings, setSettings] = useState<UserSettings | null>(null);
     const [selectedProject, setSelectedProject] = useState<number | null>(null);
+    const [projects, setProjects] = useState<any[]>([]);
     const location = useLocation();
 
     useEffect(() => {
@@ -94,7 +96,7 @@ const SettingsPage = () => {
     const [language, setLanguage] = useState("English");
     const [timezone, setTimezone] = useState("IST (UTC+5:30)");
     const [dateFormat, setDateFormat] = useState("DD/MM/YYYY");
-    
+
     // Financial & Unit Settings
     const [financialYear, setFinancialYear] = useState("2025-26");
     const [currency, setCurrency] = useState("INR");
@@ -105,20 +107,24 @@ const SettingsPage = () => {
         setIsLoading(true);
         console.log("Fetching settings and profile data...");
         try {
-            const [settingsRes, profileRes] = await Promise.all([
+            const [settingsRes, profileRes, projectsRes] = await Promise.all([
                 settingsService.getSettings(),
-                settingsService.getProfile()
+                settingsService.getProfile(),
+                projectService.getProjects(100, 0)
             ]);
 
             setSettings(settingsRes);
             setProfile(profileRes);
-            
+            setProjects(Array.isArray(projectsRes) ? projectsRes : (projectsRes.items || []));
+
+            console.log("Settings Refresh - Profile Data:", profileRes);
+
             // Map Settings
             setSelectedProject(settingsRes.default_project_id);
             setLengthUnit(settingsRes.unit || "Meter");
             setFinancialYear(settingsRes.financial_year || "2025-26");
             setCurrency(settingsRes.currency || "INR");
-            
+
             // Map Preferences from settingsRes
             if (settingsRes.preferences) {
                 const prefs = settingsRes.preferences;
@@ -132,16 +138,9 @@ const SettingsPage = () => {
             }
 
             // Map Profile Image (Handle relative paths)
-            if (profileRes.profile_image) {
-                if (profileRes.profile_image.startsWith("http")) {
-                    setProfileImage(profileRes.profile_image);
-                } else {
-                    const baseUrl = import.meta.env.VITE_API_URL?.replace("/api/v1", "") || "";
-                    setProfileImage(`${baseUrl}${profileRes.profile_image}`);
-                }
-            } else {
-                setProfileImage(null);
-            }
+            const resolvedPath = settingsService.resolveUrl(profileRes.profile_image);
+            console.log("Settings Refresh - Resolved Image URL:", resolvedPath);
+            setProfileImage(resolvedPath);
 
             console.log("Data sync complete:", { settingsRes, profileRes });
         } catch (error) {
@@ -203,11 +202,6 @@ const SettingsPage = () => {
         { key: "showGPS" as const, label: "Auto GPS Capture", desc: "Capture GPS on DSR form open" },
     ];
 
-    const projects = [
-        { id: 36, name: "Project 36 - Main Site" },
-        { id: 101, name: "Skyline Tower A" },
-        { id: 102, name: "Grand Residency Phase 1" },
-    ];
 
     const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -218,7 +212,7 @@ const SettingsPage = () => {
     // ── Save ─────────────────────────────────────────────────────────────
     const handleSave = async () => {
         if (!profile || !settings) return;
-        
+
         setIsSaving(true);
         const toastId = toast.loading("Syncing configuration…");
         try {
@@ -258,18 +252,25 @@ const SettingsPage = () => {
                 settingsService.updateProfile(profileData)
             ]);
 
-            // Clear selected file after success
-            setSelectedFile(null);
+            console.log("Profile Update Success - Response Image:", updatedProfile.profile_image);
 
             // Update local state immediately with returned data from API
             setSettings(updatedSettings);
             setProfile(updatedProfile);
-            setProfileImage(updatedProfile.profile_image);
-            
+
+            // Re-resolve the image URL from the server response
+            const resolvedImage = settingsService.resolveUrl(updatedProfile.profile_image);
+            if (resolvedImage) {
+                setProfileImage(resolvedImage);
+            }
+
+            // Clear selected file after success
+            setSelectedFile(null);
+
             // Re-sync local derived states if needed
             setSelectedProject(updatedSettings.default_project_id);
             setLengthUnit(updatedSettings.unit || "Meter");
-            
+
             toast.success("Account settings synchronized!", { id: toastId });
             console.log("Settings synchronization complete.");
         } catch (error: any) {
@@ -339,7 +340,7 @@ const SettingsPage = () => {
                         <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
                             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Active Project</p>
                             <p className="text-base font-bold text-primary truncate">
-                                {projects.find(p => p.id === selectedProject)?.name || `ID: ${selectedProject}`}
+                                {projects.find(p => p.id === selectedProject)?.project_name || `ID: ${selectedProject}`}
                             </p>
                             <p className="text-[10px] text-slate-400 mt-1.5 font-medium">Primary project workspace</p>
                         </div>
@@ -381,23 +382,23 @@ const SettingsPage = () => {
                                             profile?.full_name?.charAt(0) || "U"
                                         )}
                                     </div>
-                                    <button 
+                                    <button
                                         onClick={() => fileInputRef.current?.click()}
                                         className="absolute bottom-0 right-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform border-2 border-white"
                                         title="Upload Photo"
                                     >
                                         <Upload className="w-3.5 h-3.5" strokeWidth={3} />
                                     </button>
-                                    <input 
-                                        type="file" 
-                                        accept="image/*" 
-                                        className="hidden" 
-                                        ref={fileInputRef} 
-                                        onChange={handleImageUpload} 
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        ref={fileInputRef}
+                                        onChange={handleImageUpload}
                                     />
                                 </div>
                                 {profileImage && (
-                                    <button 
+                                    <button
                                         onClick={handleRemoveImage}
                                         className="text-xs font-bold text-rose-500 hover:text-rose-600 flex items-center gap-1.5 transition-colors"
                                     >
@@ -405,43 +406,43 @@ const SettingsPage = () => {
                                     </button>
                                 )}
                             </div>
-                            
+
                             <div className="flex-1 w-full">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="flex flex-col gap-1.5">
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Full Name</label>
-                                        <input 
-                                            type="text" 
+                                        <input
+                                            type="text"
                                             name="full_name"
-                                            value={profile?.full_name || ""} 
+                                            value={profile?.full_name || ""}
                                             onChange={handleProfileChange}
                                             className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1.5">
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Designation</label>
-                                        <input 
-                                            type="text" 
+                                        <input
+                                            type="text"
                                             name="designation"
-                                            value={profile?.designation || ""} 
+                                            value={profile?.designation || ""}
                                             onChange={handleProfileChange}
                                             className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1.5">
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Email Address</label>
-                                        <input 
-                                            type="email" 
+                                        <input
+                                            type="email"
                                             name="email"
-                                            value={profile?.email || ""} 
+                                            value={profile?.email || ""}
                                             onChange={handleProfileChange}
                                             className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1.5">
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Mobile Number</label>
-                                        <input 
-                                            type="tel" 
+                                        <input
+                                            type="tel"
                                             name="mobile_number"
                                             value={profile?.mobile_number || ""}
                                             onChange={handleProfileChange}
@@ -450,30 +451,30 @@ const SettingsPage = () => {
                                     </div>
                                     <div className="flex flex-col gap-1.5">
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">PAN Number</label>
-                                        <input 
-                                            type="text" 
+                                        <input
+                                            type="text"
                                             name="pan_number"
-                                            value={profile?.pan_number || ""} 
+                                            value={profile?.pan_number || ""}
                                             onChange={handleProfileChange}
                                             className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1.5">
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Aadhaar Number</label>
-                                        <input 
-                                            type="text" 
+                                        <input
+                                            type="text"
                                             name="aadhaar_number"
-                                            value={profile?.aadhaar_number || ""} 
+                                            value={profile?.aadhaar_number || ""}
                                             onChange={handleProfileChange}
                                             className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1.5">
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Role</label>
-                                        <input 
-                                            type="text" 
+                                        <input
+                                            type="text"
                                             name="role"
-                                            value={profile?.role || ""} 
+                                            value={profile?.role || ""}
                                             readOnly
                                             className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-sm font-semibold text-slate-500 cursor-not-allowed"
                                             title="Role cannot be changed manually"
@@ -481,20 +482,20 @@ const SettingsPage = () => {
                                     </div>
                                     <div className="flex flex-col gap-1.5">
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Joining Date</label>
-                                        <input 
-                                            type="date" 
+                                        <input
+                                            type="date"
                                             name="joining_date"
-                                            value={profile?.joining_date || ""} 
+                                            value={profile?.joining_date || ""}
                                             onChange={handleProfileChange}
                                             className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1.5 sm:col-span-2">
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Address</label>
-                                        <input 
-                                            type="text" 
+                                        <input
+                                            type="text"
                                             name="address"
-                                            value={profile?.address || ""} 
+                                            value={profile?.address || ""}
                                             onChange={handleProfileChange}
                                             className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                         />
@@ -561,7 +562,7 @@ const SettingsPage = () => {
                                 >
                                     <option value="">Select Project (None)</option>
                                     {projects.map(p => (
-                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                        <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
                                     ))}
                                 </select>
                             </div>
@@ -578,7 +579,7 @@ const SettingsPage = () => {
                                     >
                                         <span className="flex items-center gap-2.5">
                                             <span className={`w-2 h-2 rounded-full ${selectedProject === p.id ? "bg-blue-500" : "bg-slate-300"}`} />
-                                            {p.name}
+                                            {p.project_name || p.name}
                                         </span>
                                         {selectedProject === p.id && (
                                             <span className="text-[9px] font-bold text-blue-500 uppercase tracking-widest">Active</span>

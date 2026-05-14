@@ -2,11 +2,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Navbar from '../../../components/common/Navbar';
 import PageTransition from '../../../components/common/PageTransition';
 import StatCard from '../../../components/common/StatCard';
-import { 
-    Clock, 
-    Calendar, 
-    Search, 
-    Camera, 
+import {
+    Clock,
+    Calendar,
+    Search,
+    Camera,
     MapPin,
     Activity,
     LogOut,
@@ -16,7 +16,6 @@ import {
     RotateCcw
 } from "lucide-react";
 import { labourService } from '../../../services/labourService';
-import { projectService } from '../../../services/projectService';
 import type { AttendanceRecord, LabourItem } from '../../../types/labour';
 import CheckInModal from '../../../components/attendance/CheckInModal';
 import CheckOutModal from '../../../components/attendance/CheckOutModal';
@@ -32,7 +31,7 @@ const AttendancePage: React.FC = () => {
 
     // Interactive StatCard Filter
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Present" | "Absent" | "OT" | "Efficiency">("All");
-    
+
     // Modal States
     const [checkInTarget, setCheckInTarget] = useState<any | null>(null);
     const [checkOutTarget, setCheckOutTarget] = useState<any | null>(null);
@@ -46,64 +45,67 @@ const AttendancePage: React.FC = () => {
     const [projectId, setProjectId] = useState<number | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
-    useEffect(() => {
-        const initializeProject = async () => {
-            try {
-                const userStr = localStorage.getItem("infrapilot_user");
-                if (userStr) {
-                    const user = JSON.parse(userStr);
-                    const storedPId = user?.project_id || user?.user?.project_id;
-                    if (storedPId) {
-                        setProjectId(Number(storedPId));
-                        return;
-                    }
-                }
-                
-                // Fallback discovery
-                const projectsResponse = await projectService.getProjects(1, 0);
-                const projects = Array.isArray(projectsResponse) ? projectsResponse : (projectsResponse.items || []);
-                if (projects && projects.length > 0) {
-                    setProjectId(Number(projects[0].project_id || projects[0].id));
-                } else {
-                    setProjectId(36);
-                }
-            } catch (err) {
-                console.error("Attendance Project Resolution Error:", err);
-                setProjectId(36);
-            }
-        };
-        initializeProject();
-    }, []);
+
 
     const fetchData = async () => {
-        if (projectId === null) return;
         setIsLoading(true);
         try {
             console.log("Syncing Attendance Registry for Project:", projectId);
-            const [attendanceRes, labourRes] = await Promise.all([
-                labourService.getAttendanceList(projectId),
-                labourService.getLabours(projectId)
-            ]);
-            
-            const rawAttendances = attendanceRes.items || [];
-            const labourMap = new Map((labourRes.items || []).map(l => [l.id, l]));
-            
-            const enrichedAttendances = rawAttendances.map((a: AttendanceRecord) => {
-                const labour = labourMap.get(a.labour_id);
-                return {
-                    ...a,
-                    labour_name: a.labour_name && a.labour_name !== "Unknown" ? a.labour_name : (labour?.labour_name || "Unknown Worker"),
-                    worker_code: a.worker_code && !a.worker_code.startsWith('LAB-??') ? a.worker_code : (labour?.worker_code || "N/A"),
-                    skill_type: labour?.skill_type || "General"
-                };
+
+            // Fetch labours — graceful if project doesn't exist
+            let registeredLabours: any[] = [];
+            try {
+                const labourRes = await labourService.getLabours(projectId);
+                registeredLabours = labourRes.items || [];
+            } catch (err) {
+                console.warn("Labour list fetch failed for project:", projectId);
+            }
+
+            // Fetch attendance — only if project_id is provided, graceful on error
+            let rawAttendances: any[] = [];
+            if (projectId) {
+                try {
+                    const attendanceRes = await labourService.getAttendanceList(projectId);
+                    rawAttendances = attendanceRes.items || [];
+                } catch (err) {
+                    console.warn("Attendance list fetch failed for project:", projectId);
+                }
+            }
+
+            const attendanceMap = new Map(rawAttendances.map(a => [Number(a.labour_id), a]));
+
+            // Merge workers with attendance data
+            const enrichedAttendances = registeredLabours.map((labour: any) => {
+                const attendance = attendanceMap.get(Number(labour.id));
+
+                if (attendance) {
+                    return {
+                        ...attendance,
+                        labour_name: attendance.labour_name && attendance.labour_name !== "Unknown" ? attendance.labour_name : (labour?.labour_name || "Unknown Worker"),
+                        worker_code: labour?.worker_code || "N/A",
+                        skill_type: labour?.skill_type || "General"
+                    };
+                } else {
+                    return {
+                        id: 0,
+                        labour_id: labour.id,
+                        labour_name: labour.labour_name,
+                        worker_code: labour.worker_code,
+                        skill_type: labour.skill_type,
+                        status: "absent",
+                        in_time: "--:--",
+                        out_time: null,
+                        check_in_image: null,
+                        check_out_image: null
+                    };
+                }
             });
 
-            console.log("Registry Enriched. Records found:", enrichedAttendances.length);
+            console.log("Registry Enriched. Total Workers:", enrichedAttendances.length);
             setAttendances(enrichedAttendances);
-            setLabours(labourRes.items || []);
+            setLabours(registeredLabours);
         } catch (error: any) {
             console.error("Attendance Sync Failed:", error);
-            toast.error('Failed to load attendance data');
         } finally {
             setIsLoading(false);
         }
@@ -114,12 +116,12 @@ const AttendancePage: React.FC = () => {
         try {
             console.log("Refetching detailed audit for worker:", attendance.labour_name);
             const details = await labourService.getLabourAttendance(attendance.labour_id);
-            
+
             // Ensure we find the exact matching record or use the latest one
-            const record = Array.isArray(details) 
+            const record = Array.isArray(details)
                 ? (details.find((d: any) => (d.id || d.attendance_id) === (attendance.id || attendance.attendance_id)) || details[0])
                 : details;
-            
+
             if (record) {
                 console.log("Refetch SUCCESS. Audit detail resolved:", record);
                 setSelectedAttendance({ ...attendance, ...record });
@@ -138,13 +140,28 @@ const AttendancePage: React.FC = () => {
 
 
 
+    // Fetch on mount and whenever projectId changes
     useEffect(() => {
         fetchData();
     }, [projectId]);
 
+    const today = new Date().toISOString().split('T')[0];
+
+    // Workers who checked in TODAY
+    const todayAttendances = useMemo(() => {
+        return attendances.filter(a => a.attendance_date === today && a.status !== 'absent');
+    }, [attendances, today]);
+
+    // Workers who checked in today but have NOT checked out yet → available for check-out
     const activeWorkers = useMemo(() => {
-        return attendances.filter(a => !a.out_time);
-    }, [attendances]);
+        return todayAttendances.filter(a => a.in_time && a.in_time !== '--:--' && !a.out_time);
+    }, [todayAttendances]);
+
+    // Workers who have NOT checked in today → available for check-in
+    const availableForCheckIn = useMemo(() => {
+        const checkedInTodayIds = new Set(todayAttendances.map(a => Number(a.labour_id)));
+        return labours.filter(l => !checkedInTodayIds.has(Number(l.id)));
+    }, [labours, todayAttendances]);
 
     const stats = useMemo(() => {
         const total = labours.length;
@@ -153,12 +170,12 @@ const AttendancePage: React.FC = () => {
         // Total workers in roster minus anyone who checked in today
         const checkedInIds = new Set(attendances.map(a => a.labour_id));
         const absent = labours.filter(l => !checkedInIds.has(l.id)).length;
-        
+
         const otWorkers = attendances.filter(a => a.overtime_hours > 0).length;
-        
+
         // Sum total working + overtime hours for the day
         const manHours = attendances.reduce((acc, a) => acc + (a.working_hours || 0) + (a.overtime_hours || 0), 0);
-        
+
         return { total, present, absent, otWorkers, manHours: Math.round(manHours) };
     }, [attendances, labours]);
 
@@ -167,7 +184,7 @@ const AttendancePage: React.FC = () => {
         const roster = labours.map(l => {
             const attendance = attendances.find(a => a.labour_id === l.id);
             if (attendance) return attendance;
-            
+
             // Return a virtual 'Absent' record for workers not checked in
             return {
                 id: l.id,
@@ -199,21 +216,21 @@ const AttendancePage: React.FC = () => {
         }
 
         console.log("Filtering Registry: Total Roster:", data.length, "Search:", searchTerm, "Status Filter:", statusFilter);
-        
+
         return data.filter(a => {
-            const matchesSearch = !searchTerm || 
-                                 a.labour_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                 a.worker_code?.toLowerCase().includes(searchTerm.toLowerCase());
-            
+            const matchesSearch = !searchTerm ||
+                a.labour_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                a.worker_code?.toLowerCase().includes(searchTerm.toLowerCase());
+
             // Aggressive status matching
             let currentStatus = a.status?.toLowerCase();
             if (a.out_time && a.out_time !== '—' && currentStatus !== 'absent') {
                 currentStatus = 'completed';
             }
 
-            const matchesStatus = statusFilter === 'All' || 
-                                 (currentStatus === statusFilter.toLowerCase());
-                                 
+            const matchesStatus = statusFilter === 'All' ||
+                (currentStatus === statusFilter.toLowerCase());
+
             return matchesSearch && matchesStatus;
         });
     }, [attendances, labours, searchTerm, statusFilter, activeStatFilter]);
@@ -221,7 +238,7 @@ const AttendancePage: React.FC = () => {
     return (
         <>
             <Navbar title="Daily Attendance" breadcrumb={["Engineer", "Human Resources", "Attendance Registry"]} />
-            
+
             <PageTransition className="p-6 bg-slate-50 font-inter flex flex-col min-h-screen">
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
@@ -287,9 +304,9 @@ const AttendancePage: React.FC = () => {
                         </div>
                         <div className="flex items-center gap-3">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status:</span>
-                            <select 
-                                value={statusFilter} 
-                                onChange={(e) => setStatusFilter(e.target.value)} 
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
                                 className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer uppercase tracking-widest"
                             >
                                 <option value="All">All Status</option>
@@ -297,6 +314,17 @@ const AttendancePage: React.FC = () => {
                                 <option value="completed">Completed</option>
                                 <option value="absent">Absent</option>
                             </select>
+                        </div>
+
+                        <div className="flex items-center gap-3 border-l border-slate-100 pl-4">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Project ID:</span>
+                            <input
+                                type="number"
+                                placeholder="ID"
+                                value={projectId || ''}
+                                onChange={(e) => setProjectId(e.target.value ? Number(e.target.value) : null)}
+                                className="w-20 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[10px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400"
+                            />
                             {activeStatFilter !== "All" && (
                                 <button onClick={() => setActiveStatFilter("All")} className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors">
                                     <RotateCcw className="w-4 h-4" />
@@ -327,86 +355,86 @@ const AttendancePage: React.FC = () => {
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
                                     {filteredAttendances.map((a) => (
-                                    <tr key={a.id} className="hover:bg-slate-50/50 transition-colors group">
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400 font-bold">
-                                                    {a.labour_name?.charAt(0)}
-                                                </div>
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm font-bold text-slate-800">{a.labour_name}</span>
-                                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{a.worker_code}</span>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">
-                                                {'Individual'}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <span className="text-sm font-bold text-slate-700 tabular-nums">{a.in_time || '—'}</span>
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <span className={`text-sm font-bold tabular-nums ${a.out_time ? 'text-slate-700' : 'text-slate-300'}`}>
-                                                {a.out_time || '—'}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <span className="text-sm font-bold text-slate-700 tabular-nums">{a.working_hours || 0}h</span>
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <span className={`text-xs font-bold tabular-nums ${a.overtime_hours > 0 ? 'text-amber-500' : 'text-slate-300'}`}>
-                                                {a.overtime_hours || 0}h
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            {a.status === 'Absent' ? (
-                                                <span className="text-[10px] font-bold text-rose-300 uppercase tracking-widest">Absent</span>
-                                            ) : (
-                                                <div className="flex items-center justify-center gap-3">
-                                                    <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border ${a.check_in_image ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-100 opacity-50'}`}>
-                                                        <Camera className="w-3 h-3" />
-                                                        <span className="text-[9px] font-bold uppercase tracking-widest">{a.check_in_image ? 'Selfie ✓' : 'Pending'}</span>
+                                        <tr key={a.id} className="hover:bg-slate-50/50 transition-colors group">
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400 font-bold relative">
+                                                        {a.labour_name?.charAt(0)}
+                                                        <div className={`absolute -bottom-1 -right-1 w-3 h-3 ${a.status?.toLowerCase() === 'absent' ? 'bg-rose-500' : 'bg-emerald-500'} border-2 border-white rounded-full`} />
                                                     </div>
-                                                    <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border ${a.check_in_address ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-slate-50 text-slate-400 border-slate-100 opacity-50'}`}>
-                                                        <MapPin className="w-3 h-3" />
-                                                        <span className="text-[9px] font-bold uppercase tracking-widest">{a.check_in_address ? 'GPS ✓' : 'Pending'}</span>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-bold text-slate-800">{a.labour_name}</span>
                                                     </div>
                                                 </div>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <div className="flex items-center justify-end gap-2 font-inter">
-                                                {a.status !== 'Absent' ? (
-                                                    <>
-                                                        <button 
-                                                            onClick={() => fetchAttendanceDetails(a)}
-                                                            disabled={loadingAttendanceId === a.id}
-                                                            className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50"
-                                                        >
-                                                            {loadingAttendanceId === a.id ? (
-                                                                <Clock className="w-4 h-4 animate-spin" />
-                                                            ) : (
-                                                                <Eye className="w-4 h-4" />
-                                                            )}
-                                                        </button>
-                                                        <button 
-                                                            onClick={() => {
-                                                                setAttendanceToDelete(a);
-                                                                setIsDeleteModalOpen(true);
-                                                            }}
-                                                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </button>
-                                                    </>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">
+                                                    {'Individual'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className="text-sm font-bold text-slate-700 tabular-nums">{a.in_time || '—'}</span>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className={`text-sm font-bold tabular-nums ${a.out_time ? 'text-slate-700' : 'text-slate-300'}`}>
+                                                    {a.out_time || '—'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className="text-sm font-bold text-slate-700 tabular-nums">{a.working_hours || 0}h</span>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className={`text-xs font-bold tabular-nums ${a.overtime_hours > 0 ? 'text-amber-500' : 'text-slate-300'}`}>
+                                                    {a.overtime_hours || 0}h
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                {a.status === 'Absent' ? (
+                                                    <span className="text-[10px] font-bold text-rose-300 uppercase tracking-widest">Absent</span>
                                                 ) : (
-                                                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">N/A</span>
+                                                    <div className="flex items-center justify-center gap-3">
+                                                        <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border ${a.check_in_image ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-100 opacity-50'}`}>
+                                                            <Camera className="w-3 h-3" />
+                                                            <span className="text-[9px] font-bold uppercase tracking-widest">{a.check_in_image ? 'Selfie ✓' : 'Pending'}</span>
+                                                        </div>
+                                                        <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border ${a.check_in_address ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-slate-50 text-slate-400 border-slate-100 opacity-50'}`}>
+                                                            <MapPin className="w-3 h-3" />
+                                                            <span className="text-[9px] font-bold uppercase tracking-widest">{a.check_in_address ? 'GPS ✓' : 'Pending'}</span>
+                                                        </div>
+                                                    </div>
                                                 )}
-                                            </div>
-                                        </td>
-                                    </tr>
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex items-center justify-end gap-2 font-inter">
+                                                    {a.status !== 'Absent' ? (
+                                                        <>
+                                                            <button
+                                                                onClick={() => fetchAttendanceDetails(a)}
+                                                                disabled={loadingAttendanceId === a.id}
+                                                                className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50"
+                                                            >
+                                                                {loadingAttendanceId === a.id ? (
+                                                                    <Clock className="w-4 h-4 animate-spin" />
+                                                                ) : (
+                                                                    <Eye className="w-4 h-4" />
+                                                                )}
+                                                            </button>
+                                                            <button
+                                                                onClick={() => {
+                                                                    setAttendanceToDelete(a);
+                                                                    setIsDeleteModalOpen(true);
+                                                                }}
+                                                                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
+                                                        </>
+                                                    ) : (
+                                                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">N/A</span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
                                     ))}
                                 </tbody>
                             </table>
@@ -431,18 +459,17 @@ const AttendancePage: React.FC = () => {
                                         <p className="text-slate-500 text-sm font-medium">Select a worker to log their entry selfie.</p>
                                     </div>
                                     <div className="px-4 py-2 bg-slate-50 text-slate-400 text-[10px] font-bold uppercase tracking-widest rounded-xl border border-slate-100">
-                                        {labours.length} Roster Units
+                                        {availableForCheckIn.length} Available
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {labours.slice(0, 4).map((labour) => (
-                                        <button 
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[600px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200">
+                                    {availableForCheckIn.length > 0 ? availableForCheckIn.map((labour) => (
+                                        <button
                                             key={labour.id}
                                             onClick={() => setCheckInTarget(labour)}
                                             className="bg-slate-50 p-4 rounded-2xl border border-slate-100 hover:bg-slate-100 transition-all text-left group"
                                         >
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{labour.worker_code}</p>
-                                            <h4 className="text-base font-bold text-slate-800 uppercase mb-4">{labour.labour_name}</h4>
+                                            <h4 className="text-base font-bold text-slate-800 mb-4">{labour.labour_name}</h4>
                                             <div className="flex items-center justify-between">
                                                 <div className="flex flex-col">
                                                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Skill Category</span>
@@ -453,7 +480,11 @@ const AttendancePage: React.FC = () => {
                                                 </div>
                                             </div>
                                         </button>
-                                    ))}
+                                    )) : (
+                                        <div className="col-span-2 p-8 text-center text-slate-400">
+                                            <p className="text-[10px] font-bold uppercase tracking-widest">All workers checked in for today</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -472,9 +503,9 @@ const AttendancePage: React.FC = () => {
                                         {activeWorkers.length} Active Shifts
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[600px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200">
                                     {activeWorkers.length > 0 ? activeWorkers.map((a) => (
-                                        <button 
+                                        <button
                                             key={a.id || `active-${a.labour_id}`}
                                             onClick={async () => {
                                                 if (!a.id || a.id === a.labour_id) {
@@ -498,13 +529,12 @@ const AttendancePage: React.FC = () => {
                                             }}
                                             className="bg-slate-50 p-4 rounded-2xl border border-slate-100 hover:bg-slate-100 transition-all text-left group"
                                         >
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{a.worker_code || 'LAB--'}</p>
-                                            <h4 className="text-base font-bold text-slate-800 uppercase mb-4">{a.labour_name}</h4>
+                                            <h4 className="text-base font-bold text-slate-800 mb-4">{a.labour_name}</h4>
                                             <div className="flex items-center justify-between">
                                                 <div className="flex flex-col">
                                                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">In Time: {a.in_time}</span>
                                                     <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">
-                                                        {loadingAttendanceId === a.labour_id ? 'Resolving ID...' : `${a.working_hours} hrs Active`}
+                                                        {loadingAttendanceId === a.labour_id ? 'Resolving ID...' : `${a.working_hours || 0} hrs Active`}
                                                     </span>
                                                 </div>
                                                 <div className="w-10 h-10 bg-white text-rose-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform border border-slate-100">
@@ -527,25 +557,25 @@ const AttendancePage: React.FC = () => {
                     </div>
                 </div>
                 {/* ── Modals ─────────────────────────────────────── */}
-                <CheckInModal 
-                    isOpen={!!checkInTarget} 
-                    onClose={() => setCheckInTarget(null)} 
+                <CheckInModal
+                    isOpen={!!checkInTarget}
+                    onClose={() => setCheckInTarget(null)}
                     labour={checkInTarget}
                     onSuccess={fetchData}
                     projectId={projectId}
                 />
-                <CheckOutModal 
-                    isOpen={!!checkOutTarget} 
-                    onClose={() => setCheckOutTarget(null)} 
+                <CheckOutModal
+                    isOpen={!!checkOutTarget}
+                    onClose={() => setCheckOutTarget(null)}
                     attendance={checkOutTarget}
                     onSuccess={fetchData}
                 />
 
                 {/* ── Detail Modal ────────────────────────────────── */}
-                <Modal 
-                    isOpen={isDetailModalOpen} 
-                    onClose={() => setIsDetailModalOpen(false)} 
-                    title="Attendance Audit Insight" 
+                <Modal
+                    isOpen={isDetailModalOpen}
+                    onClose={() => setIsDetailModalOpen(false)}
+                    title="Attendance Audit Insight"
                     maxWidth="max-w-2xl"
                 >
                     {selectedAttendance && (
@@ -555,16 +585,15 @@ const AttendancePage: React.FC = () => {
                                 <div className="relative z-10 flex items-center gap-8 font-inter">
                                     <div className="w-24 h-24 bg-white/10 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-white/20 shadow-inner group relative font-inter">
                                         <span className="text-4xl font-bold">{selectedAttendance.labour_name?.charAt(0) || '?'}</span>
-                                        <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 border-4 border-primary rounded-full" />
+                                        <div className={`absolute -bottom-1 -right-1 w-5 h-5 ${selectedAttendance.status?.toLowerCase() === 'absent' ? 'bg-rose-500' : 'bg-emerald-500'} border-4 border-primary rounded-full`} />
                                     </div>
                                     <div className="flex-1 font-inter">
                                         <div className="flex items-center gap-3 mb-2 font-inter">
                                             <h3 className="text-2xl font-bold tracking-tight uppercase">{selectedAttendance.labour_name || 'Unknown Worker'}</h3>
-                                            <span className="px-3 py-0.5 bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest">{selectedAttendance.worker_code || 'LAB--'}</span>
                                         </div>
                                         <div className="flex items-center gap-3 text-white/70 mb-4 font-inter">
                                             <Mail className="w-3.5 h-3.5" />
-                                            <span className="text-xs font-bold lowercase tracking-tight">worker.{(selectedAttendance.worker_code || 'worker').toLowerCase()}@infrapilot.com</span>
+                                            <span className="text-xs font-bold lowercase tracking-tight">worker.profile@infrapilot.com</span>
                                         </div>
                                         <div className="bg-white/15 px-4 py-2 rounded-xl border border-white/10 inline-flex items-center gap-3 font-inter">
                                             <span className="text-[10px] font-bold uppercase tracking-widest text-white/60">Shift Date:</span>
@@ -667,7 +696,7 @@ const AttendancePage: React.FC = () => {
                                 </div>
                             </div>
 
-                            <button 
+                            <button
                                 onClick={() => setIsDetailModalOpen(false)}
                                 className="w-full py-5 bg-primary text-white rounded-xl text-[11px] font-bold uppercase tracking-[0.2em] hover:bg-blue-600 transition-all shadow-2xl shadow-primary/30 active:scale-95 font-inter shadow-primary/20"
                             >
@@ -677,9 +706,9 @@ const AttendancePage: React.FC = () => {
                     )}
                 </Modal>
 
-                <ConfirmModal 
-                    isOpen={isDeleteModalOpen} 
-                    onClose={() => setIsDeleteModalOpen(false)} 
+                <ConfirmModal
+                    isOpen={isDeleteModalOpen}
+                    onClose={() => setIsDeleteModalOpen(false)}
                     onConfirm={async () => {
                         if (!attendanceToDelete) return;
                         setIsDeleting(true);
@@ -693,12 +722,12 @@ const AttendancePage: React.FC = () => {
                         } finally {
                             setIsDeleting(false);
                         }
-                    }} 
-                    title="Purge Attendance Entry" 
-                    message={`Are you sure you want to permanently delete the attendance record for ${attendanceToDelete?.labour_name}? This action cannot be reversed.`} 
-                    confirmText="Purge Record" 
-                    type="danger" 
-                    isLoading={isDeleting} 
+                    }}
+                    title="Purge Attendance Entry"
+                    message={`Are you sure you want to permanently delete the attendance record for ${attendanceToDelete?.labour_name}? This action cannot be reversed.`}
+                    confirmText="Purge Record"
+                    type="danger"
+                    isLoading={isDeleting}
                 />
             </PageTransition>
         </>

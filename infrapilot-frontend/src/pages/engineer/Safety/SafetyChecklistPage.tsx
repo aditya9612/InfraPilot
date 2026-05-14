@@ -68,7 +68,7 @@ const SafetyChecklistPage = () => {
         injury_details: "",
         action_taken: "",
         responsible_person: "",
-        safety_checklist_status: "Completed",
+        safety_checklist_status: "pending",
         ppe_compliance: true
     });
 
@@ -167,9 +167,13 @@ const SafetyChecklistPage = () => {
 
         setIsSubmitting(true);
         try {
-            await safetyService.createIncident(formData);
+            const newIncident = await safetyService.createIncident(formData);
             toast.success("Safety incident created successfully!");
             setIsNewModalOpen(false);
+            
+            // Instantly update UI with the new record
+            setIncidentList(prev => [newIncident, ...prev]);
+            
             fetchData();
             // Reset form
             setFormData({
@@ -180,7 +184,7 @@ const SafetyChecklistPage = () => {
                 injury_details: "",
                 action_taken: "",
                 responsible_person: "",
-                safety_checklist_status: "Completed",
+                safety_checklist_status: "pending",
                 ppe_compliance: true
             });
         } catch (error) {
@@ -212,7 +216,7 @@ const SafetyChecklistPage = () => {
                 injury_details: incident.injury_details || "",
                 action_taken: incident.action_taken,
                 responsible_person: incident.responsible_person,
-                safety_checklist_status: incident.safety_checklist_status || "Completed",
+                safety_checklist_status: incident.safety_checklist_status || "completed",
                 ppe_compliance: incident.ppe_compliance ?? true
             });
             setIsEditModalOpen(true);
@@ -273,7 +277,20 @@ const SafetyChecklistPage = () => {
                     </div>
                     <button
                         type="button"
-                        onClick={() => setIsNewModalOpen(true)}
+                        onClick={() => {
+                            setFormData({
+                                project_id: projectId || 36,
+                                date: new Date().toISOString().split("T")[0],
+                                violation_type: "No Helmet",
+                                description: "",
+                                injury_details: "",
+                                action_taken: "",
+                                responsible_person: "",
+                                safety_checklist_status: "pending",
+                                ppe_compliance: false
+                            });
+                            setIsNewModalOpen(true);
+                        }}
                         className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
                     >
                         <Plus className="w-4 h-4" />
@@ -520,9 +537,9 @@ const SafetyChecklistPage = () => {
                                     onChange={handleInputChange} 
                                     className={inputClasses}
                                 >
-                                    <option value="Completed">Completed</option>
-                                    <option value="In Progress">In Progress</option>
-                                    <option value="Pending">Pending</option>
+                                    <option value="pending">pending</option>
+                                    <option value="completed">completed</option>
+                                    <option value="failed">failed</option>
                                 </select>
                             </div>
                             <div className="flex items-center gap-3 pt-6 font-inter">

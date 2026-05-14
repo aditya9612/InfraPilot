@@ -10,6 +10,11 @@ export default defineConfig({
         target: 'https://infrapilot.in',
         changeOrigin: true,
         secure: false,
+      },
+      '/uploads': {
+        target: 'https://infrapilot.in',
+        changeOrigin: true,
+        secure: false,
       }
     }
   },

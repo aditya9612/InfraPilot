@@ -112,9 +112,11 @@ const MaterialReceiptPage = () => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await materialService.createMaterial(formData as CreateMaterialRequest);
+      const newMaterial = await materialService.createMaterial(formData as CreateMaterialRequest);
       toast.success("Material added successfully!");
       setIsAddModalOpen(false);
+      // Immediately push to state so it shows up in the list even before fetch completes
+      setMaterials(prev => [newMaterial, ...prev]);
       fetchData();
     } catch (error) {
       toast.error("Failed to add material");
@@ -217,10 +219,10 @@ const MaterialReceiptPage = () => {
     }
   };
 
-  const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
-  const inputClasses = "w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none transition-all placeholder:text-slate-400 focus:ring-2 focus:ring-primary/20 focus:border-primary font-inter";
-  const sectionClasses = "bg-white p-5 rounded-2xl border border-slate-100 shadow-sm font-inter";
-  const sectionTitleClasses = "text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-50 pb-2 flex items-center gap-2 font-inter";
+  const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
+  const inputClasses = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 focus:ring-primary/20 focus:border-primary";
+  const sectionClasses = "bg-white p-5 rounded-2xl border border-slate-100 shadow-sm";
+  const sectionTitleClasses = "text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 flex items-center gap-2";
 
   return (
     <>
@@ -523,25 +525,25 @@ const MaterialReceiptPage = () => {
         title={isEditModalOpen ? "Modify Resource Parameters" : "Register Project Resource"}
         maxWidth="max-w-4xl"
         footer={
-          <div className="flex gap-3 px-6 pb-6 font-inter">
+          <>
             <button
               type="button"
               onClick={() => { setIsAddModalOpen(false); setIsEditModalOpen(false); }}
-              className="flex-1 py-3 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors font-inter"
+              className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               onClick={isEditModalOpen ? handleEditSubmit : handleAddSubmit}
               disabled={isSubmitting}
-              className="flex-[2] py-3 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-70 font-inter"
+              className={`px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 ${isSubmitting ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}
             >
-              {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Push Changes" : "Commit Resource")}
+              {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Push Changes" : "Commit Resources")}
             </button>
-          </div>
+          </>
         }
       >
-        <div className="p-6 space-y-6 font-inter">
+        <div className="space-y-6">
           <div className={sectionClasses}>
             <h3 className={sectionTitleClasses}>
               <Tag className="w-4 h-4 text-primary" />
@@ -679,24 +681,25 @@ const MaterialReceiptPage = () => {
         title="Acquire Resource"
         maxWidth="max-w-xl"
         footer={
-          <div className="flex gap-3 px-6 pb-6 font-inter">
+          <>
             <button
+              type="button"
               onClick={() => setIsPurchaseModalOpen(false)}
-              className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter"
+              className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               disabled={isSubmitting || purchaseData.quantity <= 0}
               onClick={handlePurchaseSubmit}
-              className="flex-[2] py-3 bg-emerald-500 text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-emerald-500/20 hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-70 font-inter"
+              className={`px-8 py-2.5 bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all flex items-center gap-2 ${isSubmitting || purchaseData.quantity <= 0 ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}
             >
               {isSubmitting ? "Syncing..." : "Confirm Acquisition"}
             </button>
-          </div>
+          </>
         }
       >
-        <div className="p-6 space-y-6 font-inter">
+        <div className="space-y-6">
           <div className={sectionClasses}>
             <h3 className={sectionTitleClasses}>
               <ShoppingCart className="w-4 h-4 text-emerald-500" />

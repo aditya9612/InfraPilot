@@ -23,22 +23,29 @@ export interface DrawingResponse {
     updated_at?: string;
 }
 
-const DEFAULT_DRAWINGS: DrawingResponse[] = [
-    {
-        id: 1,
-        project_id: 36,
-        drawing_name: "Foundation Layout",
-        version: "v1.0",
-        approved_by: "Site Engineer",
-        date: "2026-04-26",
-        remarks: "Initial approved drawing for foundation work",
-        file_url: "uploads/drawings/employeetype.png",
-        created_at: "2026-04-26T16:06:30",
-        updated_at: "2026-04-26T16:06:30"
-    }
-];
-
+// ─── Drawing Service ──────────────────────────────────────────────────────────
 export const drawingService = {
+    /**
+     * Helper to prefix relative paths for images
+     */
+    resolveUrl(path: string | null): string | null {
+        if (!path) return null;
+        if (path.startsWith('http') || path.startsWith('data:')) return path;
+        
+        let baseUrl = import.meta.env.VITE_API_URL || '';
+        if (path.startsWith('/uploads') || path.startsWith('uploads')) {
+            try {
+                const url = new URL(baseUrl);
+                baseUrl = url.origin;
+            } catch (e) {
+                baseUrl = baseUrl.replace(/\/api\/v1\/?$/, '');
+            }
+        }
+        
+        const cleanPath = path.startsWith('/') ? path : `/${path}`;
+        return `${baseUrl}${cleanPath}`;
+    },
+
     /**
      * Upload a new drawing
      * POST /api/v1/drawings/upload
@@ -72,21 +79,6 @@ export const drawingService = {
         } catch (error: any) {
             const status = error.response?.status;
             console.warn(`Drawing Upload API Error (${status}):`, error.response?.data || error.message);
-
-            if (status === 403 || status === 404 || status === 422 || status === 500) {
-                console.warn(`[Virtual Success] Bypassing ${status} error for upload`);
-                return {
-                    id: Math.floor(Math.random() * 1000),
-                    project_id: Number(payload.project_id),
-                    drawing_name: payload.drawing_name,
-                    version: payload.version,
-                    approved_by: payload.approved_by || "Site Engineer",
-                    date: payload.date || new Date().toISOString().split('T')[0],
-                    remarks: payload.remarks || "No remarks",
-                    file_url: "uploads/drawings/employeetype.png",
-                    created_at: new Date().toISOString()
-                };
-            }
             throw error;
         }
     },
@@ -115,11 +107,7 @@ export const drawingService = {
             const response = await api.get(`/drawings/${projectId}/latest`);
             return response.data;
         } catch (error: any) {
-            const status = error.response?.status;
-            if (status === 403 || status === 404 || status === 500) {
-                console.warn(`Virtual Success: Bypassing Get Latest ${status} Error`);
-                return DEFAULT_DRAWINGS[0];
-            }
+            console.error("Fetch Latest Drawing Failed:", error?.message);
             throw error;
         }
     },
@@ -157,15 +145,6 @@ export const drawingService = {
         } catch (error: any) {
             const status = error.response?.status;
             console.warn(`View Document API Error (${status}):`, error?.response?.data || error.message);
-            
-            if (status === 403 || status === 404 || status === 422 || status === 500) {
-                console.warn(`[Virtual Success] Bypassing ${status} error for view`);
-                return {
-                    id,
-                    file_url: "uploads/drawings/employeetype.png",
-                    message: "Fallback retrieval successful"
-                };
-            }
             throw error;
         }
     }

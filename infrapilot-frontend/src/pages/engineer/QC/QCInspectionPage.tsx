@@ -43,6 +43,8 @@ const QCInspectionPage = () => {
     const [filterStatus, setFilterStatus] = useState("All");
     const [filterType, setFilterType] = useState("All");
     const [searchTerm, setSearchTerm] = useState("");
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
 
     // Interactive StatCard Filter
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Compliance" | "Failed" | "Momentum">("All");
@@ -129,6 +131,11 @@ const QCInspectionPage = () => {
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    // Reset to first page when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, filterType, filterStatus, activeStatFilter]);
 
     // ─── ACTIONS ─────────────────────────────────────────────────────────
 
@@ -271,6 +278,13 @@ const QCInspectionPage = () => {
         });
     }, [qcList, searchTerm, filterType, filterStatus, activeStatFilter]);
 
+    const paginatedList = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return filteredList.slice(startIndex, startIndex + itemsPerPage);
+    }, [filteredList, currentPage]);
+
+    const totalPages = Math.ceil(filteredList.length / itemsPerPage);
+
     const stats = useMemo(() => {
         const total = qcList.length;
         const passed = qcList.filter(q => q.status === "Pass").length;
@@ -397,8 +411,8 @@ const QCInspectionPage = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50 font-inter">
-                                    {filteredList.length > 0 ? (
-                                        filteredList.map((qc) => (
+                                    {paginatedList.length > 0 ? (
+                                        paginatedList.map((qc) => (
                                             <tr key={qc.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                                 <td className="px-6 py-4">
                                                     <div className="flex flex-col font-inter">
@@ -472,6 +486,42 @@ const QCInspectionPage = () => {
                             </table>
                         )}
                     </div>
+                    
+                    {/* ── Pagination ────────────────────────────────────────── */}
+                    {totalPages > 1 && (
+                        <div className="p-4 border-t border-slate-50 flex items-center justify-between bg-white font-inter">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredList.length)} of {filteredList.length} entries
+                            </p>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                    disabled={currentPage === 1}
+                                    className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-primary disabled:opacity-30 disabled:hover:text-slate-500 transition-all border border-slate-100 rounded-lg"
+                                >
+                                    Previous
+                                </button>
+                                <div className="flex items-center gap-1">
+                                    {[...Array(totalPages)].map((_, i) => (
+                                        <button
+                                            key={i + 1}
+                                            onClick={() => setCurrentPage(i + 1)}
+                                            className={`w-8 h-8 rounded-lg text-[10px] font-bold transition-all ${currentPage === i + 1 ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-slate-400 hover:bg-slate-50"}`}
+                                        >
+                                            {i + 1}
+                                        </button>
+                                    ))}
+                                </div>
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                    disabled={currentPage === totalPages}
+                                    className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-primary disabled:opacity-30 disabled:hover:text-slate-500 transition-all border border-slate-100 rounded-lg"
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </PageTransition>
 

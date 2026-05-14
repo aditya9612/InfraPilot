@@ -23,6 +23,8 @@ const QCTestReportsPage = () => {
     // UI States
     const [activeTab] = useState<"Inspection" | "Test Reports">("Test Reports");
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Pass" | "Fail">("All");
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
 
     // ─── PROJECT RESOLUTION ─────────────────────────────────────────────
     useEffect(() => {
@@ -74,6 +76,11 @@ const QCTestReportsPage = () => {
         fetchData();
     }, [fetchData]);
 
+    // Reset to first page when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [activeStatFilter]);
+
     // ─── HELPERS & ANALYTICS ─────────────────────────────────────────────
 
     const stats = useMemo(() => {
@@ -95,6 +102,13 @@ const QCTestReportsPage = () => {
         if (activeStatFilter === "Fail") return qcList.filter(q => q.status === "Fail");
         return qcList;
     }, [qcList, activeStatFilter]);
+
+    const paginatedQcList = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return filteredQcList.slice(startIndex, startIndex + itemsPerPage);
+    }, [filteredQcList, currentPage]);
+
+    const totalPages = Math.ceil(filteredQcList.length / itemsPerPage);
 
     const breakdown = useMemo(() => {
         const groups: Record<string, { total: number; passed: number; failed: number }> = {};
@@ -245,7 +259,7 @@ const QCTestReportsPage = () => {
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-50 font-inter">
-                                                {filteredQcList.map((qc) => (
+                                                {paginatedQcList.map((qc) => (
                                                     <tr key={qc.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                                         <td className="px-6 py-4">
                                                             <div className="flex flex-col font-inter">
@@ -283,6 +297,42 @@ const QCTestReportsPage = () => {
                                             </tbody>
                                         </table>
                                     </div>
+                                     
+                                     {/* ── Pagination ────────────────────────────────────────── */}
+                                     {totalPages > 1 && (
+                                         <div className="p-4 border-t border-slate-50 flex items-center justify-between bg-white font-inter">
+                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                                 Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredQcList.length)} of {filteredQcList.length} entries
+                                             </p>
+                                             <div className="flex items-center gap-2">
+                                                 <button
+                                                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                                     disabled={currentPage === 1}
+                                                     className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-primary disabled:opacity-30 disabled:hover:text-slate-500 transition-all border border-slate-100 rounded-lg"
+                                                 >
+                                                     Previous
+                                                 </button>
+                                                 <div className="flex items-center gap-1">
+                                                     {[...Array(totalPages)].map((_, i) => (
+                                                         <button
+                                                             key={i + 1}
+                                                             onClick={() => setCurrentPage(i + 1)}
+                                                             className={`w-8 h-8 rounded-lg text-[10px] font-bold transition-all ${currentPage === i + 1 ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-slate-400 hover:bg-slate-50"}`}
+                                                         >
+                                                             {i + 1}
+                                                         </button>
+                                                     ))}
+                                                 </div>
+                                                 <button
+                                                     onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                                     disabled={currentPage === totalPages}
+                                                     className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-primary disabled:opacity-30 disabled:hover:text-slate-500 transition-all border border-slate-100 rounded-lg"
+                                                 >
+                                                     Next
+                                                 </button>
+                                             </div>
+                                         </div>
+                                     )}
                                 </div>
                             </div>
                         ) : (

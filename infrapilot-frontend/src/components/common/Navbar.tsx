@@ -156,7 +156,7 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
         )}
         {/* Notification Dropdown */}
         <div className="relative" ref={notifRef}>
-          <button 
+          <button
             onClick={() => setIsNotificationOpen(!isNotificationOpen)}
             className={`relative w-8 h-8 flex items-center justify-center text-white rounded-lg transition-colors ${isNotificationOpen ? 'bg-blue-600' : 'hover:bg-blue-600'}`}
             title="Notifications"
@@ -183,7 +183,7 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
                 ))}
               </div>
               <div className="p-2 border-t border-slate-100 bg-slate-50">
-                <button 
+                <button
                   onClick={() => { setIsNotificationOpen(false); navigate(user?.role === "Admin" ? "/admin/notifications" : "#"); }}
                   className="w-full py-2 text-xs font-bold text-primary hover:text-blue-700 transition-colors"
                 >
@@ -196,7 +196,7 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
 
         {/* Profile Dropdown */}
         <div className="relative" ref={dropdownRef}>
-          <button 
+          <button
             onClick={() => setIsProfileOpen(!isProfileOpen)}
             className="w-8 h-8 rounded-full bg-blue-600 border-2 border-white flex items-center justify-center text-white text-xs font-bold shadow-sm hover:scale-105 transition-transform"
             title={user?.name || "Profile"}
@@ -211,28 +211,28 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
                 <p className="text-xs text-slate-500 mt-0.5 truncate capitalize">{user?.role}</p>
               </div>
               <div className="p-2 space-y-1">
-                <button 
-                  onClick={() => { 
-                    setIsProfileOpen(false); 
-                    const settingsPath = user?.role === "Admin" ? "/admin/settings" : 
-                                       user?.role === "SiteEngineer" ? "/engineer/settings" : 
-                                       user?.role === "Client" ? "/client/settings" : 
-                                       user?.role === "Accountant" ? "/accountant/settings" : "/admin/settings";
-                    navigate(`${settingsPath}#profile`); 
+                <button
+                  onClick={() => {
+                    setIsProfileOpen(false);
+                    const settingsPath = user?.role === "Admin" ? "/admin/settings" :
+                      user?.role === "SiteEngineer" ? "/engineer/settings" :
+                        user?.role === "Client" ? "/client/settings" :
+                          user?.role === "Accountant" ? "/accountant/settings" : "/admin/settings";
+                    navigate(`${settingsPath}#profile`);
                   }}
                   className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 hover:text-primary transition-colors"
                 >
                   <UserIcon className="w-4 h-4" />
                   My Profile
                 </button>
-                <button 
-                  onClick={() => { 
-                    setIsProfileOpen(false); 
-                    const settingsPath = user?.role === "Admin" ? "/admin/settings" : 
-                                       user?.role === "SiteEngineer" ? "/engineer/settings" : 
-                                       user?.role === "Client" ? "/client/settings" : 
-                                       user?.role === "Accountant" ? "/accountant/settings" : "/admin/settings";
-                    navigate(settingsPath); 
+                <button
+                  onClick={() => {
+                    setIsProfileOpen(false);
+                    const settingsPath = user?.role === "Admin" ? "/admin/settings" :
+                      user?.role === "SiteEngineer" ? "/engineer/settings" :
+                        user?.role === "Client" ? "/client/settings" :
+                          user?.role === "Accountant" ? "/accountant/settings" : "/admin/settings";
+                    navigate(settingsPath);
                   }}
                   className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 hover:text-primary transition-colors"
                 >
@@ -241,7 +241,7 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
                 </button>
               </div>
               <div className="p-2 border-t border-slate-100">
-                <button 
+                <button
                   onClick={handleLogout}
                   className="w-full flex items-center gap-3 px-3 py-2 text-sm font-bold text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
                 >
