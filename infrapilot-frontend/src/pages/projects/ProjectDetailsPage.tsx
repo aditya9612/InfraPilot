@@ -12,7 +12,6 @@ import ProjectExpensesTable from "../../components/projects/ProjectExpensesTable
 import EditProjectModal from "../../components/dashboard/EditProjectModal";
 import AssignMemberModal from "../../components/projects/AssignMemberModal";
 import { generateProjectReport } from "../../utils/reportGenerator";
-import { generateDetailedProjectPDF } from "../../utils/projectPDFGenerator";
 import toast from "react-hot-toast";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import ScheduleProjectModal from "../../components/projects/ScheduleProjectModal";
@@ -435,19 +434,24 @@ const ProjectDetailsPage = () => {
                 Edit
               </button>
               <button
-                onClick={() => {
-                  const toastId = toast.loading("Generating detailed PDF intelligence report...");
+                onClick={async () => {
+                  const toastId = toast.loading("Downloading PDF intelligence report...");
                   try {
-                    generateDetailedProjectPDF(
-                      project,
-                      members,
-                      milestones,
-                      expenses,
-                      tasks
+                    const blob = new Blob([await projectService.exportProjectPdf(projectId)], { type: "application/pdf" });
+                    const url = window.URL.createObjectURL(blob);
+                    const link = document.createElement("a");
+                    link.href = url;
+                    link.setAttribute(
+                      "download",
+                      `Project_${projectId}_Report.pdf`,
                     );
-                    toast.success("PDF Intelligence Report Downloaded", { id: toastId });
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    window.URL.revokeObjectURL(url);
+                    toast.success("PDF Downloaded", { id: toastId });
                   } catch (error) {
-                    toast.error("PDF generation failed");
+                    toast.error("PDF export failed");
                     toast.dismiss(toastId);
                   }
                 }}

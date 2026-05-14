@@ -21,16 +21,16 @@ const UpdateActualsModal: React.FC<UpdateActualsModalProps> = ({
   initialData,
 }) => {
   const [formData, setFormData] = useState({
-    actual_quantity: 0,
-    actual_cost: 0,
+    actual_quantity: "",
+    actual_cost: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (initialData) {
       setFormData({
-        actual_quantity: Number(initialData.actual_quantity || 0),
-        actual_cost: Number(initialData.actual_cost || 0),
+        actual_quantity: (initialData.actual_quantity || 0).toString(),
+        actual_cost: (initialData.actual_cost || 0).toString(),
       });
     }
   }, [initialData, isOpen]);
@@ -41,7 +41,10 @@ const UpdateActualsModal: React.FC<UpdateActualsModalProps> = ({
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await onSubmit(formData);
+      await onSubmit({
+        actual_quantity: parseFloat(formData.actual_quantity) || 0,
+        actual_cost: parseFloat(formData.actual_cost) || 0,
+      });
       onClose();
     } catch (error) {
       console.error("Failed to update actuals", error);
@@ -92,11 +95,18 @@ const UpdateActualsModal: React.FC<UpdateActualsModalProps> = ({
                 Actual Quantity ({initialData?.unit || 'Units'})
               </label>
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
+                autoFocus
                 required
-                step="0.01"
                 value={formData.actual_quantity}
-                onChange={(e) => setFormData({ ...formData, actual_quantity: parseFloat(e.target.value) || 0 })}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === "" || /^[0-9]*\.?[0-9]*$/.test(val)) {
+                    setFormData({ ...formData, actual_quantity: val });
+                  }
+                }}
+                onFocus={(e) => e.target.select()}
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-semibold"
                 placeholder="0.00"
               />
@@ -107,14 +117,21 @@ const UpdateActualsModal: React.FC<UpdateActualsModalProps> = ({
                 Actual Total Cost (₹)
               </label>
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 required
-                step="0.01"
                 value={formData.actual_cost}
-                onChange={(e) => setFormData({ ...formData, actual_cost: parseFloat(e.target.value) || 0 })}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === "" || /^[0-9]*\.?[0-9]*$/.test(val)) {
+                    setFormData({ ...formData, actual_cost: val });
+                  }
+                }}
+                onFocus={(e) => e.target.select()}
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-semibold text-primary"
                 placeholder="0.00"
               />
+
             </div>
           </div>
 
@@ -142,6 +159,7 @@ const UpdateActualsModal: React.FC<UpdateActualsModalProps> = ({
             </button>
           </div>
         </form>
+
       </div>
     </div>
   );

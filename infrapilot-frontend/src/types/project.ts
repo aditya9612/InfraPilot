@@ -1,11 +1,11 @@
 import type { UserRole } from "./user";
 
 export type ProjectStatus =
-  | "PLANNED"
-  | "ONGOING"
-  | "DELAYED"
-  | "COMPLETED"
-  | "ON HOLD";
+  | "Planned"
+  | "Ongoing"
+  | "Delayed"
+  | "Completed"
+  | "On Hold";
 export type TaskStatus = "Planned" | "In Progress" | "Completed" | "Delayed";
 export type MilestoneStatus = "Pending" | "In Progress" | "Completed";
 

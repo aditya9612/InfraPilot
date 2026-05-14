@@ -168,8 +168,8 @@ const MasterDataPage = () => {
                     <td className="px-6 py-4 text-xs font-semibold text-slate-500">{item.category}</td>
                     <td className="px-6 py-4">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${item.type === "Material" ? "bg-blue-50 text-blue-600" :
-                          item.type === "Labour" ? "bg-violet-50 text-violet-600" :
-                            item.type === "Activity" ? "bg-amber-50 text-amber-600" : "bg-emerald-50 text-emerald-600"
+                        item.type === "Labour" ? "bg-violet-50 text-violet-600" :
+                          item.type === "Activity" ? "bg-amber-50 text-amber-600" : "bg-emerald-50 text-emerald-600"
                         }`}>
                         {item.type}
                       </span>

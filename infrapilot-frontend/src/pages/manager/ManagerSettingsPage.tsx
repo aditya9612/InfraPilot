@@ -339,8 +339,8 @@ const ManagerSettingsPage = () => {
                                             type="email"
                                             name="email"
                                             value={profile?.email || ""}
-                                            onChange={handleProfileChange}
-                                            className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/30 transition-all"
+                                            disabled
+                                            className="w-full px-5 py-3.5 bg-slate-100 border border-slate-100 rounded-2xl text-sm font-bold text-slate-500 opacity-70 cursor-not-allowed focus:outline-none transition-all"
                                         />
                                     </div>
                                     <div className="flex flex-col gap-2">
@@ -349,8 +349,8 @@ const ManagerSettingsPage = () => {
                                             type="tel"
                                             name="mobile_number"
                                             value={profile?.mobile_number || ""}
-                                            onChange={handleProfileChange}
-                                            className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/30 transition-all"
+                                            disabled
+                                            className="w-full px-5 py-3.5 bg-slate-100 border border-slate-100 rounded-2xl text-sm font-bold text-slate-500 opacity-70 cursor-not-allowed focus:outline-none transition-all"
                                         />
                                     </div>
                                 </div>
