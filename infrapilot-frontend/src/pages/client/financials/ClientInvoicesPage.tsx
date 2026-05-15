@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Navbar from "../../../components/common/Navbar";
 import type { Invoice } from "../../../types/invoice";
+import { financeService } from "../../../services/financeService";
 
 const MOCK_INVOICES: Invoice[] = [
   { id: 1, invoice_number: "INV-2026-001", type: "labour", description: "Excavation and foundation work", amount: 450000, gst_amount: 81000, total_amount: 531000, status: "paid", invoice_date: "2026-05-10", due_date: "2026-05-20" },
@@ -27,13 +28,21 @@ const ClientInvoicesPage = () => {
   };
 
   const handleDownloadPdf = async (id: number) => {
-    console.log("Mock Download PDF for invoice:", id);
-    alert(`Mock Download: Invoice PDF generation triggered for ID ${id}`);
+    try {
+      console.log("Downloading PDF for invoice via API:", id);
+      await financeService.getInvoicePdf(id);
+    } catch (error) {
+      console.error("PDF Download Error:", error);
+    }
   };
 
   const handleDownloadAllPdf = async () => {
-    console.log("Mock Download All Invoices PDF");
-    alert("Mock Download: Summary Invoices PDF generation triggered");
+    try {
+      console.log("Downloading All Invoices PDF via API");
+      await financeService.exportInvoicesPdf();
+    } catch (error) {
+      console.error("All PDF Download Error:", error);
+    }
   };
 
 

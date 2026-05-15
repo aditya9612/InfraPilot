@@ -4,6 +4,9 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
 } from "recharts";
 import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
+import { drawingService } from "../../services/drawingService";
+import type { Drawing } from "../../services/drawingService";
 
 const auditData = [
   { name: "Phase 1", projected: 1.2, actual: 1.1 },
@@ -35,6 +38,21 @@ const summaryData = [
 ];
 
 const ClientOverviewPage = () => {
+  const [latestDrawing, setLatestDrawing] = useState<Drawing | null>(null);
+
+  useEffect(() => {
+    const fetchLatest = async () => {
+      try {
+        const drawings = await drawingService.getLatestDrawings(1);
+        if (drawings.length > 0) {
+          setLatestDrawing(drawings[0]);
+        }
+      } catch (error) {
+        console.error("Failed to fetch latest drawing for dashboard");
+      }
+    };
+    fetchLatest();
+  }, []);
   return (
     <>
       <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Dashboard"]} />
@@ -57,7 +75,16 @@ const ClientOverviewPage = () => {
         </div>
 
         {/* Project Overview Section */}
-        <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm mb-12">
+        <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm mb-12 relative overflow-hidden">
+          {latestDrawing && (
+            <div className="absolute top-0 right-0 p-8 flex flex-col items-end">
+              <p className="text-[8px] font-black text-blue-500 uppercase tracking-widest mb-1">LATEST DOCUMENT</p>
+              <div className="flex items-center gap-3 px-4 py-2 bg-blue-50 rounded-xl border border-blue-100 shadow-sm">
+                <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                <p className="text-[10px] font-black text-blue-700 uppercase tracking-tighter">{latestDrawing.drawing_name} (v{latestDrawing.version})</p>
+              </div>
+            </div>
+          )}
           <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-50">
             <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.3em]">Project Overview</h3>
             <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[9px] font-black uppercase tracking-widest rounded-full border border-emerald-100">On Track</span>

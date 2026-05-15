@@ -13,50 +13,69 @@ export interface LoginResponse {
   mobile: string;
 }
 
+// Dev-only mock credentials. Active ONLY when backend is unreachable (5xx / network error).
+const ADMIN_JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwicm9sZSI6IkFkbWluIiwiZXhwIjoxNzc0OTU3Mzc2fQ.3Jrx1oIvOw3vgQL5ym_7I6Mo82ODDKHs_lUpNZvF74o";
+
+const MOCK_USERS: Record<string, { token: string; userId: number; role: string; name: string }> = {
+  "9999999990": { token: ADMIN_JWT,                              userId: 1,   role: "Admin",         name: "InfraPilot Admin" },
+  "9696969696": { token: "mock_test_token_client_transparency",  userId: 999, role: "Client",        name: "InfraPilot Client" },
+  "9999999991": { token: "mock_accountant_token",                userId: 100, role: "Accountant",    name: "InfraPilot Accountant" },
+  "8464796527": { token: "mock_manager_token",                   userId: 500, role: "ProjectManager",name: "InfraPilot Project Manager" },
+};
+
+/**
+ * Returns true when the backend is unreachable:
+ *  - No response at all (ECONNREFUSED, timeout, network error)
+ *  - 5xx response (502 Bad Gateway from Vite proxy, 503, 500, etc.)
+ */
+const isOfflineError = (error: any): boolean => {
+  if (!error?.response) return true;
+  return error.response.status >= 500;
+};
+
 export const authService = {
+  /**
+   * Step 1 — Request OTP
+   * POST /api/v1/auth/login
+   * Body:     { "mobile": "9696969696" }
+   * Response: { "message": "OTP sent", "mobile": "9696969696" }
+   */
   async login(mobile: string): Promise<LoginResponse> {
     try {
       const response = await api.post("/auth/login", { mobile });
       return response.data;
-    } catch (error) {
-      if (mobile === "9696969696" || mobile === "9999999991" || mobile === "8464796527") {
-        return { message: "OTP sent", mobile };
+    } catch (error: any) {
+      if (isOfflineError(error)) {
+        console.warn(`[Auth] Backend offline (${error?.response?.status ?? "no response"}) — mock OTP flow for ${mobile}`);
+        // Allow any valid 10-digit number to proceed with mock OTP when backend is down
+        return { message: "OTP sent (offline mode)", mobile };
       }
+      // Surface real backend errors (400 bad request, 404 not found, etc.) to the UI
       throw error;
     }
   },
 
   /**
-   * Final Verify OTP request
+   * Step 2 — Verify OTP
    * POST /api/v1/auth/verify_otp
+   * Body:     { "mobile": "...", "otp": "..." }
+   * Response: { token: { access_token, token_type }, user_id }
    */
   async verifyOtp(mobile: string, otp: string): Promise<VerifyOtpResponse> {
     try {
       const response = await api.post("/auth/verify_otp", { mobile, otp });
       return response.data;
-    } catch (error) {
-      // Hybrid Mock: Use the user's provided response schema for specific test cases
-      if (otp === "123456" || otp === "186142") {
-        let mockToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwicm9sZSI6IkFkbWluIiwiZXhwIjoxNzc0OTU3Mzc2fQ.3Jrx1oIvOw3vgQL5ym_7I6Mo82ODDKHs_lUpNZvF74o";
-        let mockUserId = 1;
-
-        if (mobile === "9999999991") {
-          mockToken = "mock_accountant_token";
-          mockUserId = 100;
-        } else if (mobile === "8464796527") {
-          mockToken = "mock_manager_token";
-          mockUserId = 500;
-        } else if (mobile === "9696969696") {
-          mockToken = "mock_test_token_client_transparency";
-          mockUserId = 999;
-        }
-
+    } catch (error: any) {
+      if (isOfflineError(error) && (otp === "123456" || otp === "186142")) {
+        console.warn(`[Auth] Backend offline — mock OTP verification for ${mobile}`);
+        // Use registered mock user config if available, otherwise default to Admin
+        const mock = MOCK_USERS[mobile];
         return {
           token: {
-            access_token: mockToken,
-            token_type: "bearer"
+            access_token: mock?.token ?? "mock_admin_token",
+            token_type: "bearer",
           },
-          user_id: mockUserId
+          user_id: mock?.userId ?? 1,
         };
       }
       throw error;
@@ -64,7 +83,7 @@ export const authService = {
   },
 
   /**
-   * Fetching the full user profile after verification
+   * Step 3 — Fetch logged-in user profile
    * GET /api/v1/users/me
    */
   async getMe(mobile?: string): Promise<{
@@ -76,14 +95,22 @@ export const authService = {
     try {
       const response = await api.get("/users/me");
       return response.data;
-    } catch (error) {
-      const activeMobile = mobile || JSON.parse(localStorage.getItem("infrapilot_user") || "{}").mobile;
-      
-      if (activeMobile === "9696969696" || activeMobile === "9999999990") return { full_name: "InfraPilot Client", role: "Client", mobile_number: activeMobile };
-      if (activeMobile === "9999999991") return { full_name: "InfraPilot Accountant", role: "Accountant", mobile_number: activeMobile };
-      if (activeMobile === "8464796527") return { full_name: "InfraPilot Project Manager", role: "ProjectManager", mobile_number: activeMobile };
-      
-      return { full_name: "Mock User", role: "Admin" };
+    } catch (error: any) {
+      const activeMobile =
+        mobile || JSON.parse(localStorage.getItem("infrapilot_user") || "{}").mobile;
+
+      if (isOfflineError(error)) {
+        console.warn(`[Auth] Backend offline — mock profile for ${activeMobile}`);
+        const mock = MOCK_USERS[activeMobile];
+        // Known mock user → use their role; unknown → default to Admin
+        return {
+          full_name: mock?.name ?? "InfraPilot Admin",
+          role: mock?.role ?? "Admin",
+          mobile_number: activeMobile,
+        };
+      }
+
+      throw error;
     }
   },
 

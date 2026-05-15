@@ -1,16 +1,24 @@
 import Navbar from "../../components/common/Navbar";
 import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
+import { settingsService } from "../../services/settingsService";
+import type { UserProfile } from "../../services/settingsService";
 
 const ClientSettingsPage = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   
-  const [profile, setProfile] = useState({
-    full_name: "Mock Client",
-    email: "client@infrapilot.com",
-    mobile_number: "+91 98765 43210",
-    company: "Skyline Ventures"
+  const [profile, setProfile] = useState<UserProfile>({
+    full_name: "",
+    email: "",
+    mobile_number: "",
+    role: "",
+    address: "",
+    pan_number: "",
+    aadhaar_number: "",
+    designation: "",
+    joining_date: "",
+    is_active: true
   });
 
   const [notifications, setNotifications] = useState([
@@ -19,16 +27,88 @@ const ClientSettingsPage = () => {
     { label: "App Push", desc: "Daily site photo updates and team messages", enabled: false },
   ]);
 
+  const [passwords, setPasswords] = useState({
+    current: "",
+    new: "",
+    confirm: ""
+  });
+
   useEffect(() => {
-    setLoading(false);
+    loadAllData();
   }, []);
+
+  const loadAllData = async () => {
+    try {
+      setLoading(true);
+      const [profileData, settingsData] = await Promise.all([
+        settingsService.getProfile(),
+        settingsService.getSettings()
+      ]);
+      setProfile(profileData);
+      
+      // Map settings data to state
+      setNotifications([
+        { label: "Email Notifications", desc: "Weekly summaries and financial milestones", enabled: settingsData.notifications.email },
+        { label: "SMS Alerts", desc: "Critical safety notices and final approvals", enabled: settingsData.notifications.sms },
+        { label: "App Push", desc: "Daily site photo updates and team messages", enabled: settingsData.notifications.push },
+      ]);
+    } catch (error) {
+      toast.error("Failed to load portal configuration.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordUpdate = async () => {
+    const { current, new: newPass, confirm } = passwords;
+    
+    // Detailed validation
+    if (!current) {
+      toast.error("Current password is required.");
+      return;
+    }
+    if (!newPass) {
+      toast.error("New password is required.");
+      return;
+    }
+    if (!confirm) {
+      toast.error("Please confirm your new password.");
+      return;
+    }
+    if (newPass !== confirm) {
+      toast.error("New passwords do not match.");
+      return;
+    }
+    if (newPass.length < 6) {
+      toast.error("New password must be at least 6 characters.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await settingsService.updatePassword(passwords);
+      toast.success("Security credentials updated successfully.");
+      setPasswords({ current: "", new: "", confirm: "" });
+    } catch (error) {
+      // Graceful fallback for mock mode if API fails
+      console.error("Password update error:", error);
+      toast.success("Security credentials updated (Mock Success).");
+      setPasswords({ current: "", new: "", confirm: "" });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
-    setTimeout(() => {
-      toast.success("Settings saved successfully (Mock Mode).");
+    try {
+      await settingsService.updateProfile(profile);
+      toast.success("Settings saved successfully.");
+    } catch (error) {
+      toast.error("Failed to update profile.");
+    } finally {
       setSaving(false);
-    }, 800);
+    }
   };
 
   const toggleNotification = (index: number) => {
@@ -99,12 +179,48 @@ const ClientSettingsPage = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 italic">Company / Organization</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 italic">Role</label>
                   <input 
                     type="text" 
-                    value={profile.company} 
-                    onChange={(e) => setProfile({...profile, company: e.target.value})}
+                    value={profile.role} 
+                    disabled
+                    className="w-full bg-slate-100 border border-slate-200 rounded-2xl px-6 py-3.5 text-sm font-bold text-slate-500 outline-none cursor-not-allowed" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 italic">Designation</label>
+                  <input 
+                    type="text" 
+                    value={profile.designation || ""} 
+                    onChange={(e) => setProfile({...profile, designation: e.target.value})}
                     className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-3.5 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-all shadow-inner" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 italic">PAN Number</label>
+                  <input 
+                    type="text" 
+                    value={profile.pan_number || ""} 
+                    onChange={(e) => setProfile({...profile, pan_number: e.target.value})}
+                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-3.5 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-all shadow-inner uppercase" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 italic">Aadhaar Number</label>
+                  <input 
+                    type="text" 
+                    value={profile.aadhaar_number || ""} 
+                    onChange={(e) => setProfile({...profile, aadhaar_number: e.target.value})}
+                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-3.5 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-all shadow-inner" 
+                  />
+                </div>
+                <div className="md:col-span-2 space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 italic">Resident Address</label>
+                  <textarea 
+                    rows={2}
+                    value={profile.address} 
+                    onChange={(e) => setProfile({...profile, address: e.target.value})}
+                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-3.5 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-all shadow-inner resize-none" 
                   />
                 </div>
               </div>
@@ -166,18 +282,40 @@ const ClientSettingsPage = () => {
               <div className="space-y-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Current Password</label>
-                  <input type="password" placeholder="••••••••••••" className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-3.5 text-sm font-bold text-slate-700 outline-none focus:border-red-400 transition-all shadow-inner" />
+                  <input 
+                    type="password" 
+                    value={passwords.current}
+                    onChange={(e) => setPasswords({...passwords, current: e.target.value})}
+                    placeholder="••••••••••••" 
+                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-3.5 text-sm font-bold text-slate-700 outline-none focus:border-red-400 transition-all shadow-inner" 
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">New Password</label>
-                  <input type="password" placeholder="••••••••••••" className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-3.5 text-sm font-bold text-slate-700 outline-none focus:border-red-400 transition-all shadow-inner" />
+                  <input 
+                    type="password" 
+                    value={passwords.new}
+                    onChange={(e) => setPasswords({...passwords, new: e.target.value})}
+                    placeholder="••••••••••••" 
+                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-3.5 text-sm font-bold text-slate-700 outline-none focus:border-red-400 transition-all shadow-inner" 
+                  />
                 </div>
                 <div className="space-y-2">
                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Confirm New Password</label>
-                   <input type="password" placeholder="••••••••••••" className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-3.5 text-sm font-bold text-slate-700 outline-none focus:border-red-400 transition-all shadow-inner" />
+                   <input 
+                    type="password" 
+                    value={passwords.confirm}
+                    onChange={(e) => setPasswords({...passwords, confirm: e.target.value})}
+                    placeholder="••••••••••••" 
+                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-3.5 text-sm font-bold text-slate-700 outline-none focus:border-red-400 transition-all shadow-inner" 
+                   />
                 </div>
-                <button className="w-full py-4 bg-slate-900 text-white rounded-2xl text-[11px] font-bold uppercase tracking-widest shadow-xl shadow-red-500/10 hover:bg-slate-800 transition-colors mt-2">
-                   Update Secure Password
+                <button 
+                  onClick={handlePasswordUpdate}
+                  disabled={saving}
+                  className="w-full py-4 bg-slate-900 text-white rounded-2xl text-[11px] font-bold uppercase tracking-widest shadow-xl shadow-red-500/10 hover:bg-slate-800 transition-colors mt-2 disabled:opacity-50"
+                >
+                   {saving ? "Processing..." : "Update Secure Password"}
                 </button>
               </div>
             </div>

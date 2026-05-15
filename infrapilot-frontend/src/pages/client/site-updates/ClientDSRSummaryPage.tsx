@@ -72,7 +72,6 @@ const ClientDSRSummaryPage = () => {
     setLoading(true);
     try {
       const response = await dsrService.getProjectDsr(1);
-      // Map API items to the UI structure if needed, or update UI to use API fields
       const mappedReports = response.items.map(item => ({
         id: item.business_id,
         date: new Date(item.report_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
@@ -81,17 +80,23 @@ const ClientDSRSummaryPage = () => {
         labourCount: item.total_labour,
         materialUsed: item.material_used,
         remarks: item.remarks,
-        photos: item.photos.map(p => {
-           // Handle relative URLs if necessary
-           return p.file_url.startsWith('http') ? p.file_url : `/${p.file_url}`;
-        })
+        status: item.status,
+        photos: item.photos.map(p =>
+          p.file_url.startsWith('http') ? p.file_url : `/${p.file_url}`
+        )
       }));
       setReports(mappedReports);
-      if (reports.length > 0) {
-        toast.success("DSR Records Synced!");
+      if (mappedReports.length > 0) {
+        toast.success(`${mappedReports.length} DSR record${mappedReports.length > 1 ? 's' : ''} loaded.`);
       }
-    } catch (err) {
-      toast.error("Failed to load site reports");
+    } catch (err: any) {
+      // Only fires for unrecoverable errors (e.g. 401/403) — 502s are handled by mock fallback
+      const status = err?.response?.status;
+      if (status === 401 || status === 403) {
+        toast.error("Access denied. Please log in again.");
+      } else {
+        toast.error("Failed to load site reports.");
+      }
     } finally {
       setLoading(false);
     }
@@ -173,7 +178,8 @@ const ClientDSRSummaryPage = () => {
           </div>
           <button 
             onClick={fetchDsr}
-            className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+            disabled={loading}
+            className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100"
           >
             <Plus size={18} strokeWidth={3} className={loading ? "animate-spin" : ""} />
             {loading ? "Syncing..." : "Fetch Daily Reports"}

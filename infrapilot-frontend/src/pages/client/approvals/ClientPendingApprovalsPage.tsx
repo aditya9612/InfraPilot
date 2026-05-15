@@ -62,6 +62,7 @@ const pendingApprovals = [
    }
 ];
 
+import { approvalService } from "../../../services/approvalService";
 import toast from "react-hot-toast";
 
 const ClientPendingApprovalsPage = () => {
@@ -71,10 +72,24 @@ const ClientPendingApprovalsPage = () => {
 
    const fetchApprovals = async () => {
       setLoading(true);
-      setTimeout(() => {
-         setApprovals(INITIAL_APPROVALS_DATA);
+      try {
+         const data = await approvalService.getApprovals();
+         // Map API response to UI structure if needed, or use as is
+         setApprovals(data.map((a: any) => ({
+            ...a,
+            id: a.id || a.approval_id,
+            requestType: a.entity_type || "Variation",
+            description: a.title || a.description || "Project Variation Request",
+            amountQuantity: a.amount || "N/A",
+            requestedBy: a.requested_by || "System",
+            status: a.status || "Pending",
+            remarks: a.remarks || "No additional remarks"
+         })));
+      } catch (error) {
+         toast.error("Failed to fetch approvals");
+      } finally {
          setLoading(false);
-      }, 800);
+      }
    };
 
    useEffect(() => {
@@ -83,45 +98,52 @@ const ClientPendingApprovalsPage = () => {
 
    const handleCreateApproval = async (data: any) => {
       setLoading(true);
-      setTimeout(() => {
-         const newApr = {
-            id: `APR-${Math.floor(Math.random() * 900 + 100)}`,
-            requestType: data.type,
-            description: data.description,
-            amountQuantity: data.amountQuantity,
-            requestedBy: "Client (Self)",
-            status: "Pending",
-            remarks: "New request from portal"
-         };
-         setApprovals(prev => [newApr, ...prev]);
+      try {
+         await approvalService.submitApproval({
+            entity_type: data.type.toLowerCase(),
+            entity_id: 1, // Default for now
+            remarks: data.description
+         });
          toast.success("Approval request submitted!");
          setIsModalOpen(false);
+         fetchApprovals();
+      } catch (error) {
+         toast.error("Submission failed");
+      } finally {
          setLoading(false);
-      }, 800);
+      }
    };
 
    const handleApprove = async (apr: any) => {
       setLoading(true);
-      setTimeout(() => {
-         setApprovals(prev => prev.filter(a => a.id !== apr.id));
+      try {
+         await approvalService.approveApproval(apr.id, "we approved it");
          toast.success("Request approved!", {
             style: { borderRadius: "12px", background: "#059669", color: "#fff" },
             icon: "✅",
-         });
+          });
+         fetchApprovals();
+      } catch (error) {
+         toast.error("Approval failed");
+      } finally {
          setLoading(false);
-      }, 500);
+      }
    };
 
    const handleReject = async (apr: any) => {
       setLoading(true);
-      setTimeout(() => {
-         setApprovals(prev => prev.filter(a => a.id !== apr.id));
+      try {
+         await approvalService.rejectApproval(apr.id, "we rejectedit");
          toast.success("Request rejected", {
             style: { borderRadius: "12px", background: "#dc2626", color: "#fff" },
             icon: "❌",
-         });
+          });
+         fetchApprovals();
+      } catch (error) {
+         toast.error("Rejection failed");
+      } finally {
          setLoading(false);
-      }, 500);
+      }
    };
 
    return (

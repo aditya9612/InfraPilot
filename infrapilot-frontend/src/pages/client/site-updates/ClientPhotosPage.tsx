@@ -42,7 +42,7 @@ const tags = ["All", "Structure", "Foundation", "Masonry", "Safety", "Equipment"
 const ClientPhotosPage = () => {
   const [activeTag, setActiveTag] = useState("All");
 
-  // "All" tab → one representative (latest) photo per category
+  // \"All\" tab → one representative (latest) photo per category
   const filteredPhotos = activeTag === "All"
     ? ["Structure", "Foundation", "Masonry", "Safety", "Equipment"].map(
         (cat) => photos.find((p) => p.tag === cat)!
@@ -105,7 +105,7 @@ const ClientPhotosPage = () => {
                       <span className="w-3 h-0.5 bg-primary rounded-full" />
                       Site Activity
                     </p>
-                    <p className="text-xs font-bold text-slate-700 leading-relaxed mb-4 italic">"{photo.desc}"</p>
+                    <p className="text-xs font-bold text-slate-700 leading-relaxed mb-4 italic">\"{photo.desc}\"</p>
                   </div>
                   <div className="flex items-center justify-between pt-4 border-t border-slate-50">
                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{photo.date}</span>

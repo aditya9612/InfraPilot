@@ -27,40 +27,7 @@ export interface Drawing {
 }
 
 export const drawingService = {
-  /**
-   * Get latest drawings for a project
-   * GET /api/v1/drawings/{project_id}/latest
-   */
   async getLatestDrawings(projectId: number): Promise<Drawing[]> {
-    if (isMockUser()) {
-      return [
-        {
-          id: 1,
-          version: "v1.0",
-          approved_by: "Site Engineer",
-          remarks: "Initial approved drawing for foundation work",
-          updated_at: "2026-04-26T16:06:30",
-          project_id: projectId,
-          drawing_name: "Foundation Layout",
-          file_url: "uploads/drawings/foundation.pdf",
-          date: "2026-04-26",
-          created_at: "2026-04-26T16:06:30"
-        },
-        {
-          id: 2,
-          version: "v1.4",
-          approved_by: "Project Manager",
-          remarks: "Updated floor 4 structural layout",
-          updated_at: "2026-03-28T10:00:00",
-          project_id: projectId,
-          drawing_name: "Architectural Drawing - Floor 4 Layout",
-          file_url: "uploads/drawings/floor4.pdf",
-          date: "2026-03-28",
-          created_at: "2026-03-28T10:00:00"
-        }
-      ];
-    }
-
     try {
       const response = await api.get(`/drawings/${projectId}/latest`);
       const data = response.data;
@@ -68,6 +35,26 @@ export const drawingService = {
       return Array.isArray(data) ? data : [data];
     } catch (error: any) {
       console.error(`Get Latest Drawings for Project ${projectId} Error:`, error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  downloadDocumentById: async (id: number): Promise<void> => {
+    try {
+      const response = await api.get(`/drawings/documents/download/${id}`, {
+        responseType: 'blob'
+      });
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `document_${id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(`Error downloading document ${id}:`, error);
       throw error;
     }
   },

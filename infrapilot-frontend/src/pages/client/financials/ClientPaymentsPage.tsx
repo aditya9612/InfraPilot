@@ -1,4 +1,5 @@
 import Navbar from "../../../components/common/Navbar";
+import { financeService } from "../../../services/financeService";
 
 const payments = [
   { id: "PAY-1004", invoice: "INV-2026-42", amount: "₹38,40,000", date: "30 Mar 2026", method: "Bank Transfer", status: "Completed" },
@@ -10,8 +11,21 @@ const payments = [
 
 const ClientPaymentsPage = () => {
   const handleDownloadReceipts = async () => {
-    console.log("Mock Download Receipts PDF");
-    alert("Mock Download: Payment Receipts PDF generation triggered");
+    try {
+      console.log("Downloading Payment Receipts PDF via API");
+      await financeService.exportPaymentsPdf([]);
+    } catch (error) {
+      console.error("Receipts Download Error:", error);
+    }
+  };
+
+  const handleDownloadReceipt = async (id: string) => {
+    try {
+      console.log("Downloading Individual Receipt via API:", id);
+      await financeService.getPaymentPdf(id);
+    } catch (error) {
+      console.error("Individual Receipt Download Error:", error);
+    }
   };
 
   return (
@@ -46,7 +60,18 @@ const ClientPaymentsPage = () => {
         <div className="divide-y divide-slate-50">
           {payments.map((pay, i) => (
             <div key={i} className="grid grid-cols-12 gap-4 px-6 py-5 hover:bg-slate-50 transition-colors items-center group">
-              <p className="col-span-2 text-xs font-bold text-slate-800 uppercase tracking-widest">{pay.id}</p>
+              <div className="col-span-2 flex items-center gap-3">
+                <button 
+                  onClick={() => handleDownloadReceipt(pay.id)}
+                  className="p-1.5 rounded-lg bg-slate-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all shrink-0 opacity-0 group-hover:opacity-100"
+                  title="Download Receipt"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </button>
+                <p className="text-xs font-bold text-slate-800 uppercase tracking-widest">{pay.id}</p>
+              </div>
               <div className="col-span-3">
                  <p className="text-sm font-bold text-slate-700">{pay.invoice}</p>
               </div>
