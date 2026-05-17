@@ -23,6 +23,8 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
     status: "Not Started"
   });
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   useEffect(() => {
     if (activity) {
       setFormData({
@@ -36,12 +38,36 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
     }
   }, [activity]);
 
+  const validate = () => {
+    const errs: Record<string, string> = {};
+    if (!formData.activity_name?.trim()) {
+      errs.activity_name = "Activity name is required";
+    } else if (/[0-9]/.test(formData.activity_name)) {
+      errs.activity_name = "Activity name must be alphabetic only (no numbers)";
+    }
+
+    if (!formData.planned_quantity || formData.planned_quantity <= 0) {
+      errs.planned_quantity = "Planned quantity must be greater than 0";
+    }
+
+    if (!formData.start_date) errs.start_date = "Start date is required";
+    if (!formData.end_date) errs.end_date = "End date is required";
+    
+    if (formData.start_date && formData.end_date && new Date(formData.start_date) > new Date(formData.end_date)) {
+      errs.end_date = "End date cannot be before start date";
+    }
+
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!activity) return;
+    if (!activity || !validate()) return;
     setIsSubmitting(true);
     try {
       await onSubmit(activity.id, formData);
+      setErrors({});
     } catch (err) {
       console.error(err);
     } finally {
@@ -49,8 +75,29 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
     }
   };
 
-  const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
-  const inputClasses = "w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm font-bold outline-none transition-all placeholder:text-slate-300";
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    
+    if (name === "activity_name" && /[0-9]/.test(value)) {
+        setErrors(prev => ({ ...prev, [name]: "Numbers are not allowed in activity name" }));
+        return;
+    }
+
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+        setErrors(prev => {
+            const { [name]: _, ...rest } = prev;
+            return rest;
+        });
+    }
+  };
+
+  const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
+  const inputClasses = (error?: string) => `
+    w-full px-4 py-2.5 bg-white border 
+    ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
+    rounded-xl text-sm font-bold outline-none transition-all placeholder:text-slate-300 font-inter
+  `;
 
   const modalFooter = (
     <>
@@ -85,14 +132,15 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
             <div className="md:col-span-2">
               <label className={labelClasses}>Activity Name*</label>
               <input 
-                required type="text"
-                className={inputClasses}
-                value={formData.activity_name} onChange={e => setFormData({...formData, activity_name: e.target.value})}
+                required type="text" name="activity_name"
+                className={inputClasses(errors.activity_name)}
+                value={formData.activity_name} onChange={handleChange}
               />
+              {errors.activity_name && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.activity_name}</p>}
             </div>
             <div className="md:col-span-2">
               <label className={labelClasses}>Current Operational Status*</label>
-              <select className={inputClasses} value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
+              <select name="status" className={inputClasses()} value={formData.status} onChange={handleChange}>
                 {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
@@ -108,14 +156,15 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
             <div>
               <label className={labelClasses}>Provisioned Quantity*</label>
               <input 
-                required type="number" min="0" step="any"
-                className={inputClasses}
+                required type="number" name="planned_quantity" min="0" step="any"
+                className={inputClasses(errors.planned_quantity)}
                 value={formData.planned_quantity} onChange={e => setFormData({...formData, planned_quantity: Number(e.target.value)})}
               />
+              {errors.planned_quantity && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.planned_quantity}</p>}
             </div>
             <div>
               <label className={labelClasses}>Unit of Measure*</label>
-              <select className={inputClasses} value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})}>
+              <select name="unit" className={inputClasses()} value={formData.unit} onChange={handleChange}>
                 {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>
@@ -131,16 +180,18 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
             <div>
               <label className={labelClasses}>Mobilization Date*</label>
               <input 
-                required type="date" className={inputClasses}
-                value={formData.start_date} onChange={e => setFormData({...formData, start_date: e.target.value})}
+                required type="date" name="start_date" className={inputClasses(errors.start_date)}
+                value={formData.start_date} onChange={handleChange}
               />
+              {errors.start_date && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.start_date}</p>}
             </div>
             <div>
               <label className={labelClasses}>Estimated Completion*</label>
               <input 
-                required type="date" className={inputClasses}
-                value={formData.end_date} onChange={e => setFormData({...formData, end_date: e.target.value})}
+                required type="date" name="end_date" className={inputClasses(errors.end_date)}
+                value={formData.end_date} onChange={handleChange}
               />
+              {errors.end_date && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.end_date}</p>}
             </div>
           </div>
         </div>

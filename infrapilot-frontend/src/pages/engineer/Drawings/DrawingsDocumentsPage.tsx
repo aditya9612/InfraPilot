@@ -286,9 +286,9 @@ const DrawingsDocumentsPage = () => {
         <>
             <Navbar title="Drawings & Documents" breadcrumb={["Engineer", "Document Vault", "Blueprints"]} />
 
-            <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
+            <PageTransition className="p-4 md:p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
                 {/* ── Header ──────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 font-inter">
                     <div className="font-inter">
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Engineering Document Vault</h1>
                         <p className="text-slate-500 text-sm font-inter">Centralized repository for structural blueprints and technical revisions.</p>
@@ -313,7 +313,7 @@ const DrawingsDocumentsPage = () => {
                 </div>
 
                 {/* ── Interactive Stats ───────────────────────────── */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard title="Total Vault" value={stats.total.toString()} sub="Engineering Assets" accent="text-slate-800" />
                     </div>
@@ -506,7 +506,7 @@ const DrawingsDocumentsPage = () => {
                                     </div>
                                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">Asset Metadata</p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-x-12 gap-y-8 font-inter">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 sm:gap-x-12 gap-y-6 sm:gap-y-8 font-inter">
                                     <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Drawing Version</p>
                                         <p className="text-sm font-bold text-slate-800 font-inter uppercase tracking-widest">{selectedDrawing.version}</p>
@@ -550,7 +550,7 @@ const DrawingsDocumentsPage = () => {
                                     </div>
                                     <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest font-inter">File Integrity</p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-x-12 gap-y-8 font-inter">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 sm:gap-x-12 gap-y-6 sm:gap-y-8 font-inter">
                                     <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Linked Filename</p>
                                         <p className="text-sm font-bold text-slate-800 truncate font-inter">

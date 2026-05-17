@@ -20,6 +20,8 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
     remarks: ""
   });
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   useEffect(() => {
     if (isOpen) {
       setFormData({
@@ -31,9 +33,26 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
     }
   }, [isOpen, activity]);
 
+  const validate = () => {
+    const errs: Record<string, string> = {};
+    if (!formData.activity_id) errs.activity_id = "Activity selection is required";
+    if (!formData.entry_date) errs.entry_date = "Date is required";
+    
+    if (!formData.today_progress || formData.today_progress <= 0) {
+      errs.today_progress = "Executed quantity must be greater than 0";
+    }
+
+    if (!formData.remarks.trim()) {
+      errs.remarks = "Field narrative/remarks are required";
+    }
+
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!formData.activity_id) return;
+    if (!validate()) return;
     setIsSubmitting(true);
     try {
       await onSubmit({
@@ -43,6 +62,7 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
         remarks: formData.remarks,
         created_by: engineerId
       });
+      setErrors({});
     } catch (err) {
       console.error(err);
     } finally {
@@ -50,8 +70,25 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
     }
   };
 
-  const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
-  const inputClasses = "w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm font-bold outline-none transition-all placeholder:text-slate-300";
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    const val = name === "today_progress" ? Number(value) : value;
+    
+    setFormData(prev => ({ ...prev, [name]: val }));
+    if (errors[name]) {
+        setErrors(prev => {
+            const { [name]: _, ...rest } = prev;
+            return rest;
+        });
+    }
+  };
+
+  const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
+  const inputClasses = (error?: string) => `
+    w-full px-4 py-2.5 bg-white border 
+    ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
+    rounded-xl text-sm font-bold outline-none transition-all placeholder:text-slate-300 font-inter
+  `;
 
   const selectedActivity = activity || activitiesList.find(a => String(a.id) === formData.activity_id);
 
@@ -98,15 +135,17 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
               <label className={labelClasses}>Select Target Activity*</label>
               <select
                 required
-                className={inputClasses}
+                name="activity_id"
+                className={inputClasses(errors.activity_id)}
                 value={formData.activity_id}
-                onChange={e => setFormData({ ...formData, activity_id: e.target.value })}
+                onChange={handleChange}
               >
                 <option value="">Select from project registry</option>
                 {activitiesList.map(a => (
                   <option key={a.id} value={a.id}>{a.activity_name} ({a.boq_code || "No BOQ"})</option>
                 ))}
               </select>
+              {errors.activity_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.activity_id}</p>}
             </div>
           )}
         </div>
@@ -120,17 +159,19 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
             <div>
               <label className={labelClasses}>Field Log Date*</label>
               <input
-                required type="date" className={inputClasses}
-                value={formData.entry_date} onChange={e => setFormData({ ...formData, entry_date: e.target.value })}
+                required type="date" name="entry_date" className={inputClasses(errors.entry_date)}
+                value={formData.entry_date} onChange={handleChange}
               />
+              {errors.entry_date && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.entry_date}</p>}
             </div>
             <div>
               <label className={labelClasses}>Quantity Executed {selectedActivity ? `(${selectedActivity.unit})` : ""}*</label>
               <input
-                required type="number" min="0" step="any" placeholder="Enter field volume"
-                className={inputClasses}
-                value={formData.today_progress} onChange={e => setFormData({ ...formData, today_progress: Number(e.target.value) })}
+                required type="number" name="today_progress" min="0" step="any" placeholder="Enter field volume"
+                className={inputClasses(errors.today_progress)}
+                value={formData.today_progress} onChange={handleChange}
               />
+              {errors.today_progress && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.today_progress}</p>}
             </div>
           </div>
         </div>
@@ -141,10 +182,11 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
             Field Narrative
           </h3>
           <textarea
-            rows={3} placeholder="Describe site conditions or obstacles (optional)..."
-            className={`${inputClasses} resize-none font-inter`}
-            value={formData.remarks} onChange={e => setFormData({ ...formData, remarks: e.target.value })}
+            name="remarks" rows={3} placeholder="Describe site conditions or obstacles (required)..."
+            className={`${inputClasses(errors.remarks)} resize-none font-inter`}
+            value={formData.remarks} onChange={handleChange}
           />
+          {errors.remarks && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.remarks}</p>}
         </div>
       </form>
     </Modal>

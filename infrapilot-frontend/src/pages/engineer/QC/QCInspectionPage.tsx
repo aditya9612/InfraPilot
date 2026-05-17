@@ -147,6 +147,16 @@ const QCInspectionPage = () => {
             return;
         }
 
+        if (formData.result === null || formData.result === undefined) {
+            toast.error("Please enter the observed value");
+            return;
+        }
+
+        if (formData.standard_value === null || formData.standard_value === undefined) {
+            toast.error("Please enter the standard threshold");
+            return;
+        }
+
         setIsSubmitting(true);
         try {
             await qcService.createQc(formData);
@@ -169,6 +179,16 @@ const QCInspectionPage = () => {
 
         if (!formData.engineer_name.trim()) {
             toast.error("Please enter the Engineer In-Charge name");
+            return;
+        }
+
+        if (formData.result === null || formData.result === undefined) {
+            toast.error("Please enter the observed value");
+            return;
+        }
+
+        if (formData.standard_value === null || formData.standard_value === undefined) {
+            toast.error("Please enter the standard threshold");
             return;
         }
 
@@ -286,16 +306,16 @@ const QCInspectionPage = () => {
     const totalPages = Math.ceil(filteredList.length / itemsPerPage);
 
     const stats = useMemo(() => {
-        const total = qcList.length;
-        const passed = qcList.filter(q => q.status === "Pass").length;
-        const failed = qcList.filter(q => q.status === "Fail").length;
+        const total = filteredList.length;
+        const passed = filteredList.filter(q => q.status === "Pass").length;
+        const failed = filteredList.filter(q => q.status === "Fail").length;
         return {
             total,
             passed,
             failed,
             compliance: Math.round((passed / (total || 1)) * 100)
         };
-    }, [qcList]);
+    }, [filteredList]);
 
     const statusBadge: Record<string, string> = {
         Pass: "bg-emerald-100 text-emerald-600",
@@ -488,7 +508,7 @@ const QCInspectionPage = () => {
                     </div>
                     
                     {/* ── Pagination ────────────────────────────────────────── */}
-                    {totalPages > 1 && (
+                    {filteredList.length > 0 && (
                         <div className="p-4 border-t border-slate-50 flex items-center justify-between bg-white font-inter">
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                                 Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredList.length)} of {filteredList.length} entries
@@ -499,22 +519,20 @@ const QCInspectionPage = () => {
                                     disabled={currentPage === 1}
                                     className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-primary disabled:opacity-30 disabled:hover:text-slate-500 transition-all border border-slate-100 rounded-lg"
                                 >
-                                    Previous
+                                    Prev
                                 </button>
-                                <div className="flex items-center gap-1">
-                                    {[...Array(totalPages)].map((_, i) => (
-                                        <button
-                                            key={i + 1}
-                                            onClick={() => setCurrentPage(i + 1)}
-                                            className={`w-8 h-8 rounded-lg text-[10px] font-bold transition-all ${currentPage === i + 1 ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-slate-400 hover:bg-slate-50"}`}
-                                        >
-                                            {i + 1}
-                                        </button>
-                                    ))}
-                                </div>
+                                {totalPages > 0 && [...Array(Math.min(totalPages, 5))].map((_, i) => (
+                                    <button
+                                        key={i + 1}
+                                        onClick={() => setCurrentPage(i + 1)}
+                                        className={`w-8 h-8 rounded-lg text-[10px] font-bold transition-all ${currentPage === i + 1 ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-slate-400 hover:bg-slate-50"}`}
+                                    >
+                                        {i + 1}
+                                    </button>
+                                ))}
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                                    disabled={currentPage === totalPages}
+                                    disabled={currentPage === totalPages || totalPages === 0}
                                     className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-primary disabled:opacity-30 disabled:hover:text-slate-500 transition-all border border-slate-100 rounded-lg"
                                 >
                                     Next
@@ -639,7 +657,10 @@ const QCInspectionPage = () => {
                                     type="text"
                                     placeholder="Enter auditor name..."
                                     value={formData.engineer_name}
-                                    onChange={(e) => setFormData({...formData, engineer_name: e.target.value})}
+                                    onChange={(e) => {
+                                        const val = e.target.value.replace(/[^a-zA-Z\s]/g, "");
+                                        setFormData({...formData, engineer_name: val});
+                                    }}
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
                                 />
                             </div>
@@ -681,8 +702,8 @@ const QCInspectionPage = () => {
                                     onChange={(e) => setFormData({...formData, status: e.target.value})}
                                     className={`w-full px-4 py-2.5 border rounded-xl text-sm font-bold outline-none transition-all font-inter cursor-pointer ${formData.status === 'Pass' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-rose-50 border-rose-100 text-rose-700'}`}
                                 >
-                                    <option value="Pass">Pass / Compliant</option>
-                                    <option value="Fail">Fail / Non-Compliant</option>
+                                    <option value="Pass">Pass</option>
+                                    <option value="Fail">Fail</option>
                                 </select>
                             </div>
                         </div>

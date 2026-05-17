@@ -114,9 +114,11 @@ const DailyProgressEntryPage = () => {
     try {
       setLoading(true);
       const activity_id = selectedActivityId === "all" ? undefined : Number(selectedActivityId);
-      const data = await workProgressService.listDailyEntries(activity_id, filterDate);
+      // If filterDate is empty, fetch all history
+      const data = await workProgressService.listDailyEntries(activity_id, filterDate || undefined);
       setAllEntries(data);
     } catch (err) {
+      console.error("Load Entries Error:", err);
       toast.error("Failed to load progress logs");
     } finally {
       setLoading(false);
@@ -224,6 +226,14 @@ const DailyProgressEntryPage = () => {
     });
   }, [allEntries, activitiesList, searchTerm]);
 
+  const momentum = useMemo(() => {
+    if (!activitiesList.length) return "0%";
+    const todayStr = new Date().toISOString().split("T")[0];
+    const activitiesWithTodayLog = allEntries.filter(e => e.entry_date === todayStr).length;
+    const rate = Math.round((activitiesWithTodayLog / activitiesList.length) * 100);
+    return `${rate}%`;
+  }, [allEntries, activitiesList]);
+
   const getProgressColor = (percent: number) => {
     if (percent >= 75) return "bg-emerald-500 shadow-emerald-500/20";
     if (percent >= 40) return "bg-blue-500 shadow-blue-500/20";
@@ -233,7 +243,7 @@ const DailyProgressEntryPage = () => {
 
   const resetFilters = () => {
     setSearchTerm("");
-    setFilterDate(new Date().toISOString().split("T")[0]);
+    setFilterDate(""); // Clear date to show all history
     setSelectedActivityId("all");
     setActiveStatFilter("All");
   };
@@ -284,7 +294,7 @@ const DailyProgressEntryPage = () => {
           <div className="cursor-default group transition-all rounded-xl hover:scale-[1.01]">
             <StatCard
               title="Momentum"
-              value="88%"
+              value={momentum}
               sub="Operational Pulse"
               accent="text-blue-500" />
           </div>

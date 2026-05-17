@@ -346,13 +346,14 @@ export const labourService = {
      */
     async getAttendanceList(projectId: number | string | null, fromDate?: string, toDate?: string) {
         try {
+            const today = new Date().toISOString().split('T')[0];
             const params: any = {
                 limit: 50,
-                offset: 0
+                offset: 0,
+                from_date: fromDate || today,
+                to_date: toDate || today
             };
             if (projectId) params.project_id = projectId;
-            if (fromDate) params.from_date = fromDate;
-            if (toDate) params.to_date = toDate;
 
             console.log("GET /api/v1/labour/attendance", params);
             const response = await api.get<any>("/labour/attendance", { params });

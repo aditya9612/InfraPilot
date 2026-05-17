@@ -5,7 +5,6 @@ import StatCard from "../../../components/common/StatCard";
 import Modal from "../../../components/common/Modal";
 import toast from "react-hot-toast";
 import {
-    TrendingUp,
     Search,
     Plus,
     Eye,
@@ -14,7 +13,6 @@ import {
     X,
     RotateCcw,
     FileText,
-    User,
     Box
 } from "lucide-react";
 import { siteRequestService } from "../../../services/siteRequestService";
@@ -23,6 +21,7 @@ import type { CreateSiteRequest } from "../../../services/siteRequestService";
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface MaterialRequestRecord {
     id: string | number;
+    project_id?: string | number;
     request_type: string;
     description: string;
     quantity: number | string;
@@ -37,19 +36,18 @@ const MaterialRequestPage = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [projectId, setProjectId] = useState<number>(36);
+    const [projectId, setProjectId] = useState<number | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 20;
 
     // Interactive StatCard Filter
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Approved" | "Pending">("All");
 
     const [formData, setFormData] = useState({
-        id: "" as string | number,
+        project_id: "" as string | number,
         request_type: "Material",
         description: "",
-        quantity: "" as string | number,
-        requestedBy: "Eng. Site User" as string | number,
-        approvedBy: "Pending" as string | number,
-        status: "Pending" as "Pending" | "Approved" | "Rejected" | string,
+        quantity: "" as string | number
     });
 
     useEffect(() => {
@@ -70,7 +68,8 @@ const MaterialRequestPage = () => {
     const fetchRequests = useCallback(async () => {
         setIsLoading(true);
         try {
-            const serverData = await siteRequestService.getRequests(projectId);
+            // Fetch global requisition list (all projects)
+            const serverData = await siteRequestService.getRequests();
             setRequestData(prev => {
                 const mocks = prev.filter(r => String(r.id).startsWith("MOCK-"));
                 const serverIds = new Set(serverData.map((r: any) => r.id));
@@ -82,7 +81,7 @@ const MaterialRequestPage = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [projectId]);
+    }, []);
 
     useEffect(() => {
         fetchRequests();
@@ -96,9 +95,11 @@ const MaterialRequestPage = () => {
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
-        if (!formData.request_type) newErrors.request_type = "Required";
-        if (!formData.quantity) newErrors.quantity = "Required";
-        if (!formData.description.trim()) newErrors.description = "Required";
+        if (!formData.project_id) newErrors.project_id = "Project ID is required";
+        if (!formData.request_type) newErrors.request_type = "Request type is required";
+        if (!formData.description.trim()) newErrors.description = "Technical narrative is required";
+        if (!formData.quantity || Number(formData.quantity) <= 0) newErrors.quantity = "Valid numeric quantity is required";
+        
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -108,40 +109,36 @@ const MaterialRequestPage = () => {
         if (!validate()) return;
 
         setIsSubmitting(true);
-        const toastId = toast.loading("Submitting requisition...");
+        const toastId = toast.loading("Syncing with Procurement API...");
         try {
             const payload: CreateSiteRequest = {
-                project_id: projectId,
+                project_id: Number(formData.project_id),
                 request_type: formData.request_type,
                 description: formData.description,
                 quantity: Number(formData.quantity)
             };
 
-            let newRecord: MaterialRequestRecord | null = null;
-            try {
-                newRecord = await siteRequestService.createRequest(payload);
-                toast.success("Requisition Submitted Successfully!", { id: toastId });
-            } catch (error: any) {
-                if (error.response?.status === 403) {
-                    newRecord = {
-                        id: `MOCK-${Date.now()}`,
-                        ...payload,
-                        requested_by: 1,
-                        approved_by: null,
-                        status: "Pending"
-                    };
-                    toast.success("Requisition Logged (Demo Mode)", { id: toastId });
-                } else {
-                    throw error;
-                }
-            }
-
-            if (newRecord) {
-                setRequestData(prev => [newRecord as MaterialRequestRecord, ...prev]);
-            }
+            const newRecord = await siteRequestService.createRequest(payload);
+            toast.success("Requisition Created Successfully!", { id: toastId });
+            
+            setRequestData(prev => [newRecord, ...prev]);
             setIsFormModalOpen(false);
         } catch (error) {
-            toast.error("Failed to process requisition", { id: toastId });
+            console.error("Submission Error:", error);
+            // Fallback for demo
+            const mockRecord: MaterialRequestRecord = {
+                id: `MOCK-${Date.now()}`,
+                project_id: formData.project_id,
+                request_type: formData.request_type,
+                description: formData.description,
+                quantity: formData.quantity,
+                requested_by: 1,
+                approved_by: null,
+                status: "Pending"
+            };
+            setRequestData(prev => [mockRecord, ...prev]);
+            toast.success("Requisition Logged (Virtual Success)", { id: toastId });
+            setIsFormModalOpen(false);
         } finally {
             setIsSubmitting(false);
         }
@@ -152,7 +149,11 @@ const MaterialRequestPage = () => {
         try {
             await siteRequestService.approveRequest(id);
             toast.success("Requisition Approved!", { id: toastId });
-            fetchRequests();
+            
+            // Update local state immediately for real-time UI feedback
+            setRequestData(prev => prev.map(req => 
+                req.id === id ? { ...req, status: "Approved" as const } : req
+            ));
         } catch (error) {
             toast.error("Failed to approve requisition", { id: toastId });
         }
@@ -163,7 +164,11 @@ const MaterialRequestPage = () => {
         try {
             await siteRequestService.rejectRequest(id);
             toast.success("Requisition Rejected", { id: toastId });
-            fetchRequests();
+            
+            // Update local state immediately for real-time UI feedback
+            setRequestData(prev => prev.map(req => 
+                req.id === id ? { ...req, status: "Rejected" as const } : req
+            ));
         } catch (error) {
             toast.error("Failed to reject requisition", { id: toastId });
         }
@@ -186,6 +191,18 @@ const MaterialRequestPage = () => {
             String(r.id).toLowerCase().includes(searchTerm.toLowerCase())
         );
     }, [requestData, searchTerm, activeStatFilter]);
+
+    const paginatedRequests = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return filteredRequests.slice(startIndex, startIndex + itemsPerPage);
+    }, [filteredRequests, currentPage]);
+
+    const totalPages = Math.ceil(filteredRequests.length / itemsPerPage);
+
+    // Reset page on filter change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, activeStatFilter]);
 
     const stats = {
         total: requestData.length,
@@ -213,37 +230,43 @@ const MaterialRequestPage = () => {
         <>
             <Navbar title="Material Requests" breadcrumb={["Engineer", "Approvals", "Material Requisition"]} />
 
-            <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
+            <PageTransition className="p-4 md:p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
                 {/* ── Header ──────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 font-inter">
                     <div className="font-inter">
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Procurement Requisition Ledger</h1>
                         <p className="text-slate-500 text-sm font-inter">Formal procurement requests for structural and consumable site resources.</p>
                     </div>
-                    <button
-                        onClick={() => {
-                            setFormData({
-                                id: "",
-                                request_type: "Material",
-                                description: "",
-                                quantity: "",
-                                requestedBy: "Eng. Site User",
-                                approvedBy: "Pending",
-                                status: "Pending"
-                            });
-                            setErrors({});
-                            setIsFormModalOpen(true);
-                        }}
-                        className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
-                    >
-                        <Plus className="w-4 h-4" />
-                        Log Requisition
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => {
+                                setFormData({
+                                    project_id: projectId ? String(projectId) : "1",
+                                    request_type: "Material",
+                                    description: "",
+                                    quantity: ""
+                                });
+                                setErrors({});
+                                setIsFormModalOpen(true);
+                            }}
+                            className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Log Requisition
+                        </button>
+                        <button
+                            onClick={fetchRequests}
+                            className="p-2 text-slate-400 hover:text-primary transition-colors bg-white rounded-xl border border-slate-200 shadow-sm font-inter active:scale-95"
+                            title="Refetch Intelligence"
+                        >
+                            <RotateCcw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+                        </button>
+                    </div>
                 </div>
 
                 {/* ── Interactive Stats ───────────────────────────── */}
                 {/* ── Scrollable Content Area ────────────────────────── */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
                         <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                       <StatCard
                           title="Total Logs"
@@ -300,10 +323,10 @@ const MaterialRequestPage = () => {
                         <table className="w-full text-left font-inter min-w-[1200px]">
                             <thead>
                                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
+                                    <th className="px-6 py-4 font-inter">Requisition Identity</th>
                                     <th className="px-6 py-4 font-inter">Resource Requisition</th>
                                     <th className="px-6 py-4 font-inter">Operational Status</th>
                                     <th className="px-6 py-4 font-inter">Volume / Quantity</th>
-                                    <th className="px-6 py-4 font-inter">Originating Engineer</th>
                                     <th className="px-6 py-4 text-right font-inter">Actions</th>
                                 </tr>
                             </thead>
@@ -317,30 +340,34 @@ const MaterialRequestPage = () => {
                                             </div>
                                         </td>
                                     </tr>
-                                ) : filteredRequests.length > 0 ? (
-                                    filteredRequests.map((request) => (
-                                        <tr key={request.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
+                                ) : paginatedRequests.length > 0 ? (
+                                    paginatedRequests.map((request) => (
+                                        <tr key={request.id} className="hover:bg-slate-50/50 transition-colors group font-inter border-b border-slate-50/50">
                                             <td className="px-6 py-4 font-inter">
                                                 <div className="flex flex-col font-inter">
-                                                    <span className="text-sm font-bold text-slate-800 font-inter">{request.request_type}</span>
-                                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">REQ-#{request.id}</span>
+                                                    <span className="text-sm font-bold text-slate-800 font-inter">REQ-#{request.id}</span>
+                                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">Procurement Log</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 font-inter">
-                                                <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border font-inter ${getStatusStyle(request.status)}`}>
+                                                <div className="flex flex-col font-inter">
+                                                    <span className="text-sm font-bold text-slate-800 font-inter uppercase tracking-tight">{request.request_type}</span>
+                                                    <span className="text-[10px] text-slate-400 font-bold font-inter truncate max-w-[200px] uppercase tracking-tight">
+                                                        {request.description}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 font-inter">
+                                                <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border font-inter shadow-sm ${getStatusStyle(request.status)}`}>
                                                     {request.status}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 font-inter">
                                                 <div className="flex items-center gap-2 font-inter">
-                                                  <Box className="w-3.5 h-3.5 text-blue-500" />
-                                                  <span className="text-sm font-bold text-blue-600 font-inter">{request.quantity} Units</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 font-inter">
-                                                <div className="flex items-center gap-2 font-inter">
-                                                  <User className="w-3.5 h-3.5 text-slate-400" />
-                                                  <span className="text-xs font-bold text-slate-500 uppercase tracking-widest font-inter">User #{request.requested_by || "SYST"}</span>
+                                                  <div className="p-1.5 bg-blue-50 rounded-lg shrink-0">
+                                                    <Box className="w-3 h-3 text-blue-500" />
+                                                  </div>
+                                                  <span className="text-sm font-bold text-slate-800 tabular-nums font-inter">{request.quantity} Units</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-right font-inter">
@@ -388,6 +415,31 @@ const MaterialRequestPage = () => {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* ── Pagination Controls ──────────────────────────── */}
+                    {!isLoading && filteredRequests.length > 0 && (
+                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">
+                                Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredRequests.length)} of {filteredRequests.length} entries
+                            </span>
+                            <div className="flex gap-2 font-inter">
+                                <button 
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50 transition-all font-inter"
+                                >
+                                    Prev
+                                </button>
+                                <button 
+                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                    disabled={currentPage === totalPages || totalPages === 0}
+                                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50 transition-all font-inter"
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </PageTransition>
 
@@ -405,7 +457,7 @@ const MaterialRequestPage = () => {
                             <div className="relative z-10 font-inter">
                                 <p className="text-[10px] font-bold uppercase tracking-[0.3em] opacity-60 mb-3 font-inter">Procurement Artifact Record</p>
                                 <h3 className="text-2xl font-bold tracking-tight leading-tight mb-8 font-inter">{selectedRequest.request_type}</h3>
-                                <div className="grid grid-cols-2 gap-6 font-inter">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 font-inter">
                                     <div className="bg-white/15 backdrop-blur-xl rounded-2xl p-5 border border-white/10 font-inter">
                                         <p className="text-[9px] font-bold uppercase tracking-widest opacity-60 mb-1.5 font-inter">Operational Status</p>
                                         <p className="text-xl font-bold font-inter tracking-widest">{selectedRequest.status.toUpperCase()}</p>
@@ -425,7 +477,7 @@ const MaterialRequestPage = () => {
                                     "{selectedRequest.description}"
                                 </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-8 font-inter">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8 font-inter">
                                 <div className="font-inter">
                                     <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-1.5')}>Originating Engineer</p>
                                     <p className="text-sm font-bold text-slate-800 font-inter uppercase tracking-widest">User #{selectedRequest.requested_by || "SYST"}</p>
@@ -477,6 +529,18 @@ const MaterialRequestPage = () => {
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
                             <div className="font-inter">
+                                <label className={labelClasses}>Project ID <span className="text-rose-500">*</span></label>
+                                <input
+                                    name="project_id"
+                                    type="number"
+                                    value={formData.project_id}
+                                    onChange={handleInputChange}
+                                    placeholder="e.g. 1"
+                                    className={inputClasses(errors.project_id)}
+                                />
+                                {errors.project_id && <p className="mt-1.5 text-[9px] text-rose-500 font-black uppercase tracking-widest ml-1 font-inter">{errors.project_id}</p>}
+                            </div>
+                            <div className="font-inter">
                                 <label className={labelClasses}>Resource Classification <span className="text-rose-500">*</span></label>
                                 <select
                                     name="request_type"
@@ -484,23 +548,11 @@ const MaterialRequestPage = () => {
                                     onChange={handleInputChange}
                                     className={inputClasses(errors.request_type)}
                                 >
-                                    <option value="Material">Raw Material</option>
-                                    <option value="Labour">Labour Resource</option>
-                                    <option value="Equipment">Heavy Machinery</option>
+                                    <option value="Material">Material</option>
+                                    <option value="Labour">Labour</option>
+                                    <option value="Equipment">Equipment</option>
                                 </select>
                                 {errors.request_type && <p className="mt-1.5 text-[9px] text-rose-500 font-black uppercase tracking-widest ml-1 font-inter">{errors.request_type}</p>}
-                            </div>
-                            <div className="font-inter">
-                                <label className={labelClasses}>Required Quantum (Units) <span className="text-rose-500">*</span></label>
-                                <input
-                                    name="quantity"
-                                    type="number"
-                                    value={formData.quantity}
-                                    onChange={handleInputChange}
-                                    placeholder="e.g. 500"
-                                    className={inputClasses(errors.quantity)}
-                                />
-                                {errors.quantity && <p className="mt-1.5 text-[9px] text-rose-500 font-black uppercase tracking-widest ml-1 font-inter">{errors.quantity}</p>}
                             </div>
                         </div>
                     </div>
@@ -510,43 +562,30 @@ const MaterialRequestPage = () => {
                           <FileText className="w-4 h-4 text-primary" />
                           Technical Specifications Narrative
                         </h3>
-                        <div className="font-inter">
-                            <label className={labelClasses}>Descriptive Narrative <span className="text-rose-500">*</span></label>
-                            <textarea
-                                name="description"
-                                rows={4}
-                                value={formData.description}
-                                onChange={handleInputChange}
-                                placeholder="Detail exact technical specifications or site requirement justification..."
-                                className={`${inputClasses(errors.description)} resize-none font-bold shadow-inner`}
-                            />
-                            {errors.description && <p className="mt-1.5 text-[9px] text-rose-500 font-black uppercase tracking-widest ml-1 font-inter">{errors.description}</p>}
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
-                        <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
-                          <TrendingUp className="w-4 h-4 text-primary" />
-                          Supply Chain Authorization
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-inter">
+                        <div className="font-inter space-y-6">
                             <div className="font-inter">
-                                <label className={labelClasses}>Requesting Engineer</label>
-                                <input name="requestedBy" value={formData.requestedBy} readOnly className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-400 uppercase tracking-widest font-inter" />
+                                <label className={labelClasses}>Descriptive Narrative <span className="text-rose-500">*</span></label>
+                                <textarea
+                                    name="description"
+                                    rows={4}
+                                    value={formData.description}
+                                    onChange={handleInputChange}
+                                    placeholder="Detail exact technical specifications or site requirement justification..."
+                                    className={`${inputClasses(errors.description)} resize-none font-bold shadow-inner`}
+                                />
+                                {errors.description && <p className="mt-1.5 text-[9px] text-rose-500 font-black uppercase tracking-widest ml-1 font-inter">{errors.description}</p>}
                             </div>
                             <div className="font-inter">
-                                <label className={labelClasses}>Authority Designation <span className="text-rose-500">*</span></label>
-                                <input name="approvedBy" value={formData.approvedBy} onChange={handleInputChange} placeholder="Approver Name" className={inputClasses(errors.approvedBy)} />
-                                {errors.approvedBy && <p className="mt-1.5 text-[9px] text-rose-500 font-black uppercase tracking-widest ml-1 font-inter">{errors.approvedBy}</p>}
-                            </div>
-                            <div className="font-inter">
-                                <label className={labelClasses}>Commitment Status <span className="text-rose-500">*</span></label>
-                                <select name="status" value={formData.status} onChange={handleInputChange} className={inputClasses(errors.status)}>
-                                    <option value="Pending">Pending Validation</option>
-                                    <option value="Approved">Release Authorized</option>
-                                    <option value="Rejected">Rejected / Invalidate</option>
-                                </select>
-                                {errors.status && <p className="mt-1.5 text-[9px] text-rose-500 font-black uppercase tracking-widest ml-1 font-inter">{errors.status}</p>}
+                                <label className={labelClasses}>Required Quantum (Units) <span className="text-rose-500">*</span></label>
+                                <input
+                                    name="quantity"
+                                    type="number"
+                                    value={formData.quantity}
+                                    onChange={handleInputChange}
+                                    placeholder="e.g. 150"
+                                    className={inputClasses(errors.quantity)}
+                                />
+                                {errors.quantity && <p className="mt-1.5 text-[9px] text-rose-500 font-black uppercase tracking-widest ml-1 font-inter">{errors.quantity}</p>}
                             </div>
                         </div>
                     </div>

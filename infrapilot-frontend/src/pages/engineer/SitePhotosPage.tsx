@@ -23,7 +23,7 @@ import { sitePhotoService } from "../../services/sitePhotoService";
 import type { SitePhoto } from "../../types/sitePhoto";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
-const ACTIVITY_TAGS = [
+export const ACTIVITY_TAGS = [
     "Foundation Work",
     "RCC Column Casting",
     "Slab Pouring",
@@ -32,7 +32,7 @@ const ACTIVITY_TAGS = [
     "Quality Inspection",
 ];
 
-const LOCATION_TAGS = [
+export const LOCATION_TAGS = [
     "Block A – Ground Floor",
     "Block B – First Floor",
     "Block C – Terrace",
@@ -147,6 +147,12 @@ const SitePhotosPage = () => {
             const sevenDaysAgo = new Date();
             sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
             data = data.filter(p => new Date(p.date) >= sevenDaysAgo);
+        } else if (activeStatFilter === "Tasks") {
+            // Only show photos with valid activity tags (not empty)
+            data = data.filter(p => !!p.activity_tag);
+        } else if (activeStatFilter === "Zones") {
+            // Only show photos with valid location tags (not empty)
+            data = data.filter(p => !!p.location_tag);
         }
 
         return data.filter(p => {
@@ -169,16 +175,18 @@ const SitePhotosPage = () => {
 
     const totalPages = Math.ceil(filteredPhotos.length / itemsPerPage);
 
-    const stats = {
-        total: photos.length,
-        thisWeek: photos.filter(p => {
-            const sevenDaysAgo = new Date();
-            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-            return new Date(p.date) >= sevenDaysAgo;
-        }).length,
-        activities: new Set(photos.map(p => p.activity_tag)).size,
-        locations: new Set(photos.map(p => p.location_tag)).size,
-    };
+    const stats = useMemo(() => {
+        return {
+            total: filteredPhotos.length,
+            thisWeek: filteredPhotos.filter(p => {
+                const sevenDaysAgo = new Date();
+                sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+                return new Date(p.date) >= sevenDaysAgo;
+            }).length,
+            activities: new Set(filteredPhotos.map(p => p.activity_tag)).size,
+            locations: new Set(filteredPhotos.map(p => p.location_tag)).size,
+        };
+    }, [filteredPhotos]);
 
     const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
 
@@ -186,9 +194,9 @@ const SitePhotosPage = () => {
         <>
             <Navbar title="Site Evidence" breadcrumb={["Engineer", "Site Photos", "Gallery"]} />
 
-            <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
+            <PageTransition className="p-4 md:p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
                 {/* ── Header ──────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 font-inter">
                     <div className="font-inter">
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Evidence Documentation Ledger</h1>
                         <p className="text-slate-500 text-sm font-inter">
@@ -206,7 +214,7 @@ const SitePhotosPage = () => {
                 </div>
 
                 {/* ── Interactive Stats ───────────────────────────── */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Total Evidence"
@@ -221,14 +229,14 @@ const SitePhotosPage = () => {
                             sub="Past 7 Days"
                             accent="text-emerald-500" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("All")} className="cursor-pointer group transition-all rounded-xl hover:scale-[1.01]">
+                    <div onClick={() => setActiveStatFilter("Tasks")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Tasks" ? "ring-2 ring-amber-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Scoped Tasks"
                             value={stats.activities.toString()}
                             sub="Tracked Milestones"
                             accent="text-amber-500" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("All")} className="cursor-pointer group transition-all rounded-xl hover:scale-[1.01]">
+                    <div onClick={() => setActiveStatFilter("Zones")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Zones" ? "ring-2 ring-indigo-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Zonal Units"
                             value={stats.locations.toString()}
@@ -489,7 +497,7 @@ const SitePhotosPage = () => {
                             <div className="relative z-10 font-inter">
                                 <p className="text-[10px] font-bold uppercase tracking-widest text-blue-400 mb-3 font-inter">Intelligence Artifact Record</p>
                                 <h3 className="text-2xl font-bold tracking-tight leading-tight mb-8 font-inter">{selectedPhoto?.location_tag}</h3>
-                                <div className="grid grid-cols-2 gap-6 font-inter">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 font-inter">
                                     <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10 font-inter">
                                         <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1.5 font-inter">Reference Code</p>
                                         <p className="text-xl font-bold text-blue-400 font-inter">#LOG-{selectedPhoto?.id}</p>
@@ -514,7 +522,7 @@ const SitePhotosPage = () => {
                                     "{selectedPhoto?.description}"
                                 </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-8 font-inter">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8 font-inter">
                                 <div className="font-inter">
                                     <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-1.5')}>Milestone Domain</p>
                                     <p className="text-sm font-bold text-blue-600 uppercase tracking-widest font-inter">{selectedPhoto?.activity_tag}</p>

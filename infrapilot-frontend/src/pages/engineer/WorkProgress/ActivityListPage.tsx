@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import Navbar from "../../../components/common/Navbar";
 import PageTransition from "../../../components/common/PageTransition";
 import StatCard from "../../../components/common/StatCard";
@@ -72,29 +72,38 @@ const ActivityListPage = () => {
   const [selectedActivity, setSelectedActivity] = useState<ActivityItem | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
-  useEffect(() => {
-    loadActivities();
-  }, [engineer_id]);
-
-  const loadActivities = async () => {
+  const loadActivities = useCallback(async () => {
     if (!projectId) return;
     try {
       setLoading(true);
-      const data = await workProgressService.listActivities(projectId || 0, engineer_id);
+      const data = await workProgressService.listActivities(projectId, engineer_id);
       setActivities(data);
     } catch (err) {
+      console.error("Load Activities Error:", err);
       toast.error("Failed to load activities");
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId, engineer_id]);
+
+  useEffect(() => {
+    loadActivities();
+  }, [loadActivities]);
 
   const stats = useMemo(() => {
+    const total = activities.length;
+    const completed = activities.filter(a => a.status === "Completed" || a.completion_percentage === 100).length;
+    const delayed = activities.filter(a => a.status === "Delay").length;
+    const onTrack = activities.filter(a => a.status === "On Track").length;
+    
+    const complianceRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+
     return {
-      total: activities.length,
-      onTrack: activities.filter(a => a.status === "On Track").length,
-      delayed: activities.filter(a => a.status === "Delay").length,
-      completed: activities.filter(a => a.completion_percentage === 100).length
+      total,
+      completed,
+      delayed,
+      onTrack,
+      complianceRate: `${complianceRate}%`
     };
   }, [activities]);
 
@@ -183,13 +192,22 @@ const ActivityListPage = () => {
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Project Work Progress</h1>
             <p className="text-slate-500 text-sm">Historical record of project activities and BOQ execution momentum.</p>
           </div>
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
-          >
-            <Plus className="w-4 h-4" />
-            Add Activity
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={loadActivities}
+              className="p-2.5 text-slate-400 hover:text-primary hover:bg-white rounded-xl transition-all border border-slate-100 bg-white/50 shadow-sm active:scale-95"
+              title="Sync Ledger"
+            >
+              <RotateCcw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
+            >
+              <Plus className="w-4 h-4" />
+              Add Activity
+            </button>
+          </div>
         </div>
 
         {/* ── Summary Stats with Interactive Filtering ───────────────────────────── */}
@@ -204,7 +222,7 @@ const ActivityListPage = () => {
           <div onClick={() => setActiveStatFilter("Compliance")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Compliance" ? "ring-2 ring-blue-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
             <StatCard
               title="Compliance"
-              value={`${Math.round((stats.completed / (stats.total || 1)) * 100)}%`}
+              value={stats.complianceRate}
               sub="Completion Rate"
               accent="text-blue-500" />
           </div>

@@ -13,6 +13,15 @@ import type {
 
 export const dsrService = {
   /**
+   * Get all DSRs (Cross-project)
+   * GET /api/v1/dsr
+   */
+  async getDsr(params?: { limit?: number; offset?: number }): Promise<DsrResponse> {
+    const response = await api.get<DsrResponse>("/dsr", { params });
+    return response.data;
+  },
+
+  /**
    * Create new DSR
    * POST /api/v1/dsr
    */

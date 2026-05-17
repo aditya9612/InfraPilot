@@ -146,11 +146,9 @@ export const checklistService = {
         }
     },
 
-    listLogs: async (project_id: number): Promise<ChecklistLogResponse> => {
+    listLogs: async (): Promise<ChecklistLogResponse> => {
         try {
-            const response = await api.get('/checklists/logs', {
-                params: { project_id }
-            });
+            const response = await api.get('/checklists/logs');
             const items = response.data.items && response.data.items.length > 0 
                 ? response.data.items 
                 : DEFAULT_LOGS;

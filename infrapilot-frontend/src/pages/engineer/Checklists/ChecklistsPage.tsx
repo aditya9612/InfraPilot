@@ -41,6 +41,8 @@ const ChecklistsPage = () => {
     
     // Interactive StatCard Filter
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Pending" | "Done">("All");
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 20;
 
     // Modal Visibility States
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);
@@ -77,14 +79,14 @@ const ChecklistsPage = () => {
         try {
             const [clRes, logsRes] = await Promise.all([
                 checklistService.listChecklists(),
-                checklistService.listLogs(projectId)
+                checklistService.listLogs()
             ]);
             setChecklists(clRes);
             setLogs(logsRes.items || []);
         } catch (err) {
             toast.error("Failed to sync checklist vault");
         }
-    }, [projectId]);
+    }, []);
 
     useEffect(() => {
         fetchData();
@@ -190,13 +192,29 @@ const ChecklistsPage = () => {
 
     const stats = useMemo(() => {
         const total = checklists.length;
-        const executed = logs.length;
-        const done = logs.filter(l => l.status === "Done").length;
+        
+        const latestLogsMap = new Map();
+        const sortedLogs = [...logs].sort((a, b) => b.id - a.id);
+        
+        sortedLogs.forEach(log => {
+            if (!latestLogsMap.has(log.checklist_id)) {
+                latestLogsMap.set(log.checklist_id, log);
+            }
+        });
+
+        let done = 0;
+        checklists.forEach(c => {
+            const latestLog = latestLogsMap.get(c.id);
+            if (latestLog && latestLog.status === "Done") {
+                done++;
+            }
+        });
+
         const pending = total - done;
 
         return {
             total,
-            executed,
+            executed: logs.length,
             done,
             pending,
             compliance: Math.round((done / (total || 1)) * 100)
@@ -220,6 +238,18 @@ const ChecklistsPage = () => {
         });
     }, [logs, checklists, searchTerm, activeStatFilter]);
 
+    const paginatedLogs = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return filteredLogs.slice(startIndex, startIndex + itemsPerPage);
+    }, [filteredLogs, currentPage]);
+
+    const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
+
+    // Reset page on filter change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, activeStatFilter]);
+
     const addTempItem = () => {
         if (tempItemText.trim()) {
             setNewChecklistItems(prev => [...prev, tempItemText.trim()]);
@@ -234,9 +264,9 @@ const ChecklistsPage = () => {
         <>
             <Navbar title="Checklists" breadcrumb={["Engineer", "Execution", "Checklist Vault"]} />
 
-            <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
+            <PageTransition className="p-4 md:p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
                 {/* ── Header ──────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 font-inter">
                     <div className="font-inter">
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Checklist Intelligence Ledger</h1>
                         <p className="text-slate-500 text-sm font-inter">Systematic verification protocols and site execution logs.</p>
@@ -251,7 +281,7 @@ const ChecklistsPage = () => {
                 </div>
 
                 {/* ── Interactive Stats ───────────────────────────── */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                       <StatCard
                           title="Total Vault"
@@ -283,7 +313,7 @@ const ChecklistsPage = () => {
                 </div>
 
                 {/* ── Tab Selector ────────────────────────────────────────────── */}
-                <div className="flex items-center gap-8 border-b border-slate-200 mb-8 overflow-x-auto scrollbar-hide font-inter">
+                <div className="flex items-center gap-4 md:gap-8 border-b border-slate-200 mb-6 md:mb-8 overflow-x-auto scrollbar-hide font-inter">
                     {["Daily Checklist", "Activity Checklist", "Safety", "Quality"].map((tab) => (
                         <button
                             key={tab}
@@ -401,8 +431,8 @@ const ChecklistsPage = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50 font-inter">
-                                {filteredLogs.length > 0 ? (
-                                    filteredLogs.map((log) => (
+                                {paginatedLogs.length > 0 ? (
+                                    paginatedLogs.map((log) => (
                                         <tr key={log.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                             <td className="px-6 py-4 font-inter">
                                                 <div className="flex flex-col font-inter">
@@ -446,6 +476,31 @@ const ChecklistsPage = () => {
                         </table>
                     </div>
                     </div>
+                    
+                    {/* ── Pagination Controls ──────────────────────────── */}
+                    {filteredLogs.length > 0 && (
+                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">
+                                Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredLogs.length)} of {filteredLogs.length} entries
+                            </span>
+                            <div className="flex gap-2 font-inter">
+                                <button 
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50 transition-all font-inter"
+                                >
+                                    Prev
+                                </button>
+                                <button 
+                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                    disabled={currentPage === totalPages || totalPages === 0}
+                                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50 transition-all font-inter"
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </PageTransition>
 
@@ -601,7 +656,7 @@ const ChecklistsPage = () => {
                 }
             >
                 <div className="p-6 space-y-8 font-inter">
-                    <div className="p-6 bg-slate-900 rounded-2xl border border-slate-800 text-white shadow-2xl relative overflow-hidden font-inter">
+                    <div className="p-6 bg-primary rounded-2xl border border-primary/20 text-white shadow-2xl relative overflow-hidden font-inter">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full -mr-16 -mt-16 blur-2xl" />
                         <div className="relative z-10 font-inter">
                           <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2 font-inter">Active Protocol Execution</p>

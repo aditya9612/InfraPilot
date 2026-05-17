@@ -34,6 +34,15 @@ const violationTypeColors: Record<string, string> = {
     "Electrical Hazard": "bg-blue-100 text-blue-600 border-blue-200",
 };
 
+const VIOLATION_TYPES = [
+    "No Helmet",
+    "Unsafe Equipment Usage",
+    "No Safety Harness",
+    "Unsafe Scaffolding",
+    "Fire Hazard",
+    "Electrical Hazard",
+];
+
 const SafetyChecklistPage = () => {
     const navigate = useNavigate();
     const [incidentList, setIncidentList] = useState<SafetyItem[]>([]);
@@ -43,6 +52,8 @@ const SafetyChecklistPage = () => {
     
     // Interactive StatCard Filter
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Compliance" | "HighRisk">("All");
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 20;
 
     // Modal States
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);
@@ -115,11 +126,12 @@ const SafetyChecklistPage = () => {
     }, [fetchData]);
 
     const stats = useMemo(() => {
-        const total = incidentList.length;
-        const critical = incidentList.filter(i => 
+        const data = incidentList;
+        const total = data.length;
+        const critical = data.filter(i => 
             i.violation_type === "Electrical Hazard" || i.violation_type === "Fire Hazard"
         ).length;
-        const noInjury = incidentList.filter(i => !i.injury_details || i.injury_details.toLowerCase().includes("no injury")).length;
+        const noInjury = data.filter(i => !i.injury_details || i.injury_details.toLowerCase().includes("no injury")).length;
         
         return {
             total,
@@ -149,6 +161,18 @@ const SafetyChecklistPage = () => {
             return matchesSearch && matchesViolationType;
         });
     }, [incidentList, searchTerm, filterViolationType, activeStatFilter]);
+
+    const paginatedList = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return filteredList.slice(startIndex, startIndex + itemsPerPage);
+    }, [filteredList, currentPage]);
+
+    const totalPages = Math.ceil(filteredList.length / itemsPerPage);
+
+    // Reset page on filter change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, filterViolationType, activeStatFilter]);
 
     // ─── HANDLERS ──────────────────────────────────────────────────────
 
@@ -371,12 +395,9 @@ const SafetyChecklistPage = () => {
                                   className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter shadow-sm"
                               >
                                   <option value="">All Violation Types</option>
-                                  <option value="No Helmet">No Helmet</option>
-                                  <option value="Unsafe Equipment Usage">Unsafe Equipment Usage</option>
-                                  <option value="No Safety Harness">No Safety Harness</option>
-                                  <option value="Unsafe Scaffolding">Unsafe Scaffolding</option>
-                                  <option value="Fire Hazard">Fire Hazard</option>
-                                  <option value="Electrical Hazard">Electrical Hazard</option>
+                                  {VIOLATION_TYPES.map(vt => (
+                                    <option key={vt} value={vt}>{vt}</option>
+                                  ))}
                               </select>
                             </div>
                             {activeStatFilter !== "All" && (
@@ -405,8 +426,8 @@ const SafetyChecklistPage = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50 font-inter">
-                                    {filteredList.length > 0 ? (
-                                        filteredList.map((item) => (
+                                    {paginatedList.length > 0 ? (
+                                        paginatedList.map((item) => (
                                             <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                                 <td className="px-6 py-4 font-inter">
                                                     <div className="flex flex-col font-inter">
@@ -474,6 +495,31 @@ const SafetyChecklistPage = () => {
                             </table>
                         )}
                     </div>
+
+                    {/* ── Pagination Controls ──────────────────────────── */}
+                    {!isLoading && filteredList.length > 0 && (
+                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">
+                                Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredList.length)} of {filteredList.length} entries
+                            </span>
+                            <div className="flex gap-2 font-inter">
+                                <button 
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50 transition-all font-inter"
+                                >
+                                    Prev
+                                </button>
+                                <button 
+                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                    disabled={currentPage === totalPages || totalPages === 0}
+                                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50 transition-all font-inter"
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </PageTransition>
 
@@ -521,12 +567,9 @@ const SafetyChecklistPage = () => {
                                     onChange={handleInputChange} 
                                     className={inputClasses}
                                 >
-                                    <option value="No Helmet">No Helmet</option>
-                                    <option value="Unsafe Equipment Usage">Unsafe Equipment Usage</option>
-                                    <option value="No Safety Harness">No Safety Harness</option>
-                                    <option value="Unsafe Scaffolding">Unsafe Scaffolding</option>
-                                    <option value="Fire Hazard">Fire Hazard</option>
-                                    <option value="Electrical Hazard">Electrical Hazard</option>
+                                    {VIOLATION_TYPES.map(vt => (
+                                        <option key={vt} value={vt}>{vt}</option>
+                                    ))}
                                 </select>
                             </div>
                             <div className="font-inter">

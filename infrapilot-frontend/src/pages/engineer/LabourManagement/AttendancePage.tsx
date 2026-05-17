@@ -44,6 +44,10 @@ const AttendancePage: React.FC = () => {
 
     const [projectId, setProjectId] = useState<number | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    
+    // Pagination states
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
 
 
 
@@ -55,26 +59,23 @@ const AttendancePage: React.FC = () => {
             // Fetch labours — graceful if project doesn't exist
             let registeredLabours: any[] = [];
             try {
-                const labourRes = await labourService.getLabours(projectId);
+                const labourRes = await labourService.getLabours(projectId, { limit: 50 });
                 registeredLabours = labourRes.items || [];
             } catch (err) {
                 console.warn("Labour list fetch failed for project:", projectId);
             }
 
-            // Fetch attendance — only if project_id is provided, graceful on error
+            // Fetch attendance
             let rawAttendances: any[] = [];
-            if (projectId) {
-                try {
-                    const attendanceRes = await labourService.getAttendanceList(projectId);
-                    rawAttendances = attendanceRes.items || [];
-                } catch (err) {
-                    console.warn("Attendance list fetch failed for project:", projectId);
-                }
+            try {
+                const attendanceRes = await labourService.getAttendanceList(projectId);
+                rawAttendances = attendanceRes.items || [];
+            } catch (err) {
+                console.warn("Attendance list fetch failed for project:", projectId);
             }
 
             const attendanceMap = new Map(rawAttendances.map(a => [Number(a.labour_id), a]));
 
-            // Merge workers with attendance data
             const enrichedAttendances = registeredLabours.map((labour: any) => {
                 const attendance = attendanceMap.get(Number(labour.id));
 
@@ -143,6 +144,7 @@ const AttendancePage: React.FC = () => {
     // Fetch on mount and whenever projectId changes
     useEffect(() => {
         fetchData();
+        setCurrentPage(1); // Reset pagination on project change
     }, [projectId]);
 
     const today = new Date().toISOString().split('T')[0];
@@ -235,13 +237,20 @@ const AttendancePage: React.FC = () => {
         });
     }, [attendances, labours, searchTerm, statusFilter, activeStatFilter]);
 
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, statusFilter, activeStatFilter]);
+
+    const totalPages = Math.ceil(filteredAttendances.length / itemsPerPage);
+    const paginatedAttendances = filteredAttendances.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
     return (
         <>
             <Navbar title="Daily Attendance" breadcrumb={["Engineer", "Human Resources", "Attendance Registry"]} />
 
-            <PageTransition className="p-6 bg-slate-50 font-inter flex flex-col min-h-screen">
+            <PageTransition className="p-4 md:p-6 bg-slate-50 font-inter flex flex-col min-h-screen">
                 {/* ── Header ──────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Workforce Attendance Registry</h1>
                         <p className="text-slate-500 text-sm">Securely track worker check-in/out with GPS and photo validation.</p>
@@ -256,7 +265,7 @@ const AttendancePage: React.FC = () => {
                 </div>
 
                 {/* ── Summary Stats with Interactive Filtering ───────────────────────────── */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
                     <div onClick={() => setActiveStatFilter("Present")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Present" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Present Now"
@@ -316,7 +325,7 @@ const AttendancePage: React.FC = () => {
                             </select>
                         </div>
 
-                        <div className="flex items-center gap-3 border-l border-slate-100 pl-4">
+                        <div className="flex items-center gap-3 md:border-l md:border-slate-100 md:pl-4">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Project ID:</span>
                             <input
                                 type="number"
@@ -354,7 +363,7 @@ const AttendancePage: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
-                                    {filteredAttendances.map((a) => (
+                                    {paginatedAttendances.map((a) => (
                                         <tr key={a.id} className="hover:bg-slate-50/50 transition-colors group">
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-4">
@@ -444,6 +453,31 @@ const AttendancePage: React.FC = () => {
                                 <Activity className="w-12 h-12 mb-4 opacity-20" />
                                 <p className="text-[10px] font-bold uppercase tracking-widest">No matching attendance records found</p>
                                 <p className="text-xs text-slate-400 mt-2">Adjust your filters or search terms</p>
+                            </div>
+                        )}
+                        
+                        {/* ── Pagination Controls ──────────────────────────── */}
+                        {!isLoading && filteredAttendances.length > 0 && (
+                            <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                    Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredAttendances.length)} of {filteredAttendances.length} entries
+                                </span>
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                        disabled={currentPage === 1}
+                                        className="px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50 transition-all"
+                                    >
+                                        Prev
+                                    </button>
+                                    <button 
+                                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                        disabled={currentPage === totalPages || totalPages === 0}
+                                        className="px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50 transition-all"
+                                    >
+                                        Next
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -610,7 +644,7 @@ const AttendancePage: React.FC = () => {
                                     </div>
                                     <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Security Validation Audit</h3>
                                 </div>
-                                <div className="grid grid-cols-2 gap-6 font-inter">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 font-inter">
                                     <div className="space-y-3 font-inter">
                                         <div className="aspect-[4/5] bg-slate-100 rounded-2xl overflow-hidden border border-slate-100 relative group shadow-sm font-inter">
                                             <img src={selectedAttendance.check_in_image || undefined} alt="In" className="w-full h-full object-cover" />
@@ -647,7 +681,7 @@ const AttendancePage: React.FC = () => {
                                     </div>
                                     <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Audit Trail & Logistics</h3>
                                 </div>
-                                <div className="grid grid-cols-2 gap-y-8 px-2 font-inter">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 sm:gap-y-8 px-2 font-inter">
                                     <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 font-inter">Check-In Time</p>
                                         <p className="text-sm font-bold text-slate-800 font-inter">{selectedAttendance.in_time}</p>
@@ -684,7 +718,7 @@ const AttendancePage: React.FC = () => {
                                         "{selectedAttendance.task_description || 'No work description provided for this shift.'}"
                                     </p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4 font-inter">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-inter">
                                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 font-inter">
                                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1 font-inter">Overtime Rate</p>
                                         <p className="text-xs font-bold text-slate-700 font-inter">₹{selectedAttendance.overtime_rate || 0}/hr</p>

@@ -20,7 +20,9 @@ import {
     Briefcase,
     Calendar,
     Image as ImageIcon,
-    RotateCcw
+    RotateCcw,
+    CheckCircle2,
+    FileDown
 } from "lucide-react";
 
 import { dsrService } from "../../services/dsrService";
@@ -46,6 +48,9 @@ const DSRPage = () => {
 
     // Filter state for StatCards
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Compliance" | "Pending" | "Efficiency">("All");
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
+    const itemsPerPage = 20;
 
     // Modal States
     const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -81,37 +86,37 @@ const DSRPage = () => {
         if (!projectId) return;
         setIsLoading(true);
         try {
-            const response = await dsrService.getDsrByProject(projectId || 0);
+            const offset = (currentPage - 1) * itemsPerPage;
+            const response = await dsrService.getDsrByProject(projectId, { limit: itemsPerPage, offset });
             const apiData = response.items;
+            setTotalItems(response.meta.total);
 
-            // Resolve photos for each item, prioritizing the item's own photos array if populated
+            // Resolve photos for each item
             const itemsWithPhotos = await Promise.all(apiData.map(async (item: any) => {
                 let photos = item.photos?.map((p: any) => ({
                     id: p.id,
-                    url: p.url || p.file_url // Map both url and file_url for robustness
+                    url: p.url || p.file_url
                 })) || [];
 
-                // If photos array is empty, fallback to standalone photos API
                 if (photos.length === 0) {
                     try {
                         const extraPhotos = await dsrService.getDsrPhotos(item.id);
                         if (extraPhotos && extraPhotos.length > 0) {
                             photos = extraPhotos;
                         }
-                    } catch (e) {
-                        // Fail silently for photos to show the rest of the DSR data
-                    }
+                    } catch (e) {}
                 }
                 return { ...item, photos };
             }));
 
             setDsrList(itemsWithPhotos);
         } catch (error) {
+            console.error("Fetch DSR Error:", error);
             toast.error("Failed to sync DSR logs");
         } finally {
             setIsLoading(false);
         }
-    }, [projectId]);
+    }, [projectId, currentPage]);
 
     useEffect(() => {
         fetchDsr();
@@ -189,6 +194,17 @@ const DSRPage = () => {
         }
     };
 
+    const handleSubmitDsr = async (id: number) => {
+        const toastId = toast.loading("Submitting report to audit...");
+        try {
+            await dsrService.submitDsr(id);
+            toast.success("DSR submitted for audit!", { id: toastId });
+            fetchDsr();
+        } catch (err) {
+            toast.error("Submission failed", { id: toastId });
+        }
+    };
+
     const filteredList = useMemo(() => {
         let data = dsrList;
 
@@ -197,6 +213,8 @@ const DSRPage = () => {
             data = data.filter(d => d.status === "Verified" || d.status === "Approved");
         } else if (activeStatFilter === "Pending") {
             data = data.filter(d => d.status === "Submitted" || d.status === "Draft");
+        } else if (activeStatFilter === "Efficiency") {
+            data = data.filter(d => d.status !== "Rejected" && d.status !== "Draft");
         }
 
         return data.filter(dsr => {
@@ -212,36 +230,65 @@ const DSRPage = () => {
         const total = dsrList.length;
         const verified = dsrList.filter(d => d.status === "Verified" || d.status === "Approved").length;
         const pending = dsrList.filter(d => d.status === "Submitted" || d.status === "Draft").length;
+        const complianceVal = total > 0 ? Math.round((verified / total) * 100) : 0;
+        
+        // Efficiency could be measured by (Verified + Submitted) / Total for momentum
+        const active = dsrList.filter(d => d.status !== "Rejected" && d.status !== "Draft").length;
+        const efficiencyVal = total > 0 ? Math.round((active / total) * 100) : 0;
+
         return {
             total,
             verified,
             pending,
-            complianceRate: `${total > 0 ? Math.round((verified / total) * 100) : 0}%`
+            complianceRate: `${complianceVal}%`,
+            efficiency: `${efficiencyVal}%`
         };
     }, [dsrList]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, statusFilter, activeStatFilter, projectId]);
+
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
 
     return (
         <>
             <Navbar title="Daily Site Reports" breadcrumb={["Engineer", "Site Records", "DSR Vault"]} />
 
-            <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
+            <PageTransition className="p-4 md:p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
                 {/* ── Header ──────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Project Daily Ledger</h1>
                         <p className="text-slate-500 text-sm">Historical record of activities, labour, and material movements.</p>
                     </div>
-                    <button
-                        onClick={() => setIsCreateOpen(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
-                    >
-                        <Plus className="w-4 h-4" />
-                        Log DSR Entry
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={fetchDsr}
+                            className="p-2.5 text-slate-400 hover:text-primary hover:bg-white rounded-xl transition-all border border-slate-100 bg-white/50 shadow-sm active:scale-95"
+                            title="Sync Data"
+                        >
+                            <RotateCcw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+                        </button>
+                        <button
+                            onClick={() => dsrService.exportDsrExcel(projectId || 36)}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95 font-inter"
+                        >
+                            <FileDown className="w-4 h-4" />
+                            Export
+                        </button>
+                        <button
+                            onClick={() => setIsCreateOpen(true)}
+                            className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
+                        >
+                            <Plus className="w-4 h-4" />
+                            New Entry
+                        </button>
+                    </div>
                 </div>
 
                 {/* ── Summary Stats with Interactive Filtering ───────────────────────────── */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer transition-all ${activeStatFilter === "All" ? "ring-2 ring-primary/20 rounded-xl" : ""}`}>
                         <StatCard
                             title="Total Logs"
@@ -266,7 +313,7 @@ const DSRPage = () => {
                     <div onClick={() => setActiveStatFilter("Efficiency")} className={`cursor-pointer transition-all ${activeStatFilter === "Efficiency" ? "ring-2 ring-blue-500/20 rounded-xl" : ""}`}>
                         <StatCard
                             title="Efficiency"
-                            value="94%"
+                            value={stats.efficiency}
                             sub="Project Momentum"
                             accent="text-blue-500" />
                     </div>
@@ -387,21 +434,33 @@ const DSRPage = () => {
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
                                                     <div className="flex items-center justify-end gap-2 font-inter">
+                                                        {dsr.status === "Draft" && (
+                                                            <button
+                                                                onClick={() => handleSubmitDsr(dsr.id)}
+                                                                className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all font-inter"
+                                                                title="Submit for Audit"
+                                                            >
+                                                                <CheckCircle2 className="w-4 h-4" />
+                                                            </button>
+                                                        )}
                                                         <button
                                                             onClick={() => handleView(dsr.id)}
                                                             className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
+                                                            title="View Insight"
                                                         >
                                                             <Eye className="w-4 h-4" />
                                                         </button>
                                                         <button
                                                             onClick={() => handleEdit(dsr.id)}
                                                             className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all font-inter"
+                                                            title="Modify Record"
                                                         >
                                                             <Edit2 className="w-4 h-4" />
                                                         </button>
                                                         <button
                                                             onClick={() => { setDsrToDelete(dsr.id); setIsDeleteOpen(true); }}
                                                             className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"
+                                                            title="Archive Record"
                                                         >
                                                             <Trash2 className="w-4 h-4" />
                                                         </button>
@@ -420,6 +479,31 @@ const DSRPage = () => {
                             </table>
                         )}
                     </div>
+
+                    {/* ── Pagination Controls ──────────────────────────── */}
+                    {!isLoading && dsrList.length > 0 && (
+                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">
+                                Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} entries
+                            </span>
+                            <div className="flex gap-2 font-inter">
+                                <button 
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50 transition-all font-inter"
+                                >
+                                    Prev
+                                </button>
+                                <button 
+                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                    disabled={currentPage === totalPages || totalPages === 0}
+                                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50 transition-all font-inter"
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </PageTransition>
 
@@ -460,7 +544,7 @@ const DSRPage = () => {
                         {(selectedDsr.photos && selectedDsr.photos.length > 0) ? (
                             <div className="mb-8">
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Site Documentation ({selectedDsr.photos.length})</p>
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     {selectedDsr.photos.map((photo) => (
                                         <div key={photo.id} className="rounded-2xl overflow-hidden border border-slate-100 shadow-sm aspect-[4/3] group relative">
                                             <img
@@ -490,7 +574,7 @@ const DSRPage = () => {
                                     </div>
                                     <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Operational Intelligence</p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-x-12 gap-y-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 sm:gap-x-12 gap-y-6">
                                     <div>
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Weather Condition</p>
                                         <p className="text-sm font-bold text-slate-800">{selectedDsr.weather}</p>
@@ -532,7 +616,7 @@ const DSRPage = () => {
                                     </div>
                                     <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Resource Logistics</p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-x-12 gap-y-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 sm:gap-x-12 gap-y-6">
                                     <div>
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Material Received</p>
                                         <p className="text-sm font-bold text-slate-800">{selectedDsr.material_received || "Nil"}</p>

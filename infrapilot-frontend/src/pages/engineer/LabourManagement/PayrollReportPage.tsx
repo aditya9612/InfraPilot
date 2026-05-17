@@ -28,12 +28,10 @@ const PayrollReportPage: React.FC = () => {
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "High" | "OT" | "Summary">("All");
     const [isExportingExcel, setIsExportingExcel] = useState(false);
     const [isExportingPDF, setIsExportingPDF] = useState(false);
-    const [projectId, setProjectId] = useState<number | null>(null);
-
-    useEffect(() => {
-        // Force Project 36 for operational intelligence
-        setProjectId(36);
-    }, []);
+    const now = new Date();
+    const projectId: number | null = null;
+    const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth() + 1);
+    const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
 
     const [stats, setStats] = useState({
         totalPayout: 0,
@@ -43,20 +41,41 @@ const PayrollReportPage: React.FC = () => {
     });
 
     const fetchReports = async () => {
-        if (!projectId) return;
         setIsLoading(true);
         try {
-            console.log(`Reports: Fetching ${activeTab} for Project ${projectId}`);
+            console.log(`Reports: Fetching ${activeTab} for Project ${projectId || 'all'}`);
             
-            const [attendanceRes, historyRes] = await Promise.all([
+            const [labourRes, attendanceRes, historyRes] = await Promise.all([
+                labourService.getLabours(projectId, { limit: 50 }),
                 labourService.getAttendanceList(projectId),
-                paymentService.getPaymentHistory({ project_id: projectId })
+                paymentService.getPaymentHistory({ ...(projectId ? { project_id: projectId } : {}), limit: 50, offset: 0 })
             ]);
 
+            const laboursList = labourRes.items || [];
             const attendances = attendanceRes.items || [];
             const history = historyRes || [];
 
-            // 1. Calculate Summary Stats
+            // Build report rows from laboursList enriched with attendance stats
+            const workerStats = attendances.reduce((acc: any, curr: any) => {
+                const id = curr.labour_id;
+                if (!acc[id]) acc[id] = { present_days: 0, total_hours: 0, overtime_hours: 0, total_wage: 0 };
+                if (curr.status?.toLowerCase() !== 'absent') {
+                    acc[id].present_days++;
+                    acc[id].total_hours += (curr.working_hours || 0);
+                    acc[id].overtime_hours += (curr.overtime_hours || 0);
+                    acc[id].total_wage += (curr.total_wage || 0);
+                }
+                return acc;
+            }, {});
+
+            const enrichedLabours = laboursList.map((l: any) => ({
+                ...l,
+                ...(workerStats[l.id] || { present_days: 0, total_hours: 0, overtime_hours: 0, total_wage: 0 })
+            }));
+
+            setReports(enrichedLabours);
+
+            // Summary Stats
             const totalPayout = history.reduce((acc: number, curr: any) => acc + (curr.amount || 0), 0);
             const highPayouts = history.filter((h: any) => h.amount > 5000).length;
             const otIntensive = attendances.filter((a: any) => a.overtime_hours > 0).length;
@@ -64,38 +83,6 @@ const PayrollReportPage: React.FC = () => {
 
             setStats({ totalPayout, highPayouts, otIntensive, advanceAdjusted });
 
-            // 2. Generate Report Data based on Tab
-            let reportData: any[] = [];
-            if (activeTab === 'daily') {
-                // Group attendance by date
-                const byDate = attendances.reduce((acc: any, curr: any) => {
-                    const date = curr.date;
-                    if (!acc[date]) acc[date] = { date, total_wages: 0, overtime_wages: 0, present: 0, total: 0 };
-                    acc[date].total++;
-                    if (curr.status !== 'absent') {
-                        acc[date].present++;
-                        acc[date].total_wages += (curr.total_wage || 0);
-                        acc[date].overtime_wages += ((curr.overtime_hours || 0) * (curr.overtime_rate || 0));
-                    }
-                    return acc;
-                }, {});
-                reportData = Object.values(byDate).map((d: any) => ({
-                    ...d,
-                    total_payout: d.total_wages,
-                    attendance_summary: `${d.present}P / ${d.total - d.present}A / ${d.total}T`
-                }));
-            } else {
-                // Monthly/Weekly aggregation (simplified for demo using all data)
-                reportData = [{
-                    month: "April 2026",
-                    total_wages: totalPayout,
-                    overtime_wages: attendances.reduce((acc: number, a: any) => acc + (a.overtime_hours || 0) * 100, 0),
-                    total_payout: totalPayout,
-                    attendance_summary: `${attendances.filter((a: any) => a.status !== 'absent').length}P Verified`
-                }];
-            }
-
-            setReports(reportData);
             console.log("Reports Sync Success (200 OK)");
         } catch (error) {
             console.error("Reports Sync Failure:", error);
@@ -112,17 +99,19 @@ const PayrollReportPage: React.FC = () => {
     const handleExportExcel = async () => {
         setIsExportingExcel(true);
         try {
-            // Hit the official /api/v1/labour/payroll/export endpoint
-            const blob = await paymentService.exportPayroll({ 
-                month: 4, 
-                year: 2026,
-                project_id: 36 
+            const blob = await paymentService.exportPayroll({
+                month: selectedMonth,
+                year: selectedYear,
+                ...(projectId ? { project_id: projectId } : {})
             });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `payroll_report_april_2026.xlsx`;
+            a.download = `payroll_report_${selectedMonth}_${selectedYear}.xlsx`;
+            document.body.appendChild(a);
             a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
             toast.success('Payroll Excel exported successfully');
         } catch (error) {
             console.error("Excel Export Error:", error);
@@ -136,15 +125,18 @@ const PayrollReportPage: React.FC = () => {
         setIsExportingPDF(true);
         try {
             const blob = await paymentService.exportPayrollPDF({
-                month: 4,
-                year: 2026,
-                project_id: 36
+                month: selectedMonth,
+                year: selectedYear,
+                ...(projectId ? { project_id: projectId } : {})
             });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `payroll_report_april_2026.pdf`;
+            a.download = `payroll_report_${selectedMonth}_${selectedYear}.pdf`;
+            document.body.appendChild(a);
             a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
             toast.success('Payroll PDF exported successfully');
         } catch (error) {
             console.error("PDF Export Error:", error);
@@ -165,14 +157,33 @@ const PayrollReportPage: React.FC = () => {
         <>
             <Navbar title="Financial Intelligence" breadcrumb={["Engineer", "Human Resources", "Payroll Reports"]} />
             
-            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
+            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
                 {/* ── Header ──────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Fiscal Payroll Analysis</h1>
                         <p className="text-slate-500 text-sm">Historical man-power costing and wage distribution trends.</p>
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                        {/* Month & Year Selectors */}
+                        <select
+                            value={selectedMonth}
+                            onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                            className="bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-[10px] font-bold text-slate-600 outline-none cursor-pointer uppercase tracking-widest"
+                        >
+                            {['January','February','March','April','May','June','July','August','September','October','November','December'].map((m, i) => (
+                                <option key={i+1} value={i+1}>{m}</option>
+                            ))}
+                        </select>
+                        <select
+                            value={selectedYear}
+                            onChange={(e) => setSelectedYear(Number(e.target.value))}
+                            className="bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-[10px] font-bold text-slate-600 outline-none cursor-pointer uppercase tracking-widest"
+                        >
+                            {[2024, 2025, 2026, 2027].map(y => (
+                                <option key={y} value={y}>{y}</option>
+                            ))}
+                        </select>
                         <button 
                             onClick={handleExportPDF}
                             disabled={isExportingPDF}
@@ -184,15 +195,16 @@ const PayrollReportPage: React.FC = () => {
                         <button 
                             onClick={handleExportExcel}
                             disabled={isExportingExcel}
-                            className="flex items-center justify-center px-8 py-3 bg-emerald-50 text-emerald-800 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all border border-emerald-100 shadow-sm hover:bg-emerald-100 active:scale-95 disabled:opacity-50"
+                            className="flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm hover:bg-emerald-700 active:scale-95 disabled:opacity-50"
                         >
-                            {isExportingExcel ? 'Generating...' : 'EXCEL SHEET'}
+                            <Download className="w-4 h-4" />
+                            {isExportingExcel ? 'Generating...' : 'Export Excel'}
                         </button>
                     </div>
                 </div>
 
                 {/* ── Summary Stats with Interactive Filtering ───────────────────────────── */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Total Payout"
@@ -261,7 +273,7 @@ const PayrollReportPage: React.FC = () => {
 
                 {/* ── Report Container ───────────────────────────────────────────── */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex flex-col">
-                    <div className="p-4 border-b border-slate-50 flex items-center justify-between bg-white">
+                    <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row md:items-center flex-wrap gap-4 bg-white">
                         <div className="flex gap-2">
                             {[
                                 { id: 'daily', label: 'Daily Analysis' },
@@ -300,50 +312,63 @@ const PayrollReportPage: React.FC = () => {
                             <table className="w-full text-left min-w-[1000px]">
                                 <thead>
                                     <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-                                        <th className="px-6 py-4">Fiscal Period</th>
-                                        <th className="px-6 py-4">Base Wages</th>
-                                        <th className="px-6 py-4">Overtime Pay</th>
-                                        <th className="px-6 py-4">Total Payout</th>
-                                        <th className="px-6 py-4">Attendance Summary</th>
-                                        <th className="px-6 py-4 text-right">Actions</th>
+                                        <th className="px-6 py-4">Labour Name</th>
+                                        <th className="px-6 py-4">Skill Type</th>
+                                        <th className="px-6 py-4 text-center">Daily Wage</th>
+                                        <th className="px-6 py-4 text-center">Days Present</th>
+                                        <th className="px-6 py-4 text-center">OT Hours</th>
+                                        <th className="px-6 py-4 text-center">Total Wage Earned</th>
+                                        <th className="px-6 py-4 text-center">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
                                     {reports.filter(r => {
-                                        if (activeStatFilter === "High") return r.total_payout > 5000;
-                                        if (activeStatFilter === "OT") return r.overtime_wages > 0;
+                                        if (activeStatFilter === "High") return (r.total_wage || 0) > 5000;
+                                        if (activeStatFilter === "OT") return (r.overtime_hours || 0) > 0;
                                         return true;
                                     }).map((r, idx) => (
                                         <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
                                             <td className="px-6 py-4">
-                                                <span className="text-sm font-bold text-slate-800">
-                                                    {r.date || r.week || r.month}
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-9 h-9 bg-primary/10 rounded-xl flex items-center justify-center">
+                                                        <span className="text-sm font-bold text-primary">{r.labour_name?.charAt(0) || '?'}</span>
+                                                    </div>
+                                                    <span className="text-sm font-bold text-slate-800">{r.labour_name || 'Unknown'}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">{r.skill_type || '—'}</span>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className="text-sm font-bold text-slate-700 tabular-nums">₹{Number(r.daily_wage_rate || 0).toLocaleString()}</span>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className="text-sm font-bold text-slate-700 tabular-nums">{r.present_days || 0}</span>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className={`text-sm font-bold tabular-nums ${(r.overtime_hours || 0) > 0 ? 'text-amber-500' : 'text-slate-300'}`}>
+                                                    {r.overtime_hours || 0}h
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <span className="text-sm font-bold text-slate-700 tabular-nums">₹{r.total_wages?.toLocaleString()}</span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className="text-sm font-bold text-amber-500 tabular-nums">₹{r.overtime_wages?.toLocaleString()}</span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className="text-sm font-bold text-emerald-600 tabular-nums">₹{r.total_payout?.toLocaleString()}</span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                                    {r.attendance_summary || 'N/A'}
+                                            <td className="px-6 py-4 text-center">
+                                                <span className="text-sm font-bold text-emerald-600 tabular-nums">
+                                                    ₹{(r.total_wage || (Number(r.daily_wage_rate || 0) * (r.present_days || 0))).toLocaleString()}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <button 
-                                                    onClick={() => toast.success('Downloading fiscal receipt...')}
-                                                    className="p-2 text-primary hover:bg-primary/10 rounded-xl transition-all"
-                                                >
-                                                    <Download className="w-4 h-4" />
-                                                </button>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${r.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                                    {r.status || 'Active'}
+                                                </span>
                                             </td>
                                         </tr>
                                     ))}
+                                    {reports.length === 0 && !isLoading && (
+                                        <tr>
+                                            <td colSpan={7} className="px-6 py-16 text-center text-slate-400">
+                                                <p className="text-[10px] font-bold uppercase tracking-widest">No payroll records found</p>
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         )}

@@ -296,7 +296,7 @@ const SettingsPage = () => {
             <PageTransition className="p-4 md:p-8 bg-slate-50 h-[calc(100vh-64px)] overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
 
                 {/* ── Header ──────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6 md:mb-10">
                     <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">
                             Preferences
@@ -726,7 +726,7 @@ const SettingsPage = () => {
                                 </select>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Timezone</label>
                                     <select

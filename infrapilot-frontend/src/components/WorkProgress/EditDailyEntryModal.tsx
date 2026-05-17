@@ -16,6 +16,8 @@ const EditDailyEntryModal = ({ isOpen, onClose, onSubmit, entry }: EditDailyEntr
     remarks: ""
   });
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   useEffect(() => {
     if (entry) {
       setFormData({
@@ -25,12 +27,25 @@ const EditDailyEntryModal = ({ isOpen, onClose, onSubmit, entry }: EditDailyEntr
     }
   }, [entry]);
 
+  const validate = () => {
+    const errs: Record<string, string> = {};
+    if (!formData.today_progress || formData.today_progress <= 0) {
+      errs.today_progress = "Quantity must be greater than 0";
+    }
+    if (!formData.remarks.trim()) {
+      errs.remarks = "Remarks are required for audit trail";
+    }
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!entry) return;
+    if (!entry || !validate()) return;
     setIsSubmitting(true);
     try {
       await onSubmit(entry.id, formData);
+      setErrors({});
     } catch (err) {
       console.error(err);
     } finally {
@@ -38,8 +53,24 @@ const EditDailyEntryModal = ({ isOpen, onClose, onSubmit, entry }: EditDailyEntr
     }
   };
 
-  const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
-  const inputClasses = "w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm font-bold outline-none transition-all placeholder:text-slate-300";
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    const val = name === "today_progress" ? Number(value) : value;
+    setFormData(prev => ({ ...prev, [name]: val }));
+    if (errors[name]) {
+        setErrors(prev => {
+            const { [name]: _, ...rest } = prev;
+            return rest;
+        });
+    }
+  };
+
+  const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
+  const inputClasses = (error?: string) => `
+    w-full px-4 py-2.5 bg-white border 
+    ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
+    rounded-xl text-sm font-bold outline-none transition-all placeholder:text-slate-300 font-inter
+  `;
 
   const modalFooter = (
     <>
@@ -73,17 +104,20 @@ const EditDailyEntryModal = ({ isOpen, onClose, onSubmit, entry }: EditDailyEntr
             <div>
               <label className={labelClasses}>Quantity Executed*</label>
               <input
-                required type="number" min="0" step="any" className={inputClasses}
-                value={formData.today_progress} onChange={e => setFormData({ ...formData, today_progress: Number(e.target.value) })}
+                required type="number" name="today_progress" min="0" step="any" 
+                className={inputClasses(errors.today_progress)}
+                value={formData.today_progress} onChange={handleChange}
               />
+              {errors.today_progress && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.today_progress}</p>}
             </div>
             <div>
-              <label className={labelClasses}>Operational Narrative</label>
+              <label className={labelClasses}>Operational Narrative*</label>
               <textarea
-                rows={3} className={`${inputClasses} resize-none font-inter`}
-                placeholder="Optional remarks..."
-                value={formData.remarks} onChange={e => setFormData({ ...formData, remarks: e.target.value })}
+                name="remarks" rows={3} className={`${inputClasses(errors.remarks)} resize-none font-inter`}
+                placeholder="Enter remarks..."
+                value={formData.remarks} onChange={handleChange}
               />
+              {errors.remarks && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.remarks}</p>}
             </div>
           </div>
         </div>

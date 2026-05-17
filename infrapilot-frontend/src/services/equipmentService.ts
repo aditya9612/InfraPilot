@@ -1,9 +1,9 @@
 import api from './api';
-import type { 
-  EquipmentItem, 
-  EquipmentResponse, 
-  CreateEquipmentRequest, 
-  UpdateEquipmentRequest 
+import type {
+  EquipmentItem,
+  EquipmentResponse,
+  CreateEquipmentRequest,
+  UpdateEquipmentRequest
 } from '../types/equipment';
 
 export const equipmentService = {
@@ -11,10 +11,12 @@ export const equipmentService = {
    * Get list of equipment
    * GET /api/v1/equipment
    */
-  async getEquipment(projectId: number, limit: number = 20) {
+  async getEquipment(projectId?: number, limit: number = 1000) {
     try {
+      const params: any = { limit };
+      if (projectId) params.project_id = projectId;
       const response = await api.get<EquipmentResponse>(`/equipment`, {
-        params: { project_id: projectId, limit }
+        params
       });
       const data = response.data;
 

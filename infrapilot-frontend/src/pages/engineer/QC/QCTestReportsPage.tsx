@@ -83,10 +83,16 @@ const QCTestReportsPage = () => {
 
     // ─── HELPERS & ANALYTICS ─────────────────────────────────────────────
 
+    const filteredQcList = useMemo(() => {
+        if (activeStatFilter === "Pass") return qcList.filter(q => q.status === "Pass");
+        if (activeStatFilter === "Fail") return qcList.filter(q => q.status === "Fail");
+        return qcList;
+    }, [qcList, activeStatFilter]);
+
     const stats = useMemo(() => {
-        const total = qcList.length;
-        const passCount = qcList.filter(q => q.status === "Pass").length;
-        const failCount = qcList.filter(q => q.status === "Fail").length;
+        const total = filteredQcList.length;
+        const passCount = filteredQcList.filter(q => q.status === "Pass").length;
+        const failCount = filteredQcList.filter(q => q.status === "Fail").length;
         
         return {
             total,
@@ -95,13 +101,7 @@ const QCTestReportsPage = () => {
             passRate: total > 0 ? Math.round((passCount / total) * 100) : 0,
             failRate: total > 0 ? Math.round((failCount / total) * 100) : 0
         };
-    }, [qcList]);
-
-    const filteredQcList = useMemo(() => {
-        if (activeStatFilter === "Pass") return qcList.filter(q => q.status === "Pass");
-        if (activeStatFilter === "Fail") return qcList.filter(q => q.status === "Fail");
-        return qcList;
-    }, [qcList, activeStatFilter]);
+    }, [filteredQcList]);
 
     const paginatedQcList = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
@@ -288,8 +288,8 @@ const QCTestReportsPage = () => {
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4">
-                                                            <span className="text-xs text-slate-400 line-clamp-1 max-w-[200px] font-inter" title={qc.remarks || ""}>
-                                                                {qc.remarks || "-"}
+                                                            <span className="text-xs text-slate-600 font-inter" title={qc.remarks || ""}>
+                                                                {qc.remarks && qc.remarks.trim() ? qc.remarks : "-"}
                                                             </span>
                                                         </td>
                                                     </tr>

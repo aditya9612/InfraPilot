@@ -9,6 +9,8 @@ export interface LabourItem {
   status: string;
   notes: string;
   mobile_number?: string;
+  project_id?: number | null;
+  projects?: any[];
 }
 
 export interface CreateLabourRequest {

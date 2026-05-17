@@ -31,6 +31,9 @@ const MaterialReceiptPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [projectId, setProjectId] = useState<number | null>(null);
+  // Pagination States
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   const [searchTerm, setSearchTerm] = useState("");
 
   // Interactive StatCard Filter
@@ -210,6 +213,17 @@ const MaterialReceiptPage = () => {
     );
   }, [materials, searchTerm, activeStatFilter]);
 
+  const paginatedMaterials = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredMaterials.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredMaterials, currentPage]);
+
+  const totalPages = Math.ceil(filteredMaterials.length / itemsPerPage);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, activeStatFilter]);
+
   const alertBadge = (type: string) => {
     switch (type) {
       case "IN_STOCK": return "bg-emerald-100 text-emerald-600 border-emerald-200";
@@ -236,6 +250,13 @@ const MaterialReceiptPage = () => {
           </div>
           <div className="flex items-center gap-3 font-inter">
             <button
+              onClick={fetchData}
+              className="p-2.5 text-slate-400 hover:text-primary hover:bg-white rounded-xl transition-all border border-slate-100 bg-white/50 shadow-sm active:scale-95"
+              title="Sync Ledger"
+            >
+              <RotateCcw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+            </button>
+            <button
               onClick={() => {
                 setFormData({
                     project_id: projectId || 0,
@@ -251,7 +272,7 @@ const MaterialReceiptPage = () => {
                 });
                 setIsAddModalOpen(true);
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
+              className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
             >
               <Plus className="w-4 h-4" />
               Add Material
@@ -266,7 +287,7 @@ const MaterialReceiptPage = () => {
                     toast.error("Please add a material first");
                 }
               }}
-              className="flex items-center gap-2 px-4 py-2 border border-emerald-500 text-emerald-600 bg-white rounded-xl text-sm font-bold hover:bg-emerald-50 transition-all active:scale-95 font-inter shadow-sm"
+              className="flex items-center gap-2 px-4 py-2.5 border border-emerald-500 text-emerald-600 bg-white rounded-xl text-sm font-bold hover:bg-emerald-50 transition-all active:scale-95 font-inter shadow-sm"
             >
               <ShoppingCart className="w-4 h-4" />
               Record Purchase
@@ -352,8 +373,8 @@ const MaterialReceiptPage = () => {
                       <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing registry...</p>
                     </td>
                   </tr>
-                ) : filteredMaterials.length > 0 ? (
-                  filteredMaterials.map((m) => (
+                ) : paginatedMaterials.length > 0 ? (
+                  paginatedMaterials.map((m) => (
                     <tr key={m.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                       <td className="px-6 py-4 font-inter">
                         <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 font-inter uppercase tracking-widest">{m.material_code}</span>
@@ -460,6 +481,32 @@ const MaterialReceiptPage = () => {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Pagination Controls */}
+          <div className="px-6 py-4 bg-slate-50/30 border-t border-slate-50 flex items-center justify-between font-inter">
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">
+              Showing {paginatedMaterials.length} of {filteredMaterials.length} Resource Identities
+            </div>
+            <div className="flex items-center gap-2 font-inter">
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(prev => prev - 1)}
+                className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all font-inter shadow-sm"
+              >
+                Prev
+              </button>
+              <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
+                Page {currentPage} of {totalPages || 1}
+              </div>
+              <button
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage(prev => prev + 1)}
+                className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all font-inter shadow-sm"
+              >
+                Next
+              </button>
+            </div>
           </div>
         </div>
 

@@ -18,7 +18,8 @@ import {
   Briefcase,
   Phone,
   Mail,
-  FileText
+  FileText,
+  RotateCcw
 } from "lucide-react";
 
 const conditionColors: Record<string, string> = {
@@ -43,7 +44,9 @@ const MachineryPage = () => {
     const [conditionFilter, setConditionFilter] = useState("All");
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<number | null>(null);
-    const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Operational" | "Repair">("All");
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
+    const [activeStatFilter, setActiveStatFilter] = useState<"All" | "GOOD" | "REPAIR" | "DAMAGED" | "MAINTENANCE">("All");
 
     const [projectId, setProjectId] = useState<number>(0);
 
@@ -79,21 +82,18 @@ const MachineryPage = () => {
     }, []);
 
     useEffect(() => {
-        if (projectId > 0) {
-            fetchEquipment();
-        }
-    }, [projectId]);
+        fetchEquipment();
+    }, []);
 
     const fetchEquipment = async () => {
-        if (!projectId) return;
         setIsLoading(true);
         try {
-            console.log(`Fetching Equipment List for Project: ${projectId}`);
-            const data = await equipmentService.getEquipment(projectId);
-            console.log("Machinery API Raw Response:", data);
+            console.log("Fetching Global Machinery Registry (All Projects)");
+            const data = await equipmentService.getEquipment();
+            console.log("Machinery API Response:", data);
             
             const items = data.items || [];
-            console.log(`Successfully synced ${items.length} machinery items (200 OK)`);
+            console.log(`Successfully synced ${items.length} machinery items across all projects`);
             setMachineryList(items);
         } catch (err) {
             console.error("Fetch Equipment Failed:", err);
@@ -149,24 +149,43 @@ const MachineryPage = () => {
 
     const filteredList = useMemo(() => {
         return machineryList.filter(item => {
-            const matchesSearch = item.equipment_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                item.equipment_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                item.operator_name.toLowerCase().includes(searchTerm.toLowerCase());
+            const term = searchTerm.toLowerCase();
+            const matchesSearch = searchTerm === "" || 
+                item.equipment_name.toLowerCase().includes(term) ||
+                item.equipment_code.toLowerCase().includes(term) ||
+                item.operator_name.toLowerCase().includes(term);
+            
             const matchesCondition = conditionFilter === "All" || item.condition === conditionFilter;
             
-            let matchesStat = true;
-            if (activeStatFilter === "Operational") matchesStat = item.condition === "GOOD";
-            else if (activeStatFilter === "Repair") matchesStat = item.condition === "REPAIR" || item.condition === "DAMAGED";
+            const matchesStat = activeStatFilter === "All" || item.condition === activeStatFilter;
             
             return matchesSearch && matchesCondition && matchesStat;
         });
     }, [machineryList, searchTerm, conditionFilter, activeStatFilter]);
 
-    // Summary stats
-    const totalAssets = machineryList.length;
-    const operationalCount = machineryList.filter(m => m.condition === "GOOD").length;
-    const repairCount = machineryList.filter(m => m.condition === "REPAIR" || m.condition === "DAMAGED").length;
-    const totalFuelUsed = machineryList.reduce((acc, m) => acc + Number(m.fuel_used || 0), 0);
+    const paginatedList = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return filteredList.slice(startIndex, startIndex + itemsPerPage);
+    }, [filteredList, currentPage]);
+
+    const totalPages = Math.ceil(filteredList.length / itemsPerPage);
+
+    // Reset page on filter change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, conditionFilter, activeStatFilter]);
+
+    // Summary stats (always from the full list or filtered?) 
+    // User said "calculate karke stat card mai dikhao", usually means total overview.
+    const stats = useMemo(() => {
+        const total = machineryList.length;
+        const good = machineryList.filter(m => m.condition === "GOOD").length;
+        const repair = machineryList.filter(m => m.condition === "REPAIR").length;
+        const damaged = machineryList.filter(m => m.condition === "DAMAGED").length;
+        const maintenance = machineryList.filter(m => m.condition === "MAINTENANCE").length;
+        return { total, good, repair, damaged, maintenance };
+    }, [machineryList]);
+
 
     return (
         <>
@@ -181,43 +200,61 @@ const MachineryPage = () => {
                             Monitor utilization, fuel consumption, and health status.
                         </p>
                     </div>
-                    <button
-                        onClick={() => { setEditingEquipment(null); setIsModalOpen(true); }}
-                        className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
-                    >
-                        <Plus className="w-4 h-4" />
-                        Register Equipment
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={fetchEquipment}
+                            className="p-2.5 text-slate-400 hover:text-primary hover:bg-white rounded-xl transition-all border border-slate-100 bg-white/50 shadow-sm active:scale-95"
+                            title="Sync Ledger"
+                        >
+                            <RotateCcw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+                        </button>
+                        <button
+                            onClick={() => { setEditingEquipment(null); setIsModalOpen(true); }}
+                            className="flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Register Equipment
+                        </button>
+                    </div>
                 </div>
 
                 {/* ── Summary Stats ───────────────────────────── */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
-                            title="Active Assets"
-                            value={totalAssets.toString()}
+                            title="Total Assets"
+                            value={stats.total.toString()}
                             sub="Registered Units"
                             accent="text-slate-800" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("Operational")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Operational" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div onClick={() => setActiveStatFilter("GOOD")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "GOOD" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
-                            title="Operational"
-                            value={operationalCount.toString()}
+                            title="Good"
+                            value={stats.good.toString()}
                             sub="Optimal Condition"
                             accent="text-emerald-500" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("Repair")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Repair" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div onClick={() => setActiveStatFilter("REPAIR")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "REPAIR" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
-                            title="Under Repair"
-                            value={repairCount.toString()}
+                            title="Repair"
+                            value={stats.repair.toString()}
                             sub="Needs Attention"
                             accent="text-rose-500" />
                     </div>
-                    <StatCard
-                        title="Total Fuel"
-                        value={`${totalFuelUsed}L`}
-                        sub="Consumption Log"
-                        accent="text-blue-500" />
+                    <div onClick={() => setActiveStatFilter("DAMAGED")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "DAMAGED" ? "ring-2 ring-red-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Damaged"
+                            value={stats.damaged.toString()}
+                            sub="Critical Failure"
+                            accent="text-red-500" />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("MAINTENANCE")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "MAINTENANCE" ? "ring-2 ring-blue-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Maintenance"
+                            value={stats.maintenance.toString()}
+                            sub="Under Service"
+                            accent="text-blue-500" />
+                    </div>
                 </div>
 
                 {/* ── Filter Bar ───────────────────────────────────────────── */}
@@ -242,13 +279,10 @@ const MachineryPage = () => {
                             className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-primary/10 transition-all"
                         >
                             <option value="All">All Conditions</option>
-                            <option value="GOOD">Good / Optimal</option>
-                            <option value="FAIR">Fair / Functional</option>
-                            <option value="POOR">Poor Condition</option>
-                            <option value="REPAIR">Needs Repair</option>
-                            <option value="SERVICE">Under Service</option>
+                            <option value="GOOD">Good</option>
+                            <option value="REPAIR">Repair</option>
                             <option value="DAMAGED">Damaged</option>
-                            <option value="MAINTENANCE">Scheduled Maint.</option>
+                            <option value="MAINTENANCE">Maintenance</option>
                         </select>
                     </div>
 
@@ -271,8 +305,8 @@ const MachineryPage = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
-                                    {filteredList.length > 0 ? (
-                                        filteredList.map((item) => (
+                                    {paginatedList.length > 0 ? (
+                                        paginatedList.map((item) => (
                                             <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
                                                 <td className="px-6 py-4">
                                                     <div className="flex flex-col">
@@ -337,6 +371,34 @@ const MachineryPage = () => {
                             </table>
                         )}
                     </div>
+                    
+                    {/* ── Pagination ────────────────────────────────────────── */}
+                    {filteredList.length > 0 && (
+                        <div className="px-6 py-4 bg-slate-50/30 border-t border-slate-50 flex items-center justify-between font-inter">
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">
+                                Showing {paginatedList.length} of {filteredList.length} Asset Identities
+                            </div>
+                            <div className="flex items-center gap-2 font-inter">
+                                <button
+                                    disabled={currentPage === 1}
+                                    onClick={() => setCurrentPage(prev => prev - 1)}
+                                    className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all font-inter shadow-sm"
+                                >
+                                    Prev
+                                </button>
+                                <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
+                                    Page {currentPage} of {totalPages || 1}
+                                </div>
+                                <button
+                                    disabled={currentPage >= totalPages}
+                                    onClick={() => setCurrentPage(prev => prev + 1)}
+                                    className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all font-inter shadow-sm"
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </PageTransition>
 

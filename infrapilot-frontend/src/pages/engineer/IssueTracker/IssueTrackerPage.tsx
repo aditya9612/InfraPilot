@@ -218,9 +218,9 @@ const IssueTrackerPage = () => {
         <>
             <Navbar title="Issue Tracker" breadcrumb={["Engineer", "Site Constraints", "Issue Log"]} />
 
-            <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
+            <PageTransition className="p-4 md:p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
                 {/* ── Header ──────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 font-inter">
                     <div className="font-inter">
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Constraint Management Vault</h1>
                         <p className="text-slate-500 text-sm font-inter">
@@ -242,7 +242,7 @@ const IssueTrackerPage = () => {
                 </div>
 
                 {/* ── Interactive Stats ───────────────────────────── */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Total Logs"
@@ -288,7 +288,7 @@ const IssueTrackerPage = () => {
                                 className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
                             />
                         </div>
-                        <div className="flex items-center gap-3 font-inter">
+                        <div className="flex flex-wrap items-center gap-3 font-inter">
                             <div className="flex items-center gap-2 font-inter">
                                 <Filter className="w-4 h-4 text-slate-400" />
                                 <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter">
@@ -440,7 +440,7 @@ const IssueTrackerPage = () => {
                                     </div>
                                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] font-inter">Issue Parameters</p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-x-12 gap-y-8 font-inter">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 sm:gap-x-12 gap-y-6 sm:gap-y-8 font-inter">
                                     <div className="font-inter">
                                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Category Profile</p>
                                         <p className="text-sm font-bold text-slate-800 font-inter uppercase tracking-widest">{selectedIssue.category}</p>
@@ -481,7 +481,7 @@ const IssueTrackerPage = () => {
                                     </div>
                                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] font-inter">Sequence Audit</p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-x-12 gap-y-8 font-inter">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 sm:gap-x-12 gap-y-6 sm:gap-y-8 font-inter">
                                     <div className="font-inter">
                                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Initial Report</p>
                                         <p className="text-sm font-bold text-slate-800 font-inter tracking-widest">{selectedIssue.reported_date}</p>

@@ -58,6 +58,8 @@ const WorkApprovalPage = () => {
     const [requestToDelete, setRequestToDelete] = useState<number | string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 20;
 
     // Filter state for StatCards
     const [activeFilter, setActiveFilter] = useState<"All" | "Approved" | "Pending" | "Rate">("All");
@@ -120,9 +122,9 @@ const WorkApprovalPage = () => {
             if (isEditMode) {
                 toast.error("Update not implemented in service", { id: toastId });
             } else {
-                await approvalService.createApproval(payload);
+                const newRecord = await approvalService.createApproval(payload);
                 toast.success("Work Approval Request Submitted!", { id: toastId });
-                fetchApprovals();
+                setApprovalData(prev => [newRecord, ...prev]);
             }
             setIsFormModalOpen(false);
         } catch (error) {
@@ -133,7 +135,7 @@ const WorkApprovalPage = () => {
         }
     };
 
-    const handleApprove = async (id: number) => {
+    const handleApprove = async (id: number | string) => {
         const remarks = prompt("Enter approval remarks:", "Approved after site review");
         if (remarks === null) return;
 
@@ -141,13 +143,17 @@ const WorkApprovalPage = () => {
         try {
             await approvalService.approve(id, remarks);
             toast.success("Work Authorized!", { id: toastId });
-            fetchApprovals();
+            
+            // Optimistic Update
+            setApprovalData(prev => prev.map(a => 
+                a.id === id ? { ...a, status: "Approved" } : a
+            ));
         } catch (error) {
             toast.error("Approval failed", { id: toastId });
         }
     };
 
-    const handleReject = async (id: number) => {
+    const handleReject = async (id: number | string) => {
         const remarks = prompt("Enter rejection remarks:", "Rejected due to technical non-compliance");
         if (remarks === null) return;
 
@@ -155,7 +161,11 @@ const WorkApprovalPage = () => {
         try {
             await approvalService.reject(id, remarks);
             toast.success("Work Authorization Rejected", { id: toastId });
-            fetchApprovals();
+            
+            // Optimistic Update
+            setApprovalData(prev => prev.map(a => 
+                a.id === id ? { ...a, status: "Rejected" } : a
+            ));
         } catch (error) {
             toast.error("Rejection failed", { id: toastId });
         }
@@ -193,58 +203,72 @@ const WorkApprovalPage = () => {
         );
     }, [approvalData, searchTerm, activeFilter]);
 
-    const stats = useMemo(() => {
-        const total = approvalData.length;
-        const cleared = approvalData.filter(a => a.status === "Approved").length;
-        const pending = approvalData.filter(a => a.status !== "Approved").length;
-        const rate = total > 0 ? Math.round((cleared / total) * 100) : 0;
-        return {
-            total,
-            cleared,
-            pending,
-            clearanceRate: `${rate}%`
-        };
-    }, [approvalData]);
+    const paginatedApprovals = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return filteredApprovals.slice(startIndex, startIndex + itemsPerPage);
+    }, [filteredApprovals, currentPage]);
 
-    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
+    const totalPages = Math.ceil(filteredApprovals.length / itemsPerPage);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, activeFilter]);
+
+    const stats = {
+        total: approvalData.length,
+        cleared: approvalData.filter(a => a.status === "Approved").length,
+        pending: approvalData.filter(a => a.status !== "Approved").length,
+        clearanceRate: `${approvalData.length > 0 ? Math.round((approvalData.filter(a => a.status === "Approved").length / approvalData.length) * 100) : 0}%`
+    };
+
+    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
     const inputClasses = (error?: string) => `
         w-full px-4 py-2.5 bg-white border 
         ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
-        rounded-xl text-sm outline-none transition-all placeholder:text-slate-300
+        rounded-xl text-sm font-bold outline-none transition-all placeholder:text-slate-300 font-inter
     `;
 
     return (
         <>
             <Navbar title="Work Approvals" breadcrumb={["Engineer", "Approvals", "Technical Clearance"]} />
 
-            <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
+            <PageTransition className="p-4 md:p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
                 {/* ── Header ──────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Work Authorizations</h1>
                         <p className="text-slate-500 text-sm">Technical clearance portal for critical site activities and execution milestones.</p>
                     </div>
-                    <button
-                        onClick={() => {
-                            setIsEditMode(false);
-                            setFormData({
-                                id: "",
-                                entity_type: "bill",
-                                entity_id: "",
-                                remarks: "",
-                                status: "Pending"
-                            });
-                            setErrors({});
-                            setIsFormModalOpen(true);
-                        }}
-                        className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
-                    >
-                        <Plus className="w-4 h-4" />
-                        Log Request
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => {
+                                setIsEditMode(false);
+                                setFormData({
+                                    id: "",
+                                    entity_type: "bill",
+                                    entity_id: "",
+                                    remarks: "",
+                                    status: "Pending"
+                                });
+                                setErrors({});
+                                setIsFormModalOpen(true);
+                            }}
+                            className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Log Request
+                        </button>
+                        <button
+                            onClick={fetchApprovals}
+                            className="p-2 text-slate-400 hover:text-primary transition-colors bg-white rounded-xl border border-slate-200 shadow-sm font-inter active:scale-95"
+                            title="Refetch Authorizations"
+                        >
+                            <RotateCcw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+                        </button>
+                    </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
                     <div onClick={() => setActiveFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Total Logs"
@@ -323,8 +347,8 @@ const WorkApprovalPage = () => {
                                             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Syncing Authorizations...</p>
                                         </td>
                                     </tr>
-                                ) : filteredApprovals.length > 0 ? (
-                                    filteredApprovals.map((approval) => (
+                                ) : paginatedApprovals.length > 0 ? (
+                                    paginatedApprovals.map((approval) => (
                                         <tr key={approval.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col font-inter">
@@ -391,6 +415,31 @@ const WorkApprovalPage = () => {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* ── Pagination Controls ──────────────────────────── */}
+                    {!loading && filteredApprovals.length > 0 && (
+                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">
+                                Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredApprovals.length)} of {filteredApprovals.length} entries
+                            </span>
+                            <div className="flex gap-2 font-inter">
+                                <button 
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50 transition-all font-inter"
+                                >
+                                    Prev
+                                </button>
+                                <button 
+                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                    disabled={currentPage === totalPages || totalPages === 0}
+                                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50 transition-all font-inter"
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </PageTransition>
 
@@ -437,7 +486,7 @@ const WorkApprovalPage = () => {
                                     </div>
                                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">Operational Intelligence</p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 sm:gap-x-12 gap-y-6 font-inter">
                                     <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Entity Category</p>
                                         <p className="text-sm font-bold text-slate-800 font-inter uppercase">{selectedApproval.entity_type}</p>
@@ -483,7 +532,7 @@ const WorkApprovalPage = () => {
                                     </div>
                                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">Audit Integrity</p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 sm:gap-x-12 gap-y-6 font-inter">
                                     <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Requested By</p>
                                         <p className="text-sm font-bold text-blue-600 font-inter">User {selectedApproval.requested_by}</p>

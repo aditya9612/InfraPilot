@@ -111,11 +111,13 @@ export const paymentService = {
      * GET /api/v1/labour/payroll/export
      */
     async exportPayroll(filters?: any): Promise<Blob> {
-        const cleanParams = {
-            project_id: "36",
-            month: (filters?.month || "4").toString(),
-            year: (filters?.year || "2026").toString()
+        const now = new Date();
+        const cleanParams: any = {
+            month: (filters?.month || (now.getMonth() + 1)).toString(),
+            year: (filters?.year || now.getFullYear()).toString()
         };
+        // Only pass project_id if explicitly provided
+        if (filters?.project_id) cleanParams.project_id = filters.project_id.toString();
         console.log("GET /api/v1/labour/payroll/export Request Params:", cleanParams);
         const response = await api.get("/labour/payroll/export", {
             params: cleanParams,

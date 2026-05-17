@@ -24,7 +24,7 @@ const PaymentPage: React.FC = () => {
     const [history, setHistory] = useState<any[]>([]);
     const [pendingDues, setPendingDues] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [projectId, setProjectId] = useState<number>(36);
+    const projectId: number | null = null;
     const [activeTab, setActiveTab] = useState<'payroll' | 'history' | 'dues' | 'weekly' | 'monthly'>('payroll');
     const [weeklyReports, setWeeklyReports] = useState<any[]>([]);
     const [monthlyReports, setMonthlyReports] = useState<any[]>([]);
@@ -40,29 +40,13 @@ const PaymentPage: React.FC = () => {
     const [payTarget, setPayTarget] = useState<any | null>(null);
     const [advanceTarget, setAdvanceTarget] = useState<any | null>(null);
 
-    useEffect(() => {
-        const userStr = localStorage.getItem("infrapilot_user");
-        if (userStr) {
-            try {
-                JSON.parse(userStr);
-                const pId = 36; 
-                setProjectId(pId);
-            } catch (e) {
-                console.error("Failed to resolve project ID", e);
-                setProjectId(36);
-            }
-        } else {
-            setProjectId(36);
-        }
-    }, []);
-
     const fetchData = useCallback(async () => {
         setIsLoading(true);
         try {
             const [labourRes, historyRes, duesRes, attendanceRes] = await Promise.all([
-                labourService.getLabours(projectId),
-                paymentService.getPaymentHistory({ project_id: projectId, limit: 50, offset: 0 }),
-                paymentService.getPendingDues({ project_id: projectId, limit: 50, offset: 0 }),
+                labourService.getLabours(projectId, { limit: 50 }),
+                paymentService.getPaymentHistory({ ...(projectId ? { project_id: projectId } : {}), limit: 50, offset: 0 }),
+                paymentService.getPendingDues({ ...(projectId ? { project_id: projectId } : {}), limit: 50, offset: 0 }),
                 labourService.getAttendanceList(projectId)
             ]);
             
@@ -199,9 +183,9 @@ const PaymentPage: React.FC = () => {
         <>
             <Navbar title="Financial Operations" breadcrumb={["Engineer", "Human Resources", "Payroll Management"]} />
             
-            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
+            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
                 {/* ── Header ──────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 font-inter">
                     <div className="font-inter">
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Workforce Disbursement Terminal</h1>
                         <p className="text-slate-500 text-sm font-inter">Secure wage distribution and advance request management with full audit trails.</p>
@@ -232,7 +216,7 @@ const PaymentPage: React.FC = () => {
                 </div>
 
                 {/* ── Interactive Stats ───────────────────────────── */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
                     <div onClick={() => setActiveStatFilter("Paid")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Paid" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                       <StatCard
                           title="Paid This Month"
@@ -285,7 +269,7 @@ const PaymentPage: React.FC = () => {
                 {/* ── Registry Container ───────────────────────────────────────────── */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex flex-col">
                     {/* Integrated Filter Bar */}
-                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
+                    <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row md:items-center flex-wrap gap-4 bg-white font-inter">
                         <div className="relative flex-1 max-w-md font-inter">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-inter">
                                 <Search className="w-4 h-4 font-inter" />

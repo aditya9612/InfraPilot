@@ -25,6 +25,12 @@ const MaterialStockPage = () => {
   const [logFilter, setLogFilter] = useState("All");
   const [projectId, setProjectId] = useState<number>(1);
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // Pagination States
+  const [currentPageInv, setCurrentPageInv] = useState(1);
+  const [currentPageLogs, setCurrentPageLogs] = useState(1);
+  const itemsPerPageInv = 6;
+  const itemsPerPageLogs = 5;
 
   // Interactive StatCard Filter
   const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Critical" | "HighValue" | "InStock">("All");
@@ -99,6 +105,29 @@ const MaterialStockPage = () => {
     );
   }, [inventory, searchTerm, activeStatFilter]);
 
+  const paginatedInventory = useMemo(() => {
+    const startIndex = (currentPageInv - 1) * itemsPerPageInv;
+    return filteredInventory.slice(startIndex, startIndex + itemsPerPageInv);
+  }, [filteredInventory, currentPageInv]);
+
+  const totalPagesInv = Math.ceil(filteredInventory.length / itemsPerPageInv);
+
+  const paginatedLogs = useMemo(() => {
+    const data = logs.filter(l => logFilter === "All" || l.type === logFilter);
+    const startIndex = (currentPageLogs - 1) * itemsPerPageLogs;
+    return data.slice(startIndex, startIndex + itemsPerPageLogs);
+  }, [logs, logFilter, currentPageLogs]);
+
+  const totalPagesLogs = Math.ceil(logs.filter(l => logFilter === "All" || l.type === logFilter).length / itemsPerPageLogs);
+
+  useEffect(() => {
+    setCurrentPageInv(1);
+  }, [searchTerm, activeStatFilter]);
+
+  useEffect(() => {
+    setCurrentPageLogs(1);
+  }, [logFilter]);
+
   const handleExportPdf = async () => {
     setIsExporting(true);
     const loadToast = toast.loading("Generating Strategic PDF report...");
@@ -145,6 +174,13 @@ const MaterialStockPage = () => {
             <p className="text-slate-500 text-sm font-inter">Real-time inventory valuation and procurement momentum audit.</p>
           </div>
           <div className="flex items-center gap-3 font-inter">
+            <button
+              onClick={fetchData}
+              className="p-2.5 text-slate-400 hover:text-primary hover:bg-white rounded-xl transition-all border border-slate-100 bg-white/50 shadow-sm active:scale-95"
+              title="Sync Intelligence"
+            >
+              <RotateCcw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+            </button>
             <button
               onClick={handleExportPdf}
               disabled={isExporting}
@@ -223,7 +259,7 @@ const MaterialStockPage = () => {
                           <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4 font-inter" />
                           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing Inventory Vault...</p>
                       </div>
-                  ) : filteredInventory.length > 0 ? filteredInventory.map((inv) => (
+                  ) : paginatedInventory.length > 0 ? paginatedInventory.map((inv) => (
                     <div key={inv.material_id} className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-500 group font-inter relative overflow-hidden">
                                 <div className="flex items-center justify-between mb-6 font-inter">
                             <div className="p-3.5 bg-slate-50 rounded-2xl text-slate-400 group-hover:text-primary group-hover:bg-primary/10 transition-all font-inter border border-slate-100 shadow-inner">
@@ -258,6 +294,32 @@ const MaterialStockPage = () => {
                     </div>
                   )}
                 </div>
+            </div>
+
+            {/* Inventory Pagination */}
+            <div className="px-8 py-6 bg-slate-50/30 border-t border-slate-50 flex items-center justify-between font-inter">
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">
+                Scope: {paginatedInventory.length} of {filteredInventory.length} Strategic Assets
+              </div>
+              <div className="flex items-center gap-2 font-inter">
+                <button
+                  disabled={currentPageInv === 1}
+                  onClick={() => setCurrentPageInv(prev => prev - 1)}
+                  className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all font-inter shadow-sm"
+                >
+                  Prev
+                </button>
+                <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
+                  Page {currentPageInv} of {totalPagesInv || 1}
+                </div>
+                <button
+                  disabled={currentPageInv >= totalPagesInv}
+                  onClick={() => setCurrentPageInv(prev => prev + 1)}
+                  className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all font-inter shadow-sm"
+                >
+                  Next
+                </button>
+              </div>
             </div>
         </div>
 
@@ -348,8 +410,8 @@ const MaterialStockPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 font-inter">
-                {logs.length > 0 ? (
-                  logs.map((log) => (
+                 {paginatedLogs.length > 0 ? (
+                  paginatedLogs.map((log) => (
                     <tr key={log.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                       <td className="px-6 py-4 text-xs font-bold text-slate-500 font-inter">{new Date(log.created_at).toLocaleDateString('en-GB')}</td>
                       <td className="px-6 py-4 font-inter">
@@ -381,6 +443,32 @@ const MaterialStockPage = () => {
                 )}
               </tbody>
             </table>
+          </div>
+          
+          {/* Logs Pagination */}
+          <div className="px-6 py-4 bg-slate-50/30 border-t border-slate-50 flex items-center justify-between font-inter">
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">
+              Showing {paginatedLogs.length} of {logs.filter(l => logFilter === "All" || l.type === logFilter).length} Historical Events
+            </div>
+            <div className="flex items-center gap-2 font-inter">
+              <button
+                disabled={currentPageLogs === 1}
+                onClick={() => setCurrentPageLogs(prev => prev - 1)}
+                className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all font-inter shadow-sm"
+              >
+                Prev
+              </button>
+              <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
+                Page {currentPageLogs} of {totalPagesLogs || 1}
+              </div>
+              <button
+                disabled={currentPageLogs >= totalPagesLogs}
+                onClick={() => setCurrentPageLogs(prev => prev + 1)}
+                className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all font-inter shadow-sm"
+              >
+                Next
+              </button>
+            </div>
           </div>
         </div>
       </PageTransition>

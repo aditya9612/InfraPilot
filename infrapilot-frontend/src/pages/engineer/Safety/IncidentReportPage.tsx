@@ -27,24 +27,20 @@ import type { IncidentItem, CreateIncidentRequest } from "../../../services/safe
 
 const violationTypeOptions = [
     "No Helmet",
-    "No Safety Harness",
     "Unsafe Equipment Usage",
-    "No Safety Shoes",
+    "No Safety Harness",
+    "Unsafe Scaffolding",
     "Fire Hazard",
     "Electrical Hazard",
-    "Working at Height without Protection",
-    "Other"
 ];
 
 const violationTypeColors: Record<string, string> = {
     "No Helmet": "bg-red-100 text-red-600",
-    "No Safety Harness": "bg-orange-100 text-orange-600",
     "Unsafe Equipment Usage": "bg-amber-100 text-amber-600",
-    "No Safety Shoes": "bg-yellow-100 text-yellow-600",
+    "No Safety Harness": "bg-orange-100 text-orange-600",
+    "Unsafe Scaffolding": "bg-yellow-100 text-yellow-600",
     "Fire Hazard": "bg-rose-100 text-rose-600",
     "Electrical Hazard": "bg-purple-100 text-purple-600",
-    "Working at Height without Protection": "bg-blue-100 text-blue-600",
-    "Other": "bg-slate-100 text-slate-500",
 };
 
 const IncidentReportPage = () => {
@@ -70,6 +66,8 @@ const IncidentReportPage = () => {
     const [endDate, setEndDate] = useState("");
     const [projectId, setProjectId] = useState<number | null>(null);
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Month" | "Critical" | "Compliance">("All");
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 20;
 
     // Form State
     const [formData, setFormData] = useState<CreateIncidentRequest>({
@@ -129,16 +127,17 @@ const IncidentReportPage = () => {
     // ─── STATS CALCULATION ──────────────────────────────────────────────
 
     const stats = useMemo(() => {
-        const total = incidents.length;
+        const data = incidents;
+        const total = data.length;
         const currentMonth = new Date().getMonth();
         const currentYear = new Date().getFullYear();
 
-        const thisMonthCount = incidents.filter(item => {
+        const thisMonthCount = data.filter(item => {
             const itemDate = new Date(item.date);
             return itemDate.getMonth() === currentMonth && itemDate.getFullYear() === currentYear;
         }).length;
 
-        const withInjuryCount = incidents.filter(item =>
+        const withInjuryCount = data.filter(item =>
             item.injury_details && !item.injury_details.toLowerCase().includes("no injury")
         ).length;
 
@@ -176,6 +175,18 @@ const IncidentReportPage = () => {
             return matchesSearch && matchesViolationType && matchesDate && matchesStat;
         });
     }, [incidents, searchTerm, startDate, endDate, filterViolationType, activeStatFilter]);
+
+    const paginatedList = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return filteredList.slice(startIndex, startIndex + itemsPerPage);
+    }, [filteredList, currentPage]);
+
+    const totalPages = Math.ceil(filteredList.length / itemsPerPage);
+
+    // Reset page on filter change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, startDate, endDate, filterViolationType, activeStatFilter]);
 
     // ─── HANDLERS ──────────────────────────────────────────────────────
 
@@ -425,8 +436,8 @@ const IncidentReportPage = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50 font-inter">
-                                    {filteredList.length > 0 ? (
-                                        filteredList.map((item) => (
+                                    {paginatedList.length > 0 ? (
+                                        paginatedList.map((item) => (
                                             <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                                 <td className="px-6 py-4">
                                                     <div className="flex flex-col font-inter">
@@ -489,6 +500,31 @@ const IncidentReportPage = () => {
                             </table>
                         )}
                     </div>
+
+                    {/* ── Pagination Controls ──────────────────────────── */}
+                    {!isLoading && filteredList.length > 0 && (
+                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">
+                                Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredList.length)} of {filteredList.length} entries
+                            </span>
+                            <div className="flex gap-2 font-inter">
+                                <button 
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50 transition-all font-inter"
+                                >
+                                    Prev
+                                </button>
+                                <button 
+                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                    disabled={currentPage === totalPages || totalPages === 0}
+                                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50 transition-all font-inter"
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </PageTransition>
 

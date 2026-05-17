@@ -104,6 +104,15 @@ const NewDSREntryModal = ({
     >
   ) => {
     const { name, value } = e.target;
+
+    // Strict Alphabetic Validation for specific fields
+    if (name === "site_location" || name === "weather") {
+        if (/[0-9]/.test(value)) {
+            setErrors(prev => ({ ...prev, [name]: "Numbers are not allowed in this field" }));
+            return;
+        }
+    }
+
     setFormData((prev: CreateDsrRequest) => ({ ...prev, [name]: value }));
     if (errors[name]) {
       setErrors((prev: Record<string, string>) => {
@@ -116,19 +125,35 @@ const NewDSREntryModal = ({
   const validate = () => {
     const errs: Record<string, string> = {};
     if (!formData.report_date) errs.report_date = "Report Date is required";
-    if (!formData.site_location || !formData.site_location.trim())
+    
+    if (!formData.site_location || !formData.site_location.trim()) {
       errs.site_location = "Site Location is required";
+    } else if (/[0-9]/.test(formData.site_location)) {
+      errs.site_location = "Numbers are not allowed in site location";
+    }
+
     if (!formData.work_done || !formData.work_done.trim())
       errs.work_done = "Work Done is required";
     if (!formData.work_planned || !formData.work_planned.trim())
       errs.work_planned = "Work Planned is required";
-    if (!formData.weather) errs.weather = "Weather condition is required";
+    
+    if (!formData.weather) {
+      errs.weather = "Weather condition is required";
+    } else if (/[0-9]/.test(formData.weather)) {
+      errs.weather = "Numbers are not allowed in weather";
+    }
+
     if (!formData.machinery_used || !formData.machinery_used.trim()) errs.machinery_used = "Required";
     if (!formData.material_received || !formData.material_received.trim()) errs.material_received = "Required";
     if (!formData.material_used || !formData.material_used.trim()) errs.material_used = "Required";
     if (!formData.issues || !formData.issues.trim()) errs.issues = "Required";
     if (!formData.safety_observations || !formData.safety_observations.trim()) errs.safety_observations = "Required";
     if (!formData.remarks || !formData.remarks.trim()) errs.remarks = "Required";
+
+    // Labour numeric validation
+    if (isNaN(Number(formData.total_labour)) || Number(formData.total_labour) < 0) errs.total_labour = "Must be a valid number";
+    if (isNaN(Number(formData.skilled_labour)) || Number(formData.skilled_labour) < 0) errs.skilled_labour = "Must be a valid number";
+    if (isNaN(Number(formData.unskilled_labour)) || Number(formData.unskilled_labour) < 0) errs.unskilled_labour = "Must be a valid number";
 
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -149,8 +174,22 @@ const NewDSREntryModal = ({
 
   const handleLabourChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+    
+    // Prevent non-numeric characters
+    if (/[^0-9]/.test(value) && value !== "") {
+        setErrors(prev => ({ ...prev, [name]: "Only numbers are allowed" }));
+        return;
+    }
+
     const numValue = value === "" ? 0 : Number(value);
     setFormData((prev: any) => ({ ...prev, [name]: numValue }));
+    
+    if (errors[name]) {
+        setErrors(prev => {
+            const { [name]: _, ...rest } = prev;
+            return rest;
+        });
+    }
   };
 
   const modalFooter = (

@@ -21,6 +21,12 @@ const MaterialConsumptionPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [projectId, setProjectId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // Pagination States
+  const [currentPageInv, setCurrentPageInv] = useState(1);
+  const [currentPageLogs, setCurrentPageLogs] = useState(1);
+  const itemsPerPageInv = 10;
+  const itemsPerPageLogs = 10;
 
   // Interactive StatCard Filter
   const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Stock" | "Value">("All");
@@ -115,6 +121,24 @@ const MaterialConsumptionPage = () => {
     );
   }, [inventory, searchTerm, activeStatFilter]);
 
+  const paginatedInventory = useMemo(() => {
+    const startIndex = (currentPageInv - 1) * itemsPerPageInv;
+    return filteredInventory.slice(startIndex, startIndex + itemsPerPageInv);
+  }, [filteredInventory, currentPageInv]);
+
+  const totalPagesInv = Math.ceil(filteredInventory.length / itemsPerPageInv);
+
+  const paginatedLogs = useMemo(() => {
+    const startIndex = (currentPageLogs - 1) * itemsPerPageLogs;
+    return logs.slice(startIndex, startIndex + itemsPerPageLogs);
+  }, [logs, currentPageLogs]);
+
+  const totalPagesLogs = Math.ceil(logs.length / itemsPerPageLogs);
+
+  useEffect(() => {
+    setCurrentPageInv(1);
+  }, [searchTerm, activeStatFilter]);
+
   return (
     <>
       <Navbar title="Material Consumption" breadcrumb={["Engineer", "Logistics", "Material Consumption"]} />
@@ -125,21 +149,30 @@ const MaterialConsumptionPage = () => {
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Material Consumption Ledger</h1>
             <p className="text-slate-500 text-sm">Track and manage project material usage across site locations.</p>
           </div>
-          <button
-            onClick={() => {
-              if (inventory.length > 0) {
-                setSelectedInventory(inventory[0]);
-                setUsageData({ quantity: 0, issue_type: "SITE" });
-                setIsUsageModalOpen(true);
-              } else {
-                toast.error("No materials available for usage");
-              }
-            }}
-            className="flex items-center gap-2 px-6 py-2.5 bg-rose-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all active:scale-95 font-inter"
-          >
-            <Activity className="w-4 h-4" />
-            Log Usage
-          </button>
+          <div className="flex items-center gap-3 font-inter">
+            <button
+              onClick={fetchData}
+              className="p-2.5 text-slate-400 hover:text-primary hover:bg-white rounded-xl transition-all border border-slate-100 bg-white/50 shadow-sm active:scale-95"
+              title="Sync Ledger"
+            >
+              <RotateCcw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+            </button>
+            <button
+              onClick={() => {
+                if (inventory.length > 0) {
+                  setSelectedInventory(inventory[0]);
+                  setUsageData({ quantity: 0, issue_type: "SITE" });
+                  setIsUsageModalOpen(true);
+                } else {
+                  toast.error("No materials available for usage");
+                }
+              }}
+              className="flex items-center gap-2 px-6 py-2.5 bg-rose-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all active:scale-95 font-inter"
+            >
+              <Activity className="w-4 h-4" />
+              Log Usage
+            </button>
+          </div>
         </div>
 
         {/* Stats with Interactive Filtering */}
@@ -209,8 +242,8 @@ const MaterialConsumptionPage = () => {
                       <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing inventory...</p>
                     </td>
                   </tr>
-                ) : filteredInventory.length > 0 ? (
-                  filteredInventory.map((inv) => (
+                ) : paginatedInventory.length > 0 ? (
+                  paginatedInventory.map((inv) => (
                     <tr key={inv.material_id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                       <td className="px-6 py-4 font-inter">
                         <div className="flex flex-col font-inter">
@@ -254,6 +287,32 @@ const MaterialConsumptionPage = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Inventory Pagination */}
+          <div className="px-6 py-4 bg-slate-50/30 border-t border-slate-50 flex items-center justify-between font-inter">
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">
+              Showing {paginatedInventory.length} of {filteredInventory.length} Resource Identities
+            </div>
+            <div className="flex items-center gap-2 font-inter">
+              <button
+                disabled={currentPageInv === 1}
+                onClick={() => setCurrentPageInv(prev => prev - 1)}
+                className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all font-inter shadow-sm"
+              >
+                Prev
+              </button>
+              <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
+                Page {currentPageInv} of {totalPagesInv || 1}
+              </div>
+              <button
+                disabled={currentPageInv >= totalPagesInv}
+                onClick={() => setCurrentPageInv(prev => prev + 1)}
+                className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all font-inter shadow-sm"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Usage Logs Container */}
@@ -273,8 +332,8 @@ const MaterialConsumptionPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 font-inter">
-                {logs.length > 0 ? (
-                  logs.map((log) => (
+                {paginatedLogs.length > 0 ? (
+                  paginatedLogs.map((log) => (
                     <tr key={log.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                       <td className="px-6 py-4 text-xs font-bold text-slate-500 font-inter uppercase tracking-widest">{new Date(log.created_at).toLocaleDateString()}</td>
                       <td className="px-6 py-4 font-inter">
@@ -296,6 +355,32 @@ const MaterialConsumptionPage = () => {
                 )}
               </tbody>
             </table>
+          </div>
+          
+          {/* Logs Pagination */}
+          <div className="px-6 py-4 bg-slate-50/30 border-t border-slate-50 flex items-center justify-between font-inter">
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">
+              Showing {paginatedLogs.length} of {logs.length} Audit History Events
+            </div>
+            <div className="flex items-center gap-2 font-inter">
+              <button
+                disabled={currentPageLogs === 1}
+                onClick={() => setCurrentPageLogs(prev => prev - 1)}
+                className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all font-inter shadow-sm"
+              >
+                Prev
+              </button>
+              <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
+                Page {currentPageLogs} of {totalPagesLogs || 1}
+              </div>
+              <button
+                disabled={currentPageLogs >= totalPagesLogs}
+                onClick={() => setCurrentPageLogs(prev => prev + 1)}
+                className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all font-inter shadow-sm"
+              >
+                Next
+              </button>
+            </div>
           </div>
         </div>
       </PageTransition>

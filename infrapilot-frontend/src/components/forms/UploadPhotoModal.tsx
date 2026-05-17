@@ -3,38 +3,14 @@ import Modal from '../common/Modal';
 import { Upload, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+import { ACTIVITY_TAGS, LOCATION_TAGS } from '../../pages/engineer/SitePhotosPage';
+
 interface UploadPhotoModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSubmit: (formData: FormData) => Promise<void>;
     projectId: number | null;
 }
-
-const activityTags = [
-    "Foundation Work",
-    "RCC Column Casting",
-    "Slab Pouring",
-    "Brickwork / Masonry",
-    "Plumbing Installation",
-    "Electrical Wiring",
-    "Safety Audit",
-    "Material Delivery",
-    "Machinery Setup",
-    "Quality Inspection",
-];
-
-const locationTags = [
-    "Block A – Ground Floor",
-    "Block B – First Floor",
-    "Block C – Terrace",
-    "Site Office",
-    "Material Yard",
-    "North Zone",
-    "South Zone",
-    "East Wing",
-    "West Wing",
-    "Entry Gate",
-];
 
 const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, onSubmit, projectId }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -178,14 +154,14 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                             <label className={labelClasses}>Activity Tag *</label>
                             <select name="activity_tag" value={formData.activity_tag} onChange={handleChange} className={inputClasses(errors.activity_tag)}>
                                 <option value="">Select Activity</option>
-                                {activityTags.map(t => <option key={t}>{t}</option>)}
+                                {ACTIVITY_TAGS.map(t => <option key={t} value={t}>{t}</option>)}
                             </select>
                         </div>
                         <div>
                             <label className={labelClasses}>Location Zone *</label>
                             <select name="location_tag" value={formData.location_tag} onChange={handleChange} className={inputClasses(errors.location_tag)}>
                                 <option value="">Select Location</option>
-                                {locationTags.map(t => <option key={t}>{t}</option>)}
+                                {LOCATION_TAGS.map(t => <option key={t} value={t}>{t}</option>)}
                             </select>
                         </div>
                     </div>
