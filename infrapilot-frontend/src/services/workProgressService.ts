@@ -1,11 +1,11 @@
 import api from "./api";
-import type { 
-  ActivityItem, 
-  DailyEntry, 
-  ProjectSummary, 
-  CreateActivityRequest, 
-  UpdateActivityRequest, 
-  DailyProgressRequest 
+import type {
+  ActivityItem,
+  DailyEntry,
+  ProjectSummary,
+  CreateActivityRequest,
+  UpdateActivityRequest,
+  DailyProgressRequest
 } from "../types/workProgress";
 
 export const workProgressService = {

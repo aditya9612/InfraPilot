@@ -65,7 +65,7 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSubmit, projectId }: EditDSRModa
           const { latitude, longitude } = pos.coords;
           try {
             const res = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`
+               `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`
             );
             const data = await res.json();
             const address = data.display_name || "";
@@ -75,6 +75,7 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSubmit, projectId }: EditDSRModa
               latitude,
               longitude,
               resolved_address: address,
+              site_location: address,
             }));
             setGpsStatus("captured");
           } catch (err) {
@@ -104,7 +105,7 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSubmit, projectId }: EditDSRModa
     const { name, value } = e.target;
 
     // Strict Alphabetic Validation for specific fields
-    if (name === "site_location" || name === "weather") {
+    if (name === "weather") {
         if (/[0-9]/.test(value)) {
             setErrors(prev => ({ ...prev, [name]: "Numbers are not allowed in this field" }));
             return;
@@ -126,8 +127,6 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSubmit, projectId }: EditDSRModa
     
     if (!formData.site_location || !formData.site_location.trim()) {
       errs.site_location = "Site Location is required";
-    } else if (/[0-9]/.test(formData.site_location)) {
-      errs.site_location = "Numbers are not allowed in site location";
     }
 
     if (!formData.work_done || !formData.work_done.trim())

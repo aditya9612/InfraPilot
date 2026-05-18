@@ -11,9 +11,9 @@ export const equipmentService = {
    * Get list of equipment
    * GET /api/v1/equipment
    */
-  async getEquipment(projectId?: number, limit: number = 1000) {
+  async getEquipment(projectId?: number, limit: number = 100, offset: number = 0) {
     try {
-      const params: any = { limit };
+      const params: any = { limit, offset };
       if (projectId) params.project_id = projectId;
       const response = await api.get<EquipmentResponse>(`/equipment`, {
         params

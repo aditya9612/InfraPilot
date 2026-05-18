@@ -4,10 +4,6 @@ import PageTransition from "../../components/common/PageTransition";
 import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
 import { 
-    FileText, 
-    TrendingUp, 
-    AlertTriangle, 
-    Activity,
     RotateCcw
 } from "lucide-react";
 import StatCard from "../../components/common/StatCard";
@@ -253,42 +249,260 @@ const ReportsPage = () => {
     }, [fetchReports]);
 
     const handleExportCSV = () => {
-        const headers = ["ID", "Name", "Description", "Frequency", "Size", "Last Generated"];
+        const headers = [
+            "Report Name",
+            "Description",
+            "Frequency",
+            "File Size",
+            "Last Generated",
+            "Metric 1",
+            "Metric 2",
+            "Metric 3",
+            "Metric 4"
+        ];
         const escape = (val: string | number) => `"${String(val).replace(/"/g, '""')}"`;
-        const rows = filtered.map((r: ReportType) => [
-            escape(r.id), escape(r.name), escape(r.description),
-            escape(r.frequency), escape(r.size), escape(r.lastGenerated)
-        ].join(","));
+        
+        const rows = filtered.map((r: ReportType) => {
+            const rowData = [
+                escape(r.name),
+                escape(r.description),
+                escape(r.frequency),
+                escape(r.size),
+                escape(r.lastGenerated)
+            ];
+
+            // Add up to 4 metrics
+            for (let i = 0; i < 4; i++) {
+                const metric = r.metrics[i];
+                if (metric) {
+                    rowData.push(escape(`${metric.label}: ${metric.value}`));
+                } else {
+                    rowData.push(escape("—"));
+                }
+            }
+
+            return rowData.join(",");
+        });
+
         const csvContent = [headers.join(","), ...rows].join("\n");
-        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `Reports_Inventory_${new Date().toISOString().split("T")[0]}.csv`;
+        a.download = `Site_Reports_Summary_${new Date().toISOString().split("T")[0]}.csv`;
         a.click();
         URL.revokeObjectURL(url);
-        toast.success("Excel report exported");
+        toast.success("Excel report exported successfully");
     };
 
-    const handleExportPDF = async () => {
-        setLoadingId("global-pdf");
-        toast.loading("Generating Official Daily PDF...", { id: "global-pdf" });
-        try {
-            const blob = await reportService.exportDailyPDF(projectId || 0, selectedDate);
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `Daily_Report_${selectedDate}.pdf`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            window.URL.revokeObjectURL(url);
-            toast.success("Daily PDF downloaded!", { id: "global-pdf" });
-        } catch (e) {
-            toast.error("Failed to fetch official PDF", { id: "global-pdf" });
-        } finally {
-            setLoadingId(null);
+    const handleExportPDF = () => {
+        const printWindow = window.open("", "_blank");
+        if (!printWindow) {
+            toast.error("Popup blocker blocked print preview. Please allow popups.");
+            return;
         }
+
+        const dateStr = new Date(selectedDate).toLocaleDateString("en-US", {
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+        });
+
+        const reportRowsHtml = filtered.map((r: ReportType) => {
+            const metricsHtml = r.metrics.map((m) => `
+                <div class="metric-box">
+                    <div class="metric-label">${m.label.toUpperCase()}</div>
+                    <div class="metric-value">${m.value}</div>
+                </div>
+            `).join("");
+
+            return `
+                <div class="report-card">
+                    <div class="report-header">
+                        <div class="report-title-group">
+                            <span class="report-icon">${r.icon}</span>
+                            <div>
+                                <div class="report-freq">${r.frequency.toUpperCase()}</div>
+                                <h3 class="report-name">${r.name}</h3>
+                            </div>
+                        </div>
+                        <div class="report-size">${r.size}</div>
+                    </div>
+                    <p class="report-desc">${r.description}</p>
+                    <div class="metrics-grid">
+                        ${metricsHtml}
+                    </div>
+                    <div class="report-footer">
+                        <span class="status-dot"></span>
+                        <span>Generated: ${r.lastGenerated}</span>
+                    </div>
+                </div>
+            `;
+        }).join("");
+
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>Site Operations Reports Summary</title>
+                <style>
+                    body {
+                        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+                        color: #1e293b;
+                        background: #fff;
+                        margin: 40px;
+                        padding: 0;
+                    }
+                    .header {
+                        border-bottom: 2px solid #e2e8f0;
+                        padding-bottom: 20px;
+                        margin-bottom: 30px;
+                    }
+                    .brand {
+                        font-size: 10px;
+                        font-weight: 800;
+                        color: #64748b;
+                        text-transform: uppercase;
+                        letter-spacing: 0.15em;
+                    }
+                    .title {
+                        font-size: 26px;
+                        font-weight: 800;
+                        color: #0f172a;
+                        margin: 5px 0 10px 0;
+                        letter-spacing: -0.02em;
+                    }
+                    .subtitle {
+                        font-size: 12px;
+                        color: #64748b;
+                        margin: 0;
+                        font-weight: 500;
+                    }
+                    .meta-info {
+                        margin-top: 15px;
+                        font-size: 11px;
+                        font-weight: 700;
+                        color: #3b82f6;
+                        text-transform: uppercase;
+                        letter-spacing: 0.05em;
+                    }
+                    .report-card {
+                        border: 1px solid #e2e8f0;
+                        border-radius: 16px;
+                        padding: 20px;
+                        margin-bottom: 25px;
+                        page-break-inside: avoid;
+                        background: #f8fafc;
+                    }
+                    .report-header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: flex-start;
+                        margin-bottom: 12px;
+                    }
+                    .report-title-group {
+                        display: flex;
+                        align-items: center;
+                        gap: 12px;
+                    }
+                    .report-icon {
+                        font-size: 24px;
+                    }
+                    .report-freq {
+                        font-size: 9px;
+                        font-weight: 800;
+                        color: #64748b;
+                        letter-spacing: 0.1em;
+                    }
+                    .report-name {
+                        font-size: 16px;
+                        font-weight: 800;
+                        color: #0f172a;
+                        margin: 2px 0 0 0;
+                    }
+                    .report-size {
+                        font-size: 11px;
+                        font-weight: 700;
+                        color: #64748b;
+                    }
+                    .report-desc {
+                        font-size: 12px;
+                        color: #475569;
+                        line-height: 1.6;
+                        margin: 0 0 15px 0;
+                    }
+                    .metrics-grid {
+                        display: grid;
+                        grid-template-columns: repeat(4, 1fr);
+                        gap: 15px;
+                        padding: 15px 0;
+                        border-top: 1px dashed #e2e8f0;
+                        border-bottom: 1px dashed #e2e8f0;
+                        margin-bottom: 12px;
+                    }
+                    .metric-box {
+                        display: flex;
+                        flex-direction: column;
+                    }
+                    .metric-label {
+                        font-size: 8px;
+                        font-weight: 800;
+                        color: #64748b;
+                        letter-spacing: 0.1em;
+                        margin-bottom: 2px;
+                    }
+                    .metric-value {
+                        font-size: 12px;
+                        font-weight: 700;
+                        color: #0f172a;
+                    }
+                    .report-footer {
+                        display: flex;
+                        align-items: center;
+                        gap: 6px;
+                        font-size: 10px;
+                        font-weight: 700;
+                        color: #64748b;
+                    }
+                    .status-dot {
+                        width: 6px;
+                        height: 6px;
+                        background: #10b981;
+                        border-radius: 50%;
+                    }
+                    @media print {
+                        body {
+                            margin: 20px;
+                        }
+                        .report-card {
+                            background: #fff !important;
+                            border: 1px solid #cbd5e1 !important;
+                        }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <div class="brand">InfraPilot Operational Intelligence</div>
+                    <h1 class="title">Operational Reports Register</h1>
+                    <p class="subtitle">Exported document listing site status, performance audits, and resource metrics.</p>
+                    <div class="meta-info">As of: ${dateStr}</div>
+                </div>
+                
+                <div class="report-list">
+                    ${reportRowsHtml}
+                </div>
+
+                <script>
+                    window.onload = function() {
+                        window.print();
+                        window.onafterprint = function() {
+                            window.close();
+                        };
+                    };
+                </script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+        toast.success("PDF Print dialog opened successfully!");
     };
 
     const handleExport = async (report: ReportType) => {

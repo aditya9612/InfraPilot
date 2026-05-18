@@ -6,10 +6,8 @@ import Modal from "../../../components/common/Modal";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 import {
-    CheckCircle2,
     Search,
     Plus,
-    Edit2,
     Trash2,
     Eye,
     Activity,
@@ -78,10 +76,7 @@ const IssueTrackerPage = () => {
         if (!formData.priority) newErrors.priority = "Required";
         if (!formData.description.trim()) newErrors.description = "Required";
         if (!formData.reported_date) newErrors.reported_date = "Required";
-        if (formMode === 'edit') {
-            if (!formData.status) newErrors.status = "Required";
-            if (!formData.resolution.trim()) newErrors.resolution = "Required";
-        }
+
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -104,7 +99,11 @@ const IssueTrackerPage = () => {
             } catch (e) {
                 console.error("Failed to resolve project ID", e);
                 setProjectId(36);
+                setFormData(prev => ({ ...prev, project_id: 36 }));
             }
+        } else {
+            setProjectId(36);
+            setFormData(prev => ({ ...prev, project_id: 36 }));
         }
     }, []);
 
@@ -154,9 +153,6 @@ const IssueTrackerPage = () => {
             if (formMode === "create") {
                 await issueService.createIssue(formData as any);
                 toast.success("Issue lodged successfully!");
-            } else if (selectedIssue) {
-                await issueService.updateIssue(selectedIssue.id, formData as any);
-                toast.success("Issue updated successfully!");
             }
             setIsFormModalOpen(false);
             fetchIssues();
@@ -358,18 +354,20 @@ const IssueTrackerPage = () => {
                                                 <td className="px-6 py-4 text-right font-inter">
                                                     <div className="flex items-center justify-end gap-2 font-inter">
                                                         <button
-                                                            onClick={() => { setSelectedIssue(issue); }}
+                                                            onClick={async () => {
+                                                                const loadToast = toast.loading("Syncing constraint intelligence...");
+                                                                try {
+                                                                    const fullIssue = await issueService.getIssue(issue.id);
+                                                                    setSelectedIssue(fullIssue);
+                                                                    toast.success("Intelligence profile loaded!", { id: loadToast });
+                                                                } catch (e) {
+                                                                    toast.error("Failed to load constraint record", { id: loadToast });
+                                                                }
+                                                            }}
                                                             className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-95 font-inter"
                                                             title="View Intelligence"
                                                         >
                                                             <Eye className="w-4 h-4" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => { setFormMode("edit"); setFormData({ ...issue, assigned_to: issue.assigned_to || "" } as any); setErrors({}); setIsFormModalOpen(true); }}
-                                                            className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
-                                                            title="Modify Record"
-                                                        >
-                                                            <Edit2 className="w-4 h-4" />
                                                         </button>
                                                         <button
                                                             onClick={() => { setIssueToDelete(issue.id); setIsDeleteModalOpen(true); }}
@@ -574,30 +572,7 @@ const IssueTrackerPage = () => {
                         </div>
                     </div>
 
-                    {formMode === 'edit' && (
-                        <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm font-inter">
-                            <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
-                                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                                Remediation Workflow
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
-                                <div className="font-inter">
-                                    <label className={labelClasses}>Sequence Status <span className="text-rose-500">*</span></label>
-                                    <select name="status" value={formData.status} onChange={handleInputChange} className={inputClasses(errors.status)}>
-                                        <option value="Open">Open</option>
-                                        <option value="In Progress">In Progress</option>
-                                        <option value="Closed">Closed</option>
-                                    </select>
-                                    {errors.status && <p className="mt-1.5 text-[9px] text-rose-500 font-bold uppercase tracking-widest ml-1">{errors.status}</p>}
-                                </div>
-                                <div className="font-inter">
-                                    <label className={labelClasses}>Remediation summary <span className="text-rose-500">*</span></label>
-                                    <input name="resolution" value={formData.resolution} onChange={handleInputChange} placeholder="How was this constraint resolved?" className={inputClasses(errors.resolution)} />
-                                    {errors.resolution && <p className="mt-1.5 text-[9px] text-rose-500 font-bold uppercase tracking-widest ml-1">{errors.resolution}</p>}
-                                </div>
-                            </div>
-                        </div>
-                    )}
+
                 </form>
             </Modal>
 

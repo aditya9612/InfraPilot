@@ -22,7 +22,9 @@ import {
     Image as ImageIcon,
     RotateCcw,
     CheckCircle2,
-    FileDown
+    FileDown,
+    ChevronLeft,
+    ChevronRight
 } from "lucide-react";
 
 import { dsrService } from "../../services/dsrService";
@@ -45,6 +47,7 @@ const DSRPage = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
     const [projectId, setProjectId] = useState<number | null>(null);
+
 
     // Filter state for StatCards
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Compliance" | "Pending" | "Efficiency">("All");
@@ -87,7 +90,10 @@ const DSRPage = () => {
         setIsLoading(true);
         try {
             const offset = (currentPage - 1) * itemsPerPage;
-            const response = await dsrService.getDsrByProject(projectId, { limit: itemsPerPage, offset });
+            const response = await dsrService.getDsrByProject(projectId, { 
+                limit: itemsPerPage, 
+                offset
+            });
             const apiData = response.items;
             setTotalItems(response.meta.total);
 
@@ -271,7 +277,7 @@ const DSRPage = () => {
                             <RotateCcw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
                         </button>
                         <button
-                            onClick={() => dsrService.exportDsrExcel(projectId || 36)}
+                            onClick={() => dsrService.exportDsrExcel(projectId || 36, {})}
                             className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95 font-inter"
                         >
                             <FileDown className="w-4 h-4" />
@@ -335,7 +341,7 @@ const DSRPage = () => {
                                 className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
                             />
                         </div>
-                        <div className="flex items-center gap-3 font-inter">
+                        <div className="flex flex-wrap items-center gap-3 font-inter">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status:</span>
                             <select
                                 value={statusFilter}
@@ -348,8 +354,15 @@ const DSRPage = () => {
                                 <option value="Verified">Verified</option>
                                 <option value="Rejected">Rejected</option>
                             </select>
+
                             {activeStatFilter !== "All" && (
-                                <button onClick={() => setActiveStatFilter("All")} className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors">
+                                <button 
+                                    onClick={() => {
+                                        setActiveStatFilter("All");
+                                    }} 
+                                    className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors"
+                                    title="Reset Filters"
+                                >
                                     <RotateCcw className="w-4 h-4" />
                                 </button>
                             )}
@@ -490,16 +503,21 @@ const DSRPage = () => {
                                 <button 
                                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                     disabled={currentPage === 1}
-                                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50 transition-all font-inter"
+                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    title="Previous Page"
                                 >
-                                    Prev
+                                    <ChevronLeft className="w-4 h-4" />
                                 </button>
+                                <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
+                                    Page {currentPage} of {totalPages || 1}
+                                </div>
                                 <button 
                                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                                     disabled={currentPage === totalPages || totalPages === 0}
-                                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50 transition-all font-inter"
+                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    title="Next Page"
                                 >
-                                    Next
+                                    <ChevronRight className="w-4 h-4" />
                                 </button>
                             </div>
                         </div>

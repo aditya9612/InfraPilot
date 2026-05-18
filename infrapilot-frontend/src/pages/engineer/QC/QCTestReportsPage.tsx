@@ -6,7 +6,9 @@ import StatCard from "../../../components/common/StatCard";
 import toast from "react-hot-toast";
 import { 
   User
-} from "lucide-react";
+,
+    ChevronLeft,
+    ChevronRight} from "lucide-react";
 
 import { qcService } from "../../../services/qcService";
 import { projectService } from "../../../services/projectService";
@@ -304,33 +306,27 @@ const QCTestReportsPage = () => {
                                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                                                  Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredQcList.length)} of {filteredQcList.length} entries
                                              </p>
-                                             <div className="flex items-center gap-2">
-                                                 <button
-                                                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                                                     disabled={currentPage === 1}
-                                                     className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-primary disabled:opacity-30 disabled:hover:text-slate-500 transition-all border border-slate-100 rounded-lg"
-                                                 >
-                                                     Previous
-                                                 </button>
-                                                 <div className="flex items-center gap-1">
-                                                     {[...Array(totalPages)].map((_, i) => (
-                                                         <button
-                                                             key={i + 1}
-                                                             onClick={() => setCurrentPage(i + 1)}
-                                                             className={`w-8 h-8 rounded-lg text-[10px] font-bold transition-all ${currentPage === i + 1 ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-slate-400 hover:bg-slate-50"}`}
-                                                         >
-                                                             {i + 1}
-                                                         </button>
-                                                     ))}
-                                                 </div>
-                                                 <button
-                                                     onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                                                     disabled={currentPage === totalPages}
-                                                     className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-primary disabled:opacity-30 disabled:hover:text-slate-500 transition-all border border-slate-100 rounded-lg"
-                                                 >
-                                                     Next
-                                                 </button>
-                                             </div>
+                                             <div className="flex items-center gap-2 font-inter">
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                    disabled={currentPage === 1}
+                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    title="Previous Page"
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                </button>
+                                <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
+                                    Page {currentPage} of {1 || 1}
+                                </div>
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, 1 || 1))}
+                                    disabled={currentPage >= 1 || 1 === 0}
+                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    title="Next Page"
+                                >
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
                                          </div>
                                      )}
                                 </div>

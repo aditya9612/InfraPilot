@@ -56,7 +56,13 @@ export const dsrService = {
    */
   async getDsrByProject(
     projectId: number,
-    params?: { limit?: number; offset?: number }
+    params?: { 
+      limit?: number; 
+      offset?: number;
+      start_date?: string;
+      end_date?: string;
+      contractor_name?: string;
+    }
   ): Promise<DsrResponse> {
     const response = await api.get<DsrResponse>(`/dsr/project/${projectId}`, {
       params,
