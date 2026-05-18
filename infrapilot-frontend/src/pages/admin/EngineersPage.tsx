@@ -31,19 +31,10 @@ const EngineersPage = () => {
         // Filter for Site Engineers with robust checks for strings or objects
         const engineerList = userList.filter((u: any) => {
           const role = typeof u.role === "string" ? u.role : u.role?.name || "";
-          const designation = (u.designation || "").toUpperCase();
 
-          // Standardize roles that count as Site Engineers
-          const isEngineerRole = [
-            "SiteEngineer",
-            "Site Engineer",
-            "Engineer"
-          ].some(r => role.toLowerCase().replace(/\s/g, "") === r.toLowerCase().replace(/\s/g, ""));
-
-          // Extra safety: exclude anyone with explicit "ADMIN" designation unless they are definitely an engineer
-          const isAdminDesignation = designation.includes("ADMIN");
-
-          return isEngineerRole && !isAdminDesignation;
+          // Case-insensitive match for SiteEngineer or Engineer roles
+          const normalizedRole = role.toLowerCase().replace(/\s/g, "");
+          return normalizedRole === "siteengineer" || normalizedRole === "engineer";
         });
 
         // Map to UI structure
