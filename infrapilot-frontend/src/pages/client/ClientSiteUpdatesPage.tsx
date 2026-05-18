@@ -1,12 +1,12 @@
 import Navbar from "../../components/common/Navbar";
 
 const photos = [
-  { id: 1, url: "https://images.unsplash.com/photo-1541888946425-d81bb19480c5?w=600&h=400&fit=crop", date: "31 Mar 2026", desc: "Roof slab reinforcement", tag: "Structure" },
-  { id: 2, url: "https://images.unsplash.com/photo-1503387762-592dea58ef21?w=600&h=400&fit=crop", date: "29 Mar 2026", desc: "Foundation progress view", tag: "Foundation" },
-  { id: 3, url: "https://images.unsplash.com/photo-1590486803833-ffc45744a3ae?w=600&h=400&fit=crop", date: "28 Mar 2026", desc: "External brickwork — L1", tag: "Masonry" },
-  { id: 4, url: "https://images.unsplash.com/photo-1565008576549-57569a49371d?w=600&h=400&fit=crop", date: "26 Mar 2026", desc: "Crane operations on site", tag: "Equipment" },
-  { id: 5, url: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600&h=400&fit=crop", date: "25 Mar 2026", desc: "Safety harness inspection", tag: "Safety" },
-  { id: 6, url: "https://images.unsplash.com/photo-1515263487990-61b07816fe85?w=600&h=400&fit=crop", date: "24 Mar 2026", desc: "Concrete pour — 3rd slab", tag: "Structure" },
+  { id: 1, url: "/photos/structure.png", date: "31 Mar 2026", desc: "Roof slab reinforcement", tag: "Structure" },
+  { id: 2, url: "/photos/foundation.png", date: "29 Mar 2026", desc: "Foundation progress view", tag: "Foundation" },
+  { id: 3, url: "/photos/masonry.png", date: "28 Mar 2026", desc: "External brickwork — L1", tag: "Masonry" },
+  { id: 4, url: "/photos/equipment.png", date: "26 Mar 2026", desc: "Crane operations on site", tag: "Equipment" },
+  { id: 5, url: "/photos/safety.png", date: "25 Mar 2026", desc: "Safety harness inspection", tag: "Safety" },
+  { id: 6, url: "/photos/structure_2.png", date: "24 Mar 2026", desc: "Concrete pour — 3rd slab", tag: "Structure" },
 ];
 
 const tags = ["All", "Structure", "Foundation", "Masonry", "Equipment", "Safety"];

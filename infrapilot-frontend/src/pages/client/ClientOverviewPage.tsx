@@ -4,9 +4,11 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
 } from "recharts";
 import { motion } from "framer-motion";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { drawingService } from "../../services/drawingService";
 import type { Drawing } from "../../services/drawingService";
+import { approvalService } from "../../services/approvalService";
+import toast from "react-hot-toast";
 
 const auditData = [
   { name: "Phase 1", projected: 1.2, actual: 1.1 },
@@ -39,6 +41,16 @@ const summaryData = [
 
 const ClientOverviewPage = () => {
   const [latestDrawing, setLatestDrawing] = useState<Drawing | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSigning, setIsSigning] = useState(false);
+  const [isSigned, setIsSigned] = useState(() => {
+    return localStorage.getItem("APR-018-signed") === "true";
+  });
+  
+  // Signature Drawing Canvas state
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [hasSigned, setHasSigned] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     const fetchLatest = async () => {
@@ -53,6 +65,90 @@ const ClientOverviewPage = () => {
     };
     fetchLatest();
   }, []);
+
+  // HTML5 Canvas Drawing functions
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#0f172a'; // dark slate
+
+    const rect = canvas.getBoundingClientRect();
+    let x, y;
+    if ('touches' in e) {
+      if (e.touches.length === 0) return;
+      x = e.touches[0].clientX - rect.left;
+      y = e.touches[0].clientY - rect.top;
+    } else {
+      x = e.clientX - rect.left;
+      y = e.clientY - rect.top;
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    setIsDrawing(true);
+  };
+
+  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDrawing) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    let x, y;
+    if ('touches' in e) {
+      if (e.touches.length === 0) return;
+      if (e.cancelable) e.preventDefault();
+      x = e.touches[0].clientX - rect.left;
+      y = e.touches[0].clientY - rect.top;
+    } else {
+      x = e.clientX - rect.left;
+      y = e.clientY - rect.top;
+    }
+
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    if (!hasSigned) setHasSigned(true);
+  };
+
+  const stopDrawing = () => {
+    setIsDrawing(false);
+  };
+
+  const clearCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setHasSigned(false);
+  };
+
+  const handleApproveVariation = async () => {
+    setIsSigning(true);
+    try {
+      await approvalService.approveApproval("APR-018", "Approved via Command Center digital signature");
+      localStorage.setItem("APR-018-signed", "true");
+      setIsSigned(true);
+      toast.success("Variation Request APR-018 signed & approved successfully!", {
+        style: { borderRadius: "16px", background: "#10b981", color: "#fff", fontWeight: "bold" },
+        icon: "✓"
+      });
+      setIsModalOpen(false);
+      clearCanvas();
+    } catch (error) {
+      console.error("Failed to sign variation:", error);
+      toast.error("Failed to approve variation order. Please try again.");
+    } finally {
+      setIsSigning(false);
+    }
+  };
 
   const handleDownloadDsr = async (dsrId: number, date: string) => {
     try {
@@ -171,7 +267,7 @@ const ClientOverviewPage = () => {
             {/* Progress Visualization */}
             <div className="bg-white rounded-[40px] p-10 shadow-sm border border-slate-100 flex flex-col md:flex-row items-center gap-12 relative overflow-hidden">
                <div className="relative w-48 h-48 shrink-0 flex items-center justify-center">
-                  <svg className="w-full h-full transform -rotate-90">
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 192 192">
                     <circle cx="96" cy="96" r="88" fill="transparent" stroke="#f1f5f9" strokeWidth="12" />
                     <circle 
                       cx="96" cy="96" r="88" fill="transparent" stroke="#2563eb" strokeWidth="12" 
@@ -242,15 +338,38 @@ const ClientOverviewPage = () => {
           <div className="lg:col-span-4 space-y-8">
             
             {/* Variation Alert */}
-            <div className="bg-gradient-to-br from-red-50/50 to-white rounded-3xl p-6 shadow-sm border border-red-100/50 flex flex-col items-center text-center relative">
-               <p className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-2 italic">VARIATION ALERT</p>
-               <h3 className="text-sm font-bold text-slate-800 leading-tight mb-4">
-                 Phase 2 structural budget variation of ₹20L requires signature.
-               </h3>
-               <button className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl transition-all shadow-xl shadow-red-600/20 active:scale-95">
-                 SIGN NOW
-               </button>
-            </div>
+            {isSigned ? (
+              <div className="bg-gradient-to-br from-emerald-50/50 to-white rounded-3xl p-6 shadow-sm border border-emerald-100/50 flex flex-col items-center text-center relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full -mr-8 -mt-8 flex items-end justify-start p-6 text-emerald-500">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-2 italic">AUTHORIZED</p>
+                <h3 className="text-sm font-bold text-slate-800 leading-tight mb-2">
+                  Variation Order Approved
+                </h3>
+                <p className="text-[11px] text-slate-400 font-medium mb-4">
+                  APR-018: Steel Price Surge variation signed & finalized.
+                </p>
+                <div className="px-4 py-2 bg-emerald-50 text-emerald-700 text-[10px] font-black rounded-xl uppercase tracking-widest border border-emerald-100">
+                  Signed & Approved ✓
+                </div>
+              </div>
+            ) : (
+              <div className="bg-gradient-to-br from-red-50/50 to-white rounded-3xl p-6 shadow-sm border border-red-100/50 flex flex-col items-center text-center relative">
+                <p className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-2 italic">VARIATION ALERT</p>
+                <h3 className="text-sm font-bold text-slate-800 leading-tight mb-4">
+                  Phase 2 structural budget variation of ₹20L requires signature.
+                </h3>
+                <button 
+                  onClick={() => setIsModalOpen(true)}
+                  className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl transition-all shadow-xl shadow-red-600/20 active:scale-95"
+                >
+                  SIGN NOW
+                </button>
+              </div>
+            )}
 
             {/* Live Feed */}
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
@@ -284,11 +403,11 @@ const ClientOverviewPage = () => {
             <div className="bg-[#0B1428] rounded-[40px] p-8 shadow-2xl flex flex-col gap-4">
                <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.3em] mb-2 italic">SUPPORT ACCESS</p>
                <Link 
-                  to="/client/communication/messages?contactId=2"
+                  to="/client/communication/messages?contactId=1"
                   className="bg-white/5 hover:bg-white/10 transition-colors border border-white/10 p-5 rounded-3xl flex items-center justify-between group cursor-pointer"
                >
                   <div>
-                    <h4 className="text-sm font-bold text-white mb-0.5">Site Engineer Chat</h4>
+                    <h4 className="text-sm font-bold text-white mb-0.5">Project Manager Chat</h4>
                     <p className="text-[9px] font-bold text-slate-500 uppercase">AVAILABLE NOW</p>
                   </div>
                   <div className="text-white transform group-hover:translate-x-1 transition-transform">→</div>
@@ -323,6 +442,141 @@ const ClientOverviewPage = () => {
               </div>
            </div>
       </div>
+
+      {/* Signature Modal Overlay */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl border border-slate-100 overflow-hidden transform transition-all duration-300 scale-100 flex flex-col">
+            
+            {/* Modal Header */}
+            <div className="px-8 py-6 border-b border-slate-100/50 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-1 italic">VARIATION ORDER AUTHORIZATION</p>
+                <h3 className="text-xl font-bold text-slate-800 tracking-tight">Sign Variation Request</h3>
+              </div>
+              <button 
+                onClick={() => {
+                  setIsModalOpen(false);
+                  clearCanvas();
+                }}
+                className="p-2 rounded-xl bg-slate-50 text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-8 space-y-6 flex-1">
+              {/* Variation Details */}
+              <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100/50 space-y-4">
+                <div className="flex justify-between items-start gap-4">
+                  <div>
+                    <span className="px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest bg-red-50 text-red-600 border border-red-100 rounded-full">
+                      Variation APR-018
+                    </span>
+                    <h4 className="text-sm font-bold text-slate-800 mt-2.5">
+                      Variation Order — Steel Price Surge
+                    </h4>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">COST IMPACT</p>
+                    <p className="text-lg font-black text-slate-850">₹20,00,000</p>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
+                  Steel market price increase of 15% affecting reinforcement works for Phase 2. Requires authorized client signature to proceed with material procurement.
+                </p>
+              </div>
+
+              {/* Signature Area */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-black text-slate-450 uppercase tracking-widest flex items-center gap-1.5">
+                    <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                    DRAW DIGITAL SIGNATURE
+                  </label>
+                  {hasSigned && (
+                    <button 
+                      onClick={clearCanvas}
+                      className="text-[9px] font-black text-slate-400 hover:text-red-500 uppercase tracking-widest transition-colors flex items-center gap-1"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      Clear
+                    </button>
+                  )}
+                </div>
+                
+                <div className="relative bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl overflow-hidden group hover:border-slate-350 transition-colors">
+                  <canvas
+                    ref={canvasRef}
+                    width={440}
+                    height={160}
+                    onMouseDown={startDrawing}
+                    onMouseMove={draw}
+                    onMouseUp={stopDrawing}
+                    onMouseLeave={stopDrawing}
+                    onTouchStart={startDrawing}
+                    onTouchMove={draw}
+                    onTouchEnd={stopDrawing}
+                    className="w-full h-40 cursor-crosshair touch-none"
+                  />
+                  {!hasSigned && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-slate-300 select-none">
+                      <svg className="w-8 h-8 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                      <p className="text-[10px] font-bold uppercase tracking-wider">Draw your signature in this box</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-8 py-6 border-t border-slate-100 bg-slate-50/50 flex gap-4">
+              <button
+                disabled={isSigning}
+                onClick={() => {
+                  setIsModalOpen(false);
+                  clearCanvas();
+                }}
+                className="flex-1 py-3.5 px-4 bg-white border border-slate-200 text-slate-500 font-black text-[10px] uppercase tracking-widest rounded-2xl hover:bg-slate-50 hover:text-slate-700 transition-all active:scale-95 text-center disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={!hasSigned || isSigning}
+                onClick={handleApproveVariation}
+                className="flex-1 py-3.5 px-4 bg-emerald-500 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl transition-all shadow-xl shadow-emerald-500/20 active:scale-95 text-center flex items-center justify-center gap-2 hover:bg-emerald-600 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none disabled:cursor-not-allowed"
+              >
+                {isSigning ? (
+                  <>
+                    <svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    PROCESSING...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                    APPROVE & AUTHORIZE
+                  </>
+                )}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </>
   );
 };

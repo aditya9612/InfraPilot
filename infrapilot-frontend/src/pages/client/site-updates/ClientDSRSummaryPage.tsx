@@ -6,6 +6,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Download, FileText, Printer, Plus, Loader2 } from "lucide-react";
 import { dsrService } from "../../../services/dsrService";
+import { Link } from "react-router-dom";
 
 const INITIAL_DSR_DATA = [
   { 
@@ -16,7 +17,7 @@ const INITIAL_DSR_DATA = [
     labourCount: 28, 
     materialUsed: "Cement: 120 bags, Steel: 2.1 Tons, Concrete: 45 Cum",
     remarks: "Slab finish achieved as per specifications. No safety incidents reported.",
-    photos: ["https://images.unsplash.com/photo-1541888946425-d81bb19480c5?w=200&h=150&fit=crop", "https://images.unsplash.com/photo-1503387762-592dea58ef21?w=200&h=150&fit=crop"]
+    photos: ["https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&h=300&fit=crop", "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?w=400&h=300&fit=crop"]
   },
   { 
     id: "DSR-2026-088", 
@@ -26,7 +27,7 @@ const INITIAL_DSR_DATA = [
     labourCount: 24, 
     materialUsed: "Steel: 4.5 Tons, PVC Conduits: 180m, Binding Wire: 40kg",
     remarks: "Reinforcement checked and approved by PM. Concrete pump mobilization confirmed.",
-    photos: ["https://images.unsplash.com/photo-1590486803833-ffc45744a3ae?w=200&h=150&fit=crop"]
+    photos: ["https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=400&h=300&fit=crop"]
   },
 ];
 
@@ -39,7 +40,7 @@ const INITIAL_DSR_REPORTS = [
     labourCount: 28, 
     materialUsed: "Cement: 120 bags, Steel: 2.1 Tons, Concrete: 45 Cum",
     remarks: "Slab finish achieved as per specifications. No safety incidents reported.",
-    photos: ["https://images.unsplash.com/photo-1541888946425-d81bb19480c5?w=200&h=150&fit=crop", "https://images.unsplash.com/photo-1503387762-592dea58ef21?w=200&h=150&fit=crop"]
+    photos: ["https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&h=300&fit=crop", "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?w=400&h=300&fit=crop"]
   },
   { 
     id: "DSR-2026-088", 
@@ -49,7 +50,7 @@ const INITIAL_DSR_REPORTS = [
     labourCount: 24, 
     materialUsed: "Steel: 4.5 Tons, PVC Conduits: 180m, Binding Wire: 40kg",
     remarks: "Reinforcement checked and approved by PM. Concrete pump mobilization confirmed.",
-    photos: ["https://images.unsplash.com/photo-1590486803833-ffc45744a3ae?w=200&h=150&fit=crop"]
+    photos: ["https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=400&h=300&fit=crop"]
   },
   { 
     id: "DSR-2026-087", 
@@ -68,7 +69,7 @@ const ClientDSRSummaryPage = () => {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const fetchDsr = async () => {
+  const fetchDsr = async (autoDownload: boolean = false) => {
     setLoading(true);
     try {
       const response = await dsrService.getProjectDsr(1);
@@ -88,6 +89,10 @@ const ClientDSRSummaryPage = () => {
       setReports(mappedReports);
       if (mappedReports.length > 0) {
         toast.success(`${mappedReports.length} DSR record${mappedReports.length > 1 ? 's' : ''} loaded.`);
+        if (autoDownload) {
+          // Dynamically download all fetched reports
+          downloadAllDSRsList(mappedReports);
+        }
       }
     } catch (err: any) {
       // Only fires for unrecoverable errors (e.g. 401/403) — 502s are handled by mock fallback
@@ -103,8 +108,75 @@ const ClientDSRSummaryPage = () => {
   };
 
   useEffect(() => {
-    fetchDsr();
+    fetchDsr(false);
   }, []);
+
+  const downloadAllDSRsList = (currentReports: any[]) => {
+    if (!currentReports || currentReports.length === 0) {
+      toast.error("No reports available to download.");
+      return;
+    }
+    try {
+      toast.loading("Generating DSR Summary PDF...", { id: "dsr-summary-pdf" });
+      const doc = new jsPDF();
+      
+      // Header
+      doc.setFillColor(30, 41, 59); // slate-800
+      doc.rect(0, 0, 210, 40, 'F');
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(20);
+      doc.setFont("helvetica", "bold");
+      doc.text("PROJECT DSR SUMMARY STATEMENT", 14, 20);
+      
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Total Reports Received: ${currentReports.length}`, 14, 30);
+      doc.text(`Generated On: ${new Date().toLocaleDateString("en-IN")}`, 150, 30);
+      
+      // Content Table containing all DSRs summarized
+      const tableBody = currentReports.map(r => [
+        r.id,
+        r.date,
+        `${r.labourCount} Workers`,
+        r.workDone,
+        r.workPlanned || 'N/A'
+      ]);
+
+      autoTable(doc, {
+        startY: 50,
+        theme: 'grid',
+        head: [['Report ID', 'Date', 'Labour Strength', 'Work Done Today', 'Planned Tomorrow']],
+        body: tableBody,
+        headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255], fontStyle: 'bold' },
+        columnStyles: {
+          0: { cellWidth: 20, fontStyle: 'bold', fillColor: [248, 250, 252] },
+          1: { cellWidth: 25 },
+          2: { cellWidth: 25 },
+          3: { cellWidth: 75 },
+          4: { cellWidth: 'auto' }
+        },
+        styles: { fontSize: 8.5, cellPadding: 4 }
+      });
+      
+      // Footer
+      const finalY = (doc as any).lastAutoTable.finalY + 15;
+      doc.setFontSize(8);
+      doc.setTextColor(148, 163, 184);
+      doc.text("Generated via InfraPilot Transparency Portal", 14, finalY);
+      doc.text("Confidential Construction Document", 150, finalY);
+      
+      doc.save(`Project_DSR_Summary.pdf`);
+      toast.success("DSR Summary downloaded!", { id: "dsr-summary-pdf" });
+    } catch (error) {
+      console.error("PDF Summary Export Error:", error);
+      toast.error("Failed to generate DSR Summary PDF", { id: "dsr-summary-pdf" });
+    }
+  };
+
+  const handleDownloadAllClick = () => {
+    downloadAllDSRsList(reports);
+  };
 
   const downloadDSR = (report: any) => {
     try {
@@ -176,14 +248,16 @@ const ClientDSRSummaryPage = () => {
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Daily Site Report Summary</h1>
             <p className="text-slate-400 font-semibold mt-1 uppercase tracking-widest text-[10px]">Detailed daily work progress, resource logs, and field reports</p>
           </div>
-          <button 
-            onClick={fetchDsr}
-            disabled={loading}
-            className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100"
-          >
-            <Plus size={18} strokeWidth={3} className={loading ? "animate-spin" : ""} />
-            {loading ? "Syncing..." : "Fetch Daily Reports"}
-          </button>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => fetchDsr(true)}
+              disabled={loading}
+              className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100"
+            >
+              <Plus size={18} strokeWidth={3} className={loading ? "animate-spin" : ""} />
+              {loading ? "Syncing..." : "Fetch Daily Reports"}
+            </button>
+          </div>
         </div>
 
         <div className="space-y-8">
@@ -291,9 +365,12 @@ const ClientDSRSummaryPage = () => {
                            <img src={url} alt="Site update" className="w-full h-full object-cover" />
                         </div>
                       ))}
-                      <div className="w-24 h-24 rounded-2xl border-2 border-dashed border-slate-100 flex items-center justify-center text-slate-300 text-[9px] font-bold uppercase text-center px-2">
+                      <Link 
+                        to="/client/site-updates/photos"
+                        className="w-24 h-24 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary/50 hover:bg-primary/5 text-[9px] font-bold uppercase text-center px-2 transition-all cursor-pointer active:scale-95 shadow-sm"
+                      >
                          View All Photos
-                      </div>
+                      </Link>
                    </div>
                 </div>
               )}
