@@ -409,11 +409,6 @@ const ProjectsPage = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
                           </svg>
                         </button>
-<<<<<<< HEAD
-                        <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center text-xs font-bold shadow-sm shadow-primary/20">
-                          {progressPage + 1}
-                        </div>
-=======
                         {Array.from({ length: Math.ceil(filtered.length / PROGRESS_PER_PAGE) }).map((_, idx) => (
                           <button
                             key={idx}
@@ -426,7 +421,6 @@ const ProjectsPage = () => {
                             {idx + 1}
                           </button>
                         ))}
->>>>>>> 1fdaafe88de190d5698bdb302fbe48dd9f05857c
                         <button
                           onClick={() => setProgressPage(p => Math.min(Math.ceil(filtered.length / PROGRESS_PER_PAGE) - 1, p + 1))}
                           disabled={progressPage >= Math.ceil(filtered.length / PROGRESS_PER_PAGE) - 1}
@@ -609,11 +603,6 @@ const ProjectsPage = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
-<<<<<<< HEAD
-                <div className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center text-sm font-bold shadow-sm shadow-primary/20">
-                  {tablePage + 1}
-                </div>
-=======
                 {Array.from({ length: Math.ceil(filtered.length / TABLE_PER_PAGE) }).map((_, idx) => (
                   <button
                     key={idx}
@@ -624,7 +613,6 @@ const ProjectsPage = () => {
                     {idx + 1}
                   </button>
                 ))}
->>>>>>> 1fdaafe88de190d5698bdb302fbe48dd9f05857c
                 <button
                   onClick={() => setTablePage(p => Math.min(Math.ceil(filtered.length / TABLE_PER_PAGE) - 1, p + 1))}
                   disabled={tablePage >= Math.ceil(filtered.length / TABLE_PER_PAGE) - 1}
