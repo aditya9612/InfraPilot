@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface ModalProps {
@@ -19,31 +20,30 @@ const Modal = ({ isOpen, onClose, title, children, footer, maxWidth = "max-w-3xl
     }
     return () => {
       document.body.style.overflow = "unset";
-    }
+    };
   }, [isOpen]);
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       {isOpen && (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm sm:p-6"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm sm:p-6"
         >
           {/* Click outside to close */}
           <div className="absolute inset-0" onClick={onClose} />
-          
+
           {/* Modal Content */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ type: "spring", stiffness: 350, damping: 30 }}
-            className={`relative w-full ${maxWidth} max-h-full bg-white shadow-2xl rounded-2xl flex flex-col overflow-hidden`}
+            className={`relative w-full ${maxWidth} max-h-[90vh] bg-white shadow-2xl rounded-2xl flex flex-col overflow-hidden`}
           >
-            
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-white shrink-0">
               <div>
@@ -51,7 +51,7 @@ const Modal = ({ isOpen, onClose, title, children, footer, maxWidth = "max-w-3xl
               </div>
               <button
                 onClick={onClose}
-                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
                 aria-label="Close modal"
               >
                 <svg
@@ -60,24 +60,29 @@ const Modal = ({ isOpen, onClose, title, children, footer, maxWidth = "max-w-3xl
                   stroke="currentColor"
                   viewBox="0 0 24 24"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>
 
             {/* Body */}
-            <div className="p-6 overflow-y-auto bg-slate-50/50 flex-1 custom-scrollbar">
+            <div className="p-6 overflow-y-auto bg-slate-50/30 flex-1 custom-scrollbar">
               {children}
             </div>
 
             {/* Footer */}
             {footer && (
-              <div className="px-6 py-4 border-t border-slate-100 bg-white shrink-0 flex items-center justify-end gap-3">
+              <div className="px-6 py-4 border-t border-slate-100 bg-white shrink-0 flex items-center justify-end gap-4">
                 {footer}
               </div>
             )}
           </motion.div>
-          
+
           <style>{`
             .custom-scrollbar::-webkit-scrollbar {
               width: 6px;
@@ -97,6 +102,8 @@ const Modal = ({ isOpen, onClose, title, children, footer, maxWidth = "max-w-3xl
       )}
     </AnimatePresence>
   );
+
+  return createPortal(modalContent, document.body);
 };
 
 export default Modal;

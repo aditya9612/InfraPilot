@@ -12,14 +12,14 @@ const ClientAnnouncementsPage = () => (
     <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Communication", "Announcements"]} />
     <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
       <div className="mb-8">
-        <h1 className="text-3xl font-black text-slate-800 tracking-tight">Official Project Announcements</h1>
-        <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">Important project updates, mobilization notices, and official company communications</p>
+        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Official Project Announcements</h1>
+        <p className="text-slate-400 font-semibold mt-1 uppercase tracking-widest text-[10px]">Important project updates, mobilization notices, and official company communications</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {announcements.map((ann, i) => (
-          <div key={i} className="bg-white rounded-[40px] p-10 shadow-sm border border-slate-100 transition-all hover:shadow-2xl hover:shadow-blue-500/5 group relative overflow-hidden flex flex-col">
-            <div className={`absolute top-0 right-0 px-6 py-2 rounded-bl-3xl text-[9px] font-black uppercase tracking-widest ${
+          <div key={i} className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 transition-all hover:shadow-xl hover:shadow-blue-500/5 group relative overflow-hidden flex flex-col">
+            <div className={`absolute top-0 right-0 px-6 py-2 rounded-bl-2xl text-[9px] font-bold uppercase tracking-widest ${
               ann.priority === 'High' ? 'bg-red-50 text-red-600' : 
               ann.priority === 'Medium' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'
             }`}>
@@ -29,10 +29,10 @@ const ClientAnnouncementsPage = () => (
             <div className="mb-6">
               <div className="flex items-center gap-3 mb-3">
                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-lg shadow-blue-500/30" />
-                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{ann.type}</p>
+                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{ann.type}</p>
               </div>
-              <h2 className="text-xl font-black text-slate-800 tracking-tight leading-tight">{ann.title}</h2>
-              <p className="text-[10px] text-slate-400 font-black mt-1">{ann.date} • Published by {ann.author}</p>
+              <h2 className="text-lg font-bold text-slate-800 tracking-tight leading-tight">{ann.title}</h2>
+              <p className="text-[10px] text-slate-400 font-bold mt-1">{ann.date} • Published by {ann.author}</p>
             </div>
 
             <div className="flex-1 mb-8">
@@ -47,7 +47,7 @@ const ClientAnnouncementsPage = () => (
                          <div className="w-8 h-8 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-xs">📄</div>
                          <p className="text-xs font-bold text-slate-700">{file}</p>
                       </div>
-                      <button className="text-[9px] font-black text-primary uppercase tracking-widest opacity-0 group-hover/file:opacity-100 transition-opacity">Download</button>
+                      <button className="text-[9px] font-bold text-primary uppercase tracking-widest opacity-0 group-hover/file:opacity-100 transition-opacity">Download</button>
                    </div>
                  ))}
               </div>

@@ -1,9 +1,15 @@
 import { useState } from "react";
+import { useLocation } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
+import CreateMasterDataModal from "../../components/forms/CreateMasterDataModal";
+import toast from "react-hot-toast";
+import ConfirmModal from "../../components/common/ConfirmModal";
+import { Eye, Edit2, Trash2 } from "lucide-react";
+import MasterDataDetailsModal from "../../components/dashboard/MasterDataDetailsModal";
 
-const masterDataItems = [
+const initialMasterData = [
   { id: 1, name: "Cement (OPC 53)", code: "MAT-CEM-01", category: "Construction Material", type: "Material" },
   { id: 2, name: "Skilled Mason", code: "LAB-SKL-01", category: "Human Resource", type: "Labor" },
   { id: 3, name: "Excavation", code: "ACT-CIV-01", category: "Civil Works", type: "Activity" },
@@ -11,28 +17,92 @@ const masterDataItems = [
 ];
 
 const MasterDataPage = () => {
+  const location = useLocation();
+  const [items, setItems] = useState(initialMasterData);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("All");
+  
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<any>(null);
+  const [viewingItem, setViewingItem] = useState<any>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<number | null>(null);
 
-  const filteredItems = masterDataItems.filter(item => 
+  const filteredItems = items.filter(item => 
     (activeTab === "All" || item.type === activeTab) &&
     (item.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
      item.code.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
+  const handleCreateOrUpdate = (data: any) => {
+    if (editingItem) {
+      setItems(prev => prev.map(item => item.id === editingItem.id ? { ...data, id: item.id } : item));
+      toast.success("Entity updated successfully!");
+    } else {
+      const newItem = { ...data, id: items.length > 0 ? Math.max(...items.map(i => i.id)) + 1 : 1 };
+      setItems(prev => [...prev, newItem]);
+      toast.success("New entity added to master data!");
+    }
+    setIsModalOpen(false);
+    setEditingItem(null);
+  };
+
+  const handleDelete = () => {
+    if (itemToDelete) {
+      setItems(prev => prev.filter(item => item.id !== itemToDelete));
+      toast.success("Entity removed from master data.");
+      setIsDeleteModalOpen(false);
+      setItemToDelete(null);
+    }
+  };
+
+  const downloadSchema = () => {
+    const headers = ["Entity Name", "Unique Code", "Category", "System Tag"];
+    const rows = filteredItems.map(item => [
+      item.name,
+      item.code,
+      item.category,
+      item.type
+    ]);
+
+    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Master_Data_Schema_${activeTab}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Schema downloaded successfully!");
+  };
+
   return (
     <>
       <Navbar title="Master Data Console" breadcrumb={["Admin", "Master Data"]} />
       
-      <PageTransition className="p-6 bg-slate-50 min-h-screen">
+      <PageTransition key={location.pathname} className="p-6 bg-slate-50 min-h-screen">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">System Master Data</h1>
             <p className="text-slate-500 text-sm">Manage reusable data entities across the entire platform.</p>
           </div>
           <div className="flex gap-2">
-            <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all">Download Schema</button>
-            <button className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all">
+            <button 
+              onClick={downloadSchema}
+              className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
+            >
+              Download Schema
+            </button>
+            <button 
+              onClick={() => {
+                setEditingItem(null);
+                setIsModalOpen(true);
+              }}
+              className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
+            >
               + New Entry
             </button>
           </div>
@@ -40,13 +110,13 @@ const MasterDataPage = () => {
 
         {/* Master Data Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <StatCard title="Materials" value="245" sub="Active SKUs" accent="text-primary" />
-          <StatCard title="Labor Types" value="18" sub="Specialized roles" accent="text-violet-500" />
-          <StatCard title="Activity Types" value="92" sub="Standard procedures" accent="text-amber-500" />
-          <StatCard title="Units" value="14" sub="Measurement metrics" accent="text-emerald-500" />
+          <StatCard title="Materials" value={items.filter(i => i.type === "Material").length.toString()} sub="Active SKUs" accent="text-primary" />
+          <StatCard title="Labor Types" value={items.filter(i => i.type === "Labor").length.toString()} sub="Specialized roles" accent="text-violet-500" />
+          <StatCard title="Activity Types" value={items.filter(i => i.type === "Activity").length.toString()} sub="Standard procedures" accent="text-amber-500" />
+          <StatCard title="Units" value={items.filter(i => i.type === "Unit").length.toString()} sub="Measurement metrics" accent="text-emerald-500" />
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden min-h-[400px]">
           <div className="p-4 border-b border-slate-50 flex items-center justify-between gap-4">
             <div className="relative flex-1 max-w-md">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
@@ -106,9 +176,38 @@ const MasterDataPage = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button className="p-1 text-slate-400 hover:text-primary transition-colors">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
-                      </button>
+                      <div className="flex items-center justify-end gap-3">
+                        <button 
+                          onClick={() => {
+                            setViewingItem(item);
+                            setIsViewModalOpen(true);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-primary transition-all duration-200" 
+                          title="View Details"
+                        >
+                          <Eye className="w-4.5 h-4.5" strokeWidth={1.5} />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setEditingItem(item);
+                            setIsModalOpen(true);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200" 
+                          title="Edit Entity"
+                        >
+                          <Edit2 className="w-4.5 h-4.5" strokeWidth={1.5} />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setItemToDelete(item.id);
+                            setIsDeleteModalOpen(true);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-rose-500 transition-all duration-200" 
+                          title="Delete"
+                        >
+                          <Trash2 className="w-4.5 h-4.5" strokeWidth={1.5} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -122,6 +221,38 @@ const MasterDataPage = () => {
           )}
         </div>
       </PageTransition>
+
+      <CreateMasterDataModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingItem(null);
+        }}
+        onSubmit={handleCreateOrUpdate}
+        initialData={editingItem}
+      />
+
+      <ConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setItemToDelete(null);
+        }}
+        onConfirm={handleDelete}
+        title="Delete Master Entity"
+        message="Are you sure you want to remove this entity from master data? This may affect linked projects and reports."
+        confirmText="Remove Entity"
+        type="danger"
+      />
+
+      <MasterDataDetailsModal
+        isOpen={isViewModalOpen}
+        onClose={() => {
+          setIsViewModalOpen(false);
+          setViewingItem(null);
+        }}
+        item={viewingItem}
+      />
     </>
   );
 };

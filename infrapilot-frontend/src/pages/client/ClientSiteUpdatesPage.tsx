@@ -17,12 +17,12 @@ const ClientSiteUpdatesPage = () => (
     <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-black text-slate-800 tracking-tight">Site Updates</h1>
+          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Site Updates</h1>
           <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">Latest photos & field updates from your site</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           {tags.map((tag, i) => (
-            <button key={i} className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${i === 0 ? "bg-blue-600 text-white shadow-md shadow-blue-200" : "bg-white border border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-600"}`}>{tag}</button>
+            <button key={i} className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${i === 0 ? "bg-blue-600 text-white shadow-md shadow-blue-200" : "bg-white border border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-600"}`}>{tag}</button>
           ))}
         </div>
       </div>
@@ -30,11 +30,11 @@ const ClientSiteUpdatesPage = () => (
       {/* Photo Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {photos.map(photo => (
-          <div key={photo.id} className="group cursor-pointer bg-white rounded-3xl overflow-hidden shadow-sm border border-slate-100 hover:shadow-xl hover:shadow-blue-500/10 transition-all duration-300">
+          <div key={photo.id} className="group cursor-pointer bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 hover:shadow-xl hover:shadow-blue-500/10 transition-all duration-300">
             <div className="aspect-[4/3] overflow-hidden relative">
               <img src={photo.url} alt={photo.desc} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-              <span className="absolute top-3 left-3 bg-white/90 backdrop-blur text-[9px] font-black uppercase tracking-widest text-slate-600 px-2.5 py-1 rounded-full">{photo.tag}</span>
+              <span className="absolute top-3 left-3 bg-white/90 backdrop-blur text-[9px] font-bold uppercase tracking-widest text-slate-600 px-2.5 py-1 rounded-full">{photo.tag}</span>
             </div>
             <div className="p-4">
               <p className="text-sm font-bold text-slate-700">{photo.desc}</p>

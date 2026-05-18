@@ -1,4 +1,4 @@
-export type InvoiceType = "labour" | "material" | "owner" | "other";
+export type InvoiceType = "owner" | "labour" | "material" | "expense";
 export type InvoiceStatus = "pending" | "paid" | "overdue" | "cancelled";
 
 export interface Invoice {
@@ -7,7 +7,7 @@ export interface Invoice {
   owner_id: number;
   type: InvoiceType;
   reference_id: number;
-  amount: number; // base amount
+  amount: number;
   gst_percent: number;
   gst_amount: number;
   tax_percent: number;
@@ -16,6 +16,13 @@ export interface Invoice {
   status: InvoiceStatus;
   description: string;
   created_at: string;
+  invoice_date?: string;
+  // UI-specific or extended fields
+  invoice_number?: string;
+  client_name?: string;
+  due_date?: string;
+  quantity?: number;
+  rate?: number;
 }
 
 export interface InvoiceCreateData {
@@ -25,6 +32,9 @@ export interface InvoiceCreateData {
   reference_id: number;
   amount: number;
   gst_percent: number;
+  gst_amount: number;
   tax_percent: number;
+  tax_amount: number;
+  total_amount: number;
   description: string;
 }

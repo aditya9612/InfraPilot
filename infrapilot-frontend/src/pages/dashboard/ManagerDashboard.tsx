@@ -6,14 +6,37 @@ import RiskAnalysis from "../../components/dashboard/RiskAnalysis";
 import TaskOverview from "../../components/dashboard/TaskOverview";
 import TeamPerformance from "../../components/dashboard/TeamPerformance";
 import ActivityFeed from "../../components/dashboard/ActivityFeed";
-
+import NewProjectModal from "../../components/dashboard/NewProjectModal";
+import { useState, useEffect } from "react";
+import toast from "react-hot-toast";
+import { Plus } from "lucide-react";
 const ManagerDashboard = () => {
+  const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
+  const [projects, setProjects] = useState<any[]>([]);
+  
+  useEffect(() => {
+    // Initial data loading simulation if needed
+  }, []);
+
+  const handleCreateProject = async (projectData: any) => {
+    toast.success("Project created successfully! (Mock Mode)");
+    setIsNewProjectModalOpen(false);
+  };
+
   return (
     <>
       <Navbar
         title="Project Manager Dashboard"
         breadcrumb={["InfraPilot", "Dashboard", "Manager"]}
-        action={{ label: "Generate Report" }}
+        action={{ 
+          label: "Generate Report",
+          onClick: () => {
+            const toastId = toast.loading("Generating comprehensive project report...");
+            setTimeout(() => {
+              toast.success("Project Report (Mar 2026) ready for download!", { id: toastId });
+            }, 2000);
+          }
+        }}
       />
 
       <main className="p-6 bg-slate-50/50 min-h-[calc(100vh-4rem)] overflow-y-auto">
@@ -40,25 +63,16 @@ const ManagerDashboard = () => {
                   <option>Metropolis Hub</option>
                 </select>
               </div>
-              <button className="bg-primary text-white text-sm font-bold px-4 py-2 rounded-lg shadow-sm hover:bg-blue-600 transition-colors flex items-center gap-2">
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
+              <button 
+                onClick={() => setIsNewProjectModalOpen(true)}
+                className="bg-primary text-white text-sm font-bold px-4 py-2 rounded-lg shadow-sm hover:bg-blue-600 transition-colors flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
                 New Project
               </button>
             </div>
           </div>
-          f{/* KPI Summary Cards */}
+          {/* KPI Summary Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
               title="Total Projects"
@@ -262,6 +276,12 @@ const ManagerDashboard = () => {
           </div>
         </div>
       </main>
+
+      <NewProjectModal
+        isOpen={isNewProjectModalOpen}
+        onClose={() => setIsNewProjectModalOpen(false)}
+        onSubmit={handleCreateProject}
+      />
     </>
   );
 };

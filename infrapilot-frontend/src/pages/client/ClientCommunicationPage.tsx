@@ -21,11 +21,11 @@ const ClientCommunicationPage = () => {
       <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Communication"]} />
       <div className="p-6 bg-slate-50 min-h-screen font-inter pb-6">
         <div className="mb-6">
-          <h1 className="text-3xl font-black text-slate-800 tracking-tight">Communication</h1>
-          <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">Direct messaging with your project team</p>
+          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Communication</h1>
+          <p className="text-slate-400 font-semibold mt-1 uppercase tracking-widest text-[10px]">Direct messaging with your project team</p>
         </div>
 
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden flex" style={{ height: "calc(100vh - 220px)", minHeight: "500px" }}>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex" style={{ height: "calc(100vh - 220px)", minHeight: "500px" }}>
           {/* Thread List */}
           <div className="w-72 border-r border-slate-100 flex flex-col shrink-0">
             <div className="p-4 border-b border-slate-100">
@@ -38,10 +38,10 @@ const ClientCommunicationPage = () => {
               {threads.map(t => (
                 <button key={t.id} onClick={() => setSelected(t)} className={`w-full text-left px-4 py-4 border-b border-slate-50 transition-colors ${selected.id === t.id ? "bg-blue-50" : "hover:bg-slate-50"}`}>
                   <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-full ${t.color} flex items-center justify-center text-white font-black text-sm shrink-0`}>{t.avatar}</div>
+                    <div className={`w-9 h-9 rounded-full ${t.color} flex items-center justify-center text-white font-bold text-sm shrink-0`}>{t.avatar}</div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between">
-                        <p className="text-xs font-black text-slate-800">{t.from}</p>
+                        <p className="text-xs font-bold text-slate-800">{t.from}</p>
                         <p className="text-[10px] text-slate-400 font-bold">{t.time}</p>
                       </div>
                       <p className="text-[10px] text-slate-500 font-bold truncate mt-0.5">{t.message}</p>
@@ -56,9 +56,9 @@ const ClientCommunicationPage = () => {
           {/* Chat Area */}
           <div className="flex-1 flex flex-col min-w-0">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
-              <div className={`w-9 h-9 rounded-full ${selected.color} flex items-center justify-center text-white font-black text-sm`}>{selected.avatar}</div>
+              <div className={`w-9 h-9 rounded-full ${selected.color} flex items-center justify-center text-white font-bold text-sm`}>{selected.avatar}</div>
               <div>
-                <p className="text-sm font-black text-slate-800">{selected.from}</p>
+                <p className="text-sm font-bold text-slate-800">{selected.from}</p>
                 <p className="text-[10px] text-slate-400 font-bold">{selected.role}</p>
               </div>
             </div>

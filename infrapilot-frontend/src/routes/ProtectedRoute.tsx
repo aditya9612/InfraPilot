@@ -9,8 +9,9 @@ interface Props {
 }
 
 const ProtectedRoute = ({ children, allowedRoles }: Props) => {
-  const { user, isAuthenticated } = useAuth();
-
+  const { user, isAuthenticated, loading } = useAuth();
+  
+  if (loading) return null; // Or a smaller spinner if needed, but AppRoutes handles the main loader
   if (!isAuthenticated) return <Navigate to="/" replace />;
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
     return <Navigate to="/unauthorized" replace />;

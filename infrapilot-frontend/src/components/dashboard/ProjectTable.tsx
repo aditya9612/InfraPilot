@@ -1,3 +1,6 @@
+import { useState } from "react";
+import { Filter, SortAsc, ChevronDown } from "lucide-react";
+
 interface Project {
   id: string;
   name: string;
@@ -53,19 +56,90 @@ const projects: Project[] = [
 ];
 
 const ProjectTable = () => {
+  const [filterStatus, setFilterStatus] = useState<string>("All");
+  const [sortBy, setSortBy] = useState<string>("name");
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isSortOpen, setIsSortOpen] = useState(false);
+
+  const filteredProjects = projects
+    .filter(p => filterStatus === "All" || p.status === filterStatus)
+    .sort((a, b) => {
+      if (sortBy === "name") return a.name.localeCompare(b.name);
+      if (sortBy === "progress") return b.progress - a.progress;
+      if (sortBy === "budget") return b.budgetUsed - a.budgetUsed;
+      return 0;
+    });
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-      <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+      <div className="p-5 border-b border-slate-100 flex justify-between items-center relative">
         <h3 className="font-bold text-slate-800">
           Project Performance Overview
         </h3>
         <div className="flex gap-2">
-          <button className="px-3 py-1.5 text-xs font-medium bg-slate-50 text-slate-600 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors">
-            Filters
-          </button>
-          <button className="px-3 py-1.5 text-xs font-medium bg-slate-50 text-slate-600 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors">
-            Sort
-          </button>
+          {/* Filter Dropdown */}
+          <div className="relative">
+            <button 
+              onClick={() => { setIsFilterOpen(!isFilterOpen); setIsSortOpen(false); }}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all flex items-center gap-2 ${
+                isFilterOpen ? "bg-primary text-white border-primary" : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+              }`}
+            >
+              <Filter className="w-3 h-3" />
+              {filterStatus === "All" ? "Filters" : filterStatus}
+              <ChevronDown className={`w-3 h-3 transition-transform ${isFilterOpen ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {isFilterOpen && (
+              <div className="absolute right-0 mt-2 w-40 bg-white border border-slate-100 rounded-xl shadow-xl z-50 p-2 animate-in fade-in zoom-in duration-200">
+                {["All", "On Track", "At Risk", "Delayed"].map(status => (
+                  <button
+                    key={status}
+                    onClick={() => { setFilterStatus(status); setIsFilterOpen(false); }}
+                    className={`w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-colors ${
+                      filterStatus === status ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-50"
+                    }`}
+                  >
+                    {status}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Sort Dropdown */}
+          <div className="relative">
+            <button 
+              onClick={() => { setIsSortOpen(!isSortOpen); setIsFilterOpen(false); }}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all flex items-center gap-2 ${
+                isSortOpen ? "bg-primary text-white border-primary" : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+              }`}
+            >
+              <SortAsc className="w-3 h-3" />
+              Sort
+              <ChevronDown className={`w-3 h-3 transition-transform ${isSortOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isSortOpen && (
+              <div className="absolute right-0 mt-2 w-40 bg-white border border-slate-100 rounded-xl shadow-xl z-50 p-2 animate-in fade-in zoom-in duration-200">
+                {[
+                  { label: "Name", value: "name" },
+                  { label: "High Progress", value: "progress" },
+                  { label: "High Budget", value: "budget" }
+                ].map(option => (
+                  <button
+                    key={option.value}
+                    onClick={() => { setSortBy(option.value); setIsSortOpen(false); }}
+                    className={`w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-colors ${
+                      sortBy === option.value ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-50"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
       <div className="overflow-x-auto">
@@ -90,7 +164,7 @@ const ProjectTable = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {projects.map((project) => (
+            {filteredProjects.map((project) => (
               <tr
                 key={project.id}
                 className="hover:bg-slate-50/50 transition-colors cursor-pointer"

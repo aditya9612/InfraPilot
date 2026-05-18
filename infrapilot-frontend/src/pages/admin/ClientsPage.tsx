@@ -2,8 +2,13 @@ import { useState } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
+import CreateClientModal from "../../components/forms/CreateClientModal";
+import ViewClientModal from "../../components/forms/ViewClientModal";
+import toast from "react-hot-toast";
+import ConfirmModal from "../../components/common/ConfirmModal";
+import { Eye, Edit2, Trash2 } from "lucide-react";
 
-const clientsData = [
+const initialClients = [
   {
     id: 1,
     name: "Vikram Sethi",
@@ -40,13 +45,47 @@ const clientsData = [
 ];
 
 const ClientsPage = () => {
+  const [clients, setClients] = useState(initialClients);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingClient, setEditingClient] = useState<any>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [clientToDelete, setClientToDelete] = useState<number | null>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [viewingClient, setViewingClient] = useState<any>(null);
 
-  const filteredClients = clientsData.filter(
+  const filteredClients = clients.filter(
     (c) =>
       c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.company.toLowerCase().includes(searchTerm.toLowerCase()),
   );
+
+  const handleCreateOrUpdate = (data: any) => {
+    if (editingClient) {
+      setClients(prev => prev.map(c => c.id === editingClient.id ? { ...data, id: c.id, billing: c.billing, payments: c.payments } : c));
+      toast.success("Client profile updated.");
+    } else {
+      const newClient = {
+        ...data,
+        id: Date.now(),
+        billing: "₹0 Pending",
+        payments: "₹0 Received",
+      };
+      setClients(prev => [newClient, ...prev]);
+      toast.success("New client added to portfolio!");
+    }
+    setIsModalOpen(false);
+    setEditingClient(null);
+  };
+
+  const handleDelete = () => {
+    if (clientToDelete) {
+      setClients(prev => prev.filter(c => c.id !== clientToDelete));
+      toast.success("Client removed from database.");
+      setIsDeleteModalOpen(false);
+      setClientToDelete(null);
+    }
+  };
 
   return (
     <>
@@ -66,7 +105,32 @@ const ClientsPage = () => {
             <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all">
               Client Portal
             </button>
-            <button className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all">
+            <button 
+              onClick={() => {
+                const csvData = clients.map(c => ({
+                  Name: c.name,
+                  Company: c.company,
+                  Project: c.project,
+                  Status: c.status,
+                  Billing: c.billing,
+                  Payments: c.payments
+                }));
+                import("../../utils/csvExport").then(m => m.exportToCSV(csvData, "clients_list.csv"));
+              }}
+              className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all flex items-center gap-2"
+            >
+              <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Download CSV
+            </button>
+            <button 
+              onClick={() => {
+                setEditingClient(null);
+                setIsModalOpen(true);
+              }}
+              className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
+            >
               + Add Client
             </button>
           </div>
@@ -76,8 +140,8 @@ const ClientsPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <StatCard
             title="Total Clients"
-            value="24"
-            sub="5 Premium Accounts"
+            value={clients.length.toString()}
+            sub="Active relationships"
             accent="text-primary"
           />
           <StatCard
@@ -94,7 +158,7 @@ const ClientsPage = () => {
           />
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden min-h-[400px]">
           <div className="p-4 border-b border-slate-50">
             <div className="relative flex-1 max-w-md">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
@@ -178,29 +242,83 @@ const ClientsPage = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button className="p-1 text-slate-400 hover:text-primary transition-colors">
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
+                      <div className="flex items-center justify-end gap-3">
+                        <button 
+                          onClick={() => {
+                            setViewingClient(c);
+                            setIsViewModalOpen(true);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-primary transition-all duration-200" 
+                          title="View Profile"
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
-                          />
-                        </svg>
-                      </button>
+                          <Eye className="w-4.5 h-4.5" strokeWidth={1.5} />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setEditingClient(c);
+                            setIsModalOpen(true);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200" 
+                          title="Edit Client"
+                        >
+                          <Edit2 className="w-4.5 h-4.5" strokeWidth={1.5} />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setClientToDelete(c.id);
+                            setIsDeleteModalOpen(true);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-rose-500 transition-all duration-200" 
+                          title="Delete Client"
+                        >
+                          <Trash2 className="w-4.5 h-4.5" strokeWidth={1.5} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          {filteredClients.length === 0 && (
+            <div className="p-20 text-center">
+              <p className="text-slate-400 font-medium">No clients found matching your search.</p>
+            </div>
+          )}
         </div>
       </PageTransition>
+
+      <CreateClientModal 
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingClient(null);
+        }}
+        onSubmit={handleCreateOrUpdate}
+        initialData={editingClient}
+      />
+
+      <ViewClientModal
+        isOpen={isViewModalOpen}
+        onClose={() => {
+          setIsViewModalOpen(false);
+          setViewingClient(null);
+        }}
+        client={viewingClient}
+      />
+
+      <ConfirmModal 
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setClientToDelete(null);
+        }}
+        onConfirm={handleDelete}
+        title="Delete Client Profile"
+        message="Are you sure you want to remove this client? This will delete their access to the client portal and all linked financial history."
+        confirmText="Delete Profile"
+        type="danger"
+      />
     </>
   );
 };

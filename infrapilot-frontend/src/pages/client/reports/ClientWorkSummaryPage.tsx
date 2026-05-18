@@ -19,45 +19,45 @@ const ClientWorkSummaryPage = () => (
         <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">Real-time plan vs actual activity completion tracking</p>
       </div>
 
-      <div className="bg-white rounded-[40px] overflow-hidden shadow-sm border border-slate-100 px-10 py-6">
+      <div className="bg-white rounded-3xl overflow-hidden shadow-sm border border-slate-100 px-8 py-4">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[900px]">
              <thead>
                <tr className="border-b border-slate-50">
-                 <th className="py-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">Main Work Category</th>
-                 <th className="py-8 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Plan %</th>
-                 <th className="py-8 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Actual %</th>
-                 <th className="py-8 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Efficiency</th>
-                 <th className="py-8 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Status</th>
+                 <th className="py-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Main Work Category</th>
+                 <th className="py-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center">Plan %</th>
+                 <th className="py-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center">Actual %</th>
+                 <th className="py-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center">Efficiency</th>
+                 <th className="py-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Status</th>
                </tr>
              </thead>
              <tbody className="divide-y divide-slate-50">
                {workSummary.map((work, i) => (
                  <tr key={i} className="group hover:bg-slate-50/50 transition-colors">
-                   <td className="py-8">
-                      <p className="text-sm font-black text-slate-800 tracking-tight">{work.activity}</p>
+                   <td className="py-6">
+                      <p className="text-xs font-bold text-slate-800 tracking-tight">{work.activity}</p>
                    </td>
-                   <td className="py-8 text-center">
-                      <p className="text-sm font-bold text-slate-400">{work.plan}</p>
+                   <td className="py-6 text-center">
+                      <p className="text-xs font-bold text-slate-400">{work.plan}</p>
                    </td>
-                   <td className="py-8 text-center">
+                   <td className="py-6 text-center">
                       <div className="flex flex-col items-center">
-                        <p className="text-sm font-black text-slate-800 tracking-tighter">{work.actual}</p>
-                        <div className="w-24 h-1.5 bg-slate-100 rounded-full mt-2 overflow-hidden">
+                        <p className="text-xs font-bold text-slate-800 tracking-tighter">{work.actual}</p>
+                        <div className="w-20 h-1 bg-slate-100 rounded-full mt-1.5 overflow-hidden">
                            <div className="h-full bg-primary rounded-full transition-all duration-1000" style={{ width: work.actual }} />
                         </div>
                       </div>
                    </td>
-                   <td className="py-8 text-center">
-                      <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full ${
-                        work.efficiency === 'High' ? 'bg-emerald-50 text-emerald-600' : 
-                        work.efficiency === 'Medium' ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'
+                   <td className="py-6 text-center">
+                      <span className={`text-[8px] font-bold uppercase tracking-widest px-2 py-1 rounded-full ${
+                        work.efficiency === "High" ? "bg-emerald-50 text-emerald-600" : 
+                        work.efficiency === "Medium" ? "bg-amber-50 text-amber-600" : "bg-red-50 text-red-600"
                       }`}>
                          {work.efficiency}
                       </span>
                    </td>
-                   <td className="py-8 text-right pr-4">
-                      <span className={`text-xs font-black ${work.status === 'Completed' ? 'text-emerald-500' : 'text-primary'}`}>{work.status}</span>
+                   <td className="py-6 text-right pr-4">
+                      <span className={`text-[10px] font-bold ${work.status === "Completed" ? "text-emerald-500" : "text-primary"}`}>{work.status}</span>
                    </td>
                  </tr>
                ))}

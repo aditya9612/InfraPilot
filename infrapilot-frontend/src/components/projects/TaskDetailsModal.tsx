@@ -1,14 +1,77 @@
-import type { Task } from "../../types/project";
-import { TASK_PROGRESS, TASK_COMMENTS } from "../../config/projectSeed";
+import { useState, useEffect, useCallback } from "react";
+import type { Task, TaskProgress, TaskComment } from "../../types/project";
+import { projectService } from "../../services/projectService";
+import toast from "react-hot-toast";
 
 interface TaskDetailsModalProps {
   task: Task;
   onClose: () => void;
+  onUpdateProgress?: (percentage: number, remarks: string) => void;
+  onAddComment?: (content: string) => void;
 }
 
-const TaskDetailsModal = ({ task, onClose }: TaskDetailsModalProps) => {
-  const history = TASK_PROGRESS[task.id] || [];
-  const comments = TASK_COMMENTS[task.id] || [];
+const TaskDetailsModal = ({ task, onClose, onUpdateProgress, onAddComment }: TaskDetailsModalProps) => {
+  const [history, setHistory] = useState<TaskProgress[]>([]);
+  const [comments, setComments] = useState<TaskComment[]>([]);
+  
+  const [newComment, setNewComment] = useState("");
+  const [updatePercentage, setUpdatePercentage] = useState(task.completion_percentage);
+  const [updateRemarks, setUpdateRemarks] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const [hData, cData] = await Promise.all([
+        projectService.getTaskProgressHistory(task.project_id, task.id),
+        projectService.getTaskComments(task.project_id, task.id)
+      ]);
+      setHistory(Array.isArray(hData) ? hData : (hData.items || hData.data || []));
+      setComments(Array.isArray(cData) ? cData : (cData.items || cData.data || []));
+    } catch (error) {
+      console.error("Failed to fetch task details:", error);
+    } finally {
+    }
+  }, [task.id, task.project_id]);
+
+  useEffect(() => {
+    fetchData();
+    // Sync local state if task details change (e.g., after an update)
+    setUpdatePercentage(task.completion_percentage);
+  }, [fetchData, task.completion_percentage]);
+
+  const handlePostComment = async () => {
+    if (!newComment.trim()) return;
+    setIsSubmitting(true);
+    try {
+      await projectService.createTaskComment(task.project_id, task.id, { content: newComment });
+      setNewComment("");
+      if (onAddComment) onAddComment(newComment);
+      toast.success("Comment posted");
+      fetchData();
+    } catch (error) {
+      toast.error("Failed to post comment");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleUpdateProgress = async () => {
+    setIsSubmitting(true);
+    try {
+      await projectService.updateTaskProgress(task.project_id, task.id, { 
+        percentage: updatePercentage, 
+        remarks: updateRemarks || "Status update" 
+      });
+      setUpdateRemarks("");
+      if (onUpdateProgress) onUpdateProgress(updatePercentage, updateRemarks);
+      toast.success(`Progress updated to ${updatePercentage}%`);
+      fetchData();
+    } catch (error) {
+      toast.error("Failed to update progress");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
@@ -28,6 +91,35 @@ const TaskDetailsModal = ({ task, onClose }: TaskDetailsModalProps) => {
         </div>
 
         <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
+          {/* Progress Slider (New Quick Update) */}
+          <section className="bg-blue-50/50 p-6 rounded-2xl border border-blue-100/50">
+            <h3 className="text-xs font-bold text-primary uppercase tracking-widest mb-4">Quick Progress Update</h3>
+            <div className="space-y-4">
+               <div className="flex items-center gap-4">
+                  <input 
+                    type="range" min="0" max="100" value={updatePercentage} 
+                    onChange={(e) => setUpdatePercentage(parseInt(e.target.value))}
+                    disabled={isSubmitting}
+                    className="flex-1 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer disabled:cursor-not-allowed" 
+                  />
+                  <span className="text-sm font-bold text-slate-700 min-w-[40px]">{updatePercentage}%</span>
+               </div>
+               <div className="flex gap-2">
+                  <input 
+                    type="text" placeholder="Add a status remark..." value={updateRemarks}
+                    onChange={(e) => setUpdateRemarks(e.target.value)}
+                    className="flex-1 bg-white px-3 py-2 rounded-xl border border-slate-200 text-xs outline-none focus:border-primary transition-colors"
+                  />
+                  <button 
+                    onClick={handleUpdateProgress} disabled={isSubmitting}
+                    className="px-4 py-2 bg-primary text-white text-[10px] font-bold rounded-xl shadow-md shadow-primary/20 hover:bg-blue-600 transition-all disabled:opacity-50"
+                  >
+                    Update
+                  </button>
+               </div>
+            </div>
+          </section>
+
           {/* Description */}
           <section>
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Description</h3>
@@ -40,7 +132,7 @@ const TaskDetailsModal = ({ task, onClose }: TaskDetailsModalProps) => {
             {/* Progress History */}
             <section>
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Progress History</h3>
-              <div className="space-y-4">
+              <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                 {history.map((h) => (
                   <div key={h.id} className="relative pl-6 pb-4 border-l-2 border-slate-100 last:border-0 last:pb-0">
                     <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-white border-2 border-primary" />
@@ -48,7 +140,7 @@ const TaskDetailsModal = ({ task, onClose }: TaskDetailsModalProps) => {
                         <p className="text-sm font-bold text-slate-700">{h.percentage}%</p>
                         <span className="text-[9px] font-bold text-slate-400 uppercase">{new Date(h.created_at).toLocaleDateString()}</span>
                     </div>
-                    <p className="text-xs text-slate-500 mt-1">{h.remarks}</p>
+                    <p className="text-[10px] text-slate-500 mt-1 line-clamp-2">{h.remarks}</p>
                   </div>
                 ))}
                 {history.length === 0 && <p className="text-xs text-slate-400 italic">No progress recorded yet.</p>}
@@ -58,7 +150,7 @@ const TaskDetailsModal = ({ task, onClose }: TaskDetailsModalProps) => {
             {/* Comments */}
             <section>
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Internal Comments</h3>
-              <div className="space-y-4">
+              <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                 {comments.map((c) => (
                   <div key={c.id} className="bg-slate-50/50 p-3 rounded-xl border border-slate-50">
                     <div className="flex justify-between items-center mb-1">
@@ -75,8 +167,18 @@ const TaskDetailsModal = ({ task, onClose }: TaskDetailsModalProps) => {
         </div>
 
         <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
-             <input type="text" placeholder="Type a comment or update progress..." className="flex-1 bg-white px-4 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-primary transition-colors" />
-             <button className="px-6 py-2 bg-primary text-white text-sm font-bold rounded-xl shadow-md shadow-primary/20">Send</button>
+             <input 
+              type="text" placeholder="Type a comment..." value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handlePostComment()}
+              className="flex-1 bg-white px-4 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:border-primary transition-colors" 
+             />
+             <button 
+              onClick={handlePostComment} disabled={isSubmitting || !newComment.trim()}
+              className="px-6 py-2 bg-primary text-white text-sm font-bold rounded-xl shadow-md shadow-primary/20 hover:bg-blue-600 transition-all disabled:opacity-50"
+             >
+               Send
+             </button>
         </div>
       </div>
     </div>

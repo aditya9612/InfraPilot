@@ -2,8 +2,13 @@ import { useState } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
+import CreateEngineerModal from "../../components/forms/CreateEngineerModal";
+import ViewEngineerModal from "../../components/forms/ViewEngineerModal";
+import toast from "react-hot-toast";
+import ConfirmModal from "../../components/common/ConfirmModal";
+import { Eye, Edit2, Trash2 } from "lucide-react";
 
-const engineersData = [
+const initialEngineers = [
   {
     id: 1,
     name: "Arjun Mehta",
@@ -40,13 +45,45 @@ const engineersData = [
 ];
 
 const EngineersPage = () => {
+  const [engineers, setEngineers] = useState(initialEngineers);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingEngineer, setEditingEngineer] = useState<any>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [engineerToDelete, setEngineerToDelete] = useState<number | null>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [viewingEngineer, setViewingEngineer] = useState<any>(null);
 
-  const filteredEngineers = engineersData.filter(
+  const filteredEngineers = engineers.filter(
     (e) =>
       e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       e.projects.toLowerCase().includes(searchTerm.toLowerCase()),
   );
+
+  const handleCreateOrUpdate = (data: any) => {
+    if (editingEngineer) {
+      setEngineers(prev => prev.map(e => e.id === editingEngineer.id ? { ...data, id: e.id, reportStatus: e.reportStatus, performance: e.performance } : e));
+      toast.success("Engineer details updated.");
+    } else {
+      const newEngineer = {
+        ...data,
+        id: Date.now(),
+      };
+      setEngineers(prev => [newEngineer, ...prev]);
+      toast.success("New engineer deployed successfully!");
+    }
+    setIsModalOpen(false);
+    setEditingEngineer(null);
+  };
+
+  const handleDelete = () => {
+    if (engineerToDelete) {
+      setEngineers(prev => prev.filter(e => e.id !== engineerToDelete));
+      toast.success("Staff record removed.");
+      setIsDeleteModalOpen(false);
+      setEngineerToDelete(null);
+    }
+  };
 
   return (
     <>
@@ -69,7 +106,13 @@ const EngineersPage = () => {
             <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all">
               Daily Logs
             </button>
-            <button className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all">
+            <button 
+              onClick={() => {
+                setEditingEngineer(null);
+                setIsModalOpen(true);
+              }}
+              className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
+            >
               + Add Engineer
             </button>
           </div>
@@ -79,8 +122,8 @@ const EngineersPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <StatCard
             title="Active Engineers"
-            value="18"
-            sub="15 On Site today"
+            value={engineers.filter(e => e.status === "On Site").length.toString()}
+            sub={`${engineers.length} Total Staff`}
             accent="text-primary"
           />
           <StatCard
@@ -91,13 +134,13 @@ const EngineersPage = () => {
           />
           <StatCard
             title="Pending Reviews"
-            value="5"
+            value={engineers.filter(e => e.reportStatus === "Pending").length.toString()}
             sub="Requires Admin action"
             accent="text-violet-500"
           />
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden min-h-[400px]">
           <div className="p-4 border-b border-slate-50">
             <div className="relative flex-1 max-w-md">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
@@ -195,29 +238,83 @@ const EngineersPage = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button className="p-1 text-slate-400 hover:text-primary transition-colors">
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
+                      <div className="flex items-center justify-end gap-3">
+                        <button 
+                          onClick={() => {
+                            setViewingEngineer(e);
+                            setIsViewModalOpen(true);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-primary transition-all duration-200" 
+                          title="View Profile"
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
-                          />
-                        </svg>
-                      </button>
+                          <Eye className="w-4.5 h-4.5" strokeWidth={1.5} />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setEditingEngineer(e);
+                            setIsModalOpen(true);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200" 
+                          title="Edit Engineer"
+                        >
+                          <Edit2 className="w-4.5 h-4.5" strokeWidth={1.5} />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setEngineerToDelete(e.id);
+                            setIsDeleteModalOpen(true);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-rose-500 transition-all duration-200" 
+                          title="Delete Engineer"
+                        >
+                          <Trash2 className="w-4.5 h-4.5" strokeWidth={1.5} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          {filteredEngineers.length === 0 && (
+            <div className="p-20 text-center">
+              <p className="text-slate-400 font-medium">No engineers found matching your search.</p>
+            </div>
+          )}
         </div>
       </PageTransition>
+
+      <CreateEngineerModal 
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingEngineer(null);
+        }}
+        onSubmit={handleCreateOrUpdate}
+        initialData={editingEngineer}
+      />
+
+      <ViewEngineerModal
+        isOpen={isViewModalOpen}
+        onClose={() => {
+          setIsViewModalOpen(false);
+          setViewingEngineer(null);
+        }}
+        engineer={viewingEngineer}
+      />
+
+      <ConfirmModal 
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setEngineerToDelete(null);
+        }}
+        onConfirm={handleDelete}
+        title="Remove Staff Member"
+        message="Are you sure you want to remove this engineer? This will archive their deployment records and remove them from active project assignments."
+        confirmText="Remove Record"
+        type="danger"
+      />
     </>
   );
 };
