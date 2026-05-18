@@ -89,16 +89,20 @@ const AdminDashboard = () => {
         ? pData
         : pData.items || pData.data || [];
       setProjects(projectsList);
-      setProjectAlertsData(Array.isArray(pAlerts) ? pAlerts : []);
+      const projectAlerts = Array.isArray(pAlerts) ? pAlerts : (pAlerts?.items || pAlerts?.data || []);
+      const taskAlerts = Array.isArray(tAlerts) ? tAlerts : (tAlerts?.items || tAlerts?.data || []);
+
+      setProjectAlertsData(projectAlerts);
 
       // Combine alerts for activity feed
       const combinedAlerts = [
-        ...(Array.isArray(pAlerts) ? pAlerts : []),
-        ...(Array.isArray(tAlerts) ? tAlerts : []),
+        ...projectAlerts,
+        ...taskAlerts,
       ].map((a: any) => ({
-        user: a.user_name || "System",
+        user: a.user_name || a.author || "System",
         action:
           a.message ||
+          a.description ||
           a.detail ||
           (a.project_name
             ? `${a.project_name} is ${a.status}`
@@ -698,57 +702,6 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* Construction Specific Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-500 flex items-center justify-center font-bold">
-              👷
-            </div>
-            <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                Labour Today
-              </p>
-              <p className="text-lg font-bold text-slate-800">
-                1,240{" "}
-                <span className="text-[10px] font-medium text-slate-400">
-                  Personnel
-                </span>
-              </p>
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center font-bold">
-              🏗️
-            </div>
-            <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                Material Used
-              </p>
-              <p className="text-lg font-bold text-slate-800">
-                42{" "}
-                <span className="text-[10px] font-medium text-slate-400">
-                  Truckloads
-                </span>
-              </p>
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-500 flex items-center justify-center font-bold">
-              🚧
-            </div>
-            <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                Site Issues
-              </p>
-              <p className="text-lg font-bold text-slate-800">
-                32{" "}
-                <span className="text-[10px] font-medium text-slate-400">
-                  Tickets Open
-                </span>
-              </p>
-            </div>
-          </div>
-        </div>
 
         {/* Projects Overview Table */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { generateEngineerReportPDF } from "../../utils/projectPDFGenerator";
 import toast from "react-hot-toast";
@@ -9,84 +9,72 @@ import {
     Thermometer, Users, ChevronLeft, Calendar,
     TrendingUp, MapPin, Phone, Mail
 } from "lucide-react";
-
-// ─── Mock Intelligence Data ──────────────────────────────────────────────────
-// ─── Mock Intelligence Data ──────────────────────────────────────────────────
-const initialEngineers = [
-    {
-        id: 1,
-        name: "Arjun Mehta",
-        email: "arjun.m@infrapilot.com",
-        mobile: "+91 95566 77889",
-        projects: "Skyline Tower A",
-        experience: "8 Years",
-        performance: "Exceptional",
-        status: "On Site",
-        specialization: "Structural Engineering",
-        lastDsr: new Date().toISOString(),
-        weather: "Sunny, 32°C",
-        laborCount: 145,
-        activeTask: "Column Casting (Floor 4)",
-        joiningDate: "2023-01-15",
-        humidity: "54%",
-        windSpeed: "12 km/h",
-        photos: [
-            "/home/lenovo/.gemini/antigravity/brain/b4969a50-da06-4a7a-b266-e90c346e8618/site_foundation_pour_1778499640874.png",
-            "/home/lenovo/.gemini/antigravity/brain/b4969a50-da06-4a7a-b266-e90c346e8618/site_blueprint_check_1778499987850.png",
-            "/home/lenovo/.gemini/antigravity/brain/b4969a50-da06-4a7a-b266-e90c346e8618/site_crane_operation_1778500014850.png"
-        ]
-    },
-    {
-        id: 2,
-        name: "Sana Khan",
-        email: "sana.k@infrapilot.com",
-        mobile: "+91 96677 88990",
-        projects: "Metro Ph-II, Bridge Overpass",
-        experience: "5 Years",
-        performance: "Good",
-        status: "On Site",
-        specialization: "Civil & Infrastructure",
-        lastDsr: new Date(Date.now() - 86400000).toISOString(),
-        weather: "Cloudy, 28°C",
-        laborCount: 85,
-        activeTask: "Pillar Reinforcement",
-        joiningDate: "2023-06-20",
-        humidity: "62%",
-        windSpeed: "18 km/h",
-        photos: [
-            "/home/lenovo/.gemini/antigravity/brain/b4969a50-da06-4a7a-b266-e90c346e8618/bridge_construction_metro_1778500228001.png"
-        ]
-    },
-    {
-        id: 3,
-        name: "Rahul Deshpande",
-        email: "rahul.d@infrapilot.com",
-        mobile: "+91 97788 99001",
-        projects: "Grand Vista Residency",
-        experience: "12 Years",
-        performance: "Outstanding",
-        status: "Leave",
-        specialization: "Quality Control",
-        lastDsr: new Date().toISOString(),
-        weather: "Clear, 30°C",
-        laborCount: 0,
-        activeTask: "None (On Leave)",
-        joiningDate: "2021-11-05",
-        humidity: "45%",
-        windSpeed: "10 km/h",
-        photos: [
-            "/home/lenovo/.gemini/antigravity/brain/b4969a50-da06-4a7a-b266-e90c346e8618/residential_quality_check_1778500257182.png"
-        ]
-    }
-];
+import { userService } from "../../services/userService";
 
 const EngineerProfilePage: React.FC = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const [mirrorFilter, setMirrorFilter] = useState<"photos" | "materials" | "dsr">("photos");
+    const [engineer, setEngineer] = useState<any>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
-    // In production, fetch via ID. Here we use mock.
-    const engineer = initialEngineers.find(e => e.id === Number(id)) || initialEngineers[0];
+    useEffect(() => {
+        const fetchEngineer = async () => {
+            if (!id) return;
+            try {
+                setIsLoading(true);
+                const u = await userService.getUserById(parseInt(id));
+
+                // Map to UI structure
+                const mapped = {
+                    id: u.user_id,
+                    name: u.full_name,
+                    email: u.email,
+                    mobile: u.mobile_number,
+                    projects: u.address || "Main Site",
+                    experience: "5 Years",
+                    performance: "Outstanding",
+                    status: u.is_active ? "On Site" : "Leave",
+                    specialization: u.designation || "Site Engineer",
+                    lastDsr: new Date().toISOString(),
+                    weather: "Sunny, 32°C",
+                    laborCount: 120,
+                    activeTask: "Site Supervision",
+                    joiningDate: u.joining_date || "2024-01-01",
+                    humidity: "54%",
+                    windSpeed: "12 km/h",
+                    photos: []
+                };
+
+                setEngineer(mapped);
+            } catch (error) {
+                console.error("Failed to fetch engineer:", error);
+                toast.error("Failed to load engineer profile.");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchEngineer();
+    }, [id]);
+
+    if (isLoading) {
+        return (
+            <div className="flex flex-col items-center justify-center h-screen bg-slate-50">
+                <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4"></div>
+                <p className="text-slate-500 font-medium">Analyzing Site Intelligence...</p>
+            </div>
+        );
+    }
+
+    if (!engineer) {
+        return (
+            <div className="flex flex-col items-center justify-center h-screen bg-slate-50">
+                <p className="text-slate-500 font-medium mb-4">Engineer not found.</p>
+                <button onClick={() => navigate("/admin/engineers")} className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold">Back to Staff</button>
+            </div>
+        );
+    }
 
     const handleExport = () => {
         toast.promise(
@@ -286,7 +274,7 @@ const EngineerProfilePage: React.FC = () => {
                             <div className="flex-1 overflow-y-auto p-10 custom-scrollbar">
                                 {mirrorFilter === "photos" && (
                                     <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                                        {(engineer.photos && engineer.photos.length > 0 ? engineer.photos : [1, 2, 3, 4, 5, 6]).map((item, i) => (
+                                        {(engineer.photos && engineer.photos.length > 0 ? engineer.photos : [1, 2, 3, 4, 5, 6]).map((item: any, i: number) => (
                                             <div key={i} className="group relative aspect-square bg-slate-50 rounded-[2rem] overflow-hidden border border-slate-100 hover:border-primary/30 transition-all cursor-zoom-in">
                                                 {typeof item === "string" ? (
                                                     <img src={item} alt="Site activity" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />

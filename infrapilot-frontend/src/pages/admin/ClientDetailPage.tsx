@@ -1,66 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import {
     User, Building2, Mail, Phone, Briefcase, FileText, MessageCircle,
-    Send, ShieldCheck, Upload, Trash2, PlusCircle, ArrowLeft,
-    CheckCircle, XCircle, ClipboardList, CreditCard
+    Send, Upload, Trash2, PlusCircle, ArrowLeft,
+    ClipboardList, CreditCard
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { userService } from "../../services/userService";
 
 // ─── Mocked data (to be replaced with API) ───────────────────────────────────
-const MOCK_CLIENTS: Record<string, any> = {
-    "1": {
-        id: 1, name: "Vikram Sethi", company: "Sethi Real Estate Group",
-        email: "vikram@sethigroup.com", mobile: "9334455667",
-        project: "Skyline Tower A", status: "Active",
-        address: "12, MG Road, Indore, MP – 452001",
-        gst: "23AADCS1234B1Z5", notes: "VIP client. Prefers WhatsApp updates.",
-        portalEnabled: true,
-        invoices: [
-            { id: "INV-001", date: "2024-04-01", amount: 120000, status: "Paid" },
-            { id: "INV-002", date: "2024-05-10", amount: 250000, status: "Unpaid" },
-            { id: "INV-003", date: "2024-06-18", amount: 85000, status: "Overdue" },
-        ],
-        documents: [
-            { id: "d1", name: "Site Agreement.pdf", category: "Agreement", date: "2024-03-15", size: "1.2 MB" },
-            { id: "d2", name: "Initial Invoice.pdf", category: "Invoice", date: "2024-04-01", size: "340 KB" },
-        ],
-        communications: [
-            { id: "c1", type: "WhatsApp", date: "2024-05-11 09:32", preview: "Invoice INV-002 summary sent." },
-            { id: "c2", type: "Email", date: "2024-06-19 14:05", preview: "Invoice INV-003 from InfraPilot" },
-        ],
-    },
-    "2": {
-        id: 2, name: "Anjali Rao", company: "City Infra Development",
-        email: "anjali.rao@cityinfra.com", mobile: "9445566778",
-        project: "Metro Extension Ph-II", status: "Active",
-        address: "45, Vijay Nagar, Indore, MP – 452010",
-        gst: "23BBBCL4321K2Z8", notes: "Requires formal email communication only.",
-        portalEnabled: false,
-        invoices: [
-            { id: "INV-010", date: "2024-03-10", amount: 450000, status: "Paid" },
-        ],
-        documents: [],
-        communications: [],
-    },
-    "3": {
-        id: 3, name: "Karan Malhotra", company: "Malhotra & Sons",
-        email: "karan@malhotra.in", mobile: "9223344556",
-        project: "Grand Vista Residency", status: "On Hold",
-        address: "78, Rajwada Colony, Ujjain, MP – 456001",
-        gst: "23CCCDE5678M3Z1", notes: "Project on hold due to land dispute.",
-        portalEnabled: false,
-        invoices: [
-            { id: "INV-020", date: "2024-02-28", amount: 124000, status: "Overdue" },
-        ],
-        documents: [
-            { id: "d3", name: "Contract.pdf", category: "Contract", date: "2024-01-10", size: "2.1 MB" },
-        ],
-        communications: [],
-    },
-};
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 const TABS = [
@@ -68,7 +18,6 @@ const TABS = [
     { id: "ledger", label: "Financial Ledger", icon: CreditCard },
     { id: "documents", label: "Documents", icon: FileText },
     { id: "comms", label: "Communication", icon: MessageCircle },
-    { id: "portal", label: "Portal Access", icon: ShieldCheck },
 ];
 
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
@@ -158,8 +107,8 @@ function LedgerTab({ client, navigate }: any) {
                                 <td className="px-6 py-3 font-bold text-slate-800">₹{inv.amount.toLocaleString()}</td>
                                 <td className="px-6 py-3">
                                     <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${inv.status === "Paid" ? "bg-emerald-100 text-emerald-600" :
-                                            inv.status === "Overdue" ? "bg-rose-100 text-rose-600" :
-                                                "bg-amber-100 text-amber-600"
+                                        inv.status === "Overdue" ? "bg-rose-100 text-rose-600" :
+                                            "bg-amber-100 text-amber-600"
                                         }`}>{inv.status}</span>
                                 </td>
                                 <td className="px-6 py-3 text-right">
@@ -330,76 +279,6 @@ function CommunicationTab({ client }: any) {
     );
 }
 
-// ─── Portal Access Tab ────────────────────────────────────────────────────────
-function PortalAccessTab({ client }: any) {
-    const [enabled, setEnabled] = useState(client.portalEnabled ?? false);
-    const [showPwdModal, setShowPwdModal] = useState(false);
-    const [newPwd, setNewPwd] = useState("");
-
-    const toggle = () => {
-        setEnabled((v: boolean) => !v);
-        toast.success(enabled ? "Portal access disabled." : "Portal access enabled.");
-    };
-
-    const handleResetPwd = () => {
-        if (!newPwd.trim()) { toast.error("Enter a new password."); return; }
-        toast.success("Password reset successfully (frontend only).");
-        setNewPwd("");
-        setShowPwdModal(false);
-    };
-
-    return (
-        <div className="space-y-6 max-w-lg">
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-5">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h3 className="text-sm font-black text-slate-800">Client Portal Access</h3>
-                        <p className="text-xs text-slate-500 mt-1">Allow this client to log in to their client portal.</p>
-                    </div>
-                    <button onClick={toggle} className={`relative w-12 h-6 rounded-full transition-colors ${enabled ? "bg-emerald-500" : "bg-slate-200"}`}>
-                        <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${enabled ? "translate-x-6" : ""}`} />
-                    </button>
-                </div>
-
-                <div className="flex items-center gap-3 pt-2">
-                    {enabled ? <CheckCircle className="w-5 h-5 text-emerald-500" /> : <XCircle className="w-5 h-5 text-slate-300" />}
-                    <span className={`text-sm font-bold ${enabled ? "text-emerald-600" : "text-slate-400"}`}>
-                        {enabled ? "Portal is ACTIVE" : "Portal is DISABLED"}
-                    </span>
-                </div>
-
-                <div className="pt-2 border-t border-slate-50 space-y-2">
-                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Login Email</p>
-                    <p className="text-sm font-semibold text-slate-700">{client.email}</p>
-                </div>
-
-                <button
-                    onClick={() => setShowPwdModal(true)}
-                    className="px-4 py-2 bg-slate-50 border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-100 transition-all"
-                >Reset Portal Password</button>
-            </div>
-
-            {showPwdModal && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm space-y-4">
-                        <h3 className="text-lg font-black text-slate-800">Reset Password</h3>
-                        <input
-                            type="password"
-                            placeholder="New password"
-                            value={newPwd}
-                            onChange={e => setNewPwd(e.target.value)}
-                            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                        />
-                        <div className="flex gap-3 pt-2">
-                            <button onClick={() => setShowPwdModal(false)} className="flex-1 py-2.5 bg-slate-50 text-slate-600 rounded-xl text-sm font-semibold">Cancel</button>
-                            <button onClick={handleResetPwd} className="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-bold">Reset</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-}
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
@@ -428,7 +307,54 @@ const ClientDetailPage = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState("overview");
-    const [client, setClient] = useState(id ? MOCK_CLIENTS[id] : null);
+    const [client, setClient] = useState<any>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchClientData = async () => {
+            if (!id) return;
+            try {
+                setIsLoading(true);
+                const u = await userService.getUserById(parseInt(id));
+
+                // Map API user to the expected client structure
+                const mappedClient = {
+                    id: u.user_id,
+                    name: u.full_name,
+                    company: u.designation || "N/A",
+                    email: u.email,
+                    mobile: u.mobile_number,
+                    project: u.address || "No Project Linked",
+                    status: u.is_active ? "Active" : "Inactive",
+                    address: u.address || "No Address Provided",
+                    gst: u.pan_number || "—", // Using PAN as placeholder for GST if not available
+                    notes: "VIP client. Prefers WhatsApp updates.", // Keep original mock notes or set to empty
+                    portalEnabled: u.is_active,
+                    invoices: [], // These would normally come from a different service
+                    documents: [],
+                    communications: [],
+                };
+
+                setClient(mappedClient);
+            } catch (error) {
+                console.error("Failed to fetch client:", error);
+                toast.error("Failed to load client details");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchClientData();
+    }, [id]);
+
+    if (isLoading) {
+        return (
+            <div className="flex flex-col items-center justify-center h-screen gap-4">
+                <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+                <p className="text-slate-500 font-medium">Loading client intelligence...</p>
+            </div>
+        );
+    }
 
     if (!client) {
         return (
@@ -486,8 +412,8 @@ const ClientDetailPage = () => {
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
                                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${activeTab === tab.id
-                                        ? "bg-primary text-white shadow-lg shadow-primary/20"
-                                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                                    ? "bg-primary text-white shadow-lg shadow-primary/20"
+                                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
                                     }`}
                             >
                                 <Icon className="w-3.5 h-3.5" /> {tab.label}
@@ -501,7 +427,6 @@ const ClientDetailPage = () => {
                 {activeTab === "ledger" && <LedgerTab client={client} navigate={navigate} />}
                 {activeTab === "documents" && <DocumentsTab client={client} />}
                 {activeTab === "comms" && <CommunicationTab client={client} />}
-                {activeTab === "portal" && <PortalAccessTab client={client} />}
 
             </PageTransition>
         </>
