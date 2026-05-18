@@ -10,8 +10,8 @@ const photos = [
 
   // ── Foundation ───────────────────────────────────────────────────────────
   { id: 5,  url: "/photos/foundation.png",                                                                     date: "29 Mar 2026", desc: "Pile boring operations and rebar grid layout for the northern block foundation.", tag: "Foundation" },
-  { id: 6,  url: "https://images.unsplash.com/photo-1533106497176-45ae19e68ba2?w=1200&h=800&fit=crop",           date: "22 Mar 2026", desc: "Reinforced concrete foundation slab curing for the main structure footprint.",    tag: "Foundation" },
-  { id: 7,  url: "https://images.unsplash.com/photo-1590856029826-c7a73142bbf1?w=1200&h=800&fit=crop",        date: "15 Mar 2026", desc: "Deep excavation and ground stabilization works for the northern wing basement.",   tag: "Foundation" },
+  { id: 6,  url: "/photos/foundation_2.png",                                                                   date: "22 Mar 2026", desc: "Reinforced concrete foundation slab curing for the main structure footprint.",    tag: "Foundation" },
+  { id: 7,  url: "/photos/foundation_3.png",                                                                   date: "15 Mar 2026", desc: "Deep excavation and ground stabilization works for the northern wing basement.",   tag: "Foundation" },
   { id: 8,  url: "/photos/foundation_new.png",                                                                 date: "05 Mar 2026", desc: "Industrial concrete pour for the central foundation raft — Phase 1.",             tag: "Foundation" },
 
 

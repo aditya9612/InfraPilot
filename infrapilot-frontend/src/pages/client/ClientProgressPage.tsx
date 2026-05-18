@@ -13,16 +13,34 @@ const phases = [
 ];
 
 const weeklyLog = [
-  { date: "31 Mar 2026", task: "3rd floor column casting completed", crew: 24, status: "done" },
-  { date: "30 Mar 2026", task: "Roof slab reinforcement laid", crew: 18, status: "done" },
-  { date: "29 Mar 2026", task: "Plumbing rough-in — F3", crew: 12, status: "done" },
-  { date: "28 Mar 2026", task: "Electrical conduit laying — F2", crew: 9, status: "done" },
-  { date: "27 Mar 2026", task: "Safety audit & compliance check", crew: 6, status: "done" },
+  { date: "31 Mar 2026", task: "3rd floor column casting completed", crew: 24, status: "done", dsrId: 1 },
+  { date: "30 Mar 2026", task: "Roof slab reinforcement laid", crew: 18, status: "done", dsrId: 2 },
+  { date: "29 Mar 2026", task: "Plumbing rough-in — F3", crew: 12, status: "done", dsrId: 3 },
+  { date: "28 Mar 2026", task: "Electrical conduit laying — F2", crew: 9, status: "done", dsrId: 4 },
+  { date: "27 Mar 2026", task: "Safety audit & compliance check", crew: 6, status: "done", dsrId: 5 },
 ];
 
 const ClientProgressPage = () => {
   const [activities, setActivities] = useState<ActivityProgress[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const handleDownloadDsr = async (dsrId: number, date: string) => {
+    try {
+      const response = await fetch(`/api/v1/dsr/${dsrId}/pdf`);
+      if (!response.ok) throw new Error('Failed to fetch DSR');
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `DSR_Report_${date.replace(/\s+/g, '_')}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('DSR download failed:', error);
+    }
+  };
 
   useEffect(() => {
     const fetchProgress = async () => {
@@ -62,7 +80,7 @@ const ClientProgressPage = () => {
         {/* Overall */}
         <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 mb-8 flex items-center gap-10">
           <div className="relative w-36 h-36 shrink-0">
-            <svg className="w-full h-full -rotate-90">
+            <svg className="w-full h-full -rotate-90" viewBox="0 0 144 144">
               <circle cx="72" cy="72" r="60" stroke="#f1f5f9" strokeWidth="10" fill="none" />
               <circle cx="72" cy="72" r="60" stroke="#2563eb" strokeWidth="10" fill="none"
                 strokeDasharray={376.99} strokeDashoffset={376.99 * (1 - 0.68)} strokeLinecap="round" />
@@ -107,12 +125,26 @@ const ClientProgressPage = () => {
             <h2 className="text-[11px] font-bold text-slate-800 uppercase tracking-widest mb-8">Recent Daily Log</h2>
             <div className="space-y-4">
               {weeklyLog.map((log, i) => (
-                <div key={i} className="flex items-start gap-4 p-4 bg-slate-50 rounded-2xl">
-                  <span className="w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center text-white text-xs shrink-0">✓</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-slate-700 leading-snug">{log.task}</p>
-                    <p className="text-[10px] text-slate-400 font-bold mt-0.5">{log.date} · {log.crew} workers</p>
+                <div 
+                  key={i} 
+                  onClick={() => handleDownloadDsr(log.dsrId, log.date)}
+                  className="flex items-center justify-between p-4 bg-slate-50 hover:bg-blue-50/50 border border-transparent hover:border-blue-100/50 rounded-2xl cursor-pointer transition-all duration-300 hover:translate-x-1 group"
+                >
+                  <div className="flex items-start gap-4 min-w-0">
+                    <span className="w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center text-white text-xs shrink-0 shadow-md shadow-emerald-500/20">✓</span>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-slate-700 leading-snug group-hover:text-blue-600 transition-colors">{log.task}</p>
+                      <p className="text-[10px] text-slate-400 font-bold mt-0.5">{log.date} · {log.crew} workers</p>
+                    </div>
                   </div>
+                  <button 
+                    className="p-2.5 rounded-xl bg-white text-slate-400 group-hover:text-blue-600 group-hover:bg-blue-50 border border-slate-100 shadow-sm transition-all duration-300"
+                    title="Download DSR PDF"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </button>
                 </div>
               ))}
             </div>

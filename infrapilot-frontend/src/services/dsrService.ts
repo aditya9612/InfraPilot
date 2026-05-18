@@ -74,7 +74,7 @@ const DSR_MOCK_FALLBACK: DSRResponse = {
       photos: [
         {
           id: 1,
-          file_url: "https://images.unsplash.com/photo-1541888946425-d81bb19480c5?w=200&h=150&fit=crop"
+          file_url: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&h=300&fit=crop"
         }
       ]
     },
@@ -108,11 +108,11 @@ const DSR_MOCK_FALLBACK: DSRResponse = {
       photos: [
         {
           id: 2,
-          file_url: "https://images.unsplash.com/photo-1503387762-592dea58ef21?w=200&h=150&fit=crop"
+          file_url: "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?w=400&h=300&fit=crop"
         },
         {
           id: 3,
-          file_url: "https://images.unsplash.com/photo-1590486803833-ffc45744a3ae?w=200&h=150&fit=crop"
+          file_url: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=400&h=300&fit=crop"
         }
       ]
     }

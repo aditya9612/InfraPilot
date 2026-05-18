@@ -90,10 +90,66 @@ const mockApiPlugin = () => ({
       // Handle /api/v1/invoices/{id}/pdf
       const invoicePdfMatch = req.url?.match(/\/api\/v1\/invoices\/(\d+)\/pdf/);
       if (invoicePdfMatch && req.method === 'GET') {
+        const id = invoicePdfMatch[1];
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', 'attachment; filename="invoice.pdf"');
+        res.setHeader('Content-Disposition', `attachment; filename="Invoice_${id}.pdf"`);
         res.statusCode = 200;
-        res.end(Buffer.from('download file'));
+        const pdfContent = `%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /Resources 4 0 R /MediaBox [0 0 595 842] /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >>
+endobj
+5 0 obj
+<< /Length 500 >>
+stream
+BT
+/F1 16 Tf
+70 780 Td
+(INFRAPILOT PORTAL - INVOICE DETAIL) Tj
+/F1 10 Tf
+0 -30 Td
+(Invoice Number: INV-2026-00${id}) Tj
+0 -20 Td
+(Project: Skyline Tower - Phase 3 Superstructure) Tj
+0 -20 Td
+(Client Name: Mr. Sharma / InfraPilot Client) Tj
+0 -30 Td
+(SUMMARY BREAKDOWN:) Tj
+0 -20 Td
+(  - Base Concrete & Reinforcement: INR 12,00,000) Tj
+0 -15 Td
+(  - GST Tax percentage: 18% [INR 2,16,000]) Tj
+0 -20 Td
+(  - Net Invoiced Total: INR 14,16,000) Tj
+0 -30 Td
+(PAYMENT AUDIT STATUS: PAID & SECURED) Tj
+0 -40 Td
+(This is a secure system-generated client-facing audit invoice.) Tj
+ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000222 00000 n 
+0000000305 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+426
+%%EOF`;
+        res.end(Buffer.from(pdfContent));
         return;
       }
 
@@ -102,7 +158,62 @@ const mockApiPlugin = () => ({
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', 'attachment; filename="invoices_all.pdf"');
         res.statusCode = 200;
-        res.end(Buffer.from('download file'));
+        const pdfContent = `%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /Resources 4 0 R /MediaBox [0 0 595 842] /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >>
+endobj
+5 0 obj
+<< /Length 500 >>
+stream
+BT
+/F1 16 Tf
+70 780 Td
+(INFRAPILOT PORTAL - INVOICES EXPORT SUMMARY) Tj
+/F1 10 Tf
+0 -30 Td
+(Report: Full Invoiced Ledger Statement) Tj
+0 -20 Td
+(Project: Skyline Tower - Phase 3 Superstructure) Tj
+0 -20 Td
+(Client Name: Mr. Sharma / InfraPilot Client) Tj
+0 -30 Td
+(ALL INVOICES BREAKDOWN:) Tj
+0 -20 Td
+(  - INV-2026-001 [Concrete Foundation]: INR 5,31,000 [PAID]) Tj
+0 -15 Td
+(  - INV-2026-002 [Cement Supply]: INR 2,06,500 [PENDING]) Tj
+0 -15 Td
+(  - INV-2026-003 [Column reinforcement]: INR 3,30,400 [PENDING]) Tj
+0 -30 Td
+(TOTAL PORTFOLIO INVOICED: INR 10,67,900) Tj
+0 -40 Td
+(This is a secure system-generated client-facing audit invoice ledger.) Tj
+ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000222 00000 n 
+0000000305 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+426
+%%EOF`;
+        res.end(Buffer.from(pdfContent));
         return;
       }
 

@@ -146,7 +146,7 @@ const ClientDashboard = () => {
               <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/50 rounded-full blur-3xl -mr-32 -mt-32" />
               <div className="flex flex-col md:flex-row gap-12 items-center relative z-10">
                 <div className="relative w-56 h-56 flex items-center justify-center">
-                  <svg className="w-full h-full transform -rotate-90">
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 224 224">
                     <circle cx="112" cy="112" r="100" stroke="currentColor" strokeWidth="16" fill="transparent" className="text-slate-100" />
                     <circle cx="112" cy="112" r="100" stroke="currentColor" strokeWidth="16" fill="transparent" strokeDasharray={628.3} strokeDashoffset={628.3 * (1 - (stats?.progress_percent || 0) / 100)} className="text-primary rounded-full transition-all duration-1000 shadow-lg shadow-blue-500/20" />
                   </svg>
