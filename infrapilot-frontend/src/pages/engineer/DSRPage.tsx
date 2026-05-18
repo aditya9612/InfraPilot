@@ -22,7 +22,9 @@ import {
     Image as ImageIcon,
     RotateCcw,
     CheckCircle2,
-    FileDown
+    FileDown,
+    ChevronLeft,
+    ChevronRight
 } from "lucide-react";
 
 import { dsrService } from "../../services/dsrService";
@@ -45,9 +47,7 @@ const DSRPage = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
     const [projectId, setProjectId] = useState<number | null>(null);
-    const [startDate, setStartDate] = useState("");
-    const [endDate, setEndDate] = useState("");
-    const [contractorName, setContractorName] = useState("");
+
 
     // Filter state for StatCards
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Compliance" | "Pending" | "Efficiency">("All");
@@ -92,10 +92,7 @@ const DSRPage = () => {
             const offset = (currentPage - 1) * itemsPerPage;
             const response = await dsrService.getDsrByProject(projectId, { 
                 limit: itemsPerPage, 
-                offset,
-                start_date: startDate || undefined,
-                end_date: endDate || undefined,
-                contractor_name: contractorName || undefined
+                offset
             });
             const apiData = response.items;
             setTotalItems(response.meta.total);
@@ -125,7 +122,7 @@ const DSRPage = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [projectId, currentPage, startDate, endDate, contractorName]);
+    }, [projectId, currentPage]);
 
     useEffect(() => {
         fetchDsr();
@@ -227,20 +224,13 @@ const DSRPage = () => {
         }
 
         return data.filter(dsr => {
-            // Apply Date range filters if provided
-            if (startDate && dsr.report_date < startDate) return false;
-            if (endDate && dsr.report_date > endDate) return false;
-
-            // Apply Contractor Name filter if provided
-            if (contractorName && !dsr.contractor_name?.toLowerCase().includes(contractorName.toLowerCase())) return false;
-
             const matchesSearch = dsr.work_done.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 (dsr.business_id && dsr.business_id.toLowerCase().includes(searchTerm.toLowerCase())) ||
                 dsr.site_location.toLowerCase().includes(searchTerm.toLowerCase());
             const matchesStatus = statusFilter === "All" || dsr.status === statusFilter;
             return matchesSearch && matchesStatus;
         });
-    }, [dsrList, searchTerm, statusFilter, activeStatFilter, startDate, endDate, contractorName]);
+    }, [dsrList, searchTerm, statusFilter, activeStatFilter]);
 
     const stats = useMemo(() => {
         const total = dsrList.length;
@@ -263,7 +253,7 @@ const DSRPage = () => {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, statusFilter, activeStatFilter, projectId, startDate, endDate, contractorName]);
+    }, [searchTerm, statusFilter, activeStatFilter, projectId]);
 
     const totalPages = Math.ceil(totalItems / itemsPerPage);
 
@@ -287,11 +277,7 @@ const DSRPage = () => {
                             <RotateCcw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
                         </button>
                         <button
-                            onClick={() => dsrService.exportDsrExcel(projectId || 36, {
-                                start_date: startDate || undefined,
-                                end_date: endDate || undefined,
-                                contractor_name: contractorName || undefined
-                            })}
+                            onClick={() => dsrService.exportDsrExcel(projectId || 36, {})}
                             className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95 font-inter"
                         >
                             <FileDown className="w-4 h-4" />
@@ -369,38 +355,10 @@ const DSRPage = () => {
                                 <option value="Rejected">Rejected</option>
                             </select>
 
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest md:border-l md:border-slate-100 md:pl-3">Start:</span>
-                            <input
-                                type="date"
-                                value={startDate}
-                                onChange={(e) => setStartDate(e.target.value)}
-                                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer font-inter"
-                            />
-
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">End:</span>
-                            <input
-                                type="date"
-                                value={endDate}
-                                onChange={(e) => setEndDate(e.target.value)}
-                                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer font-inter"
-                            />
-
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest md:border-l md:border-slate-100 md:pl-3">Contractor:</span>
-                            <input
-                                type="text"
-                                placeholder="Name..."
-                                value={contractorName}
-                                onChange={(e) => setContractorName(e.target.value)}
-                                className="w-28 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[10px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400"
-                            />
-
-                            {(activeStatFilter !== "All" || startDate || endDate || contractorName) && (
+                            {activeStatFilter !== "All" && (
                                 <button 
                                     onClick={() => {
                                         setActiveStatFilter("All");
-                                        setStartDate("");
-                                        setEndDate("");
-                                        setContractorName("");
                                     }} 
                                     className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors"
                                     title="Reset Filters"
@@ -545,16 +503,21 @@ const DSRPage = () => {
                                 <button 
                                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                     disabled={currentPage === 1}
-                                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50 transition-all font-inter"
+                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    title="Previous Page"
                                 >
-                                    Prev
+                                    <ChevronLeft className="w-4 h-4" />
                                 </button>
+                                <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
+                                    Page {currentPage} of {totalPages || 1}
+                                </div>
                                 <button 
                                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                                     disabled={currentPage === totalPages || totalPages === 0}
-                                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50 transition-all font-inter"
+                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    title="Next Page"
                                 >
-                                    Next
+                                    <ChevronRight className="w-4 h-4" />
                                 </button>
                             </div>
                         </div>

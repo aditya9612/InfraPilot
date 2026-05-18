@@ -14,7 +14,9 @@ import {
     RotateCcw,
     FileText,
     Box
-} from "lucide-react";
+,
+    ChevronLeft,
+    ChevronRight} from "lucide-react";
 import { siteRequestService } from "../../../services/siteRequestService";
 import type { CreateSiteRequest } from "../../../services/siteRequestService";
 
@@ -422,20 +424,25 @@ const MaterialRequestPage = () => {
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">
                                 Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredRequests.length)} of {filteredRequests.length} entries
                             </span>
-                            <div className="flex gap-2 font-inter">
-                                <button 
-                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                            <div className="flex items-center gap-2 font-inter">
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                                     disabled={currentPage === 1}
-                                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50 transition-all font-inter"
+                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    title="Previous Page"
                                 >
-                                    Prev
+                                    <ChevronLeft className="w-4 h-4" />
                                 </button>
-                                <button 
-                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                                    disabled={currentPage === totalPages || totalPages === 0}
-                                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50 transition-all font-inter"
+                                <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
+                                    Page {currentPage} of {1 || 1}
+                                </div>
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, 1 || 1))}
+                                    disabled={currentPage >= 1 || 1 === 0}
+                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    title="Next Page"
                                 >
-                                    Next
+                                    <ChevronRight className="w-4 h-4" />
                                 </button>
                             </div>
                         </div>
