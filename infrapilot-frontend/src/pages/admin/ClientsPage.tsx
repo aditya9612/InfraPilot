@@ -27,9 +27,12 @@ const ClientsPage = () => {
       const res = await userService.getAllUsers(100, 0);
       const userList = Array.isArray(res) ? res : (res.items || res.data || res.users || []);
 
-      // Filter for Client role and map to UI format
+      // Filter for Client role with robust check and map to UI format
       const clientList = userList
-        .filter((u: User) => u.role === "Client")
+        .filter((u: any) => {
+          const role = typeof u.role === "string" ? u.role : u.role?.name || "";
+          return role.toLowerCase() === "client";
+        })
         .map((u: User) => ({
           id: u.user_id,
           name: u.full_name,

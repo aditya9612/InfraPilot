@@ -28,8 +28,23 @@ const EngineersPage = () => {
         // Robust extraction logic: handles direct array or nested items/data/users property
         const userList = Array.isArray(res) ? res : (res.items || res.data || res.users || []);
 
-        // Filter for Site Engineers
-        const engineerList = userList.filter((u: any) => u.role === "SiteEngineer");
+        // Filter for Site Engineers with robust checks for strings or objects
+        const engineerList = userList.filter((u: any) => {
+          const role = typeof u.role === "string" ? u.role : u.role?.name || "";
+          const designation = (u.designation || "").toUpperCase();
+
+          // Standardize roles that count as Site Engineers
+          const isEngineerRole = [
+            "SiteEngineer",
+            "Site Engineer",
+            "Engineer"
+          ].some(r => role.toLowerCase().replace(/\s/g, "") === r.toLowerCase().replace(/\s/g, ""));
+
+          // Extra safety: exclude anyone with explicit "ADMIN" designation unless they are definitely an engineer
+          const isAdminDesignation = designation.includes("ADMIN");
+
+          return isEngineerRole && !isAdminDesignation;
+        });
 
         // Map to UI structure
         const mapped = engineerList.map((u: any) => ({
