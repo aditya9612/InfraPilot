@@ -1,3 +1,5 @@
+export type EquipmentCondition = "GOOD" | "FAIR" | "POOR" | "REPAIR" | "SERVICE" | "DAMAGED" | "MAINTENANCE";
+
 export interface EquipmentItem {
   id: number;
   project_id: number;
@@ -6,12 +8,12 @@ export interface EquipmentItem {
   operator_name: string;
   working_hours: number;
   fuel_used: number;
-  condition: "good" | "fair" | "poor";
+  condition: EquipmentCondition | string;
   rental_cost: number;
   maintenance_date: string;
-  is_deleted?: boolean;
-  created_at?: string;
-  updated_at?: string;
+  is_deleted: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface CreateEquipmentRequest {
@@ -21,7 +23,7 @@ export interface CreateEquipmentRequest {
   operator_name: string;
   working_hours: number;
   fuel_used: number;
-  condition: "good" | "fair" | "poor";
+  condition: EquipmentCondition | string;
   rental_cost: number;
   maintenance_date: string;
 }
@@ -33,7 +35,7 @@ export interface UpdateEquipmentRequest {
   operator_name?: string;
   working_hours?: number;
   fuel_used?: number;
-  condition?: "good" | "fair" | "poor";
+  condition?: EquipmentCondition | string;
   rental_cost?: number;
   maintenance_date?: string;
 }

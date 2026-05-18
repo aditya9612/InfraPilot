@@ -131,7 +131,11 @@ const CreateMasterDataModal: React.FC<CreateMasterDataModalProps> = ({
                 <input
                   type="text"
                   placeholder="MAT-CEM-01"
+<<<<<<< HEAD
                   className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-mono font-bold ${errors.unique_code
+=======
+                  className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-mono font-bold ${errors.code
+>>>>>>> 1fdaafe88de190d5698bdb302fbe48dd9f05857c
                     ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
                     : "border-gray-200 focus:ring-primary/10 focus:border-primary"
                     }`}

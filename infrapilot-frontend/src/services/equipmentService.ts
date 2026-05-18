@@ -1,59 +1,27 @@
 import api from './api';
-
-export interface Equipment {
-  id: number;
-  project_id: number;
-  equipment_name: string;
-  equipment_code: string;
-  operator_name: string;
-  working_hours: number;
-  fuel_used: number;
-  condition: string;
-  rental_cost: number;
-  maintenance_date: string;
-  is_deleted?: boolean;
-  created_at?: string;
-  updated_at?: string;
-}
-
-export interface EquipmentCreateData {
-  project_id: number;
-  equipment_name: string;
-  equipment_code: string;
-  operator_name: string;
-  working_hours: number;
-  fuel_used: number;
-  condition: string;
-  rental_cost: number;
-  maintenance_date: string;
-}
-
-export interface EquipmentUpdateData {
-  project_id: number;
-  equipment_name: string;
-  equipment_code: string;
-  operator_name: string;
-  working_hours: number;
-  fuel_used: number;
-  condition: string;
-  rental_cost: number;
-  maintenance_date: string;
-}
+import type {
+  EquipmentItem,
+  EquipmentResponse,
+  CreateEquipmentRequest,
+  UpdateEquipmentRequest
+} from '../types/equipment';
 
 export const equipmentService = {
   /**
    * Get list of equipment
    * GET /api/v1/equipment
    */
-  async getEquipment(projectId: number, limit: number = 20) {
+  async getEquipment(projectId?: number, limit: number = 100, offset: number = 0) {
     try {
-      const response = await api.get(`/equipment`, {
-        params: { project_id: projectId, limit }
+      const params: any = { limit, offset };
+      if (projectId) params.project_id = projectId;
+      const response = await api.get<EquipmentResponse>(`/equipment`, {
+        params
       });
       const data = response.data;
 
       // Handle wrapper objects or direct arrays
-      const items = Array.isArray(data) ? data : (data.items || data.data || []);
+      const items = Array.isArray(data) ? data : (data.items || []);
 
       return {
         ...data,
@@ -63,8 +31,8 @@ export const equipmentService = {
       console.warn("Equipment List Fetch Failed, using empty list fallback:", error);
       return {
         items: [],
-        meta: { total: 0, limit: 10, offset: 0 }
-      };
+        meta: { total: 0, limit: limit, offset: 0 }
+      } as EquipmentResponse;
     }
   },
 
@@ -72,17 +40,17 @@ export const equipmentService = {
    * Create new equipment
    * POST /api/v1/equipment
    */
-  async createEquipment(data: EquipmentCreateData) {
+  async createEquipment(data: CreateEquipmentRequest) {
     try {
       console.log("Creating equipment with data:", data);
-      const response = await api.post('/equipment', data, {
+      const response = await api.post<EquipmentItem>('/equipment', data, {
         params: { project_id: data.project_id }
       });
       return response.data;
     } catch (error: any) {
       if (error.response?.status === 403 || error.response?.status === 404 || error.response?.status === 500) {
         console.warn(`Virtual Success: Bypassing ${error.response?.status} for Equipment Creation`);
-        return { ...data, id: Math.floor(Math.random() * 1000) } as Equipment;
+        return { ...data, id: Math.floor(Math.random() * 1000) } as EquipmentItem;
       }
       throw error;
     }
@@ -94,7 +62,7 @@ export const equipmentService = {
    */
   async getEquipmentById(id: number) {
     try {
-      const response = await api.get(`/equipment/${id}`);
+      const response = await api.get<EquipmentItem>(`/equipment/${id}`);
       return response.data;
     } catch (error: any) {
       console.error(`Get Equipment ${id} Error:`, error.response?.data || error.message);
@@ -106,14 +74,14 @@ export const equipmentService = {
    * Update an existing equipment
    * PUT /api/v1/equipment/{equipment_id}
    */
-  async updateEquipment(id: number, data: EquipmentUpdateData) {
+  async updateEquipment(id: number, data: UpdateEquipmentRequest) {
     try {
-      const response = await api.put(`/equipment/${id}`, data);
+      const response = await api.put<EquipmentItem>(`/equipment/${id}`, data);
       return response.data;
     } catch (error: any) {
       if (error.response?.status === 403 || error.response?.status === 404 || error.response?.status === 500) {
         console.warn(`Virtual Success: Bypassing ${error.response?.status} for Equipment Update`);
-        return { ...data, id } as Equipment;
+        return { ...data, id } as EquipmentItem;
       }
       throw error;
     }
@@ -138,3 +106,4 @@ export const equipmentService = {
 };
 
 export default equipmentService;
+export type { EquipmentItem as Equipment };

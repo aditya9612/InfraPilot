@@ -1,6 +1,6 @@
 export type RateType  = 'FIXED' | 'VARIABLE';
 export type AlertType = 'LOW_STOCK' | 'IN_STOCK' | 'NEAR_LOW';
-export type IssueType = 'SITE' | 'SYSTEM';
+export type IssueType = 'SITE' | 'SYSTEM' | 'STORE' | 'MANUAL';
 
 export interface Supplier {
   id: number;
@@ -44,6 +44,11 @@ export interface Material {
   extra_paid: number;             // overpayment if any
   minimum_stock_level: number;
   alert_type: AlertType;          // system sets automatically
+  
+  // UI Compatibility aliases
+  material_id: number;           // alias for id
+  total_value: number;           // alias for total_amount
+  avg_rate: number;              // alias for purchase_rate
 }
 
 export interface CreateMaterialPayload {
@@ -167,3 +172,9 @@ export interface InventorySummary {
   total_stock_value: number;
   total_pending_payments: number;
 }
+
+// Aliases for the UI pages
+export type MaterialItem = Material;
+export type InventoryItem = Material;
+export type MaterialLog = InventoryLog;
+export type CreateMaterialRequest = CreateMaterialPayload;

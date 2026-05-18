@@ -3,38 +3,14 @@ import Modal from '../common/Modal';
 import { Upload, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+import { ACTIVITY_TAGS, LOCATION_TAGS } from '../../pages/engineer/SitePhotosPage';
+
 interface UploadPhotoModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSubmit: (formData: FormData) => Promise<void>;
     projectId: number | null;
 }
-
-const activityTags = [
-    "Foundation Work",
-    "RCC Column Casting",
-    "Slab Pouring",
-    "Brickwork / Masonry",
-    "Plumbing Installation",
-    "Electrical Wiring",
-    "Safety Audit",
-    "Material Delivery",
-    "Machinery Setup",
-    "Quality Inspection",
-];
-
-const locationTags = [
-    "Block A – Ground Floor",
-    "Block B – First Floor",
-    "Block C – Terrace",
-    "Site Office",
-    "Material Yard",
-    "North Zone",
-    "South Zone",
-    "East Wing",
-    "West Wing",
-    "Entry Gate",
-];
 
 const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, onSubmit, projectId }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -84,8 +60,8 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
         return Object.keys(errs).length === 0;
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleFormSubmit = async (e: React.FormEvent) => {
+        if (e) e.preventDefault();
         if (!validate()) return;
         if (!projectId) {
             toast.error("Project context not found. Please reload.");
@@ -109,6 +85,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
             onClose();
         } catch (error) {
             console.error("Upload Form Error:", error);
+            toast.error("Upload failed. Please try again.");
         } finally {
             setIsSubmitting(false);
         }
@@ -129,11 +106,11 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
             maxWidth="max-w-4xl"
             footer={
                 <>
-                    <button onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">
+                    <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">
                         Cancel
                     </button>
                     <button
-                        form="photo-form"
+                        form="site-photo-form"
                         type="submit"
                         disabled={isSubmitting}
                         className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50"
@@ -143,7 +120,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                 </>
             }
         >
-            <form id="photo-form" onSubmit={handleSubmit} className="space-y-6">
+            <form id="site-photo-form" onSubmit={handleFormSubmit} className="space-y-6">
                 <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                     <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Visual Artifact</h3>
                     <div
@@ -177,14 +154,14 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                             <label className={labelClasses}>Activity Tag *</label>
                             <select name="activity_tag" value={formData.activity_tag} onChange={handleChange} className={inputClasses(errors.activity_tag)}>
                                 <option value="">Select Activity</option>
-                                {activityTags.map(t => <option key={t}>{t}</option>)}
+                                {ACTIVITY_TAGS.map(t => <option key={t} value={t}>{t}</option>)}
                             </select>
                         </div>
                         <div>
                             <label className={labelClasses}>Location Zone *</label>
                             <select name="location_tag" value={formData.location_tag} onChange={handleChange} className={inputClasses(errors.location_tag)}>
                                 <option value="">Select Location</option>
-                                {locationTags.map(t => <option key={t}>{t}</option>)}
+                                {LOCATION_TAGS.map(t => <option key={t} value={t}>{t}</option>)}
                             </select>
                         </div>
                     </div>

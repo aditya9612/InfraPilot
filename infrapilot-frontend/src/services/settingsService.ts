@@ -8,6 +8,29 @@ import type {
 
 export const settingsService = {
     /**
+     * Helper to prefix relative paths for profile images
+     */
+    resolveUrl(path: string | null): string | null {
+        if (!path) return null;
+        if (path.startsWith('http') || path.startsWith('data:')) return path;
+
+        let baseUrl = import.meta.env.VITE_API_URL || '';
+        // If it's a relative path from the backend like /uploads/...
+        if (path.startsWith('/uploads') || path.startsWith('uploads')) {
+            try {
+                // Remove /api/v1 suffix to get the root for file access
+                const url = new URL(baseUrl);
+                baseUrl = url.origin;
+            } catch (e) {
+                baseUrl = baseUrl.replace(/\/api\/v1\/?$/, '');
+            }
+        }
+
+        const cleanPath = path.startsWith('/') ? path : `/${path}`;
+        return `${baseUrl}${cleanPath}`;
+    },
+
+    /**
      * Get User Settings
      * GET /api/v1/settings
      */
@@ -17,19 +40,7 @@ export const settingsService = {
             return response.data;
         } catch (error: any) {
             console.error("Get Settings API Error:", error.response?.data || error.message);
-            // Fallback for demo
-            return {
-                user_id: 1,
-                default_project_id: 1,
-                unit: "Metric",
-                notifications_enabled: true,
-                preferences: {},
-                financial_year: "2025-26",
-                currency: "INR",
-                tax_settings: {},
-                invoice_format: "standard",
-                payment_terms: "30 days"
-            };
+            throw error;
         }
     },
 
@@ -39,17 +50,18 @@ export const settingsService = {
      */
     async updateSettings(data: UpdateSettingsRequest): Promise<UserSettings> {
         console.log("PUT /api/v1/settings - Payload:", data);
+
+        // Ensure numeric types are correct
+        const payload = {
+            ...data,
+            default_project_id: data.default_project_id ? Number(data.default_project_id) : null
+        };
+
         try {
-            const response = await api.put("/settings", data);
+            const response = await api.put("/settings", payload);
             return response.data;
         } catch (error: any) {
-            if (error.response?.status === 403 || error.response?.status === 404 || error.response?.status === 422) {
-                console.warn(`Virtual Success: Bypassing Settings Update ${error.response?.status} Error`);
-                return {
-                    user_id: 1,
-                    ...data
-                } as UserSettings;
-            }
+            console.error("Settings Update Failed:", error.response?.data || error.message);
             throw error;
         }
     },
@@ -64,21 +76,7 @@ export const settingsService = {
             return response.data;
         } catch (error: any) {
             console.error("Get Profile API Error:", error.response?.data || error.message);
-            // Fallback for demo
-            return {
-                user_id: 1,
-                full_name: "Admin User",
-                role: "Admin",
-                mobile_number: "9999999999",
-                email: "admin@infrapilot.com",
-                address: "Pune, India",
-                pan_number: "ABCDE1234F",
-                aadhaar_number: "123412341234",
-                profile_image: null,
-                designation: "Site Engineer",
-                joining_date: "2026-04-01",
-                is_active: true
-            };
+            throw error;
         }
     },
 
@@ -87,22 +85,39 @@ export const settingsService = {
      * PUT /api/v1/settings/profile
      */
     async updateProfile(data: UpdateProfileRequest): Promise<UserProfile> {
-        console.log("PUT /api/v1/settings/profile - Payload:", data);
         try {
-            const response = await api.put("/settings/profile", data);
-            console.log("PUT /api/v1/settings/profile - 200 OK Response:", response.data);
+            console.log("PUT /api/v1/settings/profile - Initiating Update", data);
+
+            let response;
+            if (data.profile_image instanceof File) {
+                const formData = new FormData();
+                formData.append("profile_image", data.profile_image);
+
+                // Append all other fields
+                if (data.full_name) formData.append("full_name", data.full_name);
+                if (data.role) formData.append("role", data.role);
+                if (data.mobile_number) formData.append("mobile_number", data.mobile_number);
+                if (data.email) formData.append("email", data.email);
+                if (data.address) formData.append("address", data.address);
+                if (data.pan_number) formData.append("pan_number", data.pan_number);
+                if (data.aadhaar_number) formData.append("aadhaar_number", data.aadhaar_number);
+                if (data.designation) formData.append("designation", data.designation);
+                if (data.joining_date) formData.append("joining_date", data.joining_date);
+                if (data.is_active !== undefined) formData.append("is_active", String(data.is_active));
+
+                // Note: We don't manually set Content-Type header to let Axios handle the boundary correctly
+                response = await api.put("/settings/profile", formData);
+            } else {
+                // Standard JSON body
+                const bodyData = { ...data };
+                delete bodyData.profile_image;
+                response = await api.put("/settings/profile", bodyData);
+            }
+
+            console.log("PUT /api/v1/settings/profile - SUCCESS:", response.data);
             return response.data;
         } catch (error: any) {
-            if (error.response?.status === 403 || error.response?.status === 404 || error.response?.status === 422) {
-                console.warn(`Virtual Success: Bypassing Profile Update ${error.response?.status} Error`);
-                const virtualResponse = {
-                    user_id: 1,
-                    ...data,
-                    profile_image: null // Preserve or handle image
-                } as UserProfile;
-                console.log("PUT /api/v1/settings/profile - Simulated 200 OK:", virtualResponse);
-                return virtualResponse;
-            }
+            console.error("Profile Update Failed:", error.response?.data || error.message);
             throw error;
         }
     }

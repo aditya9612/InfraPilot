@@ -10,9 +10,10 @@ interface Props {
     onClose: () => void;
     labour: any;
     onSuccess: () => void;
+    projectId: number | null;
 }
 
-const CheckInModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess }) => {
+const CheckInModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess, projectId }) => {
     const [step, setStep] = useState<'details' | 'camera'>('details');
     const [formData, setFormData] = useState({
         project_id: 1,
@@ -30,11 +31,11 @@ const CheckInModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess }) =
         if (isOpen) {
             const userStr = localStorage.getItem("infrapilot_user");
             const user = userStr ? JSON.parse(userStr) : {};
-            const activePId = user?.project_id || user?.user?.project_id || 1;
+            const activePId = projectId || user?.project_id || user?.user?.project_id || 36;
 
             setStep('details');
             setFormData({
-                project_id: activePId,
+                project_id: Number(activePId),
                 task_id: '',
                 task_description: '',
                 latitude: null,
@@ -44,35 +45,56 @@ const CheckInModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess }) =
             });
             detectLocation();
         }
-    }, [isOpen]);
+    }, [isOpen, projectId]);
 
     const detectLocation = () => {
         setIsLocating(true);
+        setFormData(prev => ({ ...prev, location_address: 'Resolving real-time location...' }));
+        
         if ("geolocation" in navigator) {
             navigator.geolocation.getCurrentPosition(
                 async (position) => {
                     const { latitude, longitude } = position.coords;
-                    setFormData(prev => ({ 
-                        ...prev, 
-                        latitude,
-                        longitude,
-                        location_address: `Pune (Live Fix: ${latitude.toFixed(4)}, ${longitude.toFixed(4)})` 
-                    }));
-                    setIsLocating(false);
+                    try {
+                        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`);
+                        const data = await res.json();
+                        const address = data.display_name || `Project Site (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`;
+                        
+                        setFormData(prev => ({ 
+                            ...prev, 
+                            latitude,
+                            longitude,
+                            location_address: address
+                        }));
+                    } catch (err) {
+                        console.warn("Reverse Geocoding failed:", err);
+                        setFormData(prev => ({ 
+                            ...prev, 
+                            latitude,
+                            longitude,
+                            location_address: `Site Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})` 
+                        }));
+                        toast.error("GPS captured, but address resolution failed.");
+                    } finally {
+                        setIsLocating(false);
+                    }
                 },
                 () => {
-                    toast.error("Location access denied. Please enable GPS.");
+                    toast.error("Location access denied. Please enable GPS for Check-In.");
+                    setFormData(prev => ({ ...prev, location_address: '' }));
                     setIsLocating(false);
-                }
+                },
+                { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
             );
         } else {
+            toast.error("Geolocation not supported by this browser");
             setIsLocating(false);
         }
     };
 
     const handleCheckIn = async () => {
-        if (!formData.location_address) {
-            toast.error('Location is mandatory');
+        if (!formData.location_address || formData.location_address === 'Resolving real-time location...') {
+            toast.error('Location resolution in progress or mandatory');
             return;
         }
         if (!formData.check_in_image) {
@@ -86,9 +108,10 @@ const CheckInModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess }) =
             console.log("Executing Check-In API: POST /labour/" + labour.id + "/attendance/check-in");
             console.log("Payload (FormData):", formData);
             await labourService.checkIn(labour.id, formData);
-            toast.success(`${labour.labour_name} checked in successfully`);
+            console.log("Check-In Success! Triggering Registry Refetch...");
             onSuccess();
             onClose();
+            toast.success(`${labour.labour_name} check-in confirmed for Project ${formData.project_id}`);
         } catch (error) {
             toast.error('Check-in failed');
         } finally {
@@ -105,8 +128,9 @@ const CheckInModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess }) =
             footer={
                 step === 'details' && (
                     <div className="flex gap-4">
-                        <button onClick={onClose} className="px-6 py-2 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-all">Cancel</button>
+                        <button type="button" onClick={onClose} className="px-6 py-2 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-all">Cancel</button>
                         <button 
+                            type="button"
                             onClick={handleCheckIn}
                             disabled={isSubmitting || isLocating}
                             className="px-8 py-2 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50"
@@ -129,7 +153,6 @@ const CheckInModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess }) =
                 </div>
             ) : (
                 <div className="space-y-6 font-inter bg-slate-50/30 -mx-6 -mt-6 p-6">
-                    {/* Basic Information Card */}
                     <div className="bg-white p-6 rounded-[1.5rem] border border-slate-100 shadow-sm space-y-6">
                         <div className="flex items-center justify-between mb-2">
                             <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Basic Information</h3>
@@ -166,7 +189,6 @@ const CheckInModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess }) =
                             </div>
                         </div>
 
-                        {/* GPS Status Bar - Matching Image */}
                         <div className="flex items-center justify-between px-5 py-3 bg-slate-50/50 rounded-xl border border-slate-100">
                             <div className="flex items-center gap-2">
                                 <div className={`w-2 h-2 rounded-full ${formData.latitude ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
@@ -175,6 +197,7 @@ const CheckInModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess }) =
                                 </span>
                             </div>
                             <button 
+                                type="button"
                                 onClick={detectLocation}
                                 className="text-[10px] font-black text-primary hover:underline uppercase tracking-widest"
                             >
@@ -183,7 +206,6 @@ const CheckInModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess }) =
                         </div>
                     </div>
 
-                    {/* Task Assignment Card */}
                     <div className="bg-white p-6 rounded-[1.5rem] border border-slate-100 shadow-sm space-y-6">
                         <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-2">Work Progress</h3>
                         
@@ -211,11 +233,11 @@ const CheckInModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess }) =
                         </div>
                     </div>
 
-                    {/* Security Validation Card */}
                     <div className="bg-white p-6 rounded-[1.5rem] border border-slate-100 shadow-sm space-y-6">
                         <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-2">Security Verification</h3>
                         
                         <button 
+                            type="button"
                             onClick={() => setStep('camera')}
                             className={`w-full p-6 rounded-[1.5rem] border-2 border-dashed transition-all flex flex-col items-center justify-center gap-3 ${formData.check_in_image ? 'border-emerald-200 bg-emerald-50/30' : 'border-blue-100 bg-blue-50/20 hover:bg-blue-50/50'}`}
                         >

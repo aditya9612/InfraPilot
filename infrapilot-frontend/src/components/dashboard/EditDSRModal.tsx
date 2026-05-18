@@ -1,18 +1,24 @@
 import { useState, useEffect } from "react";
 import Modal from "../common/Modal";
 import type { DsrItem, UpdateDsrRequest } from "../../types/dsr";
+import toast from "react-hot-toast";
+import { RotateCcw } from "lucide-react";
 
 interface EditDSRModalProps {
   isOpen: boolean;
   onClose: () => void;
   dsr: DsrItem | null;
   onSubmit: (id: number, dsrData: UpdateDsrRequest) => Promise<void>;
+  projectId: number;
 }
 
-const EditDSRModal = ({ isOpen, onClose, dsr, onSubmit }: EditDSRModalProps) => {
+const EditDSRModal = ({ isOpen, onClose, dsr, onSubmit, projectId }: EditDSRModalProps) => {
   const [formData, setFormData] = useState<UpdateDsrRequest>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [gpsStatus, setGpsStatus] = useState<
+    "idle" | "capturing" | "captured" | "error"
+  >("idle");
 
   useEffect(() => {
     if (dsr) {
@@ -31,9 +37,65 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSubmit }: EditDSRModalProps) => 
         remarks: dsr.remarks,
         latitude: dsr.latitude,
         longitude: dsr.longitude,
+        resolved_address: dsr.resolved_address,
+        total_labour: dsr.total_labour,
+        skilled_labour: dsr.skilled_labour,
+        unskilled_labour: dsr.unskilled_labour,
+        project_id: projectId || dsr.project_id,
       });
+      if (dsr.latitude && dsr.longitude) {
+        setGpsStatus("captured");
+      }
     }
-  }, [dsr]);
+  }, [dsr, projectId]);
+
+  useEffect(() => {
+    if (isOpen) {
+      captureGPS();
+    }
+  }, [isOpen]);
+
+  const captureGPS = () => {
+    setGpsStatus("capturing");
+    // Clear old address to trigger the "Resolving..." placeholder
+    setFormData((prev) => ({ ...prev, resolved_address: undefined }));
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const { latitude, longitude } = pos.coords;
+          try {
+            const res = await fetch(
+               `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`
+            );
+            const data = await res.json();
+            const address = data.display_name || "";
+            
+            setFormData((prev) => ({
+              ...prev,
+              latitude,
+              longitude,
+              resolved_address: address,
+              site_location: address,
+            }));
+            setGpsStatus("captured");
+          } catch (err) {
+            console.warn("Reverse Geocoding failed:", err);
+            setFormData((prev) => ({ ...prev, latitude, longitude }));
+            setGpsStatus("captured");
+            toast.error("Location captured, but address resolution failed.");
+          }
+        },
+        () => {
+          setGpsStatus("error");
+          toast.error("GPS access denied or unavailable.");
+        },
+        { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 }
+      );
+    } else {
+      setGpsStatus("error");
+      toast.error("Geolocation is not supported by your browser.");
+    }
+  };
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -41,6 +103,15 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSubmit }: EditDSRModalProps) => 
     >
   ) => {
     const { name, value } = e.target;
+
+    // Strict Alphabetic Validation for specific fields
+    if (name === "weather") {
+        if (/[0-9]/.test(value)) {
+            setErrors(prev => ({ ...prev, [name]: "Numbers are not allowed in this field" }));
+            return;
+        }
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) {
       setErrors((prev) => {
@@ -53,19 +124,33 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSubmit }: EditDSRModalProps) => 
   const validate = () => {
     const errs: Record<string, string> = {};
     if (!formData.report_date) errs.report_date = "Report Date is required";
-    if (!formData.site_location || !formData.site_location.trim())
+    
+    if (!formData.site_location || !formData.site_location.trim()) {
       errs.site_location = "Site Location is required";
+    }
+
     if (!formData.work_done || !formData.work_done.trim())
       errs.work_done = "Work Done is required";
     if (!formData.work_planned || !formData.work_planned.trim())
       errs.work_planned = "Work Planned is required";
-    if (!formData.weather) errs.weather = "Weather condition is required";
+    
+    if (!formData.weather) {
+      errs.weather = "Weather condition is required";
+    } else if (/[0-9]/.test(formData.weather)) {
+      errs.weather = "Numbers are not allowed in weather";
+    }
+
     if (!formData.machinery_used || !formData.machinery_used.trim()) errs.machinery_used = "Required";
     if (!formData.material_received || !formData.material_received.trim()) errs.material_received = "Required";
     if (!formData.material_used || !formData.material_used.trim()) errs.material_used = "Required";
     if (!formData.issues || !formData.issues.trim()) errs.issues = "Required";
     if (!formData.safety_observations || !formData.safety_observations.trim()) errs.safety_observations = "Required";
     if (!formData.remarks || !formData.remarks.trim()) errs.remarks = "Required";
+
+    // Labour numeric validation
+    if (isNaN(Number(formData.total_labour)) || Number(formData.total_labour) < 0) errs.total_labour = "Must be a valid number";
+    if (isNaN(Number(formData.skilled_labour)) || Number(formData.skilled_labour) < 0) errs.skilled_labour = "Must be a valid number";
+    if (isNaN(Number(formData.unskilled_labour)) || Number(formData.unskilled_labour) < 0) errs.unskilled_labour = "Must be a valid number";
 
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -81,6 +166,26 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSubmit }: EditDSRModalProps) => 
       console.error("DSR update error:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleLabourChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    
+    // Prevent non-numeric characters
+    if (/[^0-9]/.test(value) && value !== "") {
+        setErrors(prev => ({ ...prev, [name]: "Only numbers are allowed" }));
+        return;
+    }
+
+    const numValue = value === "" ? undefined : Number(value);
+    setFormData((prev) => ({ ...prev, [name]: numValue }));
+
+    if (errors[name]) {
+        setErrors(prev => {
+            const { [name]: _, ...rest } = prev;
+            return rest;
+        });
     }
   };
 
@@ -185,6 +290,39 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSubmit }: EditDSRModalProps) => 
                 <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.weather}</p>
               )}
             </div>
+            
+            {/* GPS Section */}
+            <div className="md:col-span-2">
+              <div className="flex flex-col gap-3 w-full">
+                <div className="flex flex-col gap-2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2.5 h-2.5 rounded-full ${gpsStatus === "captured" ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" : gpsStatus === "capturing" ? "bg-amber-500 animate-pulse" : "bg-rose-500"}`}></span>
+                      <span className="text-[10px] font-black text-slate-800 uppercase tracking-[0.1em]">GPS: {gpsStatus.toUpperCase()}</span>
+                    </div>
+                    <button type="button" onClick={captureGPS} className="text-primary hover:text-blue-700 transition-colors font-black text-[10px] uppercase tracking-widest bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-sm flex items-center gap-1.5 active:scale-95 transition-all">
+                      <RotateCcw className="w-2.5 h-2.5" />
+                      RECAPTURE
+                    </button>
+                  </div>
+
+                  {(formData.latitude || formData.longitude) && (
+                    <div className="flex flex-col gap-2 mt-1 border-t border-slate-100 pt-2">
+                      {(formData.resolved_address || gpsStatus === "capturing" || gpsStatus === "captured") && (
+                        <div className="bg-emerald-50/50 px-3 py-2.5 rounded-xl border border-emerald-100/50">
+                          <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1">LIVE CAPTURED ADDRESS</p>
+                          <p className="text-[11px] font-bold text-slate-700 leading-relaxed min-h-[1.5em]">
+                            {gpsStatus === "capturing" && !formData.resolved_address 
+                              ? "Resolving location address..." 
+                              : formData.resolved_address || (gpsStatus === "captured" ? "Site location identified (Address details pending...)" : "Awaiting GPS signal...")}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -284,6 +422,48 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSubmit }: EditDSRModalProps) => 
               {errors.material_used && (
                 <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.material_used}</p>
               )}
+            </div>
+          </div>
+        </div>
+
+        {/* Labour Statistics */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
+            Labour Statistics
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className={labelClasses}>Total Labour</label>
+              <input
+                type="number"
+                name="total_labour"
+                value={formData.total_labour || ""}
+                onChange={handleLabourChange}
+                className={inputClasses()}
+                placeholder="0"
+              />
+            </div>
+            <div>
+              <label className={labelClasses}>Skilled Labour</label>
+              <input
+                type="number"
+                name="skilled_labour"
+                value={formData.skilled_labour || ""}
+                onChange={handleLabourChange}
+                className={inputClasses()}
+                placeholder="0"
+              />
+            </div>
+            <div>
+              <label className={labelClasses}>Unskilled Labour</label>
+              <input
+                type="number"
+                name="unskilled_labour"
+                value={formData.unskilled_labour || ""}
+                onChange={handleLabourChange}
+                className={inputClasses()}
+                placeholder="0"
+              />
             </div>
           </div>
         </div>

@@ -8,8 +8,35 @@ import type {
   UsagePayload,
   PurchasePayload,
   InventoryLog,
-  MaterialReport
+  MaterialReport,
+  MaterialLog
 } from "../types/material";
+
+export type {
+  Material,
+  MaterialCreate,
+  MaterialUpdate,
+  Supplier,
+  SupplierCreate,
+  UsagePayload,
+  PurchasePayload,
+  InventoryLog,
+  MaterialReport,
+  MaterialItem,
+  InventoryItem,
+  MaterialLog,
+  CreateMaterialRequest,
+  IssueType,
+  RateType,
+  AlertType
+} from "../types/material";
+
+const mapMaterial = (m: any): Material => ({
+  ...m,
+  material_id: m.material_id ?? m.id,
+  total_value: m.total_value ?? m.total_amount ?? 0,
+  avg_rate: m.avg_rate ?? m.purchase_rate ?? 0
+});
 
 export const materialService = {
   /**
@@ -17,29 +44,25 @@ export const materialService = {
    * GET /api/v1/materials
    */
   async listMaterials(project_id: number, skip: number = 0, limit: number = 50): Promise<Material[]> {
+    console.log("GET /api/v1/materials Request Params:", { project_id, skip, limit });
     const response = await api.get<Material[]>("/materials", {
       params: { project_id, skip, limit }
     });
     const data = response.data;
-    return Array.isArray(data) ? data : ((data as any).items || (data as any).data || []);
+    const items = Array.isArray(data) ? data : ((data as any).items || (data as any).data || []);
+    return items.map(mapMaterial);
   },
 
-  /**
-   * Get single material by ID
-   * GET /api/v1/materials/{id}
-   */
   async getMaterial(id: number): Promise<Material> {
+    console.log(`GET /api/v1/materials/${id}`);
     const response = await api.get<Material>(`/materials/${id}`);
-    return response.data;
+    return mapMaterial(response.data);
   },
 
-  /**
-   * Create new material
-   * POST /api/v1/materials
-   */
   async createMaterial(data: MaterialCreate): Promise<Material> {
+    console.log("POST /api/v1/materials Request Body:", data);
     const response = await api.post<Material>("/materials", data);
-    return response.data;
+    return mapMaterial(response.data);
   },
 
   /**
@@ -48,7 +71,7 @@ export const materialService = {
    */
   async updateMaterial(id: number, data: MaterialUpdate): Promise<Material> {
     const response = await api.put<Material>(`/materials/${id}`, data);
-    return response.data;
+    return mapMaterial(response.data);
   },
 
   /**
@@ -65,7 +88,7 @@ export const materialService = {
    */
   async recordUsage(material_id: number, data: UsagePayload): Promise<Material> {
     const response = await api.post<Material>(`/materials/${material_id}/usage`, data);
-    return response.data;
+    return mapMaterial(response.data);
   },
 
   /**
@@ -74,17 +97,20 @@ export const materialService = {
    */
   async recordPurchase(material_id: number, data: PurchasePayload): Promise<Material> {
     const response = await api.post<Material>(`/materials/${material_id}/purchase`, data);
-    return response.data;
+    return mapMaterial(response.data);
   },
 
   /**
    * Get inventory summary
    * GET /api/v1/materials/inventory
    */
-  async getInventory(): Promise<any[]> {
-    const response = await api.get<any[]>("/materials/inventory");
+  async getInventory(project_id?: number): Promise<Material[]> {
+    const response = await api.get<any[]>("/materials/inventory", {
+      params: project_id ? { project_id } : undefined
+    });
     const data = response.data;
-    return Array.isArray(data) ? data : ((data as any).items || (data as any).data || []);
+    const items = Array.isArray(data) ? data : ((data as any).items || (data as any).data || []);
+    return items.map(mapMaterial);
   },
 
   /**
@@ -102,26 +128,47 @@ export const materialService = {
   },
 
   /**
-   * Get material report
-   * GET /api/v1/materials/reports
+   * Get specific material transactions
+   * GET /api/v1/materials/{id}/transactions
    */
+  async getTransactions(material_id: number): Promise<MaterialLog[]> {
+    console.log(`GET /api/v1/materials/${material_id}/transactions`);
+    const response = await api.get<MaterialLog[]>(`/materials/${material_id}/transactions`);
+    return response.data;
+  },
+
   async getMaterialReport(project_id: number): Promise<MaterialReport[]> {
-    const response = await api.get<MaterialReport[]>("/materials/reports", {
+    console.log("GET /api/v1/materials/reports Request Params:", { project_id });
+    const response = await api.get<any>("/materials/reports", {
       params: { project_id }
     });
-    return response.data;
+    const data = response.data;
+    const items = Array.isArray(data) ? data : ((data as any).items || (data as any).data || []);
+    return items.map((rep: any) => ({
+      ...rep,
+      material_id: rep.material_id ?? rep.id ?? Math.floor(Math.random() * 10000),
+      material_name: rep.material_name || "Unknown Material",
+      total_purchased: rep.total_purchased ?? 0,
+      total_used: rep.total_used ?? 0,
+      remaining_stock: rep.remaining_stock ?? 0,
+      total_cost: rep.total_cost ?? 0,
+      payment_pending: rep.payment_pending ?? 0
+    }));
   },
 
   /**
    * Export report as PDF
    * GET /api/v1/materials/reports/pdf
    */
-  async exportPdf(): Promise<void> {
-    const response = await api.get("/materials/reports/pdf", { responseType: 'blob' });
+  async exportPdf(project_id: number): Promise<void> {
+    const response = await api.get("/materials/reports/pdf", { 
+      params: { project_id },
+      responseType: 'blob' 
+    });
     const url = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'material_report.pdf');
+    link.setAttribute('download', `material_report_project_${project_id}.pdf`);
     document.body.appendChild(link);
     link.click();
     link.parentNode?.removeChild(link);
@@ -132,12 +179,15 @@ export const materialService = {
    * Export report as Excel
    * GET /api/v1/materials/reports/excel
    */
-  async exportExcel(): Promise<void> {
-    const response = await api.get("/materials/reports/excel", { responseType: 'blob' });
+  async exportExcel(project_id: number): Promise<void> {
+    const response = await api.get("/materials/reports/excel", { 
+      params: { project_id },
+      responseType: 'blob' 
+    });
     const url = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'material_report.xlsx');
+    link.setAttribute('download', `material_report_project_${project_id}.xlsx`);
     document.body.appendChild(link);
     link.click();
     link.parentNode?.removeChild(link);

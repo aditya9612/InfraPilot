@@ -5,25 +5,36 @@ import Modal from "../../../components/common/Modal";
 import StatCard from "../../../components/common/StatCard";
 import toast from "react-hot-toast";
 import { 
-  Package, 
   Activity, 
-  Database,
-  ArrowUpRight,
-  ClipboardCheck
-} from "lucide-react";
-import { materialService, type MaterialItem, type MaterialLog } from "../../../services/materialService";
+  ClipboardCheck,
+  Search,
+  RotateCcw
+,
+    ChevronLeft,
+    ChevronRight} from "lucide-react";
+import { materialService, type InventoryItem, type MaterialLog, type IssueType } from "../../../services/materialService";
 
 const ISSUE_TYPES = ["SITE", "STORE"];
 
 const MaterialConsumptionPage = () => {
-  const [materials, setMaterials] = useState<MaterialItem[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [logs, setLogs] = useState<MaterialLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const projectId = 1;
+  const [projectId, setProjectId] = useState<number | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  
+  // Pagination States
+  const [currentPageInv, setCurrentPageInv] = useState(1);
+  const [currentPageLogs, setCurrentPageLogs] = useState(1);
+  const itemsPerPageInv = 10;
+  const itemsPerPageLogs = 10;
+
+  // Interactive StatCard Filter
+  const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Stock" | "Value">("All");
 
   const [isUsageModalOpen, setIsUsageModalOpen] = useState(false);
-  const [selectedMaterial, setSelectedMaterial] = useState<MaterialItem | null>(null);
+  const [selectedInventory, setSelectedInventory] = useState<InventoryItem | null>(null);
   
   const [usageData, setUsageData] = useState({
     quantity: 0,
@@ -31,14 +42,26 @@ const MaterialConsumptionPage = () => {
   });
 
   const fetchData = useCallback(async () => {
+    if (!projectId) return;
     setIsLoading(true);
     try {
-      const [mList, lList] = await Promise.all([
-        materialService.listMaterials(projectId),
-        materialService.getLogs({ project_id: projectId, type: "USAGE" })
+      const [invList, lList, realList] = await Promise.all([
+        materialService.getInventory(projectId),
+        materialService.getLogs({ project_id: projectId || 0, type: "USAGE" }),
+        materialService.listMaterials(projectId)
       ]);
-      setMaterials(mList);
-      setLogs(lList);
+      
+      const realIds = new Set((realList || []).map(m => m.id));
+      const realNames = new Set((realList || []).map(m => m.material_name.toLowerCase()));
+      
+      const filteredInv = (invList || []).filter(item => 
+        realNames.has(item.material_name.toLowerCase()) || 
+        realIds.has(item.material_id) || 
+        realIds.has(item.id)
+      );
+      
+      setInventory(filteredInv);
+      setLogs(lList || []);
     } catch (error) {
       toast.error("Failed to load consumption data");
     } finally {
@@ -47,17 +70,37 @@ const MaterialConsumptionPage = () => {
   }, [projectId]);
 
   useEffect(() => {
+    const userStr = localStorage.getItem("infrapilot_user");
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        const pId = user?.project_id || user?.user?.project_id;
+        if (pId) {
+          setProjectId(Number(pId));
+        } else {
+          setProjectId(36);
+        }
+      } catch (e) {
+        console.error("Failed to resolve project ID", e);
+        setProjectId(36);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     fetchData();
   }, [fetchData]);
 
   const handleUsageSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedMaterial) return;
+    if (!selectedInventory) return;
     setIsSubmitting(true);
     try {
-      await materialService.recordUsage(selectedMaterial.id, {
+      const targetMatId = selectedInventory.id ?? selectedInventory.material_id;
+      await materialService.recordUsage(targetMatId, {
         ...usageData,
-        project_id: projectId
+        issue_type: usageData.issue_type as IssueType,
+        project_id: projectId || 0
       });
       toast.success("Material usage recorded!");
       setIsUsageModalOpen(false);
@@ -71,125 +114,177 @@ const MaterialConsumptionPage = () => {
 
   const stats = useMemo(() => {
     return {
-      totalMaterials: materials.length,
-      totalUsed: materials.reduce((acc, curr) => acc + (curr.quantity_used || 0), 0),
-      totalRemaining: materials.reduce((acc, curr) => acc + (curr.remaining_stock || 0), 0),
+      totalMaterials: inventory.length,
+      totalRemaining: inventory.reduce((acc, curr) => acc + (curr.remaining_stock || 0), 0),
+      totalValue: inventory.reduce((acc, curr) => acc + (curr.total_value || 0), 0),
     };
-  }, [materials]);
+  }, [inventory]);
 
-  const alertBadge = (type: string) => {
-    switch (type) {
-      case "IN_STOCK": return "bg-emerald-100 text-emerald-600";
-      case "LOW_STOCK": return "bg-red-100 text-red-600";
-      case "OUT_OF_STOCK": return "bg-red-100 text-red-600";
-      default: return "bg-slate-100 text-slate-600";
+  const filteredInventory = useMemo(() => {
+    let data = inventory;
+
+    // Apply StatCard Filter
+    if (activeStatFilter === "Stock") {
+      data = data.filter(i => i.remaining_stock > 0);
     }
-  };
+
+    return data.filter(i => 
+      searchTerm === "" || 
+      i.material_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      String(i.material_id).includes(searchTerm)
+    );
+  }, [inventory, searchTerm, activeStatFilter]);
+
+  const paginatedInventory = useMemo(() => {
+    const startIndex = (currentPageInv - 1) * itemsPerPageInv;
+    return filteredInventory.slice(startIndex, startIndex + itemsPerPageInv);
+  }, [filteredInventory, currentPageInv]);
+
+  const totalPagesInv = Math.ceil(filteredInventory.length / itemsPerPageInv);
+
+  const paginatedLogs = useMemo(() => {
+    const startIndex = (currentPageLogs - 1) * itemsPerPageLogs;
+    return logs.slice(startIndex, startIndex + itemsPerPageLogs);
+  }, [logs, currentPageLogs]);
+
+  const totalPagesLogs = Math.ceil(logs.length / itemsPerPageLogs);
+
+  useEffect(() => {
+    setCurrentPageInv(1);
+  }, [searchTerm, activeStatFilter]);
 
   return (
     <>
       <Navbar title="Material Consumption" breadcrumb={["Engineer", "Logistics", "Material Consumption"]} />
-      <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
+      <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
           <div className="font-inter">
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Material Consumption</h1>
-            <p className="text-slate-500 text-sm font-inter">Track material usage on site</p>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Material Consumption Ledger</h1>
+            <p className="text-slate-500 text-sm">Track and manage project material usage across site locations.</p>
           </div>
-          <button
-            onClick={() => {
-              if (materials.length > 0) {
-                setSelectedMaterial(materials[0]);
-                setUsageData({ quantity: 0, issue_type: "SITE" });
-                setIsUsageModalOpen(true);
-              } else {
-                toast.error("No materials available for usage");
-              }
-            }}
-            className="flex items-center gap-2 px-6 py-2.5 bg-rose-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all active:scale-95 font-inter"
-          >
-            <Activity className="w-4 h-4" />
-            Log Usage
-          </button>
+          <div className="flex items-center gap-3 font-inter">
+            <button
+              onClick={fetchData}
+              className="p-2.5 text-slate-400 hover:text-primary hover:bg-white rounded-xl transition-all border border-slate-100 bg-white/50 shadow-sm active:scale-95"
+              title="Sync Ledger"
+            >
+              <RotateCcw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+            </button>
+            <button
+              onClick={() => {
+                if (inventory.length > 0) {
+                  setSelectedInventory(inventory[0]);
+                  setUsageData({ quantity: 0, issue_type: "SITE" });
+                  setIsUsageModalOpen(true);
+                } else {
+                  toast.error("No materials available for usage");
+                }
+              }}
+              className="flex items-center gap-2 px-6 py-2.5 bg-rose-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all active:scale-95 font-inter"
+            >
+              <Activity className="w-4 h-4" />
+              Log Usage
+            </button>
+          </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 font-inter">
-          <StatCard
-            title="Total Materials"
-            value={stats.totalMaterials.toString()}
-            sub="Inventory scope"
-            icon={<Package className="w-5 h-5" />}
-            accent="text-blue-500"
-          />
-          <StatCard
-            title="Total Used Qty"
-            value={stats.totalUsed.toLocaleString()}
-            sub="Total consumption"
-            icon={<Activity className="w-5 h-5" />}
-            accent="text-orange-500"
-          />
-          <StatCard
-            title="Remaining Stock"
-            value={stats.totalRemaining.toLocaleString()}
-            sub="Available on site"
-            icon={<Database className="w-5 h-5" />}
-            accent="text-emerald-500"
-          />
+        {/* Stats with Interactive Filtering */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 font-inter">
+          <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+            <StatCard
+              title="Total Materials"
+              value={stats.totalMaterials.toString()}
+              sub="Inventory scope"
+              accent="text-blue-500" />
+          </div>
+          <div onClick={() => setActiveStatFilter("Stock")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Stock" ? "ring-2 ring-orange-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+            <StatCard
+              title="Remaining Stock"
+              value={stats.totalRemaining.toLocaleString()}
+              sub="Available on site"
+              accent="text-orange-500" />
+          </div>
+          <div onClick={() => setActiveStatFilter("Value")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Value" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+            <StatCard
+              title="Inventory Value"
+              value={`₹${stats.totalValue.toLocaleString()}`}
+              sub="Current valuation"
+              accent="text-emerald-500" />
+          </div>
         </div>
 
-        {/* Consumption Table */}
-        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-12 font-inter">
-          <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/30 font-inter">
-            <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest font-inter">Consumption Tracking</h3>
+        {/* Consumption Registry Container */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
+          <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
+            <div className="relative flex-1 max-w-md font-inter">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                <Search className="w-4 h-4" />
+              </span>
+              <input
+                type="text"
+                placeholder="Search by material name or ID..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
+              />
+            </div>
+            {activeStatFilter !== "All" && (
+              <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter">
+                <RotateCcw className="w-4 h-4" />
+              </button>
+            )}
           </div>
-          <div className="overflow-x-auto font-inter">
-            <table className="w-full text-left font-inter">
+
+          <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+            <table className="w-full text-left font-inter min-w-[1000px]">
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
-                  <th className="px-6 py-4 font-inter">Code</th>
-                  <th className="px-6 py-4 font-inter">Material Name</th>
+                  <th className="px-6 py-4 font-inter">Material Identity</th>
+                  <th className="px-6 py-4 font-inter text-center text-emerald-600">Inventory Status</th>
                   <th className="px-6 py-4 font-inter">Unit</th>
-                  <th className="px-6 py-4 font-inter text-center">Qty Purchased</th>
-                  <th className="px-6 py-4 font-inter text-center">Qty Used</th>
-                  <th className="px-6 py-4 font-inter text-center text-emerald-600">Remaining</th>
-                  <th className="px-6 py-4 font-inter text-center">Min Level</th>
-                  <th className="px-6 py-4 font-inter">Alert</th>
+                  <th className="px-6 py-4 font-inter text-right">Valuation Rate</th>
+                  <th className="px-6 py-4 font-inter text-right">Holding Value</th>
                   <th className="px-6 py-4 font-inter text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 font-inter">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={9} className="px-6 py-20 text-center">
-                      <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin font-inter" />
+                    <td colSpan={6} className="px-6 py-20 text-center font-inter">
+                      <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin font-inter mb-4" />
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing inventory...</p>
                     </td>
                   </tr>
-                ) : materials.length > 0 ? (
-                  materials.map((m) => (
-                    <tr key={m.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
-                      <td className="px-6 py-4">
-                        <span className="text-[10px] font-black text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full font-inter">{m.material_code}</span>
+                ) : paginatedInventory.length > 0 ? (
+                  paginatedInventory.map((inv) => (
+                    <tr key={inv.material_id} className="hover:bg-slate-50/50 transition-colors group font-inter">
+                      <td className="px-6 py-4 font-inter">
+                        <div className="flex flex-col font-inter">
+                          <span className="text-sm font-bold text-slate-800 font-inter">{inv.material_name}</span>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">MID-#{inv.material_id}</span>
+                        </div>
                       </td>
-                      <td className="px-6 py-4 font-bold text-slate-700 text-sm font-inter">{m.material_name}</td>
-                      <td className="px-6 py-4 text-xs font-medium text-slate-500 font-inter">{m.unit}</td>
-                      <td className="px-6 py-4 text-center font-bold text-slate-600 font-inter">{m.quantity_purchased}</td>
-                      <td className="px-6 py-4 text-center font-bold text-orange-600 font-inter">{m.quantity_used}</td>
-                      <td className="px-6 py-4 text-center font-black text-emerald-600 text-sm font-inter">{m.remaining_stock}</td>
-                      <td className="px-6 py-4 text-center text-xs font-bold text-slate-400 font-inter">{m.minimum_stock_level}</td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest font-inter ${alertBadge(m.alert_type)}`}>
-                          {m.alert_type?.replace('_', ' ')}
+                      <td className="px-6 py-4 text-center font-inter">
+                        <span className={`text-sm font-bold font-inter ${inv.remaining_stock > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                          {inv.remaining_stock.toLocaleString()}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-6 py-4 text-xs font-bold text-slate-500 font-inter uppercase tracking-widest">{inv.unit}</td>
+                      <td className="px-6 py-4 text-right font-inter">
+                        <span className="text-xs font-bold text-slate-500 font-inter">₹{inv.avg_rate?.toLocaleString()}</span>
+                      </td>
+                      <td className="px-6 py-4 text-right font-inter">
+                        <span className="text-sm font-bold text-slate-800 font-inter">₹{inv.total_value?.toLocaleString()}</span>
+                      </td>
+                      <td className="px-6 py-4 text-right font-inter">
                         <button 
                           onClick={() => {
-                            setSelectedMaterial(m);
+                            setSelectedInventory(inv);
                             setUsageData({ quantity: 0, issue_type: "SITE" });
                             setIsUsageModalOpen(true);
                           }}
-                          className="px-3 py-1.5 bg-slate-50 text-slate-500 hover:text-orange-600 hover:bg-orange-50 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-slate-200 hover:border-orange-200 font-inter"
+                          className="px-4 py-2 bg-slate-50 text-slate-600 hover:text-white hover:bg-rose-500 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border border-slate-200 hover:border-rose-500 font-inter active:scale-95"
                         >
                           Use Material
                         </button>
@@ -198,50 +293,112 @@ const MaterialConsumptionPage = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={9} className="px-6 py-20 text-center text-slate-400 font-medium font-inter">No material data available.</td>
+                    <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
+                      No matching materials found in the inventory vault.
+                    </td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
+
+          {/* Inventory Pagination */}
+          <div className="px-6 py-4 bg-slate-50/30 border-t border-slate-50 flex items-center justify-between font-inter">
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">
+              Showing {paginatedInventory.length} of {filteredInventory.length} Resource Identities
+            </div>
+            <div className="flex items-center gap-2 font-inter">
+                                <button
+                                    onClick={() => setCurrentPageInv(prev => Math.max(prev - 1, 1))}
+                                    disabled={currentPageInv === 1}
+                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    title="Previous Page"
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                </button>
+                                <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
+                                    Page {currentPageInv} of {1 || 1}
+                                </div>
+                                <button
+                                    onClick={() => setCurrentPageInv(prev => Math.min(prev + 1, 1 || 1))}
+                                    disabled={currentPageInv >= 1 || 1 === 0}
+                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    title="Next Page"
+                                >
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
+          </div>
         </div>
 
-        {/* Usage Logs */}
-        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden font-inter">
-          <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/30 font-inter">
-            <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest font-inter">Usage History</h3>
+        {/* Usage Logs Container */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden font-inter">
+          <div className="p-4 border-b border-slate-50 flex items-center justify-between bg-white font-inter">
+            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest font-inter">Material Audit Logs (Usage)</h3>
           </div>
           <div className="overflow-x-auto font-inter">
-            <table className="w-full text-left font-inter">
+            <table className="w-full text-left font-inter min-w-[800px]">
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
-                  <th className="px-6 py-4 font-inter">Date</th>
-                  <th className="px-6 py-4 font-inter">Material</th>
-                  <th className="px-6 py-4 font-inter text-center">Qty Used</th>
-                  <th className="px-6 py-4 font-inter">Issue Type</th>
-                  <th className="px-6 py-4 font-inter">Project</th>
+                  <th className="px-6 py-4 font-inter">Audit Date</th>
+                  <th className="px-6 py-4 font-inter">Resource Description</th>
+                  <th className="px-6 py-4 font-inter text-center">Intensity (Qty)</th>
+                  <th className="px-6 py-4 font-inter">Disbursement Type</th>
+                  <th className="px-6 py-4 font-inter">Context</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 font-inter">
-                {logs.length > 0 ? (
-                  logs.map((log) => (
+                {paginatedLogs.length > 0 ? (
+                  paginatedLogs.map((log) => (
                     <tr key={log.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
-                      <td className="px-6 py-4 text-xs font-bold text-slate-500 font-inter">{new Date(log.created_at).toLocaleDateString()}</td>
-                      <td className="px-6 py-4 font-bold text-slate-700 text-sm font-inter">MID: {log.material_id}</td>
-                      <td className="px-6 py-4 text-center font-black text-orange-600 text-sm font-inter">{log.quantity}</td>
+                      <td className="px-6 py-4 text-xs font-bold text-slate-500 font-inter uppercase tracking-widest">{new Date(log.created_at).toLocaleDateString()}</td>
                       <td className="px-6 py-4 font-inter">
-                        <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-lg text-[10px] font-black uppercase tracking-widest font-inter">{log.issue_type}</span>
+                        <span className="font-bold text-slate-700 text-sm font-inter uppercase">
+                            {inventory.find(inv => inv.material_id === log.material_id)?.material_name || `MID: ${log.material_id}`}
+                        </span>
                       </td>
-                      <td className="px-6 py-4 text-xs font-bold text-slate-400 font-inter">Project #{log.project_id}</td>
+                      <td className="px-6 py-4 text-center font-bold text-rose-500 text-sm font-inter">-{log.quantity}</td>
+                      <td className="px-6 py-4 font-inter">
+                        <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-[9px] font-bold uppercase tracking-widest border border-slate-200 font-inter">{log.issue_type}</span>
+                      </td>
+                      <td className="px-6 py-4 text-xs font-bold text-slate-400 font-inter">Project Audit-#{log.project_id}</td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5} className="px-6 py-20 text-center text-slate-400 font-medium font-inter">No usage history available.</td>
+                    <td colSpan={5} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">No historical usage records found.</td>
                   </tr>
                 )}
               </tbody>
             </table>
+          </div>
+          
+          {/* Logs Pagination */}
+          <div className="px-6 py-4 bg-slate-50/30 border-t border-slate-50 flex items-center justify-between font-inter">
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">
+              Showing {paginatedLogs.length} of {logs.length} Audit History Events
+            </div>
+            <div className="flex items-center gap-2 font-inter">
+                                <button
+                                    onClick={() => setCurrentPageLogs(prev => Math.max(prev - 1, 1))}
+                                    disabled={currentPageLogs === 1}
+                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    title="Previous Page"
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                </button>
+                                <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
+                                    Page {currentPageLogs} of {1 || 1}
+                                </div>
+                                <button
+                                    onClick={() => setCurrentPageLogs(prev => Math.min(prev + 1, 1 || 1))}
+                                    disabled={currentPageLogs >= 1 || 1 === 0}
+                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    title="Next Page"
+                                >
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
           </div>
         </div>
       </PageTransition>
@@ -250,73 +407,76 @@ const MaterialConsumptionPage = () => {
       <Modal
         isOpen={isUsageModalOpen}
         onClose={() => setIsUsageModalOpen(false)}
-        title="Record Site Material Usage"
+        title="Disburse Project Material"
         maxWidth="max-w-md"
+        footer={
+          <div className="flex gap-3 px-6 pb-6 font-inter">
+            <button
+              onClick={() => setIsUsageModalOpen(false)}
+              className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter"
+            >
+              Cancel
+            </button>
+            <button
+              disabled={isSubmitting || usageData.quantity <= 0 || usageData.quantity > (selectedInventory?.remaining_stock || 0)}
+              onClick={handleUsageSubmit}
+              className="flex-[2] py-3 bg-rose-500 text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-rose-500/20 hover:bg-rose-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
+            >
+              {isSubmitting ? "Syncing..." : "Confirm Disbursement"}
+            </button>
+          </div>
+        }
       >
-        <form onSubmit={handleUsageSubmit} className="p-6 space-y-6 font-inter">
-          <div className="p-4 bg-orange-50 rounded-2xl border border-orange-100 flex items-start gap-3 font-inter">
-              <ClipboardCheck className="w-5 h-5 text-orange-500 shrink-0 mt-0.5 font-inter" />
+        <div className="p-6 space-y-6 font-inter">
+          <div className="p-5 bg-rose-50 rounded-2xl border border-rose-100 flex items-start gap-4 font-inter">
+              <div className="p-2 bg-white rounded-xl shadow-sm font-inter">
+                  <ClipboardCheck className="w-5 h-5 text-rose-500 font-inter" />
+              </div>
               <div className="font-inter">
-                  <p className="text-xs font-bold text-orange-800 font-inter">Recording for {selectedMaterial?.material_name}</p>
-                  <p className="text-[10px] text-orange-600 font-medium font-inter">Available Stock: {selectedMaterial?.remaining_stock} {selectedMaterial?.unit}</p>
+                  <p className="text-[10px] font-bold text-rose-800 uppercase tracking-widest mb-1 font-inter">Audit Context</p>
+                  <p className="text-xs font-bold text-rose-600 font-inter">{selectedInventory?.material_name}</p>
+                  <p className="text-[10px] text-rose-500 font-bold font-inter mt-1">Vault Balance: {selectedInventory?.remaining_stock} {selectedInventory?.unit}</p>
               </div>
           </div>
           
-          <div className="space-y-4 font-inter">
+          <div className="space-y-5 font-inter">
             <div className="font-inter">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Select Material *</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Resource Selection *</label>
                 <select
                     required
-                    value={selectedMaterial?.id || ""}
-                    onChange={(e) => setSelectedMaterial(materials.find(m => m.id === Number(e.target.value)) || null)}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-200 transition-all font-bold font-inter"
+                    value={selectedInventory?.material_id || ""}
+                    onChange={(e) => setSelectedInventory(inventory.find(inv => inv.material_id === Number(e.target.value)) || null)}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-inter"
                 >
-                    {materials.map(m => <option key={m.id} value={m.id}>{m.material_name} ({m.remaining_stock} {m.unit} left)</option>)}
+                    {inventory.map(inv => <option key={inv.material_id} value={inv.material_id}>{inv.material_name} (Bal: {inv.remaining_stock})</option>)}
                 </select>
             </div>
             <div className="font-inter">
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Quantity Used *</label>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Disbursement Quantity *</label>
               <input
                 required
                 type="number"
-                max={selectedMaterial?.remaining_stock}
+                max={selectedInventory?.remaining_stock}
                 value={usageData.quantity}
                 onChange={(e) => setUsageData({ ...usageData, quantity: Number(e.target.value) })}
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-200 transition-all font-bold font-inter"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-inter"
                 placeholder="0"
               />
-              <p className="text-[10px] text-slate-400 font-bold mt-1 ml-1 uppercase font-inter">Cannot exceed remaining stock</p>
+              <p className="text-[9px] text-slate-400 font-bold uppercase mt-1.5 ml-1 tracking-widest font-inter">Limit: {selectedInventory?.remaining_stock} {selectedInventory?.unit}</p>
             </div>
             <div className="font-inter">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Issue Type *</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Logistics Channel *</label>
                 <select
                     required
                     value={usageData.issue_type}
                     onChange={(e) => setUsageData({ ...usageData, issue_type: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-200 transition-all font-bold font-inter"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-inter"
                 >
                     {ISSUE_TYPES.map(i => <option key={i} value={i}>{i}</option>)}
                 </select>
             </div>
           </div>
-          
-          <div className="flex gap-3 pt-4 font-inter">
-            <button
-              type="button"
-              onClick={() => setIsUsageModalOpen(false)}
-              className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all font-inter"
-            >
-              Cancel
-            </button>
-            <button
-              disabled={isSubmitting || usageData.quantity <= 0 || usageData.quantity > (selectedMaterial?.remaining_stock || 0)}
-              type="submit"
-              className="flex-[2] py-4 bg-orange-500 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-orange-500/20 hover:bg-orange-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
-            >
-              {isSubmitting ? "Processing..." : "Record Usage"}
-            </button>
-          </div>
-        </form>
+        </div>
       </Modal>
     </>
   );

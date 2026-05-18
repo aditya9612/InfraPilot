@@ -5,21 +5,20 @@ import StatCard from "../../../components/common/StatCard";
 import Modal from "../../../components/common/Modal";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
-import { 
-  Users, 
-  UserCheck, 
-  ShieldCheck, 
-  Activity, 
-  Search, 
-  Plus, 
-  Edit2, 
-  Trash2, 
-  Eye, 
-  Filter,
-  Briefcase,
-  Phone,
-  Mail,
-  FileText
+import {
+    Search,
+    Plus,
+    Edit2,
+    Trash2,
+    Eye,
+    Filter,
+    Briefcase,
+    Phone,
+    Mail,
+    FileText,
+    Building2,
+    ChevronLeft,
+    ChevronRight
 } from "lucide-react";
 
 import { labourService } from "../../../services/labourService";
@@ -42,18 +41,9 @@ const formatAadhaar = (value: string) => {
     return groups ? groups.join("-") : digits;
 };
 
-const formatMobile = (value: string) => {
-    let digits = value.replace(/\D/g, "");
-    if (digits.startsWith("91")) {
-        digits = digits.slice(2);
-    }
-    digits = digits.slice(0, 10);
-    return digits ? `+91 ${digits}` : "";
-};
-
 const LaborDetailsPage = () => {
     const [laborers, setLaborers] = useState<LabourItem[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [selectedLaborer, setSelectedLaborer] = useState<LabourItem | null>(null);
@@ -63,71 +53,80 @@ const LaborDetailsPage = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
     const [projectId, setProjectId] = useState<number | null>(null);
+    const [contractorFilter, setContractorFilter] = useState<number | null>(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [labourToDelete, setLabourToDelete] = useState<number | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
-
-    const validate = () => {
-        const newErrors: Record<string, string> = {};
-        if (!formData.aadhaar_number.trim()) newErrors.aadhaar_number = "Aadhaar number is required";
-        if (formData.aadhaar_number.replace(/-/g, "").length !== 12) newErrors.aadhaar_number = "Aadhaar must be exactly 12 digits";
-        
-        if (!formData.labour_name.trim()) newErrors.labour_name = "Name is required";
-        if (!formData.skill_type.trim()) newErrors.skill_type = "Skill type is required";
-        if (!formData.daily_wage_rate || Number(formData.daily_wage_rate) <= 0) 
-            newErrors.daily_wage_rate = "Valid wage rate is required";
-        if (!formData.contractor_id) newErrors.contractor_id = "Contractor ID is required";
-        if (!formData.status.trim()) newErrors.status = "Status is required";
-        
-        setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
-    };
+    const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Active" | "Skilled">("All");
+    const [projects, setProjects] = useState<any[]>([]);
+    const [assignProjectId, setAssignProjectId] = useState<string>("");
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
 
     useEffect(() => {
-        const initializeProject = async () => {
+        const initializeProject = () => {
             try {
-                // Try to get project from localStorage first
                 const userStr = localStorage.getItem("infrapilot_user");
-                const user = userStr ? JSON.parse(userStr) : {};
-                const storedPId = user?.project_id || user?.user?.project_id;
-                
-                if (storedPId) {
-                    console.log("Using Stored Project ID:", storedPId);
-                    setProjectId(Number(storedPId));
-                } else {
-                    // If not in storage, fetch from server to see which project the user belongs to
-                    console.log("Project ID not found in storage. Fetching from server...");
-                    const projectsResponse = await projectService.getProjects(1, 0);
-                    const projects = Array.isArray(projectsResponse) ? projectsResponse : (projectsResponse.items || []);
-                    
-                    if (projects && projects.length > 0) {
-                        const firstPId = projects[0].project_id || projects[0].id;
-                        console.log("Auto-discovered Project ID:", firstPId);
-                        setProjectId(Number(firstPId));
-                    } else {
-                        console.warn("No projects found for user. Defaulting to ID 1.");
-                        setProjectId(1);
+                if (userStr) {
+                    const user = JSON.parse(userStr);
+                    const pId = user?.project_id || user?.user?.project_id;
+                    if (pId) {
+                        setProjectId(Number(pId));
                     }
                 }
             } catch (err) {
-                console.error("Failed to discover project context:", err);
-                setProjectId(1);
+                console.error("Failed to load user project context:", err);
             }
         };
         initializeProject();
     }, []);
 
+    useEffect(() => {
+        if (isFormModalOpen) {
+            const fetchProjects = async () => {
+                try {
+                    const res = await projectService.getProjects(100, 0);
+                    const projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
+                    setProjects(projectsList);
+                } catch (err) {
+                    console.error("Failed to fetch projects", err);
+                }
+            };
+            fetchProjects();
+        }
+    }, [isFormModalOpen]);
+
+    const validate = () => {
+        const newErrors: Record<string, string> = {};
+        if (!formData.aadhaar_number.trim()) newErrors.aadhaar_number = "Aadhaar number is required";
+        if (formData.aadhaar_number.replace(/-/g, "").length !== 12) newErrors.aadhaar_number = "Aadhaar must be exactly 12 digits";
+
+        if (!formData.labour_name.trim()) {
+            newErrors.labour_name = "Name is required";
+        } else if (!/^[a-zA-Z\s]+$/.test(formData.labour_name)) {
+            newErrors.labour_name = "Name must contain only alphabets";
+        }
+        if (!formData.skill_type.trim()) newErrors.skill_type = "Skill type is required";
+        if (!formData.daily_wage_rate || Number(formData.daily_wage_rate) <= 0)
+            newErrors.daily_wage_rate = "Valid wage rate is required";
+        if (!formData.contractor_id) newErrors.contractor_id = "Contractor ID is required";
+        if (!formData.status.trim()) newErrors.status = "Status is required";
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
+
+
     const fetchLaborers = useCallback(async () => {
-        if (projectId === null) return;
         setIsLoading(true);
         try {
             console.log(`Synchronizing Personnel Registry for Project: ${projectId}`);
-            const response = await labourService.getLabours(projectId, { 
-                limit: 50, 
+            const response = await labourService.getLabours(projectId, {
+                limit: 50, // Reverted to 50 to prevent 422 error
                 offset: 0,
-                search: searchTerm,
                 status: statusFilter === "All" ? undefined : statusFilter
             });
             console.log("Personnel Registry Sync Success:", response);
@@ -190,42 +189,50 @@ const LaborDetailsPage = () => {
                 const updatePayload = {
                     labour_name: formData.labour_name,
                     skill_type: formData.skill_type,
-                    daily_wage_rate: Number(formData.daily_wage_rate).toFixed(2), 
+                    daily_wage_rate: Number(formData.daily_wage_rate).toFixed(2),
                     contractor_id: Number(formData.contractor_id),
                     status: formData.status,
                     notes: formData.notes,
                 };
                 const updatedLaborer = await labourService.updateLabour(editId, updatePayload as any);
-                
+
                 // Update local state immediately with real data
                 setLaborers(prev => prev.map(l => l.id === editId ? { ...l, ...updatedLaborer } : l));
-                
+
                 toast.success("Profile updated successfully");
             } else {
                 const createPayload = {
                     aadhaar_number: formData.aadhaar_number.replace(/-/g, ""),
                     labour_name: formData.labour_name,
                     skill_type: formData.skill_type,
-                    daily_wage_rate: Number(formData.daily_wage_rate), 
+                    daily_wage_rate: Number(formData.daily_wage_rate),
                     contractor_id: Number(formData.contractor_id),
                     status: formData.status,
                     notes: formData.notes,
-                    project_id: projectId || 1, // Explicitly linking worker to the current project context
+                    project_id: projectId, // Only include if user has set a project
                 };
                 console.log("Step 1: Registering Personnel...", createPayload);
                 const newLaborer = await labourService.createLabour(createPayload);
-                
+
                 // Step 2: Explicitly assign worker to the project to ensure they appear in the list
-                const activePId = projectId || 1;
+                const activePId = assignProjectId ? Number(assignProjectId) : (projectId || 36);
                 console.log(`Step 2: Assigning Worker ${newLaborer.id} to Project ${activePId}...`);
-                await labourService.assignLabourToProject(newLaborer.id, activePId);
-                
+                try {
+                    await labourService.assignLabourToProject(newLaborer.id, activePId);
+                } catch (assignError: any) {
+                    console.error("Assignment Failed, rolling back labour creation:", assignError);
+                    await labourService.deleteLabour(newLaborer.id);
+                    throw new Error("Failed to assign project. Worker registration rolled back.");
+                }
+
                 // Add to local state immediately
                 setLaborers(prev => [newLaborer, ...prev]);
-                toast.success("Personnel registered and assigned to project successfully");
+                toast.success("Personnel registered successfully");
             }
             setIsFormModalOpen(false);
-            
+            setFormData(initialFormData); // Refresh/Reset form data
+            setErrors({}); // Clear errors
+
             // Now that we've assigned them, a fetch should safely see them
             setTimeout(() => {
                 fetchLaborers();
@@ -244,19 +251,50 @@ const LaborDetailsPage = () => {
         skilled: laborers.filter(l => l.skill_type === "Skilled").length,
     };
 
+    const filteredLaborers = laborers.filter(l => {
+        // Apply Stat Cards filter
+        if (activeStatFilter === "Active" && l.status !== "Active") return false;
+        if (activeStatFilter === "Skilled" && l.skill_type !== "Skilled") return false;
+
+        // Apply Contractor ID filter
+        if (contractorFilter !== null && l.contractor_id !== contractorFilter) return false;
+
+        // Apply Search Term filter (Name, ID, Worker Code, Aadhaar)
+        const search = searchTerm.toLowerCase().trim();
+        if (search) {
+            return (
+                l.labour_name.toLowerCase().includes(search) ||
+                l.worker_code.toLowerCase().includes(search) ||
+                l.id.toString().includes(search) ||
+                l.aadhaar_number.includes(search) ||
+                l.aadhaar_number.replace(/-/g, "").includes(search)
+            );
+        }
+
+        return true;
+    });
+
+    // Reset pagination when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [projectId, contractorFilter, searchTerm, statusFilter, activeStatFilter]);
+
+    const totalPages = Math.ceil(filteredLaborers.length / itemsPerPage);
+    const paginatedLaborers = filteredLaborers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
     return (
         <>
             <Navbar title="Personnel Registry" breadcrumb={["Engineer", "Workforce", "Detail Directory"]} />
 
-            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
+            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-screen overflow-hidden font-inter flex flex-col">
                 {/* ── Header ──────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight italic-none">Workforce Personnel Ledger</h1>
                         <p className="text-slate-500 text-sm italic-none">Centralized database of site workforce, performance metrics and compliance.</p>
                     </div>
                     <button
-                        onClick={() => { setFormMode("create"); setFormData(initialFormData); setErrors({}); setIsFormModalOpen(true); }}
+                        onClick={() => { setFormMode("create"); setFormData(initialFormData); setErrors({}); setAssignProjectId(""); setIsFormModalOpen(true); }}
                         className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                     >
                         <Plus className="w-4 h-4" />
@@ -265,41 +303,56 @@ const LaborDetailsPage = () => {
                 </div>
 
                 {/* ── Summary Stats ───────────────────────────── */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                    <StatCard title="Personnel Database" value={stats.total.toString()} sub="Total Records" accent="text-slate-800" icon={<Users className="w-5 h-5" />} />
-                    <StatCard title="Active Assets" value={stats.active.toString()} sub="Currently Deployed" accent="text-blue-500" icon={<UserCheck className="w-5 h-5" />} />
-                    <StatCard title="Technical Skill" value={stats.skilled.toString()} sub="Skilled Laborers" accent="text-emerald-500" icon={<ShieldCheck className="w-5 h-5" />} />
-                    <StatCard title="Database Integrity" value="99.4%" sub="System Health" accent="text-indigo-500" icon={<Activity className="w-5 h-5" />} />
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
+                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard title="Personnel Database" value={stats.total.toString()} sub="Total Records" accent="text-slate-800" />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("Active")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Active" ? "ring-2 ring-blue-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard title="Active Assets" value={stats.active.toString()} sub="Currently Deployed" accent="text-blue-500" />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("Skilled")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Skilled" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard title="Technical Skill" value={stats.skilled.toString()} sub="Skilled Laborers" accent="text-emerald-500" />
+                    </div>
+                    <StatCard title="Database Integrity" value="99.4%" sub="System Health" accent="text-indigo-500" />
                 </div>
 
                 {/* ── Main Container ───────────────────────────────────────────── */}
-                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-12 font-inter">
-                    <div className="p-6 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-slate-50/30 font-inter">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
+                    <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row md:items-center flex-wrap gap-4 bg-white font-inter">
                         <div className="relative flex-1 max-w-md font-inter">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
-                            <input type="text" placeholder="Search by name, ID or Aadhaar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter" />
+                            <input type="text" placeholder="Search by name, ID or Aadhaar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter" />
                         </div>
                         <div className="flex items-center gap-2 font-inter">
                             <Filter className="w-4 h-4 text-slate-400" />
-                            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none cursor-pointer font-inter">
+                            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none cursor-pointer font-inter uppercase tracking-widest">
                                 <option value="All">All Status</option>
                                 <option value="Active">Active</option>
                                 <option value="Inactive">Inactive</option>
                             </select>
                         </div>
+                        <div className="flex items-center gap-3 md:border-l md:border-slate-100 md:pl-4">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Contractor ID:</span>
+                            <input
+                                type="number"
+                                placeholder="ID"
+                                value={contractorFilter || ''}
+                                onChange={(e) => setContractorFilter(e.target.value ? Number(e.target.value) : null)}
+                                className="w-20 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[10px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400"
+                            />
+                        </div>
                     </div>
 
-                    <div className="overflow-x-auto font-inter">
+                    <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
                         {isLoading ? (
                             <div className="p-20 text-center text-slate-400 font-inter">
                                 <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
-                                <p className="text-[10px] font-black uppercase tracking-widest">Parsing Personnel Records...</p>
+                                <p className="text-[10px] font-bold uppercase tracking-widest">Parsing Personnel Records...</p>
                             </div>
                         ) : (
-                            <table className="w-full text-left font-inter">
+                            <table className="w-full text-left font-inter min-w-[1200px]">
                                 <thead>
                                     <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
-                                        <th className="px-6 py-4 font-inter">Worker Code</th>
                                         <th className="px-6 py-4 font-inter">Labour Name</th>
                                         <th className="px-6 py-4 font-inter">Aadhaar Number</th>
                                         <th className="px-6 py-4 font-inter">Skill Type</th>
@@ -311,13 +364,8 @@ const LaborDetailsPage = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50 font-inter">
-                                    {laborers.map((labor) => (
+                                    {paginatedLaborers.map((labor) => (
                                         <tr key={labor.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
-                                            <td className="px-6 py-4">
-                                                <span className="text-[10px] font-black text-primary uppercase tracking-widest bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100 font-inter">
-                                                    {labor.worker_code}
-                                                </span>
-                                            </td>
                                             <td className="px-6 py-4">
                                                 <span className="text-sm font-bold text-slate-800 font-inter">{labor.labour_name}</span>
                                             </td>
@@ -325,16 +373,16 @@ const LaborDetailsPage = () => {
                                                 <span className="text-xs font-bold text-slate-500 font-inter">{labor.aadhaar_number}</span>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className="text-xs font-black text-slate-700 font-inter uppercase tracking-tight">{labor.skill_type}</span>
+                                                <span className="text-xs font-bold text-slate-700 font-inter uppercase tracking-tight">{labor.skill_type}</span>
                                             </td>
                                             <td className="px-6 py-4 text-center">
-                                                <span className="text-sm font-black text-slate-800 tabular-nums font-inter italic-none">₹{labor.daily_wage_rate}</span>
+                                                <span className="text-sm font-bold text-slate-800 tabular-nums font-inter">₹{labor.daily_wage_rate}</span>
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <span className="text-xs font-bold text-slate-500 font-inter">{labor.contractor_id}</span>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest font-inter ${labor.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest font-inter ${labor.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
                                                     {labor.status}
                                                 </span>
                                             </td>
@@ -345,8 +393,8 @@ const LaborDetailsPage = () => {
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-2 font-inter">
-                                                    <button 
-                                                        onClick={() => handleViewDetail(labor.id)} 
+                                                    <button
+                                                        onClick={() => handleViewDetail(labor.id)}
                                                         disabled={loadingId !== null}
                                                         className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter disabled:opacity-50"
                                                     >
@@ -365,31 +413,66 @@ const LaborDetailsPage = () => {
                                 </tbody>
                             </table>
                         )}
+                        
+                        {/* ── Pagination Controls ──────────────────────────── */}
+                        {!isLoading && filteredLaborers.length > 0 && (
+                            <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                    Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredLaborers.length)} of {filteredLaborers.length} entries
+                                </span>
+                                <div className="flex items-center gap-2">
+                                    <button 
+                                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                        disabled={currentPage === 1}
+                                        className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center"
+                                        title="Previous Page"
+                                    >
+                                        <ChevronLeft className="w-4 h-4" />
+                                    </button>
+                                    <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
+                                        Page {currentPage} of {totalPages || 1}
+                                    </div>
+                                    <button 
+                                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                        disabled={currentPage === totalPages || totalPages === 0}
+                                        className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center"
+                                        title="Next Page"
+                                    >
+                                        <ChevronRight className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                     </div>
                 </div>
             </PageTransition>
 
             {/* ── Form Modal ──────────────────────────────────── */}
-            <Modal 
-                isOpen={isFormModalOpen} 
-                onClose={() => setIsFormModalOpen(false)} 
-                title={formMode === 'create' ? 'Register New Personnel' : 'Update Personnel Profile'} 
+            <Modal
+                isOpen={isFormModalOpen}
+                onClose={() => setIsFormModalOpen(false)}
+                title={formMode === 'create' ? 'Register New Personnel' : 'Update Personnel Profile'}
                 maxWidth="max-w-4xl"
                 footer={
-                    <>
-                        <button onClick={() => setIsFormModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">
+                    <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
+                        <button
+                            type="button"
+                            onClick={() => setIsFormModalOpen(false)}
+                            className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter"
+                        >
                             Cancel
                         </button>
                         <button
                             form="personnel-form"
                             type="submit"
                             disabled={isSubmitting}
-                            className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                            className="flex-[2] py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 font-inter"
                         >
                             {isSubmitting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                             {formMode === 'create' ? 'Confirm Registration' : 'Update Profile'}
                         </button>
-                    </>
+                    </div>
                 }
             >
                 <form id="personnel-form" onSubmit={handleSubmit} className="space-y-6">
@@ -398,43 +481,42 @@ const LaborDetailsPage = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Aadhaar Number <span className="text-rose-500">*</span></label>
-                                <input 
-                                    type="text" 
-                                    value={formData.aadhaar_number} 
-                                    onChange={(e) => setFormData({...formData, aadhaar_number: formatAadhaar(e.target.value)})} 
-                                    placeholder="2345-6789-0123" 
-                                    className={`w-full px-4 py-2.5 bg-white border ${errors.aadhaar_number ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all`} 
-                                    required 
+                                <input
+                                    type="text"
+                                    value={formData.aadhaar_number}
+                                    onChange={(e) => setFormData({ ...formData, aadhaar_number: formatAadhaar(e.target.value) })}
+                                    placeholder="2345-6789-0123"
+                                    className={`w-full px-4 py-2.5 bg-white border ${errors.aadhaar_number ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all`}
+                                    required
                                 />
                                 {errors.aadhaar_number && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.aadhaar_number}</p>}
                             </div>
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Labour Name <span className="text-rose-500">*</span></label>
-                                <input type="text" value={formData.labour_name} onChange={(e) => setFormData({...formData, labour_name: e.target.value})} placeholder="Suresh Yadav" className={`w-full px-4 py-2.5 bg-white border ${errors.labour_name ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all`} required />
+                                <input type="text" value={formData.labour_name} onChange={(e) => setFormData({ ...formData, labour_name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} placeholder="Suresh Yadav" className={`w-full px-4 py-2.5 bg-white border ${errors.labour_name ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20`} required />
                                 {errors.labour_name && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.labour_name}</p>}
                             </div>
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Skill Type <span className="text-rose-500">*</span></label>
-                                <select value={formData.skill_type} onChange={(e) => setFormData({...formData, skill_type: e.target.value})} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all">
+                                <select value={formData.skill_type} onChange={(e) => setFormData({ ...formData, skill_type: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all">
                                     <option value="Skilled">Skilled</option>
                                     <option value="Unskilled">Unskilled</option>
-                                    <option value="Semi-Skilled">Semi-Skilled</option>
                                 </select>
                                 {errors.skill_type && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.skill_type}</p>}
                             </div>
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Daily Wage Rate <span className="text-rose-500">*</span></label>
-                                <input type="number" value={formData.daily_wage_rate} onChange={(e) => setFormData({...formData, daily_wage_rate: e.target.value})} placeholder="900.00" className={`w-full px-4 py-2.5 bg-white border ${errors.daily_wage_rate ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all`} required />
+                                <input type="number" value={formData.daily_wage_rate} onChange={(e) => setFormData({ ...formData, daily_wage_rate: e.target.value })} placeholder="900.00" className={`w-full px-4 py-2.5 bg-white border ${errors.daily_wage_rate ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all`} required />
                                 {errors.daily_wage_rate && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.daily_wage_rate}</p>}
                             </div>
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Contractor ID <span className="text-rose-500">*</span></label>
-                                <input type="number" value={formData.contractor_id} onChange={(e) => setFormData({...formData, contractor_id: Number(e.target.value)})} placeholder="1" className={`w-full px-4 py-2.5 bg-white border ${errors.contractor_id ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all`} required />
+                                <input type="number" value={formData.contractor_id} onChange={(e) => setFormData({ ...formData, contractor_id: Number(e.target.value) })} placeholder="1" className={`w-full px-4 py-2.5 bg-white border ${errors.contractor_id ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all`} required />
                                 {errors.contractor_id && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.contractor_id}</p>}
                             </div>
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Status <span className="text-rose-500">*</span></label>
-                                <select value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value})} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all">
+                                <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all">
                                     <option value="Active">Active</option>
                                     <option value="Inactive">Inactive</option>
                                 </select>
@@ -442,11 +524,36 @@ const LaborDetailsPage = () => {
                             </div>
                             <div className="md:col-span-2">
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Notes <span className="text-rose-500">*</span></label>
-                                <textarea value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} placeholder="Helper for general site works" className={`w-full px-4 py-2.5 bg-white border ${errors.notes ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all resize-none`} rows={3} required />
+                                <textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} placeholder="Helper for general site works" className={`w-full px-4 py-2.5 bg-white border ${errors.notes ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all resize-none`} rows={3} required />
                                 {errors.notes && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.notes}</p>}
                             </div>
                         </div>
                     </div>
+                    {formMode === 'create' && (
+                        <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-200 shadow-sm mt-4">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2">
+                                    <Building2 className="w-4 h-4 text-primary" />
+                                    <h3 className="text-sm font-bold text-primary">Assign to project</h3>
+                                </div>
+                                <span className="px-2 py-0.5 bg-blue-100 text-blue-600 rounded-lg text-[10px] font-bold">optional</span>
+                            </div>
+                            <p className="text-[11px] text-blue-500 mb-4 ml-6">Labour create hone ke baad automatically project assign ho jayega</p>
+                            <div className="ml-6">
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">SELECT PROJECT *</label>
+                                <select 
+                                    value={assignProjectId} 
+                                    onChange={(e) => setAssignProjectId(e.target.value)} 
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
+                                >
+                                    <option value="">-- Select your project --</option>
+                                    {projects.map(p => (
+                                        <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                    )}
                 </form>
             </Modal>
 
@@ -455,23 +562,23 @@ const LaborDetailsPage = () => {
                 {selectedLaborer && (
                     <div className="p-6 font-inter text-inter italic-none">
                         {/* ── Profile Style Header ────────────────── */}
-                        <div className="bg-primary rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter">
+                        <div className="bg-primary rounded-2xl p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter">
                             <div className="relative z-10 flex items-center gap-6 font-inter">
-                                <div className="w-24 h-24 bg-blue-400/30 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/20 relative font-inter">
-                                    <span className="text-4xl font-black font-inter">{selectedLaborer.labour_name.charAt(0)}</span>
-                                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-4 border-primary rounded-full animate-pulse" />
+                                <div className="w-24 h-24 bg-blue-400/30 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 relative font-inter">
+                                    <span className="text-4xl font-bold font-inter">{selectedLaborer.labour_name.charAt(0)}</span>
+                                    <div className={`absolute -bottom-1 -right-1 w-6 h-6 ${selectedLaborer.status?.toLowerCase() === 'active' ? 'bg-emerald-500' : 'bg-rose-500'} border-4 border-primary rounded-full animate-pulse`} />
                                 </div>
                                 <div className="font-inter">
                                     <div className="flex items-center gap-3 mb-2 font-inter">
-                                        <h3 className="text-2xl font-black tracking-tight font-inter">{selectedLaborer.labour_name}</h3>
-                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-black uppercase tracking-widest font-inter">{selectedLaborer.skill_type}</span>
+                                        <h3 className="text-2xl font-bold tracking-tight font-inter">{selectedLaborer.labour_name}</h3>
+                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest font-inter">{selectedLaborer.skill_type}</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
                                         <Mail className="w-3 h-3" />
-                                        <span className="text-[11px] font-bold font-inter italic-none">worker.{selectedLaborer.worker_code.toLowerCase()}@infrapilot.com</span>
+                                        <span className="text-[11px] font-bold font-inter">worker.{selectedLaborer.worker_code.toLowerCase()}@infrapilot.com</span>
                                     </div>
                                     <div className="px-3 py-1 bg-white/20 rounded-full inline-block font-inter">
-                                        <span className="text-[10px] font-black uppercase tracking-widest font-inter">DAILY WAGE: ₹{selectedLaborer.daily_wage_rate}</span>
+                                        <span className="text-[10px] font-bold uppercase tracking-widest font-inter">DAILY WAGE: ₹{selectedLaborer.daily_wage_rate}</span>
                                     </div>
                                 </div>
                             </div>
@@ -484,9 +591,9 @@ const LaborDetailsPage = () => {
                                     <div className="p-2 bg-blue-50 rounded-lg font-inter">
                                         <Briefcase className="w-4 h-4 text-primary" />
                                     </div>
-                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Professional Information</p>
+                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] font-inter">Professional Information</p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 sm:gap-x-12 gap-y-6 font-inter">
                                     <div className="font-inter">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Worker ID</p>
                                         <p className="text-sm font-black text-slate-800 font-inter italic-none uppercase">{selectedLaborer.worker_code}</p>
@@ -512,9 +619,9 @@ const LaborDetailsPage = () => {
                                     <div className="p-2 bg-blue-50 rounded-lg font-inter">
                                         <Phone className="w-4 h-4 text-primary" />
                                     </div>
-                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Audit Trail & Logistics</p>
+                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] font-inter">Audit Trail & Logistics</p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 sm:gap-x-12 gap-y-6 font-inter">
                                     <div className="font-inter">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Registration Date</p>
                                         <p className="text-sm font-black text-slate-800 font-inter italic-none">2026-04-10</p>
@@ -532,9 +639,9 @@ const LaborDetailsPage = () => {
                                     <div className="p-2 bg-blue-50 rounded-lg font-inter">
                                         <FileText className="w-4 h-4 text-primary" />
                                     </div>
-                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Deployment Status</p>
+                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] font-inter">Deployment Status</p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 sm:gap-x-12 gap-y-6 font-inter">
                                     <div className="font-inter">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Assigned Site</p>
                                         <p className="text-sm font-black text-slate-800 font-inter italic-none">Skyline Tower A</p>
@@ -547,9 +654,9 @@ const LaborDetailsPage = () => {
                             </div>
                         </div>
 
-                        <button 
+                        <button
                             onClick={() => setIsDetailModalOpen(false)}
-                            className="w-full py-5 bg-primary text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] hover:bg-blue-600 transition-all shadow-xl shadow-primary/20 active:scale-95 font-inter italic-none"
+                            className="w-full py-5 bg-primary text-white rounded-xl text-[11px] font-bold uppercase tracking-[0.2em] hover:bg-blue-600 transition-all shadow-xl shadow-primary/20 active:scale-95 font-inter mb-2"
                         >
                             Dismiss Profile Insight
                         </button>

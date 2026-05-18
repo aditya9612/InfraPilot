@@ -295,9 +295,15 @@ const MasterDataPage = () => {
                     </td>
                     <td className="px-6 py-4 text-xs font-semibold text-slate-500">{item.category}</td>
                     <td className="px-6 py-4">
+<<<<<<< HEAD
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${item.system_tag === "MATERIAL" ? "bg-blue-50 text-blue-600" :
                         item.system_tag === "LABOR" ? "bg-violet-50 text-violet-600" :
                           item.system_tag === "ACTIVITY" ? "bg-amber-50 text-amber-600" : "bg-emerald-50 text-emerald-600"
+=======
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${item.type === "Material" ? "bg-blue-50 text-blue-600" :
+                        item.type === "Labour" ? "bg-violet-50 text-violet-600" :
+                          item.type === "Activity" ? "bg-amber-50 text-amber-600" : "bg-emerald-50 text-emerald-600"
+>>>>>>> 1fdaafe88de190d5698bdb302fbe48dd9f05857c
                         }`}>
                         {item.system_tag}
                       </span>

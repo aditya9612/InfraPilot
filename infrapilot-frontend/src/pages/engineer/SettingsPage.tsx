@@ -5,6 +5,7 @@ import PageTransition from "../../components/common/PageTransition";
 import { Upload, Trash2, User } from "lucide-react";
 import toast from "react-hot-toast";
 import { settingsService } from "../../services/settingsService";
+import { projectService } from "../../services/projectService";
 import type {
     UserSettings,
     UserProfile,
@@ -58,11 +59,13 @@ const SettingsPage = () => {
     // ── Profile State ───────────────────────────────────────────────────
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [profileImage, setProfileImage] = useState<string | null>(null);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // ── Settings State ──────────────────────────────────────────────────
     const [settings, setSettings] = useState<UserSettings | null>(null);
     const [selectedProject, setSelectedProject] = useState<number | null>(null);
+    const [projects, setProjects] = useState<any[]>([]);
     const location = useLocation();
 
     useEffect(() => {
@@ -103,14 +106,17 @@ const SettingsPage = () => {
 
     const fetchData = useCallback(async () => {
         setIsLoading(true);
+        console.log("Fetching settings and profile data...");
         try {
-            const [settingsRes, profileRes] = await Promise.all([
+            const [settingsRes, profileRes, projectsRes] = await Promise.all([
                 settingsService.getSettings(),
-                settingsService.getProfile()
+                settingsService.getProfile(),
+                projectService.getProjects(100, 0)
             ]);
 
             setSettings(settingsRes);
             setProfile(profileRes);
+            setProjects(Array.isArray(projectsRes) ? projectsRes : (projectsRes.items || []));
 
             // Map Settings
             setSelectedProject(settingsRes.default_project_id);
@@ -118,9 +124,28 @@ const SettingsPage = () => {
             setFinancialYear(settingsRes.financial_year || "2025-26");
             setCurrency(settingsRes.currency || "INR");
 
+            // Map Preferences from settingsRes
+            if (settingsRes.preferences) {
+                const prefs = settingsRes.preferences;
+                if (prefs.language) setLanguage(prefs.language);
+                if (prefs.timezone) setTimezone(prefs.timezone);
+                if (prefs.dateFormat) setDateFormat(prefs.dateFormat);
+                if (prefs.unitSystem) setUnitSystem(prefs.unitSystem);
+                if (prefs.massUnit) setMassUnit(prefs.massUnit);
+                if (prefs.autoSave !== undefined) setPreferences(p => ({ ...p, autoSave: prefs.autoSave }));
+                if (prefs.compactView !== undefined) setPreferences(p => ({ ...p, compactView: prefs.compactView }));
+                if (prefs.showWeather !== undefined) setPreferences(p => ({ ...p, showWeather: prefs.showWeather }));
+                if (prefs.showGPS !== undefined) setPreferences(p => ({ ...p, showGPS: prefs.showGPS }));
+            }
             // Map Profile
             setProfileImage(profileRes.profile_image);
 
+            // Map Profile Image (Handle relative paths)
+            const resolvedPath = settingsService.resolveUrl(profileRes.profile_image);
+            console.log("Settings Refresh - Resolved Image URL:", resolvedPath);
+            setProfileImage(resolvedPath);
+
+            console.log("Data sync complete:", { settingsRes, profileRes });
         } catch (error) {
             console.error("Failed to fetch settings/profile", error);
             toast.error("Failed to sync account settings");
@@ -136,21 +161,23 @@ const SettingsPage = () => {
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+            setSelectedFile(file);
             const imageUrl = URL.createObjectURL(file);
             setProfileImage(imageUrl);
-            toast.success("Profile photo updated temporarily.");
+            toast.success("Profile photo selected.");
         }
     };
 
     const handleRemoveImage = () => {
         setProfileImage(null);
+        setSelectedFile(null);
         if (fileInputRef.current) fileInputRef.current.value = "";
         toast.success("Profile photo removed.");
     };
 
     const unitOptions = {
         system: ["Metric", "Imperial"],
-        mass: ["Kg", "Ton", "Lbs"],
+        mass: ["Kg", "Feet", "Meter"],
         length: ["Meter", "Feet", "Inch", "Cm"],
     };
 
@@ -178,11 +205,6 @@ const SettingsPage = () => {
         { key: "showGPS" as const, label: "Auto GPS Capture", desc: "Capture GPS on DSR form open" },
     ];
 
-    const projects = [
-        { id: 36, name: "Project 36 - Main Site" },
-        { id: 101, name: "Skyline Tower A" },
-        { id: 102, name: "Grand Residency Phase 1" },
-    ];
 
     const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -195,14 +217,21 @@ const SettingsPage = () => {
         if (!profile || !settings) return;
 
         setIsSaving(true);
-        const toastId = toast.loading("Saving changes…");
+        const toastId = toast.loading("Syncing configuration…");
         try {
             // 1. Prepare Settings Update
             const settingsData: UpdateSettingsRequest = {
                 default_project_id: selectedProject,
                 unit: lengthUnit,
                 notifications_enabled: notifications.emailAlerts || notifications.pushNotifications,
-                preferences: { ...preferences, language, timezone, dateFormat },
+                preferences: {
+                    ...preferences,
+                    language,
+                    timezone,
+                    dateFormat,
+                    unitSystem,
+                    massUnit
+                },
                 financial_year: financialYear,
                 currency: currency,
                 tax_settings: settings.tax_settings || {},
@@ -210,32 +239,46 @@ const SettingsPage = () => {
                 payment_terms: settings.payment_terms || "30 days"
             };
 
-            // 2. Prepare Profile Update (with sanitization to avoid 422 errors)
-            const profileData: UpdateProfileRequest = {
+            // 2. Prepare Profile Update (with sanitization)
+            const profileData: any = {
                 full_name: profile.full_name,
                 role: profile.role,
-                // Sanitize: Remove non-digits from mobile and aadhaar
                 mobile_number: profile.mobile_number.replace(/\D/g, ""),
                 email: profile.email,
                 address: profile.address,
-                // Sanitize: PAN should be uppercase
                 pan_number: profile.pan_number.toUpperCase(),
                 aadhaar_number: profile.aadhaar_number.replace(/\D/g, ""),
                 designation: profile.designation,
                 joining_date: profile.joining_date,
-                is_active: profile.is_active
+                is_active: profile.is_active,
+                // Include the actual file if selected
+                profile_image: selectedFile || undefined
             };
 
-            await Promise.all([
+            console.log("Syncing All Settings...", { settingsData, profileData });
+
+            const [updatedSettings, updatedProfile] = await Promise.all([
                 settingsService.updateSettings(settingsData),
                 settingsService.updateProfile(profileData)
             ]);
 
-            toast.success("Account settings updated!", { id: toastId });
-            fetchData();
-        } catch (error) {
+            console.log("Profile Update Success - Response Image:", updatedProfile.profile_image);
+
+            // Update local state immediately with returned data from API
+            setSettings(updatedSettings);
+            setProfile(updatedProfile);
+            setProfileImage(settingsService.resolveUrl(updatedProfile.profile_image));
+            setSelectedFile(null);
+
+            // Refetch fresh configurations from backend to keep everything fully synced
+            await fetchData();
+
+            toast.success("Account settings synchronized!", { id: toastId });
+            console.log("Settings synchronization complete.");
+        } catch (error: any) {
             console.error("Save Settings Error:", error);
-            toast.error("Failed to save changes", { id: toastId });
+            const errorMsg = error.response?.data?.message || "Failed to sync changes. Please try again.";
+            toast.error(errorMsg, { id: toastId });
         } finally {
             setIsSaving(false);
         }
@@ -259,10 +302,10 @@ const SettingsPage = () => {
                 breadcrumb={["InfraPilot", "Engineer", "Settings"]}
             />
 
-            <PageTransition className="p-4 md:p-8 bg-slate-50 min-h-screen font-inter">
+            <PageTransition className="p-4 md:p-8 bg-slate-50 h-[calc(100vh-64px)] overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
 
                 {/* ── Header ──────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6 md:mb-10">
                     <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">
                             Preferences
@@ -298,8 +341,10 @@ const SettingsPage = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                         <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
                             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Active Project</p>
-                            <p className="text-base font-bold text-primary truncate">{selectedProject}</p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">Currently selected</p>
+                            <p className="text-base font-bold text-primary truncate">
+                                {projects.find(p => p.id === selectedProject)?.project_name || `ID: ${selectedProject}`}
+                            </p>
+                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">Primary project workspace</p>
                         </div>
                         <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
                             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Unit System</p>
@@ -311,7 +356,7 @@ const SettingsPage = () => {
                             <p className="text-base font-bold text-amber-500">
                                 {Object.values(notifications).filter(Boolean).length} / {Object.keys(notifications).length}
                             </p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">Channels active</p>
+                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">Channels enabled</p>
                         </div>
                         <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
                             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Language</p>
@@ -324,7 +369,6 @@ const SettingsPage = () => {
                 {/* ── Main Settings Grid ───────────────────────────────────── */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-                    {/* ─ 0. Profile & Account ──────────────────────────────── */}
                     <div id="profile" className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 lg:col-span-2">
                         <SectionHeader
                             title="Profile & Account"
@@ -427,6 +471,27 @@ const SettingsPage = () => {
                                             className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                         />
                                     </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Role</label>
+                                        <input
+                                            type="text"
+                                            name="role"
+                                            value={profile?.role || ""}
+                                            readOnly
+                                            className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-sm font-semibold text-slate-500 cursor-not-allowed"
+                                            title="Role cannot be changed manually"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Joining Date</label>
+                                        <input
+                                            type="date"
+                                            name="joining_date"
+                                            value={profile?.joining_date || ""}
+                                            onChange={handleProfileChange}
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                        />
+                                    </div>
                                     <div className="flex flex-col gap-1.5 sm:col-span-2">
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Address</label>
                                         <input
@@ -436,6 +501,37 @@ const SettingsPage = () => {
                                             onChange={handleProfileChange}
                                             className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                         />
+                                    </div>
+                                    <div className="sm:col-span-2 flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
+                                        <div>
+                                            <p className="text-sm font-bold text-slate-700">Account Status</p>
+                                            <p className="text-[10px] text-slate-400 font-medium">Toggle active status of this profile</p>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <span className={`text-[9px] font-bold uppercase tracking-widest ${profile?.is_active ? "text-emerald-600" : "text-rose-500"}`}>
+                                                {profile?.is_active ? "Active" : "Inactive"}
+                                            </span>
+                                            <Toggle
+                                                enabled={profile?.is_active || false}
+                                                onChange={() => setProfile(prev => prev ? ({ ...prev, is_active: !prev.is_active }) : null)}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="sm:col-span-2 flex justify-end mt-4">
+                                        <button
+                                            onClick={handleSave}
+                                            disabled={isSaving}
+                                            className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-black transition-all shadow-lg active:scale-95 flex items-center gap-2 disabled:opacity-60"
+                                        >
+                                            {isSaving ? (
+                                                <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            ) : (
+                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            )}
+                                            Save Profile Settings
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -460,17 +556,19 @@ const SettingsPage = () => {
                                 </label>
                                 <select
                                     value={selectedProject || ""}
-                                    onChange={e => setSelectedProject(Number(e.target.value))}
+                                    onChange={e => {
+                                        const val = e.target.value;
+                                        setSelectedProject(val === "" ? null : Number(val));
+                                    }}
                                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none cursor-pointer"
                                 >
-                                    <option value="">Select Project</option>
+                                    <option value="">Select Project (None)</option>
                                     {projects.map(p => (
-                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                        <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
                                     ))}
                                 </select>
                             </div>
 
-                            {/* Project cards */}
                             <div className="space-y-2 mt-2">
                                 {projects.map(p => (
                                     <button
@@ -483,7 +581,7 @@ const SettingsPage = () => {
                                     >
                                         <span className="flex items-center gap-2.5">
                                             <span className={`w-2 h-2 rounded-full ${selectedProject === p.id ? "bg-blue-500" : "bg-slate-300"}`} />
-                                            {p.name}
+                                            {p.project_name || p.name}
                                         </span>
                                         {selectedProject === p.id && (
                                             <span className="text-[9px] font-bold text-blue-500 uppercase tracking-widest">Active</span>
@@ -506,7 +604,6 @@ const SettingsPage = () => {
                         />
 
                         <div className="space-y-5">
-                            {/* Unit System */}
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Unit System</label>
                                 <div className="grid grid-cols-2 gap-3">
@@ -525,7 +622,6 @@ const SettingsPage = () => {
                                 </div>
                             </div>
 
-                            {/* Mass Unit */}
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                                     Mass / Weight
@@ -546,7 +642,6 @@ const SettingsPage = () => {
                                 </div>
                             </div>
 
-                            {/* Length Unit */}
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                                     Length / Distance
@@ -567,7 +662,6 @@ const SettingsPage = () => {
                                 </div>
                             </div>
 
-                            {/* Live summary */}
                             <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 mt-2">
                                 <div>
                                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Current Units</p>
@@ -627,7 +721,6 @@ const SettingsPage = () => {
                             }
                         />
 
-                        {/* Dropdown prefs */}
                         <div className="grid grid-cols-1 gap-4">
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Language</label>
@@ -642,7 +735,7 @@ const SettingsPage = () => {
                                 </select>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Timezone</label>
                                     <select
@@ -670,7 +763,6 @@ const SettingsPage = () => {
                             </div>
                         </div>
 
-                        {/* Toggle prefs */}
                         <div className="space-y-3">
                             {prefItems.map(item => (
                                 <div
@@ -694,7 +786,6 @@ const SettingsPage = () => {
                             ))}
                         </div>
 
-                        {/* Info notice */}
                         <div className="flex items-start gap-3 p-4 bg-amber-50 rounded-xl border border-amber-100 lg:mt-auto">
                             <span className="text-lg shrink-0">⚠️</span>
                             <div>
@@ -732,3 +823,4 @@ const SettingsPage = () => {
 };
 
 export default SettingsPage;
+

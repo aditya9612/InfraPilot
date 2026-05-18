@@ -1,5 +1,5 @@
 import api from "./api";
-import type { IssueItem, CreateIssueRequest, UpdateIssueRequest, IssueResponse } from "../types/issue";
+import type { IssueItem, CreateIssueRequest, IssueResponse } from "../types/issue";
 
 export const issueService = {
     /**
@@ -8,7 +8,23 @@ export const issueService = {
      */
     async getIssues(params?: any): Promise<IssueResponse> {
         try {
-            const response = await api.get("/issues", { params });
+            const queryParams: any = {
+                project_id: params?.project_id || 1
+            };
+
+            // Omit empty fields to prevent 422 errors
+            if (params?.status && params.status !== "All") queryParams.status = params.status;
+            if (params?.priority && params.priority !== "All") queryParams.priority = params.priority;
+            if (params?.category) queryParams.category = params.category;
+            if (params?.assigned_to) queryParams.assigned_to = params.assigned_to;
+            if (params?.search) queryParams.search = params.search;
+            if (params?.sort_by) queryParams.sort_by = params.sort_by;
+            if (params?.order) queryParams.order = params.order;
+
+            console.log("GET /api/v1/issues - Params:", queryParams);
+            const response = await api.get("/issues", { params: queryParams });
+            console.log("GET /api/v1/issues - Response:", response.data);
+            
             return response.data;
         } catch (error: any) {
             console.error("Get Issues API Error:", error.response?.data || error.message);
@@ -54,9 +70,8 @@ export const issueService = {
     async createIssue(data: CreateIssueRequest): Promise<IssueItem> {
         try {
             console.log("Creating Issue with payload:", data);
-            const { project_id, ...payload } = data;
-            const response = await api.post("/issues", payload, {
-                params: { project_id: 36 }
+            const response = await api.post("/issues", data, {
+                params: { project_id: data.project_id || 36 }
             });
             return response.data;
         } catch (error: any) {
@@ -65,21 +80,7 @@ export const issueService = {
         }
     },
 
-    /**
-     * Update Issue By ID
-     * PUT /api/v1/issues/{id}?project_id=36
-     */
-    async updateIssue(id: number, data: UpdateIssueRequest): Promise<IssueItem> {
-        try {
-            const response = await api.put(`/issues/${id}`, data, {
-                params: { project_id: 36 }
-            });
-            return response.data;
-        } catch (error: any) {
-            console.error(`Update Issue ${id} API Error:`, error.response?.data || error.message);
-            throw error;
-        }
-    },
+
 
     /**
      * Delete Issue By ID

@@ -63,10 +63,10 @@ const EngineerDashboard = () => {
         <>
             <Navbar title="Site Overview" breadcrumb={["InfraPilot", "Engineer", "Dashboard"]} />
 
-            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
+            <PageTransition className="p-4 md:p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
 
                 {/* ── Header ─────────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
                     <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">Project</p>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Skyline Tower – Block A</h1>
@@ -90,31 +90,27 @@ const EngineerDashboard = () => {
                             title="Total Labor Today"
                             value="145"
                             sub="85 Skilled · 60 Unskilled"
-                            accent="text-primary"
-                        />
+                            accent="text-primary" />
                         <StatCard
                             title="Active Activities"
                             value="12"
                             sub="Foundations, Column Casting"
-                            accent="text-blue-500"
-                        />
+                            accent="text-blue-500" />
                         <StatCard
                             title="Material Stock Status"
                             value="OK"
                             sub="Cement: OK · Steel: Low"
-                            accent="text-emerald-500"
-                        />
+                            accent="text-emerald-500" />
                         <StatCard
                             title="Open Issues"
                             value="4"
                             sub="2 High Priority"
-                            accent="text-rose-500"
-                        />
+                            accent="text-rose-500" />
                     </div>
                 </div>
 
                 {/* ── Today's Work + Progress Circle ────────────────────────── */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 mb-6 md:mb-8">
                     <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                             <div>
@@ -306,7 +302,7 @@ const EngineerDashboard = () => {
 
                         {/* Expense Table */}
                         <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
+                            <table className="w-full text-sm min-w-[600px]">
                                 <thead>
                                     <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] border-b border-slate-50">
                                         <th className="px-6 py-4 text-left">Date</th>

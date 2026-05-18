@@ -9,6 +9,8 @@ export interface LabourItem {
   status: string;
   notes: string;
   mobile_number?: string;
+  project_id?: number | null;
+  projects?: any[];
 }
 
 export interface CreateLabourRequest {
@@ -60,6 +62,9 @@ export interface AttendanceRecord {
     status: string;
     task_description?: string;
     total_wage?: number;
+    overtime_rate?: number;
+    attendance_id?: number | string;
+    contractor_id?: number;
     // UI specific
     selfie_url?: string;
 }
@@ -78,6 +83,7 @@ export interface CheckInRequest {
     latitude: number;
     longitude: number;
     location_address: string;
+    resolved_address?: string;
     task_description: string;
     check_in_image: string | null;
 }
@@ -86,6 +92,7 @@ export interface CheckOutRequest {
     latitude: number;
     longitude: number;
     location_address: string;
+    resolved_address?: string;
     overtime_hours: number;
     overtime_rate: number;
     check_out_image: string | null;

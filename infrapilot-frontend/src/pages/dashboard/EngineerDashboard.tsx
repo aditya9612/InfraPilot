@@ -84,20 +84,24 @@ const EngineerDashboard = () => {
         {/* Header Actions */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
           <div>
-            <h1 className="text-3xl font-black text-slate-800 tracking-tighter uppercase mb-2">Field Pulse</h1>
-            <p className="text-slate-500 text-sm font-medium">Real-time site ops and daily progress tracking.</p>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+              Field Pulse
+            </h1>
+            <p className="text-slate-500 text-sm">
+              Real-time site ops and daily progress tracking.
+            </p>
           </div>
-          <div className="flex flex-wrap gap-3">
-            <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 shadow-sm transition-all active:scale-95">
+          <div className="flex flex-wrap gap-2">
+            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all">
               + New Task
             </button>
-            <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 shadow-sm transition-all active:scale-95">
+            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all">
               + Logistics
             </button>
-            <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 shadow-sm transition-all active:scale-95">
+            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all">
               + Safety
             </button>
-            <button className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">
+            <button className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">
               Create Report
             </button>
           </div>
@@ -140,20 +144,20 @@ const EngineerDashboard = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
           {/* Daily Site Report Form */}
-          <div className="lg:col-span-2 bg-white p-8 rounded-[24px] shadow-sm border border-slate-100">
+          <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
             <div className="flex items-center justify-between mb-8">
               <div>
                 <h2 className="text-lg font-bold text-slate-800">Daily Site Report</h2>
                 <p className="text-xs text-slate-400">Record today's progress and resource utilization</p>
               </div>
-              <div className="px-3 py-1 bg-slate-50 rounded-lg text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              <div className="px-3 py-1.5 bg-slate-50 rounded-lg text-xs font-bold text-slate-500">
                 {today}
               </div>
             </div>
 
             <div className="space-y-6">
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
                   Work Done Overview
                 </label>
                 <textarea
@@ -168,7 +172,7 @@ const EngineerDashboard = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
                     Labor Count
                   </label>
                   <input
@@ -182,7 +186,7 @@ const EngineerDashboard = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
                     Materials Used (t)
                   </label>
                   <input
@@ -201,7 +205,7 @@ const EngineerDashboard = () => {
                 <button className="flex-1 py-4 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl text-slate-500 text-xs font-bold hover:bg-slate-100 hover:border-slate-300 flex items-center justify-center gap-2 transition-all">
                   <span>📸</span> Upload Site Photos
                 </button>
-                <button className="flex-1 py-4 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-blue-600 active:scale-95 transition-all">
+                <button className="flex-1 py-4 bg-primary text-white rounded-2xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 active:scale-95 transition-all">
                   Submit Daily Report
                 </button>
               </div>
@@ -209,9 +213,9 @@ const EngineerDashboard = () => {
           </div>
 
           {/* Site Pulse / Activity */}
-          <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 flex flex-col overflow-hidden transition-all hover:shadow-xl hover:shadow-slate-200/50">
-            <div className="px-6 py-5 border-b border-slate-50 bg-slate-50/50">
-              <h2 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Recent Site Pulse</h2>
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col overflow-hidden transition-all hover:shadow-xl hover:shadow-slate-200/50">
+            <div className="px-6 py-5 border-b border-slate-50">
+              <h2 className="font-bold text-slate-800">Activity Pulse</h2>
             </div>
             <div className="flex-1 p-6 space-y-6 overflow-y-auto max-h-[480px]">
               {activityHistory.map((act) => (
@@ -239,11 +243,11 @@ const EngineerDashboard = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
           {/* Today's Tasks */}
-          <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 overflow-hidden lg:col-span-2">
-            <div className="px-6 py-5 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
-              <h2 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Today's Assigned Tasks</h2>
-              <span className="px-2 py-1 bg-white text-[10px] font-black text-slate-400 rounded-lg shadow-sm">
-                MANAGE
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden lg:col-span-2">
+            <div className="px-6 py-5 border-b border-slate-50 flex items-center justify-between">
+              <h2 className="font-bold text-slate-800">Assigned Tasks</h2>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                TODAY
               </span>
             </div>
             <div className="divide-y divide-slate-50">
@@ -264,7 +268,7 @@ const EngineerDashboard = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                       </svg>
                     ) : (
-                      <span className="text-xs font-black">{task.id}</span>
+                      <span className="text-xs font-bold">{task.id}</span>
                     )}
                   </div>
                   <div className="flex-1">
@@ -273,7 +277,7 @@ const EngineerDashboard = () => {
                     </p>
                     <div className="flex items-center gap-2 mt-1">
                       <span className={`w-1.5 h-1.5 rounded-full ${task.priority === "High" ? "bg-rose-500" : "bg-slate-200"}`} />
-                      <p className={`text-[9px] font-black uppercase tracking-widest ${task.priority === "High" ? "text-rose-500" : "text-slate-400"}`}>
+                      <p className={`text-[9px] font-bold uppercase tracking-widest ${task.priority === "High" ? "text-rose-500" : "text-slate-400"}`}>
                         Priority: {task.priority}
                       </p>
                     </div>
@@ -289,12 +293,12 @@ const EngineerDashboard = () => {
           </div>
 
           {/* Current Project Card */}
-          <div className="bg-white p-8 rounded-[24px] shadow-sm border border-slate-100 transition-all hover:shadow-xl hover:shadow-slate-200/50 group">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 transition-all hover:shadow-xl hover:shadow-slate-200/50 group">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] group-hover:text-primary transition-colors">
+              <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-primary transition-colors">
                 Ongoing Project
               </h2>
-              <span className="px-2 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-black rounded-lg uppercase tracking-widest">
+              <span className="px-2 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-bold rounded-lg uppercase tracking-widest">
                 On Track
               </span>
             </div>
@@ -303,13 +307,13 @@ const EngineerDashboard = () => {
               🚇
             </div>
 
-            <h3 className="text-xl font-black text-slate-800 tracking-tighter mb-1">Metro Extension Ph-II</h3>
+            <h3 className="text-xl font-bold text-slate-800 tracking-tight mb-1">Metro Extension Ph-II</h3>
             <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-4">Zone 4: Foundation Work</p>
 
             <div className="space-y-4">
               <div className="flex justify-between items-end">
-                <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Global Progress</span>
-                <span className="text-2xl font-black text-primary tracking-tighter">64%</span>
+                <span className="text-[10px] font-bold text-slate-800 uppercase tracking-widest">Global Progress</span>
+                <span className="text-2xl font-bold text-primary tracking-tight">64%</span>
               </div>
               <div className="w-full h-2.5 bg-slate-50 rounded-full overflow-hidden shadow-inner">
                 <div
@@ -319,24 +323,24 @@ const EngineerDashboard = () => {
               </div>
             </div>
 
-            <button className="w-full mt-8 py-3.5 bg-slate-50 hover:bg-slate-100 text-slate-500 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all border border-transparent hover:border-slate-200">
+            <button className="w-full mt-8 py-3.5 bg-slate-50 hover:bg-slate-100 text-slate-500 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all border border-transparent hover:border-slate-200">
               View Detailed Timeline
             </button>
           </div>
         </div>
 
         {/* Critical Issue CTA */}
-        <div className="bg-white rounded-[24px] p-8 shadow-sm border border-slate-100 border-l-4 border-l-rose-500 flex flex-col md:flex-row items-center justify-between gap-6 hover:shadow-xl transition-all group">
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 border-l-4 border-l-rose-500 flex flex-col md:flex-row items-center justify-between gap-6 hover:shadow-xl transition-all group">
           <div className="flex items-center gap-6">
             <div className="w-14 h-14 rounded-2xl bg-rose-50 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">🔥</div>
             <div>
-              <h3 className="text-lg font-black text-slate-800 tracking-tight">Critical Issue Found?</h3>
+              <h3 className="text-lg font-bold text-slate-800 tracking-tight">Critical Issue Found?</h3>
               <p className="text-sm text-slate-500 font-medium">Report blockers immediately to the project manager and admin.</p>
             </div>
           </div>
           <button
             onClick={() => setShowIssueForm(true)}
-            className="px-8 py-4 bg-rose-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-200 hover:bg-rose-600 active:scale-95 transition-all w-full md:w-auto"
+            className="px-8 py-4 bg-rose-500 text-white rounded-2xl text-sm font-bold shadow-lg shadow-rose-200 hover:bg-rose-600 active:scale-95 transition-all w-full md:w-auto"
           >
             Report Now
           </button>
@@ -346,10 +350,10 @@ const EngineerDashboard = () => {
       {/* Floating Issue Form Modal */}
       {showIssueForm && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[150] flex items-end sm:items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-[32px] p-8 shadow-2xl animate-in slide-in-from-bottom duration-300">
+          <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl animate-in slide-in-from-bottom duration-300">
             <div className="flex justify-between items-center mb-8">
               <div>
-                <h3 className="text-xl font-black text-slate-800 tracking-tighter uppercase">
+                <h3 className="text-xl font-bold text-slate-800 tracking-tight uppercase">
                   Report Issue
                 </h3>
                 <p className="text-xs text-slate-400 font-medium tracking-tight">Broadcast critical site blocker</p>
@@ -363,7 +367,7 @@ const EngineerDashboard = () => {
             </div>
             <div className="space-y-6">
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Issue Title</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Issue Title</label>
                 <input
                   type="text"
                   placeholder="e.g. Pipe Leak at Section 2"
@@ -371,26 +375,26 @@ const EngineerDashboard = () => {
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Details</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Details</label>
                 <textarea
                   placeholder="Detailed description of the blocker..."
                   className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm h-32 resize-none focus:ring-2 focus:ring-rose-500"
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Priority Level</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Priority Level</label>
                 <div className="flex gap-3">
                   {["Low", "Medium", "High"].map((p) => (
                     <button
                       key={p}
-                      className="flex-1 py-3 bg-slate-50 text-[10px] font-black text-slate-400 rounded-xl hover:bg-slate-100 hover:text-slate-800 border border-transparent hover:border-slate-200 transition-all"
+                      className="flex-1 py-3 bg-slate-50 text-[10px] font-bold text-slate-400 rounded-xl hover:bg-slate-100 hover:text-slate-800 border border-transparent hover:border-slate-200 transition-all"
                     >
                       {p.toUpperCase()}
                     </button>
                   ))}
                 </div>
               </div>
-              <button className="w-full py-4 bg-rose-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-rose-200 hover:bg-rose-600 active:scale-95 transition-all">
+              <button className="w-full py-4 bg-rose-500 text-white rounded-2xl text-sm font-bold shadow-xl shadow-rose-200 hover:bg-rose-600 active:scale-95 transition-all">
                 Broadcast Blocker
               </button>
             </div>

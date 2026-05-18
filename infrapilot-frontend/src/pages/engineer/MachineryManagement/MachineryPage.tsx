@@ -9,24 +9,26 @@ import toast from "react-hot-toast";
 import { equipmentService } from "../../../services/equipmentService";
 import type { Equipment } from "../../../services/equipmentService";
 import { projectService } from "../../../services/projectService";
+
 import { 
-  Wrench, 
-  Settings2, 
-  Fuel, 
   Search, 
   Plus, 
   Edit2, 
   Trash2,
   Eye,
-  Activity,
   Briefcase,
   Phone,
   Mail,
-  FileText
+  FileText,
+  RotateCcw,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 
 const conditionColors: Record<string, string> = {
     'GOOD': 'bg-emerald-600',
+    'FAIR': 'bg-teal-600',
+    'POOR': 'bg-orange-500',
     'REPAIR': 'bg-rose-600',
     'SERVICE': 'bg-amber-600',
     'DAMAGED': 'bg-rose-700',
@@ -36,6 +38,7 @@ const conditionColors: Record<string, string> = {
 const MachineryPage = () => {
     const [machineryList, setMachineryList] = useState<Equipment[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [projects, setProjects] = useState<any[]>([]);
     
     // UI States
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -45,50 +48,50 @@ const MachineryPage = () => {
     const [conditionFilter, setConditionFilter] = useState("All");
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<number | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
+    const [activeStatFilter, setActiveStatFilter] = useState<"All" | "GOOD" | "REPAIR" | "DAMAGED" | "MAINTENANCE">("All");
 
-    const [projectId, setProjectId] = useState<number>(0);
+    const [selectedProjectId, setSelectedProjectId] = useState<number>(() => {
+        try {
+            const userStr = localStorage.getItem("infrapilot_user");
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                const pId = user?.project_id || user?.user?.project_id;
+                if (pId) return Number(pId);
+            }
+        } catch (err) {
+            console.error("Failed to load user project context:", err);
+        }
+        return 36; // Default fallback to 36
+    });
 
     useEffect(() => {
-        const initializeProject = async () => {
+        const fetchProjects = async () => {
             try {
-                // Try discovery via service first
-                const res = await projectService.getProjects();
-                const projects = Array.isArray(res) ? res : (res.items || []);
-                if (projects.length > 0) {
-                    const pId = projects[0].project_id || projects[0].id;
-                    console.log("Machinery Discovery: Using Project ID:", pId);
-                    setProjectId(Number(pId));
-                    return;
-                }
-
-                // Fallback to local storage
-                const userStr = localStorage.getItem("infrapilot_user");
-                const user = userStr ? JSON.parse(userStr) : {};
-                const pId = user?.project_id || user?.user?.project_id || 0;
-                setProjectId(Number(pId));
+                const res = await projectService.getProjects(100, 0);
+                const projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
+                setProjects(projectsList);
             } catch (err) {
-                console.error("Machinery Discovery Failed:", err);
+                console.error("Failed to fetch projects list:", err);
             }
         };
-        initializeProject();
+        fetchProjects();
     }, []);
 
     useEffect(() => {
-        if (projectId > 0) {
-            fetchEquipment();
-        }
-    }, [projectId]);
+        fetchEquipment(selectedProjectId);
+    }, [selectedProjectId]);
 
-    const fetchEquipment = async () => {
-        if (!projectId) return;
+    const fetchEquipment = async (projectIdToFetch: number) => {
         setIsLoading(true);
         try {
-            console.log(`Fetching Equipment List for Project: ${projectId}`);
-            const data = await equipmentService.getEquipment(projectId);
-            console.log("Machinery API Raw Response:", data);
+            console.log(`Fetching Machinery Registry for Project ID: ${projectIdToFetch}`);
+            const data = await equipmentService.getEquipment(projectIdToFetch);
+            console.log("Machinery API Response:", data);
             
-            const items = Array.isArray(data) ? data : (data.items || data.data || []);
-            console.log(`Successfully synced ${items.length} machinery items (200 OK)`);
+            const items = data.items || [];
+            console.log(`Successfully synced ${items.length} machinery items for project ID ${projectIdToFetch}`);
             setMachineryList(items);
         } catch (err) {
             console.error("Fetch Equipment Failed:", err);
@@ -117,13 +120,13 @@ const MachineryPage = () => {
     const handleCreateOrUpdate = async (data: any) => {
         try {
             if (editingEquipment) {
-                await equipmentService.updateEquipment(editingEquipment.id, { ...data, project_id: projectId });
+                await equipmentService.updateEquipment(editingEquipment.id, { ...data, project_id: selectedProjectId });
                 toast.success("Machinery log updated");
             } else {
-                await equipmentService.createEquipment({ ...data, project_id: projectId });
+                await equipmentService.createEquipment({ ...data, project_id: selectedProjectId });
                 toast.success("Equipment registered successfully");
             }
-            fetchEquipment();
+            fetchEquipment(selectedProjectId);
             setIsModalOpen(false);
         } catch (error) {
             toast.error("Failed to save record");
@@ -135,7 +138,7 @@ const MachineryPage = () => {
         try {
             await equipmentService.deleteEquipment(itemToDelete);
             toast.success("Record deleted");
-            fetchEquipment();
+            fetchEquipment(selectedProjectId);
             setIsDeleteModalOpen(false);
         } catch (error) {
             toast.error("Failed to delete record");
@@ -144,25 +147,49 @@ const MachineryPage = () => {
 
     const filteredList = useMemo(() => {
         return machineryList.filter(item => {
-            const matchesSearch = item.equipment_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                item.equipment_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                item.operator_name.toLowerCase().includes(searchTerm.toLowerCase());
+            const term = searchTerm.toLowerCase();
+            const matchesSearch = searchTerm === "" || 
+                item.equipment_name.toLowerCase().includes(term) ||
+                item.equipment_code.toLowerCase().includes(term) ||
+                item.operator_name.toLowerCase().includes(term);
+            
             const matchesCondition = conditionFilter === "All" || item.condition === conditionFilter;
-            return matchesSearch && matchesCondition;
+            
+            const matchesStat = activeStatFilter === "All" || item.condition === activeStatFilter;
+            
+            return matchesSearch && matchesCondition && matchesStat;
         });
-    }, [machineryList, searchTerm, conditionFilter]);
+    }, [machineryList, searchTerm, conditionFilter, activeStatFilter]);
 
-    // Summary stats
-    const totalAssets = machineryList.length;
-    const operationalCount = machineryList.filter(m => m.condition === "GOOD").length;
-    const repairCount = machineryList.filter(m => m.condition === "REPAIR").length;
-    const totalFuelUsed = machineryList.reduce((acc, m) => acc + Number(m.fuel_used || 0), 0);
+    const paginatedList = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return filteredList.slice(startIndex, startIndex + itemsPerPage);
+    }, [filteredList, currentPage]);
+
+    const totalPages = Math.ceil(filteredList.length / itemsPerPage);
+
+    // Reset page on filter change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [selectedProjectId, searchTerm, conditionFilter, activeStatFilter]);
+
+    // Summary stats (always from the full list or filtered?) 
+    // User said "calculate karke stat card mai dikhao", usually means total overview.
+    const stats = useMemo(() => {
+        const total = machineryList.length;
+        const good = machineryList.filter(m => m.condition === "GOOD").length;
+        const repair = machineryList.filter(m => m.condition === "REPAIR").length;
+        const damaged = machineryList.filter(m => m.condition === "DAMAGED").length;
+        const maintenance = machineryList.filter(m => m.condition === "MAINTENANCE").length;
+        return { total, good, repair, damaged, maintenance };
+    }, [machineryList]);
+
 
     return (
         <>
             <Navbar title="Machinery & Equipment" breadcrumb={["Engineer", "Machinery", "Asset List"]} />
 
-            <PageTransition className="p-6 bg-slate-50 min-h-screen">
+            <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
@@ -171,50 +198,66 @@ const MachineryPage = () => {
                             Monitor utilization, fuel consumption, and health status.
                         </p>
                     </div>
-                    <button
-                        onClick={() => { setEditingEquipment(null); setIsModalOpen(true); }}
-                        className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
-                    >
-                        <Plus className="w-4 h-4" />
-                        Register Equipment
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => fetchEquipment(selectedProjectId)}
+                            className="p-2.5 text-slate-400 hover:text-primary hover:bg-white rounded-xl transition-all border border-slate-100 bg-white/50 shadow-sm active:scale-95"
+                            title="Sync Ledger"
+                        >
+                            <RotateCcw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+                        </button>
+                        <button
+                            onClick={() => { setEditingEquipment(null); setIsModalOpen(true); }}
+                            className="flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Register Equipment
+                        </button>
+                    </div>
                 </div>
 
                 {/* ── Summary Stats ───────────────────────────── */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                    <StatCard
-                        title="Active Assets"
-                        value={totalAssets.toString()}
-                        sub="Registered Units"
-                        accent="text-slate-800"
-                        icon={<Activity className="w-5 h-5" />}
-                    />
-                    <StatCard
-                        title="Operational"
-                        value={operationalCount.toString()}
-                        sub="Optimal Condition"
-                        accent="text-emerald-500"
-                        icon={<Settings2 className="w-5 h-5" />}
-                    />
-                    <StatCard
-                        title="Under Repair"
-                        value={repairCount.toString()}
-                        sub="Needs Attention"
-                        accent="text-rose-500"
-                        icon={<Wrench className="w-5 h-5" />}
-                    />
-                    <StatCard
-                        title="Total Fuel"
-                        value={`${totalFuelUsed}L`}
-                        sub="Consumption Log"
-                        accent="text-blue-500"
-                        icon={<Fuel className="w-5 h-5" />}
-                    />
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Total Assets"
+                            value={stats.total.toString()}
+                            sub="Registered Units"
+                            accent="text-slate-800" />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("GOOD")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "GOOD" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Good"
+                            value={stats.good.toString()}
+                            sub="Optimal Condition"
+                            accent="text-emerald-500" />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("REPAIR")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "REPAIR" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Repair"
+                            value={stats.repair.toString()}
+                            sub="Needs Attention"
+                            accent="text-rose-500" />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("DAMAGED")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "DAMAGED" ? "ring-2 ring-red-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Damaged"
+                            value={stats.damaged.toString()}
+                            sub="Critical Failure"
+                            accent="text-red-500" />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("MAINTENANCE")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "MAINTENANCE" ? "ring-2 ring-blue-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Maintenance"
+                            value={stats.maintenance.toString()}
+                            sub="Under Service"
+                            accent="text-blue-500" />
+                    </div>
                 </div>
 
                 {/* ── Filter Bar ───────────────────────────────────────────── */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-8">
-                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
+                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white">
                         <div className="relative flex-1 max-w-md">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
                                 <Search className="w-4 h-4" />
@@ -231,20 +274,37 @@ const MachineryPage = () => {
                         <select
                             value={conditionFilter}
                             onChange={(e) => setConditionFilter(e.target.value)}
-                            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-primary/10 transition-all"
+                            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-primary/10 transition-all cursor-pointer"
                         >
                             <option value="All">All Conditions</option>
-                            <option value="GOOD">Good / Optimal</option>
-                            <option value="FAIR">Fair / Functional</option>
-                            <option value="REPAIR">Needs Repair</option>
+                            <option value="GOOD">Good</option>
+                            <option value="REPAIR">Repair</option>
+                            <option value="DAMAGED">Damaged</option>
+                            <option value="MAINTENANCE">Maintenance</option>
                         </select>
+
+                        <div className="flex items-center gap-2 lg:ml-2">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Project:</span>
+                            <select
+                                value={selectedProjectId}
+                                onChange={(e) => setSelectedProjectId(Number(e.target.value))}
+                                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-primary/10 transition-all cursor-pointer uppercase tracking-wider"
+                            >
+                                <option value={36}>Skyline Tower A</option>
+                                {projects.filter((p: any) => (p.project_id || p.id) !== 36).map((p: any) => (
+                                    <option key={p.project_id || p.id} value={p.project_id || p.id}>
+                                        {p.project_name || p.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
 
-                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
-                        {isLoading ? (
+                    <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                         {isLoading ? (
                             <div className="p-20 text-center text-slate-400">
                                 <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
-                                <p className="text-[10px] font-black uppercase tracking-widest">Syncing telemetry...</p>
+                                <p className="text-[10px] font-bold uppercase tracking-widest">Syncing telemetry...</p>
                             </div>
                         ) : (
                             <table className="w-full text-left font-inter min-w-[1200px]">
@@ -253,14 +313,14 @@ const MachineryPage = () => {
                                         <th className="px-6 py-4">Asset Details</th>
                                         <th className="px-6 py-4">Operator</th>
                                         <th className="px-6 py-4">Utilization</th>
-                                        <th className="px-6 py-4">Fuel Log</th>
+                                        <th className="px-6 py-4">Maintenance</th>
                                         <th className="px-6 py-4">Status</th>
                                         <th className="px-6 py-4 text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
-                                    {filteredList.length > 0 ? (
-                                        filteredList.map((item) => (
+                                    {paginatedList.length > 0 ? (
+                                        paginatedList.map((item) => (
                                             <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
                                                 <td className="px-6 py-4">
                                                     <div className="flex flex-col">
@@ -269,16 +329,19 @@ const MachineryPage = () => {
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <span className="text-xs font-semibold text-slate-600">{item.operator_name}</span>
+                                                    <span className="text-xs font-bold text-slate-600">{item.operator_name}</span>
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <span className="text-sm font-bold text-slate-800">{item.working_hours} h</span>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-bold text-slate-800">{item.working_hours} h</span>
+                                                        <span className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">{item.fuel_used} L Fuel</span>
+                                                    </div>
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <span className="text-sm font-bold text-blue-600">{item.fuel_used} L</span>
+                                                    <span className="text-xs font-bold text-slate-600">{item.maintenance_date || 'N/A'}</span>
                                                 </td>
                                                  <td className="px-6 py-4">
-                                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
+                                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${
                                                         item.condition === 'GOOD' ? 'bg-emerald-50 text-emerald-600' : 
                                                         (item.condition === 'REPAIR' || item.condition === 'DAMAGED') ? 'bg-rose-50 text-rose-600 animate-pulse' : 
                                                         item.condition === 'SERVICE' ? 'bg-amber-50 text-amber-600' :
@@ -313,7 +376,7 @@ const MachineryPage = () => {
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan={6} className="px-6 py-20 text-center text-slate-400 italic">
+                                            <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
                                                 No equipment logs found matching your filters.
                                             </td>
                                         </tr>
@@ -322,6 +385,36 @@ const MachineryPage = () => {
                             </table>
                         )}
                     </div>
+                    
+                    {/* ── Pagination Controls ──────────────────────────── */}
+                    {!isLoading && filteredList.length > 0 && (
+                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredList.length)} of {filteredList.length} entries
+                            </span>
+                            <div className="flex items-center gap-2">
+                                <button 
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center"
+                                    title="Previous Page"
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                </button>
+                                <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
+                                    Page {currentPage} of {totalPages || 1}
+                                </div>
+                                <button 
+                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                    disabled={currentPage === totalPages || totalPages === 0}
+                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center"
+                                    title="Next Page"
+                                >
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </PageTransition>
 
@@ -349,25 +442,25 @@ const MachineryPage = () => {
                 maxWidth="max-w-xl"
             >
                 {viewingEquipment && (
-                    <div className="p-6 font-inter text-inter italic-none">
+                    <div className="p-6 font-inter">
                         {/* ── Profile Style Header ────────────────── */}
-                        <div className={`${conditionColors[viewingEquipment.condition as keyof typeof conditionColors] || 'bg-primary'} rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter`}>
+                        <div className={`${conditionColors[viewingEquipment.condition as keyof typeof conditionColors] || 'bg-primary'} rounded-2xl p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter`}>
                             <div className="relative z-10 flex items-center gap-6 font-inter">
-                                <div className="w-24 h-24 bg-blue-400/30 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/20 relative font-inter">
-                                    <span className="text-4xl font-black font-inter">{viewingEquipment.equipment_name.charAt(0)}</span>
+                                <div className="w-24 h-24 bg-blue-400/30 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 relative font-inter">
+                                    <span className="text-4xl font-bold font-inter">{viewingEquipment.equipment_name.charAt(0)}</span>
                                     <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-4 border-primary rounded-full animate-pulse" />
                                 </div>
                                 <div className="font-inter">
                                     <div className="flex items-center gap-3 mb-2 font-inter">
-                                        <h3 className="text-2xl font-black tracking-tight font-inter">{viewingEquipment.equipment_name}</h3>
-                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-black uppercase tracking-widest font-inter">{viewingEquipment.equipment_code}</span>
+                                        <h3 className="text-2xl font-bold tracking-tight font-inter">{viewingEquipment.equipment_name}</h3>
+                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest font-inter">{viewingEquipment.equipment_code}</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
                                         <Mail className="w-3 h-3" />
-                                        <span className="text-[11px] font-bold font-inter italic-none">asset.ref-{viewingEquipment.id}@infrapilot.com</span>
+                                        <span className="text-[11px] font-bold font-inter">asset.ref-{viewingEquipment.id}@infrapilot.com</span>
                                     </div>
                                     <div className="px-3 py-1 bg-white/20 rounded-full inline-block font-inter">
-                                        <span className="text-[10px] font-black uppercase tracking-widest font-inter">CONDITION: {viewingEquipment.condition}</span>
+                                        <span className="text-[10px] font-bold uppercase tracking-widest font-inter">CONDITION: {viewingEquipment.condition}</span>
                                     </div>
                                 </div>
                             </div>
@@ -380,24 +473,24 @@ const MachineryPage = () => {
                                     <div className="p-2 bg-blue-50 rounded-lg font-inter">
                                         <Briefcase className="w-4 h-4 text-primary" />
                                     </div>
-                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Asset Utilization</p>
+                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] font-inter">Asset Utilization</p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Operator Identity</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{viewingEquipment.operator_name}</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Operator Identity</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter">{viewingEquipment.operator_name}</p>
                                     </div>
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Working Hours</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{viewingEquipment.working_hours} Hrs</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Working Hours</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter">{viewingEquipment.working_hours} Hrs</p>
                                     </div>
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Fuel Consumption</p>
-                                        <p className="text-sm font-black text-blue-600 font-inter italic-none">{viewingEquipment.fuel_used} Liters</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Fuel Consumption</p>
+                                        <p className="text-sm font-bold text-blue-600 font-inter">{viewingEquipment.fuel_used} Liters</p>
                                     </div>
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Asset Health</p>
-                                        <p className={`text-sm font-black font-inter italic-none ${viewingEquipment.condition === 'GOOD' ? 'text-emerald-500' : 'text-rose-500'}`}>{viewingEquipment.condition}</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Asset Health</p>
+                                        <p className={`text-sm font-bold font-inter ${viewingEquipment.condition === 'GOOD' ? 'text-emerald-500' : 'text-rose-500'}`}>{viewingEquipment.condition}</p>
                                     </div>
                                 </div>
                             </div>
@@ -408,16 +501,16 @@ const MachineryPage = () => {
                                     <div className="p-2 bg-blue-50 rounded-lg font-inter">
                                         <Phone className="w-4 h-4 text-primary" />
                                     </div>
-                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Fiscal Intelligence</p>
+                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] font-inter">Fiscal Intelligence</p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Rental Value (₹)</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">₹{viewingEquipment.rental_cost.toLocaleString()}</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Rental Value (₹)</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter">₹{viewingEquipment.rental_cost.toLocaleString()}</p>
                                     </div>
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Audit ID</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">AST-{viewingEquipment.id}X99</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Audit ID</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter">AST-{viewingEquipment.id}X99</p>
                                     </div>
                                 </div>
                             </div>
@@ -428,16 +521,19 @@ const MachineryPage = () => {
                                     <div className="p-2 bg-blue-50 rounded-lg font-inter">
                                         <FileText className="w-4 h-4 text-primary" />
                                     </div>
-                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Maintenance Status</p>
+                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] font-inter">Maintenance Status</p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Last Verified</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">2026-04-10</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Maintenance Date</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter">{viewingEquipment.maintenance_date || 'N/A'}</p>
                                     </div>
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">System Integrity</p>
-                                        <p className="text-sm font-black text-emerald-500 font-inter italic-none">Fully Operational</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">System Integrity</p>
+                                        <p className={`text-sm font-bold font-inter ${['GOOD', 'FAIR', 'SERVICE'].includes(viewingEquipment.condition) ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                            {['GOOD', 'FAIR'].includes(viewingEquipment.condition) ? 'Fully Operational' : 
+                                             viewingEquipment.condition === 'SERVICE' ? 'Maintenance Active' : 'System Critical'}
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -445,7 +541,7 @@ const MachineryPage = () => {
 
                         <button 
                             onClick={() => setViewingEquipment(null)}
-                            className={`w-full py-5 ${conditionColors[viewingEquipment.condition as keyof typeof conditionColors] || 'bg-primary'} text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all shadow-xl active:scale-95 font-inter italic-none`}
+                            className={`w-full py-5 ${conditionColors[viewingEquipment.condition as keyof typeof conditionColors] || 'bg-primary'} text-white rounded-xl text-[11px] font-bold uppercase tracking-[0.2em] transition-all shadow-xl active:scale-95 font-inter`}
                         >
                             Dismiss Asset Insight
                         </button>

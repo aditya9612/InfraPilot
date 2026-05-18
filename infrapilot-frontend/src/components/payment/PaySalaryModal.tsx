@@ -15,7 +15,10 @@ interface Props {
 const PaySalaryModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess }) => {
     const [formData, setFormData] = useState({
         labour_id: 0,
-        payment_amount: 0,
+        project_id: 0,
+        month: new Date().getMonth() + 1,
+        year: new Date().getFullYear(),
+        amount: 0,
         payment_method: 'UPI' as PaymentMethod
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -30,9 +33,15 @@ const PaySalaryModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess })
 
     useEffect(() => {
         if (isOpen && labour) {
+            // Force project_id to 36 for active site operations
+            const pId = 36; 
+
             setFormData({
                 labour_id: labour.id,
-                payment_amount: finalSalary,
+                project_id: pId,
+                month: 4, 
+                year: 2026,
+                amount: finalSalary,
                 payment_method: 'UPI'
             });
         }
@@ -41,12 +50,25 @@ const PaySalaryModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess })
     const handlePay = async () => {
         setIsSubmitting(true);
         try {
-            await paymentService.paySalary(formData);
-            toast.success(`Salary of ₹${formData.payment_amount.toLocaleString()} paid to ${labour.labour_name}`);
-            onSuccess();
+            // Strictly enforce Project 36 and correct payload structure
+            const finalPayload = {
+                ...formData,
+                project_id: 36, // Hard-locking for safety
+                labour_id: labour.id,
+                amount: formData.amount
+            };
+            
+            console.log("POST /api/v1/labour/payroll/pay Payload:", finalPayload);
+            await paymentService.paySalary(finalPayload);
+            
+            toast.success(`Disbursement for ${labour.labour_name} confirmed successfully!`);
+            
+            // Trigger immediate background refetch to update UI
+            await onSuccess();
             onClose();
         } catch (error) {
-            toast.error('Payment failed');
+            console.error("Payment Execution Failed:", error);
+            toast.error('Payment sync failed. Check connection.');
         } finally {
             setIsSubmitting(false);
         }

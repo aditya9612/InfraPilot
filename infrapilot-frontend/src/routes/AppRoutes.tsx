@@ -68,6 +68,7 @@ import DSRPage from "../pages/engineer/DSRPage";
 import SitePhotosPage from "../pages/engineer/SitePhotosPage";
 import ReportsPage from "../pages/engineer/ReportsPage";
 import SettingsPage from "../pages/engineer/SettingsPage";
+import EngineerNotificationsPage from "../pages/engineer/NotificationsPage";
 import ActivityListPage from "../pages/engineer/WorkProgress/ActivityListPage";
 import DailyProgressEntryPage from "../pages/engineer/WorkProgress/DailyProgressEntryPage";
 import AttendancePage from "../pages/engineer/LabourManagement/AttendancePage";
@@ -362,6 +363,7 @@ function AppRoutes() {
               <Route path="/engineer/dsr" element={<DSRPage />} />
               <Route path="/engineer/photos" element={<SitePhotosPage />} />
               <Route path="/engineer/reports" element={<ReportsPage />} />
+              <Route path="/engineer/notifications" element={<EngineerNotificationsPage />} />
               <Route path="/engineer/settings" element={<SettingsPage />} />
               <Route path="/engineer/progress/activities" element={<ActivityListPage />} />
               <Route path="/engineer/progress/entry" element={<DailyProgressEntryPage />} />

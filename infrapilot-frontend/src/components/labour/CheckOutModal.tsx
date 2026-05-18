@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import Modal from "../common/Modal";
-import { Camera, MapPin } from "lucide-react";
+import { Camera } from "lucide-react";
 import toast from "react-hot-toast";
 import type { CheckOutRequest } from "../../types/labour";
 
@@ -13,13 +13,20 @@ interface CheckOutModalProps {
 
 const CheckOutModal = ({ isOpen, onClose, onSubmit, attendanceId }: CheckOutModalProps) => {
     const [formData, setFormData] = useState<CheckOutRequest>({
-        latitude: 0,
-        longitude: 0,
-        location_address: "Fetching location...",
+        latitude: 18.5204,
+        longitude: 73.8567,
+        location_address: "",
+        resolved_address: "",
         overtime_hours: 0,
         overtime_rate: 200,
         check_out_image: null,
     });
+
+    useEffect(() => {
+        if (isOpen) {
+            captureGPS();
+        }
+    }, [isOpen]);
 
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isLoading, setIsLoading] = useState(false);
@@ -33,7 +40,6 @@ const CheckOutModal = ({ isOpen, onClose, onSubmit, attendanceId }: CheckOutModa
 
     useEffect(() => {
         if (isOpen) {
-            captureGPS();
             startCamera();
         } else {
             stopCamera();
@@ -87,20 +93,28 @@ const CheckOutModal = ({ isOpen, onClose, onSubmit, attendanceId }: CheckOutModa
                     setGpsStatus("captured");
                     
                     try {
-                        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+                        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`);
                         const data = await res.json();
-                        setFormData(prev => ({ ...prev, location_address: data.display_name || `${latitude}, ${longitude}` }));
+                        const address = data.display_name || "";
+                        setFormData(prev => ({ 
+                            ...prev, 
+                            resolved_address: address,
+                            location_address: prev.location_address || address 
+                        }));
                     } catch (err) {
-                        setFormData(prev => ({ ...prev, location_address: `${latitude}, ${longitude}` }));
+                        console.warn("Reverse Geocoding failed:", err);
                     }
                 },
                 () => {
+                    setFormData(prev => ({ ...prev, latitude: 18.5204, longitude: 73.8567 }));
                     setGpsStatus("error");
-                    toast.error("GPS Access Denied");
-                    setFormData(prev => ({ ...prev, location_address: "Permission Required" }));
+                    toast.error("GPS unavailable. Using default location.");
                 },
-                { enableHighAccuracy: true, timeout: 5000 }
+                { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 }
             );
+        } else {
+            setFormData(prev => ({ ...prev, latitude: 18.5204, longitude: 73.8567 }));
+            setGpsStatus("error");
         }
     };
 
@@ -203,10 +217,6 @@ const CheckOutModal = ({ isOpen, onClose, onSubmit, attendanceId }: CheckOutModa
                     <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
                         <div className="w-full flex items-center justify-between mb-4 border-b border-slate-50 pb-2">
                             <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Exit Audit Trail</h3>
-                            <div className="flex items-center gap-2">
-                                <div className={`w-2 h-2 rounded-full ${gpsStatus === 'captured' ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">GPS: {gpsStatus}</span>
-                            </div>
                         </div>
 
                         <form onSubmit={handleSubmit} className="space-y-5">
@@ -214,8 +224,8 @@ const CheckOutModal = ({ isOpen, onClose, onSubmit, attendanceId }: CheckOutModa
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] ml-1">Attendance Ref *</label>
                                 <input 
                                     readOnly 
-                                    value={`ATT-00${attendanceId}`} 
-                                    className="w-full px-4 py-3 bg-slate-100 border border-slate-100 rounded-xl text-[11px] font-bold text-slate-500" 
+                                    value={`ATT-00${attendanceId}`}
+                                    className="w-full px-4 py-3 bg-slate-100 border border-slate-100 rounded-xl text-[11px] font-bold text-slate-500"
                                 />
                             </div>
 
@@ -246,16 +256,51 @@ const CheckOutModal = ({ isOpen, onClose, onSubmit, attendanceId }: CheckOutModa
                             </div>
 
                             <div className="space-y-1.5">
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] ml-1">Exit Geographical Audit *</label>
-                                <div className="relative">
-                                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-rose-500" />
-                                    <input 
-                                        type="text" 
-                                        readOnly
-                                        value={formData.location_address}
-                                        className="w-full pl-11 pr-4 py-3 bg-slate-100 border border-slate-100 rounded-xl text-[11px] font-bold text-slate-600 truncate"
-                                    />
-                                    <button type="button" onClick={captureGPS} className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-rose-500 uppercase tracking-widest hover:underline">Refresh</button>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] ml-1">Site Location *</label>
+                                <input 
+                                    type="text" 
+                                    name="location_address"
+                                    value={formData.location_address}
+                                    onChange={(e) => setFormData({...formData, location_address: e.target.value})}
+                                    placeholder="Enter site location"
+                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all font-bold"
+                                />
+                            </div>
+
+                            <div className="md:col-span-2">
+                                <div className="flex flex-col gap-3 w-full">
+                                    <div className="flex flex-col gap-2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <span className={`w-2.5 h-2.5 rounded-full ${gpsStatus === "captured" ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" : gpsStatus === "capturing" ? "bg-amber-500 animate-pulse" : "bg-rose-500"}`}></span>
+                                                <span className="text-[10px] font-black text-slate-800 uppercase tracking-[0.1em]">GPS Status: {gpsStatus.toUpperCase()}</span>
+                                            </div>
+                                            <button type="button" onClick={captureGPS} className="text-rose-500 hover:text-rose-700 transition-colors font-black text-[10px] uppercase tracking-widest bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-sm">
+                                                Recapture
+                                            </button>
+                                        </div>
+                                        
+                                        {gpsStatus === "captured" && (
+                                            <div className="flex flex-col gap-2 mt-1 border-t border-slate-100 pt-2">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="bg-white px-3 py-1.5 rounded-xl border border-slate-100 flex-1">
+                                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Latitude</p>
+                                                        <p className="text-xs font-black text-slate-700 tracking-tight">{formData.latitude.toFixed(6)}</p>
+                                                    </div>
+                                                    <div className="bg-white px-3 py-1.5 rounded-xl border border-slate-100 flex-1">
+                                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Longitude</p>
+                                                        <p className="text-xs font-black text-slate-700 tracking-tight">{formData.longitude.toFixed(6)}</p>
+                                                    </div>
+                                                </div>
+                                                {formData.resolved_address && (
+                                                    <div className="bg-emerald-50/50 px-3 py-2.5 rounded-xl border border-emerald-100/50">
+                                                        <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1">Live Captured Address</p>
+                                                        <p className="text-[11px] font-bold text-slate-600 leading-relaxed italic-none">{formData.resolved_address}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 

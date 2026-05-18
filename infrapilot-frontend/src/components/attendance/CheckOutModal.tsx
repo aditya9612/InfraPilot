@@ -3,7 +3,7 @@ import Modal from '../common/Modal';
 import CameraCapture from '../common/CameraCapture';
 import { labourService } from '../../services/labourService';
 import toast from 'react-hot-toast';
-import { Camera as CameraIcon, Clock } from 'lucide-react';
+import { Camera as CameraIcon, Clock, RotateCcw } from 'lucide-react';
 
 interface Props {
     isOpen: boolean;
@@ -18,6 +18,7 @@ const CheckOutModal: React.FC<Props> = ({ isOpen, onClose, attendance, onSuccess
         latitude: null as number | null,
         longitude: null as number | null,
         location_address: '',
+        resolved_address: '',
         overtime_hours: 0,
         overtime_rate: 200,
         check_out_image: null as File | null,
@@ -33,36 +34,57 @@ const CheckOutModal: React.FC<Props> = ({ isOpen, onClose, attendance, onSuccess
                 latitude: null,
                 longitude: null,
                 location_address: '',
+                resolved_address: '',
                 overtime_hours: 0,
                 overtime_rate: 200,
                 check_out_image: null,
                 task_description: ''
             });
-            detectLocation();
+            captureGPS();
         }
     }, [isOpen]);
 
-    const detectLocation = () => {
+    const captureGPS = () => {
         setIsLocating(true);
+        setFormData(prev => ({ ...prev, resolved_address: "" }));
         if ("geolocation" in navigator) {
             navigator.geolocation.getCurrentPosition(
                 async (position) => {
                     const { latitude, longitude } = position.coords;
-                    setFormData(prev => ({ 
-                        ...prev, 
-                        latitude,
-                        longitude,
-                        location_address: "Pune" 
-                    }));
-                    setIsLocating(false);
+                    try {
+                        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`);
+                        const data = await res.json();
+                        const address = data.display_name || "";
+                        
+                        setFormData(prev => ({ 
+                            ...prev, 
+                            latitude,
+                            longitude,
+                            location_address: address,
+                            resolved_address: address
+                        }));
+                    } catch (err) {
+                        console.warn("Reverse Geocoding failed:", err);
+                        setFormData(prev => ({ 
+                            ...prev, 
+                            latitude, 
+                            longitude,
+                            location_address: `Site Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})` 
+                        }));
+                        toast.error("Location captured, but address resolution failed.");
+                    } finally {
+                        setIsLocating(false);
+                    }
                 },
                 () => {
                     toast.error("Location access denied.");
                     setIsLocating(false);
-                }
+                },
+                { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 }
             );
         } else {
             setIsLocating(false);
+            toast.error("Geolocation not supported");
         }
     };
 
@@ -88,11 +110,23 @@ const CheckOutModal: React.FC<Props> = ({ isOpen, onClose, attendance, onSuccess
             payload.append("overtime_rate", String(formData.overtime_rate));
             if (formData.check_out_image) payload.append("check_out_image", formData.check_out_image);
             
-            console.log("Executing Check-Out API: PUT /labour/attendance/" + attendance.id + "/check-out");
-            await labourService.checkOut(attendance.id, payload);
-            toast.success(`Check-out successful`);
+            // Extremely aggressive ID discovery
+            console.log("Check-Out Diagnostic - Attendance Object:", attendance);
+            const attendanceId = attendance.id || attendance.attendance_id || attendance.labour_id;
+            
+            if (!attendanceId) {
+                console.error("CRITICAL: Missing all ID variants (id, attendance_id, labour_id). Object:", attendance);
+                toast.error("Error: Worker identification failed (Missing ID)");
+                setIsSubmitting(false);
+                return;
+            }
+
+            console.log("SUCCESS: Resolved ID " + attendanceId + ". Hitting PUT API...");
+            await labourService.checkOut(attendanceId, payload);
+            console.log("Check-Out Success! Triggering Registry Refetch...");
             onSuccess();
             onClose();
+            toast.success(`Check-out confirmed successfully`);
         } catch (error) {
             toast.error('Check-out failed');
         } finally {
@@ -170,20 +204,41 @@ const CheckOutModal: React.FC<Props> = ({ isOpen, onClose, attendance, onSuccess
                             </div>
                         </div>
 
-                        {/* GPS Status Bar */}
-                        <div className="flex items-center justify-between px-5 py-3 bg-slate-50/50 rounded-xl border border-slate-100">
-                            <div className="flex items-center gap-2">
-                                <div className={`w-2 h-2 rounded-full ${formData.latitude ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
-                                <span className={`text-[10px] font-black uppercase tracking-widest ${formData.latitude ? 'text-slate-600' : 'text-slate-400'}`}>
-                                    {isLocating ? 'GPS: Locating...' : formData.latitude ? 'GPS: Captured' : 'GPS: Not Found'}
-                                </span>
+                        {/* GPS Status Section */}
+                        <div className="flex flex-col gap-3 w-full">
+                            <div className="flex flex-col gap-2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <div className={`w-2 h-2 rounded-full ${formData.latitude ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : isLocating ? 'bg-amber-500 animate-pulse' : 'bg-slate-300'}`} />
+                                        <span className={`text-[10px] font-black uppercase tracking-widest ${formData.latitude ? 'text-slate-800' : 'text-slate-400'}`}>
+                                            GPS: {isLocating ? 'LOCATING...' : formData.latitude ? 'CAPTURED' : 'NOT FOUND'}
+                                        </span>
+                                    </div>
+                                    <button 
+                                        type="button"
+                                        onClick={captureGPS}
+                                        className="text-primary hover:text-blue-700 transition-colors font-black text-[10px] uppercase tracking-widest bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-sm flex items-center gap-1.5 active:scale-95 transition-all"
+                                    >
+                                        <RotateCcw className="w-2.5 h-2.5" />
+                                        RECAPTURE
+                                    </button>
+                                </div>
+                                
+                                {(formData.latitude || formData.longitude) && (
+                                    <div className="flex flex-col gap-2 mt-1 border-t border-slate-100 pt-2">
+                                        {(formData.resolved_address || isLocating || formData.latitude) && (
+                                            <div className="bg-emerald-50/50 px-3 py-2.5 rounded-xl border border-emerald-100/50">
+                                                <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1">LIVE CAPTURED ADDRESS</p>
+                                                <p className="text-[11px] font-bold text-slate-700 leading-relaxed min-h-[1.5em]">
+                                                    {isLocating && !formData.resolved_address 
+                                                        ? "Resolving location address..." 
+                                                        : formData.resolved_address || (formData.latitude ? "Site location identified (Address details pending...)" : "Awaiting GPS signal...")}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
-                            <button 
-                                onClick={detectLocation}
-                                className="text-[10px] font-black text-primary hover:underline uppercase tracking-widest"
-                            >
-                                {formData.latitude ? 'Recapture' : 'Retry'}
-                            </button>
                         </div>
                     </div>
 

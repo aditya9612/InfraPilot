@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../common/Modal';
+import toast from 'react-hot-toast';
 
 interface CreateMachineryModalProps {
   isOpen: boolean;
@@ -71,6 +72,14 @@ const CreateMachineryModal: React.FC<CreateMachineryModalProps> = ({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    
+    // Restrict name fields to alphabetical characters only
+    if (['equipment_name', 'operator_name'].includes(name)) {
+      const alphaValue = value.replace(/[^a-zA-Z\s]/g, "");
+      setFormData(prev => ({ ...prev, [name]: alphaValue }));
+      return;
+    }
+
     setFormData(prev => ({ 
         ...prev, 
         [name]: ['working_hours', 'fuel_used', 'rental_cost'].includes(name) ? Number(value) : value 
@@ -79,7 +88,10 @@ const CreateMachineryModal: React.FC<CreateMachineryModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validate()) return;
+    if (!validate()) {
+      toast.error("Please fill all required fields correctly.");
+      return;
+    }
     
     setIsLoading(true);
     try {
@@ -166,9 +178,10 @@ const CreateMachineryModal: React.FC<CreateMachineryModalProps> = ({
             <div>
               <label className={labelClasses}>Current Condition <span className="text-rose-500">*</span></label>
               <select name="condition" value={formData.condition} onChange={handleChange} className={inputClasses(errors.condition)}>
-                <option value="GOOD">Good / Optimal</option>
-                <option value="FAIR">Fair / Functional</option>
-                <option value="REPAIR">Needs Repair</option>
+                <option value="GOOD">Good</option>
+                <option value="REPAIR">Repair</option>
+                <option value="DAMAGED">Damaged</option>
+                <option value="MAINTENANCE">Maintenance</option>
               </select>
               {errors.condition && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.condition}</p>}
             </div>
