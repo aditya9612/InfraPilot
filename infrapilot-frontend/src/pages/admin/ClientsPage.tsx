@@ -1,9 +1,9 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
 import CreateClientModal from "../../components/forms/CreateClientModal";
-import ViewClientModal from "../../components/forms/ViewClientModal";
 import toast from "react-hot-toast";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import { Eye, Edit2, Trash2 } from "lucide-react";
@@ -45,14 +45,13 @@ const initialClients = [
 ];
 
 const ClientsPage = () => {
+  const navigate = useNavigate();
   const [clients, setClients] = useState(initialClients);
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<any>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<number | null>(null);
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [viewingClient, setViewingClient] = useState<any>(null);
 
   const filteredClients = clients.filter(
     (c) =>
@@ -105,7 +104,7 @@ const ClientsPage = () => {
             <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all">
               Client Portal
             </button>
-            <button 
+            <button
               onClick={() => {
                 const csvData = clients.map(c => ({
                   Name: c.name,
@@ -205,8 +204,11 @@ const ClientsPage = () => {
                     className="hover:bg-slate-50/50 transition-colors group"
                   >
                     <td className="px-6 py-4">
-                      <div>
-                        <p className="font-bold text-slate-700 group-hover:text-primary transition-colors">
+                      <div
+                        onClick={() => navigate(`/admin/clients/${c.id}`)}
+                        className="cursor-pointer group/link"
+                      >
+                        <p className="font-bold text-slate-700 group-hover/link:text-primary transition-colors">
                           {c.name}
                         </p>
                         <p className="text-slate-500 text-xs font-semibold">
@@ -232,43 +234,39 @@ const ClientsPage = () => {
                     </td>
                     <td className="px-6 py-4">
                       <span
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${
-                          c.status === "Active"
-                            ? "bg-emerald-100 text-emerald-600"
-                            : "bg-amber-100 text-amber-600"
-                        }`}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${c.status === "Active"
+                          ? "bg-emerald-100 text-emerald-600"
+                          : "bg-amber-100 text-amber-600"
+                          }`}
                       >
                         {c.status}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-3">
-                        <button 
-                          onClick={() => {
-                            setViewingClient(c);
-                            setIsViewModalOpen(true);
-                          }}
-                          className="p-1.5 text-slate-400 hover:text-primary transition-all duration-200" 
+                        <button
+                          onClick={() => navigate(`/admin/clients/${c.id}`)}
+                          className="p-1.5 text-slate-400 hover:text-primary transition-all duration-200"
                           title="View Profile"
                         >
                           <Eye className="w-4.5 h-4.5" strokeWidth={1.5} />
                         </button>
-                        <button 
+                        <button
                           onClick={() => {
                             setEditingClient(c);
                             setIsModalOpen(true);
                           }}
-                          className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200" 
+                          className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200"
                           title="Edit Client"
                         >
                           <Edit2 className="w-4.5 h-4.5" strokeWidth={1.5} />
                         </button>
-                        <button 
+                        <button
                           onClick={() => {
                             setClientToDelete(c.id);
                             setIsDeleteModalOpen(true);
                           }}
-                          className="p-1.5 text-slate-400 hover:text-rose-500 transition-all duration-200" 
+                          className="p-1.5 text-slate-400 hover:text-rose-500 transition-all duration-200"
                           title="Delete Client"
                         >
                           <Trash2 className="w-4.5 h-4.5" strokeWidth={1.5} />
@@ -288,7 +286,7 @@ const ClientsPage = () => {
         </div>
       </PageTransition>
 
-      <CreateClientModal 
+      <CreateClientModal
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
@@ -298,16 +296,7 @@ const ClientsPage = () => {
         initialData={editingClient}
       />
 
-      <ViewClientModal
-        isOpen={isViewModalOpen}
-        onClose={() => {
-          setIsViewModalOpen(false);
-          setViewingClient(null);
-        }}
-        client={viewingClient}
-      />
-
-      <ConfirmModal 
+      <ConfirmModal
         isOpen={isDeleteModalOpen}
         onClose={() => {
           setIsDeleteModalOpen(false);

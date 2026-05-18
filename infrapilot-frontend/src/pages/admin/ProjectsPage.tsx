@@ -55,10 +55,15 @@ const ProjectsPage = () => {
   const [actTab, setActTab] = useState("All");
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<number | null>(null);
-  
+
   // Edit State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  // Pagination
+  const [progressPage, setProgressPage] = useState(0);
+  const [tablePage, setTablePage] = useState(0);
+  const PROGRESS_PER_PAGE = 6;
+  const TABLE_PER_PAGE = 10;
 
   const fetchProjects = () => {
     // Projects are initialized with mock data
@@ -95,6 +100,13 @@ const ProjectsPage = () => {
   const filtered = filterStatus === "All"
     ? projects
     : projects.filter((p) => p.status === filterStatus);
+
+  // Reset pages when filter changes
+  const handleFilterChange = (s: any) => {
+    setFilterStatus(s);
+    setProgressPage(0);
+    setTablePage(0);
+  };
 
   const stats = {
     total: projects.length,
@@ -156,7 +168,7 @@ const ProjectsPage = () => {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button 
+            <button
               onClick={handleDownloadCSV}
               className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
             >
@@ -181,7 +193,7 @@ const ProjectsPage = () => {
               status: "All",
             },
             {
-              title: "Active Sites",
+              title: "Ongoing Sites",
               value: String(stats.active),
               sub: "Currently in progress",
               accent: "text-success",
@@ -259,12 +271,11 @@ const ProjectsPage = () => {
                   ).map((s) => (
                     <button
                       key={s}
-                      onClick={() => setFilterStatus(s)}
-                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
-                        filterStatus === s
-                          ? "bg-primary text-white shadow-md shadow-primary/20"
-                          : "bg-slate-50 text-slate-500 hover:bg-slate-100"
-                      }`}
+                      onClick={() => handleFilterChange(s)}
+                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${filterStatus === s
+                        ? "bg-primary text-white shadow-md shadow-primary/20"
+                        : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                        }`}
                     >
                       {s.toUpperCase()}
                     </button>
@@ -283,8 +294,8 @@ const ProjectsPage = () => {
 
               {isLoading ? (
                 <div className="flex flex-col items-center justify-center py-12 text-slate-400 italic text-sm">
-                   <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin mb-3"></div>
-                   Loading project progress...
+                  <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin mb-3"></div>
+                  Loading project progress...
                 </div>
               ) : filtered.length === 0 ? (
                 <div className="text-center py-8">
@@ -294,50 +305,95 @@ const ProjectsPage = () => {
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {filtered.map((p) => (
-                    <div
-                      key={p.id}
-                      onClick={() => handleViewProject(p.id)}
-                      className="group cursor-pointer bg-slate-50/50 rounded-xl p-4 hover:bg-slate-50 transition-colors border border-slate-50"
-                    >
-                      <div className="flex justify-between items-start mb-1">
-                        <div className="min-w-0">
-                          <p className="text-[9px] font-mono font-bold text-slate-400">
-                            PRJ-{p.id}
-                          </p>
-                          <p className="text-xs font-bold text-slate-700 group-hover:text-primary transition-colors truncate max-w-[150px]">
-                            {p.project_name}
-                          </p>
-                        </div>
-                        <span className="text-[10px] font-bold text-slate-400">
-                          {p.completion_percentage}%
-                        </span>
-                      </div>
-
-                      <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden mt-3 mb-2">
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {filtered
+                      .slice(progressPage * PROGRESS_PER_PAGE, (progressPage + 1) * PROGRESS_PER_PAGE)
+                      .map((p) => (
                         <div
-                          className={`h-full ${progressFill[p.status] || "bg-slate-300"} transition-all duration-1000`}
-                          style={{ width: `${p.completion_percentage}%` }}
-                        />
-                      </div>
+                          key={p.id}
+                          onClick={() => handleViewProject(p.id)}
+                          className="group cursor-pointer bg-slate-50/50 rounded-xl p-4 hover:bg-slate-50 transition-colors border border-slate-50"
+                        >
+                          <div className="flex justify-between items-start mb-1">
+                            <div className="min-w-0">
+                              <p className="text-[9px] font-mono font-bold text-slate-400">
+                                PRJ-{p.id}
+                              </p>
+                              <p className="text-xs font-bold text-slate-700 group-hover:text-primary transition-colors truncate max-w-[150px]">
+                                {p.project_name}
+                              </p>
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-400">
+                              {p.completion_percentage}%
+                            </span>
+                          </div>
 
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full ${statusDot[p.status] || "bg-slate-400"}`}
-                          />
-                          <span className="text-[9px] font-bold text-slate-400 uppercase translate-y-px">
-                            {p.status}
-                          </span>
+                          <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden mt-3 mb-2">
+                            <div
+                              className={`h-full ${progressFill[p.status] || "bg-slate-300"} transition-all duration-1000`}
+                              style={{ width: `${p.completion_percentage}%` }}
+                            />
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${statusDot[p.status] || "bg-slate-400"}`}
+                              />
+                              <span className="text-[9px] font-bold text-slate-400 uppercase translate-y-px">
+                                {p.status}
+                              </span>
+                            </div>
+                            <span className="text-[9px] font-bold text-slate-500">
+                              {p.start_date}
+                            </span>
+                          </div>
                         </div>
-                        <span className="text-[9px] font-bold text-slate-500">
-                          {p.start_date}
-                        </span>
+                      ))}
+                  </div>
+
+                  {/* Progress Pagination */}
+                  {filtered.length > PROGRESS_PER_PAGE && (
+                    <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-50">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                        Page {progressPage + 1} of {Math.ceil(filtered.length / PROGRESS_PER_PAGE)}
+                      </span>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => setProgressPage(p => Math.max(0, p - 1))}
+                          disabled={progressPage === 0}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
+                          </svg>
+                        </button>
+                        {Array.from({ length: Math.ceil(filtered.length / PROGRESS_PER_PAGE) }).map((_, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => setProgressPage(idx)}
+                            className={`w-6 h-6 rounded-md text-[10px] font-bold transition-all ${progressPage === idx
+                              ? "bg-primary text-white shadow-sm"
+                              : "text-slate-400 hover:bg-slate-100"
+                              }`}
+                          >
+                            {idx + 1}
+                          </button>
+                        ))}
+                        <button
+                          onClick={() => setProgressPage(p => Math.min(Math.ceil(filtered.length / PROGRESS_PER_PAGE) - 1, p + 1))}
+                          disabled={progressPage >= Math.ceil(filtered.length / PROGRESS_PER_PAGE) - 1}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
+                          </svg>
+                        </button>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -352,11 +408,10 @@ const ProjectsPage = () => {
                   <button
                     key={tab}
                     onClick={() => setActTab(tab)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
-                      actTab === tab
-                        ? "bg-primary text-white shadow-md shadow-primary/20"
-                        : "bg-slate-50 text-slate-500 hover:bg-slate-100"
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${actTab === tab
+                      ? "bg-primary text-white shadow-md shadow-primary/20"
+                      : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                      }`}
                   >
                     {tab.toUpperCase()}
                   </button>
@@ -422,9 +477,7 @@ const ProjectsPage = () => {
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="px-6 py-5 border-b border-slate-50 flex items-center justify-between">
-            <h2 className="font-bold text-slate-800">
-              Master Projects Overview
-            </h2>
+            <h2 className="font-bold text-slate-800">Master Projects Overview</h2>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left">
@@ -443,8 +496,8 @@ const ProjectsPage = () => {
                   <tr>
                     <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic text-sm">
                       <div className="flex items-center justify-center gap-2">
-                         <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
-                         Loading projects...
+                        <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+                        Loading projects...
                       </div>
                     </td>
                   </tr>
@@ -455,77 +508,83 @@ const ProjectsPage = () => {
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((p) => (
-                    <tr
-                      key={p.id}
-                      className="hover:bg-slate-50/50 transition-colors group"
-                    >
-                      <td className="px-6 py-4 font-mono text-xs font-bold text-slate-500">
-                        PRJ-{p.id}
-                      </td>
-                      <td className="px-6 py-4 font-bold text-slate-700 group-hover:text-primary transition-colors">
-                        {p.project_name}
-                      </td>
-                      <td className="px-6 py-4 text-slate-500 text-xs">
-                        {p.start_date} to {p.end_date}
-                      </td>
-                      <td className="px-6 py-4 min-w-[200px]">
-                        <div className="flex items-center gap-3">
-                          <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full ${progressFill[p.status] || "bg-slate-300"}`}
-                              style={{ width: `${p.completion_percentage}%` }}
-                            />
+                  filtered
+                    .slice(tablePage * TABLE_PER_PAGE, (tablePage + 1) * TABLE_PER_PAGE)
+                    .map((p) => (
+                      <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
+                        <td className="px-6 py-4 font-mono text-xs font-bold text-slate-500">PRJ-{p.id}</td>
+                        <td className="px-6 py-4 font-bold text-slate-700 group-hover:text-primary transition-colors">{p.project_name}</td>
+                        <td className="px-6 py-4 text-slate-500 text-xs">{p.start_date} to {p.end_date}</td>
+                        <td className="px-6 py-4 min-w-[200px]">
+                          <div className="flex items-center gap-3">
+                            <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div className={`h-full ${progressFill[p.status] || "bg-slate-300"}`} style={{ width: `${p.completion_percentage}%` }} />
+                            </div>
+                            <span className="text-xs font-bold text-slate-400">{p.completion_percentage}%</span>
                           </div>
-                          <span className="text-xs font-bold text-slate-400">
-                            {p.completion_percentage}%
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`px-3 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${statusBadge[p.status] || "bg-slate-100 text-slate-500"}`}>
+                            {p.status}
                           </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`px-3 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${statusBadge[p.status] || "bg-slate-100 text-slate-500"}`}
-                        >
-                          {p.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() => handleViewProject(p.id)}
-                            className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
-                            title="View Details"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => handleEditClick(p)}
-                            className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
-                            title="Edit Project"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => handleDeleteClick(p.id)}
-                            className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
-                            title="Delete Project"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )))}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-center gap-2">
+                            <button onClick={() => handleViewProject(p.id)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all" title="View Details">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                            </button>
+                            <button onClick={() => handleEditClick(p)} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all" title="Edit Project">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                            </button>
+                            <button onClick={() => handleDeleteClick(p.id)} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all" title="Delete Project">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                )}
               </tbody>
             </table>
           </div>
+          {/* Table Pagination */}
+          {filtered.length > TABLE_PER_PAGE && (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-50">
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                Showing {tablePage * TABLE_PER_PAGE + 1}–{Math.min((tablePage + 1) * TABLE_PER_PAGE, filtered.length)} of {filtered.length} projects
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setTablePage(p => Math.max(0, p - 1))}
+                  disabled={tablePage === 0}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                {Array.from({ length: Math.ceil(filtered.length / TABLE_PER_PAGE) }).map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setTablePage(idx)}
+                    className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${tablePage === idx ? "bg-primary text-white shadow-sm" : "text-slate-400 hover:bg-slate-100"
+                      }`}
+                  >
+                    {idx + 1}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setTablePage(p => Math.min(Math.ceil(filtered.length / TABLE_PER_PAGE) - 1, p + 1))}
+                  disabled={tablePage >= Math.ceil(filtered.length / TABLE_PER_PAGE) - 1}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <NewProjectModal

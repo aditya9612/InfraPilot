@@ -14,11 +14,11 @@ const NewProjectModal = ({
 }: NewProjectModalProps) => {
   const [formData, setFormData] = useState({
     project_name: "",
-    owner_id: 1,
+    owner_id: "",
     description: "",
     start_date: "",
     end_date: "",
-    status: "Planned",
+    status: "PLANNED",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -31,7 +31,7 @@ const NewProjectModal = ({
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === "owner_id" ? parseInt(value) || 0 : value,
+      [name]: name === "owner_id" ? value.replace(/\D/g, "") : value,
     }));
     if (errors[name]) {
       setErrors((prev) => {
@@ -45,8 +45,10 @@ const NewProjectModal = ({
     const newErrors: Record<string, string> = {};
     if (!formData.project_name.trim())
       newErrors.project_name = "Project name is required.";
-    if (formData.owner_id <= 0)
-      newErrors.owner_id = "Valid Owner ID is required.";
+    if (!String(formData.owner_id).trim())
+      newErrors.owner_id = "Owner ID is required.";
+    else if (isNaN(Number(formData.owner_id)))
+      newErrors.owner_id = "Owner ID must be a number.";
     if (!formData.description.trim())
       newErrors.description = "Description is required.";
     if (!formData.start_date) newErrors.start_date = "Start date is required.";
@@ -141,7 +143,7 @@ const NewProjectModal = ({
               </label>
               <input
                 required
-                type="number"
+                type="text"
                 name="owner_id"
                 value={formData.owner_id}
                 onChange={handleChange}
@@ -164,10 +166,10 @@ const NewProjectModal = ({
                 onChange={handleChange}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
               >
-                <option value="Planned">Planned</option>
-                <option value="Ongoing">Ongoing</option>
-                <option value="Completed">Completed</option>
-                <option value="On Hold">On Hold</option>
+                <option value="PLANNED">PLANNED</option>
+                <option value="ONGOING">ONGOING</option>
+                <option value="COMPLETED">COMPLETED</option>
+                <option value="ON HOLD">ON HOLD</option>
               </select>
             </div>
             <div className="md:col-span-2">

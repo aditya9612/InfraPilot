@@ -56,6 +56,7 @@ const NotificationsPage = () => {
   };
 
 
+
   return (
     <>
       <Navbar title="Notifications & Alerts" breadcrumb={["Admin", "Notifications"]} />

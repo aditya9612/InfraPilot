@@ -66,12 +66,12 @@ const CreateMilestoneModal = ({
         project_id: projectId,
         ...formData,
       };
-      
+
       console.log("Creating Milestone (Request Body):", requestBody);
-      
+
       if (onSubmit) onSubmit(requestBody);
       setIsLoading(false);
-      
+
       toast.success(`Milestone "${formData.title}" added to schedule!`, {
         style: {
           borderRadius: '12px',
@@ -132,7 +132,7 @@ const CreateMilestoneModal = ({
               />
               {errors.title && <p className="text-[10px] text-red-500 mt-1">{errors.title}</p>}
             </div>
-            
+
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">Description <span className="text-red-500">*</span></label>
               <textarea

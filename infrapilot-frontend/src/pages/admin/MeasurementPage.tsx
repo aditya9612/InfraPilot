@@ -29,6 +29,7 @@ const MeasurementPage = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
+  const [_isProjectsLoading, setIsProjectsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [targetId, setTargetId] = useState<number | null>(null);

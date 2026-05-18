@@ -4,6 +4,7 @@ import Modal from '../common/Modal';
 
 import type { Project } from '../../types/project';
 import type { BoqItem } from '../../types/boq';
+import { BOQ_CATEGORIES, BOQ_UNITS, BOQ_STATUSES } from '../../config/constants';
 
 interface CreateBOQModalProps {
   isOpen: boolean;
@@ -13,19 +14,7 @@ interface CreateBOQModalProps {
   initialData?: BoqItem | null;
 }
 
-const CATEGORIES = [
-  'Construction',
-  'Civil',
-  'Electrical',
-  'Plumbing',
-  'Landscaping',
-  'Structure',
-  'Finishing',
-];
-
-const UNITS = ['Bags', 'Cum', 'Sqm', 'MT', 'Kg', 'Ft', 'Nos', 'Ltr'];
-
-const STATUSES = ['Active', 'Draft', 'Under Review', 'Completed'];
+// Shared constants now imported from config/constants.ts
 
 const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubmit, projects, initialData }) => {
   const [formData, setFormData] = React.useState({
@@ -239,7 +228,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
               className={`w-full px-4 py-2.5 bg-white border ${errors.category ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all appearance-none`}
             >
               <option value="">Select Category</option>
-              {CATEGORIES?.map(c => <option key={c} value={c}>{c}</option>)}
+              {BOQ_CATEGORIES?.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
             {errors.category && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.category}</p>}
           </div>
@@ -279,7 +268,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
               className={`w-full px-4 py-2.5 bg-white border ${errors.unit ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all appearance-none`}
             >
               <option value="">Select Unit</option>
-              {UNITS?.map(u => <option key={u} value={u}>{u}</option>)}
+              {BOQ_UNITS?.map(u => <option key={u} value={u}>{u}</option>)}
             </select>
             {errors.unit && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.unit}</p>}
           </div>
@@ -305,7 +294,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
               onChange={handleChange}
               className={`w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all appearance-none`}
             >
-              {STATUSES?.map(s => <option key={s} value={s}>{s}</option>)}
+              {BOQ_STATUSES?.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
 

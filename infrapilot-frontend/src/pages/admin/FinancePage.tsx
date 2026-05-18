@@ -46,6 +46,7 @@ const FinancePage = () => {
   const [dateTo, setDateTo] = useState("");
 
   const [projects, setProjects] = useState<Project[]>([]);
+  const [_isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [showTypeSelector, setShowTypeSelector] = useState(false);
 

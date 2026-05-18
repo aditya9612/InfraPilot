@@ -1,589 +1,536 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
+import StatCard from "../../../components/common/StatCard";
+import CreateMachineryModal from "../../../components/forms/CreateMachineryModal";
+import ConfirmModal from "../../../components/common/ConfirmModal";
 import Modal from "../../../components/common/Modal";
 import toast from "react-hot-toast";
+import { equipmentService } from "../../../services/equipmentService";
+import type { Equipment } from "../../../services/equipmentService";
+import { projectService } from "../../../services/projectService";
+import { 
+  Search, 
+  Plus, 
+  Edit2, 
+  Trash2,
+  Eye,
+  Briefcase,
+  Phone,
+  Mail,
+  FileText,
+  RotateCcw
+} from "lucide-react";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-interface MachineryRecord {
-    id: string;
-    equipment_name: string;
-    equipment_id: string;
-    operator_name: string;
-    working_hours: string;
-    fuel_used: string;
-    condition: "Good" | "Repair";
-    rental_cost: string;
-    maintenance_date: string;
-    date: string;
-}
-
-// ─── Mock Data ───────────────────────────────────────────────────────────────
-
-const machineryHistory: MachineryRecord[] = [
-    {
-        id: "EQ-1001",
-        equipment_name: "Excavator (JCB 3DX)",
-        equipment_id: "JCB-001",
-        operator_name: "Rahman Khan",
-        working_hours: "8",
-        fuel_used: "45",
-        condition: "Good",
-        rental_cost: "15000",
-        maintenance_date: "2026-03-25",
-        date: "2026-04-13",
-    },
-    {
-        id: "EQ-1002",
-        equipment_name: "Concrete Mixer",
-        equipment_id: "MIX-042",
-        operator_name: "Sunil Verma",
-        working_hours: "6",
-        fuel_used: "12",
-        condition: "Good",
-        rental_cost: "5000",
-        maintenance_date: "2026-04-05",
-        date: "2026-04-12",
-    },
-];
-
-const initialFormData = {
-    equipment_name: "",
-    equipment_id: "",
-    operator_name: "",
-    working_hours: "",
-    fuel_used: "",
-    condition: "Good" as "Good" | "Repair",
-    rental_cost: "",
-    maintenance_date: "",
+const conditionColors: Record<string, string> = {
+    'GOOD': 'bg-emerald-600',
+    'FAIR': 'bg-teal-600',
+    'POOR': 'bg-orange-500',
+    'REPAIR': 'bg-rose-600',
+    'SERVICE': 'bg-amber-600',
+    'DAMAGED': 'bg-rose-700',
+    'MAINTENANCE': 'bg-blue-600',
 };
 
-
-
-// ─── Main Component ─────────────────────────────────────────────────────────────
-
 const MachineryPage = () => {
-    const [machineryList, setMachineryList] = useState<MachineryRecord[]>(machineryHistory);
-    const [isFormModalOpen, setIsFormModalOpen] = useState(false);
-    const [formMode, setFormMode] = useState<"create" | "edit">("create");
-    const [editId, setEditId] = useState<string | null>(null);
-    const [selectedEquipment, setSelectedEquipment] = useState<MachineryRecord | null>(null);
-    const [formData, setFormData] = useState(initialFormData);
-    const [errors, setErrors] = useState<Record<string, string>>({});
-
+    const [machineryList, setMachineryList] = useState<Equipment[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    
+    // UI States
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
+    const [viewingEquipment, setViewingEquipment] = useState<Equipment | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
     const [conditionFilter, setConditionFilter] = useState("All");
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<number | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
+    const [activeStatFilter, setActiveStatFilter] = useState<"All" | "GOOD" | "REPAIR" | "DAMAGED" | "MAINTENANCE">("All");
 
-    // Summary stats
-    const totalAssets = machineryList.length;
-    const operationalCount = machineryList.filter(m => m.condition === "Good").length;
-    const repairCount = machineryList.filter(m => m.condition === "Repair").length;
-    const totalFuelUsed = machineryList.reduce((acc, m) => acc + parseFloat(m.fuel_used || "0"), 0);
+    const [projectId, setProjectId] = useState<number>(0);
 
-    // ── CRUD Handlers ────────────────────────────────────────────────────────
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-        if (errors[name]) setErrors(prev => { const u = { ...prev }; delete u[name]; return u; });
-    };
+    useEffect(() => {
+        const initializeProject = async () => {
+            try {
+                // Prioritize localStorage for Site Engineers
+                const userStr = localStorage.getItem("infrapilot_user");
+                if (userStr) {
+                    const user = JSON.parse(userStr);
+                    const pId = user?.project_id || user?.user?.project_id;
+                    if (pId) {
+                        setProjectId(Number(pId));
+                        return;
+                    }
+                }
 
-    const validate = () => {
-        const errs: Record<string, string> = {};
-        if (!formData.equipment_name.trim()) errs.equipment_name = "Required";
-        if (!formData.equipment_id.trim()) errs.equipment_id = "Required";
-        if (!formData.operator_name.trim()) errs.operator_name = "Required";
-        if (!formData.working_hours.trim()) errs.working_hours = "Required";
-        if (!formData.fuel_used.trim()) errs.fuel_used = "Required";
-        if (!formData.rental_cost.trim()) errs.rental_cost = "Required";
-        if (!formData.maintenance_date.trim()) errs.maintenance_date = "Required";
-        setErrors(errs);
-        return Object.keys(errs).length === 0;
-    };
-
-    const handleOpenCreate = () => {
-        setFormMode("create");
-        setFormData(initialFormData);
-        setErrors({});
-        setIsFormModalOpen(true);
-    };
-
-    const handleOpenEdit = (record: MachineryRecord) => {
-        setFormMode("edit");
-        setEditId(record.id);
-        setFormData({
-            equipment_name: record.equipment_name,
-            equipment_id: record.equipment_id,
-            operator_name: record.operator_name,
-            working_hours: record.working_hours,
-            fuel_used: record.fuel_used,
-            condition: record.condition,
-            rental_cost: record.rental_cost,
-            maintenance_date: record.maintenance_date,
-        });
-        setErrors({});
-        setIsFormModalOpen(true);
-    };
-
-    const handleDelete = (id: string) => {
-        if (window.confirm("Are you sure you want to delete this machinery record?")) {
-            setMachineryList(prev => prev.filter(m => m.id !== id));
-            toast.success("Record deleted successfully");
-        }
-    };
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!validate()) {
-            toast.error("Please fill all required fields correctly.");
-            return;
-        }
-
-        const recordData: MachineryRecord = {
-            id: formMode === "edit" ? editId! : `EQ-${1000 + machineryList.length + 1}`,
-            ...formData,
-            date: new Date().toISOString().split("T")[0],
+                // Fallback to discovery
+                const res = await projectService.getProjects();
+                const projects = Array.isArray(res) ? res : (res.items || []);
+                if (projects.length > 0) {
+                    const pId = projects[0].project_id || projects[0].id;
+                    setProjectId(Number(pId));
+                } else {
+                    setProjectId(36);
+                }
+            } catch (err) {
+                console.error("Machinery Discovery Failed:", err);
+                setProjectId(36);
+            }
         };
+        initializeProject();
+    }, []);
 
-        if (formMode === "edit") {
-            setMachineryList(prev => prev.map(m => m.id === editId ? recordData : m));
-            toast.success("Machinery log updated!");
-        } else {
-            setMachineryList(prev => [recordData, ...prev]);
-            toast.success("New machinery log registered!");
+    useEffect(() => {
+        fetchEquipment();
+    }, []);
+
+    const fetchEquipment = async () => {
+        setIsLoading(true);
+        try {
+            console.log("Fetching Global Machinery Registry (All Projects)");
+            const data = await equipmentService.getEquipment();
+            console.log("Machinery API Response:", data);
+            
+            const items = data.items || [];
+            console.log(`Successfully synced ${items.length} machinery items across all projects`);
+            setMachineryList(items);
+        } catch (err) {
+            console.error("Fetch Equipment Failed:", err);
+            toast.error("Failed to sync machinery vault");
+        } finally {
+            setIsLoading(false);
         }
-        setIsFormModalOpen(false);
+    };
+
+    const handleView = async (id: number) => {
+        try {
+            const data = await equipmentService.getEquipmentById(id);
+            setViewingEquipment(data);
+        } catch (error) {
+            console.error("Failed to fetch equipment details:", error);
+            // Fallback to local item if API fails
+            const localItem = machineryList.find(item => item.id === id);
+            if (localItem) {
+                setViewingEquipment(localItem);
+            } else {
+                toast.error("Failed to load asset details");
+            }
+        }
+    };
+
+    const handleCreateOrUpdate = async (data: any) => {
+        try {
+            if (editingEquipment) {
+                await equipmentService.updateEquipment(editingEquipment.id, { ...data, project_id: projectId });
+                toast.success("Machinery log updated");
+            } else {
+                await equipmentService.createEquipment({ ...data, project_id: projectId });
+                toast.success("Equipment registered successfully");
+            }
+            fetchEquipment();
+            setIsModalOpen(false);
+        } catch (error) {
+            toast.error("Failed to save record");
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!itemToDelete) return;
+        try {
+            await equipmentService.deleteEquipment(itemToDelete);
+            toast.success("Record deleted");
+            fetchEquipment();
+            setIsDeleteModalOpen(false);
+        } catch (error) {
+            toast.error("Failed to delete record");
+        }
     };
 
     const filteredList = useMemo(() => {
         return machineryList.filter(item => {
-            const matchesSearch = item.equipment_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                item.equipment_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                item.operator_name.toLowerCase().includes(searchTerm.toLowerCase());
+            const term = searchTerm.toLowerCase();
+            const matchesSearch = searchTerm === "" || 
+                item.equipment_name.toLowerCase().includes(term) ||
+                item.equipment_code.toLowerCase().includes(term) ||
+                item.operator_name.toLowerCase().includes(term);
+            
             const matchesCondition = conditionFilter === "All" || item.condition === conditionFilter;
-            return matchesSearch && matchesCondition;
+            
+            const matchesStat = activeStatFilter === "All" || item.condition === activeStatFilter;
+            
+            return matchesSearch && matchesCondition && matchesStat;
         });
-    }, [machineryList, searchTerm, conditionFilter]);
+    }, [machineryList, searchTerm, conditionFilter, activeStatFilter]);
+
+    const paginatedList = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return filteredList.slice(startIndex, startIndex + itemsPerPage);
+    }, [filteredList, currentPage]);
+
+    const totalPages = Math.ceil(filteredList.length / itemsPerPage);
+
+    // Reset page on filter change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, conditionFilter, activeStatFilter]);
+
+    // Summary stats (always from the full list or filtered?) 
+    // User said "calculate karke stat card mai dikhao", usually means total overview.
+    const stats = useMemo(() => {
+        const total = machineryList.length;
+        const good = machineryList.filter(m => m.condition === "GOOD").length;
+        const repair = machineryList.filter(m => m.condition === "REPAIR").length;
+        const damaged = machineryList.filter(m => m.condition === "DAMAGED").length;
+        const maintenance = machineryList.filter(m => m.condition === "MAINTENANCE").length;
+        return { total, good, repair, damaged, maintenance };
+    }, [machineryList]);
+
 
     return (
         <>
-            <Navbar
-                title="Machinery & Equipment"
-                breadcrumb={["InfraPilot", "Engineer", "Machinery"]}
-            />
+            <Navbar title="Machinery & Equipment" breadcrumb={["Engineer", "Machinery", "Asset List"]} />
 
-            <PageTransition className="p-4 md:p-8 bg-slate-50 min-h-screen font-inter italic-none">
-
+            <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
                 {/* ── Header ──────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">
-                            Asset Management
-                        </p>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">
-                            Heavy Machinery Registry
-                        </h1>
-                        <p className="text-slate-500 text-sm font-medium">
-                            Monitor fuel consumption, utilization hours, and maintenance schedules.
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Heavy Machinery Registry</h1>
+                        <p className="text-slate-500 text-sm">
+                            Monitor utilization, fuel consumption, and health status.
                         </p>
                     </div>
-
-                    <button
-                        onClick={handleOpenCreate}
-                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all font-inter"
-                    >
-                        <span className="text-lg leading-none font-inter">+</span>
-                        Register Equipment Log
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={fetchEquipment}
+                            className="p-2.5 text-slate-400 hover:text-primary hover:bg-white rounded-xl transition-all border border-slate-100 bg-white/50 shadow-sm active:scale-95"
+                            title="Sync Ledger"
+                        >
+                            <RotateCcw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+                        </button>
+                        <button
+                            onClick={() => { setEditingEquipment(null); setIsModalOpen(true); }}
+                            className="flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Register Equipment
+                        </button>
+                    </div>
                 </div>
 
-                {/* ── Summary Stats (Activity Style) ───────────────────────── */}
-                <div className="mb-8 font-inter">
-                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4 font-inter">
-                        Asset Telemetry Snapshots
-                    </h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 font-inter">
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all font-inter">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 font-inter">Active Assets</p>
-                            <p className="text-2xl font-bold text-blue-600 font-inter">{totalAssets}</p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium font-inter">Registered Equipment</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all font-inter">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 font-inter">Operational</p>
-                            <p className="text-2xl font-bold text-emerald-500 font-inter">{operationalCount}</p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium font-inter">Optimum Condition</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all font-inter">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 font-inter">Under Repair</p>
-                            <p className="text-2xl font-bold text-rose-500 font-inter">{repairCount}</p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium font-inter">Technical Attention Needed</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all font-inter">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 font-inter">Total Fuel Used</p>
-                            <p className="text-2xl font-bold text-slate-800 font-inter">{totalFuelUsed} <span className="text-[10px] opacity-40">LTR</span></p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium font-inter">Project Consumption</p>
-                        </div>
+                {/* ── Summary Stats ───────────────────────────── */}
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Total Assets"
+                            value={stats.total.toString()}
+                            sub="Registered Units"
+                            accent="text-slate-800" />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("GOOD")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "GOOD" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Good"
+                            value={stats.good.toString()}
+                            sub="Optimal Condition"
+                            accent="text-emerald-500" />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("REPAIR")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "REPAIR" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Repair"
+                            value={stats.repair.toString()}
+                            sub="Needs Attention"
+                            accent="text-rose-500" />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("DAMAGED")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "DAMAGED" ? "ring-2 ring-red-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Damaged"
+                            value={stats.damaged.toString()}
+                            sub="Critical Failure"
+                            accent="text-red-500" />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("MAINTENANCE")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "MAINTENANCE" ? "ring-2 ring-blue-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Maintenance"
+                            value={stats.maintenance.toString()}
+                            sub="Under Service"
+                            accent="text-blue-500" />
                     </div>
                 </div>
 
                 {/* ── Filter Bar ───────────────────────────────────────────── */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-100 px-5 py-4 mb-8 flex flex-wrap items-center gap-4 font-inter">
-
-                    {/* Icon + Title */}
-                    <div className="flex items-center gap-3 shrink-0">
-                        <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-md shadow-primary/30">
-                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                        </div>
-                        <span className="text-base font-bold text-slate-800 whitespace-nowrap">Ledger Filters</span>
-                    </div>
-
-                    {/* Divider */}
-                    <div className="hidden md:block w-px h-8 bg-slate-100 shrink-0" />
-
-                    {/* Search */}
-                    <div className="flex flex-col gap-0.5 min-w-[200px]">
-                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Search Equipment</label>
-                        <div className="relative">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
+                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white">
+                        <div className="relative flex-1 max-w-md">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                </svg>
+                                <Search className="w-4 h-4" />
                             </span>
                             <input
                                 type="text"
-                                placeholder="Search by name or ID..."
+                                placeholder="Search by name, ID, or operator..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400"
+                                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                             />
                         </div>
+
+                        <select
+                            value={conditionFilter}
+                            onChange={(e) => setConditionFilter(e.target.value)}
+                            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-primary/10 transition-all"
+                        >
+                            <option value="All">All Conditions</option>
+                            <option value="GOOD">Good</option>
+                            <option value="REPAIR">Repair</option>
+                            <option value="DAMAGED">Damaged</option>
+                            <option value="MAINTENANCE">Maintenance</option>
+                        </select>
                     </div>
 
-                    {/* Condition Dropdown */}
-                    <div className="flex flex-col gap-0.5 min-w-[150px]">
-                        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Condition</label>
-                        <div className="relative">
-                            <select
-                                value={conditionFilter}
-                                onChange={(e) => setConditionFilter(e.target.value)}
-                                className="w-full appearance-none px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all cursor-pointer pr-8"
-                            >
-                                <option value="All">All Conditions</option>
-                                <option value="Good">Good</option>
-                                <option value="Repair">Under Repair</option>
-                            </select>
-                            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
-                                </svg>
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* ── Machinery Grid ────────────────────────────────────────── */}
-                <div className="mb-20">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 font-inter">
-                        {filteredList.map((item) => (
-                            <div
-                                key={item.id}
-                                className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all font-inter flex flex-col"
-                            >
-                                {/* Header: ID & Status */}
-                                <div className="flex items-center justify-between mb-1">
-                                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{item.equipment_id}</span>
-                                    <span className={`px-2 py-0.5 text-[9px] font-black uppercase tracking-widest rounded-lg ${item.condition === "Good"
-                                        ? "bg-emerald-50 text-emerald-600"
-                                        : "bg-rose-50 text-rose-600"
-                                        }`}>
-                                        {item.condition === "Good" ? "Optimal" : "Maintenance"}
-                                    </span>
-                                </div>
-
-                                {/* Equipment Name */}
-                                <p className="text-xl font-bold text-slate-900 font-inter leading-tight mb-0.5 mt-2">{item.equipment_name}</p>
-                                <p className="text-[10px] text-slate-400 mt-0.5 font-medium leading-relaxed mb-4">Operator: {item.operator_name}</p>
-
-                                {/* Telemetry Grid */}
-                                <div className="grid grid-cols-2 gap-3 mt-auto mb-4">
-                                    <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-50">
-                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Utilization</p>
-                                        <div className="flex items-baseline gap-1">
-                                            <span className="text-base font-bold text-slate-800 font-inter">{item.working_hours} h</span>
-                                        </div>
-                                        <p className="text-[9px] text-slate-400 mt-1 font-medium italic-none">Operational hours</p>
-                                    </div>
-                                    <div className="bg-blue-50/50 rounded-xl p-3 border border-blue-50">
-                                        <p className="text-xs font-semibold text-blue-600/70 uppercase tracking-wider mb-1">Fuel Log</p>
-                                        <div className="flex items-baseline gap-1">
-                                            <span className="text-base font-bold text-blue-600 font-inter">{item.fuel_used} L</span>
-                                        </div>
-                                        <p className="text-[9px] text-blue-600/50 mt-1 font-medium">Consumption recorded</p>
-                                    </div>
-                                </div>
-
-                                {/* Actions */}
-                                <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-                                    <div className="flex items-center gap-1">
-                                        <button
-                                            onClick={() => setSelectedEquipment(item)}
-                                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                                            title="View Detail"
-                                        >
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                            </svg>
-                                        </button>
-                                        <button
-                                            onClick={() => handleOpenEdit(item)}
-                                            className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
-                                            title="Edit Log"
-                                        >
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                    <button
-                                        onClick={() => handleDelete(item.id)}
-                                        className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
-                                        title="Delete Record"
-                                    >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                    </button>
-                                </div>
+                    <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                         {isLoading ? (
+                            <div className="p-20 text-center text-slate-400">
+                                <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
+                                <p className="text-[10px] font-bold uppercase tracking-widest">Syncing telemetry...</p>
                             </div>
-                        ))}
+                        ) : (
+                            <table className="w-full text-left font-inter min-w-[1200px]">
+                                <thead>
+                                    <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
+                                        <th className="px-6 py-4">Asset Details</th>
+                                        <th className="px-6 py-4">Operator</th>
+                                        <th className="px-6 py-4">Utilization</th>
+                                        <th className="px-6 py-4">Maintenance</th>
+                                        <th className="px-6 py-4">Status</th>
+                                        <th className="px-6 py-4 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {paginatedList.length > 0 ? (
+                                        paginatedList.map((item) => (
+                                            <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
+                                                <td className="px-6 py-4">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-bold text-slate-800">{item.equipment_name}</span>
+                                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{item.equipment_code}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className="text-xs font-bold text-slate-600">{item.operator_name}</span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-bold text-slate-800">{item.working_hours} h</span>
+                                                        <span className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">{item.fuel_used} L Fuel</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className="text-xs font-bold text-slate-600">{item.maintenance_date || 'N/A'}</span>
+                                                </td>
+                                                 <td className="px-6 py-4">
+                                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${
+                                                        item.condition === 'GOOD' ? 'bg-emerald-50 text-emerald-600' : 
+                                                        (item.condition === 'REPAIR' || item.condition === 'DAMAGED') ? 'bg-rose-50 text-rose-600 animate-pulse' : 
+                                                        item.condition === 'SERVICE' ? 'bg-amber-50 text-amber-600' :
+                                                        'bg-slate-50 text-slate-600'
+                                                    }`}>
+                                                        {item.condition || 'N/A'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <div className="flex items-center justify-end gap-2 transition-opacity">
+                                                        <button 
+                                                            onClick={() => handleView(item.id)}
+                                                            className={`p-2 text-white rounded-xl shadow-lg transition-all active:scale-95 ${conditionColors[item.condition as keyof typeof conditionColors] || 'bg-primary'} ${item.condition ? `shadow-${conditionColors[item.condition as keyof typeof conditionColors]?.split('-')[1]}/20` : 'shadow-primary/20'}`}
+                                                        >
+                                                            <Eye className="w-4 h-4" />
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => { setEditingEquipment(item); setIsModalOpen(true); }}
+                                                            className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all"
+                                                        >
+                                                            <Edit2 className="w-4 h-4" />
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => { setItemToDelete(item.id); setIsDeleteModalOpen(true); }}
+                                                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+                                                No equipment logs found matching your filters.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        )}
                     </div>
-
-                    {filteredList.length === 0 && (
-                        <div className="bg-white rounded-xl p-20 text-center border border-slate-100 shadow-sm font-inter">
-                            <svg className="w-16 h-16 text-slate-200 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                            </svg>
-                            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs font-inter">No machinery logs match filters</p>
+                    
+                    {/* ── Pagination ────────────────────────────────────────── */}
+                    {filteredList.length > 0 && (
+                        <div className="px-6 py-4 bg-slate-50/30 border-t border-slate-50 flex items-center justify-between font-inter">
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">
+                                Showing {paginatedList.length} of {filteredList.length} Asset Identities
+                            </div>
+                            <div className="flex items-center gap-2 font-inter">
+                                <button
+                                    disabled={currentPage === 1}
+                                    onClick={() => setCurrentPage(prev => prev - 1)}
+                                    className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all font-inter shadow-sm"
+                                >
+                                    Prev
+                                </button>
+                                <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
+                                    Page {currentPage} of {totalPages || 1}
+                                </div>
+                                <button
+                                    disabled={currentPage >= totalPages}
+                                    onClick={() => setCurrentPage(prev => prev + 1)}
+                                    className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all font-inter shadow-sm"
+                                >
+                                    Next
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>
             </PageTransition>
 
-            {/* ── DETAIL MODAL (Insight View) ────────────────────────────────── */}
+            <CreateMachineryModal 
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                onSubmit={handleCreateOrUpdate}
+                initialData={editingEquipment}
+            />
+
+            <ConfirmModal 
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={handleDelete}
+                title="Delete Record"
+                message="Are you sure you want to delete this equipment entry? This action cannot be undone."
+                confirmText="Delete"
+                type="danger"
+            />
+
             <Modal
-                isOpen={!!selectedEquipment}
-                onClose={() => setSelectedEquipment(null)}
-                title="Machinery Insight"
+                isOpen={!!viewingEquipment}
+                onClose={() => setViewingEquipment(null)}
+                title="Asset Intelligence Insight"
                 maxWidth="max-w-xl"
             >
-                {selectedEquipment && (
-                    <div className="bg-white p-6 italic-none font-inter">
-                        {/* ── Blue Hero Card ────────────────────────────────── */}
-                        <div className="bg-blue-600 rounded-[2rem] p-8 text-white shadow-xl shadow-blue-100 mb-8 relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl" />
-
-                            <div className="relative z-10 font-inter">
-                                <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-2">Asset Telemetry Record</p>
-                                <div className="flex items-center justify-between mb-8">
-                                    <h3 className="text-3xl font-black tracking-tight">{selectedEquipment.equipment_name}</h3>
-                                    <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center">
-                                        <svg className="w-6 h-6 opacity-30" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                        </svg>
-                                    </div>
+                {viewingEquipment && (
+                    <div className="p-6 font-inter">
+                        {/* ── Profile Style Header ────────────────── */}
+                        <div className={`${conditionColors[viewingEquipment.condition as keyof typeof conditionColors] || 'bg-primary'} rounded-2xl p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter`}>
+                            <div className="relative z-10 flex items-center gap-6 font-inter">
+                                <div className="w-24 h-24 bg-blue-400/30 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 relative font-inter">
+                                    <span className="text-4xl font-bold font-inter">{viewingEquipment.equipment_name.charAt(0)}</span>
+                                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-4 border-primary rounded-full animate-pulse" />
                                 </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Equipment ID</p>
-                                        <p className="text-xl font-black">{selectedEquipment.equipment_id}</p>
+                                <div className="font-inter">
+                                    <div className="flex items-center gap-3 mb-2 font-inter">
+                                        <h3 className="text-2xl font-bold tracking-tight font-inter">{viewingEquipment.equipment_name}</h3>
+                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest font-inter">{viewingEquipment.equipment_code}</span>
                                     </div>
-                                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Log Date</p>
-                                        <p className="text-xl font-black">{selectedEquipment.date}</p>
+                                    <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
+                                        <Mail className="w-3 h-3" />
+                                        <span className="text-[11px] font-bold font-inter">asset.ref-{viewingEquipment.id}@infrapilot.com</span>
+                                    </div>
+                                    <div className="px-3 py-1 bg-white/20 rounded-full inline-block font-inter">
+                                        <span className="text-[10px] font-bold uppercase tracking-widest font-inter">CONDITION: {viewingEquipment.condition}</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* ── Operational Diagnostics ─────────────────────────── */}
-                        <div className="grid grid-cols-2 gap-y-8 gap-x-12 px-1 mb-10 font-inter">
-                            <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Operator in Charge</p>
-                                <p className="text-sm font-black text-slate-800 tracking-tight">{selectedEquipment.operator_name}</p>
+                        <div className="space-y-8 px-2 mb-10 font-inter">
+                            {/* Professional Information style section */}
+                            <div className="font-inter">
+                                <div className="flex items-center gap-2 mb-6 font-inter">
+                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
+                                        <Briefcase className="w-4 h-4 text-primary" />
+                                    </div>
+                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] font-inter">Asset Utilization</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Operator Identity</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter">{viewingEquipment.operator_name}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Working Hours</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter">{viewingEquipment.working_hours} Hrs</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Fuel Consumption</p>
+                                        <p className="text-sm font-bold text-blue-600 font-inter">{viewingEquipment.fuel_used} Liters</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Asset Health</p>
+                                        <p className={`text-sm font-bold font-inter ${viewingEquipment.condition === 'GOOD' ? 'text-emerald-500' : 'text-rose-500'}`}>{viewingEquipment.condition}</p>
+                                    </div>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Engine Hours</p>
-                                <p className="text-sm font-black text-slate-800 tabular-nums">{selectedEquipment.working_hours} H</p>
+
+                            {/* Contact Details style section */}
+                            <div className="font-inter">
+                                <div className="flex items-center gap-2 mb-6 font-inter">
+                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
+                                        <Phone className="w-4 h-4 text-primary" />
+                                    </div>
+                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] font-inter">Fiscal Intelligence</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Rental Value (₹)</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter">₹{viewingEquipment.rental_cost.toLocaleString()}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Audit ID</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter">AST-{viewingEquipment.id}X99</p>
+                                    </div>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Fuel Consumption</p>
-                                <p className="text-sm font-black text-blue-600 tabular-nums">{selectedEquipment.fuel_used} Liters</p>
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Daily Rental Value</p>
-                                <p className="text-sm font-black text-slate-800 tabular-nums">₹{parseFloat(selectedEquipment.rental_cost).toLocaleString()}</p>
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Next Maintenance</p>
-                                <p className="text-sm font-black text-slate-800 tabular-nums">{selectedEquipment.maintenance_date}</p>
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Health Condition</p>
-                                <span className={`inline-block px-4 py-1.5 rounded-xl text-[9px] font-black tracking-widest uppercase ${selectedEquipment.condition === "Good" ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"}`}>
-                                    {selectedEquipment.condition === "Good" ? "OPTIMAL" : "NEEDS REPAIR"}
-                                </span>
+
+                            {/* Assignments style section */}
+                            <div className="font-inter">
+                                <div className="flex items-center gap-2 mb-6 font-inter">
+                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
+                                        <FileText className="w-4 h-4 text-primary" />
+                                    </div>
+                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] font-inter">Maintenance Status</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Maintenance Date</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter">{viewingEquipment.maintenance_date || 'N/A'}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">System Integrity</p>
+                                        <p className={`text-sm font-bold font-inter ${['GOOD', 'FAIR', 'SERVICE'].includes(viewingEquipment.condition) ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                            {['GOOD', 'FAIR'].includes(viewingEquipment.condition) ? 'Fully Operational' : 
+                                             viewingEquipment.condition === 'SERVICE' ? 'Maintenance Active' : 'System Critical'}
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        {/* ── Action Footer ─────────────────────────────────── */}
-                        <div className="flex items-center gap-4 pt-6 border-t border-slate-50 font-inter">
-                            <button
-                                onClick={() => setSelectedEquipment(null)}
-                                className="flex-1 py-4 bg-slate-100 hover:bg-slate-200 text-slate-400 text-[10px] font-black rounded-2xl transition-all uppercase tracking-widest font-inter"
-                            >
-                                Close Insight
-                            </button>
-                            <button
-                                onClick={() => {
-                                    handleOpenEdit(selectedEquipment);
-                                    setSelectedEquipment(null);
-                                }}
-                                className="flex-[1.5] px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 justify-center active:scale-95 font-inter"
-                            >
-                                Update Log
-                            </button>
-                        </div>
+                        <button 
+                            onClick={() => setViewingEquipment(null)}
+                            className={`w-full py-5 ${conditionColors[viewingEquipment.condition as keyof typeof conditionColors] || 'bg-primary'} text-white rounded-xl text-[11px] font-bold uppercase tracking-[0.2em] transition-all shadow-xl active:scale-95 font-inter`}
+                        >
+                            Dismiss Asset Insight
+                        </button>
                     </div>
                 )}
-            </Modal>
-
-            {/* ── FORM MODAL (Asset Entry Style) ─────────────────────────── */}
-            <Modal
-                isOpen={isFormModalOpen}
-                onClose={() => { setIsFormModalOpen(false); setErrors({}); }}
-                title={formMode === "create" ? "Register Equipment Log" : "Update Equipment Log"}
-                maxWidth="max-w-4xl"
-            >
-                <div className="bg-white p-6 md:p-8 italic-none font-inter">
-                    <form id="machinery-form" onSubmit={handleSubmit} className="space-y-10">
-                        {/* Section 1: Identity & Operator */}
-                        <div>
-                            <div className="flex items-center gap-3 mb-8">
-                                <div className="w-1 h-6 bg-blue-600 rounded-full" />
-                                <h3 className="text-sm font-black text-slate-800 tracking-wide uppercase font-inter">Identity & Operator</h3>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 font-inter">
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1 font-inter">Equipment Name <span className="text-rose-500 font-inter">*</span></label>
-                                    <input
-                                        name="equipment_name"
-                                        value={formData.equipment_name}
-                                        onChange={handleInputChange}
-                                        placeholder="e.g. Excavator (JCB 3DX)"
-                                        className={`w-full px-5 py-3.5 bg-slate-50 border rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 transition-all font-inter ${errors.equipment_name ? "border-rose-300 bg-rose-50" : "border-slate-200"}`}
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-2 font-inter">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1 font-inter">Equipment ID <span className="text-rose-500 font-inter">*</span></label>
-                                    <input
-                                        name="equipment_id"
-                                        value={formData.equipment_id}
-                                        onChange={handleInputChange}
-                                        placeholder="JCB-XXXX"
-                                        className={`w-full px-5 py-3.5 bg-slate-50 border rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 transition-all font-inter ${errors.equipment_id ? "border-rose-300 bg-rose-50" : "border-slate-200"}`}
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-2 md:col-span-2 font-inter">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1 font-inter">Operator Name <span className="text-rose-500 font-inter">*</span></label>
-                                    <input
-                                        name="operator_name"
-                                        value={formData.operator_name}
-                                        onChange={handleInputChange}
-                                        placeholder="e.g. Rahul Sharma"
-                                        className={`w-full px-5 py-3.5 bg-slate-50 border rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600/10 focus:border-blue-600 transition-all font-inter ${errors.operator_name ? "border-rose-300 bg-rose-50" : "border-slate-200"}`}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Section 2: Technicals & Commercials */}
-                        <div>
-                            <div className="flex items-center gap-3 mb-8">
-                                <div className="w-1 h-6 bg-emerald-500 rounded-full" />
-                                <h3 className="text-sm font-black text-slate-800 tracking-wide uppercase font-inter">Technicals & Commercials</h3>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 font-inter">
-                                <div className="flex flex-col gap-2 font-inter">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1 font-inter">Engine Hours <span className="text-rose-500 font-inter">*</span></label>
-                                    <input
-                                        name="working_hours"
-                                        type="number"
-                                        value={formData.working_hours}
-                                        onChange={handleInputChange}
-                                        placeholder="0.00"
-                                        className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-black text-slate-800 focus:outline-none font-inter"
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-2 font-inter">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1 font-inter">Fuel Used (Ltr) <span className="text-rose-500 font-inter">*</span></label>
-                                    <input
-                                        name="fuel_used"
-                                        type="number"
-                                        value={formData.fuel_used}
-                                        onChange={handleInputChange}
-                                        placeholder="0.00"
-                                        className="w-full px-5 py-3.5 bg-blue-50 border border-blue-100 rounded-2xl text-sm font-black text-blue-600 focus:outline-none font-inter"
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-2 font-inter">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1 font-inter">Condition</label>
-                                    <select
-                                        name="condition"
-                                        value={formData.condition}
-                                        onChange={handleInputChange}
-                                        className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-[10px] font-black tracking-widest uppercase focus:outline-none appearance-none cursor-pointer font-inter"
-                                    >
-                                        <option value="Good" className="font-inter">OPTIMAL CONDITION</option>
-                                        <option value="Repair" className="font-inter">NEEDS REPAIR</option>
-                                    </select>
-                                </div>
-                                <div className="flex flex-col gap-2 font-inter">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1 font-inter">Rental Cost <span className="text-rose-500 font-inter">*</span></label>
-                                    <input
-                                        name="rental_cost"
-                                        type="number"
-                                        value={formData.rental_cost}
-                                        onChange={handleInputChange}
-                                        placeholder="0.00"
-                                        className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-black text-slate-800 focus:outline-none font-inter"
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-2 md:col-span-2 font-inter">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1 font-inter">Maintenance Date <span className="text-rose-500 font-inter">*</span></label>
-                                    <input
-                                        name="maintenance_date"
-                                        type="date"
-                                        value={formData.maintenance_date}
-                                        onChange={handleInputChange}
-                                        className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none font-inter"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-
-                <div className="bg-slate-50 px-8 py-5 border-t border-slate-100 flex items-center justify-between font-inter">
-                    <button type="button" onClick={() => setIsFormModalOpen(false)} className="text-xs font-bold text-slate-400 hover:text-slate-800 uppercase tracking-widest outline-none font-inter">Discard</button>
-                    <button type="submit" form="machinery-form" className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95 font-inter">
-                        {formMode === "create" ? "Save Asset Entry" : "Commit Updates"}
-                    </button>
-                </div>
             </Modal>
         </>
     );

@@ -17,7 +17,6 @@ export interface Invoice {
   description: string;
   created_at: string;
   invoice_date?: string;
-  // UI-specific or extended fields
   invoice_number?: string;
   client_name?: string;
   due_date?: string;

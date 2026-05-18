@@ -101,6 +101,22 @@ const icons: Record<string, JSX.Element> = {
       />
     </svg>
   ),
+  plus: (
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+        d="M12 5v14M5 12h14"
+      />
+    </svg>
+  ),
+
   package: (
     <svg
       className="w-4 h-4"
@@ -143,6 +159,21 @@ const icons: Record<string, JSX.Element> = {
         strokeLinejoin="round"
         strokeWidth="1.8"
         d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"
+      />
+    </svg>
+  ),
+  search: (
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
       />
     </svg>
   ),
@@ -193,6 +224,22 @@ const icons: Record<string, JSX.Element> = {
         strokeWidth="1.8"
         d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
       />
+    </svg>
+  ),
+  "clipboard-list": (
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+      />
+      <path d="M8 12h8M8 16h8M8 20h8" />
     </svg>
   ),
   file: (
@@ -258,6 +305,21 @@ const icons: Record<string, JSX.Element> = {
         d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"
         strokeLinecap="round"
         strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  ),
+  "shopping-cart": (
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <circle cx="9" cy="21" r="1" strokeWidth="1.8" />
+      <circle cx="20" cy="21" r="1" strokeWidth="1.8" />
+      <path
+        d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"
         strokeWidth="1.8"
       />
     </svg>
@@ -357,6 +419,28 @@ const icons: Record<string, JSX.Element> = {
         strokeLinejoin="round"
         strokeWidth="1.8"
       />
+    </svg>
+  ),
+  map: (
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" strokeWidth="1.8" />
+      <line x1="8" y1="2" x2="8" y2="18" strokeWidth="1.8" />
+      <line x1="16" y1="6" x2="16" y2="22" strokeWidth="1.8" />
+    </svg>
+  ),
+  shield: (
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" strokeWidth="1.8" />
     </svg>
   ),
   camera: (
@@ -738,15 +822,15 @@ const SidebarItem = ({
   const showBadge = (item.label === 'Messages' || item.label === 'Communication') && (unreadCount ?? 0) > 0;
 
   if (hasSubNav) {
+    const isDisabled = item.disabled;
     return (
-      <div className="mb-0.5">
+      <div className={`mb-0.5 ${isDisabled ? "opacity-50 pointer-events-none" : ""}`}>
         <button
-          onClick={() => setIsOpen(!isOpen)}
-          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-            isParentActive
-              ? "text-primary bg-blue-50/50 font-semibold"
-              : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
-          }`}
+          onClick={() => !isDisabled && setIsOpen(!isOpen)}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${isParentActive
+            ? "text-primary bg-blue-50/50 font-semibold"
+            : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+            }`}
         >
           <span className={isParentActive ? "text-primary" : "text-slate-400"}>
             {icons[item.icon]}
@@ -788,6 +872,17 @@ const SidebarItem = ({
     );
   }
 
+  if (item.disabled) {
+    return (
+      <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors mb-0.5 text-slate-500 cursor-not-allowed opacity-70 grayscale">
+        <span className="text-slate-500">
+          {icons[item.icon]}
+        </span>
+        <span className="flex-1">{item.label}</span>
+      </div>
+    );
+  }
+
   return (
     <NavLink
       to={item.path}
@@ -802,10 +897,9 @@ const SidebarItem = ({
       }
       onClick={onClose}
       className={({ isActive }) =>
-        `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors mb-0.5 ${
-          isActive
-            ? "text-primary bg-blue-50 font-semibold shadow-sm shadow-blue-100/50"
-            : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+        `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors mb-0.5 ${isActive
+          ? "text-primary bg-blue-50 font-semibold shadow-sm shadow-blue-100/50"
+          : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
         }`
       }
     >

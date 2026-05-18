@@ -1,565 +1,712 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
+import StatCard from "../../../components/common/StatCard";
 import Modal from "../../../components/common/Modal";
+import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
+import { 
+  Plus, 
+  Trash2,
+  CheckCircle2,
+  PlusSquare,
+  ClipboardList,
+  Search,
+  Activity,
+  FileText,
+  RotateCcw,
+  Layout
+} from "lucide-react";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+import { checklistService } from "../../../services/checklistService";
+import type { ChecklistItem, ChecklistLog } from "../../../services/checklistService";
 
-interface ChecklistItem {
-    id: string;
-    task: string;
-    status: "Done" | "Pending";
-}
-
-interface ChecklistRecord {
-    id: string;
-    checklist_name: string;
-    item_list: ChecklistItem[];
-    status: "Done" | "Pending";
-    remarks: string;
-}
-
-// ─── Mock Data ───────────────────────────────────────────────────────────────
-
-const checklistHistory: ChecklistRecord[] = [
-    {
-        id: "CHK-901",
-        checklist_name: "Site Opening Inventory Check",
-        item_list: [
-            { id: "1", task: "Security Guard Presence", status: "Done" },
-            { id: "2", task: "Logbooks Updated", status: "Done" },
-            { id: "3", task: "Safety Gear Check", status: "Done" },
-        ],
-        status: "Done",
-        remarks: "All morning protocols observed.",
-    },
-    {
-        id: "CHK-902",
-        checklist_name: "Column Reinforcement Verification",
-        item_list: [
-            { id: "1", task: "Steel Grade Verification", status: "Done" },
-            { id: "2", task: "Spacing as per GFC", status: "Done" },
-            { id: "3", task: "Binding Wire Tightness", status: "Pending" },
-        ],
-        status: "Pending",
-        remarks: "Binding wire checks pending for Wing C columns.",
-    },
-];
-
-const initialFormData = {
-    checklist_name: "",
-    remarks: "",
+const typeColors: Record<string, string> = {
+    "Daily Checklist": "bg-blue-50 text-blue-600 border-blue-100",
+    "Safety": "bg-rose-50 text-rose-600 border-rose-100",
+    "Quality": "bg-emerald-50 text-emerald-600 border-emerald-100",
+    "Activity Checklist": "bg-purple-50 text-purple-600 border-purple-100",
 };
 
-// ─── Profile Field Helper ──────────────────────────────────────────────────────
-
-
-// ─── Main Component ─────────────────────────────────────────────────────────────
-
 const ChecklistsPage = () => {
-    const [checklistData, setChecklistData] = useState<ChecklistRecord[]>(checklistHistory);
-    const [isFormModalOpen, setIsFormModalOpen] = useState(false);
-    const [formMode, setFormMode] = useState<"create" | "edit">("create");
-    const [editId, setEditId] = useState<string | null>(null);
-    const [selectedChecklist, setSelectedChecklist] = useState<ChecklistRecord | null>(null);
-    const [formData, setFormData] = useState(initialFormData);
-    const [items, setItems] = useState<ChecklistItem[]>([]);
-    const [newItemTask, setNewItemTask] = useState("");
-    const [errors, setErrors] = useState<Record<string, string>>({});
-
+    // Core Data States
+    const [checklists, setChecklists] = useState<ChecklistItem[]>([]);
+    const [logs, setLogs] = useState<ChecklistLog[]>([]);
+    const [activeTab, setActiveTab] = useState<"Daily Checklist" | "Activity Checklist" | "Safety" | "Quality">("Daily Checklist");
+    const [projectId, setProjectId] = useState<number>(36);
+    
+    // UI States
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
-    const [filterStatus, setFilterStatus] = useState("All Status");
+    
+    // Interactive StatCard Filter
+    const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Pending" | "Done">("All");
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 20;
 
-    // Summary stats
-    const totalChecks = checklistData.length;
-    const completedCount = checklistData.filter(c => c.status === "Done").length;
-    const pendingCount = checklistData.filter(c => c.status === "Pending").length;
+    // Modal Visibility States
+    const [isNewModalOpen, setIsNewModalOpen] = useState(false);
+    const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
+    const [isExecuteModalOpen, setIsExecuteModalOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    
+    // Selection / Form States
+    const [selectedChecklist, setSelectedChecklist] = useState<ChecklistItem | null>(null);
+    const [newChecklistName, setNewChecklistName] = useState("");
+    const [newChecklistType, setNewChecklistType] = useState("Safety");
+    const [newChecklistItems, setNewChecklistItems] = useState<string[]>([]);
+    const [tempItemText, setTempItemText] = useState("");
+    const [addItemText, setAddItemText] = useState("");
+    const [executeStatus, setExecuteStatus] = useState<"Done" | "Pending">("Done");
+    const [executeRemarks, setExecuteRemarks] = useState("");
+    const [deleteId, setDeleteId] = useState<number | null>(null);
 
-    // ── Interaction Handlers ───────────────────────────────────────────────────
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-        if (errors[name]) setErrors(prev => { const u = { ...prev }; delete u[name]; return u; });
-    };
-
-    const addItem = () => {
-        if (!newItemTask.trim()) return;
-        setItems(prev => [
-            ...prev,
-            { id: Math.random().toString(36).substr(2, 9), task: newItemTask.trim(), status: "Pending" }
-        ]);
-        setNewItemTask("");
-        if (errors.items) setErrors(prev => { const u = { ...prev }; delete u.items; return u; });
-    };
-
-    const toggleItemStatus = (id: string) => {
-        setItems(prev => prev.map(item =>
-            item.id === id ? { ...item, status: item.status === "Done" ? "Pending" : "Done" } : item
-        ));
-    };
-
-    const deleteItem = (id: string) => {
-        setItems(prev => prev.filter(i => i.id !== id));
-    };
-
-    const validate = () => {
-        const errs: Record<string, string> = {};
-        if (!formData.checklist_name.trim()) errs.checklist_name = "Name is required";
-        if (items.length === 0) errs.items = "Add at least one verification point";
-        setErrors(errs);
-        return Object.keys(errs).length === 0;
-    };
-
-    const handleOpenCreate = () => {
-        setFormMode("create");
-        setFormData(initialFormData);
-        setItems([]);
-        setErrors({});
-        setIsFormModalOpen(true);
-    };
-
-    const handleOpenEdit = (record: ChecklistRecord) => {
-        setFormMode("edit");
-        setEditId(record.id);
-        setFormData({
-            checklist_name: record.checklist_name,
-            remarks: record.remarks,
-        });
-        setItems([...record.item_list]);
-        setErrors({});
-        setIsFormModalOpen(true);
-    };
-
-    const handleDelete = (id: string) => {
-        if (window.confirm("Are you sure you want to delete this checklist log?")) {
-            setChecklistData(prev => prev.filter(c => c.id !== id));
-            toast.success("Checklist deleted");
+    // Resolve Project ID
+    useEffect(() => {
+        const userStr = localStorage.getItem("infrapilot_user");
+        if (userStr) {
+            try {
+                const user = JSON.parse(userStr);
+                const pId = user?.project_id || user?.user?.project_id || user?.id;
+                if (pId) setProjectId(Number(pId));
+            } catch (e) {
+                console.error("Failed to resolve project ID", e);
+            }
         }
-    };
+    }, []);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const fetchData = useCallback(async () => {
+        try {
+            const [clRes, logsRes] = await Promise.all([
+                checklistService.listChecklists(),
+                checklistService.listLogs()
+            ]);
+            setChecklists(clRes);
+            setLogs(logsRes.items || []);
+        } catch (err) {
+            toast.error("Failed to sync checklist vault");
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    const handleCreateChecklist = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!validate()) {
-            toast.error("Please provide all required verification details.");
+        if (!newChecklistName.trim()) {
+            toast.error("Name is required");
             return;
         }
 
-        const doneCount = items.filter(i => i.status === "Done").length;
-        const status = doneCount === items.length ? "Done" : "Pending";
+        setIsSubmitting(true);
+        try {
+            const created = await checklistService.createChecklist({
+                project_id: projectId,
+                name: newChecklistName,
+                type: newChecklistType
+            });
 
-        const entryData: ChecklistRecord = {
-            id: formMode === "edit" ? editId! : `CHK-${900 + checklistData.length + 1}`,
-            ...formData,
-            item_list: [...items],
-            status,
-        };
+            for (const item of newChecklistItems) {
+                await checklistService.addItem({
+                    checklist_id: created.id,
+                    item: item
+                });
+            }
 
-        if (formMode === "edit") {
-            setChecklistData(prev => prev.map(c => c.id === editId ? entryData : c));
-            toast.success("Checklist updated successfully");
-        } else {
-            setChecklistData(prev => [entryData, ...prev]);
-            toast.success("New checklist initiated!");
+            toast.success("Checklist created successfully!");
+            setChecklists(prev => [created, ...prev]);
+            setIsNewModalOpen(false);
+            setNewChecklistName("");
+            setNewChecklistItems([]);
+        } catch (err) {
+            toast.error("Failed to create checklist");
+        } finally {
+            setIsSubmitting(false);
         }
-        setIsFormModalOpen(false);
     };
 
-    const filteredList = useMemo(() => {
-        return checklistData.filter(item => {
-            const matchesStatus = filterStatus === "All Status" || item.status === filterStatus;
-            const matchesSearch = item.checklist_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                item.id.toLowerCase().includes(searchTerm.toLowerCase());
-            return matchesStatus && matchesSearch;
+    const handleAddItem = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!addItemText.trim() || !selectedChecklist) return;
+
+        setIsSubmitting(true);
+        try {
+            await checklistService.addItem({
+                checklist_id: selectedChecklist.id,
+                item: addItemText
+            });
+            toast.success("Item added successfully!");
+            setIsAddItemModalOpen(false);
+            setAddItemText("");
+            fetchData();
+        } catch (err) {
+            toast.error("Failed to add item");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleExecuteChecklist = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!executeRemarks.trim() || !selectedChecklist) {
+            toast.error("Remarks are required");
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            const response = await checklistService.executeChecklist({
+                project_id: projectId,
+                checklist_id: selectedChecklist.id,
+                status: executeStatus,
+                remarks: executeRemarks
+            });
+            toast.success("Checklist executed successfully!");
+            setLogs(prev => [response, ...prev]);
+            setIsExecuteModalOpen(false);
+            setExecuteRemarks("");
+        } catch (err) {
+            toast.error("Failed to execute checklist");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleDeleteConfirm = async () => {
+        if (!deleteId) return;
+        setIsSubmitting(true);
+        try {
+            await checklistService.deleteChecklist(deleteId);
+            toast.success("Checklist deleted successfully!");
+            setChecklists(prev => prev.filter(c => c.id !== deleteId));
+            setLogs(prev => prev.filter(l => l.checklist_id !== deleteId));
+            setIsDeleteModalOpen(false);
+            setDeleteId(null);
+        } catch (err) {
+            toast.error("Failed to delete checklist");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const stats = useMemo(() => {
+        const total = checklists.length;
+        
+        const latestLogsMap = new Map();
+        const sortedLogs = [...logs].sort((a, b) => b.id - a.id);
+        
+        sortedLogs.forEach(log => {
+            if (!latestLogsMap.has(log.checklist_id)) {
+                latestLogsMap.set(log.checklist_id, log);
+            }
         });
-    }, [checklistData, searchTerm, filterStatus]);
+
+        let done = 0;
+        checklists.forEach(c => {
+            const latestLog = latestLogsMap.get(c.id);
+            if (latestLog && latestLog.status === "Done") {
+                done++;
+            }
+        });
+
+        const pending = total - done;
+
+        return {
+            total,
+            executed: logs.length,
+            done,
+            pending,
+            compliance: Math.round((done / (total || 1)) * 100)
+        };
+    }, [checklists, logs]);
+
+    const filteredLogs = useMemo(() => {
+        let data = logs;
+
+        // Apply StatCard Filter
+        if (activeStatFilter === "Done") {
+          data = data.filter(l => l.status === "Done");
+        } else if (activeStatFilter === "Pending") {
+          data = data.filter(l => l.status === "Pending");
+        }
+
+        return data.filter(log => {
+            const checklistName = checklists.find(c => c.id === log.checklist_id)?.name || "";
+            return checklistName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                   log.remarks.toLowerCase().includes(searchTerm.toLowerCase());
+        });
+    }, [logs, checklists, searchTerm, activeStatFilter]);
+
+    const paginatedLogs = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return filteredLogs.slice(startIndex, startIndex + itemsPerPage);
+    }, [filteredLogs, currentPage]);
+
+    const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
+
+    // Reset page on filter change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, activeStatFilter]);
+
+    const addTempItem = () => {
+        if (tempItemText.trim()) {
+            setNewChecklistItems(prev => [...prev, tempItemText.trim()]);
+            setTempItemText("");
+        }
+    };
+
+    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
+    const inputClasses = "w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter";
 
     return (
         <>
-            <Navbar
-                title="Operational Checklists"
-                breadcrumb={["InfraPilot", "Engineer", "Checklists"]}
-            />
+            <Navbar title="Checklists" breadcrumb={["Engineer", "Execution", "Checklist Vault"]} />
 
-            <PageTransition className="p-4 md:p-8 bg-slate-50 min-h-screen font-inter italic-none">
-
+            <PageTransition className="p-4 md:p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
                 {/* ── Header ──────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 text-inter">
-                    <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1 font-inter">
-                            Compliance & Quality Assurance
-                        </p>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">
-                            Checklists Vault
-                        </h1>
-                        <p className="text-slate-500 text-sm font-medium leading-relaxed max-w-xl font-inter">
-                            Standardized verification logs for site openings and activity-specific quality inspections.
-                        </p>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 font-inter">
+                    <div className="font-inter">
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Checklist Intelligence Ledger</h1>
+                        <p className="text-slate-500 text-sm font-inter">Systematic verification protocols and site execution logs.</p>
                     </div>
-                    <div className="flex items-center gap-3 font-inter">
+                    <button
+                        onClick={() => setIsNewModalOpen(true)}
+                        className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
+                    >
+                        <Plus className="w-4 h-4" />
+                        New Checklist
+                    </button>
+                </div>
+
+                {/* ── Interactive Stats ───────────────────────────── */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
+                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                      <StatCard
+                          title="Total Vault"
+                          value={stats.total.toString()}
+                          sub="Protocols Logged"
+                          accent="text-slate-800" />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("Done")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Done" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                      <StatCard
+                          title="Compliance"
+                          value={`${stats.compliance}%`}
+                          sub="Audit Success"
+                          accent="text-emerald-500" />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("Pending")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Pending" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                      <StatCard
+                          title="Pending Audits"
+                          value={stats.pending.toString()}
+                          sub="Attention Required"
+                          accent="text-rose-500" />
+                    </div>
+                    <div className="cursor-default group transition-all rounded-xl hover:scale-[1.01]">
+                      <StatCard
+                          title="Global Health"
+                          value="94%"
+                          sub="Process Momentum"
+                          accent="text-blue-500" />
+                    </div>
+                </div>
+
+                {/* ── Tab Selector ────────────────────────────────────────────── */}
+                <div className="flex items-center gap-4 md:gap-8 border-b border-slate-200 mb-6 md:mb-8 overflow-x-auto scrollbar-hide font-inter">
+                    {["Daily Checklist", "Activity Checklist", "Safety", "Quality"].map((tab) => (
                         <button
-                            onClick={handleOpenCreate}
-                            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all font-inter"
+                            key={tab}
+                            onClick={() => setActiveTab(tab as any)}
+                            className={`pb-4 text-[10px] font-bold uppercase tracking-widest transition-all relative whitespace-nowrap font-inter ${
+                                activeTab === tab ? "text-primary" : "text-slate-400 hover:text-slate-600"
+                            }`}
                         >
-                            <span className="text-lg leading-none font-inter">+</span>
-                            Create New Checklist
+                            {tab}
+                            {activeTab === tab && (
+                                <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-t-full" />
+                            )}
                         </button>
-                    </div>
+                    ))}
                 </div>
 
-                {/* ── Summary Stat Cards (Activity Style) ────────────────────── */}
-                <div className="mb-8 font-inter">
-                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4 font-inter">
-                        Checklist Overview
-                    </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 font-inter">
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all font-inter">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 font-inter">Total Logs</p>
-                            <p className="text-2xl font-bold text-slate-900 font-inter">{totalChecks}</p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium font-inter">Verification Archives</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all font-inter">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 font-inter">Compliant</p>
-                            <p className="text-2xl font-bold text-emerald-500 font-inter">{completedCount}</p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium font-inter">Verified Done</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all font-inter relative overflow-hidden group">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 font-inter">In Progress</p>
-                            <p className="text-2xl font-bold text-rose-500 font-inter">{pendingCount}</p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium font-inter">Action Required</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all font-inter">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 font-inter">Last Activity</p>
-                            <p className="text-2xl font-bold text-blue-600 font-inter italic-none">Today</p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium font-inter">Latest Log Entry</p>
-                        </div>
-                    </div>
+                {/* ── Scrollable Content Area ────────────────────────── */}
+                <div className="flex-1 overflow-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200">
+                {/* ── Protocols Registry ──────────────────────────────── */}
+                <div className="mb-12 font-inter">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 font-inter">
+                      {checklists.filter(c => c.type === activeTab).map((cl) => (
+                          <div key={cl.id} className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 hover:shadow-2xl hover:shadow-primary/5 transition-all duration-500 group relative overflow-hidden font-inter">
+                              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-primary/10 transition-colors" />
+                              
+                              <div className="flex items-start justify-between mb-8 relative z-10 font-inter">
+                                  <div className="flex-1 font-inter">
+                                      <h3 className="text-lg font-bold text-slate-800 group-hover:text-primary transition-colors leading-tight mb-2 font-inter">{cl.name}</h3>
+                                      <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest border font-inter ${typeColors[cl.type] || "bg-slate-50 text-slate-400"}`}>
+                                          {cl.type}
+                                      </span>
+                                  </div>
+                                  <div className="p-3 bg-slate-50 rounded-2xl group-hover:bg-primary group-hover:text-white transition-all duration-500 font-inter">
+                                    <ClipboardList className="w-5 h-5" />
+                                  </div>
+                              </div>
+
+                              <div className="space-y-6 mb-8 relative z-10 font-inter">
+                                  <div className="flex items-center justify-between font-inter">
+                                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">Intelligence Domain</span>
+                                      <span className="text-[10px] font-bold text-slate-800 uppercase tracking-widest font-inter">VERIFIED VAULT</span>
+                                  </div>
+                                  <div className="flex items-center justify-between font-inter">
+                                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">Reference Hash</span>
+                                      <span className="text-[10px] font-bold text-primary uppercase tracking-widest font-inter">LOG-#{cl.id}</span>
+                                  </div>
+                              </div>
+
+                              <div className="grid grid-cols-3 gap-3 relative z-10 font-inter">
+                                  <button 
+                                      onClick={() => { setSelectedChecklist(cl); setIsAddItemModalOpen(true); }}
+                                      className="flex flex-col items-center gap-2 p-3 bg-slate-50 hover:bg-blue-50 text-slate-400 hover:text-primary rounded-2xl transition-all font-inter active:scale-95 border border-slate-100"
+                                      title="Add Item"
+                                  >
+                                      <PlusSquare className="w-4 h-4" />
+                                      <span className="text-[10px] font-bold uppercase tracking-widest">Append</span>
+                                  </button>
+                                  <button 
+                                      onClick={() => { setSelectedChecklist(cl); setIsExecuteModalOpen(true); }}
+                                      className="flex flex-col items-center gap-2 p-3 bg-primary text-white rounded-2xl transition-all shadow-lg shadow-primary/20 hover:bg-blue-600 font-inter active:scale-95"
+                                      title="Execute Audit"
+                                  >
+                                      <CheckCircle2 className="w-4 h-4" />
+                                      <span className="text-[10px] font-bold uppercase tracking-widest">Audit</span>
+                                  </button>
+                                  <button 
+                                      onClick={() => { setDeleteId(cl.id); setIsDeleteModalOpen(true); }}
+                                      className="flex flex-col items-center gap-2 p-3 bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-2xl transition-all font-inter active:scale-95 border border-slate-100"
+                                      title="Archive"
+                                  >
+                                      <Trash2 className="w-4 h-4" />
+                                      <span className="text-[10px] font-bold uppercase tracking-widest">Discard</span>
+                                  </button>
+                              </div>
+                          </div>
+                      ))}
+                      {checklists.filter(c => c.type === activeTab).length === 0 && (
+                          <div className="col-span-full py-32 text-center bg-white rounded-2xl border-4 border-dashed border-slate-50 font-inter">
+                              <Layout className="w-16 h-16 mx-auto mb-6 text-slate-200" />
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">No technical protocols discovered in the {activeTab} domain.</p>
+                          </div>
+                      )}
+                  </div>
                 </div>
 
-                {/* ── Tabular Ledger (Tabular View) ───────────────────────────────── */}
-                <div className="bg-white rounded-2xl md:rounded-3xl shadow-sm border border-slate-100 overflow-hidden font-inter text-inter text-slate-800 mb-20">
-
-                    {/* Filter Bar (Activity Style) */}
-                    <div className="p-4 md:p-6 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
+                {/* ── Execution Intelligence Registry ────────────────────────────── */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-12 font-inter flex flex-col">
+                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
                         <div className="relative flex-1 max-w-md font-inter">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-inter">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                </svg>
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                                <Search className="w-4 h-4" />
                             </span>
                             <input
                                 type="text"
-                                placeholder="Search by Project or Checklist ID..."
+                                placeholder="Search by protocol or remarks..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400 font-inter"
+                                className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
                             />
                         </div>
-
-                        <div className="flex flex-wrap items-center gap-3 font-inter">
-                            <div className="relative font-inter">
-                                <select
-                                    value={filterStatus}
-                                    onChange={(e) => setFilterStatus(e.target.value)}
-                                    className="appearance-none pl-4 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl text-[11px] font-bold text-slate-600 uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500/10 transition-all cursor-pointer font-inter"
+                        {activeStatFilter !== "All" && (
+                          <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter">
+                            <RotateCcw className="w-4 h-4" />
+                          </button>
+                        )}
+                    </div>
+                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                        <table className="w-full text-left font-inter min-w-[1000px]">
+                            <thead>
+                                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
+                                    <th className="px-6 py-4 font-inter">Protocol Identity</th>
+                                    <th className="px-6 py-4 font-inter">Compliance Profile</th>
+                                    <th className="px-6 py-4 font-inter">Intelligence Remarks</th>
+                                    <th className="px-6 py-4 text-right font-inter">Audit Sequence</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50 font-inter">
+                                {paginatedLogs.length > 0 ? (
+                                    paginatedLogs.map((log) => (
+                                        <tr key={log.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
+                                            <td className="px-6 py-4 font-inter">
+                                                <div className="flex flex-col font-inter">
+                                                  <span className="text-sm font-bold text-slate-800 font-inter">
+                                                      {checklists.find(c => c.id === log.checklist_id)?.name || "Ref: #" + log.checklist_id}
+                                                  </span>
+                                                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">LOG-#{log.id}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 font-inter">
+                                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest border font-inter ${
+                                                    log.status === 'Done' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'
+                                                }`}>
+                                                    {log.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 font-inter">
+                                                <div className="flex items-center gap-2 font-inter max-w-xs">
+                                                  <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                                  <span className="text-xs font-bold text-slate-600 font-inter uppercase tracking-tight truncate">
+                                                      {log.remarks}
+                                                  </span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-right font-inter">
+                                                <div className="flex flex-col items-end font-inter">
+                                                  <span className="text-xs font-bold text-slate-800 font-inter">{log.created_at ? new Date(log.created_at).toLocaleDateString() : "Live Audit"}</span>
+                                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">Timestamp</span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={4} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
+                                            No execution intelligence artifacts discovered in the project vault.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                    </div>
+                    
+                    {/* ── Pagination Controls ──────────────────────────── */}
+                    {filteredLogs.length > 0 && (
+                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">
+                                Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredLogs.length)} of {filteredLogs.length} entries
+                            </span>
+                            <div className="flex gap-2 font-inter">
+                                <button 
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50 transition-all font-inter"
                                 >
-                                    <option value="All Status">All Status</option>
-                                    <option value="Done">Verified Done</option>
-                                    <option value="Pending">Pending Audit</option>
-                                </select>
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" /></svg>
-                                </span>
+                                    Prev
+                                </button>
+                                <button 
+                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                    disabled={currentPage === totalPages || totalPages === 0}
+                                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50 transition-all font-inter"
+                                >
+                                    Next
+                                </button>
                             </div>
                         </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6 font-inter">
-                        {filteredList.map((item) => (
-                            <div key={item.id} className="group bg-white rounded-3xl border border-slate-100 p-6 shadow-sm hover:shadow-xl hover:shadow-blue-500/5 transition-all duration-500 relative flex flex-col font-inter">
-                                <div className="flex items-start justify-between mb-4 font-inter">
-                                    <div className="font-inter">
-                                        <div className="flex items-center gap-2 mb-1 font-inter">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] font-inter">Registry ID: {item.id}</p>
-                                        </div>
-                                        <h3 className="text-base font-black text-slate-800 tracking-tight line-clamp-1 group-hover:text-blue-600 transition-colors font-inter uppercase-none">
-                                            {item.checklist_name}
-                                        </h3>
-                                    </div>
-                                    <span className={`px-3 py-1 text-[9px] font-black rounded-lg border font-inter whitespace-nowrap uppercase tracking-widest ${item.status === "Done" ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-rose-50 text-rose-600 border-rose-100"}`}>
-                                        {item.status}
-                                    </span>
-                                </div>
-
-                                <div className="space-y-4 mb-6 flex-1 font-inter">
-                                    <div className="flex items-center justify-between py-3 border-y border-slate-50 font-inter">
-                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-inter">Verification Pts</span>
-                                        <div className="text-right font-inter">
-                                            <p className="text-xs font-black text-slate-800 tabular-nums font-inter">{item.item_list.length} Checked</p>
-                                            <p className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest font-inter">{item.item_list.filter(i => i.status === "Done").length} Verified</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="font-inter">
-                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 font-inter text-center">Protocol Remarks</span>
-                                        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100/50">
-                                            <p className="text-[11px] font-medium text-slate-500 line-clamp-2 italic-none leading-relaxed font-inter">
-                                                {item.remarks || "No additional technical remarks recorded."}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center justify-between pt-4 border-t border-slate-50 font-inter">
-                                    <button
-                                        onClick={() => setSelectedChecklist(item)}
-                                        className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all font-inter"
-                                    >
-                                        View Insight
-                                    </button>
-                                    <div className="flex items-center gap-2 font-inter">
-                                        <button
-                                            onClick={() => handleOpenEdit(item)}
-                                            className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-xl transition-all font-inter"
-                                            title="Modify Record"
-                                        >
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                            </svg>
-                                        </button>
-                                        <button
-                                            onClick={() => handleDelete(item.id)}
-                                            className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all font-inter"
-                                            title="Delete Log"
-                                        >
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                    )}
                 </div>
             </PageTransition>
 
-            {/* ── DETAIL MODAL (Insight View) ────────────────────────────────── */}
+            {/* ── MODALS ────────────────────────────────────────────────── */}
+
+            {/* Modal 1: New Checklist */}
             <Modal
-                isOpen={!!selectedChecklist}
-                onClose={() => setSelectedChecklist(null)}
-                title="Checklist Insight"
+                isOpen={isNewModalOpen}
+                onClose={() => setIsNewModalOpen(false)}
+                title="Initiate Technical Protocol"
                 maxWidth="max-w-2xl"
+                footer={
+                    <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
+                        <button onClick={() => setIsNewModalOpen(false)} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter">Cancel</button>
+                        <button 
+                            onClick={handleCreateChecklist}
+                            disabled={isSubmitting}
+                            className="flex-[2] py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
+                        >
+                            {isSubmitting ? "Syncing..." : "Commit Protocol"}
+                        </button>
+                    </div>
+                }
             >
-                {selectedChecklist && (
-                    <div className="bg-white p-6 italic-none font-inter text-inter">
-                        {/* ── Blue Hero Card ────────────────────────────────── */}
-                        <div className="bg-blue-600 rounded-[2.5rem] p-8 text-white shadow-xl mb-8 relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl opacity-50" />
-
-                            <div className="relative z-10">
-                                <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-2">Compliance Record</p>
-                                <div className="flex items-center justify-between mb-8">
-                                    <h3 className="text-2xl font-black tracking-tight leading-tight">{selectedChecklist.checklist_name}</h3>
-                                    <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center">
-                                        <svg className="w-6 h-6 opacity-40" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                                        </svg>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Compliance Status</p>
-                                        <p className="text-xl font-black">{selectedChecklist.status.toUpperCase()}</p>
-                                    </div>
-                                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-                                        <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Verified Points</p>
-                                        <p className="text-xl font-black tabular-nums">{selectedChecklist.item_list.filter(i => i.status === "Done").length} / {selectedChecklist.item_list.length}</p>
-                                    </div>
-                                </div>
+                <div className="p-6 space-y-8 font-inter">
+                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
+                        <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
+                          <Activity className="w-4 h-4 text-primary" />
+                          Protocol Intelligence Profile
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
+                            <div className="font-inter">
+                                <label className={labelClasses}>Descriptive Title <span className="text-rose-500">*</span></label>
+                                <input 
+                                    type="text" 
+                                    value={newChecklistName}
+                                    onChange={(e) => setNewChecklistName(e.target.value)}
+                                    placeholder="e.g. Foundation Pouring Protocol"
+                                    className={inputClasses}
+                                />
                             </div>
-                        </div>
-
-                        {/* ── Diagnostic Floor ──────────────────────────────── */}
-                        <div className="space-y-8 mb-10 px-1">
-                            {/* Verification Point List */}
-                            <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 font-inter">Item List (Verification Matrix)</p>
-                                <div className="space-y-2.5 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                                    {selectedChecklist.item_list.map((point) => (
-                                        <div key={point.id} className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100/50">
-                                            <div className="flex items-center gap-4">
-                                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] shadow-sm ${point.status === "Done" ? "bg-emerald-500 text-white" : "bg-white border-2 border-slate-200 text-slate-300"}`}>
-                                                    {point.status === "Done" ? "✓" : "!"}
-                                                </div>
-                                                <span className={`text-sm font-black transition-all ${point.status === "Done" ? "text-slate-800" : "text-slate-400 italic"}`}>{point.task}</span>
-                                            </div>
-                                            <span className={`text-[9px] font-black uppercase tracking-widest ${point.status === "Done" ? "text-emerald-500" : "text-rose-500"}`}>
-                                                {point.status}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
+                            <div className="font-inter">
+                                <label className={labelClasses}>Domain Category <span className="text-rose-500">*</span></label>
+                                 <select 
+                                    value={newChecklistType}
+                                    onChange={(e) => setNewChecklistType(e.target.value)}
+                                    className={inputClasses}
+                                >
+                                    <option value="Safety">Safety</option>
+                                    <option value="Quality">Quality</option>
+                                    <option value="Daily Checklist">Daily Checklist</option>
+                                    <option value="Activity Checklist">Activity Checklist</option>
+                                </select>
                             </div>
-
-                            {/* Remarks */}
-                            <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 font-inter">Technical Remarks</p>
-                                <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 font-inter text-sm text-slate-600 leading-relaxed italic-none">
-                                    {selectedChecklist.remarks || "No additional technical remarks recorded for this audit perspective."}
-                                </div>
-                            </div>
-
-                            {/* Verified Asset Footer */}
-                            <div className="pt-2">
-                                <div className="flex items-center gap-5 p-4 bg-emerald-50 rounded-2xl border border-emerald-100 group">
-                                    <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-emerald-600 shadow-sm">
-                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs font-black text-emerald-900 mb-0.5 uppercase tracking-wide">Quality Benchmark Verification</p>
-                                        <p className="text-[9px] font-bold text-emerald-500 uppercase tracking-[0.2em]">Digitally Timestamped</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* ── Action Footer ─────────────────────────────────── */}
-                        <div className="flex items-center gap-4 pt-6 border-t border-slate-50 font-inter">
-                            <button
-                                onClick={() => setSelectedChecklist(null)}
-                                className="flex-1 py-3 text-[11px] font-bold text-slate-400 hover:text-slate-800 uppercase tracking-widest transition-all font-inter"
-                            >
-                                Close Audit
-                            </button>
-                            <button
-                                onClick={() => {
-                                    handleOpenEdit(selectedChecklist);
-                                    setSelectedChecklist(null);
-                                }}
-                                className="flex-[1.5] px-8 py-3 bg-primary text-white text-[13px] font-bold rounded-lg shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 justify-center active:scale-95 font-inter"
-                            >
-                                Modify Registry
-                            </button>
                         </div>
                     </div>
-                )}
-            </Modal>
 
-            <Modal
-                isOpen={isFormModalOpen}
-                onClose={() => { setIsFormModalOpen(false); setErrors({}); }}
-                title={formMode === "create" ? "Create New Checklist" : "Modify Audit Definition"}
-                maxWidth="max-w-4xl"
-            >
-                <div className="bg-white p-2 italic-none font-inter">
-                    <form id="checklist-form" onSubmit={handleSubmit} className="p-8 space-y-12 text-inter">
-                        {/* Section 1: Core Perspective */}
-                        <section className="font-inter">
-                            <div className="flex items-center gap-4 mb-8 font-inter">
-                                <h3 className="text-[15px] font-bold text-slate-800 font-inter underline decoration-blue-500 decoration-2 underline-offset-8 uppercase">Core Perspective</h3>
-                            </div>
-                            <div className="flex flex-col gap-1.5 font-inter">
-                                <label className="text-[13px] font-bold text-slate-700 font-inter">Checklist Name <span className="text-rose-500">*</span></label>
-                                <input
-                                    name="checklist_name"
-                                    value={formData.checklist_name}
-                                    onChange={handleInputChange}
-                                    placeholder="e.g. Site Opening Inventory Check"
-                                    className={`w-full px-4 py-3 bg-white border rounded-lg text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all font-inter ${errors.checklist_name ? "border-rose-300 bg-rose-50" : "border-slate-200"}`}
-                                />
-                                {errors.checklist_name && <p className="text-[10px] font-bold text-rose-500 mt-1 font-inter">{errors.checklist_name}</p>}
-                            </div>
-                        </section>
-
-                        {/* Section 2: Verification Matrix */}
-                        <section className="font-inter">
-                            <div className="flex items-center gap-4 mb-8 font-inter">
-                                <h3 className="text-[15px] font-bold text-slate-800 font-inter underline decoration-emerald-500 decoration-2 underline-offset-8 uppercase">Verification Matrix</h3>
-                            </div>
-                            <div className="space-y-6 font-inter">
-                                <div className="flex gap-4 font-inter">
-                                    <input
-                                        value={newItemTask}
-                                        onChange={(e) => setNewItemTask(e.target.value)}
-                                        placeholder="Add a verification point..."
-                                        className="flex-1 px-4 py-3 bg-white border border-slate-200 rounded-lg text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-inter"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={addItem}
-                                        className="px-6 py-2.5 bg-primary text-white text-[13px] font-bold rounded-lg shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95 font-inter"
+                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
+                        <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
+                          <CheckCircle2 className="w-4 h-4 text-primary" />
+                          Verification Points Matrix
+                        </h3>
+                        <div className="flex gap-3 mb-6 font-inter">
+                            <input 
+                                type="text" 
+                                value={tempItemText}
+                                onChange={(e) => setTempItemText(e.target.value)}
+                                placeholder="Enter technical verification point..."
+                                className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 transition-all font-inter"
+                            />
+                            <button 
+                                type="button"
+                                onClick={addTempItem}
+                                className="px-6 bg-slate-900 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-slate-800 transition-all active:scale-95 font-inter"
+                            >
+                                Append Point
+                            </button>
+                        </div>
+                        
+                        <div className="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar font-inter">
+                            {newChecklistItems.map((item, idx) => (
+                                <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl group/item hover:bg-blue-50 hover:border-blue-100 transition-all font-inter">
+                                    <div className="flex items-center gap-4 font-inter">
+                                        <div className="w-6 h-6 bg-primary text-white rounded-lg flex items-center justify-center text-[10px] font-bold font-inter">{idx + 1}</div>
+                                        <span className="text-xs font-bold text-slate-700 uppercase tracking-tight font-inter">{item}</span>
+                                    </div>
+                                    <button 
+                                        onClick={() => setNewChecklistItems(prev => prev.filter((_, i) => i !== idx))}
+                                        className="p-2 text-slate-400 hover:text-rose-500 hover:bg-white rounded-xl transition-all font-inter"
                                     >
-                                        Add Point
+                                        <Trash2 className="w-4 h-4" />
                                     </button>
                                 </div>
-                                <div className="space-y-3 font-inter">
-                                    {items.map((item) => (
-                                        <div key={item.id} className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-100 group transition-all hover:bg-slate-50 hover:border-emerald-200 shadow-sm font-inter">
-                                            <div className="flex items-center gap-4 flex-1 font-inter">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => toggleItemStatus(item.id)}
-                                                    className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${item.status === "Done" ? "bg-emerald-500 border-emerald-500 shadow-md shadow-emerald-200" : "bg-white border-slate-300"}`}
-                                                >
-                                                    {item.status === "Done" && <span className="text-white text-[10px] font-black">✓</span>}
-                                                </button>
-                                                <span className={`text-[13px] font-semibold transition-all ${item.status === "Done" ? "text-slate-400 line-through" : "text-slate-700 tracking-tight"}`}>{item.task}</span>
-                                            </div>
-                                            <button type="button" onClick={() => deleteItem(item.id)} className="text-rose-400 hover:text-rose-600 font-black text-xl px-2 font-inter transition-colors">×</button>
-                                        </div>
-                                    ))}
-                                    {items.length === 0 && (
-                                        <p className="text-xs text-slate-400 font-bold italic text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-200 opacity-60 font-inter">
-                                            Verification points pending...
-                                        </p>
-                                    )}
-                                    {errors.items && <p className="text-[10px] font-bold text-rose-500 mt-2 ml-1 font-inter">{errors.items}</p>}
+                            ))}
+                            {newChecklistItems.length === 0 && (
+                                <div className="py-12 text-center border-2 border-dashed border-slate-100 rounded-2xl font-inter">
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">No verification points added. Minimum 1 required.</p>
                                 </div>
-                            </div>
-                        </section>
-
-                        {/* Section 3: Technical Remarks */}
-                        <section className="font-inter">
-                            <div className="flex items-center gap-4 mb-8 font-inter">
-                                <h3 className="text-[15px] font-bold text-slate-800 font-inter underline decoration-amber-500 decoration-2 underline-offset-8 uppercase">Technical Remarks</h3>
-                            </div>
-                            <div className="flex flex-col gap-1.5 font-inter">
-                                <label className="text-[13px] font-bold text-slate-700 font-inter">Registry Observations</label>
-                                <textarea
-                                    name="remarks"
-                                    rows={4}
-                                    value={formData.remarks}
-                                    onChange={handleInputChange}
-                                    placeholder="Additional site observations or technical notes..."
-                                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-amber-500 transition-all resize-none font-inter"
-                                />
-                            </div>
-                        </section>
-                    </form>
-                </div>
-
-                <div className="bg-white px-8 py-6 border-t border-slate-100 flex items-center justify-between font-inter">
-                    <button
-                        type="button"
-                        onClick={() => setIsFormModalOpen(false)}
-                        className="text-[11px] font-bold text-slate-400 hover:text-slate-800 tracking-widest uppercase transition-all font-inter"
-                    >
-                        Discard Analysis
-                    </button>
-                    <button
-                        type="submit"
-                        form="checklist-form"
-                        className="px-8 py-2.5 bg-primary text-white text-[13px] font-bold rounded-lg shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95 font-inter"
-                    >
-                        {formMode === "create" ? "Add Checklist" : "Commit Changes"}
-                    </button>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </Modal>
+
+            {/* Modal 2: Add Item */}
+            <Modal
+                isOpen={isAddItemModalOpen}
+                onClose={() => setIsAddItemModalOpen(false)}
+                title="Append Intelligence Point"
+                maxWidth="max-w-md"
+                footer={
+                    <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
+                        <button onClick={() => setIsAddItemModalOpen(false)} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter">Cancel</button>
+                        <button 
+                            onClick={handleAddItem}
+                            disabled={isSubmitting}
+                            className="flex-[2] py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
+                        >
+                            {isSubmitting ? "Syncing..." : "Append Point"}
+                        </button>
+                    </div>
+                }
+            >
+                <div className="p-6 font-inter">
+                    <label className={labelClasses}>New Technical Verification Point</label>
+                    <input 
+                        type="text" 
+                        value={addItemText}
+                        onChange={(e) => setAddItemText(e.target.value)}
+                        placeholder="e.g. Verify aggregate compaction ratio"
+                        className={inputClasses}
+                    />
+                </div>
+            </Modal>
+
+            {/* Modal 3: Execute Checklist */}
+            <Modal
+                isOpen={isExecuteModalOpen}
+                onClose={() => setIsExecuteModalOpen(false)}
+                title="Execute Field Audit"
+                maxWidth="max-w-lg"
+                footer={
+                    <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
+                        <button onClick={() => setIsExecuteModalOpen(false)} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter">Cancel</button>
+                        <button 
+                            onClick={handleExecuteChecklist}
+                            disabled={isSubmitting}
+                            className="flex-[2] py-3 bg-emerald-600 text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all active:scale-95 disabled:opacity-50 font-inter"
+                        >
+                            {isSubmitting ? "Syncing..." : "Commit Field Audit"}
+                        </button>
+                    </div>
+                }
+            >
+                <div className="p-6 space-y-8 font-inter">
+                    <div className="p-6 bg-primary rounded-2xl border border-primary/20 text-white shadow-2xl relative overflow-hidden font-inter">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full -mr-16 -mt-16 blur-2xl" />
+                        <div className="relative z-10 font-inter">
+                          <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2 font-inter">Active Protocol Execution</p>
+                          <p className="text-lg font-bold tracking-tight font-inter">{selectedChecklist?.name}</p>
+                        </div>
+                    </div>
+                    
+                    <div className="font-inter">
+                        <label className={labelClasses}>Operational Compliance Status</label>
+                        <div className="flex gap-3 font-inter">
+                            {["Done", "Pending"].map((s) => (
+                                <button
+                                    key={s}
+                                    type="button"
+                                    onClick={() => setExecuteStatus(s as any)}
+                                    className={`flex-1 py-4 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border font-inter ${
+                                        executeStatus === s 
+                                            ? (s === "Done" ? "bg-emerald-600 border-emerald-600 text-white shadow-xl shadow-emerald-200 scale-[1.02]" : "bg-amber-500 border-yellow-500 text-white shadow-xl shadow-yellow-200 scale-[1.02]") 
+                                            : "bg-white border-slate-200 text-slate-400 hover:bg-slate-50"
+                                    }`}
+                                >
+                                    {s}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="font-inter">
+                        <label className={labelClasses}>Field Audit Intelligence Remarks</label>
+                        <textarea 
+                            rows={4}
+                            value={executeRemarks}
+                            onChange={(e) => setExecuteRemarks(e.target.value)}
+                            placeholder="Describe technical observations, deviations, or site confirmations..."
+                            className={`${inputClasses} resize-none font-bold`}
+                        />
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Modal 4: Confirm Delete */}
+            <ConfirmModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={handleDeleteConfirm}
+                title="Discard Technical Protocol"
+                message="Are you sure you want to discard this technical protocol from the project vault? This operation will permanently archive all verification history."
+                confirmText="Discard Protocol"
+                type="danger"
+            />
         </>
     );
 };

@@ -5,12 +5,24 @@ export interface MenuItem {
   path: string;
   icon: string;
   subNav?: MenuItem[];
+  disabled?: boolean;
 }
 
 export const sidebarMenus: Record<Role, MenuItem[]> = {
   Admin: [
     { label: "Dashboard", path: "/admin", icon: "grid" },
     { label: "Projects", path: "/admin/projects", icon: "folder" },
+    {
+      label: "Estimates / Invoices",
+      path: "/admin/invoices",
+      icon: "file-text",
+      subNav: [
+        { label: "All Invoices", path: "/admin/invoices/all", icon: "list" },
+        { label: "Quotations", path: "/admin/quotations", icon: "file-text" },
+        { label: "Create Invoice", path: "/admin/invoices/create", icon: "plus" },
+        { label: "Measurements", path: "/admin/measurements", icon: "tool" },
+      ],
+    },
     {
       label: "User & Role Management",
       path: "/admin/users",
@@ -145,7 +157,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
           path: "/admin/reports/financial",
           icon: "dollar-sign",
         },
-        { label: "Labor Report", path: "/admin/reports/labor", icon: "users" },
+        { label: "Labour Report", path: "/admin/reports/labour", icon: "users" },
         {
           label: "Material Consumption",
           path: "/admin/reports/consumption",
@@ -166,8 +178,8 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
           icon: "package",
         },
         {
-          label: "Labor Types",
-          path: "/admin/master-data/labor",
+          label: "Labour Types",
+          path: "/admin/master-data/labour",
           icon: "users",
         },
         {
@@ -184,9 +196,37 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
   ProjectManager: [
     { label: "Dashboard", path: "/manager", icon: "grid" },
     { label: "Projects", path: "/manager/projects", icon: "folder" },
+    {
+      label: "Approvals",
+      path: "/manager/approvals",
+      icon: "check-circle",
+      subNav: [
+        { label: "DSR Approval", path: "/manager/approvals/dsr", icon: "clipboard-list" },
+        { label: "Material Approval", path: "/manager/approvals/material", icon: "package" },
+        { label: "Expense Approval", path: "/manager/approvals/expense", icon: "dollar-sign" },
+      ],
+    },
     { label: "BOQ", path: "/manager/boq", icon: "list" },
+    {
+      label: "Resources",
+      path: "/manager/resources",
+      icon: "users",
+      subNav: [
+        { label: "Deployment Hub", path: "/manager/resources/orchestrator", icon: "map" },
+        { label: "Site Engineers", path: "/manager/projects", icon: "user-check" },
+      ],
+    },
     { label: "Labour", path: "/manager/labour", icon: "users" },
-    { label: "Materials", path: "/manager/materials", icon: "package" },
+    {
+      label: "Compliance Hub",
+      path: "/manager/compliance",
+      icon: "shield",
+      subNav: [
+        { label: "QC Governance", path: "/manager/compliance/qc", icon: "check-circle" },
+        { label: "Safety Audit", path: "/manager/compliance/safety", icon: "alert-triangle" },
+      ],
+    },
+    { label: "Settings", path: "/manager/settings", icon: "settings" },
   ],
   SiteEngineer: [
     { label: "Dashboard", path: "/engineer", icon: "grid" },
@@ -201,23 +241,24 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       ],
     },
     {
-      label: "Labor Management",
+      label: "Labour Management",
       path: "/engineer/labor",
       icon: "users",
       subNav: [
-        { label: "Attendance", path: "/engineer/labor/attendance", icon: "user-check" },
-        { label: "Wage Reports", path: "/engineer/labor/reports", icon: "file-text" },
-        { label: "Labor Details", path: "/engineer/labor/details", icon: "users" },
+        { label: "Labour Registry", path: "/engineer/labor/list", icon: "list" },
+        { label: "Daily Attendance", path: "/engineer/labor/attendance", icon: "calendar" },
+        { label: "Salary & Advances", path: "/engineer/labor/payments", icon: "dollar-sign" },
+        { label: "Payroll Reports", path: "/engineer/labor/reports", icon: "file-text" },
       ],
     },
     {
       label: "Material Management",
-      path: "/engineer/material",
+      path: "/engineer/material/receipt",
       icon: "package",
       subNav: [
         { label: "Material Receipt", path: "/engineer/material/receipt", icon: "package" },
         { label: "Material Consumption", path: "/engineer/material/consumption", icon: "tool" },
-        { label: "Stock", path: "/engineer/material/stock", icon: "database" },
+        { label: "Stock Summary", path: "/engineer/material/stock", icon: "database" },
       ],
     },
     { label: "Machinery & Equipment", path: "/engineer/machinery", icon: "tool" },

@@ -66,8 +66,8 @@ const CreateAssetModal: React.FC<CreateAssetModalProps> = ({
     e.preventDefault();
     if (!validate()) return;
     onSubmit({
-        ...formData,
-        current_value: initialData ? formData.current_value : formData.cost 
+      ...formData,
+      current_value: initialData ? formData.current_value : formData.cost
     });
   };
 
@@ -127,14 +127,14 @@ const CreateAssetModal: React.FC<CreateAssetModalProps> = ({
               />
             </div>
             <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Location / Site</label>
-                <input
-                    type="text"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-                    placeholder="e.g. Site Alpha - Mumbai"
-                    value={formData.location}
-                    onChange={e => setFormData({ ...formData, location: e.target.value })}
-                />
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Location / Site</label>
+              <input
+                type="text"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                placeholder="e.g. Site Alpha - Mumbai"
+                value={formData.location}
+                onChange={e => setFormData({ ...formData, location: e.target.value })}
+              />
             </div>
           </div>
 
@@ -158,26 +158,26 @@ const CreateAssetModal: React.FC<CreateAssetModalProps> = ({
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Depreciation Rate (% P.A.)</label>
               <div className="relative">
                 <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none font-bold"
-                    value={formData.depreciation_rate}
-                    onChange={e => setFormData({ ...formData, depreciation_rate: parseFloat(e.target.value) || 0 })}
+                  type="number"
+                  min="0"
+                  max="100"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none font-bold"
+                  value={formData.depreciation_rate}
+                  onChange={e => setFormData({ ...formData, depreciation_rate: parseFloat(e.target.value) || 0 })}
                 />
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">%</span>
               </div>
             </div>
             <div className="p-6 bg-slate-900 rounded-[24px] text-white space-y-4">
-                <div className="flex items-center justify-between">
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Year 1 Value</p>
-                    <p className="text-sm font-bold text-emerald-400">₹{(formData.cost * (1 - formData.depreciation_rate/100)).toLocaleString()}</p>
-                </div>
-                <div className="h-px bg-white/5 w-full" />
-                <div className="flex items-center justify-between">
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Annual Depr.</p>
-                    <p className="text-sm font-bold text-rose-400">-₹{(formData.cost * (formData.depreciation_rate/100)).toLocaleString()}</p>
-                </div>
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Year 1 Value</p>
+                <p className="text-sm font-bold text-emerald-400">₹{(formData.cost * (1 - formData.depreciation_rate / 100)).toLocaleString()}</p>
+              </div>
+              <div className="h-px bg-white/5 w-full" />
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Annual Depr.</p>
+                <p className="text-sm font-bold text-rose-400">-₹{(formData.cost * (formData.depreciation_rate / 100)).toLocaleString()}</p>
+              </div>
             </div>
           </div>
         </div>

@@ -24,7 +24,6 @@ const AlertDetailsModal: React.FC<AlertDetailsModalProps> = ({
     </button>
   );
 
-
   return (
     <Modal
       isOpen={isOpen}

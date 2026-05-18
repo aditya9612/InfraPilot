@@ -1,645 +1,615 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
+import StatCard from "../../../components/common/StatCard";
 import Modal from "../../../components/common/Modal";
+import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
+import {
+    CheckCircle2,
+    Search,
+    Plus,
+    Edit2,
+    Trash2,
+    Eye,
+    Activity,
+    Filter,
+    Mail,
+    FileText,
+    RotateCcw,
+    Briefcase
+} from "lucide-react";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+import { issueService } from "../../../services/issueService";
+import type { IssueItem } from "../../../types/issue";
 
-interface IssueRecord {
-    id: string | number;
-    title: string;
-    category: string;
-    description: string;
-    reported_date: string;
-    priority: string;
-    assigned_to: string | number | null;
-    status: string;
-    resolution: string | null;
-    project_id?: number;
-}
 
-// ─── Mock Data ───────────────────────────────────────────────────────────────
+const PRIORITY_COLORS: Record<string, string> = {
+    High: "bg-rose-50 text-rose-600 border-rose-100",
+    Medium: "bg-amber-50 text-amber-600 border-amber-100",
+    Low: "bg-emerald-50 text-emerald-600 border-emerald-100",
+};
 
-const issueHistory: IssueRecord[] = [
-    {
-        project_id: 1,
-        title: "Concrete quality issue",
-        category: "Labour",
-        description: "Concrete mix failed slump test at site",
-        reported_date: "2026-04-10",
-        priority: "High",
-        id: 2,
-        status: "Open",
-        assigned_to: null,
-        resolution: null
-    },
-    {
-        project_id: 1,
-        title: "Sand delivery delay",
-        category: "Material",
-        description: "Sand supply was delayed by 4HR",
-        reported_date: "2026-04-02",
-        priority: "High",
-        id: 1,
-        status: "Open",
-        assigned_to: null,
-        resolution: null
-    }
-];
+const STATUS_COLORS: Record<string, string> = {
+    Open: "bg-rose-50 text-rose-600 border-rose-100",
+    Closed: "bg-emerald-50 text-emerald-600 border-emerald-100",
+    "In Progress": "bg-blue-50 text-blue-600 border-blue-100",
+};
 
-const initialFormData = {
-    project_id: 1,
+const INITIAL_FORM_DATA = {
+    project_id: 36,
     title: "",
     category: "Material",
     description: "",
     reported_date: new Date().toISOString().split("T")[0],
     priority: "Medium",
-    assigned_to: "" as string | number | null,
+    assigned_to: "" as any,
     status: "Open",
-    resolution: "" as string | null,
+    resolution: "",
 };
 
 
-// ─── Main Component ─────────────────────────────────────────────────────────────
 
 const IssueTrackerPage = () => {
-    const [issueData, setIssueData] = useState<IssueRecord[]>(issueHistory);
-    const [isFormModalOpen, setIsFormModalOpen] = useState(false);
-    const [formMode, setFormMode] = useState<"create" | "edit">("create");
-    const [editId, setEditId] = useState<string | number | null>(null);
-    const [selectedIssue, setSelectedIssue] = useState<IssueRecord | null>(null);
-    const [formData, setFormData] = useState(initialFormData);
-    const [errors, setErrors] = useState<Record<string, string>>({});
-
+    const [issueData, setIssueData] = useState<IssueItem[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
     const [priorityFilter, setPriorityFilter] = useState("All");
+    const [projectId, setProjectId] = useState<number | null>(null);
 
-    // Summary stats
-    const totalIssues = issueData.length;
-    const openIssues = issueData.filter(i => i.status === "Open").length;
-    const highPriority = issueData.filter(i => i.priority === "High").length;
-    const resolutionRate = totalIssues > 0 ? Math.round((issueData.filter(i => i.status === "Closed").length / totalIssues) * 100) : 0;
+    // Interactive StatCard Filter
+    const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Pending" | "High" | "Resolved">("All");
 
-    // ── CRUD Handlers ────────────────────────────────────────────────────────
+    // Modal State
+    const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+    const [selectedIssue, setSelectedIssue] = useState<IssueItem | null>(null);
+    const [formMode, setFormMode] = useState<"create" | "edit">("create");
+    const [formData, setFormData] = useState(INITIAL_FORM_DATA);
+    const [errors, setErrors] = useState<Record<string, string>>({});
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [issueToDelete, setIssueToDelete] = useState<number | null>(null);
+
+    const validate = () => {
+        const newErrors: Record<string, string> = {};
+        if (!formData.title.trim()) newErrors.title = "Required";
+        if (!formData.category) newErrors.category = "Required";
+        if (!formData.priority) newErrors.priority = "Required";
+        if (!formData.description.trim()) newErrors.description = "Required";
+        if (!formData.reported_date) newErrors.reported_date = "Required";
+        if (formMode === 'edit') {
+            if (!formData.status) newErrors.status = "Required";
+            if (!formData.resolution.trim()) newErrors.resolution = "Required";
+        }
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
+    useEffect(() => {
+        const userStr = localStorage.getItem("infrapilot_user");
+        if (userStr) {
+            try {
+                const user = JSON.parse(userStr);
+                const pId = user?.project_id || user?.user?.project_id;
+                if (pId) {
+                    const resolvedId = Number(pId);
+                    setProjectId(resolvedId);
+                    setFormData(prev => ({ ...prev, project_id: resolvedId }));
+                } else {
+                    setProjectId(36);
+                    setFormData(prev => ({ ...prev, project_id: 36 }));
+                }
+            } catch (e) {
+                console.error("Failed to resolve project ID", e);
+                setProjectId(36);
+            }
+        }
+    }, []);
+
+    const fetchIssues = useCallback(async () => {
+        if (!projectId) return;
+        setIsLoading(true);
+        try {
+            const response = await issueService.getIssues({ 
+                project_id: projectId,
+                status: statusFilter,
+                priority: priorityFilter,
+                search: searchTerm
+            });
+            setIssueData(response.items || []);
+        } catch (error) {
+            console.error("Fetch Issues Failure:", error);
+            toast.error("Failed to sync project constraints");
+        } finally {
+            setIsLoading(false);
+        }
+    }, [projectId, statusFilter, priorityFilter, searchTerm]);
+
+    useEffect(() => {
+        fetchIssues();
+    }, [fetchIssues]);
+
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
-        if (errors[name]) setErrors(prev => { const u = { ...prev }; delete u[name]; return u; });
+        if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
     };
 
-    const validate = () => {
-        const errs: Record<string, string> = {};
-        if (!formData.title.trim()) errs.title = "Title is required";
-        if (!formData.description.trim()) errs.description = "Description is required";
-        if (!formData.reported_date) errs.reported_date = "Date is required";
-        if (!formData.priority) errs.priority = "Priority is required";
-        if (!formData.category) errs.category = "Category is required";
-        if (!formData.assigned_to?.toString().trim() && formData.status === "Closed") errs.assigned_to = "Assigned party is required for closure";
-        setErrors(errs);
-        return Object.keys(errs).length === 0;
-    };
-
-    const handleOpenCreate = () => {
-        setFormMode("create");
-        setFormData(initialFormData);
-        setErrors({});
-        setIsFormModalOpen(true);
-    };
-
-    const handleOpenEdit = (issue: IssueRecord) => {
-        const { id, project_id, ...rest } = issue;
-        setFormMode("edit");
-        setEditId(id);
-        setFormData({
-            project_id: project_id || 1,
-            ...rest
-        });
-        setErrors({});
-        setIsFormModalOpen(true);
-    };
-
-    const handleDelete = async (id: string | number) => {
-        if (window.confirm("Are you sure you want to delete this issue log?")) {
-            // Simulated API Call with request body id
-            // Response: { "success": true, "message": "Issue deleted successfully" }
-            setIssueData(prev => prev.filter(i => String(i.id) !== String(id)));
-            toast.success("Successful delete");
-        }
-    };
-
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!validate()) {
-            toast.error("Please provide all required diagnostic details.");
+
+        if (!projectId || !formData.project_id) {
+            toast.error("Critical Error: Active project not detected.");
             return;
         }
 
-        const entryData: IssueRecord = {
-            id: formMode === "edit" ? editId! : issueData.length + 1,
-            ...formData,
-        };
-
-        if (formMode === "edit") {
-            setIssueData(prev => prev.map(i => i.id === editId ? entryData : i));
-            toast.success("Issue updated successfully");
-        } else {
-            setIssueData(prev => [entryData, ...prev]);
-            toast.success("New site issue lodged!");
+        if (!validate()) {
+            toast.error("Please correct the errors in the form");
+            return;
         }
-        setIsFormModalOpen(false);
+        setIsSubmitting(true);
+        try {
+            if (formMode === "create") {
+                await issueService.createIssue(formData as any);
+                toast.success("Issue lodged successfully!");
+            } else if (selectedIssue) {
+                await issueService.updateIssue(selectedIssue.id, formData as any);
+                toast.success("Issue updated successfully!");
+            }
+            setIsFormModalOpen(false);
+            fetchIssues();
+        } catch (error: any) {
+            toast.error("Failed to save issue");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleDeleteConfirm = async () => {
+        if (!issueToDelete) return;
+        try {
+            await issueService.deleteIssue(issueToDelete);
+            toast.success("Issue deleted successfully");
+            setIsDeleteModalOpen(false);
+            fetchIssues();
+        } catch (error: any) {
+            toast.error("Failed to delete issue");
+        }
     };
 
     const filteredIssues = useMemo(() => {
-        return issueData.filter(issue => {
-            const matchesSearch = issue.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                issue.id.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
-                String(issue.assigned_to || "").toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesStatus = statusFilter === "All" || issue.status === statusFilter;
-            const matchesPriority = priorityFilter === "All" || issue.priority === priorityFilter;
+        let data = issueData;
+
+        // Apply StatCard Filter
+        if (activeStatFilter === "Pending") {
+            data = data.filter(i => i.status === "Open" || i.status === "In Progress");
+        } else if (activeStatFilter === "High") {
+            data = data.filter(i => i.priority === "High");
+        } else if (activeStatFilter === "Resolved") {
+            data = data.filter(i => i.status === "Closed" || i.status === "Resolved");
+        }
+
+        return data.filter(i => {
+            const matchesSearch = i.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                i.description.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesStatus = statusFilter === "All" || i.status === statusFilter;
+            const matchesPriority = priorityFilter === "All" || i.priority === priorityFilter;
             return matchesSearch && matchesStatus && matchesPriority;
         });
-    }, [issueData, searchTerm, statusFilter, priorityFilter]);
+    }, [issueData, searchTerm, statusFilter, priorityFilter, activeStatFilter]);
+
+    const stats = {
+        total: issueData.length,
+        open: issueData.filter(i => i.status === "Open" || i.status === "In Progress").length,
+        high: issueData.filter(i => i.priority === "High").length,
+        closed: issueData.filter(i => i.status === "Closed" || i.status === "Resolved").length,
+    };
+
+    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
+    const inputClasses = (error?: string) => `
+        w-full px-4 py-2.5 bg-slate-50 border 
+        ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
+        rounded-xl text-sm font-bold outline-none transition-all placeholder:text-slate-400 font-inter
+    `;
 
     return (
         <>
-            <Navbar
-                title="Issue / Delay Tracker"
-                breadcrumb={["InfraPilot", "Engineer", "Issues"]}
-            />
+            <Navbar title="Issue Tracker" breadcrumb={["Engineer", "Site Constraints", "Issue Log"]} />
 
-            <PageTransition className="p-4 md:p-8 bg-slate-50 min-h-screen font-inter italic-none">
-
+            <PageTransition className="p-4 md:p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
                 {/* ── Header ──────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-                    <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">
-                            Bottleneck Management
-                        </p>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">
-                            Project Constraint Tracker
-                        </h1>
-                        <p className="text-slate-500 text-sm font-medium">
-                            Register site issues, design delays, or resource shortages to ensure project momentum.
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 font-inter">
+                    <div className="font-inter">
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Constraint Management Vault</h1>
+                        <p className="text-slate-500 text-sm font-inter">
+                            Identify, track, and resolve site impediments to ensure project flow.
                         </p>
                     </div>
-
                     <button
-                        onClick={handleOpenCreate}
-                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all font-inter"
+                        onClick={() => {
+                            setFormMode("create");
+                            setFormData({ ...INITIAL_FORM_DATA, project_id: projectId || 0 });
+                            setErrors({});
+                            setIsFormModalOpen(true);
+                        }}
+                        className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
                     >
-                        <span className="text-lg leading-none font-inter">+</span>
-                        Lodge Site Issue
+                        <Plus className="w-4 h-4" />
+                        Log Issue
                     </button>
                 </div>
 
-                {/* ── Summary Stat Cards (Activity Style) ────────────────────── */}
-                <div className="mb-8 font-inter">
-                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4 font-inter">
-                        Operational Status
-                    </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 font-inter">
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all font-inter">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 font-inter">Total Logs</p>
-                            <p className="text-2xl font-bold text-slate-900 font-inter">{totalIssues}</p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium font-inter">Reported Issues</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all font-inter relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 w-1 group-hover:w-full h-full bg-rose-500 transition-all duration-500 opacity-10 group-hover:opacity-5" />
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 font-inter">Pending Critical</p>
-                            <p className="text-2xl font-bold text-rose-500 font-inter">{openIssues}</p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium font-inter">Needs Attention</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all font-inter">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 font-inter">High Priority</p>
-                            <p className="text-2xl font-bold text-amber-500 font-inter">{highPriority}</p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium font-inter">Urgent Constraints</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all font-inter">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 font-inter">Efficiency</p>
-                            <p className="text-2xl font-bold text-emerald-500 font-inter">{resolutionRate}%</p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium font-inter">Resolution Rate</p>
-                        </div>
+                {/* ── Interactive Stats ───────────────────────────── */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
+                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Total Logs"
+                            value={stats.total.toString()}
+                            sub="Project Archive"
+                            accent="text-slate-800" />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("Pending")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Pending" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Pending"
+                            value={stats.open.toString()}
+                            sub="Action Required"
+                            accent="text-rose-500" />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("High")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "High" ? "ring-2 ring-amber-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="High Priority"
+                            value={stats.high.toString()}
+                            sub="Critical Impact"
+                            accent="text-amber-500" />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("Resolved")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Resolved" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Resolved"
+                            value={stats.closed.toString()}
+                            sub="Resolution Rate"
+                            accent="text-emerald-500" />
                     </div>
                 </div>
 
-                {/* ── Filter Bar ───────────────────────────────────────────── */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-100 px-5 py-4 mb-8 flex flex-wrap items-center gap-4 font-inter">
-
-
-                    {/* Icon + Title */}
-                    <div className="flex items-center gap-3 shrink-0">
-                        <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-md shadow-blue-100">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
+                {/* ── Registry Container ───────────────────────────────────────────── */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
+                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
+                        <div className="relative flex-1 max-w-md font-inter">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                                <Search className="w-4 h-4" />
+                            </span>
+                            <input
+                                type="text"
+                                placeholder="Search by title or description..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
+                            />
                         </div>
-                        <span className="text-base font-bold text-slate-800 whitespace-nowrap">Constraint Filters</span>
-                    </div>
-
-                    {/* Divider */}
-                    <div className="hidden md:block w-px h-8 bg-slate-100 shrink-0" />
-
-                    {/* Search */}
-                    <div className="relative flex-1 max-w-md">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                            </svg>
-                        </span>
-                        <input
-                            type="text"
-                            placeholder="Search by Title, ID or Assigned..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400 font-inter"
-                        />
-                    </div>
-
-                    {/* Quick Filters */}
-                    <div className="flex items-center gap-2 ml-auto">
-                        <select
-                            value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
-                            className="px-3 py-2 bg-slate-50 border border-slate-100 rounded-lg text-xs font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all cursor-pointer font-inter"
-                        >
-                            <option value="All">All Status</option>
-                            <option value="Open">Open</option>
-                            <option value="Closed">Closed</option>
-                        </select>
-                        <select
-                            value={priorityFilter}
-                            onChange={(e) => setPriorityFilter(e.target.value)}
-                            className="px-3 py-2 bg-slate-50 border border-slate-100 rounded-lg text-xs font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all cursor-pointer font-inter"
-                        >
-                            <option value="All">All Priorities</option>
-                            <option value="High">High</option>
-                            <option value="Medium">Medium</option>
-                            <option value="Low">Low</option>
-                        </select>
-                    </div>
-                </div>
-
-                {/* ── Issue Registry Grid ─────────────────────────────────── */}
-                <div className="mb-20">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 font-inter">
-                        {filteredIssues.map((issue) => (
-                            <div
-                                key={issue.id}
-                                className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all font-inter flex flex-col"
-                            >
-                                {/* Header: ID & Status */}
-                                <div className="flex items-center justify-between mb-4">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ISS-{issue.id}</span>
-                                    <span className={`px-2 py-0.5 text-[9px] font-black uppercase tracking-widest rounded-lg ${issue.status === "Open" ? "bg-rose-50 text-rose-600" : "bg-emerald-50 text-emerald-600"}`}>
-                                        {issue.status}
-                                    </span>
-                                </div>
-
-                                {/* Title */}
-                                <p className="text-lg font-bold text-slate-900 font-inter leading-tight mb-0.5">{issue.title}</p>
-                                <p className="text-[10px] text-slate-400 mt-0.5 font-bold tracking-widest uppercase">{issue.reported_date}</p>
-
-                                {/* Priority Badge */}
-                                <div className="mt-3">
-                                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest border ${issue.priority === "High" ? "bg-rose-50 text-rose-600 border-rose-100" :
-                                        issue.priority === "Medium" ? "bg-amber-50 text-amber-600 border-amber-100" :
-                                            "bg-emerald-50 text-emerald-600 border-emerald-100"
-                                        }`}>
-                                        {issue.priority} Priority
-                                    </span>
-                                </div>
-
-                                {/* Description */}
-                                <p className="text-xs font-medium text-slate-500 mt-4 line-clamp-2 leading-relaxed italic-none">{issue.description}</p>
-
-                                {/* Footer: Assigned & Actions */}
-                                <div className="flex items-center justify-between mt-auto pt-4 border-t border-slate-50">
-                                    <div className="flex flex-col">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Assigned To</p>
-                                        <p className="text-xs font-bold text-slate-700">{issue.assigned_to || "Unassigned"}</p>
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                        <button
-                                            onClick={() => setSelectedIssue(issue)}
-                                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                                            title="View Analysis"
-                                        >
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                            </svg>
-                                        </button>
-                                        <button
-                                            onClick={() => handleOpenEdit(issue)}
-                                            className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
-                                            title="Modify Record"
-                                        >
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                            </svg>
-                                        </button>
-                                        <button
-                                            onClick={() => handleDelete(issue.id)}
-                                            className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
-                                            title="Delete Log"
-                                        >
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                </div>
+                        <div className="flex flex-wrap items-center gap-3 font-inter">
+                            <div className="flex items-center gap-2 font-inter">
+                                <Filter className="w-4 h-4 text-slate-400" />
+                                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter">
+                                    <option value="All">All Status</option>
+                                    <option value="Open">Open</option>
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="Closed">Closed</option>
+                                </select>
                             </div>
-                        ))}
-                    </div>
-
-                    {filteredIssues.length === 0 && (
-                        <div className="bg-blue-50 border border-blue-100 rounded-[2rem] p-20 text-center mt-8 font-inter">
-                            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6 text-blue-600">
-                                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                            </div>
-                            <p className="text-blue-900 font-black text-xl mb-2 font-inter uppercase tracking-tight">Clean Operational Desk</p>
-                            <p className="text-blue-600 text-[10px] font-black uppercase tracking-[0.2em]">No constraints matched your current filter matrix.</p>
+                            <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter">
+                                <option value="All">All Priority</option>
+                                <option value="High">High</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Low">Low</option>
+                            </select>
+                            {activeStatFilter !== "All" && (
+                                <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter">
+                                    <RotateCcw className="w-4 h-4" />
+                                </button>
+                            )}
                         </div>
-                    )}
+                    </div>
+
+                    <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                        {isLoading ? (
+                            <div className="p-20 text-center font-inter">
+                                <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4 font-inter" />
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing issue vault...</p>
+                            </div>
+                        ) : (
+                            <table className="w-full text-left font-inter min-w-[1200px]">
+                                <thead>
+                                    <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
+                                        <th className="px-6 py-4 font-inter">Issue Identifier</th>
+                                        <th className="px-6 py-4 font-inter">Status Profile</th>
+                                        <th className="px-6 py-4 font-inter">Priority Level</th>
+                                        <th className="px-6 py-4 font-inter">Timeline Audit</th>
+                                        <th className="px-6 py-4 text-right font-inter">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50 font-inter">
+                                    {filteredIssues.length > 0 ? (
+                                        filteredIssues.map((issue) => (
+                                            <tr key={issue.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
+                                                <td className="px-6 py-4 font-inter">
+                                                    <div className="flex flex-col font-inter">
+                                                        <span className="text-sm font-bold text-slate-800 font-inter">{issue.title}</span>
+                                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">#{issue.business_id || `ISS-${issue.id}`} • {issue.category}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 font-inter">
+                                                    <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border font-inter ${STATUS_COLORS[issue.status] || 'bg-slate-50 text-slate-400 border-slate-100'}`}>
+                                                        {issue.status}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 font-inter">
+                                                    <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border font-inter ${PRIORITY_COLORS[issue.priority]}`}>
+                                                        {issue.priority}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 font-inter">
+                                                    <div className="flex flex-col font-inter">
+                                                        <span className="text-xs font-bold text-slate-500 font-inter">{issue.reported_date}</span>
+                                                        <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest font-inter">Reported</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-right font-inter">
+                                                    <div className="flex items-center justify-end gap-2 font-inter">
+                                                        <button
+                                                            onClick={() => { setSelectedIssue(issue); }}
+                                                            className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-95 font-inter"
+                                                            title="View Intelligence"
+                                                        >
+                                                            <Eye className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => { setFormMode("edit"); setFormData({ ...issue, assigned_to: issue.assigned_to || "" } as any); setErrors({}); setIsFormModalOpen(true); }}
+                                                            className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
+                                                            title="Modify Record"
+                                                        >
+                                                            <Edit2 className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => { setIssueToDelete(issue.id); setIsDeleteModalOpen(true); }}
+                                                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"
+                                                            title="Discard Log"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan={5} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
+                                                No site issues found in the project ledger matching the criteria.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
                 </div>
             </PageTransition>
 
-            {/* ── DETAIL MODAL (Insight View) ────────────────────────────────── */}
+            {/* ── Detail Modal ────────────────────────────────── */}
             <Modal
-                isOpen={!!selectedIssue}
+                isOpen={!!selectedIssue && !isFormModalOpen}
                 onClose={() => setSelectedIssue(null)}
-                title="Bottleneck Analysis"
-                maxWidth="max-w-2xl"
+                title="Constraint Intelligence Insight"
+                maxWidth="max-w-xl"
             >
                 {selectedIssue && (
-                    <div className="bg-white p-8 italic-none font-inter space-y-8">
-                        {/* ── Blue Hero Card ────────────────────────────────── */}
-                        <div className="bg-blue-600 rounded-2xl p-6 text-white shadow-xl relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
-                            <div className="relative z-10 flex items-center justify-between">
-                                <div>
-                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-1">Bottleneck Insight</p>
-                                    <h3 className="text-2xl font-black tracking-tight">{selectedIssue.title}</h3>
-                                    <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mt-1">Issue Reference: ISS-{selectedIssue.id}</p>
+                    <div className="p-6 font-inter">
+                        {/* ── Profile Style Header ────────────────── */}
+                        <div className="bg-primary rounded-xl p-8 mb-8 text-white shadow-2xl relative overflow-hidden font-inter">
+                            <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl" />
+                            <div className="relative z-10 flex items-center gap-8 font-inter">
+                                <div className="w-24 h-24 bg-white/20 backdrop-blur-xl rounded-xl flex items-center justify-center border border-white/20 shadow-inner font-inter relative">
+                                    <span className="text-4xl font-bold font-inter">{selectedIssue.title.charAt(0)}</span>
+                                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-4 border-slate-800 rounded-full animate-pulse" />
                                 </div>
-                                <div className="text-right">
-                                    <div className={`px-2 py-1 rounded-lg text-[9px] font-black tracking-widest uppercase mb-2 inline-block ${selectedIssue.status === "Open" ? "bg-rose-500/20 text-rose-400" : "bg-emerald-500/20 text-emerald-400"}`}>
-                                        Status: {selectedIssue.status}
+                                <div className="font-inter">
+                                    <div className="flex items-center gap-3 mb-2 font-inter">
+                                        <h3 className="text-2xl font-bold tracking-tight font-inter truncate max-w-[200px]">{selectedIssue.title}</h3>
+                                        <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-widest ${selectedIssue.status === 'Closed' ? 'bg-emerald-500/20 text-emerald-100' : 'bg-amber-500/20 text-amber-100'}`}>
+                                            {selectedIssue.status}
+                                        </span>
                                     </div>
-                                    <p className="text-[10px] font-black uppercase tracking-wider opacity-40">Operational Log</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* ── Constraint Analytics ────────────────────────────── */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Priority Matrix</p>
-                                <p className={`text-xl font-black ${selectedIssue.priority === "High" ? "text-rose-600" : "text-blue-600"}`}>{selectedIssue.priority}</p>
-                            </div>
-                            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Classification</p>
-                                <p className="text-sm font-black text-slate-800 truncate">{selectedIssue.category}</p>
-                            </div>
-                        </div>
-
-                        {/* ── Technical Breakdown ────────────────────────────── */}
-                        <div className="space-y-6">
-                            <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Constraint Narration</p>
-                                <p className="text-xs font-bold text-slate-600 leading-relaxed italic-none">{selectedIssue.description}</p>
-                            </div>
-
-                            <div className={`rounded-2xl p-5 border ${selectedIssue.status === "Closed" ? "bg-emerald-50/50 border-emerald-100" : "bg-amber-50/50 border-amber-100"}`}>
-                                <p className={`text-[10px] font-black ${selectedIssue.status === "Closed" ? "text-emerald-600/60" : "text-amber-600/60"} uppercase tracking-widest mb-2 font-inter`}>Resolution Outcome</p>
-                                <p className={`text-sm font-black ${selectedIssue.status === "Closed" ? "text-emerald-700" : "text-amber-700"} leading-relaxed italic-none tracking-tight`}>
-                                    {selectedIssue.resolution || "Problem diagnostics active. Awaiting tactical resolution protocol."}
-                                </p>
-                            </div>
-
-                            <div className="flex items-center justify-between py-4 border-t border-slate-100 px-1">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Action Party</span>
-                                <div className="flex items-center gap-2">
-                                    <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[8px] font-black text-slate-600 uppercase">
-                                        {String(selectedIssue.assigned_to || "??").substring(0, 2)}
+                                    <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
+                                        <Mail className="w-3 h-3" />
+                                        <span className="text-[10px] font-bold font-inter uppercase tracking-widest">issue.ref-#{selectedIssue.id}</span>
                                     </div>
-                                    <span className="text-xs font-black text-slate-800 uppercase tracking-tight">{selectedIssue.assigned_to || "No Lead Assigned"}</span>
+                                    <div className="px-4 py-1.5 bg-white/15 rounded-xl border border-white/10 inline-block font-inter shadow-sm">
+                                        <span className="text-[9px] font-bold uppercase tracking-widest font-inter">PRIORITY: {selectedIssue.priority}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* ── Action Footer ─────────────────────────────────── */}
-                        <div className="flex items-center justify-end gap-3 pt-4 font-inter">
-                            <button
-                                onClick={() => setSelectedIssue(null)}
-                                className="px-6 py-2.5 text-[10px] font-black text-slate-400 hover:text-slate-800 uppercase tracking-widest transition-all"
-                            >
-                                Dismiss Insight
-                            </button>
-                            <button
-                                onClick={() => {
-                                    handleOpenEdit(selectedIssue);
-                                    setSelectedIssue(null);
-                                }}
-                                className="px-8 py-2.5 bg-primary text-white text-[13px] font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95"
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                                Modify Registry
-                            </button>
+                        <div className="space-y-8 px-2 mb-10 font-inter">
+                            {/* Operational Intelligence style section */}
+                            <div className="font-inter">
+                                <div className="flex items-center gap-2 mb-6 font-inter">
+                                    <div className="p-2 bg-blue-50 rounded-xl font-inter border border-blue-100 shadow-sm">
+                                        <Briefcase className="w-4 h-4 text-primary" />
+                                    </div>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] font-inter">Issue Parameters</p>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 sm:gap-x-12 gap-y-6 sm:gap-y-8 font-inter">
+                                    <div className="font-inter">
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Category Profile</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter uppercase tracking-widest">{selectedIssue.category}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Urgency Level</p>
+                                        <p className="text-sm font-bold text-rose-500 font-inter uppercase tracking-widest">{selectedIssue.priority}</p>
+                                    </div>
+                                    <div className="font-inter col-span-2">
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2 font-inter ml-1">Narrative Insight</p>
+                                        <div className="p-5 bg-slate-50 rounded-xl border border-slate-100 text-xs font-bold text-slate-600 leading-relaxed font-inter shadow-inner">
+                                            "{selectedIssue.description}"
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Assignments style section */}
+                            {selectedIssue.resolution && (
+                                <div className="font-inter">
+                                    <div className="flex items-center gap-2 mb-6 font-inter">
+                                        <div className="p-2 bg-emerald-50 rounded-xl font-inter border border-emerald-100 shadow-sm">
+                                            <FileText className="w-4 h-4 text-emerald-600" />
+                                        </div>
+                                        <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-[0.2em] font-inter">Resolution Strategy</p>
+                                    </div>
+                                    <div className="p-5 bg-emerald-50 rounded-xl border border-emerald-100 text-xs font-bold text-emerald-800 font-inter leading-relaxed shadow-inner uppercase tracking-widest">
+                                        {selectedIssue.resolution}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Audit Trail style section */}
+                            <div className="font-inter">
+                                <div className="flex items-center gap-2 mb-6 font-inter">
+                                    <div className="p-2 bg-blue-50 rounded-xl font-inter border border-blue-100 shadow-sm">
+                                        <Activity className="w-4 h-4 text-primary" />
+                                    </div>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] font-inter">Sequence Audit</p>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 sm:gap-x-12 gap-y-6 sm:gap-y-8 font-inter">
+                                    <div className="font-inter">
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Initial Report</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter tracking-widest">{selectedIssue.reported_date}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Reference Hash</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter tracking-widest">ISS-#{selectedIssue.id}</p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
+
+                        <button
+                            onClick={() => setSelectedIssue(null)}
+                            className="w-full py-5 bg-primary text-white rounded-xl text-[10px] font-bold uppercase tracking-[0.3em] transition-all shadow-2xl active:scale-95 font-inter mb-2"
+                        >
+                            Dismiss Analysis
+                        </button>
                     </div>
                 )}
             </Modal>
 
-            {/* ── FORM MODAL (Diagnostic Report) ─────────────────────────── */}
+            {/* ── Form Modal ────────────────────────────────── */}
             <Modal
                 isOpen={isFormModalOpen}
-                onClose={() => { setIsFormModalOpen(false); setErrors({}); }}
-                title={formMode === "create" ? "Lodge Site Constraint" : "Modify Constraint Log"}
+                onClose={() => setIsFormModalOpen(false)}
+                title={formMode === 'create' ? "Initiate Constraint Log" : "Modify Intelligence Sequence"}
                 maxWidth="max-w-4xl"
+                footer={
+                    <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
+                        <button onClick={() => setIsFormModalOpen(false)} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter">
+                            Cancel
+                        </button>
+                        <button
+                            form="issue-form"
+                            type="submit"
+                            disabled={isSubmitting}
+                            className="flex-[2] py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
+                        >
+                            {isSubmitting ? "Syncing..." : formMode === 'create' ? "Commit Log" : "Push Update"}
+                        </button>
+                    </div>
+                }
             >
-                <div className="bg-primary px-8 py-5 flex items-center justify-between border-b border-white/10 shadow-lg shadow-primary/20">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                        </div>
-                        <div>
-                            <h2 className="text-lg font-bold text-white font-inter tracking-tight uppercase leading-none">
-                                {formMode === "create" ? "Lodge Site Issue" : "Update Site Registry"}
-                            </h2>
-                            <p className="text-[10px] text-blue-100 font-bold uppercase tracking-[0.2em] mt-1 leading-none">Constraint Analysis Protocol</p>
+                <form id="issue-form" onSubmit={handleSubmit} className="p-6 space-y-8 font-inter">
+                    <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm font-inter">
+                        <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
+                            <Activity className="w-4 h-4 text-primary" />
+                            Issue Intelligence Profile
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
+                            <div className="md:col-span-2 font-inter">
+                                <label className={labelClasses}>Descriptive Headline <span className="text-rose-500">*</span></label>
+                                <input name="title" value={formData.title} onChange={handleInputChange} placeholder="e.g. Critical Failure in Excavation Equipment" className={inputClasses(errors.title)} />
+                            </div>
+                            <div className="font-inter">
+                                <label className={labelClasses}>Report Sequence (Date) <span className="text-rose-500">*</span></label>
+                                <input name="reported_date" type="date" value={formData.reported_date} onChange={handleInputChange} className={inputClasses(errors.reported_date)} />
+                                {errors.reported_date && <p className="mt-1.5 text-[9px] text-rose-500 font-bold uppercase tracking-widest ml-1">{errors.reported_date}</p>}
+                            </div>
+                            <div className="font-inter">
+                                <label className={labelClasses}>Category Domain <span className="text-rose-500">*</span></label>
+                                <select name="category" value={formData.category} onChange={handleInputChange} className={inputClasses(errors.category)}>
+                                    <option value="Material">Material</option>
+                                    <option value="Safety">Safety</option>
+                                    <option value="Delay">Delay</option>
+                                </select>
+                                {errors.category && <p className="mt-1.5 text-[9px] text-rose-500 font-bold uppercase tracking-widest ml-1">{errors.category}</p>}
+                            </div>
+                            <div className="font-inter">
+                                <label className={labelClasses}>Impact Matrix (Priority) <span className="text-rose-500">*</span></label>
+                                <select name="priority" value={formData.priority} onChange={handleInputChange} className={inputClasses(errors.priority)}>
+                                    <option value="Low">Low Impact</option>
+                                    <option value="Medium">Medium Impact</option>
+                                    <option value="High">High Impact</option>
+                                </select>
+                                {errors.priority && <p className="mt-1.5 text-[9px] text-rose-500 font-bold uppercase tracking-widest ml-1">{errors.priority}</p>}
+                            </div>
                         </div>
                     </div>
-                    <button onClick={() => { setIsFormModalOpen(false); setErrors({}); }} className="text-blue-100 hover:text-white transition-colors">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                </div>
-                <div className="bg-white p-8 italic-none font-inter text-inter">
-                    <form id="issue-form" onSubmit={handleSubmit} className="p-8 space-y-12 text-inter">
-                        {/* Section 1: Issue Identity */}
-                        <section className="font-inter">
-                            <div className="flex items-center gap-4 mb-8 font-inter">
-                                <h3 className="text-[15px] font-bold text-slate-800 font-inter underline decoration-blue-500 decoration-2 underline-offset-8 uppercase tracking-tight">Issue Identity</h3>
-                            </div>
-                            <div className="space-y-6">
-                                <div className="flex flex-col gap-1.5 font-inter">
-                                    <label className="text-[13px] font-bold text-slate-700 font-inter">Issue Headline <span className="text-rose-500">*</span></label>
-                                    <input
-                                        name="title"
-                                        value={formData.title}
-                                        onChange={handleInputChange}
-                                        placeholder="Succinct title of the Project Bottleneck"
-                                        className={`w-full px-4 py-3 bg-white border rounded-lg text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all font-inter ${errors.title ? "border-rose-300 bg-rose-50" : "border-slate-200"}`}
-                                    />
-                                    {errors.title && <p className="text-[10px] font-bold text-rose-500 mt-1 font-inter">{errors.title}</p>}
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
-                                    <div className="flex flex-col gap-1.5 font-inter">
-                                        <label className="text-[13px] font-bold text-slate-700 font-inter">Classification Category <span className="text-rose-500">*</span></label>
-                                        <div className="relative font-inter">
-                                            <select
-                                                name="category"
-                                                value={formData.category}
-                                                onChange={handleInputChange}
-                                                className={`w-full px-4 py-3 bg-white border rounded-lg text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all appearance-none cursor-pointer pr-10 font-inter ${errors.category ? "border-rose-300 bg-rose-50" : "border-slate-200"}`}
-                                            >
-                                                <option value="Material">Material Delay / Shortage</option>
-                                                <option value="Labor">Labor Disruption / Conflict</option>
-                                                <option value="Design">Architectural / Design Clarification</option>
-                                            </select>
-                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" /></svg>
-                                            </span>
-                                        </div>
-                                        {errors.category && <p className="text-[10px] font-bold text-rose-500 mt-1 font-inter">{errors.category}</p>}
-                                    </div>
-                                    <div className="flex flex-col gap-1.5 font-inter">
-                                        <label className="text-[13px] font-bold text-slate-700 font-inter">Priority Matrix <span className="text-rose-500">*</span></label>
-                                        <div className="relative font-inter">
-                                            <select
-                                                name="priority"
-                                                value={formData.priority}
-                                                onChange={handleInputChange}
-                                                className={`w-full px-4 py-3 bg-white border rounded-lg text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all appearance-none cursor-pointer pr-10 font-inter ${errors.priority ? "border-rose-300 bg-rose-50" : "border-slate-200"}`}
-                                            >
-                                                <option value="Low">Low Priority</option>
-                                                <option value="Medium">Medium Priority</option>
-                                                <option value="High">Critical Priority</option>
-                                            </select>
-                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" /></svg>
-                                            </span>
-                                        </div>
-                                        {errors.priority && <p className="text-[10px] font-bold text-rose-500 mt-1 font-inter">{errors.priority}</p>}
-                                    </div>
-                                </div>
-                            </div>
-                        </section>
 
-                        {/* Section 2: Narrative Details */}
-                        <section className="font-inter">
-                            <div className="flex items-center gap-4 mb-8 font-inter">
-                                <h3 className="text-[15px] font-bold text-slate-800 font-inter underline decoration-amber-500 decoration-2 underline-offset-8 uppercase tracking-tight">Narrative Details</h3>
-                            </div>
-                            <div className="space-y-6">
-                                <div className="flex flex-col gap-1.5 font-inter">
-                                    <label className="text-[13px] font-bold text-slate-700 font-inter">Constraint Narration <span className="text-rose-500">*</span></label>
-                                    <textarea
-                                        name="description"
-                                        rows={3}
-                                        value={formData.description}
-                                        onChange={handleInputChange}
-                                        placeholder="Technical narration of the reported bottleneck..."
-                                        className={`w-full px-4 py-3 bg-white border rounded-lg text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-amber-500 transition-all resize-none font-inter leading-relaxed ${errors.description ? "border-rose-300 bg-rose-50" : "border-slate-200"}`}
-                                    />
-                                    {errors.description && <p className="text-[10px] font-bold text-rose-500 mt-1 font-inter">{errors.description}</p>}
-                                </div>
-                                <div className="flex flex-col gap-1.5 font-inter">
-                                    <label className="text-[13px] font-bold text-slate-700 font-inter">Observed Date <span className="text-rose-500">*</span></label>
-                                    <input
-                                        name="reported_date"
-                                        type="date"
-                                        value={formData.reported_date}
-                                        onChange={handleInputChange}
-                                        className={`w-full px-4 py-3 bg-white border rounded-lg text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all font-inter ${errors.reported_date ? "border-rose-300 bg-rose-50" : "border-slate-200"}`}
-                                    />
-                                    {errors.reported_date && <p className="text-[10px] font-bold text-rose-500 mt-1 font-inter">{errors.reported_date}</p>}
-                                </div>
-                            </div>
-                        </section>
+                    <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm font-inter">
+                        <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
+                            <FileText className="w-4 h-4 text-primary" />
+                            Technical Narrative
+                        </h3>
+                        <div className="font-inter">
+                            <label className={labelClasses}>Detailed Observation <span className="text-rose-500">*</span></label>
+                            <textarea name="description" rows={4} value={formData.description} onChange={handleInputChange} placeholder="Describe the constraints impacting site flow..." className={`${inputClasses(errors.description)} resize-none font-bold`} />
+                        </div>
+                    </div>
 
-                        {/* Section 3: Response Matrix */}
-                        <section className="font-inter">
-                            <div className="flex items-center gap-4 mb-8 font-inter">
-                                <h3 className="text-[15px] font-bold text-slate-800 font-inter underline decoration-emerald-500 decoration-2 underline-offset-8 uppercase tracking-tight">Response Matrix</h3>
-                            </div>
-                            <div className="space-y-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
-                                    <div className="flex flex-col gap-1.5 font-inter">
-                                        <label className="text-[13px] font-bold text-slate-700 font-inter">Assigned Party <span className="text-rose-500">*</span></label>
-                                        <input
-                                            name="assigned_to"
-                                            value={formData.assigned_to || ""}
-                                            onChange={handleInputChange}
-                                            placeholder="Who needs to act?"
-                                            className={`w-full px-4 py-3 bg-white border rounded-lg text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all font-inter ${errors.assigned_to ? "border-rose-300 bg-rose-50" : "border-slate-200"}`}
-                                        />
-                                        {errors.assigned_to && <p className="text-[10px] font-bold text-rose-500 mt-1 font-inter">{errors.assigned_to}</p>}
-                                    </div>
-                                    <div className="flex flex-col gap-1.5 font-inter">
-                                        <label className="text-[13px] font-bold text-slate-700 font-inter">Current Status</label>
-                                        <div className="relative font-inter">
-                                            <select
-                                                name="status"
-                                                value={formData.status}
-                                                onChange={handleInputChange}
-                                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-[13px] text-slate-900 focus:outline-none appearance-none cursor-pointer pr-10 font-inter"
-                                            >
-                                                <option value="Open">Registry Open</option>
-                                                <option value="Closed">Resolved & Closed</option>
-                                            </select>
-                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" /></svg>
-                                            </span>
-                                        </div>
-                                    </div>
+                    {formMode === 'edit' && (
+                        <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm font-inter">
+                            <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
+                                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                                Remediation Workflow
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
+                                <div className="font-inter">
+                                    <label className={labelClasses}>Sequence Status <span className="text-rose-500">*</span></label>
+                                    <select name="status" value={formData.status} onChange={handleInputChange} className={inputClasses(errors.status)}>
+                                        <option value="Open">Open</option>
+                                        <option value="In Progress">In Progress</option>
+                                        <option value="Closed">Closed</option>
+                                    </select>
+                                    {errors.status && <p className="mt-1.5 text-[9px] text-rose-500 font-bold uppercase tracking-widest ml-1">{errors.status}</p>}
                                 </div>
-                                <div className="flex flex-col gap-1.5 font-inter">
-                                    <label className="text-[13px] font-bold text-slate-700 font-inter">Resolution Outcome Notes</label>
-                                    <textarea
-                                        name="resolution"
-                                        rows={2}
-                                        value={formData.resolution || ""}
-                                        onChange={handleInputChange}
-                                        placeholder="Final resolution details or closure outcome..."
-                                        className="w-full px-4 py-3 bg-emerald-50/20 border border-emerald-100 rounded-lg text-[13px] text-emerald-800 focus:outline-none transition-all resize-none font-inter leading-relaxed italic-none"
-                                    />
+                                <div className="font-inter">
+                                    <label className={labelClasses}>Remediation summary <span className="text-rose-500">*</span></label>
+                                    <input name="resolution" value={formData.resolution} onChange={handleInputChange} placeholder="How was this constraint resolved?" className={inputClasses(errors.resolution)} />
+                                    {errors.resolution && <p className="mt-1.5 text-[9px] text-rose-500 font-bold uppercase tracking-widest ml-1">{errors.resolution}</p>}
                                 </div>
                             </div>
-                        </section>
-                    </form>
-                </div>
-
-                <div className="bg-white px-8 py-6 border-t border-slate-100 flex items-center justify-between font-inter">
-                    <button
-                        type="button"
-                        onClick={() => { setIsFormModalOpen(false); setErrors({}); }}
-                        className="text-[11px] font-bold text-slate-400 hover:text-slate-800 uppercase tracking-widest transition-all font-inter"
-                    >
-                        Discard Analysis
-                    </button>
-                    <button
-                        type="submit"
-                        form="issue-form"
-                        className="px-8 py-3 bg-primary text-white text-[13px] font-bold rounded-lg shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95 font-inter"
-                    >
-                        {formMode === "create" ? "Lodge Site Issue" : "Commit Updates"}
-                    </button>
-                </div>
+                        </div>
+                    )}
+                </form>
             </Modal>
+
+            <ConfirmModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={handleDeleteConfirm}
+                title="Discard Log Intelligence"
+                message="Are you sure you want to discard this constraint record from the project vault? This action is permanent."
+                confirmText="Discard Log"
+                type="danger"
+            />
         </>
     );
 };

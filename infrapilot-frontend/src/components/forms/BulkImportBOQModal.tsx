@@ -1,8 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { boqService } from "../../services/boqService";
 import toast from "react-hot-toast";
-import { Upload, FileText, CheckCircle2, AlertCircle, X } from "lucide-react";
+import { Upload, FileText, CheckCircle2, AlertCircle, X, ChevronDown } from "lucide-react";
+import type { BoqItem } from "../../types/boq";
+import { BOQ_CATEGORIES, BOQ_UNITS } from "../../config/constants";
 
 interface BulkImportBOQModalProps {
   isOpen: boolean;
@@ -21,6 +23,29 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [parsedItems, setParsedItems] = useState<any[]>([]);
   const [step, setStep] = useState<1 | 2>(1);
+  const [availableBoqs, setAvailableBoqs] = useState<BoqItem[]>([]);
+  const [boqName, setBoqName] = useState("");
+  const [isLoadingBoqs, setIsLoadingBoqs] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && projectId) {
+      const loadBoqs = async () => {
+        setIsLoadingBoqs(true);
+        try {
+          const items = await boqService.getBoqsByProject(projectId);
+          setAvailableBoqs(items);
+          if (items.length > 0) {
+            setBoqName(items[0].item_name);
+          }
+        } catch (error) {
+          console.error("Failed to load BOQs", error);
+        } finally {
+          setIsLoadingBoqs(false);
+        }
+      };
+      loadBoqs();
+    }
+  }, [isOpen, projectId]);
 
   if (!isOpen) return null;
 
@@ -29,7 +54,7 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
     if (selectedFile) {
       if (
         selectedFile.type ===
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
         selectedFile.type === "application/vnd.ms-excel" ||
         selectedFile.name.endsWith(".csv")
       ) {
@@ -55,10 +80,10 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
         .map((row: any) => ({
           project_id: projectId,
           item_name: row["Item Name"] || row["item_name"] || row["Name"],
-          category: row["Category"] || row["category"] || "Construction",
+          category: row["Category"] || row["category"] || BOQ_CATEGORIES[0],
           description: row["Description"] || row["description"] || "",
           quantity: Number(row["Quantity"] || row["qty"] || 0),
-          unit: row["Unit"] || row["unit"] || "Unit",
+          unit: row["Unit"] || row["unit"] || BOQ_UNITS[0],
           unit_cost: Number(row["Unit Cost"] || row["rate"] || 0),
           status: "Active",
         }))
@@ -79,18 +104,39 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
   const handleUpload = async () => {
     setIsUploading(true);
     try {
-      // We assume the first item's ID or similar context for bulk addition if the API requires a boq_id
-      // However, the sample showed /api/v1/boq/{boq_id}/items/bulk.
-      // If we don't have a specific boq_id, we might need to create one or use a generic one.
-      // Based on the user sample, let's use the first project item's ID or similar.
-      // For now, let's assume we use the first item to get the boq_id context,
-      // or we just call the bulk API if it's project-indexed.
+      if (!boqName.trim()) {
+        toast.error("Please enter or select a target BOQ name");
+        setIsUploading(false);
+        return;
+      }
 
-      // Fetch current BOQs to get a reference ID if needed
-      const currentBoqs = await boqService.getBoqsByProject(projectId);
-      const referenceId = currentBoqs[0]?.id || 1; // Fallback to 1 if empty
+      // Check if the name matches an existing BOQ
+      const existingBoq = availableBoqs.find(
+        (b) => b.item_name.toLowerCase() === boqName.toLowerCase(),
+      );
 
-      await boqService.bulkAddItems(referenceId, parsedItems);
+      let targetId: number;
+
+      if (existingBoq) {
+        targetId = existingBoq.id;
+      } else {
+        // Create a new one
+        toast.loading("Creating new BOQ group...", { id: "boq-create" });
+        const newBoq = await boqService.createBoq({
+          project_id: projectId,
+          item_name: boqName,
+          category: BOQ_CATEGORIES[0], // Using centralized category
+          description: "Created via bulk import",
+          quantity: 1,
+          unit: BOQ_UNITS[6] || "Nos", // Using centralized unit (Nos is usually 6th or 7th)
+          unit_cost: 0,
+          status: "Draft",
+        });
+        targetId = newBoq.id;
+        toast.success("New BOQ group created", { id: "boq-create" });
+      }
+
+      await boqService.bulkAddItems(targetId, parsedItems);
       toast.success(`Successfully imported ${parsedItems.length} items!`);
       onSuccess();
       onClose();
@@ -119,6 +165,7 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
     setFile(null);
     setParsedItems([]);
     setStep(1);
+    // Don't reset boqName here to keep the context if they change file
   };
 
   return (
@@ -134,7 +181,10 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
             </p>
           </div>
           <button
-            onClick={onClose}
+            onClick={() => {
+              reset();
+              onClose();
+            }}
             className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
           >
             <X className="w-5 h-5" />
@@ -144,6 +194,41 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
         <div className="p-8">
           {step === 1 ? (
             <div className="space-y-6">
+              {/* BOQ Selection Input with Suggestions */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                    BOQ ID or Name
+                  </label>
+                  {isLoadingBoqs && (
+                    <div className="w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                  )}
+                </div>
+                <div className="relative group">
+                  <input
+                    type="text"
+                    list="boq-suggestions"
+                    placeholder="Type name or select from suggestions..."
+                    value={boqName}
+                    onChange={(e) => setBoqName(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all pr-10"
+                  />
+                  <datalist id="boq-suggestions">
+                    {availableBoqs.map((boq) => (
+                      <option key={boq.id} value={boq.item_name}>
+                        {boq.item_name} (ID: {boq.id})
+                      </option>
+                    ))}
+                  </datalist>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">
+                    <ChevronDown className="w-4 h-4" />
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-400 font-medium">
+                  If the name doesn't exist, a new BOQ group will be created automatically.
+                </p>
+              </div>
+
               <div
                 className="border-2 border-dashed border-slate-200 rounded-3xl p-12 flex flex-col items-center justify-center bg-slate-50/50 hover:bg-slate-50 hover:border-primary/50 transition-all cursor-pointer group"
                 onClick={() => document.getElementById("file-upload")?.click()}
@@ -199,7 +284,7 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
                     {file?.name}
                   </h4>
                   <p className="text-xs text-emerald-600 font-medium">
-                    {parsedItems.length} valid items detected
+                    Importing to: <span className="font-bold underline">{boqName}</span> • {parsedItems.length} items
                   </p>
                 </div>
                 <button
