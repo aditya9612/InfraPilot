@@ -150,18 +150,76 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                             </tr>
                         </thead>
                         <tbody>
+                            {/* Construction Work (Items) */}
+                            {data.items?.length > 0 && (
+                                <tr className="bg-slate-100 text-[9px] font-black uppercase text-slate-600">
+                                    <td colSpan={6} className="border border-slate-900 px-2 py-0.5">Construction Work</td>
+                                </tr>
+                            )}
                             {data.items?.map((item: any, idx: number) => (
-                                <tr key={idx} className="text-[11px] font-bold text-slate-700">
+                                <tr key={`item-${idx}`} className="text-[11px] font-bold text-slate-700">
                                     <td className="border border-slate-900 p-2 text-center">{idx + 1}</td>
-                                    <td className="border border-slate-900 p-2 whitespace-pre-line">{item.description}</td>
+                                    <td className="border border-slate-900 p-2 whitespace-pre-line">{item.description || item.title}</td>
                                     <td className="border border-slate-900 p-2 text-center">{item.quantity}</td>
-                                    <td className="border border-slate-900 p-2 text-right">{item.rate.toLocaleString()}</td>
+                                    <td className="border border-slate-900 p-2 text-right">{item.rate?.toLocaleString()}</td>
                                     <td className="border border-slate-900 p-2 text-center">{item.unit}</td>
-                                    <td className="border border-slate-900 p-2 text-right font-black text-slate-900">{item.amount.toLocaleString()}</td>
+                                    <td className="border border-slate-900 p-2 text-right font-black text-slate-900">{item.amount?.toLocaleString()}</td>
                                 </tr>
                             ))}
+
+                            {/* Material Items */}
+                            {data.materialItems?.length > 0 && (
+                                <tr className="bg-slate-100 text-[9px] font-black uppercase text-slate-600">
+                                    <td colSpan={6} className="border border-slate-900 px-2 py-0.5">Material Supply</td>
+                                </tr>
+                            )}
+                            {data.materialItems?.map((m: any, idx: number) => (
+                                <tr key={`mat-${idx}`} className="text-[11px] font-bold text-slate-700">
+                                    <td className="border border-slate-900 p-2 text-center">{idx + 1}</td>
+                                    <td className="border border-slate-900 p-2 whitespace-pre-line">{m.material_name} {m.notes ? `(${m.notes})` : ''}</td>
+                                    <td className="border border-slate-900 p-2 text-center">{m.estimated_quantity}</td>
+                                    <td className="border border-slate-900 p-2 text-right">{m.estimated_rate?.toLocaleString()}</td>
+                                    <td className="border border-slate-900 p-2 text-center">{m.unit}</td>
+                                    <td className="border border-slate-900 p-2 text-right font-black text-slate-900">{m.estimated_amount?.toLocaleString()}</td>
+                                </tr>
+                            ))}
+
+                            {/* Labour Items */}
+                            {data.labourItems?.length > 0 && (
+                                <tr className="bg-slate-100 text-[9px] font-black uppercase text-slate-600">
+                                    <td colSpan={6} className="border border-slate-900 px-2 py-0.5">Labour Forces</td>
+                                </tr>
+                            )}
+                            {data.labourItems?.map((l: any, idx: number) => (
+                                <tr key={`lab-${idx}`} className="text-[11px] font-bold text-slate-700">
+                                    <td className="border border-slate-900 p-2 text-center">{idx + 1}</td>
+                                    <td className="border border-slate-900 p-2 whitespace-pre-line">{l.skill_type} {l.notes ? `(${l.notes})` : ''} <br /><span className="text-[9px] font-medium opacity-50">Workers: {l.labour_count} × Days: {l.labour_days}</span></td>
+                                    <td className="border border-slate-900 p-2 text-center">{l.labour_count * l.labour_days}</td>
+                                    <td className="border border-slate-900 p-2 text-right">{l.daily_wage?.toLocaleString()}</td>
+                                    <td className="border border-slate-900 p-2 text-center">Man-days</td>
+                                    <td className="border border-slate-900 p-2 text-right font-black text-slate-900">{l.amount?.toLocaleString()}</td>
+                                </tr>
+                            ))}
+
+                            {/* Extra Charges */}
+                            {data.extraChargeItems?.length > 0 && (
+                                <tr className="bg-slate-100 text-[9px] font-black uppercase text-slate-600">
+                                    <td colSpan={6} className="border border-slate-900 px-2 py-0.5">Extra Charges & Equipment</td>
+                                </tr>
+                            )}
+                            {data.extraChargeItems?.map((e: any, idx: number) => (
+                                <tr key={`ext-${idx}`} className="text-[11px] font-bold text-slate-700">
+                                    <td className="border border-slate-900 p-2 text-center">{idx + 1}</td>
+                                    <td className="border border-slate-900 p-2 whitespace-pre-line text-amber-900">{e.description}</td>
+                                    <td className="border border-slate-900 p-2 text-center">{e.quantity}</td>
+                                    <td className="border border-slate-900 p-2 text-right">{e.rate?.toLocaleString()}</td>
+                                    <td className="border border-slate-900 p-2 text-center">-</td>
+                                    <td className="border border-slate-900 p-2 text-right font-black text-slate-900">{e.amount?.toLocaleString()}</td>
+                                </tr>
+                            ))}
+
                             {/* Padding rows to maintain height */}
-                            {Array.from({ length: Math.max(0, 8 - (data.items?.length || 0)) }).map((_, i) => (
+                            {Array.from({ length: Math.max(0, 8 - ((data.items?.length || 0) + (data.materialItems?.length || 0) + (data.labourItems?.length || 0) + (data.extraChargeItems?.length || 0))) }).map((_, i) => (
                                 <tr key={`empty-${i}`} className="h-8">
                                     <td className="border border-slate-900 p-2"></td>
                                     <td className="border border-slate-900 p-2"></td>

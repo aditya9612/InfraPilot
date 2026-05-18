@@ -15,37 +15,65 @@ import {
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
+import ConfirmationModal from "../../components/common/ConfirmationModal";
+import RejectReasonModal from "../../components/common/RejectReasonModal";
+import { useEffect } from "react";
+import { quotationService } from "../../services/quotationService";
+import type { Quotation } from "../../types/quotation";
+import toast from "react-hot-toast";
 
 const QuotationsPage = () => {
     const navigate = useNavigate();
     const [searchQuery, setSearchQuery] = useState("");
+    const [quotations, setQuotations] = useState<Quotation[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [statusFilter, setStatusFilter] = useState("all");
 
-    const mockQuotations = [
-        {
-            id: "QTN-2024-001",
-            client: "Sandeep Sir",
-            project: "Gravity Wall Work",
-            date: "2024-05-15",
-            amount: 4560000,
-            status: "Approved"
-        },
-        {
-            id: "QTN-2024-002",
-            client: "Indore Municipal Corp",
-            project: "Site Preparation",
-            date: "2024-05-18",
-            amount: 1250000,
-            status: "Pending"
-        },
-        {
-            id: "QTN-2024-003",
-            client: "John Doe",
-            project: "Residential Fencing",
-            date: "2024-05-20",
-            amount: 85000,
-            status: "Draft"
+    // Modal state
+    const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [rejectTarget, setRejectTarget] = useState<number | null>(null);
+    const [isRejecting, setIsRejecting] = useState(false);
+
+    const fetchQuotations = async () => {
+        try {
+            setIsLoading(true);
+            const data = await quotationService.getQuotations();
+            setQuotations(data);
+        } catch (error) {
+            toast.error("Failed to fetch quotations");
+        } finally {
+            setIsLoading(false);
         }
-    ];
+    };
+
+    useEffect(() => {
+        fetchQuotations();
+    }, []);
+
+    const handleDelete = async () => {
+        if (!deleteTarget) return;
+        setIsDeleting(true);
+        try {
+            await quotationService.deleteQuotation(deleteTarget);
+            toast.success("Quotation deleted");
+            fetchQuotations();
+        } catch (error) {
+            toast.error("Failed to delete quotation");
+        } finally {
+            setIsDeleting(false);
+            setDeleteTarget(null);
+        }
+    };
+
+    const filteredQuotations = quotations.filter(q => {
+        const matchSearch = q.client_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            q.project_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            q.quotation_no?.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchStatus = statusFilter === "all" ||
+            q.status?.toLowerCase() === statusFilter.toLowerCase();
+        return matchSearch && matchStatus;
+    });
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -67,8 +95,35 @@ const QuotationsPage = () => {
         }
     };
 
-    const totalValue = 5895000;
-    const approvalRate = 75;
+    const totalValue = quotations.reduce((sum, q) => sum + (q.grand_total || 0), 0);
+    const approvedCount = quotations.filter(q => q.status === "approved").length;
+    const approvalRate = quotations.length > 0 ? Math.round((approvedCount / quotations.length) * 100) : 0;
+    const pendingDrafts = quotations.filter(q => q.status === "draft" || q.status === "sent").length;
+
+    const handleApprove = async (id: number) => {
+        try {
+            await quotationService.approveQuotation(id);
+            toast.success("Quotation approved successfully");
+            fetchQuotations();
+        } catch (error) {
+            toast.error("Failed to approve quotation");
+        }
+    };
+
+    const handleReject = async (reason: string) => {
+        if (!rejectTarget) return;
+        setIsRejecting(true);
+        try {
+            await quotationService.rejectQuotation(rejectTarget, reason);
+            toast.success("Quotation rejected");
+            fetchQuotations();
+        } catch (error) {
+            toast.error("Failed to reject quotation");
+        } finally {
+            setIsRejecting(false);
+            setRejectTarget(null);
+        }
+    };
 
     return (
         <>
@@ -93,18 +148,18 @@ const QuotationsPage = () => {
                     <StatCard
                         title="Total Pipeline Value"
                         value={`₹${(totalValue / 100000).toFixed(1)}L`}
-                        sub={`${mockQuotations.length} Active Quotations`}
+                        sub={`${quotations.length} Active Quotations`}
                         accent="text-primary"
                     />
                     <StatCard
                         title="Win / Approval Rate"
                         value={`${approvalRate}%`}
-                        sub="Based on last 30 days"
+                        sub="Based on all time"
                         accent="text-emerald-500"
                     />
                     <StatCard
                         title="Pending Drafts"
-                        value="4"
+                        value={pendingDrafts.toString()}
                         sub="Requires admin review"
                         accent="text-amber-500"
                     />
@@ -123,11 +178,19 @@ const QuotationsPage = () => {
                             />
                         </div>
                         <div className="flex items-center gap-2">
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                className="px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 outline-none cursor-pointer hover:bg-slate-100 transition-colors"
+                            >
+                                <option value="all">All Status</option>
+                                <option value="draft">Draft</option>
+                                <option value="approved">Approved</option>
+                                <option value="declined">Declined</option>
+                                <option value="converted">Converted</option>
+                            </select>
                             <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-all">
                                 <Filter className="w-4 h-4" /> Filter
-                            </button>
-                            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-all">
-                                <Download className="w-4 h-4" /> Export
                             </button>
                         </div>
                     </div>
@@ -145,50 +208,93 @@ const QuotationsPage = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
-                                {mockQuotations.map((q) => (
-                                    <tr key={q.id} className="hover:bg-slate-50/50 transition-colors group">
-                                        <td className="px-6 py-4">
-                                            <span className="text-sm font-bold text-slate-800">{q.id}</span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="space-y-0.5">
-                                                <p className="text-sm font-bold text-slate-700">{q.client}</p>
-                                                <p className="text-xs text-slate-400">{q.project}</p>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className="text-xs font-semibold text-slate-500">{q.date}</span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className="text-sm font-black text-slate-700">₹{q.amount.toLocaleString()}</span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-tight ${getStatusColor(q.status)}`}>
-                                                {getStatusIcon(q.status)}
-                                                {q.status}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center justify-center gap-2">
-                                                <button className="p-2 text-slate-400 hover:text-primary transition-colors">
-                                                    <Eye className="w-4 h-4" />
-                                                </button>
-                                                <button className="p-2 text-slate-400 hover:text-emerald-500 transition-colors">
-                                                    <Download className="w-4 h-4" />
-                                                </button>
-                                                <button className="p-2 text-slate-400 hover:text-rose-500 transition-colors">
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
+                                {isLoading ? (
+                                    <tr>
+                                        <td colSpan={6} className="px-6 py-10 text-center">
+                                            <div className="flex flex-col items-center gap-2">
+                                                <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading Quotations...</p>
                                             </div>
                                         </td>
                                     </tr>
-                                ))}
+                                ) : filteredQuotations.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={6} className="px-6 py-10 text-center text-slate-400 text-sm font-bold uppercase tracking-widest">
+                                            No quotations found
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    filteredQuotations.map((q) => (
+                                        <tr key={q.id} className="hover:bg-slate-50/50 transition-colors group">
+                                            <td className="px-6 py-4">
+                                                <span className="text-sm font-bold text-slate-800">{q.quotation_no || `QTN-${q.id}`}</span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="space-y-0.5">
+                                                    <p className="text-sm font-bold text-slate-700">{q.client_name}</p>
+                                                    <p className="text-xs text-slate-400">{q.project_name}</p>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="text-xs font-semibold text-slate-500">
+                                                    {q.created_at ? new Date(q.created_at).toLocaleDateString() : 'N/A'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="text-sm font-black text-slate-700">₹{q.grand_total?.toLocaleString() ?? 0}</span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-tight ${getStatusColor(q.status || "draft")}`}>
+                                                    {getStatusIcon(q.status || "draft")}
+                                                    {q.status || "draft"}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center justify-center gap-2">
+                                                    {(q.status === 'draft' || q.status === 'sent' || String(q.status) === 'pending' || !q.is_approved) && (
+                                                        <>
+                                                            <button
+                                                                onClick={() => q.id && handleApprove(q.id)}
+                                                                title="Approve Quotation"
+                                                                className="p-2 text-slate-400 hover:text-emerald-500 transition-colors"
+                                                            >
+                                                                <CheckCircle className="w-4 h-4" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => q.id && setRejectTarget(q.id)}
+                                                                title="Reject Quotation"
+                                                                className="p-2 text-slate-400 hover:text-rose-500 transition-colors"
+                                                            >
+                                                                <XCircle className="w-4 h-4" />
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                    <button
+                                                        onClick={() => navigate(`/admin/quotations/view/${q.id}`)}
+                                                        className="p-2 text-slate-400 hover:text-primary transition-colors"
+                                                    >
+                                                        <Eye className="w-4 h-4" />
+                                                    </button>
+                                                    <button className="p-2 text-slate-400 hover:text-emerald-500 transition-colors hidden md:block">
+                                                        <Download className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => q.id && setDeleteTarget(q.id)}
+                                                        className="p-2 text-slate-400 hover:text-rose-500 transition-colors"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
                             </tbody>
                         </table>
                     </div>
 
                     <div className="p-4 border-t border-slate-50 flex items-center justify-between">
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Showing 3 of 12 quotations</p>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Showing {filteredQuotations.length} of {quotations.length} quotations</p>
                         <div className="flex gap-2">
                             <button className="px-3 py-1 bg-slate-50 text-slate-400 rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50" disabled>Prev</button>
                             <button className="px-3 py-1 bg-primary/10 text-primary rounded-lg text-[10px] font-black uppercase tracking-widest">Next</button>
@@ -196,6 +302,25 @@ const QuotationsPage = () => {
                     </div>
                 </div>
             </PageTransition>
+
+            {/* Modals */}
+            <ConfirmationModal
+                isOpen={deleteTarget !== null}
+                onClose={() => setDeleteTarget(null)}
+                onConfirm={handleDelete}
+                isLoading={isDeleting}
+                title="Delete Quotation"
+                message="Are you sure you want to permanently delete this quotation? This action cannot be undone."
+                confirmLabel="Delete"
+                confirmClass="bg-rose-500 hover:bg-rose-600 shadow-rose-200"
+            />
+            <RejectReasonModal
+                isOpen={rejectTarget !== null}
+                onClose={() => setRejectTarget(null)}
+                onConfirm={handleReject}
+                isLoading={isRejecting}
+                title="Reject Quotation"
+            />
         </>
     );
 };

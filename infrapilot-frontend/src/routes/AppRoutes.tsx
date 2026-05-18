@@ -33,6 +33,7 @@ import RolesPage from "../pages/admin/RolesPage";
 import PermissionsPage from "../pages/admin/PermissionsPage";
 import MeasurementPage from "../pages/admin/MeasurementPage";
 import ProjectDetailsPage from "../pages/projects/ProjectDetailsPage";
+import BOQDetailPage from "../pages/admin/BOQDetailPage";
 import AllInvoicesPage from "../pages/admin/AllInvoicesPage";
 import CreateInvoicePage from "../pages/admin/CreateInvoicePage";
 import QuotationsPage from "../pages/admin/QuotationsPage";
@@ -140,6 +141,7 @@ function AppRoutes() {
                 path="/admin/projects/:id"
                 element={<ProjectDetailsPage />}
               />
+              <Route path="/admin/boq/:id" element={<BOQDetailPage />} />
               <Route path="/admin/users" element={<UsersPage />} />
               <Route path="/admin/users/roles" element={<RolesPage />} />
               <Route
@@ -218,6 +220,7 @@ function AppRoutes() {
               <Route path="/admin/measurements" element={<MeasurementPage />} />
               <Route path="/admin/invoices/all" element={<AllInvoicesPage />} />
               <Route path="/admin/quotations" element={<QuotationsPage />} />
+              <Route path="/admin/quotations/view/:id" element={<CreateInvoicePage />} />
               <Route path="/admin/invoices/create" element={<CreateInvoicePage />} />
               <Route path="/admin/master-data" element={<MasterDataPage />} />
               <Route

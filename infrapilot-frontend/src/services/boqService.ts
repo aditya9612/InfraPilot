@@ -135,6 +135,23 @@ export const boqService = {
   },
 
   /**
+   * Get versions by BOQ ID
+   * GET /api/v1/boq/{boq_id}/versions
+   */
+  async getBoqVersionsByBoqId(boqId: number): Promise<number[]> {
+    try {
+      const response = await api.get(`/boq/${boqId}/versions`);
+      return response.data.versions || [];
+    } catch (error: any) {
+      console.error(
+        `Get versions for BOQ ${boqId} Error:`,
+        error.response?.data || error.message,
+      );
+      throw error;
+    }
+  },
+
+  /**
    * Update actual quantity and cost for a BOQ item
    * POST /api/v1/boq/{boq_id}/actuals
    */
@@ -223,31 +240,49 @@ export const boqService = {
   },
 
   /**
+   * Get BOQ Report for a specific BOQ ID
+   * GET /api/v1/boq/{boq_id}/report?format=pdf
+   */
+  async getBoqReport(
+    boqId: number,
+    format: "pdf" | "excel" | "csv" = "pdf",
+  ): Promise<any> {
+    try {
+      const response = await api.get(`/boq/${boqId}/report`, {
+        params: { format },
+        responseType: "blob",
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error(
+        `Get Report for Boq ${boqId} Error:`,
+        error.response?.data || error.message,
+      );
+      throw error;
+    }
+  },
+
+  /**
    * Export BOQ in different formats
-   * format: excel | pdf | json
+  /**
+   * Export BOQ in different formats
+   * GET /api/v1/boq/{boq_id}/export/{format}
    */
   async exportBoq(
-    id: number,
+    boqId: number,
     format: "excel" | "pdf" | "json",
-    isProjectLevel: boolean = false,
     filters: any = {}
   ): Promise<any> {
     try {
       const responseType = format === "json" ? "json" : "blob";
-      
-      // Use the project-specific endpoint if we have a project ID
-      const endpoint = isProjectLevel 
-        ? `/boq/project/${id}/export/${format}`
-        : `/boq/${id}/export/${format}`;
-
-      const response = await api.get(endpoint, {
+      const response = await api.get(`/boq/${boqId}/export/${format}`, {
         responseType,
         params: filters
       });
       return response.data;
     } catch (error: any) {
       console.error(
-        `Export Boq ${id} as ${format} Error:`,
+        `Export Boq ${boqId} as ${format} Error:`,
         error.response?.data || error.message,
       );
       throw error;
@@ -282,6 +317,23 @@ export const boqService = {
     } catch (error: any) {
       console.error(
         `Bulk Add Items to Boq ${boqId} Error:`,
+        error.response?.data || error.message,
+      );
+      throw error;
+    }
+  },
+
+  /**
+   * Generate tasks from BOQ items
+   * POST /api/v1/boq/{boq_id}/generate-tasks
+   */
+  async generateTasksFromBoq(boqId: number): Promise<any> {
+    try {
+      const response = await api.post(`/boq/${boqId}/generate-tasks`);
+      return response.data;
+    } catch (error: any) {
+      console.error(
+        `Generate Tasks from Boq ${boqId} Error:`,
         error.response?.data || error.message,
       );
       throw error;

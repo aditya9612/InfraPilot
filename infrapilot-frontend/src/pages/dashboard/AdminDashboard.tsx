@@ -680,18 +680,9 @@ const AdminDashboard = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
                     </svg>
                   </button>
-                  {Array.from({ length: Math.ceil(projects.length / PROGRESS_PER_PAGE) }).map((_, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setProgressPage(idx)}
-                      className={`w-6 h-6 rounded-md text-[10px] font-bold transition-all ${progressPage === idx
-                        ? "bg-primary text-white shadow-sm"
-                        : "text-slate-400 hover:bg-slate-100"
-                        }`}
-                    >
-                      {idx + 1}
-                    </button>
-                  ))}
+                  <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center text-xs font-bold shadow-sm shadow-primary/20">
+                    {progressPage + 1}
+                  </div>
                   <button
                     onClick={() => setProgressPage(p => Math.min(Math.ceil(projects.length / PROGRESS_PER_PAGE) - 1, p + 1))}
                     disabled={progressPage >= Math.ceil(projects.length / PROGRESS_PER_PAGE) - 1}
@@ -888,18 +879,9 @@ const AdminDashboard = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
-                {Array.from({ length: Math.ceil(projects.length / TABLE_PER_PAGE) }).map((_, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setTablePage(idx)}
-                    className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${tablePage === idx
-                      ? "bg-primary text-white shadow-sm"
-                      : "text-slate-400 hover:bg-slate-100"
-                      }`}
-                  >
-                    {idx + 1}
-                  </button>
-                ))}
+                <div className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center text-sm font-bold shadow-sm shadow-primary/20">
+                  {tablePage + 1}
+                </div>
                 <button
                   onClick={() => setTablePage(p => Math.min(Math.ceil(projects.length / TABLE_PER_PAGE) - 1, p + 1))}
                   disabled={tablePage >= Math.ceil(projects.length / TABLE_PER_PAGE) - 1}

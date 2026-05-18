@@ -1,17 +1,18 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Navbar from "../../../components/common/Navbar";
 import PageTransition from "../../../components/common/PageTransition";
 import StatCard from "../../../components/common/StatCard";
 import Modal from "../../../components/common/Modal";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
-import { 
-  Plus, 
-  Search, 
-  Eye, 
-  Edit2, 
-  Trash2, 
-  CheckCircle2, 
+import { masterService } from "../../../services/masterService";
+import {
+  Plus,
+  Search,
+  Eye,
+  Edit2,
+  Trash2,
+  CheckCircle2,
   TrendingUp,
   Clock,
   Layout,
@@ -36,60 +37,7 @@ interface Activity {
   status: string;
 }
 
-const INITIAL_ACTIVITIES: Activity[] = [
-  {
-    id: 1,
-    boq_code: "BOQ-001",
-    activity_name: "Excavation",
-    unit: "Cum",
-    planned_quantity: 500,
-    total_completed: 320,
-    remaining_quantity: 180,
-    completion_percent: 64,
-    start_date: "2026-04-01",
-    end_date: "2026-04-30",
-    status: "On Track"
-  },
-  {
-    id: 2,
-    boq_code: "BOQ-002",
-    activity_name: "RCC Work",
-    unit: "Cum",
-    planned_quantity: 200,
-    total_completed: 60,
-    remaining_quantity: 140,
-    completion_percent: 30,
-    start_date: "2026-04-10",
-    end_date: "2026-05-15",
-    status: "Delay"
-  },
-  {
-    id: 3,
-    boq_code: "BOQ-003",
-    activity_name: "Brickwork",
-    unit: "Sqm",
-    planned_quantity: 1200,
-    total_completed: 1200,
-    remaining_quantity: 0,
-    completion_percent: 100,
-    start_date: "2026-03-01",
-    end_date: "2026-04-15",
-    status: "On Track"
-  },
-  {
-    id: 4,
-    boq_code: "BOQ-004",
-    activity_name: "Plastering",
-    unit: "Sqm",
-    planned_quantity: 800,
-    total_completed: 0,
-    remaining_quantity: 800,
-    completion_percent: 0,
-    start_date: "2026-05-01",
-    end_date: "2026-05-31",
-    status: "Delay"
-  }
-];
+// INITIAL_ACTIVITIES removed for API fetch
 
 const UNITS = ["Cum", "Sqm", "Rft", "Nos", "Kg", "Ton"];
 const STATUSES = ["On Track", "Delay"];
@@ -109,7 +57,8 @@ const statusColors: Record<string, string> = {
 };
 
 const ActivityListPage = () => {
-  const [activities, setActivities] = useState<Activity[]>(INITIAL_ACTIVITIES);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("All Status");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -123,7 +72,35 @@ const ActivityListPage = () => {
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
-  // Form States
+  // Fetch activities from Master Data
+  useEffect(() => {
+    const fetchActivities = async () => {
+      setIsLoading(true);
+      try {
+        const masterActs = await masterService.getEntities("activity-types");
+        const mapped: Activity[] = masterActs.map((ma) => ({
+          id: ma.id,
+          boq_code: ma.unique_code,
+          activity_name: ma.name,
+          unit: ma.unit || "Cum",
+          planned_quantity: 1000, // Placeholder as master data doesn't have quantities
+          total_completed: 450,
+          remaining_quantity: 550,
+          completion_percent: 45,
+          start_date: "2026-05-01",
+          end_date: "2026-06-30",
+          status: "On Track"
+        }));
+        setActivities(mapped);
+      } catch (error) {
+        toast.error("Failed to fetch activity list");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchActivities();
+  }, []);
+
   const [formData, setFormData] = useState<Partial<Activity>>({
     activity_name: "",
     boq_code: "",
@@ -148,7 +125,7 @@ const ActivityListPage = () => {
   const filteredActivities = useMemo(() => {
     return activities.filter(a => {
       const matchSearch = a.activity_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          a.boq_code.toLowerCase().includes(searchTerm.toLowerCase());
+        a.boq_code.toLowerCase().includes(searchTerm.toLowerCase());
       const matchStatus = filterStatus === "All Status" || a.status === filterStatus || (filterStatus === "Completed" && a.completion_percent === 100);
       return matchSearch && matchStatus;
     });
@@ -229,7 +206,12 @@ const ActivityListPage = () => {
     <>
       <Navbar title="Activity List" breadcrumb={["Engineer", "Work Progress", "Activity Ledger"]} />
       <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter text-inter">
-        
+        {isLoading && (
+          <div className="absolute inset-0 bg-white/50 z-50 flex items-center justify-center">
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          </div>
+        )}
+
         {/* Header Row */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
@@ -285,7 +267,7 @@ const ActivityListPage = () => {
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                 <Search className="w-4 h-4" />
               </span>
-              <input 
+              <input
                 type="text"
                 placeholder="Search activity name or BOQ code..."
                 value={searchTerm}
@@ -295,7 +277,7 @@ const ActivityListPage = () => {
             </div>
             <div className="flex items-center gap-2 font-inter">
               <Filter className="w-4 h-4 text-slate-400" />
-              <select 
+              <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
                 className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none cursor-pointer font-inter"
@@ -324,27 +306,27 @@ const ActivityListPage = () => {
                 {filteredActivities.length > 0 ? filteredActivities.map((a) => (
                   <tr key={a.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                     <td className="px-6 py-4">
-                        <div className="flex flex-col font-inter">
-                            <span className="text-sm font-bold text-slate-800 font-inter">{a.activity_name}</span>
-                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-inter">{a.boq_code}</span>
-                        </div>
+                      <div className="flex flex-col font-inter">
+                        <span className="text-sm font-bold text-slate-800 font-inter">{a.activity_name}</span>
+                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-inter">{a.boq_code}</span>
+                      </div>
                     </td>
                     <td className="px-6 py-4">
-                        <div className="flex flex-col font-inter">
-                            <p className="text-[11px] font-black text-slate-800 font-inter">{a.planned_quantity} {a.unit}</p>
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest font-inter">Target Volume</p>
-                        </div>
+                      <div className="flex flex-col font-inter">
+                        <p className="text-[11px] font-black text-slate-800 font-inter">{a.planned_quantity} {a.unit}</p>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest font-inter">Target Volume</p>
+                      </div>
                     </td>
                     <td className="px-6 py-4">
-                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${statusBadge[getStatusKey(a)]}`}>
-                            {getStatusKey(a)}
-                        </span>
+                      <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${statusBadge[getStatusKey(a)]}`}>
+                        {getStatusKey(a)}
+                      </span>
                     </td>
                     <td className="px-6 py-4 font-inter">
                       <div className="flex flex-col gap-1.5 font-inter">
                         <div className="flex items-center justify-between mb-0.5 font-inter">
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-inter">Intensity</span>
-                            <span className="text-xs font-black text-slate-700 font-inter">{a.completion_percent}%</span>
+                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-inter">Intensity</span>
+                          <span className="text-xs font-black text-slate-700 font-inter">{a.completion_percent}%</span>
                         </div>
                         <div className="flex-1 bg-slate-100 rounded-full h-1.5 overflow-hidden font-inter">
                           <div
@@ -355,40 +337,40 @@ const ActivityListPage = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 font-inter">
-                        <div className="flex flex-col font-inter">
-                            <span className="text-[10px] font-bold text-slate-800 font-inter">{a.start_date}</span>
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest font-inter">To {a.end_date}</span>
-                        </div>
+                      <div className="flex flex-col font-inter">
+                        <span className="text-[10px] font-bold text-slate-800 font-inter">{a.start_date}</span>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest font-inter">To {a.end_date}</span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2 font-inter">
-                        <button 
-                            onClick={() => { setSelectedActivity(a); setIsViewModalOpen(true); }}
-                            className={`p-2 text-white rounded-xl shadow-lg transition-all active:scale-95 font-inter ${statusColors[getStatusKey(a)]} shadow-primary/20`}
+                        <button
+                          onClick={() => { setSelectedActivity(a); setIsViewModalOpen(true); }}
+                          className={`p-2 text-white rounded-xl shadow-lg transition-all active:scale-95 font-inter ${statusColors[getStatusKey(a)]} shadow-primary/20`}
                         >
                           <Eye className="w-4 h-4 font-inter" />
                         </button>
-                        <button 
-                            onClick={() => { 
-                                setSelectedActivity(a); 
-                                setFormData({
-                                    activity_name: a.activity_name,
-                                    boq_code: a.boq_code,
-                                    planned_quantity: a.planned_quantity,
-                                    unit: a.unit,
-                                    start_date: a.start_date,
-                                    end_date: a.end_date,
-                                    status: a.status
-                                });
-                                setIsEditModalOpen(true); 
-                            }}
-                            className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
+                        <button
+                          onClick={() => {
+                            setSelectedActivity(a);
+                            setFormData({
+                              activity_name: a.activity_name,
+                              boq_code: a.boq_code,
+                              planned_quantity: a.planned_quantity,
+                              unit: a.unit,
+                              start_date: a.start_date,
+                              end_date: a.end_date,
+                              status: a.status
+                            });
+                            setIsEditModalOpen(true);
+                          }}
+                          className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
                         >
                           <Edit2 className="w-4 h-4 font-inter" />
                         </button>
-                        <button 
-                            onClick={() => { setDeleteId(a.id); setIsDeleteModalOpen(true); }}
-                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"
+                        <button
+                          onClick={() => { setDeleteId(a.id); setIsDeleteModalOpen(true); }}
+                          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"
                         >
                           <Trash2 className="w-4 h-4 font-inter" />
                         </button>
@@ -398,7 +380,7 @@ const ActivityListPage = () => {
                 )) : (
                   <tr>
                     <td colSpan={6} className="px-6 py-20 text-center text-slate-400 italic-none font-inter">
-                        No activity records found in the project ledger.
+                      No activity records found in the project ledger.
                     </td>
                   </tr>
                 )}
@@ -420,86 +402,86 @@ const ActivityListPage = () => {
           <div className="p-6 font-inter text-inter italic-none">
             {/* Profile Style Header */}
             <div className={`${statusColors[getStatusKey(selectedActivity)]} rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter`}>
-                <div className="relative z-10 flex items-center gap-6 font-inter">
-                    <div className="w-24 h-24 bg-blue-400/30 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/20 relative font-inter">
-                        <span className="text-4xl font-black font-inter">A</span>
-                        <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-4 border-primary rounded-full animate-pulse" />
-                    </div>
-                    <div className="font-inter">
-                        <div className="flex items-center gap-3 mb-2 font-inter">
-                            <h3 className="text-2xl font-black tracking-tight font-inter">{selectedActivity.activity_name}</h3>
-                            <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-black uppercase tracking-widest font-inter">{getStatusKey(selectedActivity)}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
-                            <Mail className="w-3 h-3" />
-                            <span className="text-[11px] font-bold font-inter italic-none">activity.ref-{selectedActivity.boq_code}@infrapilot.com</span>
-                        </div>
-                        <div className="px-3 py-1 bg-white/20 rounded-full inline-block font-inter">
-                            <span className="text-[10px] font-black uppercase tracking-widest font-inter">PROGRESS: {selectedActivity.completion_percent}% COMPLETE</span>
-                        </div>
-                    </div>
+              <div className="relative z-10 flex items-center gap-6 font-inter">
+                <div className="w-24 h-24 bg-blue-400/30 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/20 relative font-inter">
+                  <span className="text-4xl font-black font-inter">A</span>
+                  <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-4 border-primary rounded-full animate-pulse" />
                 </div>
+                <div className="font-inter">
+                  <div className="flex items-center gap-3 mb-2 font-inter">
+                    <h3 className="text-2xl font-black tracking-tight font-inter">{selectedActivity.activity_name}</h3>
+                    <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-black uppercase tracking-widest font-inter">{getStatusKey(selectedActivity)}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
+                    <Mail className="w-3 h-3" />
+                    <span className="text-[11px] font-bold font-inter italic-none">activity.ref-{selectedActivity.boq_code}@infrapilot.com</span>
+                  </div>
+                  <div className="px-3 py-1 bg-white/20 rounded-full inline-block font-inter">
+                    <span className="text-[10px] font-black uppercase tracking-widest font-inter">PROGRESS: {selectedActivity.completion_percent}% COMPLETE</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="space-y-8 px-2 mb-10 font-inter">
-                {/* Operational Intelligence */}
-                <div className="font-inter">
-                    <div className="flex items-center gap-2 mb-6 font-inter">
-                        <div className="p-2 bg-blue-50 rounded-lg font-inter">
-                            <Briefcase className="w-4 h-4 text-primary" />
-                        </div>
-                        <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">BOQ Intelligence</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
-                        <div className="font-inter">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">BOQ Code</p>
-                            <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedActivity.boq_code}</p>
-                        </div>
-                        <div className="font-inter">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Measurement Unit</p>
-                            <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedActivity.unit}</p>
-                        </div>
-                        <div className="font-inter">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Execution Period</p>
-                            <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedActivity.start_date} TO {selectedActivity.end_date}</p>
-                        </div>
-                        <div className="font-inter">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Current Status</p>
-                            <p className="text-sm font-black text-slate-800 font-inter italic-none">{getStatusKey(selectedActivity)}</p>
-                        </div>
-                    </div>
+              {/* Operational Intelligence */}
+              <div className="font-inter">
+                <div className="flex items-center gap-2 mb-6 font-inter">
+                  <div className="p-2 bg-blue-50 rounded-lg font-inter">
+                    <Briefcase className="w-4 h-4 text-primary" />
+                  </div>
+                  <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">BOQ Intelligence</p>
                 </div>
+                <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
+                  <div className="font-inter">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">BOQ Code</p>
+                    <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedActivity.boq_code}</p>
+                  </div>
+                  <div className="font-inter">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Measurement Unit</p>
+                    <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedActivity.unit}</p>
+                  </div>
+                  <div className="font-inter">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Execution Period</p>
+                    <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedActivity.start_date} TO {selectedActivity.end_date}</p>
+                  </div>
+                  <div className="font-inter">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Current Status</p>
+                    <p className="text-sm font-black text-slate-800 font-inter italic-none">{getStatusKey(selectedActivity)}</p>
+                  </div>
+                </div>
+              </div>
 
-                {/* Logistics */}
-                <div className="font-inter">
-                    <div className="flex items-center gap-2 mb-6 font-inter">
-                        <div className="p-2 bg-blue-50 rounded-lg font-inter">
-                            <FileText className="w-4 h-4 text-primary" />
-                        </div>
-                        <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Volume Logistics</p>
-                    </div>
-                    <div className="grid grid-cols-3 gap-6 font-inter">
-                        <div className="font-inter">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Planned Qty</p>
-                            <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedActivity.planned_quantity} {selectedActivity.unit}</p>
-                        </div>
-                        <div className="font-inter">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Completed</p>
-                            <p className="text-sm font-black text-blue-600 font-inter italic-none">{selectedActivity.total_completed} {selectedActivity.unit}</p>
-                        </div>
-                        <div className="font-inter">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Remaining</p>
-                            <p className="text-sm font-black text-rose-600 font-inter italic-none">{selectedActivity.remaining_quantity} {selectedActivity.unit}</p>
-                        </div>
-                    </div>
+              {/* Logistics */}
+              <div className="font-inter">
+                <div className="flex items-center gap-2 mb-6 font-inter">
+                  <div className="p-2 bg-blue-50 rounded-lg font-inter">
+                    <FileText className="w-4 h-4 text-primary" />
+                  </div>
+                  <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] font-inter">Volume Logistics</p>
                 </div>
+                <div className="grid grid-cols-3 gap-6 font-inter">
+                  <div className="font-inter">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Planned Qty</p>
+                    <p className="text-sm font-black text-slate-800 font-inter italic-none">{selectedActivity.planned_quantity} {selectedActivity.unit}</p>
+                  </div>
+                  <div className="font-inter">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Completed</p>
+                    <p className="text-sm font-black text-blue-600 font-inter italic-none">{selectedActivity.total_completed} {selectedActivity.unit}</p>
+                  </div>
+                  <div className="font-inter">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Remaining</p>
+                    <p className="text-sm font-black text-rose-600 font-inter italic-none">{selectedActivity.remaining_quantity} {selectedActivity.unit}</p>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <button
-                onClick={() => setIsViewModalOpen(false)}
-                className={`w-full py-5 ${statusColors[getStatusKey(selectedActivity)]} text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all shadow-xl active:scale-95 font-inter italic-none`}
+              onClick={() => setIsViewModalOpen(false)}
+              className={`w-full py-5 ${statusColors[getStatusKey(selectedActivity)]} text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all shadow-xl active:scale-95 font-inter italic-none`}
             >
-                Dismiss Activity Insight
+              Dismiss Activity Insight
             </button>
           </div>
         )}
@@ -512,108 +494,108 @@ const ActivityListPage = () => {
         title="Provision New Activity"
         maxWidth="max-w-2xl"
         footer={
-            <div className="flex gap-4 w-full px-6 pb-6 font-inter">
-                <button
-                    type="button"
-                    onClick={() => setIsAddModalOpen(false)}
-                    className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-200 transition-all font-inter"
-                >
-                    Discard
-                </button>
-                <button
-                    disabled={isSubmitting}
-                    onClick={() => {
-                        const form = document.getElementById("add-activity-form") as HTMLFormElement;
-                        if (form) form.requestSubmit();
-                    }}
-                    className="flex-1 py-3 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
-                >
-                    {isSubmitting ? "Provisioning..." : "Provision Activity"}
-                </button>
-            </div>
+          <div className="flex gap-4 w-full px-6 pb-6 font-inter">
+            <button
+              type="button"
+              onClick={() => setIsAddModalOpen(false)}
+              className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-200 transition-all font-inter"
+            >
+              Discard
+            </button>
+            <button
+              disabled={isSubmitting}
+              onClick={() => {
+                const form = document.getElementById("add-activity-form") as HTMLFormElement;
+                if (form) form.requestSubmit();
+              }}
+              className="flex-1 py-3 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
+            >
+              {isSubmitting ? "Provisioning..." : "Provision Activity"}
+            </button>
+          </div>
         }
       >
         <form id="add-activity-form" onSubmit={handleAddSubmit} className="p-6 space-y-6 font-inter">
-            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm font-inter">
-                <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 font-inter">Basic Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-inter">
-                    <div className="md:col-span-2 font-inter">
-                        <label className={labelClasses}>Activity Narrative*</label>
-                        <input
-                            required
-                            type="text"
-                            value={formData.activity_name}
-                            onChange={(e) => setFormData({ ...formData, activity_name: e.target.value })}
-                            className={inputClasses}
-                            placeholder="e.g. Reinforced Concrete Work for Pier 04"
-                        />
-                    </div>
-                    <div className="font-inter">
-                        <label className={labelClasses}>BOQ Reference*</label>
-                        <input
-                            required
-                            type="text"
-                            value={formData.boq_code}
-                            onChange={(e) => setFormData({ ...formData, boq_code: e.target.value })}
-                            className={inputClasses}
-                            placeholder="BOQ-001"
-                        />
-                    </div>
-                    <div className="font-inter">
-                        <label className={labelClasses}>Target Volume*</label>
-                        <input
-                            required
-                            type="number"
-                            min="0"
-                            value={formData.planned_quantity}
-                            onChange={(e) => setFormData({ ...formData, planned_quantity: Number(e.target.value) })}
-                            className={inputClasses}
-                        />
-                    </div>
-                    <div className="font-inter">
-                        <label className={labelClasses}>Unit of Measure*</label>
-                        <select
-                            required
-                            value={formData.unit}
-                            onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                            className={inputClasses}
-                        >
-                            {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                        </select>
-                    </div>
-                    <div className="font-inter">
-                        <label className={labelClasses}>Initial Status*</label>
-                        <select
-                            required
-                            value={formData.status}
-                            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                            className={inputClasses}
-                        >
-                            {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                    </div>
-                    <div className="font-inter">
-                        <label className={labelClasses}>Commencement Date*</label>
-                        <input
-                            required
-                            type="date"
-                            value={formData.start_date}
-                            onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                            className={inputClasses}
-                        />
-                    </div>
-                    <div className="font-inter">
-                        <label className={labelClasses}>Expected Completion*</label>
-                        <input
-                            required
-                            type="date"
-                            value={formData.end_date}
-                            onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                            className={inputClasses}
-                        />
-                    </div>
-                </div>
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm font-inter">
+            <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 font-inter">Basic Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-inter">
+              <div className="md:col-span-2 font-inter">
+                <label className={labelClasses}>Activity Narrative*</label>
+                <input
+                  required
+                  type="text"
+                  value={formData.activity_name}
+                  onChange={(e) => setFormData({ ...formData, activity_name: e.target.value })}
+                  className={inputClasses}
+                  placeholder="e.g. Reinforced Concrete Work for Pier 04"
+                />
+              </div>
+              <div className="font-inter">
+                <label className={labelClasses}>BOQ Reference*</label>
+                <input
+                  required
+                  type="text"
+                  value={formData.boq_code}
+                  onChange={(e) => setFormData({ ...formData, boq_code: e.target.value })}
+                  className={inputClasses}
+                  placeholder="BOQ-001"
+                />
+              </div>
+              <div className="font-inter">
+                <label className={labelClasses}>Target Volume*</label>
+                <input
+                  required
+                  type="number"
+                  min="0"
+                  value={formData.planned_quantity}
+                  onChange={(e) => setFormData({ ...formData, planned_quantity: Number(e.target.value) })}
+                  className={inputClasses}
+                />
+              </div>
+              <div className="font-inter">
+                <label className={labelClasses}>Unit of Measure*</label>
+                <select
+                  required
+                  value={formData.unit}
+                  onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                  className={inputClasses}
+                >
+                  {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </div>
+              <div className="font-inter">
+                <label className={labelClasses}>Initial Status*</label>
+                <select
+                  required
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  className={inputClasses}
+                >
+                  {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="font-inter">
+                <label className={labelClasses}>Commencement Date*</label>
+                <input
+                  required
+                  type="date"
+                  value={formData.start_date}
+                  onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                  className={inputClasses}
+                />
+              </div>
+              <div className="font-inter">
+                <label className={labelClasses}>Expected Completion*</label>
+                <input
+                  required
+                  type="date"
+                  value={formData.end_date}
+                  onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                  className={inputClasses}
+                />
+              </div>
             </div>
+          </div>
         </form>
       </Modal>
 
@@ -624,106 +606,106 @@ const ActivityListPage = () => {
         title="Update Activity Logistics"
         maxWidth="max-w-2xl"
         footer={
-            <div className="flex gap-4 w-full px-6 pb-6 font-inter">
-                <button
-                    type="button"
-                    onClick={() => setIsEditModalOpen(false)}
-                    className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-200 transition-all font-inter"
-                >
-                    Cancel Update
-                </button>
-                <button
-                    disabled={isSubmitting}
-                    onClick={() => {
-                        const form = document.getElementById("edit-activity-form") as HTMLFormElement;
-                        if (form) form.requestSubmit();
-                    }}
-                    className="flex-1 py-3 bg-amber-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
-                >
-                    {isSubmitting ? "Updating..." : "Commit Changes"}
-                </button>
-            </div>
+          <div className="flex gap-4 w-full px-6 pb-6 font-inter">
+            <button
+              type="button"
+              onClick={() => setIsEditModalOpen(false)}
+              className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-200 transition-all font-inter"
+            >
+              Cancel Update
+            </button>
+            <button
+              disabled={isSubmitting}
+              onClick={() => {
+                const form = document.getElementById("edit-activity-form") as HTMLFormElement;
+                if (form) form.requestSubmit();
+              }}
+              className="flex-1 py-3 bg-amber-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
+            >
+              {isSubmitting ? "Updating..." : "Commit Changes"}
+            </button>
+          </div>
         }
       >
         <form id="edit-activity-form" onSubmit={handleEditSubmit} className="p-6 space-y-6 font-inter">
-            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm font-inter">
-                <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 font-inter">Update Activity Parameters</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-inter">
-                    <div className="md:col-span-2 font-inter">
-                        <label className={labelClasses}>Activity Narrative*</label>
-                        <input
-                            required
-                            type="text"
-                            value={formData.activity_name}
-                            onChange={(e) => setFormData({ ...formData, activity_name: e.target.value })}
-                            className={inputClasses}
-                        />
-                    </div>
-                    <div className="font-inter">
-                        <label className={labelClasses}>BOQ Reference*</label>
-                        <input
-                            required
-                            type="text"
-                            value={formData.boq_code}
-                            onChange={(e) => setFormData({ ...formData, boq_code: e.target.value })}
-                            className={inputClasses}
-                        />
-                    </div>
-                    <div className="font-inter">
-                        <label className={labelClasses}>Target Volume*</label>
-                        <input
-                            required
-                            type="number"
-                            min="0"
-                            value={formData.planned_quantity}
-                            onChange={(e) => setFormData({ ...formData, planned_quantity: Number(e.target.value) })}
-                            className={inputClasses}
-                        />
-                    </div>
-                    <div className="font-inter">
-                        <label className={labelClasses}>Unit of Measure*</label>
-                        <select
-                            required
-                            value={formData.unit}
-                            onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                            className={inputClasses}
-                        >
-                            {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                        </select>
-                    </div>
-                    <div className="font-inter">
-                        <label className={labelClasses}>Current Status*</label>
-                        <select
-                            required
-                            value={formData.status}
-                            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                            className={inputClasses}
-                        >
-                            {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                    </div>
-                    <div className="font-inter">
-                        <label className={labelClasses}>Commencement Date*</label>
-                        <input
-                            required
-                            type="date"
-                            value={formData.start_date}
-                            onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                            className={inputClasses}
-                        />
-                    </div>
-                    <div className="font-inter">
-                        <label className={labelClasses}>Expected Completion*</label>
-                        <input
-                            required
-                            type="date"
-                            value={formData.end_date}
-                            onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                            className={inputClasses}
-                        />
-                    </div>
-                </div>
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm font-inter">
+            <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 font-inter">Update Activity Parameters</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-inter">
+              <div className="md:col-span-2 font-inter">
+                <label className={labelClasses}>Activity Narrative*</label>
+                <input
+                  required
+                  type="text"
+                  value={formData.activity_name}
+                  onChange={(e) => setFormData({ ...formData, activity_name: e.target.value })}
+                  className={inputClasses}
+                />
+              </div>
+              <div className="font-inter">
+                <label className={labelClasses}>BOQ Reference*</label>
+                <input
+                  required
+                  type="text"
+                  value={formData.boq_code}
+                  onChange={(e) => setFormData({ ...formData, boq_code: e.target.value })}
+                  className={inputClasses}
+                />
+              </div>
+              <div className="font-inter">
+                <label className={labelClasses}>Target Volume*</label>
+                <input
+                  required
+                  type="number"
+                  min="0"
+                  value={formData.planned_quantity}
+                  onChange={(e) => setFormData({ ...formData, planned_quantity: Number(e.target.value) })}
+                  className={inputClasses}
+                />
+              </div>
+              <div className="font-inter">
+                <label className={labelClasses}>Unit of Measure*</label>
+                <select
+                  required
+                  value={formData.unit}
+                  onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                  className={inputClasses}
+                >
+                  {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </div>
+              <div className="font-inter">
+                <label className={labelClasses}>Current Status*</label>
+                <select
+                  required
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  className={inputClasses}
+                >
+                  {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="font-inter">
+                <label className={labelClasses}>Commencement Date*</label>
+                <input
+                  required
+                  type="date"
+                  value={formData.start_date}
+                  onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                  className={inputClasses}
+                />
+              </div>
+              <div className="font-inter">
+                <label className={labelClasses}>Expected Completion*</label>
+                <input
+                  required
+                  type="date"
+                  value={formData.end_date}
+                  onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                  className={inputClasses}
+                />
+              </div>
             </div>
+          </div>
         </form>
       </Modal>
 
