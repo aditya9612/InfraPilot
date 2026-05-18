@@ -15,9 +15,9 @@ const auditData = [
 ];
 
 const executionFeed = [
-  { text: "Slab reinforcement for Phase 3 completed", time: "TODAY'S WORK", status: "done" },
-  { text: "Main gate structure framing initiated", time: "YESTERDAY", status: "pending" },
-  { text: "Basement 2 lighting fixtures installed", time: "2 DAYS AGO", status: "done" },
+  { text: "Slab reinforcement for Phase 3 completed", time: "TODAY'S WORK", status: "done", dsrId: 1, date: "18-May-2026" },
+  { text: "Main gate structure framing initiated", time: "YESTERDAY", status: "pending", dsrId: 2, date: "17-May-2026" },
+  { text: "Basement 2 lighting fixtures installed", time: "2 DAYS AGO", status: "done", dsrId: 3, date: "16-May-2026" },
 ];
 
 const siteEvidence = [
@@ -53,6 +53,24 @@ const ClientOverviewPage = () => {
     };
     fetchLatest();
   }, []);
+
+  const handleDownloadDsr = async (dsrId: number, date: string) => {
+    try {
+      const response = await fetch(`/api/v1/dsr/${dsrId}/pdf`);
+      if (!response.ok) throw new Error('Failed to fetch DSR');
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `DSR_Report_${date}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('DSR download failed:', error);
+    }
+  };
   return (
     <>
       <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Dashboard"]} />
@@ -78,7 +96,6 @@ const ClientOverviewPage = () => {
         <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm mb-12 relative overflow-hidden">
           {latestDrawing && (
             <div className="absolute top-0 right-0 p-8 flex flex-col items-end">
-              <p className="text-[8px] font-black text-blue-500 uppercase tracking-widest mb-1">LATEST DOCUMENT</p>
               <div className="flex items-center gap-3 px-4 py-2 bg-blue-50 rounded-xl border border-blue-100 shadow-sm">
                 <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
                 <p className="text-[10px] font-black text-blue-700 uppercase tracking-tighter">{latestDrawing.drawing_name} (v{latestDrawing.version})</p>
@@ -249,6 +266,7 @@ const ClientOverviewPage = () => {
                         <button 
                           className="p-1 rounded bg-slate-50 text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
                           title="Download DSR"
+                          onClick={() => handleDownloadDsr(item.dsrId, item.date)}
                         >
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />

@@ -81,7 +81,7 @@ const ClientWorkFocusDetailsPage = () => {
                   <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl text-[8px] font-bold uppercase tracking-widest">Rebar Alignment Check</div>
                 </div>
                 <div className="aspect-video rounded-3xl overflow-hidden bg-slate-100 relative group">
-                  <img src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=80" alt="MEP Layout" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                  <img src="/photos/structure.png" alt="MEP Layout" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
                   <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl text-[8px] font-bold uppercase tracking-widest">Sleeve Placement Audit</div>
                 </div>
               </div>

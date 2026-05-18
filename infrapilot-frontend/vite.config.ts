@@ -196,6 +196,37 @@ const mockApiPlugin = () => ({
         return;
       }
 
+      // Handle /api/v1/dsr/{id}/pdf (Download DSR PDF)
+      const dsrPdfMatch = req.url?.match(/\/api\/v1\/dsr\/(\d+)\/pdf/);
+      if (dsrPdfMatch && req.method === 'GET') {
+        const dsrId = dsrPdfMatch[1];
+        const pdfContent = `%PDF-1.4
+1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj
+2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>endobj
+3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R/Resources<<>>/Contents 4 0 R>>endobj
+4 0 obj<</Length 120>>
+stream
+BT /F1 14 Tf 72 720 Td (Daily Site Report - DSR #${dsrId}) Tj 0 -24 Td (Skyline Tower Project) Tj 0 -24 Td (InfraPilot Construction Management) Tj ET
+endstream
+endobj
+xref
+0 5
+0000000000 65535 f
+0000000009 00000 n
+0000000052 00000 n
+0000000101 00000 n
+0000000210 00000 n
+trailer<</Size 5/Root 1 0 R>>
+startxref
+382
+%%EOF`;
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="DSR_Report_${dsrId}.pdf"`);
+        res.statusCode = 200;
+        res.end(Buffer.from(pdfContent));
+        return;
+      }
+
       // Handle /api/v1/drawings/1/latest (Get Latest Drawing)
       if (req.url?.includes('/drawings/') && req.url?.includes('/latest') && req.method === 'GET') {
         res.setHeader('Content-Type', 'application/json');
