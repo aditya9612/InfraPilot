@@ -64,6 +64,7 @@ export interface AttendanceRecord {
     total_wage?: number;
     overtime_rate?: number;
     attendance_id?: number | string;
+    contractor_id?: number;
     // UI specific
     selfie_url?: string;
 }

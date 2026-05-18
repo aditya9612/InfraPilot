@@ -45,6 +45,9 @@ const DSRPage = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
     const [projectId, setProjectId] = useState<number | null>(null);
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
+    const [contractorName, setContractorName] = useState("");
 
     // Filter state for StatCards
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Compliance" | "Pending" | "Efficiency">("All");
@@ -87,7 +90,13 @@ const DSRPage = () => {
         setIsLoading(true);
         try {
             const offset = (currentPage - 1) * itemsPerPage;
-            const response = await dsrService.getDsrByProject(projectId, { limit: itemsPerPage, offset });
+            const response = await dsrService.getDsrByProject(projectId, { 
+                limit: itemsPerPage, 
+                offset,
+                start_date: startDate || undefined,
+                end_date: endDate || undefined,
+                contractor_name: contractorName || undefined
+            });
             const apiData = response.items;
             setTotalItems(response.meta.total);
 
@@ -116,7 +125,7 @@ const DSRPage = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [projectId, currentPage]);
+    }, [projectId, currentPage, startDate, endDate, contractorName]);
 
     useEffect(() => {
         fetchDsr();
@@ -218,13 +227,20 @@ const DSRPage = () => {
         }
 
         return data.filter(dsr => {
+            // Apply Date range filters if provided
+            if (startDate && dsr.report_date < startDate) return false;
+            if (endDate && dsr.report_date > endDate) return false;
+
+            // Apply Contractor Name filter if provided
+            if (contractorName && !dsr.contractor_name?.toLowerCase().includes(contractorName.toLowerCase())) return false;
+
             const matchesSearch = dsr.work_done.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 (dsr.business_id && dsr.business_id.toLowerCase().includes(searchTerm.toLowerCase())) ||
                 dsr.site_location.toLowerCase().includes(searchTerm.toLowerCase());
             const matchesStatus = statusFilter === "All" || dsr.status === statusFilter;
             return matchesSearch && matchesStatus;
         });
-    }, [dsrList, searchTerm, statusFilter, activeStatFilter]);
+    }, [dsrList, searchTerm, statusFilter, activeStatFilter, startDate, endDate, contractorName]);
 
     const stats = useMemo(() => {
         const total = dsrList.length;
@@ -247,7 +263,7 @@ const DSRPage = () => {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, statusFilter, activeStatFilter, projectId]);
+    }, [searchTerm, statusFilter, activeStatFilter, projectId, startDate, endDate, contractorName]);
 
     const totalPages = Math.ceil(totalItems / itemsPerPage);
 
@@ -271,7 +287,11 @@ const DSRPage = () => {
                             <RotateCcw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
                         </button>
                         <button
-                            onClick={() => dsrService.exportDsrExcel(projectId || 36)}
+                            onClick={() => dsrService.exportDsrExcel(projectId || 36, {
+                                start_date: startDate || undefined,
+                                end_date: endDate || undefined,
+                                contractor_name: contractorName || undefined
+                            })}
                             className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95 font-inter"
                         >
                             <FileDown className="w-4 h-4" />
@@ -335,7 +355,7 @@ const DSRPage = () => {
                                 className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
                             />
                         </div>
-                        <div className="flex items-center gap-3 font-inter">
+                        <div className="flex flex-wrap items-center gap-3 font-inter">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status:</span>
                             <select
                                 value={statusFilter}
@@ -348,8 +368,43 @@ const DSRPage = () => {
                                 <option value="Verified">Verified</option>
                                 <option value="Rejected">Rejected</option>
                             </select>
-                            {activeStatFilter !== "All" && (
-                                <button onClick={() => setActiveStatFilter("All")} className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors">
+
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest md:border-l md:border-slate-100 md:pl-3">Start:</span>
+                            <input
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer font-inter"
+                            />
+
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">End:</span>
+                            <input
+                                type="date"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer font-inter"
+                            />
+
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest md:border-l md:border-slate-100 md:pl-3">Contractor:</span>
+                            <input
+                                type="text"
+                                placeholder="Name..."
+                                value={contractorName}
+                                onChange={(e) => setContractorName(e.target.value)}
+                                className="w-28 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[10px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400"
+                            />
+
+                            {(activeStatFilter !== "All" || startDate || endDate || contractorName) && (
+                                <button 
+                                    onClick={() => {
+                                        setActiveStatFilter("All");
+                                        setStartDate("");
+                                        setEndDate("");
+                                        setContractorName("");
+                                    }} 
+                                    className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors"
+                                    title="Reset Filters"
+                                >
                                     <RotateCcw className="w-4 h-4" />
                                 </button>
                             )}

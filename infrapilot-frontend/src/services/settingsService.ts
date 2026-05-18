@@ -13,7 +13,7 @@ export const settingsService = {
     resolveUrl(path: string | null): string | null {
         if (!path) return null;
         if (path.startsWith('http') || path.startsWith('data:')) return path;
-        
+
         let baseUrl = import.meta.env.VITE_API_URL || '';
         // If it's a relative path from the backend like /uploads/...
         if (path.startsWith('/uploads') || path.startsWith('uploads')) {
@@ -25,7 +25,7 @@ export const settingsService = {
                 baseUrl = baseUrl.replace(/\/api\/v1\/?$/, '');
             }
         }
-        
+
         const cleanPath = path.startsWith('/') ? path : `/${path}`;
         return `${baseUrl}${cleanPath}`;
     },
@@ -50,7 +50,7 @@ export const settingsService = {
      */
     async updateSettings(data: UpdateSettingsRequest): Promise<UserSettings> {
         console.log("PUT /api/v1/settings - Payload:", data);
-        
+
         // Ensure numeric types are correct
         const payload = {
             ...data,
@@ -87,12 +87,12 @@ export const settingsService = {
     async updateProfile(data: UpdateProfileRequest): Promise<UserProfile> {
         try {
             console.log("PUT /api/v1/settings/profile - Initiating Update", data);
-            
+
             let response;
             if (data.profile_image instanceof File) {
                 const formData = new FormData();
                 formData.append("profile_image", data.profile_image);
-                
+
                 // Append all other fields
                 if (data.full_name) formData.append("full_name", data.full_name);
                 if (data.role) formData.append("role", data.role);

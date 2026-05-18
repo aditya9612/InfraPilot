@@ -29,7 +29,19 @@ const PayrollReportPage: React.FC = () => {
     const [isExportingExcel, setIsExportingExcel] = useState(false);
     const [isExportingPDF, setIsExportingPDF] = useState(false);
     const now = new Date();
-    const projectId: number | null = null;
+    const [projectId] = useState<number>(() => {
+        try {
+            const userStr = localStorage.getItem("infrapilot_user");
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                const pId = user?.project_id || user?.user?.project_id;
+                if (pId) return Number(pId);
+            }
+        } catch (err) {
+            console.error("Failed to load user project context:", err);
+        }
+        return 36; // Default fallback to 36 to ensure list renders and matches registered project
+    });
     const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth() + 1);
     const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
 
@@ -96,22 +108,46 @@ const PayrollReportPage: React.FC = () => {
         fetchReports();
     }, [activeTab, projectId]);
 
-    const handleExportExcel = async () => {
+    const handleExportExcel = () => {
         setIsExportingExcel(true);
         try {
-            const blob = await paymentService.exportPayroll({
-                month: selectedMonth,
-                year: selectedYear,
-                ...(projectId ? { project_id: projectId } : {})
+            const filteredList = reports.filter(r => {
+                if (activeStatFilter === "High") return (r.total_wage || 0) > 5000;
+                if (activeStatFilter === "OT") return (r.overtime_hours || 0) > 0;
+                return true;
             });
-            const url = window.URL.createObjectURL(blob);
+
+            const headers = [
+                "Labour Name",
+                "Skill Type",
+                "Daily Wage Rate",
+                "Days Present",
+                "OT Hours",
+                "Total Wage Earned",
+                "Status"
+            ];
+            const escape = (val: string | number) => `"${String(val).replace(/"/g, '""')}"`;
+            
+            const rows = filteredList.map((r: any) => [
+                escape(r.labour_name || 'Unknown'),
+                escape(String(r.skill_type || '—').replace('SkillType.', '').replace('SemiSkilled', 'Semi-Skilled')),
+                escape(`₹${Number(r.daily_wage_rate || 0).toLocaleString()}`),
+                escape(r.present_days || 0),
+                escape(`${r.overtime_hours || 0}h`),
+                escape(`₹${(r.total_wage || (Number(r.daily_wage_rate || 0) * (r.present_days || 0))).toLocaleString()}`),
+                escape(r.status || 'Active')
+            ].join(","));
+
+            const csvContent = [headers.join(","), ...rows].join("\n");
+            const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `payroll_report_${selectedMonth}_${selectedYear}.xlsx`;
+            a.download = `payroll_report_${selectedMonth}_${selectedYear}.csv`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
+            URL.revokeObjectURL(url);
             toast.success('Payroll Excel exported successfully');
         } catch (error) {
             console.error("Excel Export Error:", error);
@@ -121,22 +157,379 @@ const PayrollReportPage: React.FC = () => {
         }
     };
 
-    const handleExportPDF = async () => {
+    const handleExportPDF = () => {
         setIsExportingPDF(true);
         try {
-            const blob = await paymentService.exportPayrollPDF({
-                month: selectedMonth,
-                year: selectedYear,
-                ...(projectId ? { project_id: projectId } : {})
+            const printWindow = window.open("", "_blank");
+            if (!printWindow) {
+                toast.error("Popup blocker blocked print preview. Please allow popups.");
+                return;
+            }
+
+            const filteredList = reports.filter(r => {
+                if (activeStatFilter === "High") return (r.total_wage || 0) > 5000;
+                if (activeStatFilter === "OT") return (r.overtime_hours || 0) > 0;
+                return true;
             });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `payroll_report_${selectedMonth}_${selectedYear}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
+
+            const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+            const monthLabel = monthNames[selectedMonth - 1] || 'Month';
+
+            const tableRowsHtml = filteredList.map((r: any) => `
+                <tr>
+                    <td>
+                        <div class="worker-cell">
+                            <span class="avatar">${(r.labour_name?.charAt(0) || '?').toUpperCase()}</span>
+                            <span class="name">${r.labour_name || 'Unknown'}</span>
+                        </div>
+                    </td>
+                    <td><span class="skill-badge">${String(r.skill_type || '—').replace('SkillType.', '').replace('SemiSkilled', 'Semi-Skilled')}</span></td>
+                    <td class="num">₹${Number(r.daily_wage_rate || 0).toLocaleString()}</td>
+                    <td class="num">${r.present_days || 0}</td>
+                    <td class="num">${r.overtime_hours || 0}h</td>
+                    <td class="num earned">₹${(r.total_wage || (Number(r.daily_wage_rate || 0) * (r.present_days || 0))).toLocaleString()}</td>
+                    <td>
+                        <span class="status-badge ${r.status === 'Active' ? 'active' : 'inactive'}">
+                            ${r.status || 'Active'}
+                        </span>
+                    </td>
+                </tr>
+            `).join("");
+
+            printWindow.document.write(`
+                <html>
+                <head>
+                    <title>Payroll Analysis Report - ${monthLabel} ${selectedYear} - InfraPilot</title>
+                    <style>
+                        @page {
+                            size: A4 portrait;
+                            margin: 20mm 15mm 20mm 15mm;
+                        }
+                        body {
+                            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+                            color: #1e293b;
+                            background: #fff;
+                            margin: 0;
+                            padding: 0;
+                            font-size: 10pt;
+                            line-height: 1.5;
+                        }
+                        .document-container {
+                            width: 100%;
+                            max-width: 800px;
+                            margin: 0 auto;
+                        }
+                        .header-table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            margin-bottom: 20px;
+                            border: none;
+                        }
+                        .header-table td {
+                            border: none;
+                            padding: 0;
+                            vertical-align: middle;
+                        }
+                        .logo-text {
+                            font-size: 18pt;
+                            font-weight: 800;
+                            color: #2563eb;
+                            letter-spacing: 0.5px;
+                        }
+                        .logo-subtext {
+                            font-size: 8pt;
+                            color: #64748b;
+                            font-weight: bold;
+                            text-transform: uppercase;
+                            letter-spacing: 1.5px;
+                            margin-top: 2px;
+                        }
+                        .doc-title {
+                            font-size: 14pt;
+                            font-weight: 800;
+                            color: #0f172a;
+                            text-align: right;
+                            text-transform: uppercase;
+                            letter-spacing: 0.5px;
+                        }
+                        .doc-meta {
+                            font-size: 8.5pt;
+                            color: #64748b;
+                            text-align: right;
+                            margin-top: 4px;
+                            font-weight: 600;
+                        }
+                        .divider {
+                            height: 2px;
+                            background-color: #3b82f6;
+                            margin-bottom: 25px;
+                        }
+                        
+                        /* Info Grid */
+                        .info-grid {
+                            width: 100%;
+                            margin-bottom: 30px;
+                            border-collapse: collapse;
+                            background: #f8fafc;
+                            border-radius: 12px;
+                            border: 1px solid #e2e8f0;
+                        }
+                        .info-grid td {
+                            border: none;
+                            padding: 12px 20px;
+                            font-size: 9.5pt;
+                        }
+                        .info-label {
+                            color: #64748b;
+                            font-weight: 700;
+                            width: 120px;
+                            text-transform: uppercase;
+                            font-size: 8pt;
+                            letter-spacing: 0.5px;
+                        }
+                        .info-value {
+                            color: #0f172a;
+                            font-weight: 700;
+                        }
+
+                        /* Data Table */
+                        table.data-table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            margin-top: 10px;
+                            margin-bottom: 40px;
+                        }
+                        table.data-table th {
+                            background-color: #f8fafc;
+                            color: #94a3b8;
+                            font-size: 8.5pt;
+                            font-weight: 700;
+                            text-transform: uppercase;
+                            letter-spacing: 0.08em;
+                            padding: 14px 18px;
+                            text-align: center;
+                            border-top: 1px solid #e2e8f0;
+                            border-bottom: 2px solid #e2e8f0;
+                        }
+                        table.data-table th:first-child {
+                            text-align: left;
+                        }
+                        table.data-table td {
+                            padding: 14px 18px;
+                            font-size: 10pt;
+                            border-bottom: 1px solid #f1f5f9;
+                            color: #334155;
+                            vertical-align: middle;
+                            text-align: center;
+                        }
+                        table.data-table td:first-child {
+                            text-align: left;
+                        }
+                        .num {
+                            font-variant-numeric: tabular-nums;
+                            font-weight: 700;
+                            color: #334155;
+                        }
+                        .earned {
+                            color: #10b981;
+                            font-weight: 800;
+                        }
+                        
+                        /* Badges */
+                        .status-badge {
+                            font-size: 8pt;
+                            font-weight: 700;
+                            padding: 4px 10px;
+                            border-radius: 6px;
+                            text-transform: uppercase;
+                            letter-spacing: 0.05em;
+                            display: inline-block;
+                        }
+                        .status-badge.active {
+                            background: #d1fae5;
+                            color: #065f46;
+                            border: 1px solid #a7f3d0;
+                        }
+                        .status-badge.inactive {
+                            background: #fee2e2;
+                            color: #991b1b;
+                            border: 1px solid #fca5a5;
+                        }
+                        .skill-badge {
+                            font-size: 8pt;
+                            font-weight: 700;
+                            color: #475569;
+                            background: #f1f5f9;
+                            padding: 4px 10px;
+                            border-radius: 6px;
+                            text-transform: uppercase;
+                            letter-spacing: 0.05em;
+                            display: inline-block;
+                            border: 1px solid #e2e8f0;
+                        }
+
+                        /* Worker identity formatting matching live screen */
+                        .worker-cell {
+                            display: flex;
+                            align-items: center;
+                            gap: 12px;
+                        }
+                        .avatar {
+                            width: 32px;
+                            height: 32px;
+                            background: #eff6ff;
+                            color: #3b82f6;
+                            font-size: 12px;
+                            font-weight: 700;
+                            border-radius: 10px;
+                            border: 1px solid #dbeafe;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                        }
+                        .name {
+                            font-size: 10pt;
+                            font-weight: 700;
+                            color: #0f172a;
+                        }
+
+                        /* Signatures */
+                        .signature-block {
+                            width: 100%;
+                            margin-top: 50px;
+                            margin-bottom: 30px;
+                            border-collapse: collapse;
+                        }
+                        .signature-block td {
+                            border: none;
+                            padding: 0;
+                            width: 50%;
+                        }
+                        .sig-line {
+                            width: 180px;
+                            border-bottom: 1.5px solid #cbd5e1;
+                            margin-bottom: 6px;
+                        }
+                        .sig-label {
+                            font-size: 8pt;
+                            color: #64748b;
+                            font-weight: 700;
+                            text-transform: uppercase;
+                            letter-spacing: 0.5px;
+                        }
+
+                        /* Formal Footer */
+                        .footer {
+                            margin-top: 40px;
+                            border-top: 1px solid #e2e8f0;
+                            padding-top: 15px;
+                            font-size: 8pt;
+                            color: #94a3b8;
+                            text-align: center;
+                            font-weight: 500;
+                        }
+                        
+                        @media print {
+                            body {
+                                margin: 0;
+                            }
+                            th {
+                                background-color: #f8fafc !important;
+                                -webkit-print-color-adjust: exact;
+                                print-color-adjust: exact;
+                            }
+                            .info-grid {
+                                background: #f8fafc !important;
+                                -webkit-print-color-adjust: exact;
+                                print-color-adjust: exact;
+                            }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="document-container">
+                        <!-- Top Header -->
+                        <table class="header-table">
+                            <tr>
+                                <td>
+                                    <div class="logo-text">INFRAPILOT</div>
+                                    <div class="logo-subtext">Financial Intelligence</div>
+                                </td>
+                                <td>
+                                    <div class="doc-title">Fiscal Payroll Register</div>
+                                    <div class="doc-meta">Period: ${monthLabel} ${selectedYear}</div>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <div class="divider"></div>
+
+                        <!-- Metadata Card -->
+                        <table class="info-grid">
+                            <tr>
+                                <td class="info-label">Project Context</td>
+                                <td class="info-value">Project ID ${projectId || 'All'}</td>
+                                <td class="info-label" style="text-align: right; padding-right: 10px;">Cycle Mode</td>
+                                <td class="info-value" style="width: 160px; text-align: right;">${activeTab.toUpperCase()}</td>
+                            </tr>
+                            <tr>
+                                <td class="info-label">Operator</td>
+                                <td class="info-value">Site Engineer Terminal</td>
+                                <td class="info-label" style="text-align: right; padding-right: 10px;">Classification</td>
+                                <td class="info-value" style="text-align: right;">Official Ledger</td>
+                            </tr>
+                        </table>
+
+                        <!-- Data Table -->
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Labour Name</th>
+                                    <th>Skill Type</th>
+                                    <th>Daily Wage</th>
+                                    <th>Days Present</th>
+                                    <th>OT Hours</th>
+                                    <th>Total Wage Earned</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${tableRowsHtml}
+                            </tbody>
+                        </table>
+
+                        <!-- Signature Elements -->
+                        <table class="signature-block">
+                            <tr>
+                                <td>
+                                    <div class="sig-line"></div>
+                                    <div class="sig-label">Prepared By (Site Engineer)</div>
+                                </td>
+                                <td style="text-align: right;">
+                                    <div class="sig-line" style="margin-left: auto;"></div>
+                                    <div class="sig-label">Authorized Signature</div>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <!-- Footer Note -->
+                        <div class="footer">
+                            This is an official computer-generated transaction record from the InfraPilot ERP Platform. Page 1 of 1.
+                        </div>
+                    </div>
+
+                    <script>
+                        window.onload = function() {
+                            window.print();
+                            window.onafterprint = function() {
+                                window.close();
+                            };
+                        };
+                    </script>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
             toast.success('Payroll PDF exported successfully');
         } catch (error) {
             console.error("PDF Export Error:", error);
@@ -337,7 +730,7 @@ const PayrollReportPage: React.FC = () => {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">{r.skill_type || '—'}</span>
+                                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">{String(r.skill_type || '—').replace('SkillType.', '').replace('SemiSkilled', 'Semi-Skilled')}</span>
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <span className="text-sm font-bold text-slate-700 tabular-nums">₹{Number(r.daily_wage_rate || 0).toLocaleString()}</span>

@@ -9,6 +9,7 @@ import toast from "react-hot-toast";
 import { equipmentService } from "../../../services/equipmentService";
 import type { Equipment } from "../../../services/equipmentService";
 import { projectService } from "../../../services/projectService";
+
 import { 
   Search, 
   Plus, 
@@ -19,7 +20,9 @@ import {
   Phone,
   Mail,
   FileText,
-  RotateCcw
+  RotateCcw,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 
 const conditionColors: Record<string, string> = {
@@ -35,6 +38,7 @@ const conditionColors: Record<string, string> = {
 const MachineryPage = () => {
     const [machineryList, setMachineryList] = useState<Equipment[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [projects, setProjects] = useState<any[]>([]);
     
     // UI States
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -48,52 +52,46 @@ const MachineryPage = () => {
     const itemsPerPage = 10;
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "GOOD" | "REPAIR" | "DAMAGED" | "MAINTENANCE">("All");
 
-    const [projectId, setProjectId] = useState<number>(0);
+    const [selectedProjectId, setSelectedProjectId] = useState<number>(() => {
+        try {
+            const userStr = localStorage.getItem("infrapilot_user");
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                const pId = user?.project_id || user?.user?.project_id;
+                if (pId) return Number(pId);
+            }
+        } catch (err) {
+            console.error("Failed to load user project context:", err);
+        }
+        return 36; // Default fallback to 36
+    });
 
     useEffect(() => {
-        const initializeProject = async () => {
+        const fetchProjects = async () => {
             try {
-                // Prioritize localStorage for Site Engineers
-                const userStr = localStorage.getItem("infrapilot_user");
-                if (userStr) {
-                    const user = JSON.parse(userStr);
-                    const pId = user?.project_id || user?.user?.project_id;
-                    if (pId) {
-                        setProjectId(Number(pId));
-                        return;
-                    }
-                }
-
-                // Fallback to discovery
-                const res = await projectService.getProjects();
-                const projects = Array.isArray(res) ? res : (res.items || []);
-                if (projects.length > 0) {
-                    const pId = projects[0].project_id || projects[0].id;
-                    setProjectId(Number(pId));
-                } else {
-                    setProjectId(36);
-                }
+                const res = await projectService.getProjects(100, 0);
+                const projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
+                setProjects(projectsList);
             } catch (err) {
-                console.error("Machinery Discovery Failed:", err);
-                setProjectId(36);
+                console.error("Failed to fetch projects list:", err);
             }
         };
-        initializeProject();
+        fetchProjects();
     }, []);
 
     useEffect(() => {
-        fetchEquipment();
-    }, []);
+        fetchEquipment(selectedProjectId);
+    }, [selectedProjectId]);
 
-    const fetchEquipment = async () => {
+    const fetchEquipment = async (projectIdToFetch: number) => {
         setIsLoading(true);
         try {
-            console.log("Fetching Global Machinery Registry (All Projects)");
-            const data = await equipmentService.getEquipment();
+            console.log(`Fetching Machinery Registry for Project ID: ${projectIdToFetch}`);
+            const data = await equipmentService.getEquipment(projectIdToFetch);
             console.log("Machinery API Response:", data);
             
             const items = data.items || [];
-            console.log(`Successfully synced ${items.length} machinery items across all projects`);
+            console.log(`Successfully synced ${items.length} machinery items for project ID ${projectIdToFetch}`);
             setMachineryList(items);
         } catch (err) {
             console.error("Fetch Equipment Failed:", err);
@@ -122,13 +120,13 @@ const MachineryPage = () => {
     const handleCreateOrUpdate = async (data: any) => {
         try {
             if (editingEquipment) {
-                await equipmentService.updateEquipment(editingEquipment.id, { ...data, project_id: projectId });
+                await equipmentService.updateEquipment(editingEquipment.id, { ...data, project_id: selectedProjectId });
                 toast.success("Machinery log updated");
             } else {
-                await equipmentService.createEquipment({ ...data, project_id: projectId });
+                await equipmentService.createEquipment({ ...data, project_id: selectedProjectId });
                 toast.success("Equipment registered successfully");
             }
-            fetchEquipment();
+            fetchEquipment(selectedProjectId);
             setIsModalOpen(false);
         } catch (error) {
             toast.error("Failed to save record");
@@ -140,7 +138,7 @@ const MachineryPage = () => {
         try {
             await equipmentService.deleteEquipment(itemToDelete);
             toast.success("Record deleted");
-            fetchEquipment();
+            fetchEquipment(selectedProjectId);
             setIsDeleteModalOpen(false);
         } catch (error) {
             toast.error("Failed to delete record");
@@ -173,7 +171,7 @@ const MachineryPage = () => {
     // Reset page on filter change
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, conditionFilter, activeStatFilter]);
+    }, [selectedProjectId, searchTerm, conditionFilter, activeStatFilter]);
 
     // Summary stats (always from the full list or filtered?) 
     // User said "calculate karke stat card mai dikhao", usually means total overview.
@@ -202,7 +200,7 @@ const MachineryPage = () => {
                     </div>
                     <div className="flex items-center gap-3">
                         <button
-                            onClick={fetchEquipment}
+                            onClick={() => fetchEquipment(selectedProjectId)}
                             className="p-2.5 text-slate-400 hover:text-primary hover:bg-white rounded-xl transition-all border border-slate-100 bg-white/50 shadow-sm active:scale-95"
                             title="Sync Ledger"
                         >
@@ -276,7 +274,7 @@ const MachineryPage = () => {
                         <select
                             value={conditionFilter}
                             onChange={(e) => setConditionFilter(e.target.value)}
-                            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-primary/10 transition-all"
+                            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-primary/10 transition-all cursor-pointer"
                         >
                             <option value="All">All Conditions</option>
                             <option value="GOOD">Good</option>
@@ -284,6 +282,22 @@ const MachineryPage = () => {
                             <option value="DAMAGED">Damaged</option>
                             <option value="MAINTENANCE">Maintenance</option>
                         </select>
+
+                        <div className="flex items-center gap-2 lg:ml-2">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Project:</span>
+                            <select
+                                value={selectedProjectId}
+                                onChange={(e) => setSelectedProjectId(Number(e.target.value))}
+                                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-primary/10 transition-all cursor-pointer uppercase tracking-wider"
+                            >
+                                <option value={36}>Skyline Tower A</option>
+                                {projects.filter((p: any) => (p.project_id || p.id) !== 36).map((p: any) => (
+                                    <option key={p.project_id || p.id} value={p.project_id || p.id}>
+                                        {p.project_name || p.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
 
                     <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
@@ -372,29 +386,31 @@ const MachineryPage = () => {
                         )}
                     </div>
                     
-                    {/* ── Pagination ────────────────────────────────────────── */}
-                    {filteredList.length > 0 && (
-                        <div className="px-6 py-4 bg-slate-50/30 border-t border-slate-50 flex items-center justify-between font-inter">
-                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">
-                                Showing {paginatedList.length} of {filteredList.length} Asset Identities
-                            </div>
-                            <div className="flex items-center gap-2 font-inter">
-                                <button
+                    {/* ── Pagination Controls ──────────────────────────── */}
+                    {!isLoading && filteredList.length > 0 && (
+                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredList.length)} of {filteredList.length} entries
+                            </span>
+                            <div className="flex items-center gap-2">
+                                <button 
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                     disabled={currentPage === 1}
-                                    onClick={() => setCurrentPage(prev => prev - 1)}
-                                    className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all font-inter shadow-sm"
+                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center"
+                                    title="Previous Page"
                                 >
-                                    Prev
+                                    <ChevronLeft className="w-4 h-4" />
                                 </button>
                                 <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
                                     Page {currentPage} of {totalPages || 1}
                                 </div>
-                                <button
-                                    disabled={currentPage >= totalPages}
-                                    onClick={() => setCurrentPage(prev => prev + 1)}
-                                    className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all font-inter shadow-sm"
+                                <button 
+                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                    disabled={currentPage === totalPages || totalPages === 0}
+                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center"
+                                    title="Next Page"
                                 >
-                                    Next
+                                    <ChevronRight className="w-4 h-4" />
                                 </button>
                             </div>
                         </div>

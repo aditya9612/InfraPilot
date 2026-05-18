@@ -16,7 +16,9 @@ import {
     Phone,
     Mail,
     FileText,
-    Building2
+    Building2,
+    ChevronLeft,
+    ChevronRight
 } from "lucide-react";
 
 import { labourService } from "../../../services/labourService";
@@ -51,6 +53,7 @@ const LaborDetailsPage = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
     const [projectId, setProjectId] = useState<number | null>(null);
+    const [contractorFilter, setContractorFilter] = useState<number | null>(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [labourToDelete, setLabourToDelete] = useState<number | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -63,11 +66,30 @@ const LaborDetailsPage = () => {
     const itemsPerPage = 10;
 
     useEffect(() => {
+        const initializeProject = () => {
+            try {
+                const userStr = localStorage.getItem("infrapilot_user");
+                if (userStr) {
+                    const user = JSON.parse(userStr);
+                    const pId = user?.project_id || user?.user?.project_id;
+                    if (pId) {
+                        setProjectId(Number(pId));
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to load user project context:", err);
+            }
+        };
+        initializeProject();
+    }, []);
+
+    useEffect(() => {
         if (isFormModalOpen) {
             const fetchProjects = async () => {
                 try {
                     const res = await projectService.getProjects(100, 0);
-                    setProjects(res.items || []);
+                    const projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
+                    setProjects(projectsList);
                 } catch (err) {
                     console.error("Failed to fetch projects", err);
                 }
@@ -234,6 +256,9 @@ const LaborDetailsPage = () => {
         if (activeStatFilter === "Active" && l.status !== "Active") return false;
         if (activeStatFilter === "Skilled" && l.skill_type !== "Skilled") return false;
 
+        // Apply Contractor ID filter
+        if (contractorFilter !== null && l.contractor_id !== contractorFilter) return false;
+
         // Apply Search Term filter (Name, ID, Worker Code, Aadhaar)
         const search = searchTerm.toLowerCase().trim();
         if (search) {
@@ -252,7 +277,7 @@ const LaborDetailsPage = () => {
     // Reset pagination when filters change
     useEffect(() => {
         setCurrentPage(1);
-    }, [projectId, searchTerm, statusFilter, activeStatFilter]);
+    }, [projectId, contractorFilter, searchTerm, statusFilter, activeStatFilter]);
 
     const totalPages = Math.ceil(filteredLaborers.length / itemsPerPage);
     const paginatedLaborers = filteredLaborers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -307,12 +332,12 @@ const LaborDetailsPage = () => {
                             </select>
                         </div>
                         <div className="flex items-center gap-3 md:border-l md:border-slate-100 md:pl-4">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Project ID:</span>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Contractor ID:</span>
                             <input
                                 type="number"
                                 placeholder="ID"
-                                value={projectId || ''}
-                                onChange={(e) => setProjectId(e.target.value ? Number(e.target.value) : null)}
+                                value={contractorFilter || ''}
+                                onChange={(e) => setContractorFilter(e.target.value ? Number(e.target.value) : null)}
                                 className="w-20 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[10px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400"
                             />
                         </div>
@@ -395,24 +420,30 @@ const LaborDetailsPage = () => {
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                                     Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredLaborers.length)} of {filteredLaborers.length} entries
                                 </span>
-                                <div className="flex gap-2">
+                                <div className="flex items-center gap-2">
                                     <button 
                                         onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                         disabled={currentPage === 1}
-                                        className="px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50 transition-all"
+                                        className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center"
+                                        title="Previous Page"
                                     >
-                                        Prev
+                                        <ChevronLeft className="w-4 h-4" />
                                     </button>
+                                    <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
+                                        Page {currentPage} of {totalPages || 1}
+                                    </div>
                                     <button 
                                         onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                                         disabled={currentPage === totalPages || totalPages === 0}
-                                        className="px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50 transition-all"
+                                        className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center"
+                                        title="Next Page"
                                     >
-                                        Next
+                                        <ChevronRight className="w-4 h-4" />
                                     </button>
                                 </div>
                             </div>
                         )}
+
                     </div>
                 </div>
             </PageTransition>

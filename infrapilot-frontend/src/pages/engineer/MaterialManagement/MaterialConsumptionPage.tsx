@@ -43,11 +43,22 @@ const MaterialConsumptionPage = () => {
     if (!projectId) return;
     setIsLoading(true);
     try {
-      const [invList, lList] = await Promise.all([
-        materialService.getInventory(),
-        materialService.getLogs({ project_id: projectId || 0, type: "USAGE" })
+      const [invList, lList, realList] = await Promise.all([
+        materialService.getInventory(projectId),
+        materialService.getLogs({ project_id: projectId || 0, type: "USAGE" }),
+        materialService.listMaterials(projectId)
       ]);
-      setInventory(invList || []);
+      
+      const realIds = new Set((realList || []).map(m => m.id));
+      const realNames = new Set((realList || []).map(m => m.material_name.toLowerCase()));
+      
+      const filteredInv = (invList || []).filter(item => 
+        realNames.has(item.material_name.toLowerCase()) || 
+        realIds.has(item.material_id) || 
+        realIds.has(item.id)
+      );
+      
+      setInventory(filteredInv);
       setLogs(lList || []);
     } catch (error) {
       toast.error("Failed to load consumption data");
@@ -83,7 +94,8 @@ const MaterialConsumptionPage = () => {
     if (!selectedInventory) return;
     setIsSubmitting(true);
     try {
-      await materialService.recordUsage(selectedInventory.id, {
+      const targetMatId = selectedInventory.id ?? selectedInventory.material_id;
+      await materialService.recordUsage(targetMatId, {
         ...usageData,
         issue_type: usageData.issue_type as IssueType,
         project_id: projectId || 0

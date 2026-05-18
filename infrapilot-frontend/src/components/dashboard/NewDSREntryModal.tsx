@@ -76,6 +76,7 @@ const NewDSREntryModal = ({
               latitude,
               longitude,
               resolved_address: address,
+              site_location: address,
             }));
             setGpsStatus("captured");
           } catch (err) {
@@ -106,7 +107,7 @@ const NewDSREntryModal = ({
     const { name, value } = e.target;
 
     // Strict Alphabetic Validation for specific fields
-    if (name === "site_location" || name === "weather") {
+    if (name === "weather") {
         if (/[0-9]/.test(value)) {
             setErrors(prev => ({ ...prev, [name]: "Numbers are not allowed in this field" }));
             return;
@@ -128,8 +129,6 @@ const NewDSREntryModal = ({
     
     if (!formData.site_location || !formData.site_location.trim()) {
       errs.site_location = "Site Location is required";
-    } else if (/[0-9]/.test(formData.site_location)) {
-      errs.site_location = "Numbers are not allowed in site location";
     }
 
     if (!formData.work_done || !formData.work_done.trim())

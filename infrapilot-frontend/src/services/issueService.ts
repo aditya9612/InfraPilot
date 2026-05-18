@@ -1,5 +1,5 @@
 import api from "./api";
-import type { IssueItem, CreateIssueRequest, UpdateIssueRequest, IssueResponse } from "../types/issue";
+import type { IssueItem, CreateIssueRequest, IssueResponse } from "../types/issue";
 
 export const issueService = {
     /**
@@ -70,9 +70,8 @@ export const issueService = {
     async createIssue(data: CreateIssueRequest): Promise<IssueItem> {
         try {
             console.log("Creating Issue with payload:", data);
-            const { project_id, ...payload } = data;
-            const response = await api.post("/issues", payload, {
-                params: { project_id: 36 }
+            const response = await api.post("/issues", data, {
+                params: { project_id: data.project_id || 36 }
             });
             return response.data;
         } catch (error: any) {
@@ -81,21 +80,7 @@ export const issueService = {
         }
     },
 
-    /**
-     * Update Issue By ID
-     * PUT /api/v1/issues/{id}?project_id=36
-     */
-    async updateIssue(id: number, data: UpdateIssueRequest): Promise<IssueItem> {
-        try {
-            const response = await api.put(`/issues/${id}`, data, {
-                params: { project_id: 36 }
-            });
-            return response.data;
-        } catch (error: any) {
-            console.error(`Update Issue ${id} API Error:`, error.response?.data || error.message);
-            throw error;
-        }
-    },
+
 
     /**
      * Delete Issue By ID
