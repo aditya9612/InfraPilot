@@ -515,7 +515,7 @@ const DSRPage = () => {
                 maxWidth="max-w-xl"
             >
                 {selectedDsr && (
-                    <div className="p-6 font-inter text-inter italic-none">
+                    <div className="p-6 font-inter text-inter ">
                         {/* ── Header Information ────────────────── */}
                         <div className="flex items-center gap-6 mb-8 border-b border-slate-50 pb-8">
                             <div className="w-20 h-20 bg-slate-900 rounded-3xl flex items-center justify-center text-white text-3xl font-bold shadow-lg">
