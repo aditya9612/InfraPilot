@@ -20,7 +20,7 @@ import NewProjectModal from "../../components/dashboard/NewProjectModal";
 import CreateUserModal from "../../components/forms/CreateUserModal";
 import PageTransition from "../../components/common/PageTransition";
 import CreateBOQModal from "../../components/forms/CreateBOQModal";
-import CreateReportModal from "../../components/dashboard/CreateReportModal";
+
 import { projectService } from "../../services/projectService";
 import { boqService } from "../../services/boqService";
 import { userService } from "../../services/userService";
@@ -63,7 +63,7 @@ const AdminDashboard = () => {
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
   const [isBOQModalOpen, setIsBOQModalOpen] = useState(false);
-  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+
   const [projects, setProjects] = useState<Project[]>([]);
   const [alerts, setAlerts] = useState<any[]>([]);
   const [graphData, setGraphData] = useState<any[]>([]);
@@ -313,12 +313,7 @@ const AdminDashboard = () => {
             >
               + Create BOQ
             </button>
-            <button
-              onClick={() => setIsReportModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
-            >
-              Create Report
-            </button>
+
           </div>
         </div>
 
@@ -866,11 +861,7 @@ const AdminDashboard = () => {
         onClose={() => setIsBOQModalOpen(false)}
         onSubmit={handleCreateBOQ}
       />
-      <CreateReportModal
-        isOpen={isReportModalOpen}
-        projects={projects}
-        onClose={() => setIsReportModalOpen(false)}
-      />
+
     </>
   );
 };
