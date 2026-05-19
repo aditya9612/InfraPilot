@@ -3,53 +3,11 @@ import Navbar from "../../components/common/Navbar";
 import { Plus, AlertCircle, Loader2 } from "lucide-react";
 import CreateIssueModal from "../../components/forms/CreateIssueModal";
 import toast from "react-hot-toast";
-
-const INITIAL_ISSUES = [
-  { 
-    id: "ISS-042", 
-    title: "Phase 2 Budget Overrun — Steel Price Surge", 
-    type: "Material", 
-    description: "Unexpected 15% increase in structural steel prices affecting the procurement for Phase 2 slab casting.", 
-    reportedDate: "02 Apr 2026", 
-    status: "Open", 
-    impactLevel: "High", 
-    resolution: "Negotiating bulk purchase discount with secondary vendors to offset costs."
-  },
-  { 
-    id: "ISS-038", 
-    title: "Slab Curing Delay due to Unusual Rains", 
-    type: "Delay", 
-    description: "Unseasonal heavy rainfall has extended the mandatory curing period for the Level 3 main slab by 3 days.", 
-    reportedDate: "28 Mar 2026", 
-    status: "In Progress", 
-    impactLevel: "Medium", 
-    resolution: "Accelerating internal masonry work to compensate for lost outdoor structural time."
-  },
-  { 
-    id: "ISS-035", 
-    title: "Safety Harness Compliance Audit", 
-    type: "Safety", 
-    description: "Quarterly audit identified 2 worn harnesses that required immediate replacement to maintain site safety standards.", 
-    reportedDate: "15 Mar 2026", 
-    status: "Resolved", 
-    impactLevel: "Medium", 
-    resolution: "Purchased 5 new certified harnesses; safety briefing conducted for all high-altitude workers."
-  },
-  { 
-    id: "ISS-031", 
-    title: "Plumbing Material Shortage", 
-    type: "Material", 
-    description: "Shortage of 4-inch PVC pipes delayed the internal piping work for Apartment Wing B.", 
-    reportedDate: "05 Mar 2026", 
-    status: "Resolved", 
-    impactLevel: "Low", 
-    resolution: "Alternative supplier mobilized within 48 hours. Inventory restocked."
-  }
-];
+import { issueService } from "../../services/issueService";
 
 const ClientIssuesPage = () => {
-  const [issues, setIssues] = useState<any[]>(INITIAL_ISSUES);
-  const [loading, setLoading] = useState(false);
+  const [issues, setIssues] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [filters, setFilters] = useState({
     status: "",
@@ -58,23 +16,33 @@ const ClientIssuesPage = () => {
     search: ""
   });
 
-  const fetchIssues = () => {
-    // Simulation of fetching with filters
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return "";
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    } catch {
+      return dateStr || "";
+    }
+  };
+
+  const fetchIssues = async () => {
     setLoading(true);
-    setTimeout(() => {
-      let filtered = [...INITIAL_ISSUES];
+    try {
+      const apiFilters: any = {};
+      if (filters.status) apiFilters.status = filters.status;
+      if (filters.priority) apiFilters.priority = filters.priority;
+      if (filters.category) apiFilters.category = filters.category;
+      if (filters.search) apiFilters.search = filters.search;
       
-      if (filters.status) filtered = filtered.filter(i => i.status === filters.status);
-      if (filters.category) filtered = filtered.filter(i => i.type === filters.category);
-      if (filters.priority) filtered = filtered.filter(i => i.impactLevel === filters.priority);
-      if (filters.search) {
-        const s = filters.search.toLowerCase();
-        filtered = filtered.filter(i => i.title.toLowerCase().includes(s) || i.description.toLowerCase().includes(s));
-      }
-      
-      setIssues(filtered);
+      const response = await issueService.getProjectIssues(1, apiFilters);
+      setIssues(response.items || []);
+    } catch (error) {
+      console.error("Failed to fetch issues:", error);
+      toast.error("Failed to load issues.");
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   useEffect(() => {
@@ -82,24 +50,28 @@ const ClientIssuesPage = () => {
   }, [filters]);
 
   const handleCreateIssue = async (data: any) => {
-    const newIssue = {
-      id: `ISS-${Math.floor(Math.random() * 1000)}`,
-      title: data.title,
-      type: data.type,
-      description: data.description,
-      reportedDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-      status: "Open",
-      impactLevel: data.impactLevel,
-      resolution: ""
-    };
+    try {
+      const payload = {
+        project_id: 1,
+        title: data.title,
+        category: data.type,
+        description: data.description,
+        reported_date: new Date().toISOString().split('T')[0],
+        priority: data.impactLevel
+      };
 
-    setIssues([newIssue, ...issues]);
-    
-    toast.success("Issue reported successfully!", {
-      style: { borderRadius: "12px", background: "#333", color: "#fff" },
-      icon: "🚩",
-    });
-    setIsModalOpen(false);
+      await issueService.createIssue(payload);
+      
+      toast.success("Issue reported successfully!", {
+        style: { borderRadius: "12px", background: "#333", color: "#fff" },
+        icon: "🚩",
+      });
+      setIsModalOpen(false);
+      fetchIssues();
+    } catch (error) {
+      console.error("Failed to report issue:", error);
+      toast.error("Failed to report issue. Please try again.");
+    }
   };
 
   return (
@@ -220,15 +192,15 @@ const ClientIssuesPage = () => {
                        </td>
                        <td className="py-8">
                           <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 px-3 py-1 bg-slate-100 rounded-lg">
-                             {issue.type}
+                             {issue.category || issue.type}
                           </span>
                        </td>
                        <td className="py-8 text-center">
                           <span className={`text-[10px] font-bold uppercase tracking-widest ${
-                            issue.impactLevel === 'High' || issue.impactLevel === 'Critical' ? 'text-red-500' : 
-                            issue.impactLevel === 'Medium' ? 'text-amber-500' : 'text-blue-500'
+                            issue.priority === 'High' || issue.priority === 'Critical' || issue.impactLevel === 'High' || issue.impactLevel === 'Critical' ? 'text-red-500' : 
+                            issue.priority === 'Medium' || issue.impactLevel === 'Medium' ? 'text-amber-500' : 'text-blue-500'
                           }`}>
-                             {issue.impactLevel}
+                             {issue.priority || issue.impactLevel}
                           </span>
                        </td>
                        <td className="py-8 text-center">
@@ -240,7 +212,7 @@ const ClientIssuesPage = () => {
                           </span>
                        </td>
                        <td className="py-8 whitespace-nowrap">
-                          <p className="text-xs font-bold text-slate-400">{issue.reportedDate}</p>
+                          <p className="text-xs font-bold text-slate-400">{formatDate(issue.reported_date) || issue.reportedDate}</p>
                        </td>
                      </tr>
                    ))}

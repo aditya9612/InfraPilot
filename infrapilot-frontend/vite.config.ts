@@ -4,10 +4,10 @@ import react from '@vitejs/plugin-react'
 // Custom Vite Plugin to mock API responses and eliminate 502 errors
 const mockApiPlugin = () => ({
   name: 'mock-api-plugin',
-  configureServer(server) {
-    server.middlewares.use((req, res, next) => {
-      // Handle /api/v1/auth/me (Permissive match)
-      if (req.url?.includes('/auth/me') && req.method === 'GET') {
+  configureServer(server: any) {
+    server.middlewares.use((req: any, res: any, next: any) => {
+      // Handle /api/v1/auth/me or /users/me (Permissive match)
+      if ((req.url?.includes('/auth/me') || req.url?.includes('/users/me')) && req.method === 'GET') {
         res.setHeader('Content-Type', 'application/json');
         res.statusCode = 200;
         res.end(JSON.stringify({
@@ -21,7 +21,7 @@ const mockApiPlugin = () => ({
       }
 
       // Handle /api/v1/communication/unread-count (Permissive match)
-      if (req.url?.includes('/communication/unread-count') && req.method === 'GET') {
+      if (req.url?.includes('/unread-count') && req.method === 'GET') {
         res.setHeader('Content-Type', 'application/json');
         res.statusCode = 200;
         res.end(JSON.stringify({ count: 5 }));
@@ -31,7 +31,7 @@ const mockApiPlugin = () => ({
       // Handle /api/v1/auth/login
       if (req.url === '/api/v1/auth/login' && req.method === 'POST') {
         let body = '';
-        req.on('data', chunk => { body += chunk.toString(); });
+        req.on('data', (chunk: any) => { body += chunk.toString(); });
         req.on('end', () => {
           const parsed = JSON.parse(body || '{}');
           res.setHeader('Content-Type', 'application/json');
@@ -47,7 +47,7 @@ const mockApiPlugin = () => ({
       // Handle /api/v1/auth/verify_otp
       if (req.url === '/api/v1/auth/verify_otp' && req.method === 'POST') {
         let body = '';
-        req.on('data', chunk => { body += chunk.toString(); });
+        req.on('data', (chunk: any) => { body += chunk.toString(); });
         req.on('end', () => {
           res.setHeader('Content-Type', 'application/json');
           res.statusCode = 200;
@@ -87,6 +87,79 @@ const mockApiPlugin = () => ({
         return;
       }
 
+      // Handle /api/v1/invoices (List Invoices)
+      if (req.url?.startsWith('/api/v1/invoices') && !req.url?.includes('/pdf') && req.method === 'GET') {
+        res.setHeader('Content-Type', 'application/json');
+        res.statusCode = 200;
+        res.end(JSON.stringify({
+          items: [
+            {
+              id: 1,
+              project_id: 1,
+              owner_id: 1,
+              reference_id: 101,
+              invoice_number: "INV-2026-001",
+              type: "material",
+              description: "Structural Phase II — Concrete & Formwork",
+              invoice_date: "2026-03-15",
+              due_date: "2026-04-15",
+              amount: 1200000,
+              gst_percent: 18,
+              gst_amount: 216000,
+              tax_percent: 0,
+              tax_amount: 0,
+              total_amount: 1416000,
+              status: "paid",
+              created_at: "2026-03-15T10:00:00",
+            },
+            {
+              id: 2,
+              project_id: 1,
+              owner_id: 1,
+              reference_id: 102,
+              invoice_number: "INV-2026-002",
+              type: "labour",
+              description: "MEP Roughing-In — Electrical & Plumbing Phase III",
+              invoice_date: "2026-04-01",
+              due_date: "2026-05-01",
+              amount: 850000,
+              gst_percent: 18,
+              gst_amount: 153000,
+              tax_percent: 0,
+              tax_amount: 0,
+              total_amount: 1003000,
+              status: "pending",
+              created_at: "2026-04-01T09:30:00",
+            },
+            {
+              id: 3,
+              project_id: 1,
+              owner_id: 1,
+              reference_id: 103,
+              invoice_number: "INV-2026-003",
+              type: "material",
+              description: "Roof Slab Rebar & Casting — North Wing",
+              invoice_date: "2026-04-16",
+              due_date: "2026-05-16",
+              amount: 2200000,
+              gst_percent: 18,
+              gst_amount: 396000,
+              tax_percent: 0,
+              tax_amount: 0,
+              total_amount: 2596000,
+              status: "pending",
+              created_at: "2026-04-16T11:00:00",
+            }
+          ],
+          meta: {
+            total: 3,
+            limit: 20,
+            offset: 0
+          }
+        }));
+        return;
+      }
+
       // Handle /api/v1/invoices/{id}/pdf
       const invoicePdfMatch = req.url?.match(/\/api\/v1\/invoices\/(\d+)\/pdf/);
       if (invoicePdfMatch && req.method === 'GET') {
@@ -94,62 +167,7 @@ const mockApiPlugin = () => ({
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="Invoice_${id}.pdf"`);
         res.statusCode = 200;
-        const pdfContent = `%PDF-1.4
-1 0 obj
-<< /Type /Catalog /Pages 2 0 R >>
-endobj
-2 0 obj
-<< /Type /Pages /Kids [3 0 R] /Count 1 >>
-endobj
-3 0 obj
-<< /Type /Page /Parent 2 0 R /Resources 4 0 R /MediaBox [0 0 595 842] /Contents 5 0 R >>
-endobj
-4 0 obj
-<< /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >>
-endobj
-5 0 obj
-<< /Length 500 >>
-stream
-BT
-/F1 16 Tf
-70 780 Td
-(INFRAPILOT PORTAL - INVOICE DETAIL) Tj
-/F1 10 Tf
-0 -30 Td
-(Invoice Number: INV-2026-00${id}) Tj
-0 -20 Td
-(Project: Skyline Tower - Phase 3 Superstructure) Tj
-0 -20 Td
-(Client Name: Mr. Sharma / InfraPilot Client) Tj
-0 -30 Td
-(SUMMARY BREAKDOWN:) Tj
-0 -20 Td
-(  - Base Concrete & Reinforcement: INR 12,00,000) Tj
-0 -15 Td
-(  - GST Tax percentage: 18% [INR 2,16,000]) Tj
-0 -20 Td
-(  - Net Invoiced Total: INR 14,16,000) Tj
-0 -30 Td
-(PAYMENT AUDIT STATUS: PAID & SECURED) Tj
-0 -40 Td
-(This is a secure system-generated client-facing audit invoice.) Tj
-ET
-endstream
-endobj
-xref
-0 6
-0000000000 65535 f 
-0000000009 00000 n 
-0000000058 00000 n 
-0000000115 00000 n 
-0000000222 00000 n 
-0000000305 00000 n 
-trailer
-<< /Size 6 /Root 1 0 R >>
-startxref
-426
-%%EOF`;
-        res.end(Buffer.from(pdfContent));
+        res.end("download file");
         return;
       }
 
@@ -158,62 +176,7 @@ startxref
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', 'attachment; filename="invoices_all.pdf"');
         res.statusCode = 200;
-        const pdfContent = `%PDF-1.4
-1 0 obj
-<< /Type /Catalog /Pages 2 0 R >>
-endobj
-2 0 obj
-<< /Type /Pages /Kids [3 0 R] /Count 1 >>
-endobj
-3 0 obj
-<< /Type /Page /Parent 2 0 R /Resources 4 0 R /MediaBox [0 0 595 842] /Contents 5 0 R >>
-endobj
-4 0 obj
-<< /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >>
-endobj
-5 0 obj
-<< /Length 500 >>
-stream
-BT
-/F1 16 Tf
-70 780 Td
-(INFRAPILOT PORTAL - INVOICES EXPORT SUMMARY) Tj
-/F1 10 Tf
-0 -30 Td
-(Report: Full Invoiced Ledger Statement) Tj
-0 -20 Td
-(Project: Skyline Tower - Phase 3 Superstructure) Tj
-0 -20 Td
-(Client Name: Mr. Sharma / InfraPilot Client) Tj
-0 -30 Td
-(ALL INVOICES BREAKDOWN:) Tj
-0 -20 Td
-(  - INV-2026-001 [Concrete Foundation]: INR 5,31,000 [PAID]) Tj
-0 -15 Td
-(  - INV-2026-002 [Cement Supply]: INR 2,06,500 [PENDING]) Tj
-0 -15 Td
-(  - INV-2026-003 [Column reinforcement]: INR 3,30,400 [PENDING]) Tj
-0 -30 Td
-(TOTAL PORTFOLIO INVOICED: INR 10,67,900) Tj
-0 -40 Td
-(This is a secure system-generated client-facing audit invoice ledger.) Tj
-ET
-endstream
-endobj
-xref
-0 6
-0000000000 65535 f 
-0000000009 00000 n 
-0000000058 00000 n 
-0000000115 00000 n 
-0000000222 00000 n 
-0000000305 00000 n 
-trailer
-<< /Size 6 /Root 1 0 R >>
-startxref
-426
-%%EOF`;
-        res.end(Buffer.from(pdfContent));
+        res.end("download file");
         return;
       }
 
@@ -265,7 +228,7 @@ startxref
       // Handle /api/v1/settings/profile (Update Profile)
       if (req.url?.startsWith('/api/v1/settings/profile') && req.method === 'PUT') {
         let body = '';
-        req.on('data', chunk => { body += chunk.toString(); });
+        req.on('data', (chunk: any) => { body += chunk.toString(); });
         req.on('end', () => {
           res.setHeader('Content-Type', 'application/json');
           res.statusCode = 200;
@@ -358,7 +321,7 @@ startxref
       // Handle /api/v1/approvals (Create Approval)
       if (req.url?.startsWith('/api/v1/approvals') && req.method === 'POST') {
         let body = '';
-        req.on('data', chunk => { body += chunk.toString(); });
+        req.on('data', (chunk: any) => { body += chunk.toString(); });
         req.on('end', () => {
           const parsed = JSON.parse(body || '{}');
           res.setHeader('Content-Type', 'application/json');
@@ -473,6 +436,423 @@ startxref
             offset: 0
           }
         }));
+        return;
+      }
+
+      // Handle /api/v1/dsr/project/{project_id}
+      const dsrProjectMatch = req.url?.match(/\/api\/v1\/dsr\/project\/(\d+)/);
+      if (dsrProjectMatch && req.method === 'GET') {
+        const projectId = parseInt(dsrProjectMatch[1]);
+        res.setHeader('Content-Type', 'application/json');
+        res.statusCode = 200;
+        res.end(JSON.stringify({
+          items: [
+            {
+              project_id: projectId,
+              report_date: "2026-05-11",
+              site_location: "Pune",
+              contractor_id: 1,
+              weather: "Sunny",
+              work_done: "Completed electrical conduit laying in ground floor. Vibrators used during pour.",
+              work_planned: "Start wiring work for first floor and prepare column shuttering.",
+              machinery_used: "Concrete mixer, drilling machine",
+              material_received: "PVC pipes - 200 units",
+              material_used: "PVC pipes - 150 units, Cement: 80 bags, Steel: 1.2 Tons",
+              issues: "Slight delay in material delivery in the morning. Resolved by 10 AM.",
+              safety_observations: "All workers wearing helmets and gloves. No safety incidents.",
+              remarks: "Work progressing as per schedule. Slab finish achieved as per specifications.",
+              id: 1,
+              business_id: "DSR001",
+              created_at: "2026-05-11T18:13:39",
+              updated_at: "2026-05-11T18:13:39",
+              created_by_id: 1,
+              created_by_name: "Admin User",
+              status: "Active",
+              latitude: 18.5204,
+              longitude: 73.8567,
+              contractor_name: "Sai Infra",
+              total_labour: 28,
+              skilled_labour: 12,
+              unskilled_labour: 16,
+              photos: [
+                {
+                  id: 1,
+                  file_url: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&h=300&fit=crop"
+                }
+              ]
+            },
+            {
+              project_id: projectId,
+              report_date: "2026-05-10",
+              site_location: "Pune",
+              contractor_id: 1,
+              weather: "Partly Cloudy",
+              work_done: "Shuttering and formwork for Ground Floor slab. Brickwork on Level 1 Apartments A & B.",
+              work_planned: "Electrical conduit laying in ground floor.",
+              machinery_used: "Tower crane, concrete pump",
+              material_received: "Steel reinforcement bars - 5 Tons",
+              material_used: "Plywood: 15 sheets, Bricks: 2500, Cement: 12 bags",
+              issues: "None",
+              safety_observations: "Safety briefing conducted in morning. All PPE compliance confirmed.",
+              remarks: "Wait for plumbing layout approval for Level 1 bathroom shafts.",
+              id: 2,
+              business_id: "DSR002",
+              created_at: "2026-05-10T17:45:00",
+              updated_at: "2026-05-10T17:45:00",
+              created_by_id: 1,
+              created_by_name: "Admin User",
+              status: "Active",
+              latitude: 18.5204,
+              longitude: 73.8567,
+              contractor_name: "Sai Infra",
+              total_labour: 22,
+              skilled_labour: 10,
+              unskilled_labour: 12,
+              photos: [
+                {
+                  id: 2,
+                  file_url: "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?w=400&h=300&fit=crop"
+                },
+                {
+                  id: 3,
+                  file_url: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=400&h=300&fit=crop"
+                }
+              ]
+            }
+          ],
+          meta: {
+            total: 2,
+            limit: 20,
+            offset: 0
+          }
+        }));
+        return;
+      }
+
+      // Handle /api/v1/issues/project/{project_id}
+      const issuesMatch = req.url?.match(/\/api\/v1\/issues\/project\/(\d+)/);
+      if (issuesMatch && req.method === 'GET') {
+        const projectId = parseInt(issuesMatch[1]);
+        res.setHeader('Content-Type', 'application/json');
+        res.statusCode = 200;
+        res.end(JSON.stringify({
+          items: [
+            {
+              project_id: projectId,
+              title: "Sand delivery delay",
+              category: "Material",
+              description: "Sand supply was delayed by 4HR",
+              reported_date: "2026-04-02",
+              priority: "High",
+              id: 1,
+              business_id: "ISS001",
+              status: "Open",
+              assigned_to: null,
+              resolution: null
+            },
+            {
+              project_id: projectId,
+              title: "Concrete quality issue",
+              category: "Delay",
+              description: "Concrete mix failed slump test at site",
+              reported_date: "2026-04-10",
+              priority: "High",
+              id: 2,
+              business_id: "ISS002",
+              status: "Open",
+              assigned_to: null,
+              resolution: null
+            }
+          ],
+          meta: {
+            total: 2,
+            limit: 20,
+            offset: 0
+          }
+        }));
+        return;
+      }
+
+      // Handle /api/v1/issues (Create Issue)
+      if (req.url === '/api/v1/issues' && req.method === 'POST') {
+        let body = '';
+        req.on('data', (chunk: any) => { body += chunk.toString(); });
+        req.on('end', () => {
+          const parsed = JSON.parse(body || '{}');
+          res.setHeader('Content-Type', 'application/json');
+          res.statusCode = 200;
+          res.end(JSON.stringify({
+            project_id: parsed.project_id || 1,
+            title: parsed.title || "Sand delivery delay",
+            category: parsed.category || "Material",
+            description: parsed.description || "Sand supply was delayed by 4HR",
+            reported_date: parsed.reported_date || "2026-04-02",
+            priority: parsed.priority || "High",
+            id: Math.floor(Math.random() * 1000) + 10,
+            business_id: `ISS${Math.floor(Math.random() * 900) + 100}`,
+            status: "Open",
+            assigned_to: null,
+            resolution: null
+          }));
+        });
+        return;
+      }
+
+      // Handle /api/v1/site-photos/upload GET (List Photos)
+      if (req.url?.startsWith('/api/v1/site-photos/upload') && req.method === 'GET') {
+        const urlObj = new URL(req.url, 'http://localhost');
+        const activityTag = urlObj.searchParams.get('activity_tag');
+
+        const allPhotos = [
+          // Structure
+          {
+            id: 1,
+            project_id: 1,
+            date: "31 Mar 2026",
+            time: "14:30:00",
+            activity_tag: "Structure",
+            location_tag: "Block A – Ground Floor",
+            description: "Roof slab reinforcement and steel tying progress for Phase 3 casting.",
+            uploaded_by: "John Doe",
+            photo_url: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=80",
+            url: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=80",
+            created_at: "2026-03-31T14:30:00"
+          },
+          {
+            id: 2,
+            project_id: 1,
+            date: "24 Mar 2026",
+            time: "11:15:00",
+            activity_tag: "Structure",
+            location_tag: "Block B – First Floor",
+            description: "Main concrete pour for the central support columns on the 3rd floor.",
+            uploaded_by: "Jane Smith",
+            photo_url: "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?w=800&q=80",
+            url: "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?w=800&q=80",
+            created_at: "2026-03-24T11:15:00"
+          },
+          // Foundation
+          {
+            id: 5,
+            project_id: 1,
+            date: "29 Mar 2026",
+            time: "10:30:00",
+            activity_tag: "Foundation",
+            location_tag: "Block A – Ground Floor",
+            description: "Pile boring operations and rebar grid layout for the northern block foundation.",
+            uploaded_by: "John Doe",
+            photo_url: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=80",
+            url: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=80",
+            created_at: "2026-03-29T10:30:00"
+          },
+          {
+            id: 6,
+            project_id: 1,
+            date: "22 Mar 2026",
+            time: "12:15:00",
+            activity_tag: "Foundation",
+            location_tag: "Block B – First Floor",
+            description: "Reinforced concrete foundation slab curing for the main structure footprint.",
+            uploaded_by: "Jane Smith",
+            photo_url: "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?w=800&q=80",
+            url: "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?w=800&q=80",
+            created_at: "2026-03-22T12:15:00"
+          },
+          // Masonry
+          {
+            id: 9,
+            project_id: 1,
+            date: "28 Mar 2026",
+            time: "15:00:00",
+            activity_tag: "Masonry",
+            location_tag: "North Zone",
+            description: "Detailed brick-by-brick wall construction on the Level 1 block.",
+            uploaded_by: "Alice Green",
+            photo_url: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=80",
+            url: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=80",
+            created_at: "2026-03-28T15:00:00"
+          },
+          // Safety
+          {
+            id: 17,
+            project_id: 1,
+            date: "25 Mar 2026",
+            time: "09:00:00",
+            activity_tag: "Safety",
+            location_tag: "Site Office",
+            description: "Safety officers conducting PPE inspection and site walk-through with crew.",
+            uploaded_by: "Charlie White",
+            photo_url: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&q=80",
+            url: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&q=80",
+            created_at: "2026-03-25T09:00:00"
+          },
+          // Equipment
+          {
+            id: 13,
+            project_id: 1,
+            date: "26 Mar 2026",
+            time: "16:20:00",
+            activity_tag: "Equipment",
+            location_tag: "Material Yard",
+            description: "Tower crane and heavy equipment fleet operational for Phase 3 lifts.",
+            uploaded_by: "Bob Brown",
+            photo_url: "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?w=800&q=80",
+            url: "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?w=800&q=80",
+            created_at: "2026-03-26T16:20:00"
+          }
+        ];
+
+        const filtered = activityTag 
+          ? allPhotos.filter(p => p.activity_tag.toLowerCase() === activityTag.toLowerCase())
+          : allPhotos;
+
+        res.setHeader('Content-Type', 'application/json');
+        res.statusCode = 200;
+        res.end(JSON.stringify({ items: filtered }));
+        return;
+      }
+
+      // Handle /api/v1/site-photos/upload POST (Upload Photo)
+      if (req.url?.startsWith('/api/v1/site-photos/upload') && req.method === 'POST') {
+        res.setHeader('Content-Type', 'application/json');
+        res.statusCode = 200;
+        res.end(JSON.stringify({
+          id: Math.floor(Math.random() * 1000) + 10,
+          project_id: 1,
+          task_id: null,
+          date: new Date().toISOString().split('T')[0],
+          time: new Date().toLocaleTimeString('en-US', { hour12: false }),
+          activity_tag: "General",
+          location_tag: "Site Area",
+          description: "Photo uploaded successfully.",
+          uploaded_by: "Engineer",
+          photo_url: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=800&q=80",
+          url: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=800&q=80",
+          created_at: new Date().toISOString()
+        }));
+        return;
+      }
+
+      // Handle /api/v1/site-photos GET (Legacy / alternative list path)
+      if (req.url?.startsWith('/api/v1/site-photos') && !req.url?.includes('/upload') && req.method === 'GET') {
+        const urlObj = new URL(req.url, 'http://localhost');
+        const activityTag = urlObj.searchParams.get('activity_tag');
+
+        const allPhotos = [
+          // Structure
+          {
+            id: 1,
+            project_id: 1,
+            date: "31 Mar 2026",
+            time: "14:30:00",
+            activity_tag: "Structure",
+            location_tag: "Block A – Ground Floor",
+            description: "Roof slab reinforcement and steel tying progress for Phase 3 casting.",
+            uploaded_by: "John Doe",
+            photo_url: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=80",
+            url: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=80",
+            created_at: "2026-03-31T14:30:00"
+          },
+          {
+            id: 2,
+            project_id: 1,
+            date: "24 Mar 2026",
+            time: "11:15:00",
+            activity_tag: "Structure",
+            location_tag: "Block B – First Floor",
+            description: "Main concrete pour for the central support columns on the 3rd floor.",
+            uploaded_by: "Jane Smith",
+            photo_url: "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?w=800&q=80",
+            url: "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?w=800&q=80",
+            created_at: "2026-03-24T11:15:00"
+          },
+          // Foundation
+          {
+            id: 5,
+            project_id: 1,
+            date: "29 Mar 2026",
+            time: "10:30:00",
+            activity_tag: "Foundation",
+            location_tag: "Block A – Ground Floor",
+            description: "Pile boring operations and rebar grid layout for the northern block foundation.",
+            uploaded_by: "John Doe",
+            photo_url: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=80",
+            url: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=80",
+            created_at: "2026-03-29T10:30:00"
+          },
+          {
+            id: 6,
+            project_id: 1,
+            date: "22 Mar 2026",
+            time: "12:15:00",
+            activity_tag: "Foundation",
+            location_tag: "Block B – First Floor",
+            description: "Reinforced concrete foundation slab curing for the main structure footprint.",
+            uploaded_by: "Jane Smith",
+            photo_url: "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?w=800&q=80",
+            url: "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?w=800&q=80",
+            created_at: "2026-03-22T12:15:00"
+          },
+          // Masonry
+          {
+            id: 9,
+            project_id: 1,
+            date: "28 Mar 2026",
+            time: "15:00:00",
+            activity_tag: "Masonry",
+            location_tag: "North Zone",
+            description: "Detailed brick-by-brick wall construction on the Level 1 block.",
+            uploaded_by: "Alice Green",
+            photo_url: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=80",
+            url: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=80",
+            created_at: "2026-03-28T15:00:00"
+          },
+          // Safety
+          {
+            id: 17,
+            project_id: 1,
+            date: "25 Mar 2026",
+            time: "09:00:00",
+            activity_tag: "Safety",
+            location_tag: "Site Office",
+            description: "Safety officers conducting PPE inspection and site walk-through with crew.",
+            uploaded_by: "Charlie White",
+            photo_url: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&q=80",
+            url: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&q=80",
+            created_at: "2026-03-25T09:00:00"
+          },
+          // Equipment
+          {
+            id: 13,
+            project_id: 1,
+            date: "26 Mar 2026",
+            time: "16:20:00",
+            activity_tag: "Equipment",
+            location_tag: "Material Yard",
+            description: "Tower crane and heavy equipment fleet operational for Phase 3 lifts.",
+            uploaded_by: "Bob Brown",
+            photo_url: "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?w=800&q=80",
+            url: "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?w=800&q=80",
+            created_at: "2026-03-26T16:20:00"
+          }
+        ];
+
+        const filtered = activityTag 
+          ? allPhotos.filter(p => p.activity_tag.toLowerCase() === activityTag.toLowerCase())
+          : allPhotos;
+
+        res.setHeader('Content-Type', 'application/json');
+        res.statusCode = 200;
+        res.end(JSON.stringify({ items: filtered }));
+        return;
+      }
+
+      // Handle DELETE /api/v1/site-photos/{id}
+      const deletePhotoMatch = req.url?.match(/\/api\/v1\/site-photos\/(\d+)/);
+      if (deletePhotoMatch && req.method === 'DELETE') {
+        res.setHeader('Content-Type', 'application/json');
+        res.statusCode = 200;
+        res.end(JSON.stringify({ success: true, message: "Photo deleted" }));
         return;
       }
 

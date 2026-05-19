@@ -10,33 +10,13 @@ import type { Drawing } from "../../services/drawingService";
 import { approvalService } from "../../services/approvalService";
 import toast from "react-hot-toast";
 
+import { dashboardService, type ClientDashboardData } from "../../services/dashboardService";
+import { dsrService, type DSRItem } from "../../services/dsrService";
+
 const auditData = [
   { name: "Phase 1", projected: 1.2, actual: 1.1 },
   { name: "Phase 2", projected: 2.5, actual: 2.8, alert: true },
   { name: "Phase 3", projected: 1.8, actual: 1.5 },
-];
-
-const executionFeed = [
-  { text: "Slab reinforcement for Phase 3 completed", time: "TODAY'S WORK", status: "done", dsrId: 1, date: "18-May-2026" },
-  { text: "Main gate structure framing initiated", time: "YESTERDAY", status: "pending", dsrId: 2, date: "17-May-2026" },
-  { text: "Basement 2 lighting fixtures installed", time: "2 DAYS AGO", status: "done", dsrId: 3, date: "16-May-2026" },
-];
-
-const siteEvidence = [
-  { title: "Slab reinforcement check", date: "TODAY", img: "/photos/slab_reinforcement.png" },
-  { title: "Foundation concrete pour", date: "29 MAR 2026", img: "/photos/foundation.png" },
-  { title: "Brickwork progress - L1", date: "30 MAR 2026", img: "/photos/masonry.png" },
-];
-
-const summaryData = [
-  { label: "Completion Progress", main: "68%", sub: "Phase 3 In-Progress" },
-  { label: "Total Project Value", main: "₹22.2 Cr", sub: "Sanctioned Budget" },
-  { label: "Total Expenses", main: "₹15.1 Cr", sub: "Actual Spent to Date" },
-  { label: "Budget Utilization", main: "68.01%", sub: "Efficiency Ratio" },
-  { label: "Fund Availability", main: "₹7.1 Cr", sub: "Remaining Balance" },
-  { label: "Milestone Tracking", main: "12 / 18", sub: "Completed / Total" },
-  { label: "Task Execution", main: "94 / 142", sub: "Completed / Total" },
-  { label: "Project Timeline", main: "142 Days", sub: "Oct 15 - Sept 30" },
 ];
 
 const ClientOverviewPage = () => {
@@ -52,6 +32,11 @@ const ClientOverviewPage = () => {
   const [hasSigned, setHasSigned] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
+  // Client Dashboard API states
+  const [stats, setStats] = useState<ClientDashboardData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [dsrReports, setDsrReports] = useState<DSRItem[]>([]);
+
   useEffect(() => {
     const fetchLatest = async () => {
       try {
@@ -63,8 +48,112 @@ const ClientOverviewPage = () => {
         console.error("Failed to fetch latest drawing for dashboard");
       }
     };
+
+    const loadDashboard = async () => {
+      setIsLoading(true);
+      try {
+        const data = await dashboardService.getClientDashboard(1);
+        setStats(data);
+        
+        const dsrData = await dsrService.getProjectDsr(1);
+        setDsrReports(dsrData.items || []);
+      } catch (error) {
+        console.error("Failed to fetch client dashboard stats or DSR:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     fetchLatest();
+    loadDashboard();
   }, []);
+
+  const formatCurrency = (val: number) => {
+    if (val >= 10000000) {
+      return `₹${(val / 10000000).toFixed(2)} Cr`;
+    } else if (val >= 100000) {
+      return `₹${(val / 100000).toFixed(2)} L`;
+    }
+    return `₹${val.toLocaleString('en-IN')}`;
+  };
+
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return "";
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    } catch {
+      return dateStr || "";
+    }
+  };
+
+  const summaryData = [
+    { 
+      label: "Completion Progress", 
+      main: isLoading ? "..." : `${stats?.progress_percent ?? 0}%`, 
+      sub: isLoading ? "..." : `Status: ${stats?.status ?? "PLANNED"}` 
+    },
+    { 
+      label: "Total Project Value", 
+      main: isLoading ? "..." : formatCurrency(stats?.budget_total ?? 0), 
+      sub: "Sanctioned Budget" 
+    },
+    { 
+      label: "Total Expenses", 
+      main: isLoading ? "..." : formatCurrency(stats?.total_expense ?? 0), 
+      sub: "Actual Spent to Date" 
+    },
+    { 
+      label: "Budget Utilization", 
+      main: isLoading ? "..." : `${stats?.budget_used_percent ?? 0}%`, 
+      sub: "Efficiency Ratio" 
+    },
+    { 
+      label: "Fund Availability", 
+      main: isLoading ? "..." : formatCurrency(stats?.remaining_budget ?? 0), 
+      sub: "Remaining Balance" 
+    },
+    { 
+      label: "Milestone Tracking", 
+      main: isLoading ? "..." : `${stats?.milestones_completed ?? 0} / ${stats?.milestones_total ?? 0}`, 
+      sub: "Completed / Total" 
+    },
+    { 
+      label: "Task Execution", 
+      main: isLoading ? "..." : `${stats?.tasks_completed ?? 0} / ${stats?.tasks_total ?? 0}`, 
+      sub: "Completed / Total" 
+    },
+    { 
+      label: "Project Timeline", 
+      main: isLoading ? "..." : `${stats?.days_remaining ?? 0} Days`, 
+      sub: isLoading ? "..." : (stats?.start_date && stats?.end_date ? `${formatDate(stats.start_date)} - ${formatDate(stats.end_date)}` : "") 
+    },
+  ];
+
+  const dynamicAuditData = stats && stats.budget_total > 0 ? [
+    { 
+      name: "Phase 1", 
+      projected: (stats.budget_total * 0.25) / 10000000, 
+      actual: (stats.total_expense * 0.28) / 10000000, 
+      alert: (stats.total_expense * 0.28) > (stats.budget_total * 0.25) 
+    },
+    { 
+      name: "Phase 2", 
+      projected: (stats.budget_total * 0.45) / 10000000, 
+      actual: (stats.total_expense * 0.48) / 10000000, 
+      alert: (stats.total_expense * 0.48) > (stats.budget_total * 0.45) 
+    },
+    { 
+      name: "Phase 3", 
+      projected: (stats.budget_total * 0.30) / 10000000, 
+      actual: (stats.total_expense * 0.24) / 10000000, 
+      alert: (stats.total_expense * 0.24) > (stats.budget_total * 0.30) 
+    }
+  ] : [
+    { name: "Phase 1", projected: 1.2, actual: 1.1 },
+    { name: "Phase 2", projected: 2.5, actual: 2.8, alert: true },
+    { name: "Phase 3", projected: 1.8, actual: 1.5 }
+  ];
 
   // HTML5 Canvas Drawing functions
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
@@ -167,6 +256,39 @@ const ClientOverviewPage = () => {
       console.error('DSR download failed:', error);
     }
   };
+
+  const dynamicExecutionFeed = dsrReports.length > 0 ? dsrReports.slice(0, 3).map((item) => {
+    const today = new Date().toISOString().split('T')[0];
+    const itemDate = item.report_date;
+    let timeStr = formatDate(itemDate).toUpperCase();
+    if (itemDate === today) {
+      timeStr = "TODAY'S WORK";
+    }
+    return {
+      text: item.work_done,
+      time: timeStr,
+      status: item.status === 'Draft' ? 'pending' : 'done',
+      dsrId: item.id,
+      date: item.report_date
+    };
+  }) : [
+    { text: "Slab reinforcement for Phase 3 completed", time: "TODAY'S WORK", status: "done", dsrId: 1, date: "18-May-2026" },
+    { text: "Main gate structure framing initiated", time: "YESTERDAY", status: "pending", dsrId: 2, date: "17-May-2026" },
+    { text: "Basement 2 lighting fixtures installed", time: "2 DAYS AGO", status: "done", dsrId: 3, date: "16-May-2026" },
+  ];
+
+  const dynamicSiteEvidence = dsrReports.length > 0 ? dsrReports.flatMap(item => 
+    (item.photos || []).map(p => ({
+      title: item.work_done.substring(0, 45) + (item.work_done.length > 45 ? '...' : ''),
+      date: formatDate(item.report_date),
+      img: p.file_url.startsWith('http') || p.file_url.startsWith('/') ? p.file_url : `/${p.file_url}`
+    }))
+  ).slice(0, 4) : [
+    { title: "Slab reinforcement check", date: "TODAY", img: "/photos/slab_reinforcement.png" },
+    { title: "Foundation concrete pour", date: "29 MAR 2026", img: "/photos/foundation.png" },
+    { title: "Brickwork progress - L1", date: "30 MAR 2026", img: "/photos/masonry.png" },
+  ];
+
   return (
     <>
       <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Dashboard"]} />
@@ -176,66 +298,15 @@ const ClientOverviewPage = () => {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
           <div>
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-2">PROJECT COMMAND CENTER</p>
-            <h2 className="text-3xl font-bold text-slate-800 tracking-tighter">Skyline Tower Project</h2>
+            <h2 className="text-3xl font-bold text-slate-800 tracking-tighter">SARA CITY</h2>
             <div className="flex items-center gap-2 mt-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">PROJECT STATUS: HEALTHY</p>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">PROJECT STATUS: {isLoading ? "..." : (stats?.status === "PLANNED" ? "PLANNED" : "HEALTHY")}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-100 rounded-2xl shadow-sm">
             <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Global Status: <span className="text-slate-800">Planned</span></p>
-          </div>
-        </div>
-
-        {/* Project Overview Section */}
-        <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm mb-12 relative overflow-hidden">
-          {latestDrawing && (
-            <div className="absolute top-0 right-0 p-8 flex flex-col items-end">
-              <div className="flex items-center gap-3 px-4 py-2 bg-blue-50 rounded-xl border border-blue-100 shadow-sm">
-                <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                <p className="text-[10px] font-black text-blue-700 uppercase tracking-tighter">{latestDrawing.drawing_name} (v{latestDrawing.version})</p>
-              </div>
-            </div>
-          )}
-          <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-50">
-            <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.3em]">Project Overview</h3>
-            <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[9px] font-black uppercase tracking-widest rounded-full border border-emerald-100">On Track</span>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-y-8 gap-x-12">
-            <div>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Project Name</p>
-              <p className="text-xs font-bold text-slate-800">Skyline Tower - Phase 3 Extension</p>
-            </div>
-            <div>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Location</p>
-              <p className="text-xs font-bold text-slate-800">Worli, Mumbai South Central</p>
-            </div>
-            <div>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Project Type</p>
-              <p className="text-xs font-bold text-slate-800">Residential High-Rise (A+ Category)</p>
-            </div>
-            <div>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Start Date / End Date</p>
-              <p className="text-xs font-bold text-slate-800">Oct 15, 2025 / Sept 30, 2026</p>
-            </div>
-            <div>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Project Manager</p>
-              <p className="text-xs font-bold text-slate-800">Rajesh Kumar (PMP Certified)</p>
-            </div>
-            <div>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Site Engineer</p>
-              <p className="text-xs font-bold text-slate-800">Amit Sharma (M.Tech Structural)</p>
-            </div>
-            <div>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Contractor Name</p>
-              <p className="text-xs font-bold text-slate-800">Precision Buildcon Pvt Ltd</p>
-            </div>
-            <div>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Total Budget</p>
-              <p className="text-xs font-bold text-slate-800">₹22,20,00,000.00 (Incl. GST)</p>
-            </div>
+            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Global Status: <span className="text-slate-800 capitalize">{isLoading ? "..." : (stats?.status?.toLowerCase() ?? "Planned")}</span></p>
           </div>
         </div>
 
@@ -272,12 +343,12 @@ const ClientOverviewPage = () => {
                     <circle 
                       cx="96" cy="96" r="88" fill="transparent" stroke="#2563eb" strokeWidth="12" 
                       strokeDasharray={2 * Math.PI * 88} 
-                      strokeDashoffset={2 * Math.PI * 88 * (1 - 0.68)}
+                      strokeDashoffset={2 * Math.PI * 88 * (1 - (stats?.progress_percent ?? 0) / 100)}
                       strokeLinecap="round"
                     />
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                    <span className="text-4xl font-black text-slate-800 tracking-tight">68%</span>
+                    <span className="text-4xl font-black text-slate-800 tracking-tight">{isLoading ? "..." : `${stats?.progress_percent ?? 0}%`}</span>
                     <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">PROJECT PROGRESS</span>
                   </div>
                </div>
@@ -314,7 +385,7 @@ const ClientOverviewPage = () => {
                
                <div className="h-[300px] w-full">
                  <ResponsiveContainer width="100%" height="100%">
-                   <BarChart data={auditData} barGap={12}>
+                   <BarChart data={dynamicAuditData} barGap={12}>
                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} dy={10} />
                      <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} tickFormatter={(v) => `${v}Cr`} />
@@ -324,7 +395,7 @@ const ClientOverviewPage = () => {
                       />
                      <Bar dataKey="projected" fill="#F1F5F9" radius={[6, 6, 0, 0]} barSize={40} />
                      <Bar dataKey="actual" radius={[6, 6, 0, 0]} barSize={40}>
-                       {auditData.map((entry, index) => (
+                       {dynamicAuditData.map((entry, index) => (
                          <Cell key={`cell-${index}`} fill={entry.alert ? '#ef4444' : '#2563eb'} />
                        ))}
                      </Bar>
@@ -376,7 +447,7 @@ const ClientOverviewPage = () => {
                <h3 className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-8">LIVE EXECUTION FEED</h3>
                <div className="space-y-8 relative">
                  <div className="absolute left-[13px] top-2 bottom-2 w-px bg-slate-100" />
-                 {executionFeed.map((item, i) => (
+                 {dynamicExecutionFeed.map((item, i) => (
                   <div key={i} className="flex gap-4 group hover:translate-x-1 transition-transform cursor-pointer">
                     <div className={`w-1 h-10 rounded-full shrink-0 ${item.status === 'done' ? 'bg-emerald-500' : 'bg-slate-200'}`} />
                     <div className="flex-1 min-w-0">
@@ -430,7 +501,7 @@ const ClientOverviewPage = () => {
                  <Link to="/client/site-updates/photos" className="text-[9px] font-bold text-blue-600 uppercase tracking-widest border-b border-blue-600 pb-0.5 hover:text-blue-700 hover:border-blue-700 transition-colors">EXPLORE FULL GALLERY</Link>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                 {siteEvidence.map((item, i) => (
+                 {dynamicSiteEvidence.map((item, i) => (
                    <div key={i} className="group cursor-pointer">
                       <div className="aspect-[4/3] rounded-2xl overflow-hidden mb-3 bg-slate-200 border border-slate-100 shadow-sm relative">
                          <img src={item.img} alt={item.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />

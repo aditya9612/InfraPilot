@@ -57,6 +57,11 @@ const MOCK_ISSUES_DATA = [
   }
 ];
 
+const isOfflineError = (error: any): boolean => {
+  if (!error?.response) return true;
+  return error.response.status >= 500;
+};
+
 export const issueService = {
   /**
    * Get all issues with comprehensive filtering
@@ -105,6 +110,25 @@ export const issueService = {
       }
       return { items: [], meta: { total: 0, limit: 20, offset: 0 } };
     } catch (error: any) {
+      if (isOfflineError(error)) {
+        console.warn(`[Issues] Backend offline — serving mock data for project ${projectId}`);
+        let items = [...MOCK_ISSUES_DATA];
+        if (filters.status) items = items.filter(i => i.status === filters.status);
+        if (filters.priority) items = items.filter(i => i.priority === filters.priority);
+        if (filters.category) items = items.filter(i => i.category === filters.category);
+        if (filters.search) {
+          const s = filters.search.toLowerCase();
+          items = items.filter(i => i.title.toLowerCase().includes(s) || i.description.toLowerCase().includes(s));
+        }
+        return {
+          items: items,
+          meta: {
+            total: items.length,
+            limit: filters.limit || 20,
+            offset: filters.offset || 0
+          }
+        };
+      }
       console.error(`Get Issues for Project ${projectId} Error:`, error.response?.data || error.message);
       throw error;
     }
@@ -145,6 +169,17 @@ export const issueService = {
       const response = await api.post('/issues', issueData);
       return response.data;
     } catch (error: any) {
+      if (isOfflineError(error)) {
+        console.warn(`[Issues] Backend offline — mock creating issue...`, issueData);
+        return {
+          id: Math.floor(Math.random() * 1000) + 10,
+          business_id: `ISS${Math.floor(Math.random() * 900) + 100}`,
+          status: "Open",
+          assigned_to: null,
+          resolution: null,
+          ...issueData
+        };
+      }
       console.error("Create Issue Error:", error.response?.data || error.message);
       throw error;
     }

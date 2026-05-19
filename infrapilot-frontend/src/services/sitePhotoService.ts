@@ -38,9 +38,9 @@ export const sitePhotoService = {
             if (params?.start_date) queryParams.start_date = params.start_date;
             if (params?.end_date) queryParams.end_date = params.end_date;
 
-            console.log(`GET /api/v1/site-photos - Params:`, queryParams);
+            console.log(`GET /api/v1/site-photos/upload - Params:`, queryParams);
             
-            const response = await api.get("/site-photos", { 
+            const response = await api.get("/site-photos/upload", { 
                 params: queryParams 
             });
             

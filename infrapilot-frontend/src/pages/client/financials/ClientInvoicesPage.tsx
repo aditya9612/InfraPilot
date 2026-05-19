@@ -21,10 +21,16 @@ const ClientInvoicesPage = () => {
 
   const fetchInvoices = async () => {
     setLoading(true);
-    setTimeout(() => {
-      setInvoices(MOCK_INVOICES);
+    setError(null);
+    try {
+      const data = await financeService.getInvoices();
+      setInvoices(data || []);
+    } catch (err: any) {
+      console.error("Failed to load invoices via API:", err);
+      setError("Failed to load invoices. Please try again.");
+    } finally {
       setLoading(false);
-    }, 800);
+    }
   };
 
   const handleDownloadPdf = async (id: number) => {

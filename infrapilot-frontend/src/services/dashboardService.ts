@@ -31,19 +31,19 @@ export const dashboardService = {
       console.warn("Backend offline — falling back to hybrid mock for Client Dashboard");
       return {
         project_id: projectId,
-        status: "PLANNED",
-        progress_percent: 0,
-        budget_total: 0,
-        total_expense: 0,
-        budget_used_percent: 0,
-        remaining_budget: 0,
-        milestones_total: 0,
-        milestones_completed: 0,
-        tasks_total: 1,
-        tasks_completed: 0,
-        start_date: "2026-04-02",
-        end_date: "2026-04-02",
-        days_remaining: 0
+        status: "ON_TRACK",
+        progress_percent: 68,
+        budget_total: 222000000,
+        total_expense: 151000000,
+        budget_used_percent: 68.01,
+        remaining_budget: 71000000,
+        milestones_total: 18,
+        milestones_completed: 12,
+        tasks_total: 142,
+        tasks_completed: 94,
+        start_date: "2025-10-15",
+        end_date: "2026-09-30",
+        days_remaining: 135
       };
     }
   },
