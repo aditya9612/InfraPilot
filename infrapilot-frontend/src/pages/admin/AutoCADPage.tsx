@@ -144,20 +144,28 @@ export default function AutoCADPage() {
 
   // CAD Logs & Visualizations
   const [cadLogs, setCadLogs] = useState<any[]>([]);
-  const [visualizations, setVisualizations] = useState<any[]>([
-    // Demo entry to show style
-    {
-      id: "demo-1",
-      title: "Initial Site Survey",
-      url: "https://images.unsplash.com/photo-1541888946425-d81bb19480c5?auto=format&fit=crop&q=80&w=800",
-      date: new Date(Date.now() - 86400000 * 2).toISOString(),
-      points: 821
-    }
-  ]);
+  const [visualizations, setVisualizations] = useState<any[]>([]);
 
   useEffect(() => {
     api.get("/cad/logs").then((r) => setCadLogs(r.data)).catch(() => { });
+
+    // Load persisted visualizations
+    const saved = localStorage.getItem("infrapilot_cad_visualizations");
+    if (saved) {
+      try {
+        setVisualizations(JSON.parse(saved));
+      } catch (e) {
+        console.error("Failed to parse saved visualizations", e);
+      }
+    }
   }, []);
+
+  // Persist visualizations whenever they change
+  useEffect(() => {
+    if (visualizations.length > 0) {
+      localStorage.setItem("infrapilot_cad_visualizations", JSON.stringify(visualizations));
+    }
+  }, [visualizations]);
 
   // ── Upload handlers ──────────────────────────────────────────────────────
   const handleCSVReady = (file: File, content: string) => {

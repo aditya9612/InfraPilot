@@ -26,6 +26,7 @@ const EngineersPage = () => {
   const [isDailyLogsOpen, setIsDailyLogsOpen] = useState(false);
   const [dsrLogs, setDsrLogs] = useState<DsrItem[]>([]);
   const [isDsrLoading, setIsDsrLoading] = useState(false);
+  const [allProjects, setAllProjects] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchEngineers = async () => {
@@ -55,6 +56,7 @@ const EngineersPage = () => {
           experience: "5 Years", // Mock
           status: u.is_active ? "On Site" : "Leave",
           specialization: u.designation || "Civil Engineer",
+          joiningDate: u.joining_date,
           lastDsr: new Date().toISOString(),
           weather: "Sunny, 32°C",
           laborCount: 0,
@@ -70,7 +72,18 @@ const EngineersPage = () => {
       }
     };
 
+    const fetchProjects = async () => {
+      try {
+        const res = await projectService.getProjects(100, 0);
+        const projectList = Array.isArray(res) ? res : (res.items || res.data || []);
+        setAllProjects(projectList);
+      } catch (error) {
+        console.error("Failed to fetch projects:", error);
+      }
+    };
+
     fetchEngineers();
+    fetchProjects();
   }, []);
 
   const fetchDsrLogs = useCallback(async () => {
@@ -127,14 +140,15 @@ const EngineersPage = () => {
     try {
       // Map modal fields to backend user schema
       const payload: any = {
-        full_name: data.name,
+        full_name: data.full_name,
         email: data.email,
-        mobile_number: data.mobile,
+        mobile_number: data.mobile_number,
         designation: data.specialization,
-        address: data.projects,
-        joining_date: data.joiningDate || null,
+        address: data.address,
+        joining_date: data.joining_date || null,
         role: "SiteEngineer",
-        is_active: data.status === "On Site",
+        is_active: data.is_active,
+        profile_image: data.profile_image,
       };
 
       if (editingEngineer) {
@@ -164,6 +178,7 @@ const EngineersPage = () => {
         experience: "5 Years",
         status: u.is_active ? "On Site" : "Leave",
         specialization: u.designation || "Civil Engineer",
+        joiningDate: u.joining_date,
         lastDsr: new Date().toISOString(),
         weather: "Sunny, 32°C",
         laborCount: 0,
@@ -456,6 +471,7 @@ const EngineersPage = () => {
         }}
         onSubmit={handleCreateOrUpdate}
         initialData={editingEngineer}
+        projectsList={allProjects}
       />
 
       <ConfirmModal

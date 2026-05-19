@@ -8,7 +8,6 @@ export default function OwnerLedger() {
   const [selectedOwnerId, setSelectedOwnerId] = useState<string>("");
   const [ledgerData, setLedgerData] = useState<OwnerLedgerResponse | null>(null);
   const [loading, setLoading] = useState(false);
-  const [selectedTxns, setSelectedTxns] = useState<Set<number>>(new Set());
 
   // Fetch owners to populate dropdown
   useEffect(() => {
@@ -16,11 +15,11 @@ export default function OwnerLedger() {
       try {
         const data = await ownerService.getOwners();
         setOwners(data);
-        
+
         // Support direct navigation via query param
         const urlParams = new URLSearchParams(window.location.search);
         const ownerIdParam = urlParams.get("owner_id");
-        
+
         if (ownerIdParam && data.find(o => o.id === ownerIdParam)) {
           setSelectedOwnerId(ownerIdParam);
         } else if (data.length > 0) {
@@ -37,13 +36,12 @@ export default function OwnerLedger() {
   // Fetch ledger data when selected owner changes
   useEffect(() => {
     if (!selectedOwnerId) return;
-    
+
     const fetchLedger = async () => {
       setLoading(true);
       try {
         const data = await ownerService.getOwnerLedger(selectedOwnerId);
         setLedgerData(data);
-        setSelectedTxns(new Set());
       } catch (error) {
         console.error("Failed to fetch ledger", error);
         toast.error("Failed to load ledger data");
@@ -54,27 +52,9 @@ export default function OwnerLedger() {
     fetchLedger();
   }, [selectedOwnerId]);
 
-  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.checked && ledgerData) {
-      setSelectedTxns(new Set(ledgerData.transactions.map((t) => t.id)));
-    } else {
-      setSelectedTxns(new Set());
-    }
-  };
-
-  const handleSelectOne = (id: number) => {
-    const newSet = new Set(selectedTxns);
-    if (newSet.has(id)) {
-      newSet.delete(id);
-    } else {
-      newSet.add(id);
-    }
-    setSelectedTxns(newSet);
-  };
-
   const handleExport = async (type: "PDF" | "Excel") => {
     if (!selectedOwnerId) return;
-    
+
     setLoading(true);
     try {
       if (type === "PDF") {
@@ -102,7 +82,7 @@ export default function OwnerLedger() {
               Live Financial Records
             </p>
           </div>
-          
+
           <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-200">
             <label htmlFor="ownerSelect" className="text-[10px] font-black text-slate-400 uppercase tracking-tighter ml-2">Select Account:</label>
             <select
@@ -159,28 +139,16 @@ export default function OwnerLedger() {
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-slate-50/80 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest sticky top-0 backdrop-blur-md z-10">
-              <th className="p-4 w-12 text-center">
-                <input
-                  type="checkbox"
-                  className="rounded-md text-primary focus:ring-primary border-slate-300 w-4 h-4"
-                  checked={!!(
-                    ledgerData?.transactions &&
-                    selectedTxns.size === ledgerData.transactions.length &&
-                    ledgerData.transactions.length > 0
-                  )}
-                  onChange={handleSelectAll}
-                />
-              </th>
-              <th className="p-4">Particulars</th>
+              <th className="p-4 pl-6">Particulars</th>
               <th className="p-4">Reference</th>
               <th className="p-4">Type</th>
-              <th className="p-4 text-right">Amount (₹)</th>
+              <th className="p-4 pr-6 text-right">Amount (₹)</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100/50">
             {loading ? (
               <tr>
-                <td colSpan={5} className="p-16 text-center">
+                <td colSpan={4} className="p-16 text-center">
                   <div className="flex flex-col items-center justify-center gap-4">
                     <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
                     <p className="text-slate-400 text-xs font-black uppercase tracking-widest">Loading Records...</p>
@@ -189,22 +157,14 @@ export default function OwnerLedger() {
               </tr>
             ) : !ledgerData || ledgerData.transactions.length === 0 ? (
               <tr>
-                <td colSpan={5} className="p-16 text-center text-slate-400 italic text-sm font-medium">
+                <td colSpan={4} className="p-16 text-center text-slate-400 italic text-sm font-medium">
                   Zero transactions found for the specified account.
                 </td>
               </tr>
             ) : (
               ledgerData.transactions.map((txn) => (
                 <tr key={txn.id} className="hover:bg-slate-50/50 transition-all group cursor-default">
-                  <td className="p-4 text-center">
-                    <input
-                      type="checkbox"
-                      className="rounded-md text-primary focus:ring-primary border-slate-300 w-4 h-4 cursor-pointer"
-                      checked={selectedTxns.has(txn.id)}
-                      onChange={() => handleSelectOne(txn.id)}
-                    />
-                  </td>
-                  <td className="p-4 text-sm font-bold text-slate-700">
+                  <td className="p-4 pl-6 text-sm font-bold text-slate-700">
                     {txn.description}
                   </td>
                   <td className="p-4 text-sm">
@@ -214,17 +174,16 @@ export default function OwnerLedger() {
                   </td>
                   <td className="p-4">
                     <span
-                      className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
-                        txn.type.toLowerCase() === "credit"
+                      className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${txn.type.toLowerCase() === "credit"
                           ? "bg-emerald-50 text-emerald-700 border-emerald-100"
                           : "bg-rose-50 text-rose-700 border-rose-100"
-                      }`}
+                        }`}
                     >
                       {txn.type}
                     </span>
                   </td>
                   <td
-                    className={`p-4 text-sm font-black text-right ${txn.type.toLowerCase() === "credit" ? "text-emerald-700" : "text-rose-700"}`}
+                    className={`p-4 pr-6 text-sm font-black text-right ${txn.type.toLowerCase() === "credit" ? "text-emerald-700" : "text-rose-700"}`}
                   >
                     {txn.type.toLowerCase() === "credit" ? "▲" : "▼"} ₹{txn.amount.toLocaleString('en-IN')}
                   </td>
