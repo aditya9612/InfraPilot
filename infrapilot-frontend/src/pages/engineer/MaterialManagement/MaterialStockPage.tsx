@@ -17,7 +17,8 @@ import {
     ChevronLeft,
     ChevronRight} from "lucide-react";
 import { materialService, type InventoryItem, type MaterialLog, type MaterialReport } from "../../../services/materialService";
-import api from "../../../services/api";
+
+
 
 const MaterialStockPage = () => {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -37,7 +38,6 @@ const MaterialStockPage = () => {
 
   // Interactive StatCard Filter
   const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Critical" | "HighValue" | "InStock">("All");
-
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -49,25 +49,27 @@ const MaterialStockPage = () => {
         console.warn("Failed to fetch real materials", e);
       }
 
-      // 2. Fetch inventory list from API
-      let invList: any[] = [];
+      // 2. Fetch all logs for the project to dynamically calculate values
+      let allLogs: any[] = [];
       try {
-        invList = await materialService.getInventory(projectId);
+        allLogs = await materialService.getLogs({ project_id: projectId });
       } catch (e) {
-        console.warn("Failed to fetch inventory", e);
+        console.warn("Failed to fetch logs", e);
       }
 
-      // 3. Fetch material report list from API
-      let repList: any[] = [];
-      try {
-        repList = await materialService.getMaterialReport(projectId);
-      } catch (e) {
-        console.warn("Failed to fetch material report", e);
-      }
-
-      // 4. Merge Inventory items dynamically
       const mergedInv = (realList || []).map(m => {
-        const invItem = (invList || []).find(i => i.material_id === m.id || i.id === m.id || i.material_name.toLowerCase() === m.material_name.toLowerCase());
+        const matLogs = (allLogs || []).filter(l => l.material_id === m.id);
+        const purchaseLogs = matLogs.filter(l => l.type === "PURCHASE");
+        const usageLogs = matLogs.filter(l => l.type === "USAGE" || l.type === "CONSUMPTION");
+
+        const totalPurchased = (m.quantity_purchased ?? 0) + purchaseLogs.reduce((sum, l) => sum + (l.quantity ?? 0), 0);
+        const totalUsed = (m.quantity_used ?? 0) + usageLogs.reduce((sum, l) => sum + (l.quantity ?? 0), 0);
+        const remainingStock = totalPurchased - totalUsed;
+
+        const totalCost = (m.total_amount ?? 0) + purchaseLogs.reduce((sum, l) => sum + (l.total_amount ?? 0), 0);
+        const paymentGiven = (m.payment_given ?? 0) + purchaseLogs.reduce((sum, l) => sum + (l.amount_paid ?? 0), 0);
+        const paymentPending = Math.max(0, totalCost - paymentGiven);
+
         return {
           ...m,
           id: m.id,
@@ -75,28 +77,28 @@ const MaterialStockPage = () => {
           material_name: m.material_name,
           category: m.category,
           unit: m.unit,
-          remaining_stock: invItem?.remaining_stock ?? m.remaining_stock ?? 0,
-          avg_rate: invItem?.avg_rate ?? m.purchase_rate ?? 0,
-          total_value: invItem?.total_value ?? m.total_amount ?? 0
+          remaining_stock: remainingStock,
+          avg_rate: m.purchase_rate ?? 0,
+          total_value: totalCost,
+          quantity_purchased: totalPurchased,
+          quantity_used: totalUsed,
+          payment_pending: paymentPending
         };
       });
 
-      // 5. Merge Report items dynamically
-      const mergedRep = (realList || []).map(m => {
-        const repItem = (repList || []).find(r => r.material_id === m.id || r.id === m.id || r.material_name.toLowerCase() === m.material_name.toLowerCase());
+      const mergedRep = mergedInv.map(m => {
         return {
           material_id: m.id,
           material_name: m.material_name,
           category: m.category,
           unit: m.unit,
-          total_purchased: repItem?.total_purchased ?? m.quantity_purchased ?? 0,
-          total_used: repItem?.total_used ?? m.quantity_used ?? 0,
-          remaining_stock: repItem?.remaining_stock ?? m.remaining_stock ?? 0,
-          total_cost: repItem?.total_cost ?? m.total_amount ?? 0,
-          payment_pending: repItem?.payment_pending ?? m.payment_pending ?? 0
+          total_purchased: m.quantity_purchased,
+          total_used: m.quantity_used,
+          remaining_stock: m.remaining_stock,
+          total_cost: m.total_value,
+          payment_pending: m.payment_pending
         };
       });
-
       // Fallback: If no materials registered yet, populate Ambuja Cement default
       if (mergedInv.length === 0) {
         mergedInv.push({
@@ -236,358 +238,12 @@ const MaterialStockPage = () => {
     setCurrentPageLogs(1);
   }, [logFilter]);
 
-  const handleExportPdf = () => {
+  const handleExportPdf = async () => {
     setIsExporting(true);
     const loadToast = toast.loading("Generating Strategic PDF report...");
-    
-    // Trigger background API call to show in browser's Network Tab
     try {
-      const listData = report.length > 0 ? report : [
-        {
-          material_id: 1,
-          material_name: "Ambuja Cement",
-          total_purchased: 270,
-          total_used: 269,
-          remaining_stock: 1,
-          total_cost: 355,
-          payment_pending: 3850
-        }
-      ];
-      api.get("/materials/reports/pdf", {
-        params: { project_id: projectId },
-        responseType: "blob",
-        headers: {
-          "X-Report-Data": JSON.stringify(listData)
-        }
-      }).catch(err => console.warn("Background PDF API request triggered:", err));
-    } catch (e) {
-      console.warn("Background API fail:", e);
-    }
-
-    try {
-      const printWindow = window.open("", "_blank");
-      if (!printWindow) {
-        toast.error("Popup blocker blocked print preview. Please allow popups.", { id: loadToast });
-        return;
-      }
-
-      // If report array is empty, fallback to the default mock report item
-      const listData = report.length > 0 ? report : [
-        {
-          material_id: 1,
-          material_name: "Ambuja Cement",
-          total_purchased: 270,
-          total_used: 269,
-          remaining_stock: 1,
-          total_cost: 355,
-          payment_pending: 3850
-        }
-      ];
-
-      const tabTitle = "Strategic Financial Matrix";
-      const tableHeadersHtml = `
-        <th>Strategic Resource</th>
-        <th class="num">Procured (Qty)</th>
-        <th class="num">Utilized (Qty)</th>
-        <th class="num">Residual (Stock)</th>
-        <th class="num">Total Cost</th>
-        <th class="num text-rose-500">Pending Pay</th>
-      `;
-
-      const tableRowsHtml = listData.map((rep) => `
-        <tr>
-          <td><span class="name">${rep.material_name}</span></td>
-          <td class="num">${rep.total_purchased.toLocaleString()}</td>
-          <td class="num">${rep.total_used.toLocaleString()}</td>
-          <td class="num font-bold ${rep.remaining_stock < 10 ? 'text-rose-500' : 'text-emerald-600'}">
-            ${rep.remaining_stock.toLocaleString()}
-          </td>
-          <td class="num">₹${(rep.total_cost || 0).toLocaleString()}</td>
-          <td class="num text-rose-500 font-bold">₹${(rep.payment_pending || 0).toLocaleString()}</td>
-        </tr>
-      `).join("");
-
-      printWindow.document.write(`
-        <html>
-        <head>
-            <title>${tabTitle} - InfraPilot</title>
-            <style>
-                @page {
-                    size: A4 portrait;
-                    margin: 20mm 15mm 20mm 15mm;
-                }
-                body {
-                    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-                    color: #1e293b;
-                    background: #fff;
-                    margin: 0;
-                    padding: 0;
-                    font-size: 10pt;
-                    line-height: 1.5;
-                }
-                .document-container {
-                    width: 100%;
-                    max-width: 800px;
-                    margin: 0 auto;
-                }
-                .header-table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    margin-bottom: 20px;
-                    border: none;
-                }
-                .header-table td {
-                    border: none;
-                    padding: 0;
-                    vertical-align: middle;
-                }
-                .logo-text {
-                    font-size: 18pt;
-                    font-weight: 800;
-                    color: #2563eb;
-                    letter-spacing: 0.5px;
-                }
-                .logo-subtext {
-                    font-size: 8pt;
-                    color: #64748b;
-                    font-weight: bold;
-                    text-transform: uppercase;
-                    letter-spacing: 1.5px;
-                    margin-top: 2px;
-                }
-                .doc-title {
-                    font-size: 14pt;
-                    font-weight: 800;
-                    color: #0f172a;
-                    text-align: right;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                }
-                .doc-meta {
-                    font-size: 8.5pt;
-                    color: #64748b;
-                    text-align: right;
-                    margin-top: 4px;
-                    font-weight: 600;
-                }
-                .divider {
-                    height: 2px;
-                    background-color: #3b82f6;
-                    margin-bottom: 25px;
-                }
-                
-                /* Info Grid */
-                .info-grid {
-                    width: 100%;
-                    margin-bottom: 30px;
-                    border-collapse: collapse;
-                    background: #f8fafc;
-                    border-radius: 12px;
-                    border: 1px solid #e2e8f0;
-                }
-                .info-grid td {
-                    border: none;
-                    padding: 12px 20px;
-                    font-size: 9.5pt;
-                }
-                .info-label {
-                    color: #64748b;
-                    font-weight: 700;
-                    width: 120px;
-                    text-transform: uppercase;
-                    font-size: 8pt;
-                    letter-spacing: 0.5px;
-                }
-                .info-value {
-                    color: #0f172a;
-                    font-weight: 700;
-                }
-
-                /* Data Table */
-                table.data-table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    margin-top: 10px;
-                    margin-bottom: 40px;
-                }
-                table.data-table th {
-                    background-color: #f8fafc;
-                    color: #94a3b8;
-                    font-size: 8.5pt;
-                    font-weight: 700;
-                    text-transform: uppercase;
-                    letter-spacing: 0.08em;
-                    padding: 14px 18px;
-                    text-align: center;
-                    border-top: 1px solid #e2e8f0;
-                    border-bottom: 2px solid #e2e8f0;
-                }
-                table.data-table th:first-child {
-                    text-align: left;
-                }
-                table.data-table td {
-                    padding: 14px 18px;
-                    font-size: 10pt;
-                    border-bottom: 1px solid #f1f5f9;
-                    color: #334155;
-                    vertical-align: middle;
-                    text-align: center;
-                }
-                table.data-table td:first-child {
-                    text-align: left;
-                }
-                .num {
-                    font-variant-numeric: tabular-nums;
-                    font-weight: 700;
-                    color: #334155;
-                }
-                .text-rose-500 {
-                    color: #ef4444;
-                }
-                .text-emerald-600 {
-                    color: #059669;
-                }
-                .font-bold {
-                    font-weight: 700;
-                }
-                .name {
-                    font-size: 10pt;
-                    font-weight: 700;
-                    color: #0f172a;
-                }
-
-                /* Signatures */
-                .signature-block {
-                    width: 100%;
-                    margin-top: 50px;
-                    margin-bottom: 30px;
-                    border-collapse: collapse;
-                }
-                .signature-block td {
-                    border: none;
-                    padding: 0;
-                    width: 50%;
-                }
-                .sig-line {
-                    width: 180px;
-                    border-bottom: 1.5px solid #cbd5e1;
-                    margin-bottom: 6px;
-                }
-                .sig-label {
-                    font-size: 8pt;
-                    color: #64748b;
-                    font-weight: 700;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                }
-
-                /* Formal Footer */
-                .footer {
-                    margin-top: 40px;
-                    border-top: 1px solid #e2e8f0;
-                    padding-top: 15px;
-                    font-size: 8pt;
-                    color: #94a3b8;
-                    text-align: center;
-                    font-weight: 500;
-                }
-                
-                @media print {
-                    body {
-                        margin: 0;
-                    }
-                    th {
-                        background-color: #f8fafc !important;
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
-                    }
-                    .info-grid {
-                        background: #f8fafc !important;
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
-                    }
-                }
-            </style>
-        </head>
-        <body>
-            <div class="document-container">
-                <!-- Top Header -->
-                <table class="header-table">
-                    <tr>
-                        <td>
-                            <div class="logo-text">INFRAPILOT</div>
-                            <div class="logo-subtext">Operational Intelligence</div>
-                        </td>
-                        <td>
-                            <div class="doc-title">${tabTitle}</div>
-                            <div class="doc-meta">Date: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
-                        </td>
-                    </tr>
-                </table>
-
-                <div class="divider"></div>
-
-                <!-- Metadata Card -->
-                <table class="info-grid">
-                    <tr>
-                        <td class="info-label">Project ID</td>
-                        <td class="info-value">${projectId}</td>
-                        <td class="info-label" style="text-align: right; padding-right: 10px;">Registry Mode</td>
-                        <td class="info-value" style="width: 160px; text-align: right;">MATERIAL STOCK SUMMARY</td>
-                    </tr>
-                    <tr>
-                        <td class="info-label">Operator</td>
-                        <td class="info-value">Site Engineer Terminal</td>
-                        <td class="info-label" style="text-align: right; padding-right: 10px;">Classification</td>
-                        <td class="info-value" style="text-align: right;">Official Ledger</td>
-                    </tr>
-                </table>
-
-                <!-- Data Table -->
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            ${tableHeadersHtml}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${tableRowsHtml}
-                    </tbody>
-                </table>
-
-                <!-- Signature Elements -->
-                <table class="signature-block">
-                    <tr>
-                        <td>
-                            <div class="sig-line"></div>
-                            <div class="sig-label">Prepared By (Site Engineer)</div>
-                        </td>
-                        <td style="text-align: right;">
-                            <div class="sig-line" style="margin-left: auto;"></div>
-                            <div class="sig-label">Authorized Signature</div>
-                        </td>
-                    </tr>
-                </table>
-
-                <!-- Footer Note -->
-                <div class="footer">
-                    This is an official computer-generated transaction record from the InfraPilot ERP Platform. Page 1 of 1.
-                </div>
-            </div>
-
-            <script>
-                window.onload = function() {
-                    window.print();
-                    window.onafterprint = function() {
-                        window.close();
-                    };
-                };
-            </script>
-        </body>
-        </html>
-      `);
-      printWindow.document.close();
-      toast.success("PDF Report Exported!", { id: loadToast });
+      await materialService.exportPdf();
+      toast.success("Successful (Status 200) - PDF Exported!", { id: loadToast });
     } catch (error) {
       console.error("PDF Export Error:", error);
       toast.error("Generation Failed", { id: loadToast });
@@ -596,88 +252,13 @@ const MaterialStockPage = () => {
     }
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     setIsExporting(true);
     const loadToast = toast.loading("Processing Strategic Excel ledger...");
     
-    // Trigger background API call to show in browser's Network Tab
     try {
-      const listData = report.length > 0 ? report : [
-        {
-          material_id: 1,
-          material_name: "Ambuja Cement",
-          total_purchased: 270,
-          total_used: 269,
-          remaining_stock: 1,
-          total_cost: 355,
-          payment_pending: 3850
-        }
-      ];
-      api.get("/materials/reports/excel", {
-        params: { project_id: projectId },
-        responseType: "blob",
-        headers: {
-          "X-Report-Data": JSON.stringify(listData)
-        }
-      }).catch(err => console.warn("Background Excel API request triggered:", err));
-    } catch (e) {
-      console.warn("Background API fail:", e);
-    }
-
-    try {
-      // If report array is empty, fallback to the default mock report item
-      const listData = report.length > 0 ? report : [
-        {
-          material_id: 1,
-          material_name: "Ambuja Cement",
-          total_purchased: 270,
-          total_used: 269,
-          remaining_stock: 1,
-          total_cost: 355,
-          payment_pending: 3850
-        }
-      ];
-
-      const headers = [
-        "Strategic Resource",
-        "Procured (Qty)",
-        "Utilized (Qty)",
-        "Residual (Stock)",
-        "Total Cost",
-        "Pending Payment"
-      ];
-
-      const escapeCsv = (str: string | number) => {
-        const valueStr = String(str);
-        if (valueStr.includes(",") || valueStr.includes("\"") || valueStr.includes("\n")) {
-          return `"${valueStr.replace(/"/g, '""')}"`;
-        }
-        return valueStr;
-      };
-
-      const rows = listData.map((rep) => {
-        return [
-          escapeCsv(rep.material_name),
-          escapeCsv(rep.total_purchased),
-          escapeCsv(rep.total_used),
-          escapeCsv(rep.remaining_stock),
-          escapeCsv(`₹${rep.total_cost || 0}`),
-          escapeCsv(`₹${rep.payment_pending || 0}`)
-        ].join(",");
-      });
-
-      const csvContent = [headers.join(","), ...rows].join("\n");
-      const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Material_Stock_Summary_${new Date().toISOString().split("T")[0]}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      toast.success("Excel Ledger Exported!", { id: loadToast });
+      await materialService.exportExcel();
+      toast.success("Successful (Status 200) - Excel Exported!", { id: loadToast });
     } catch (error) {
       console.error("Export Failed:", error);
       toast.error("Export Failed", { id: loadToast });
@@ -992,11 +573,11 @@ const MaterialStockPage = () => {
                                     <ChevronLeft className="w-4 h-4" />
                                 </button>
                                 <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                                    Page {currentPageLogs} of {1 || 1}
+                                    Page {currentPageLogs} of {totalPagesLogs || 1}
                                 </div>
                                 <button
-                                    onClick={() => setCurrentPageLogs(prev => Math.min(prev + 1, 1 || 1))}
-                                    disabled={currentPageLogs >= 1 || 1 === 0}
+                                    onClick={() => setCurrentPageLogs(prev => Math.min(prev + 1, totalPagesLogs || 1))}
+                                    disabled={currentPageLogs >= totalPagesLogs || totalPagesLogs === 0}
                                     className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
                                     title="Next Page"
                                 >

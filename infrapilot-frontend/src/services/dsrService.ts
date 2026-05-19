@@ -26,28 +26,66 @@ export const dsrService = {
    * POST /api/v1/dsr
    */
   async createDsr(data: CreateDsrRequest): Promise<DsrItem> {
-    // If we have an image, we must use FormData
-    if (data.dsr_image instanceof File) {
-      const formData = new FormData();
-      Object.entries(data).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          if (key === "dsr_image" && value instanceof File) {
-            formData.append(key, value);
-          } else {
-            formData.append(key, String(value));
-          }
-        }
-      });
+    const { dsr_image, total_labour, skilled_labour, unskilled_labour, resolved_address, ...queryParams } = data;
 
-      const response = await api.post<DsrItem>("/dsr", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      return response.data;
+    // Build the query parameters for the POST request
+    const params: Record<string, any> = {};
+    Object.entries(queryParams).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        if (typeof value === "string" && value.trim() === "") {
+          return;
+        }
+        params[key] = value;
+      }
+    });
+
+    // Add labour fields to query params in case the backend accepts them in query parameters
+    if (total_labour !== undefined && total_labour !== null) params.total_labour = total_labour;
+    if (skilled_labour !== undefined && skilled_labour !== null) params.skilled_labour = skilled_labour;
+    if (unskilled_labour !== undefined && unskilled_labour !== null) params.unskilled_labour = unskilled_labour;
+
+    // Defensively ensure weather is a valid WeatherType enum value
+    if (params.weather && !["Sunny", "Rainy", "Cloudy", "Windy"].includes(params.weather)) {
+      params.weather = "Sunny";
     }
 
-    // Otherwise send as JSON to preserve types (like numbers for project_id, latitude, longitude)
-    const response = await api.post<DsrItem>("/dsr", data);
-    return response.data;
+    let createdDsr: DsrItem;
+
+    if (dsr_image instanceof File) {
+      const formData = new FormData();
+      formData.append("photos", dsr_image);
+
+      const response = await api.post<DsrItem>("/dsr", formData, {
+        params,
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      createdDsr = response.data;
+    } else {
+      const response = await api.post<DsrItem>("/dsr", null, {
+        params,
+      });
+      createdDsr = response.data;
+    }
+
+    // Since POST /dsr might not accept total_labour, skilled_labour, unskilled_labour in some backend schemas,
+    // we also call PUT /dsr/{id} to save these labour statistics right after creation if they are provided.
+    if (
+      (total_labour !== undefined && total_labour !== null) ||
+      (skilled_labour !== undefined && skilled_labour !== null) ||
+      (unskilled_labour !== undefined && unskilled_labour !== null)
+    ) {
+      try {
+        createdDsr = await this.updateDsr(createdDsr.id, {
+          total_labour,
+          skilled_labour,
+          unskilled_labour,
+        });
+      } catch (err) {
+        console.error("Failed to persist labour metrics during DSR creation:", err);
+      }
+    }
+
+    return createdDsr;
   },
 
   /**
@@ -84,12 +122,25 @@ export const dsrService = {
    * PUT /api/v1/dsr/{id}
    */
   async updateDsr(id: number, data: UpdateDsrRequest): Promise<DsrItem> {
-    // Force JSON for PUT requests as per backend requirements.
-    // We remove dsr_image from the payload because it's handled via a separate upload endpoint
-    // and its presence as a string/null can cause 422 errors in some backend schemas.
-    const { dsr_image, ...payload } = data;
+    const { dsr_image, resolved_address, ...payload } = data;
     
-    const response = await api.put<DsrItem>(`/dsr/${id}`, payload);
+    // We send payload in the body, but also copy fields to params just in case the backend reads them from query string
+    const params: Record<string, any> = {};
+    Object.entries(payload).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        if (typeof value === "string" && value.trim() === "") {
+          return;
+        }
+        params[key] = value;
+      }
+    });
+
+    // Defensively ensure weather is a valid WeatherType enum value
+    if (params.weather && !["Sunny", "Rainy", "Cloudy", "Windy"].includes(params.weather)) {
+      params.weather = "Sunny";
+    }
+
+    const response = await api.put<DsrItem>(`/dsr/${id}`, payload, { params });
     return response.data;
   },
 

@@ -68,6 +68,7 @@ const MaterialReceiptPage = () => {
 
   const [purchaseData, setPurchaseData] = useState({
     quantity: 0,
+    rate: 0,
     amount_paid: 0,
     issue_type: "SYSTEM"
   });
@@ -307,7 +308,7 @@ const MaterialReceiptPage = () => {
               onClick={() => {
                 if (materials.length > 0) {
                     setSelectedMaterial(materials[0]);
-                    setPurchaseData({ quantity: 0, amount_paid: 0, issue_type: "SYSTEM" });
+                    setPurchaseData({ quantity: 0, rate: materials[0].purchase_rate || 0, amount_paid: 0, issue_type: "SYSTEM" });
                     setIsPurchaseModalOpen(true);
                 } else {
                     toast.error("Please add a material first");
@@ -477,7 +478,7 @@ const MaterialReceiptPage = () => {
                           <button 
                             onClick={() => {
                                 setSelectedMaterial(m);
-                                setPurchaseData({ quantity: 0, amount_paid: 0, issue_type: "SYSTEM" });
+                                setPurchaseData({ quantity: 0, rate: m.purchase_rate || 0, amount_paid: 0, issue_type: "SYSTEM" });
                                 setIsPurchaseModalOpen(true);
                             }}
                             className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all font-inter"
@@ -520,11 +521,11 @@ const MaterialReceiptPage = () => {
                                     <ChevronLeft className="w-4 h-4" />
                                 </button>
                                 <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                                    Page {currentPage} of {1 || 1}
+                                    Page {currentPage} of {totalPages || 1}
                                 </div>
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, 1 || 1))}
-                                    disabled={currentPage >= 1 || 1 === 0}
+                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages || 1))}
+                                    disabled={currentPage >= totalPages || totalPages === 0}
                                     className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
                                     title="Next Page"
                                 >
@@ -789,13 +790,19 @@ const MaterialReceiptPage = () => {
                     <select
                         required
                         value={selectedMaterial?.id || ""}
-                        onChange={(e) => setSelectedMaterial(materials.find(m => m.id === Number(e.target.value)) || null)}
+                        onChange={(e) => {
+                            const newMaterial = materials.find(m => m.id === Number(e.target.value)) || null;
+                            setSelectedMaterial(newMaterial);
+                            if (newMaterial) {
+                                setPurchaseData(prev => ({ ...prev, rate: newMaterial.purchase_rate || 0 }));
+                            }
+                        }}
                         className={inputClasses}
                     >
                         {materials.map(m => <option key={m.id} value={m.id}>{m.material_name} ({m.material_code})</option>)}
                     </select>
                 </div>
-                <div className="grid grid-cols-2 gap-5 font-inter">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 font-inter">
                   <div className="font-inter">
                     <label className={labelClasses}>Quantity Target <span className="text-rose-500">*</span></label>
                     <input
@@ -805,6 +812,17 @@ const MaterialReceiptPage = () => {
                       onChange={(e) => setPurchaseData({ ...purchaseData, quantity: Number(e.target.value) })}
                       className={inputClasses}
                       placeholder="0"
+                    />
+                  </div>
+                  <div className="font-inter">
+                    <label className={labelClasses}>Procurement Rate <span className="text-rose-500">*</span></label>
+                    <input
+                      required
+                      type="number"
+                      value={purchaseData.rate}
+                      onChange={(e) => setPurchaseData({ ...purchaseData, rate: Number(e.target.value) })}
+                      className={inputClasses}
+                      placeholder="0.00"
                     />
                   </div>
                   <div className="font-inter">

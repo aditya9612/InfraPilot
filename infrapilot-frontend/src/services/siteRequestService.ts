@@ -60,7 +60,7 @@ export const siteRequestService = {
             console.log("FETCH_SITE_REQUESTS: Simulating Status Code 201 Success (Virtual Mode)");
         }
 
-        // Expanded Virtual Dataset representing multiple projects as requested
+        // Sync with exact user defined requisition array for project_id=1
         const virtualDataset: SiteRequestResponse[] = [
             {
                 id: 1,
@@ -74,41 +74,21 @@ export const siteRequestService = {
             },
             {
                 id: 2,
-                project_id: 10,
+                project_id: 1,
                 request_type: "Labour",
                 description: "Need 5 electricians for wiring work",
                 quantity: 5,
-                requested_by: 2,
+                requested_by: 1,
                 approved_by: null,
                 status: "Pending"
             },
             {
                 id: 3,
-                project_id: 15,
+                project_id: 1,
                 request_type: "Equipment",
                 description: "Need 1 tower crane for material lifting",
                 quantity: 1,
-                requested_by: 3,
-                approved_by: null,
-                status: "Pending"
-            },
-            {
-                id: 4,
-                project_id: 36,
-                request_type: "Material",
-                description: "Structural Steel for main framework",
-                quantity: 200,
                 requested_by: 1,
-                approved_by: 1,
-                status: "Approved"
-            },
-            {
-                id: 5,
-                project_id: 5,
-                request_type: "Material",
-                description: "River Sand for plastering works",
-                quantity: 50,
-                requested_by: 4,
                 approved_by: null,
                 status: "Pending"
             }

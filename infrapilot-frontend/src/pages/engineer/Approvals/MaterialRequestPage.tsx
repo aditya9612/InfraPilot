@@ -156,6 +156,9 @@ const MaterialRequestPage = () => {
             setRequestData(prev => prev.map(req => 
                 req.id === id ? { ...req, status: "Approved" as const } : req
             ));
+
+            // Refetch the list from GET API
+            await fetchRequests();
         } catch (error) {
             toast.error("Failed to approve requisition", { id: toastId });
         }
@@ -171,6 +174,9 @@ const MaterialRequestPage = () => {
             setRequestData(prev => prev.map(req => 
                 req.id === id ? { ...req, status: "Rejected" as const } : req
             ));
+
+            // Refetch the list from GET API
+            await fetchRequests();
         } catch (error) {
             toast.error("Failed to reject requisition", { id: toastId });
         }
@@ -434,11 +440,11 @@ const MaterialRequestPage = () => {
                                     <ChevronLeft className="w-4 h-4" />
                                 </button>
                                 <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                                    Page {currentPage} of {1 || 1}
+                                    Page {currentPage} of {totalPages}
                                 </div>
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, 1 || 1))}
-                                    disabled={currentPage >= 1 || 1 === 0}
+                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                    disabled={currentPage >= totalPages}
                                     className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
                                     title="Next Page"
                                 >

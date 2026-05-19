@@ -10,7 +10,12 @@ export const sitePhotoService = {
         if (path.startsWith('http') || path.startsWith('data:')) return path;
         
         let baseUrl = import.meta.env.VITE_API_URL || '';
-        if (path.startsWith('/uploads') || path.startsWith('uploads')) {
+        if (
+            path.startsWith('/uploads') || 
+            path.startsWith('uploads') || 
+            path.startsWith('/static') || 
+            path.startsWith('static')
+        ) {
             try {
                 const url = new URL(baseUrl);
                 baseUrl = url.origin;

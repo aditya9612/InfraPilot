@@ -182,60 +182,43 @@ const AttendancePage: React.FC = () => {
         return labours.filter(l => !checkedInTodayIds.has(Number(l.id)));
     }, [labours, todayAttendances]);
 
-    const stats = useMemo(() => {
-        const total = labours.length;
-        // Workers currently on-site (In-time set, Out-time empty)
-        const present = attendances.filter(a => !a.out_time).length;
-        // Total workers in roster minus anyone who checked in today
-        const checkedInIds = new Set(attendances.map(a => a.labour_id));
-        const absent = labours.filter(l => !checkedInIds.has(l.id)).length;
-
-        const otWorkers = attendances.filter(a => a.overtime_hours > 0).length;
-
-        // Sum total working + overtime hours for the day
-        const manHours = attendances.reduce((acc, a) => acc + (a.working_hours || 0) + (a.overtime_hours || 0), 0);
-
-        return { total, present, absent, otWorkers, manHours: Math.round(manHours) };
-    }, [attendances, labours]);
-
-    const filteredAttendances = useMemo(() => {
-        // Start with the full roster of workers
-        const roster = labours.map(l => {
-            const attendance = attendances.find(a => a.labour_id === l.id);
-            if (attendance) return attendance;
-
-            // Return a virtual 'Absent' record for workers not checked in
+    const combinedAttendances = useMemo(() => {
+        // Merge labours with attendance, creating virtual absent records when needed
+        const attendanceMap = new Map(attendances.map(a => [Number(a.labour_id), a]));
+        return labours.map((labour: any) => {
+            const attendance = attendanceMap.get(Number(labour.id));
+            if (attendance) {
+                // Enrich existing attendance record
+                return {
+                    ...attendance,
+                    labour_name: attendance.labour_name && attendance.labour_name !== "Unknown" ? attendance.labour_name : (labour?.labour_name || "Unknown Worker"),
+                    worker_code: labour?.worker_code || "N/A",
+                    skill_type: labour?.skill_type || "General",
+                    contractor_id: labour?.contractor_id,
+                };
+            }
+            // Virtual absent record
             return {
-                id: l.id,
-                labour_id: l.id,
-                labour_name: l.labour_name,
-                worker_code: l.worker_code,
-                contractor_id: l.contractor_id,
-                attendance_date: new Date().toISOString().split('T')[0],
-                in_time: '—',
+                id: 0,
+                labour_id: labour.id,
+                labour_name: labour.labour_name,
+                worker_code: labour.worker_code,
+                skill_type: labour.skill_type,
+                contractor_id: labour.contractor_id,
+                status: "Absent",
+                in_time: "—",
                 out_time: null,
                 working_hours: 0,
                 overtime_hours: 0,
-                status: "Absent",
-                check_in_address: '',
-                check_out_address: null,
                 check_in_image: null,
-                check_out_image: null
-            } as AttendanceRecord;
+                check_out_image: null,
+                check_in_address: null,
+                check_out_address: null,
+            } as any;
         });
-
-        let data = roster;
-
-        // Apply StatCard Filter
-        if (activeStatFilter === "Present") {
-            data = data.filter(a => a.status !== "Absent" && !a.out_time);
-        } else if (activeStatFilter === "Absent") {
-            data = data.filter(a => a.status === "Absent");
-        } else if (activeStatFilter === "OT") {
-            data = data.filter(a => a.overtime_hours > 0);
-        }
-
-        console.log("Filtering Registry: Total Roster:", data.length, "Search:", searchTerm, "Status Filter:", statusFilter);
+    }, [labours, attendances]);
+    const baseFilteredAttendances = useMemo(() => {
+        let data = combinedAttendances;
 
         return data.filter(a => {
             // Apply Contractor ID filter
@@ -251,12 +234,48 @@ const AttendancePage: React.FC = () => {
                 currentStatus = 'completed';
             }
 
-            const matchesStatus = statusFilter === 'All' ||
-                (currentStatus === statusFilter.toLowerCase());
+            const matchesStatus = statusFilter === 'All' || (currentStatus === statusFilter.toLowerCase());
 
             return matchesSearch && matchesStatus;
         });
-    }, [attendances, labours, searchTerm, statusFilter, activeStatFilter, contractorFilter]);
+    }, [combinedAttendances, searchTerm, statusFilter, contractorFilter]);
+
+    // Aggregate statistics for StatCards based on filtered attendances
+    const stats = useMemo(() => {
+        const present = baseFilteredAttendances.filter(
+            (a) => a.status?.toLowerCase() !== 'absent'
+        ).length;
+
+        const absent = baseFilteredAttendances.filter(
+            (a) => a.status?.toLowerCase() === 'absent'
+        ).length;
+
+        const otWorkers = baseFilteredAttendances.filter(
+            (a) => (a.overtime_hours ?? 0) > 0
+        ).length;
+
+        const manHours = baseFilteredAttendances.reduce(
+            (sum, a) => sum + (a.working_hours ?? 0),
+            0
+        );
+
+        return { present, absent, otWorkers, manHours };
+    }, [baseFilteredAttendances]);
+
+    const filteredAttendances = useMemo(() => {
+        let data = baseFilteredAttendances;
+
+        // Apply StatCard Filter
+        if (activeStatFilter === "Present") {
+            data = data.filter(a => a.status?.toLowerCase() !== "absent");
+        } else if (activeStatFilter === "Absent") {
+            data = data.filter(a => a.status?.toLowerCase() === "absent");
+        } else if (activeStatFilter === "OT") {
+            data = data.filter(a => a.overtime_hours > 0);
+        }
+
+        return data;
+    }, [baseFilteredAttendances, activeStatFilter]);
 
     useEffect(() => {
         setCurrentPage(1);
@@ -289,7 +308,7 @@ const AttendancePage: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
                     <div onClick={() => setActiveStatFilter("Present")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Present" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
-                            title="Present Now"
+                            title="Present"
                             value={stats.present.toString()}
                             sub="Verified On-Site"
                             accent="text-emerald-500" />

@@ -11,6 +11,8 @@ const EngineerNotificationsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [viewingNotif, setViewingNotif] = useState<Notification | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Unread" | "Read" | "Approval">("All");
 
   useEffect(() => {
     fetchNotifications();
@@ -21,15 +23,51 @@ const EngineerNotificationsPage = () => {
     setNotifications(data);
   };
 
-  const filteredNotifs = notifications.filter(n => 
-    n.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    n.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    n.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredNotifs = notifications.filter(n => {
+    const matchesSearch = 
+      n.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      n.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      n.description.toLowerCase().includes(searchTerm.toLowerCase());
+
+    if (!matchesSearch) return false;
+
+    if (activeStatFilter === "Unread" && n.read) return false;
+    if (activeStatFilter === "Read" && !n.read) return false;
+    if (activeStatFilter === "Approval" && n.type !== "Approval") return false;
+
+    return true;
+  });
 
   const handleMarkAllRead = async () => {
     await notificationService.markAllAsRead("SiteEngineer");
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setSelectedIds([]);
+  };
+
+  const handleMarkSelectedRead = async () => {
+    if (selectedIds.length === 0) return;
+    await Promise.all(selectedIds.map(id => notificationService.markAsRead(id)));
+    setNotifications(prev => prev.map(n => selectedIds.includes(n.id) ? { ...n, read: true } : n));
+    setSelectedIds([]);
+  };
+
+  const handleToggleSelectAll = () => {
+    const allIds = filteredNotifs.map(n => n.id);
+    const allSelected = allIds.every(id => selectedIds.includes(id));
+    if (allSelected) {
+      setSelectedIds(prev => prev.filter(id => !allIds.includes(id)));
+    } else {
+      setSelectedIds(prev => {
+        const union = new Set([...prev, ...allIds]);
+        return Array.from(union);
+      });
+    }
+  };
+
+  const handleToggleSelect = (id: number) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
   };
 
   const handleViewDetails = async (notif: Notification) => {
@@ -52,6 +90,15 @@ const EngineerNotificationsPage = () => {
             <p className="text-slate-500 text-sm">View all your alerts, approvals, and system messages.</p>
           </div>
           <div className="flex gap-2">
+            {selectedIds.length > 0 && (
+              <button 
+                onClick={handleMarkSelectedRead}
+                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-2"
+              >
+                <CheckCheck className="w-4 h-4" />
+                Mark Selected Read ({selectedIds.length})
+              </button>
+            )}
             <button 
               onClick={handleMarkAllRead}
               className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all flex items-center gap-2"
@@ -63,10 +110,39 @@ const EngineerNotificationsPage = () => {
         </div>
 
         {/* Notification Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <StatCard title="Unread Messages" value={notifications.filter(n => !n.read).length.toString()} sub="Require attention" accent="text-rose-500" />
-          <StatCard title="Approvals" value={notifications.filter(n => n.type === "Approval").length.toString()} sub="Material & Work Approvals" accent="text-emerald-500" />
-          <StatCard title="Total Alerts" value={notifications.length.toString()} sub="All-time received" accent="text-primary" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div 
+            onClick={() => setActiveStatFilter("Unread")} 
+            className={`cursor-pointer transition-all duration-200 rounded-xl hover:-translate-y-0.5 ${
+              activeStatFilter === "Unread" ? "ring-2 ring-rose-500 ring-offset-2 shadow-md scale-[1.02]" : "hover:shadow-sm"
+            }`}
+          >
+            <StatCard title="Unread Messages" value={notifications.filter(n => !n.read).length.toString()} sub="Require attention" accent="text-rose-500" />
+          </div>
+          <div 
+            onClick={() => setActiveStatFilter("Read")} 
+            className={`cursor-pointer transition-all duration-200 rounded-xl hover:-translate-y-0.5 ${
+              activeStatFilter === "Read" ? "ring-2 ring-emerald-500 ring-offset-2 shadow-md scale-[1.02]" : "hover:shadow-sm"
+            }`}
+          >
+            <StatCard title="Read Messages" value={notifications.filter(n => n.read).length.toString()} sub="Processed messages" accent="text-emerald-500" />
+          </div>
+          <div 
+            onClick={() => setActiveStatFilter("Approval")} 
+            className={`cursor-pointer transition-all duration-200 rounded-xl hover:-translate-y-0.5 ${
+              activeStatFilter === "Approval" ? "ring-2 ring-blue-500 ring-offset-2 shadow-md scale-[1.02]" : "hover:shadow-sm"
+            }`}
+          >
+            <StatCard title="Approvals" value={notifications.filter(n => n.type === "Approval").length.toString()} sub="Material & Work Requests" accent="text-blue-500" />
+          </div>
+          <div 
+            onClick={() => setActiveStatFilter("All")} 
+            className={`cursor-pointer transition-all duration-200 rounded-xl hover:-translate-y-0.5 ${
+              activeStatFilter === "All" ? "ring-2 ring-primary ring-offset-2 shadow-md scale-[1.02]" : "hover:shadow-sm"
+            }`}
+          >
+            <StatCard title="Total Alerts" value={notifications.length.toString()} sub="All-time received" accent="text-primary" />
+          </div>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden min-h-[400px]">
@@ -91,6 +167,14 @@ const EngineerNotificationsPage = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
+                  <th className="px-6 py-4 w-12 text-center">
+                    <input 
+                      type="checkbox" 
+                      checked={filteredNotifs.length > 0 && filteredNotifs.every(n => selectedIds.includes(n.id))}
+                      onChange={handleToggleSelectAll}
+                      className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/20 cursor-pointer"
+                    />
+                  </th>
                   <th className="px-6 py-4 w-48">Type</th>
                   <th className="px-6 py-4">Title & Description</th>
                   <th className="px-6 py-4">Date & Time</th>
@@ -100,6 +184,14 @@ const EngineerNotificationsPage = () => {
               <tbody className="divide-y divide-slate-50">
                 {filteredNotifs.map((notif) => (
                   <tr key={notif.id} className={`hover:bg-slate-50/50 transition-colors group ${!notif.read ? "bg-primary/[0.02]" : ""}`}>
+                    <td className="px-6 py-4 text-center">
+                      <input 
+                        type="checkbox" 
+                        checked={selectedIds.includes(notif.id)}
+                        onChange={() => handleToggleSelect(notif.id)}
+                        className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/20 cursor-pointer"
+                      />
+                    </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="relative">

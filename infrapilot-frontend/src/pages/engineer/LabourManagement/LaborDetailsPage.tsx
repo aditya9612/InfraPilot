@@ -245,17 +245,7 @@ const LaborDetailsPage = () => {
         }
     };
 
-    const stats = {
-        total: laborers.length,
-        active: laborers.filter(l => l.status === "Active").length,
-        skilled: laborers.filter(l => l.skill_type === "Skilled").length,
-    };
-
-    const filteredLaborers = laborers.filter(l => {
-        // Apply Stat Cards filter
-        if (activeStatFilter === "Active" && l.status !== "Active") return false;
-        if (activeStatFilter === "Skilled" && l.skill_type !== "Skilled") return false;
-
+    const baseFilteredLaborers = laborers.filter(l => {
         // Apply Contractor ID filter
         if (contractorFilter !== null && l.contractor_id !== contractorFilter) return false;
 
@@ -271,6 +261,19 @@ const LaborDetailsPage = () => {
             );
         }
 
+        return true;
+    });
+
+    const stats = {
+        total: baseFilteredLaborers.length,
+        active: baseFilteredLaborers.filter(l => l.status === "Active").length,
+        skilled: baseFilteredLaborers.filter(l => l.skill_type === "Skilled").length,
+    };
+
+    const filteredLaborers = baseFilteredLaborers.filter(l => {
+        // Apply Stat Cards filter
+        if (activeStatFilter === "Active" && l.status !== "Active") return false;
+        if (activeStatFilter === "Skilled" && l.skill_type !== "Skilled") return false;
         return true;
     });
 

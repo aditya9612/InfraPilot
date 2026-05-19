@@ -346,10 +346,9 @@ const NewDSREntryModal = ({
               >
                 <option value="">Select Weather</option>
                 <option value="Sunny">Sunny</option>
-                <option value="Cloudy">Cloudy</option>
                 <option value="Rainy">Rainy</option>
-                <option value="Foggy">Foggy</option>
-                <option value="Stormy">Stormy</option>
+                <option value="Cloudy">Cloudy</option>
+                <option value="Windy">Windy</option>
               </select>
               {errors.weather && (
                 <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.weather}</p>
