@@ -13,6 +13,9 @@ export interface ActivityItem {
   remaining_quantity: number;
   status: string;
   end_date: string;
+  work_order_id?: number | null;
+  discipline?: string | null;
+  updated_at?: string;
 }
 
 export interface DailyEntry {
@@ -41,6 +44,7 @@ export interface CreateActivityRequest {
   end_date: string;
   status: string;
   engineer_id: number;
+  work_order_id?: number | null;
 }
 
 export interface UpdateActivityRequest {

@@ -86,6 +86,7 @@ export interface UsagePayload {
 
 export interface PurchasePayload {
   quantity: number;
+  rate: number;
   amount_paid: number;
   project_id: number;
   issue_type: IssueType;

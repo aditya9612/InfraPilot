@@ -5,72 +5,76 @@ import {
   Search,
   Filter,
   FileText,
-  Download,
-  Trash2,
   Eye,
-  Edit3
+  Trash2,
+  Download,
 } from "lucide-react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
-import { financeService } from "../../services/financeService";
-import type { Invoice } from "../../types/invoice";
+import ConfirmationModal from "../../components/common/ConfirmationModal";
+import { quotationService } from "../../services/quotationService";
+import type { Quotation } from "../../types/quotation";
 import toast from "react-hot-toast";
-import ViewInvoiceModal from "../../components/forms/ViewInvoiceModal";
 
 const AllInvoicesPage = () => {
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    const fetchInvoices = async () => {
+    const fetchEstimates = async () => {
       try {
         setIsLoading(true);
-        const data = await financeService.getInvoices();
-        setInvoices(data);
+        const data = await quotationService.getQuotations();
+        setQuotations(data);
       } catch (error) {
-        console.error("Failed to fetch invoices", error);
-        toast.error("Failed to load invoices");
+        console.error("Failed to fetch estimates", error);
+        toast.error("Failed to load estimates");
       } finally {
         setIsLoading(false);
       }
     };
-    fetchInvoices();
+    fetchEstimates();
   }, []);
 
-  const handleDeleteInvoice = async (id: number) => {
-    if (!window.confirm("Are you sure you want to delete this invoice?")) return;
-
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
     try {
-      await financeService.deleteInvoice(id);
-      setInvoices(invoices.filter(inv => inv.id !== id));
-      toast.success("Invoice deleted successfully");
+      await quotationService.deleteQuotation(deleteTarget);
+      toast.success("Estimate deleted successfully");
+      const data = await quotationService.getQuotations();
+      setQuotations(data);
     } catch (error) {
-      toast.error("Failed to delete invoice");
+      toast.error("Failed to delete estimate");
+    } finally {
+      setIsDeleting(false);
+      setDeleteTarget(null);
     }
   };
 
-  const filteredInvoices = useMemo(() => {
-    return invoices.filter(inv => {
+  const filteredData = useMemo(() => {
+    return quotations.filter(q => {
       const matchSearch =
-        inv.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        inv.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        inv.description?.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchStatus = statusFilter === "all" || inv.status === statusFilter;
+        q.quotation_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        q.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        q.project_name?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchStatus = statusFilter === "all" ||
+        q.status?.toLowerCase() === statusFilter.toLowerCase();
       return matchSearch && matchStatus;
     });
-  }, [invoices, searchTerm, statusFilter]);
+  }, [quotations, searchTerm, statusFilter]);
 
   const stats = useMemo(() => {
-    const total = invoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
-    const pending = invoices.filter(i => i.status === "pending").reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
-    const paid = invoices.filter(i => i.status === "paid").reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
-    return { total, pending, paid };
-  }, [invoices]);
+    const total = quotations.reduce((sum, q) => sum + (q.grand_total || 0), 0);
+    const approved = quotations.filter(q => q.status === "approved").reduce((sum, q) => sum + (q.grand_total || 0), 0);
+    const draft = quotations.filter(q => q.status === "draft").reduce((sum, q) => sum + (q.grand_total || 0), 0);
+    return { total, pending: draft, paid: approved, labelTotal: "Pipeline Value", labelPending: "Draft Estimates", labelPaid: "Approved Proposals" };
+  }, [quotations]);
 
   return (
     <>
@@ -101,21 +105,21 @@ const AllInvoicesPage = () => {
           {/* STATS */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <StatCard
-              title="Total Billed"
+              title={stats.labelTotal}
               value={`₹${(stats.total / 100000).toFixed(2)}L`}
-              sub="Across all projects"
+              sub={`${quotations.length} Active Estimates`}
               accent="text-indigo-600"
             />
             <StatCard
-              title="Pending Collection"
+              title={stats.labelPending}
               value={`₹${(stats.pending / 100000).toFixed(2)}L`}
-              sub="Unpaid invoices"
+              sub="Requires review"
               accent="text-amber-500"
             />
             <StatCard
-              title="Total Received"
+              title={stats.labelPaid}
               value={`₹${(stats.paid / 100000).toFixed(2)}L`}
-              sub="Cleared payments"
+              sub="Won projects"
               accent="text-emerald-500"
             />
           </div>
@@ -140,9 +144,9 @@ const AllInvoicesPage = () => {
                   className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 outline-none"
                 >
                   <option value="all">All Status</option>
-                  <option value="pending">Pending</option>
-                  <option value="paid">Paid</option>
-                  <option value="overdue">Overdue</option>
+                  <option value="draft">Draft</option>
+                  <option value="approved">Approved</option>
+                  <option value="converted">Converted</option>
                 </select>
                 <button className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-400 hover:text-indigo-600 transition-colors">
                   <Filter className="w-4 h-4" />
@@ -166,61 +170,59 @@ const AllInvoicesPage = () => {
                 <tbody className="divide-y divide-slate-50">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-20 text-center">
+                      <td colSpan={6} className="px-6 py-20 text-center">
                         <div className="inline-block w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mb-2"></div>
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading Invoices...</p>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading estimates...</p>
                       </td>
                     </tr>
-                  ) : filteredInvoices.length === 0 ? (
+                  ) : filteredData.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-20 text-center">
+                      <td colSpan={6} className="px-6 py-20 text-center">
                         <FileText className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-                        <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">No invoices found</p>
+                        <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">No estimates found</p>
                       </td>
                     </tr>
                   ) : (
-                    filteredInvoices.map((inv) => (
-                      <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors group">
+                    (filteredData as Quotation[]).map((q) => (
+                      <tr key={q.id} className="hover:bg-slate-50/50 transition-colors group">
                         <td className="px-6 py-4 text-sm font-black text-slate-800">
-                          {inv.invoice_number || `INV-${String(inv.id).padStart(4, '0')}`}
+                          {q.quotation_no || `QTN-${q.id}`}
                         </td>
                         <td className="px-6 py-4">
-                          <p className="text-sm font-bold text-slate-700">{inv.client_name || "Unknown Client"}</p>
+                          <p className="text-sm font-bold text-slate-700">{q.client_name || "Unknown Client"}</p>
                         </td>
                         <td className="px-6 py-4">
-                          <p className="text-xs text-slate-500 font-medium line-clamp-1 max-w-[200px]">{inv.description}</p>
+                          <p className="text-xs text-slate-500 font-medium line-clamp-1 max-w-[200px]">{q.project_name}</p>
                         </td>
                         <td className="px-6 py-4 text-xs font-bold text-slate-400">
-                          {inv.invoice_date ? new Date(inv.invoice_date).toLocaleDateString() : (inv.created_at ? new Date(inv.created_at).toLocaleDateString() : "-")}
+                          {q.created_at ? new Date(q.created_at).toLocaleDateString() : "-"}
                         </td>
                         <td className="px-6 py-4">
-                          <p className="text-sm font-black text-slate-800">₹{(inv.total_amount || 0).toLocaleString()}</p>
+                          <p className="text-sm font-black text-slate-800">₹{(q.grand_total || 0).toLocaleString()}</p>
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${inv.status === 'paid' ? 'bg-emerald-100 text-emerald-600' :
-                            inv.status === 'pending' ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400'
+                          <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${q.status === 'approved' ? 'bg-emerald-100 text-emerald-600' :
+                            q.status === 'draft' ? 'bg-slate-100 text-slate-600' : 'bg-amber-100 text-amber-600'
                             }`}>
-                            {inv.status}
+                            {q.status || "draft"}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => {
-                                setSelectedInvoice(inv);
-                                setIsViewModalOpen(true);
-                              }}
-                              className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" title="View Details"
+                            <Link
+                              to={`/admin/quotations/view/${q.id}`}
+                              className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                              title="View Details"
                             >
                               <Eye className="w-4 h-4" />
-                            </button>
-                            <button className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Edit">
-                              <Edit3 className="w-4 h-4" />
+                            </Link>
+                            <button className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Download PDF">
+                              <Download className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => handleDeleteInvoice(inv.id)}
+                              onClick={() => q.id && setDeleteTarget(q.id)}
                               className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
-                              title="Delete"
+                              title="Delete Estimate"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -237,10 +239,15 @@ const AllInvoicesPage = () => {
         </div>
       </PageTransition>
 
-      <ViewInvoiceModal
-        isOpen={isViewModalOpen}
-        onClose={() => setIsViewModalOpen(false)}
-        invoice={selectedInvoice}
+      <ConfirmationModal
+        isOpen={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        isLoading={isDeleting}
+        title="Delete Estimate"
+        message="Are you sure you want to permanently delete this estimate? This action cannot be undone."
+        confirmLabel="Delete"
+        confirmClass="bg-rose-500 hover:bg-rose-600 shadow-rose-200"
       />
     </>
   );

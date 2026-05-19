@@ -5,7 +5,6 @@ import StatCard from "../../components/common/StatCard";
 import NewDSREntryModal from "../../components/dashboard/NewDSREntryModal";
 import EditDSRModal from "../../components/dashboard/EditDSRModal";
 import Modal from "../../components/common/Modal";
-import ConfirmModal from "../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 import {
     FileText,
@@ -13,7 +12,6 @@ import {
     Search,
     Plus,
     Edit2,
-    Trash2,
     Eye,
     MapPin,
     AlertCircle,
@@ -21,12 +19,16 @@ import {
     Calendar,
     Image as ImageIcon,
     RotateCcw,
-    CheckCircle2,
-    FileDown
+    Check,
+    X,
+    Send,
+    FileDown,
+    ChevronLeft,
+    ChevronRight
 } from "lucide-react";
 
 import { dsrService } from "../../services/dsrService";
-import { API_BASE_URL } from "../../services/api";
+import { sitePhotoService } from "../../services/sitePhotoService";
 import type { DsrItem, CreateDsrRequest, UpdateDsrRequest } from "../../types/dsr";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -46,6 +48,7 @@ const DSRPage = () => {
     const [statusFilter, setStatusFilter] = useState("All");
     const [projectId, setProjectId] = useState<number | null>(null);
 
+
     // Filter state for StatCards
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Compliance" | "Pending" | "Efficiency">("All");
     const [currentPage, setCurrentPage] = useState(1);
@@ -55,10 +58,9 @@ const DSRPage = () => {
     // Modal States
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
-    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isDetailOpen, setIsDetailOpen] = useState(false);
     const [selectedDsr, setSelectedDsr] = useState<DsrItem | null>(null);
-    const [dsrToDelete, setDsrToDelete] = useState<number | null>(null);
+    const [loadingId, setLoadingId] = useState<number | null>(null);
 
     useEffect(() => {
         const resolveProjectId = async () => {
@@ -87,7 +89,10 @@ const DSRPage = () => {
         setIsLoading(true);
         try {
             const offset = (currentPage - 1) * itemsPerPage;
-            const response = await dsrService.getDsrByProject(projectId, { limit: itemsPerPage, offset });
+            const response = await dsrService.getDsrByProject(projectId, {
+                limit: itemsPerPage,
+                offset
+            });
             const apiData = response.items;
             setTotalItems(response.meta.total);
 
@@ -104,7 +109,7 @@ const DSRPage = () => {
                         if (extraPhotos && extraPhotos.length > 0) {
                             photos = extraPhotos;
                         }
-                    } catch (e) {}
+                    } catch (e) { }
                 }
                 return { ...item, photos };
             }));
@@ -123,9 +128,24 @@ const DSRPage = () => {
     }, [fetchDsr]);
 
     const handleView = async (id: number) => {
+        setLoadingId(id);
         try {
             const data = await dsrService.getDsrById(id);
-            setSelectedDsr(data);
+            let photos = data.photos?.map((p: any) => ({
+                id: p.id,
+                url: p.url || p.file_url
+            })) || [];
+
+            if (photos.length === 0) {
+                try {
+                    const extraPhotos = await dsrService.getDsrPhotos(data.id);
+                    if (extraPhotos && extraPhotos.length > 0) {
+                        photos = extraPhotos;
+                    }
+                } catch (e) { }
+            }
+
+            setSelectedDsr({ ...data, photos });
             setIsDetailOpen(true);
         } catch (error) {
             const localItem = dsrList.find(item => item.id === id);
@@ -135,6 +155,8 @@ const DSRPage = () => {
             } else {
                 toast.error("Failed to load project ledger details");
             }
+        } finally {
+            setLoadingId(null);
         }
     };
 
@@ -142,7 +164,21 @@ const DSRPage = () => {
         setIsLoading(true);
         try {
             const data = await dsrService.getDsrById(id);
-            setSelectedDsr(data);
+            let photos = data.photos?.map((p: any) => ({
+                id: p.id,
+                url: p.url || p.file_url
+            })) || [];
+
+            if (photos.length === 0) {
+                try {
+                    const extraPhotos = await dsrService.getDsrPhotos(data.id);
+                    if (extraPhotos && extraPhotos.length > 0) {
+                        photos = extraPhotos;
+                    }
+                } catch (e) { }
+            }
+
+            setSelectedDsr({ ...data, photos });
             setIsEditOpen(true);
         } catch (error) {
             const localItem = dsrList.find(item => item.id === id);
@@ -158,9 +194,18 @@ const DSRPage = () => {
     const handleCreate = async (data: CreateDsrRequest) => {
         try {
             const payload = { ...data, project_id: projectId || 0 };
-            await dsrService.createDsr(payload);
+            const created = await dsrService.createDsr(payload);
             toast.success("DSR submitted successfully!");
             setIsCreateOpen(false);
+
+            if (created) {
+                const normalizedCreated = {
+                    ...created,
+                    photos: created.photos || []
+                };
+                setDsrList(prev => [normalizedCreated, ...prev]);
+            }
+
             // Small delay to allow backend persistence if needed, though usually not necessary
             setTimeout(() => {
                 fetchDsr();
@@ -173,24 +218,13 @@ const DSRPage = () => {
 
     const handleUpdate = async (id: number, data: UpdateDsrRequest) => {
         try {
-            await dsrService.updateDsr(id, data);
+            const updatedDsr = await dsrService.updateDsr(id, data);
             toast.success("DSR updated successfully!");
+            setDsrList(prev => prev.map(item => item.id === id ? { ...item, ...updatedDsr } : item));
             fetchDsr();
             setIsEditOpen(false);
         } catch (error) {
             toast.error("Failed to update DSR");
-        }
-    };
-
-    const handleDeleteConfirm = async () => {
-        if (!dsrToDelete) return;
-        try {
-            await dsrService.deleteDsr(dsrToDelete);
-            toast.success("DSR record archived");
-            setIsDeleteOpen(false);
-            fetchDsr();
-        } catch (error) {
-            toast.error("Failed to remove DSR");
         }
     };
 
@@ -204,6 +238,29 @@ const DSRPage = () => {
             toast.error("Submission failed", { id: toastId });
         }
     };
+
+    const handleApproveDsr = async (id: number) => {
+        const toastId = toast.loading("Approving DSR log...");
+        try {
+            await dsrService.approveDsr(id);
+            toast.success("DSR approved successfully!", { id: toastId });
+            fetchDsr();
+        } catch (err) {
+            toast.error("Failed to approve DSR", { id: toastId });
+        }
+    };
+
+    const handleRejectDsr = async (id: number) => {
+        const toastId = toast.loading("Rejecting DSR log...");
+        try {
+            await dsrService.rejectDsr(id);
+            toast.success("DSR rejected successfully!", { id: toastId });
+            fetchDsr();
+        } catch (err) {
+            toast.error("Failed to reject DSR", { id: toastId });
+        }
+    };
+
 
     const filteredList = useMemo(() => {
         let data = dsrList;
@@ -231,7 +288,7 @@ const DSRPage = () => {
         const verified = dsrList.filter(d => d.status === "Verified" || d.status === "Approved").length;
         const pending = dsrList.filter(d => d.status === "Submitted" || d.status === "Draft").length;
         const complianceVal = total > 0 ? Math.round((verified / total) * 100) : 0;
-        
+
         // Efficiency could be measured by (Verified + Submitted) / Total for momentum
         const active = dsrList.filter(d => d.status !== "Rejected" && d.status !== "Draft").length;
         const efficiencyVal = total > 0 ? Math.round((active / total) * 100) : 0;
@@ -271,7 +328,12 @@ const DSRPage = () => {
                             <RotateCcw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
                         </button>
                         <button
-                            onClick={() => dsrService.exportDsrExcel(projectId || 36)}
+                            onClick={() => {
+                                const toastId = toast.loading("Generating Excel report...");
+                                dsrService.exportDsrExcel(projectId || 36, {})
+                                    .then(() => toast.success("Excel report exported!", { id: toastId }))
+                                    .catch(() => toast.error("Export failed", { id: toastId }));
+                            }}
                             className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95 font-inter"
                         >
                             <FileDown className="w-4 h-4" />
@@ -335,7 +397,7 @@ const DSRPage = () => {
                                 className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
                             />
                         </div>
-                        <div className="flex items-center gap-3 font-inter">
+                        <div className="flex flex-wrap items-center gap-3 font-inter">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status:</span>
                             <select
                                 value={statusFilter}
@@ -348,8 +410,15 @@ const DSRPage = () => {
                                 <option value="Verified">Verified</option>
                                 <option value="Rejected">Rejected</option>
                             </select>
+
                             {activeStatFilter !== "All" && (
-                                <button onClick={() => setActiveStatFilter("All")} className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors">
+                                <button
+                                    onClick={() => {
+                                        setActiveStatFilter("All");
+                                    }}
+                                    className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors"
+                                    title="Reset Filters"
+                                >
                                     <RotateCcw className="w-4 h-4" />
                                 </button>
                             )}
@@ -400,8 +469,9 @@ const DSRPage = () => {
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex flex-col font-inter">
-                                                        <p className="text-[10px] font-bold text-slate-800 font-inter">{dsr.total_labour} Labour</p>
-                                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest font-inter">{dsr.weather} Weather</p>
+                                                        <p className="text-[10px] font-bold text-slate-800 font-inter">{dsr.total_labour || 0} Total Labour</p>
+                                                        <p className="text-[9px] font-bold text-slate-500 font-inter mt-0.5">{dsr.skilled_labour || 0} Skilled, {dsr.unskilled_labour || 0} Unskilled</p>
+                                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest font-inter mt-1.5">{dsr.weather} Weather</p>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
@@ -410,7 +480,7 @@ const DSRPage = () => {
                                                             dsr.photos.slice(0, 3).map((photo) => (
                                                                 <div key={photo.id} className="w-12 h-12 rounded-xl overflow-hidden border-2 border-white shadow-sm hover:z-10 transition-transform hover:scale-110">
                                                                     <img
-                                                                        src={photo.url?.startsWith('http') ? photo.url : `${API_BASE_URL.replace('/api/v1', '')}/${photo.url}`}
+                                                                        src={sitePhotoService.resolveUrl(photo.url) || ""}
                                                                         alt="Site"
                                                                         className="w-full h-full object-cover"
                                                                     />
@@ -418,7 +488,7 @@ const DSRPage = () => {
                                                             ))
                                                         ) : dsr.dsr_image ? (
                                                             <div className="w-12 h-12 rounded-xl overflow-hidden border-2 border-white shadow-sm">
-                                                                <img src={dsr.dsr_image} alt="Site" className="w-full h-full object-cover" />
+                                                                <img src={sitePhotoService.resolveUrl(dsr.dsr_image) || ""} alt="Site" className="w-full h-full object-cover" />
                                                             </div>
                                                         ) : (
                                                             <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-300">
@@ -434,21 +504,40 @@ const DSRPage = () => {
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
                                                     <div className="flex items-center justify-end gap-2 font-inter">
-                                                        {dsr.status === "Draft" && (
+                                                        <div className="flex items-center gap-1.5 mr-2">
+                                                            <button
+                                                                onClick={() => handleApproveDsr(dsr.id)}
+                                                                className="p-2 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-all border border-emerald-100 active:scale-95 flex items-center justify-center font-inter"
+                                                                title="Approve DSR"
+                                                            >
+                                                                <Check className="w-4 h-4" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleRejectDsr(dsr.id)}
+                                                                className="p-2 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-all border border-rose-100 active:scale-95 flex items-center justify-center font-inter"
+                                                                title="Reject DSR"
+                                                            >
+                                                                <X className="w-4 h-4" />
+                                                            </button>
                                                             <button
                                                                 onClick={() => handleSubmitDsr(dsr.id)}
-                                                                className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all font-inter"
-                                                                title="Submit for Audit"
+                                                                className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all border border-blue-100 active:scale-95 flex items-center justify-center font-inter"
+                                                                title="Submit DSR"
                                                             >
-                                                                <CheckCircle2 className="w-4 h-4" />
+                                                                <Send className="w-4 h-4" />
                                                             </button>
-                                                        )}
+                                                        </div>
                                                         <button
                                                             onClick={() => handleView(dsr.id)}
-                                                            className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
+                                                            className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 flex items-center justify-center font-inter"
                                                             title="View Insight"
+                                                            disabled={loadingId === dsr.id}
                                                         >
-                                                            <Eye className="w-4 h-4" />
+                                                            {loadingId === dsr.id ? (
+                                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                            ) : (
+                                                                <Eye className="w-4 h-4" />
+                                                            )}
                                                         </button>
                                                         <button
                                                             onClick={() => handleEdit(dsr.id)}
@@ -456,13 +545,6 @@ const DSRPage = () => {
                                                             title="Modify Record"
                                                         >
                                                             <Edit2 className="w-4 h-4" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => { setDsrToDelete(dsr.id); setIsDeleteOpen(true); }}
-                                                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"
-                                                            title="Archive Record"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
                                                         </button>
                                                     </div>
                                                 </td>
@@ -487,19 +569,24 @@ const DSRPage = () => {
                                 Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} entries
                             </span>
                             <div className="flex gap-2 font-inter">
-                                <button 
+                                <button
                                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                     disabled={currentPage === 1}
-                                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50 transition-all font-inter"
+                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    title="Previous Page"
                                 >
-                                    Prev
+                                    <ChevronLeft className="w-4 h-4" />
                                 </button>
-                                <button 
+                                <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
+                                    Page {currentPage} of {totalPages || 1}
+                                </div>
+                                <button
                                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                                     disabled={currentPage === totalPages || totalPages === 0}
-                                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50 transition-all font-inter"
+                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    title="Next Page"
                                 >
-                                    Next
+                                    <ChevronRight className="w-4 h-4" />
                                 </button>
                             </div>
                         </div>
@@ -515,28 +602,56 @@ const DSRPage = () => {
                 maxWidth="max-w-xl"
             >
                 {selectedDsr && (
-                    <div className="p-6 font-inter text-inter ">
+                    <div className="p-6 font-inter text-inter italic-none">
                         {/* ── Header Information ────────────────── */}
-                        <div className="flex items-center gap-6 mb-8 border-b border-slate-50 pb-8">
-                            <div className="w-20 h-20 bg-slate-900 rounded-3xl flex items-center justify-center text-white text-3xl font-bold shadow-lg">
-                                D
-                            </div>
-                            <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-1">
-                                    <h3 className="text-2xl font-bold text-slate-800 tracking-tight">{selectedDsr.business_id || `DSR-${selectedDsr.id}`}</h3>
-                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest ${selectedDsr.status ? statusBadge[selectedDsr.status] : "bg-slate-100 text-slate-500"}`}>
-                                        {selectedDsr.status}
-                                    </span>
+                        <div className="bg-primary rounded-2xl p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter">
+                            {/* Decorative blur elements */}
+                            <div className="absolute top-[-20px] right-[-20px] w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none" />
+                            <div className="absolute bottom-[-40px] left-[-40px] w-40 h-40 bg-white/5 rounded-full blur-xl pointer-events-none" />
+
+                            <div className="relative z-10 flex items-center gap-6 font-inter">
+                                <div className="w-20 h-20 bg-blue-400/30 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 relative font-inter shadow-inner">
+                                    <div className="w-full h-full rounded-2xl overflow-hidden flex items-center justify-center">
+                                        {selectedDsr.photos && selectedDsr.photos.length > 0 ? (
+                                            <img
+                                                src={sitePhotoService.resolveUrl(selectedDsr.photos[0].url) || ""}
+                                                alt="Site avatar"
+                                                className="w-full h-full object-cover"
+                                            />
+                                        ) : selectedDsr.dsr_image ? (
+                                            <img
+                                                src={sitePhotoService.resolveUrl(selectedDsr.dsr_image) || ""}
+                                                alt="Site avatar"
+                                                className="w-full h-full object-cover"
+                                            />
+                                        ) : (
+                                            <span className="text-3xl font-bold font-inter font-black">D</span>
+                                        )}
+                                    </div>
+                                    <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center border-4 border-primary text-[8px] font-black z-20
+                                        ${selectedDsr.status === 'Approved' || selectedDsr.status === 'Verified' ? 'bg-emerald-500' : selectedDsr.status === 'Rejected' ? 'bg-rose-500' : 'bg-amber-500'} animate-pulse`}
+                                    />
                                 </div>
-                                <div className="flex items-center gap-4 text-slate-400 text-xs font-medium">
-                                    <span className="flex items-center gap-1.5">
-                                        <Calendar className="w-3.5 h-3.5" />
-                                        {selectedDsr.report_date}
-                                    </span>
-                                    <span className="flex items-center gap-1.5">
-                                        <MapPin className="w-3.5 h-3.5" />
-                                        {selectedDsr.site_location}
-                                    </span>
+                                <div className="flex-1 font-inter">
+                                    <div className="flex flex-wrap items-center gap-3 mb-2 font-inter">
+                                        <h3 className="text-2xl font-bold tracking-tight font-inter">{selectedDsr.business_id || `DSR-${selectedDsr.id}`}</h3>
+                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest font-inter">
+                                            {selectedDsr.status}
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-4 text-white/60 mb-4 font-inter text-xs font-medium">
+                                        <span className="flex items-center gap-1.5">
+                                            <Calendar className="w-3.5 h-3.5 text-white/80" />
+                                            {selectedDsr.report_date}
+                                        </span>
+                                        <span className="flex items-center gap-1.5">
+                                            <MapPin className="w-3.5 h-3.5 text-white/80" />
+                                            {selectedDsr.site_location}
+                                        </span>
+                                    </div>
+                                    <div className="px-3 py-1 bg-white/20 rounded-full inline-block font-inter">
+                                        <span className="text-[10px] font-bold uppercase tracking-widest font-inter">WEATHER: {selectedDsr.weather?.toUpperCase()}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -548,7 +663,7 @@ const DSRPage = () => {
                                     {selectedDsr.photos.map((photo) => (
                                         <div key={photo.id} className="rounded-2xl overflow-hidden border border-slate-100 shadow-sm aspect-[4/3] group relative">
                                             <img
-                                                src={photo.url?.startsWith('http') ? photo.url : `${API_BASE_URL.replace('/api/v1', '')}/${photo.url}`}
+                                                src={sitePhotoService.resolveUrl(photo.url) || ""}
                                                 alt="Site Documentation"
                                                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                             />
@@ -560,7 +675,7 @@ const DSRPage = () => {
                             <div className="mb-8">
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Site Documentation</p>
                                 <div className="rounded-2xl overflow-hidden border border-slate-100 shadow-sm aspect-video">
-                                    <img src={selectedDsr.dsr_image} alt="Site Documentation" className="w-full h-full object-cover" />
+                                    <img src={sitePhotoService.resolveUrl(selectedDsr.dsr_image) || ""} alt="Site Documentation" className="w-full h-full object-cover" />
                                 </div>
                             </div>
                         )}
@@ -581,7 +696,8 @@ const DSRPage = () => {
                                     </div>
                                     <div>
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Total Personnel</p>
-                                        <p className="text-sm font-bold text-slate-800">{selectedDsr.total_labour || 0} Units</p>
+                                        <p className="text-sm font-bold text-slate-800 mb-1">{selectedDsr.total_labour || 0} Units</p>
+                                        <p className="text-[10px] font-bold text-slate-500">{selectedDsr.skilled_labour || 0} Skilled • {selectedDsr.unskilled_labour || 0} Unskilled</p>
                                     </div>
                                     <div>
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Registry ID</p>
@@ -666,17 +782,6 @@ const DSRPage = () => {
                 onSubmit={handleUpdate}
                 dsr={selectedDsr}
                 projectId={projectId || 36}
-            />
-
-
-            <ConfirmModal
-                isOpen={isDeleteOpen}
-                onClose={() => setIsDeleteOpen(false)}
-                onConfirm={handleDeleteConfirm}
-                title="Discard DSR Entry"
-                message="Are you sure you want to delete this DSR record? This action will permanently remove the entry from the project ledger."
-                confirmText="Archive Record"
-                type="danger"
             />
         </>
     );

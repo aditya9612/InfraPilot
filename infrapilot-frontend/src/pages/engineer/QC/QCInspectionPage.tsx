@@ -21,7 +21,9 @@ import {
   CheckCircle2,
   Image as ImageIcon,
   Camera
-} from "lucide-react";
+,
+    ChevronLeft,
+    ChevronRight} from "lucide-react";
 
 import { qcService } from "../../../services/qcService";
 import { projectService } from "../../../services/projectService";
@@ -513,29 +515,25 @@ const QCInspectionPage = () => {
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                                 Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredList.length)} of {filteredList.length} entries
                             </p>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 font-inter">
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                                     disabled={currentPage === 1}
-                                    className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-primary disabled:opacity-30 disabled:hover:text-slate-500 transition-all border border-slate-100 rounded-lg"
+                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    title="Previous Page"
                                 >
-                                    Prev
+                                    <ChevronLeft className="w-4 h-4" />
                                 </button>
-                                {totalPages > 0 && [...Array(Math.min(totalPages, 5))].map((_, i) => (
-                                    <button
-                                        key={i + 1}
-                                        onClick={() => setCurrentPage(i + 1)}
-                                        className={`w-8 h-8 rounded-lg text-[10px] font-bold transition-all ${currentPage === i + 1 ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-slate-400 hover:bg-slate-50"}`}
-                                    >
-                                        {i + 1}
-                                    </button>
-                                ))}
+                                <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
+                                    Page {currentPage} of {1 || 1}
+                                </div>
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                                    disabled={currentPage === totalPages || totalPages === 0}
-                                    className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-primary disabled:opacity-30 disabled:hover:text-slate-500 transition-all border border-slate-100 rounded-lg"
+                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, 1 || 1))}
+                                    disabled={currentPage >= 1 || 1 === 0}
+                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    title="Next Page"
                                 >
-                                    Next
+                                    <ChevronRight className="w-4 h-4" />
                                 </button>
                             </div>
                         </div>

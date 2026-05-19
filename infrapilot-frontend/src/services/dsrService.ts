@@ -1,173 +1,305 @@
-import api from './api';
-
-export interface DSRItem {
-  project_id: number;
-  report_date: string;
-  site_location: string;
-  contractor_id: number;
-  weather: string;
-  work_done: string;
-  work_planned: string;
-  machinery_used: string;
-  material_received: string;
-  material_used: string;
-  issues: string;
-  safety_observations: string;
-  remarks: string;
-  id: number;
-  business_id: string;
-  created_at: string;
-  updated_at: string;
-  created_by_id: number;
-  created_by_name: string;
-  status: string;
-  latitude: number;
-  longitude: number;
-  contractor_name: string;
-  total_labour: number;
-  skilled_labour: number;
-  unskilled_labour: number;
-  photos: Array<{
-    id: number;
-    file_url: string;
-  }>;
-}
-
-export interface DSRResponse {
-  items: DSRItem[];
-  meta: {
-    total: number;
-    limit: number;
-    offset: number;
-  };
-}
-
-const DSR_MOCK_FALLBACK: DSRResponse = {
-  items: [
-    {
-      project_id: 1,
-      report_date: "2026-05-11",
-      site_location: "Pune",
-      contractor_id: 1,
-      weather: "Sunny",
-      work_done: "Completed electrical conduit laying in ground floor. Vibrators used during pour.",
-      work_planned: "Start wiring work for first floor and prepare column shuttering.",
-      machinery_used: "Concrete mixer, drilling machine",
-      material_received: "PVC pipes - 200 units",
-      material_used: "PVC pipes - 150 units, Cement: 80 bags, Steel: 1.2 Tons",
-      issues: "Slight delay in material delivery in the morning. Resolved by 10 AM.",
-      safety_observations: "All workers wearing helmets and gloves. No safety incidents.",
-      remarks: "Work progressing as per schedule. Slab finish achieved as per specifications.",
-      id: 1,
-      business_id: "DSR001",
-      created_at: "2026-05-11T18:13:39",
-      updated_at: "2026-05-11T18:13:39",
-      created_by_id: 1,
-      created_by_name: "Admin User",
-      status: "Active",
-      latitude: 18.5204,
-      longitude: 73.8567,
-      contractor_name: "Sai Infra",
-      total_labour: 28,
-      skilled_labour: 12,
-      unskilled_labour: 16,
-      photos: [
-        {
-          id: 1,
-          file_url: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&h=300&fit=crop"
-        }
-      ]
-    },
-    {
-      project_id: 1,
-      report_date: "2026-05-10",
-      site_location: "Pune",
-      contractor_id: 1,
-      weather: "Partly Cloudy",
-      work_done: "Shuttering and formwork for Ground Floor slab. Brickwork on Level 1 Apartments A & B.",
-      work_planned: "Electrical conduit laying in ground floor.",
-      machinery_used: "Tower crane, concrete pump",
-      material_received: "Steel reinforcement bars - 5 Tons",
-      material_used: "Plywood: 15 sheets, Bricks: 2500, Cement: 12 bags",
-      issues: "None",
-      safety_observations: "Safety briefing conducted in morning. All PPE compliance confirmed.",
-      remarks: "Wait for plumbing layout approval for Level 1 bathroom shafts.",
-      id: 2,
-      business_id: "DSR002",
-      created_at: "2026-05-10T17:45:00",
-      updated_at: "2026-05-10T17:45:00",
-      created_by_id: 1,
-      created_by_name: "Admin User",
-      status: "Active",
-      latitude: 18.5204,
-      longitude: 73.8567,
-      contractor_name: "Sai Infra",
-      total_labour: 22,
-      skilled_labour: 10,
-      unskilled_labour: 12,
-      photos: [
-        {
-          id: 2,
-          file_url: "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?w=400&h=300&fit=crop"
-        },
-        {
-          id: 3,
-          file_url: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=400&h=300&fit=crop"
-        }
-      ]
-    }
-  ],
-  meta: {
-    total: 2,
-    limit: 20,
-    offset: 0
-  }
-};
+import api from "./api";
+import type {
+  DsrItem,
+  CreateDsrRequest,
+  UpdateDsrRequest,
+  DsrResponse,
+  DsrPhoto,
+  DsrMapPoint,
+  LabourTrend,
+  ContractorAnalytics,
+  IssueAnalytics,
+} from "../types/dsr";
 
 export const dsrService = {
   /**
-   * Get DSR reports for a specific project.
-   * Falls back to rich mock data if the backend is unreachable (502 / ECONNREFUSED / timeout).
-   * GET /api/v1/dsr/project/{project_id}
+   * Get all DSRs (Cross-project)
+   * GET /api/v1/dsr
    */
-  async getProjectDsr(projectId: number): Promise<DSRResponse> {
-    try {
-      const response = await api.get(`/dsr/project/${projectId}`, { timeout: 5000 });
-      return response.data;
-    } catch (error: any) {
-      const status = error?.response?.status;
-      const isNetworkError = !error?.response; // ECONNREFUSED, timeout, proxy error, etc.
-      const isServerError = status >= 500;
-
-      if (isNetworkError || isServerError) {
-        console.warn(
-          `[DSR] Backend unreachable (${isNetworkError ? 'network error' : `HTTP ${status}`}) — serving mock data for project ${projectId}.`
-        );
-        // Clone mock and update project_id to match the request
-        const fallback: DSRResponse = {
-          ...DSR_MOCK_FALLBACK,
-          items: DSR_MOCK_FALLBACK.items.map(item => ({ ...item, project_id: projectId }))
-        };
-        return fallback;
-      }
-
-      // Auth / client errors (401, 403, 404) — propagate so the UI can handle them
-      console.error('[DSR] API error:', error.response?.data || error.message);
-      throw error;
-    }
+  async getDsr(params?: { limit?: number; offset?: number }): Promise<DsrResponse> {
+    const response = await api.get<DsrResponse>("/dsr", { params });
+    return response.data;
   },
 
   /**
-   * Create a new DSR report.
+   * Create new DSR
    * POST /api/v1/dsr
    */
-  async createDsr(dsrData: any) {
-    try {
-      const response = await api.post('/dsr', dsrData);
-      return response.data;
-    } catch (error: any) {
-      console.error('[DSR] Create error:', error.response?.data || error.message);
-      throw error;
+  async createDsr(data: CreateDsrRequest): Promise<DsrItem> {
+    const { dsr_image, total_labour, skilled_labour, unskilled_labour, resolved_address, ...queryParams } = data;
+
+    // Build the query parameters for the POST request
+    const params: Record<string, any> = {};
+    Object.entries(queryParams).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        if (typeof value === "string" && value.trim() === "") {
+          return;
+        }
+        params[key] = value;
+      }
+    });
+
+    // Add labour fields to query params in case the backend accepts them in query parameters
+    if (total_labour !== undefined && total_labour !== null) params.total_labour = total_labour;
+    if (skilled_labour !== undefined && skilled_labour !== null) params.skilled_labour = skilled_labour;
+    if (unskilled_labour !== undefined && unskilled_labour !== null) params.unskilled_labour = unskilled_labour;
+
+    // Defensively ensure weather is a valid WeatherType enum value
+    if (params.weather && !["Sunny", "Rainy", "Cloudy", "Windy"].includes(params.weather)) {
+      params.weather = "Sunny";
     }
-  }
+
+    let createdDsr: DsrItem;
+
+    if (dsr_image instanceof File) {
+      const formData = new FormData();
+      formData.append("photos", dsr_image);
+
+      const response = await api.post<DsrItem>("/dsr", formData, {
+        params,
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      createdDsr = response.data;
+    } else {
+      const response = await api.post<DsrItem>("/dsr", null, {
+        params,
+      });
+      createdDsr = response.data;
+    }
+
+    // Since POST /dsr might not accept total_labour, skilled_labour, unskilled_labour in some backend schemas,
+    // we also call PUT /dsr/{id} to save these labour statistics right after creation if they are provided.
+    if (
+      (total_labour !== undefined && total_labour !== null) ||
+      (skilled_labour !== undefined && skilled_labour !== null) ||
+      (unskilled_labour !== undefined && unskilled_labour !== null)
+    ) {
+      try {
+        createdDsr = await this.updateDsr(createdDsr.id, {
+          total_labour,
+          skilled_labour,
+          unskilled_labour,
+        });
+      } catch (err) {
+        console.error("Failed to persist labour metrics during DSR creation:", err);
+      }
+    }
+
+    return createdDsr;
+  },
+
+  /**
+   * Get all DSRs for a project
+   * GET /api/v1/dsr/project/{project_id}
+   */
+  async getDsrByProject(
+    projectId: number,
+    params?: { 
+      limit?: number; 
+      offset?: number;
+      start_date?: string;
+      end_date?: string;
+      contractor_name?: string;
+    }
+  ): Promise<DsrResponse> {
+    const response = await api.get<DsrResponse>(`/dsr/project/${projectId}`, {
+      params,
+    });
+    return response.data;
+  },
+
+  /**
+   * Get single DSR by ID
+   * GET /api/v1/dsr/{id}
+   */
+  async getDsrById(id: number): Promise<DsrItem> {
+    const response = await api.get<DsrItem>(`/dsr/${id}`);
+    return response.data;
+  },
+
+  /**
+   * Update DSR
+   * PUT /api/v1/dsr/{id}
+   */
+  async updateDsr(id: number, data: UpdateDsrRequest): Promise<DsrItem> {
+    const { dsr_image, resolved_address, ...payload } = data;
+    
+    // We send payload in the body, but also copy fields to params just in case the backend reads them from query string
+    const params: Record<string, any> = {};
+    Object.entries(payload).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        if (typeof value === "string" && value.trim() === "") {
+          return;
+        }
+        params[key] = value;
+      }
+    });
+
+    // Defensively ensure weather is a valid WeatherType enum value
+    if (params.weather && !["Sunny", "Rainy", "Cloudy", "Windy"].includes(params.weather)) {
+      params.weather = "Sunny";
+    }
+
+    const response = await api.put<DsrItem>(`/dsr/${id}`, payload, { params });
+    return response.data;
+  },
+
+  /**
+   * Delete DSR
+   * DELETE /api/v1/dsr/{id}
+   */
+  async deleteDsr(id: number): Promise<{ success: boolean; message: string }> {
+    const response = await api.delete<{ success: boolean; message: string }>(
+      `/dsr/${id}`
+    );
+    return response.data;
+  },
+
+  /**
+   * Submit DSR (Draft → Submitted)
+   * PUT /api/v1/dsr/{id}/submit
+   */
+  async submitDsr(id: number): Promise<{ message: string }> {
+    const response = await api.put<{ message: string }>(`/dsr/${id}/submit`);
+    return response.data;
+  },
+
+  /**
+   * Approve DSR (Submitted → Approved)
+   * PUT /api/v1/dsr/{id}/approve
+   */
+  async approveDsr(id: number): Promise<{ message: string }> {
+    const response = await api.put<{ message: string }>(`/dsr/${id}/approve`);
+    return response.data;
+  },
+
+  /**
+   * Reject DSR (Submitted → Draft)
+   * PUT /api/v1/dsr/{id}/reject
+   */
+  async rejectDsr(id: number): Promise<{ message: string }> {
+    const response = await api.put<{ message: string }>(`/dsr/${id}/reject`);
+    return response.data;
+  },
+
+  /**
+   * Upload photo for a DSR
+   * POST /api/v1/dsr/{dsr_id}/photos
+   * Field name must be "file"
+   */
+  async uploadDsrPhoto(
+    dsr_id: number,
+    file: File
+  ): Promise<{ status: string; uploaded: string[] }> {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await api.post<{ status: string; uploaded: string[] }>(
+      `/dsr/${dsr_id}/photos`,
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      }
+    );
+    return response.data;
+  },
+
+  /**
+   * Get all photos for a DSR
+   * GET /api/v1/dsr/{dsr_id}/photos
+   */
+  async getDsrPhotos(dsr_id: number): Promise<DsrPhoto[]> {
+    const response = await api.get<DsrPhoto[]>(`/dsr/${dsr_id}/photos`);
+    return response.data;
+  },
+
+  /**
+   * Delete a DSR photo
+   * DELETE /api/v1/dsr/photo/{photo_id}
+   */
+  async deleteDsrPhoto(photo_id: number): Promise<{ status: string }> {
+    const response = await api.delete<{ status: string }>(
+      `/dsr/photo/${photo_id}`
+    );
+    return response.data;
+  },
+
+  /**
+   * Get DSR map points for a project
+   * GET /api/v1/dsr/project/{project_id}/map
+   */
+  async getDsrMapPoints(project_id: number): Promise<DsrMapPoint[]> {
+    const response = await api.get<DsrMapPoint[]>(
+      `/dsr/project/${project_id}/map`
+    );
+    return response.data;
+  },
+
+  /**
+   * Get labour trend analytics
+   * GET /api/v1/dsr/project/{project_id}/analytics/labour
+   */
+  async getLabourTrend(
+    project_id: number,
+    start_date?: string,
+    end_date?: string
+  ): Promise<LabourTrend[]> {
+    const response = await api.get<LabourTrend[]>(
+      `/dsr/project/${project_id}/analytics/labour`,
+      { params: { start_date, end_date } }
+    );
+    return response.data;
+  },
+
+  /**
+   * Get contractor analytics
+   * GET /api/v1/dsr/project/{project_id}/analytics/contractor
+   */
+  async getContractorAnalytics(
+    project_id: number,
+    start_date?: string,
+    end_date?: string
+  ): Promise<ContractorAnalytics[]> {
+    const response = await api.get<ContractorAnalytics[]>(
+      `/dsr/project/${project_id}/analytics/contractor`,
+      { params: { start_date, end_date } }
+    );
+    return response.data;
+  },
+
+  /**
+   * Get issue analytics
+   * GET /api/v1/dsr/project/{project_id}/analytics/issues
+   */
+  async getIssueAnalytics(project_id: number): Promise<IssueAnalytics> {
+    const response = await api.get<IssueAnalytics>(
+      `/dsr/project/${project_id}/analytics/issues`
+    );
+    return response.data;
+  },
+
+  /**
+   * Export DSR to Excel — triggers browser download automatically
+   * GET /api/v1/dsr/project/{project_id}/export
+   */
+  async exportDsrExcel(
+    project_id: number,
+    params?: {
+      start_date?: string;
+      end_date?: string;
+      contractor_name?: string;
+    }
+  ): Promise<void> {
+    const response = await api.get(`/dsr/project/${project_id}/export`, {
+      params,
+      responseType: "blob",
+    });
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "dsr_export.xlsx");
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode?.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  },
 };

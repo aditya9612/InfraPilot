@@ -84,8 +84,8 @@ export const financeService = {
     offset: number = 0,
   ): Promise<Invoice[]> {
     try {
-      console.log(`🌐 Fetching Invoices via API... URL: ${api.defaults.baseURL}/invoices`);
-      const response = await api.get("/invoices", {
+      console.log(`🌐 Fetching Invoices via API... URL: ${api.defaults.baseURL}/invoices/`);
+      const response = await api.get("/invoices/", {
         params: { limit, offset },
       });
       
@@ -108,7 +108,7 @@ export const financeService = {
    */
   async getInvoicesByType(type: string): Promise<Invoice[]> {
     try {
-      const response = await api.get(`/invoices/type/${type}`);
+      const response = await api.get(`/invoices/type/${type}/`);
       return response.data || [];
     } catch (error: any) {
       console.error(
@@ -125,7 +125,7 @@ export const financeService = {
    */
   async getInvoicesByDateRange(start: string, end: string): Promise<Invoice[]> {
     try {
-      const response = await api.get("/invoices/date-range", {
+      const response = await api.get("/invoices/date-range/", {
         params: { start, end },
       });
       return Array.isArray(response.data)
@@ -169,19 +169,19 @@ export const financeService = {
   async createInvoice(data: InvoiceCreateData): Promise<Invoice> {
     try {
       // The API endpoint expects the type in the URL: /api/v1/invoices/{type}
-      const response = await api.post(`/invoices/${data.type}`, data);
+      const response = await api.post(`/invoices/${data.type}/`, data);
       return response.data;
     } catch (error: any) {
       const detail = error.response?.data?.detail;
-      const message = typeof detail === 'string' ? detail : 
-                      (Array.isArray(detail) ? detail.map(d => d.msg).join(', ') : 
-                      (error.response?.data?.message || error.message));
-      
+      const message = typeof detail === 'string' ? detail :
+        (Array.isArray(detail) ? detail.map(d => d.msg).join(', ') :
+          (error.response?.data?.message || error.message));
+
       console.error(
         `Create Invoice (${data.type}) Error:`,
         error.response?.data || error.message,
       );
-      
+
       // Throw a new error with the extracted detail message
       const enhancedError = new Error(message);
       (enhancedError as any).response = error.response;
@@ -212,7 +212,7 @@ export const financeService = {
    */
   async markInvoicePaid(id: number): Promise<Invoice> {
     try {
-      const response = await api.post(`/invoices/${id}/mark-paid`);
+      const response = await api.post(`/invoices/${id}/mark-paid/`);
       return response.data;
     } catch (error: any) {
       console.error(
@@ -230,7 +230,7 @@ export const financeService = {
   async getPendingInvoices(): Promise<Invoice[]> {
     try {
       // Use query parameter to avoid route collision with /invoices/{id}
-      const response = await api.get("/invoices", {
+      const response = await api.get("/invoices/", {
         params: { status: "pending" }
       });
       return Array.isArray(response.data)
@@ -261,7 +261,7 @@ export const financeService = {
   async getInvoicePdf(id: number): Promise<void> {
     try {
       console.log(`🌐 Fetching PDF via API for Invoice ID: ${id}...`);
-      const response = await api.get(`/invoices/${id}/pdf`, {
+      const response = await api.get(`/invoices/${id}/pdf/`, {
         responseType: "blob",
         headers: {
           "Accept": "application/pdf"
@@ -507,7 +507,7 @@ export const financeService = {
     end_date: string;
   }): Promise<Invoice> {
     try {
-      const response = await api.post("/invoices/labour", data);
+      const response = await api.post("/invoices/labour/", data);
       return response.data;
     } catch (error: any) {
       console.error("Create Labour Invoice Error:", error.response?.data || error.message);
@@ -521,7 +521,7 @@ export const financeService = {
    */
   async createMaterialInvoice(data: InvoiceCreateData): Promise<Invoice> {
     try {
-      const response = await api.post("/invoices/material", data);
+      const response = await api.post("/invoices/material/", data);
       return response.data;
     } catch (error: any) {
       console.error("Create Material Invoice Error:", error.response?.data || error.message);

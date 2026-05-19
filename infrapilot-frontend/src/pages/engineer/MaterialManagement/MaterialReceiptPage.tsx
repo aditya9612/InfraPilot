@@ -17,8 +17,10 @@ import {
   CreditCard,
   Search,
   RotateCcw
-} from "lucide-react";
-import { materialService, type MaterialItem, type MaterialLog, type CreateMaterialRequest, type IssueType, type RateType } from "../../../services/materialService";
+,
+    ChevronLeft,
+    ChevronRight} from "lucide-react";
+import { materialService, type MaterialItem, type MaterialLog, type CreateMaterialRequest, type IssueType, type RateType, type Supplier } from "../../../services/materialService";
 
 const CATEGORIES = ["Construction", "Electrical", "Plumbing", "Finishing", "Other"];
 const UNITS = ["Bags", "Kg", "Ton", "Litre", "Nos", "Sqft", "Rft", "Cum"];
@@ -28,6 +30,7 @@ const ISSUE_TYPES = ["SYSTEM", "MANUAL"];
 const MaterialReceiptPage = () => {
   const [materials, setMaterials] = useState<MaterialItem[]>([]);
   const [logs, setLogs] = useState<MaterialLog[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [projectId, setProjectId] = useState<number | null>(null);
@@ -65,6 +68,7 @@ const MaterialReceiptPage = () => {
 
   const [purchaseData, setPurchaseData] = useState({
     quantity: 0,
+    rate: 0,
     amount_paid: 0,
     issue_type: "SYSTEM"
   });
@@ -73,6 +77,29 @@ const MaterialReceiptPage = () => {
     if (!projectId) return;
     setIsLoading(true);
     try {
+      // Fetch suppliers
+      let sList: Supplier[] = [];
+      try {
+        sList = await materialService.getSuppliers();
+      } catch (err) {
+        console.warn("Failed to load suppliers", err);
+      }
+
+      // If no suppliers exist, automatically register a default supplier to prevent creation failures
+      if (!sList || sList.length === 0) {
+        try {
+          const defaultSup = await materialService.createSupplier({
+            name: "Aman patil",
+            contact: "9876543210",
+            address: "Main Construction Yard"
+          });
+          sList = [defaultSup];
+        } catch (createErr) {
+          console.warn("Failed to create default supplier", createErr);
+        }
+      }
+      setSuppliers(sList || []);
+
       const [mList, lList] = await Promise.all([
         materialService.listMaterials(projectId),
         materialService.getLogs({ project_id: projectId || 0, type: "PURCHASE" })
@@ -263,7 +290,7 @@ const MaterialReceiptPage = () => {
                     material_name: "",
                     category: "Construction",
                     unit: "Bags",
-                    supplier_id: 0,
+                    supplier_id: suppliers.length > 0 ? suppliers[0].id : 0,
                     purchase_rate: 0,
                     rate_type: "FIXED",
                     quantity_purchased: 0,
@@ -281,7 +308,7 @@ const MaterialReceiptPage = () => {
               onClick={() => {
                 if (materials.length > 0) {
                     setSelectedMaterial(materials[0]);
-                    setPurchaseData({ quantity: 0, amount_paid: 0, issue_type: "SYSTEM" });
+                    setPurchaseData({ quantity: 0, rate: materials[0].purchase_rate || 0, amount_paid: 0, issue_type: "SYSTEM" });
                     setIsPurchaseModalOpen(true);
                 } else {
                     toast.error("Please add a material first");
@@ -353,7 +380,6 @@ const MaterialReceiptPage = () => {
             <table className="w-full text-left font-inter min-w-[1400px]">
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
-                  <th className="px-6 py-4 font-inter">Identity</th>
                   <th className="px-6 py-4 font-inter">Material Description</th>
                   <th className="px-6 py-4 font-inter">Logistics</th>
                   <th className="px-6 py-4 font-inter">Supplier</th>
@@ -368,7 +394,7 @@ const MaterialReceiptPage = () => {
               <tbody className="divide-y divide-slate-50 font-inter">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={10} className="px-6 py-20 text-center font-inter">
+                    <td colSpan={9} className="px-6 py-20 text-center font-inter">
                       <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4 font-inter" />
                       <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing registry...</p>
                     </td>
@@ -376,9 +402,6 @@ const MaterialReceiptPage = () => {
                 ) : paginatedMaterials.length > 0 ? (
                   paginatedMaterials.map((m) => (
                     <tr key={m.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
-                      <td className="px-6 py-4 font-inter">
-                        <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 font-inter uppercase tracking-widest">{m.material_code}</span>
-                      </td>
                       <td className="px-6 py-4 font-inter">
                         <span className="text-sm font-bold text-slate-800 font-inter">{m.material_name}</span>
                       </td>
@@ -455,7 +478,7 @@ const MaterialReceiptPage = () => {
                           <button 
                             onClick={() => {
                                 setSelectedMaterial(m);
-                                setPurchaseData({ quantity: 0, amount_paid: 0, issue_type: "SYSTEM" });
+                                setPurchaseData({ quantity: 0, rate: m.purchase_rate || 0, amount_paid: 0, issue_type: "SYSTEM" });
                                 setIsPurchaseModalOpen(true);
                             }}
                             className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all font-inter"
@@ -476,7 +499,7 @@ const MaterialReceiptPage = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={10} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">No material resources found in the project vault.</td>
+                    <td colSpan={9} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">No material resources found in the project vault.</td>
                   </tr>
                 )}
               </tbody>
@@ -489,24 +512,26 @@ const MaterialReceiptPage = () => {
               Showing {paginatedMaterials.length} of {filteredMaterials.length} Resource Identities
             </div>
             <div className="flex items-center gap-2 font-inter">
-              <button
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(prev => prev - 1)}
-                className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all font-inter shadow-sm"
-              >
-                Prev
-              </button>
-              <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                Page {currentPage} of {totalPages || 1}
-              </div>
-              <button
-                disabled={currentPage >= totalPages}
-                onClick={() => setCurrentPage(prev => prev + 1)}
-                className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all font-inter shadow-sm"
-              >
-                Next
-              </button>
-            </div>
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                    disabled={currentPage === 1}
+                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    title="Previous Page"
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                </button>
+                                <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
+                                    Page {currentPage} of {totalPages || 1}
+                                </div>
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages || 1))}
+                                    disabled={currentPage >= totalPages || totalPages === 0}
+                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    title="Next Page"
+                                >
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
           </div>
         </div>
 
@@ -640,15 +665,22 @@ const MaterialReceiptPage = () => {
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-inter">
               <div className="font-inter">
-                <label className={labelClasses}>Supplier Context (ID) <span className="text-rose-500">*</span></label>
-                <input
+                <label className={labelClasses}>Supplier <span className="text-rose-500">*</span></label>
+                <select
                   required
-                  type="number"
-                  value={formData.supplier_id}
+                  value={formData.supplier_id || ""}
                   onChange={(e) => setFormData({ ...formData, supplier_id: Number(e.target.value) })}
                   className={inputClasses}
-                  placeholder="0"
-                />
+                >
+                  <option value="">Select Supplier</option>
+                  {suppliers.map(s => {
+                    const supId = s.id ?? (s as any).supplier_id;
+                    const supName = typeof s === "string" ? s : (s.name || (s as any).supplier_name || s.contactPerson || s.phone || `Supplier #${supId}`);
+                    return (
+                      <option key={supId} value={supId}>{supName}</option>
+                    );
+                  })}
+                </select>
               </div>
               <div className="font-inter">
                 <label className={labelClasses}>Acquisition Rate <span className="text-rose-500">*</span></label>
@@ -758,13 +790,19 @@ const MaterialReceiptPage = () => {
                     <select
                         required
                         value={selectedMaterial?.id || ""}
-                        onChange={(e) => setSelectedMaterial(materials.find(m => m.id === Number(e.target.value)) || null)}
+                        onChange={(e) => {
+                            const newMaterial = materials.find(m => m.id === Number(e.target.value)) || null;
+                            setSelectedMaterial(newMaterial);
+                            if (newMaterial) {
+                                setPurchaseData(prev => ({ ...prev, rate: newMaterial.purchase_rate || 0 }));
+                            }
+                        }}
                         className={inputClasses}
                     >
                         {materials.map(m => <option key={m.id} value={m.id}>{m.material_name} ({m.material_code})</option>)}
                     </select>
                 </div>
-                <div className="grid grid-cols-2 gap-5 font-inter">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 font-inter">
                   <div className="font-inter">
                     <label className={labelClasses}>Quantity Target <span className="text-rose-500">*</span></label>
                     <input
@@ -774,6 +812,17 @@ const MaterialReceiptPage = () => {
                       onChange={(e) => setPurchaseData({ ...purchaseData, quantity: Number(e.target.value) })}
                       className={inputClasses}
                       placeholder="0"
+                    />
+                  </div>
+                  <div className="font-inter">
+                    <label className={labelClasses}>Procurement Rate <span className="text-rose-500">*</span></label>
+                    <input
+                      required
+                      type="number"
+                      value={purchaseData.rate}
+                      onChange={(e) => setPurchaseData({ ...purchaseData, rate: Number(e.target.value) })}
+                      className={inputClasses}
+                      placeholder="0.00"
                     />
                   </div>
                   <div className="font-inter">

@@ -3,23 +3,22 @@ import { useAuth } from "../context/AuthContext";
 import ProtectedRoute from "./ProtectedRoute";
 import DashboardLayout from "../components/common/DashboardLayout";
 import Login from "../pages/auth/Login";
-import LoadingScreen from "../components/common/LoadingScreen";
 import AdminDashboard from "../pages/dashboard/AdminDashboard";
 import ManagerDashboard from "../pages/dashboard/ManagerDashboard";
-import ManagerBOQPage from "../pages/manager/ManagerBOQPage";
-import ManagerMaterialsPage from "../pages/manager/ManagerMaterialsPage";
-import ManagerLabourPage from "../pages/manager/ManagerLabourPage";
+import EngineerDashboard from "../pages/engineer/EngineerDashboard";
 import AccountantDashboard from "../pages/dashboard/AccountantDashboard";
 import Unauthorized from "../pages/Unauthorized";
 import ProjectsPage from "../pages/admin/ProjectsPage";
 import UsersPage from "../pages/admin/UsersPage";
 import ClientsPage from "../pages/admin/ClientsPage";
+import ClientDetailPage from "../pages/admin/ClientDetailPage";
 import OwnersListPage from "../pages/admin/OwnersListPage";
 import AgreementUploadPage from "../pages/admin/AgreementUploadPage";
 import PaymentTrackerPage from "../pages/admin/PaymentTrackerPage";
 import OwnerLedgerPage from "../pages/admin/OwnerLedgerPage";
 import AutoCADPage from "../pages/admin/AutoCADPage";
 import EngineersPage from "../pages/admin/EngineersPage";
+import EngineerProfilePage from "../pages/admin/EngineerProfilePage";
 import BOQPage from "../pages/admin/BOQPage";
 import InventoryPage from "../pages/admin/InventoryPage";
 import FinancePage from "../pages/admin/FinancePage";
@@ -34,6 +33,15 @@ import RolesPage from "../pages/admin/RolesPage";
 import PermissionsPage from "../pages/admin/PermissionsPage";
 import MeasurementPage from "../pages/admin/MeasurementPage";
 import ProjectDetailsPage from "../pages/projects/ProjectDetailsPage";
+import BOQDetailPage from "../pages/admin/BOQDetailPage";
+import AllInvoicesPage from "../pages/admin/AllInvoicesPage";
+import CreateInvoicePage from "../pages/admin/CreateInvoicePage";
+import QuotationsPage from "../pages/admin/QuotationsPage";
+import ManagerApprovalsPage from "../pages/manager/ApprovalsPage";
+import QCGovernancePage from "../pages/manager/QCGovernancePage";
+import DSRApprovalPage from "../pages/manager/DSRApprovalPage";
+import ResourceOrchestratorPage from "../pages/manager/ResourceOrchestratorPage";
+import ManagerSettingsPage from "../pages/manager/ManagerSettingsPage";
 
 // Client Pages
 import ClientOverviewPage from "../pages/client/ClientOverviewPage";
@@ -54,18 +62,18 @@ import ClientMonthlyProgressReportPage from "../pages/client/reports/ClientMonth
 import ClientFinancialReportPage from "../pages/client/reports/ClientFinancialReportPage";
 import ClientWorkSummaryPage from "../pages/client/reports/ClientWorkSummaryPage";
 import ClientSettingsPage from "../pages/client/ClientSettingsPage";
-import ClientWorkFocusDetailsPage from "../pages/client/ClientWorkFocusDetailsPage";
 
 // Engineer Pages
-import EngineerDashboard from "../pages/engineer/EngineerDashboard";
 import DSRPage from "../pages/engineer/DSRPage";
 import SitePhotosPage from "../pages/engineer/SitePhotosPage";
 import ReportsPage from "../pages/engineer/ReportsPage";
 import SettingsPage from "../pages/engineer/SettingsPage";
+import EngineerNotificationsPage from "../pages/engineer/NotificationsPage";
 import ActivityListPage from "../pages/engineer/WorkProgress/ActivityListPage";
 import DailyProgressEntryPage from "../pages/engineer/WorkProgress/DailyProgressEntryPage";
-import LaborAttendancePage from "../pages/engineer/LabourManagement/AttendancePage";
-import LaborReportsPage from "../pages/engineer/LabourManagement/PayrollReportPage";
+import AttendancePage from "../pages/engineer/LabourManagement/AttendancePage";
+import PaymentPage from "../pages/engineer/LabourManagement/PaymentPage";
+import PayrollReportPage from "../pages/engineer/LabourManagement/PayrollReportPage";
 import LaborDetailsPage from "../pages/engineer/LabourManagement/LaborDetailsPage";
 import MaterialReceiptPage from "../pages/engineer/MaterialManagement/MaterialReceiptPage";
 import MaterialConsumptionPage from "../pages/engineer/MaterialManagement/MaterialConsumptionPage";
@@ -99,13 +107,11 @@ import JournalEntriesPage from "../pages/accountant/JournalEntriesPage";
 import FixedAssetsPage from "../pages/accountant/FixedAssetsPage";
 import AccountantReportsPage from "../pages/accountant/AccountantReportsPage";
 import AccountantSettingsPage from "../pages/accountant/AccountantSettingsPage";
+import ClientDashboard from "../pages/dashboard/ClientDashboard";
 
 const RootRedirect = () => {
-  const { user, isAuthenticated, loading } = useAuth();
-  
-  if (loading) return <LoadingScreen />;
+  const { user, isAuthenticated } = useAuth();
   if (!isAuthenticated) return <Login />;
-  
   const paths: Record<string, string> = {
     Admin: "/admin",
     ProjectManager: "/manager",
@@ -113,18 +119,10 @@ const RootRedirect = () => {
     Accountant: "/accountant",
     Client: "/client",
   };
-  
-  const targetPath = paths[user!.role as Role] || "/admin";
-  return <Navigate to={targetPath} replace />;
+  return <Navigate to={paths[user!.role] || "/admin"} replace />;
 };
 
 function AppRoutes() {
-  const { loading } = useAuth();
-
-  if (loading) {
-    return <LoadingScreen />;
-  }
-
   return (
     <BrowserRouter>
       <Routes>
@@ -144,6 +142,7 @@ function AppRoutes() {
                 path="/admin/projects/:id"
                 element={<ProjectDetailsPage />}
               />
+              <Route path="/admin/boq/:id" element={<BOQDetailPage />} />
               <Route path="/admin/users" element={<UsersPage />} />
               <Route path="/admin/users/roles" element={<RolesPage />} />
               <Route
@@ -151,6 +150,7 @@ function AppRoutes() {
                 element={<PermissionsPage />}
               />
               <Route path="/admin/clients" element={<ClientsPage />} />
+              <Route path="/admin/clients/:id" element={<ClientDetailPage />} />
               <Route path="/admin/owners/list" element={<OwnersListPage />} />
               <Route
                 path="/admin/owners/agreements"
@@ -166,6 +166,7 @@ function AppRoutes() {
               />
               <Route path="/admin/autocad" element={<AutoCADPage />} />
               <Route path="/admin/engineers" element={<EngineersPage />} />
+              <Route path="/admin/engineers/:id" element={<EngineerProfilePage />} />
               <Route path="/admin/boq" element={<BOQPage />} />
               <Route path="/admin/boq/setup" element={<BOQPage />} />
               <Route path="/admin/boq/activities" element={<BOQPage />} />
@@ -183,7 +184,8 @@ function AppRoutes() {
               <Route path="/admin/finance/payments" element={<FinancePage />} />
               <Route path="/admin/finance/expenses" element={<FinancePage />} />
               <Route path="/admin/finance/profit" element={<FinancePage />} />
-              <Route path="/admin/approvals" element={<ApprovalsPage />} />
+              <Route path="approvals" element={<ApprovalsPage />} />
+              <Route path="compliance/qc" element={<QCGovernancePage />} />
               <Route
                 path="/admin/approvals/material"
                 element={<ApprovalsPage />}
@@ -202,7 +204,7 @@ function AppRoutes() {
                 path="/admin/reports/financial"
                 element={<ReportsPage />}
               />
-              <Route path="/admin/reports/labor" element={<ReportsPage />} />
+              <Route path="/admin/reports/labour" element={<ReportsPage />} />
               <Route
                 path="/admin/reports/consumption"
                 element={<ReportsPage />}
@@ -217,13 +219,17 @@ function AppRoutes() {
               />
               <Route path="/admin/documents" element={<DocumentsPage />} />
               <Route path="/admin/measurements" element={<MeasurementPage />} />
+              <Route path="/admin/invoices/all" element={<AllInvoicesPage />} />
+              <Route path="/admin/quotations" element={<QuotationsPage />} />
+              <Route path="/admin/quotations/view/:id" element={<CreateInvoicePage />} />
+              <Route path="/admin/invoices/create" element={<CreateInvoicePage />} />
               <Route path="/admin/master-data" element={<MasterDataPage />} />
               <Route
                 path="/admin/master-data/materials"
                 element={<MasterDataPage />}
               />
               <Route
-                path="/admin/master-data/labor"
+                path="/admin/master-data/labour"
                 element={<MasterDataPage />}
               />
               <Route
@@ -241,15 +247,114 @@ function AppRoutes() {
               <Route path="/admin/settings" element={<SettingsPage />} />
             </Route>
             {/* Manager Specific Routes */}
+            <Route path="/manager" element={<ProtectedRoute allowedRoles={["ProjectManager"]} />}>
+              <Route index element={<ManagerDashboard />} />
+              <Route path="projects" element={<ProjectsPage />} />
+              <Route path="projects/:id" element={<ProjectDetailsPage />} />
+              <Route path="approvals" element={<ManagerApprovalsPage />} />
+              <Route path="approvals/dsr" element={<DSRApprovalPage />} />
+              <Route path="approvals/material" element={<ManagerApprovalsPage />} />
+              <Route path="approvals/expense" element={<ManagerApprovalsPage />} />
+              <Route path="boq" element={<BOQPage />} />
+              <Route path="labour" element={<LaborDetailsPage />} />
+              <Route path="resources/orchestrator" element={<ResourceOrchestratorPage />} />
+              <Route path="compliance/qc" element={<QCGovernancePage />} />
+              <Route path="compliance/safety" element={<SafetyChecklistPage />} />
+              <Route path="settings" element={<ManagerSettingsPage />} />
+            </Route>
+
+            {/* Client Specific Routes */}
             <Route
-              element={<ProtectedRoute allowedRoles={["ProjectManager"]} />}
+              element={<ProtectedRoute allowedRoles={["Client"]} />}
             >
-              <Route path="/manager" element={<ManagerDashboard />} />
-              <Route path="/manager/projects" element={<ProjectsPage />} />
-              <Route path="/manager/projects/:id" element={<ProjectDetailsPage />} />
-              <Route path="/manager/boq" element={<ManagerBOQPage />} />
-              <Route path="/manager/materials" element={<ManagerMaterialsPage />} />
-              <Route path="/manager/labour" element={<ManagerLabourPage />} />
+              {/* Dashboard */}
+              <Route path="/client" element={<ClientDashboard />} />
+
+              {/* Projects */}
+              <Route path="/client/projects" element={<ProjectsPage />} />
+              <Route path="/client/projects/:id" element={<ProjectDetailsPage />} />
+
+              {/* Overview */}
+              <Route path="/client/overview" element={<ClientOverviewPage />} />
+
+              {/* Progress */}
+              <Route path="/client/progress" element={<ClientProgressPage />} />
+
+              {/* Financials */}
+              <Route
+                path="/client/financial-summary"
+                element={<ClientFinancialsSummaryPage />}
+              />
+              <Route
+                path="/client/invoices"
+                element={<ClientInvoicesPage />}
+              />
+              <Route
+                path="/client/payments"
+                element={<ClientPaymentsPage />}
+              />
+
+              {/* Site Updates */}
+              <Route
+                path="/client/photos"
+                element={<ClientPhotosPage />}
+              />
+              <Route
+                path="/client/dsr-summary"
+                element={<ClientDSRSummaryPage />}
+              />
+
+              {/* Issues */}
+              <Route
+                path="/client/issues"
+                element={<ClientIssuesPage />}
+              />
+
+              {/* Documents */}
+              <Route
+                path="/client/documents"
+                element={<ClientDocumentsPage />}
+              />
+
+              {/* Approvals */}
+              <Route
+                path="/client/pending-approvals"
+                element={<ClientPendingApprovalsPage />}
+              />
+              <Route
+                path="/client/approved-items"
+                element={<ClientApprovedItemsPage />}
+              />
+
+              {/* Communication */}
+              <Route
+                path="/client/messages"
+                element={<ClientMessagesPage />}
+              />
+              <Route
+                path="/client/announcements"
+                element={<ClientAnnouncementsPage />}
+              />
+
+              {/* Reports */}
+              <Route
+                path="/client/monthly-progress-report"
+                element={<ClientMonthlyProgressReportPage />}
+              />
+              <Route
+                path="/client/financial-report"
+                element={<ClientFinancialReportPage />}
+              />
+              <Route
+                path="/client/work-summary"
+                element={<ClientWorkSummaryPage />}
+              />
+
+              {/* Settings */}
+              <Route
+                path="/client/settings"
+                element={<ClientSettingsPage />}
+              />
             </Route>
 
             {/* Engineer Routes */}
@@ -258,12 +363,14 @@ function AppRoutes() {
               <Route path="/engineer/dsr" element={<DSRPage />} />
               <Route path="/engineer/photos" element={<SitePhotosPage />} />
               <Route path="/engineer/reports" element={<ReportsPage />} />
+              <Route path="/engineer/notifications" element={<EngineerNotificationsPage />} />
               <Route path="/engineer/settings" element={<SettingsPage />} />
               <Route path="/engineer/progress/activities" element={<ActivityListPage />} />
               <Route path="/engineer/progress/entry" element={<DailyProgressEntryPage />} />
-              <Route path="/engineer/labor/attendance" element={<LaborAttendancePage />} />
-              <Route path="/engineer/labor/reports" element={<LaborReportsPage />} />
-              <Route path="/engineer/labor/details" element={<LaborDetailsPage />} />
+              <Route path="/engineer/labor/list" element={<LaborDetailsPage />} />
+              <Route path="/engineer/labor/attendance" element={<AttendancePage />} />
+              <Route path="/engineer/labor/payments" element={<PaymentPage />} />
+              <Route path="/engineer/labor/reports" element={<PayrollReportPage />} />
               <Route path="/engineer/material/receipt" element={<MaterialReceiptPage />} />
               <Route path="/engineer/material/consumption" element={<MaterialConsumptionPage />} />
               <Route path="/engineer/material/stock" element={<MaterialStockPage />} />
@@ -279,7 +386,12 @@ function AppRoutes() {
               <Route path="/engineer/approvals/work" element={<WorkApprovalPage />} />
             </Route>
 
-            {/* Accountant Routes */}
+            {/* Contractor Routes - Temporarily commented out as Contractor is not in UserRole type */}
+            {/* <Route element={<ProtectedRoute allowedRoles={["Contractor"]} />}>
+              <Route path="/contractor" element={<ContractorDashboard />} />
+            </Route> */}
+
+            {/* Accountant Specific Routes */}
             <Route element={<ProtectedRoute allowedRoles={["Accountant"]} />}>
               <Route path="/accountant" element={<AccountantDashboard />} />
               <Route
@@ -384,7 +496,6 @@ function AppRoutes() {
               <Route path="/client/reports/monthly" element={<ClientMonthlyProgressReportPage />} />
               <Route path="/client/reports/financial" element={<ClientFinancialReportPage />} />
               <Route path="/client/reports/work" element={<ClientWorkSummaryPage />} />
-              <Route path="/client/work-focus-details" element={<ClientWorkFocusDetailsPage />} />
               <Route path="/client/settings" element={<ClientSettingsPage />} />
             </Route>
           </Route>

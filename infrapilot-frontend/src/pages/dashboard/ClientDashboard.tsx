@@ -1,15 +1,8 @@
 import Navbar from "../../components/common/Navbar";
 import { useAuth } from "../../context/AuthContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import Modal from "../../components/common/Modal";
-import NewProjectModal from "../../components/dashboard/NewProjectModal";
-import CreateUserModal from "../../components/forms/CreateUserModal";
-import CreateBOQModal from "../../components/forms/CreateBOQModal";
-import CreateReportModal from "../../components/dashboard/CreateReportModal";
-import toast from "react-hot-toast";
 import { useEffect, useState } from "react";
+
 import { dashboardService, type ClientDashboardData } from "../../services/dashboardService";
 
 const costData = [

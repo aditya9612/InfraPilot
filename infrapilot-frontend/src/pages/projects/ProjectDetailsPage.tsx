@@ -2,6 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useState, useMemo } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
+import { projectService } from "../../services/projectService";
 import type { Project } from "../../types/project";
 import KanbanBoard from "../../components/projects/KanbanBoard";
 import MilestoneTimeline from "../../components/projects/MilestoneTimeline";
@@ -14,41 +15,8 @@ import { generateProjectReport } from "../../utils/reportGenerator";
 import toast from "react-hot-toast";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import ScheduleProjectModal from "../../components/projects/ScheduleProjectModal";
-import { useEffect, useCallback } from "react";
-
-const MOCK_PROJECT: Project = {
-  id: 1,
-  project_name: "Ganga Heritage Site",
-  description: "Restoration of historical riverfront structures and development of sustainable public spaces.",
-  location: "Varanasi, UP",
-  status: "Ongoing",
-  start_date: "2026-01-15",
-  end_date: "2026-12-30",
-  completion_percentage: 65,
-  total_budget: 15000000,
-};
-
-const MOCK_MEMBERS = [
-  { id: 1, user_id: 101, name: "Karan Singh", role: "Site Engineer", email: "karan@infrapilot.in" },
-  { id: 2, user_id: 102, name: "Amit Sharma", role: "Project Manager", email: "amit@infrapilot.in" },
-];
-
-const MOCK_MILESTONES = [
-  { id: 1, title: "Foundation Restoration", status: "Completed", due_date: "2026-03-15" },
-  { id: 2, title: "Structural Reinforcement", status: "In Progress", due_date: "2026-07-20" },
-];
-
-const MOCK_TASKS = [
-  { id: 1, title: "Base excavation", status: "Completed", priority: "High", assigned_to: "Karan Singh" },
-  { id: 2, title: "Column reinforcement", status: "In Progress", priority: "Medium", assigned_to: "Amit Sharma" },
-];
-
-const MOCK_PL = {
-  total_revenue: 15000000,
-  total_expenses: 8500000,
-  net_profit: 6500000,
-  profit_margin: 43.33,
-};
+import { useEffect, useCallback, useRef } from "react";
+import { parseCSV } from "../../utils/csvParser";
 
 const ProjectDetailsPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -88,21 +56,60 @@ const ProjectDetailsPage = () => {
 
   // Profit & Loss and Expenses (Still partially mock/local for and, but connected to stats)
   const [profitLoss, setProfitLoss] = useState<any>(null);
-  const [expenses] = useState<any[]>([]);
+  const [expenses, _setExpenses] = useState<any[]>([]);
 
   const fetchProjectData = useCallback(async () => {
     if (!projectId) return;
-    setLoading(true);
-    setTimeout(() => {
-      setProject(MOCK_PROJECT);
-      setSchedule({ start_date: MOCK_PROJECT.start_date, end_date: MOCK_PROJECT.end_date });
-      setProgress({ completion_percentage: MOCK_PROJECT.completion_percentage, status: MOCK_PROJECT.status });
-      setMembers(MOCK_MEMBERS);
-      setMilestones(MOCK_MILESTONES);
-      setTasks(MOCK_TASKS);
-      setProfitLoss(MOCK_PL);
+    try {
+      setLoading(true);
+      const [pData, mData, msData, tData, sData, prData, plData] =
+        await Promise.all([
+          projectService.getProjectById(projectId).catch((err) => {
+            console.error("Project Meta Load Failure:", err);
+            return null;
+          }),
+          projectService.getProjectMembers(projectId).catch((err) => {
+            console.warn("Members Load Failure:", err);
+            return [];
+          }),
+          projectService.getMilestones(projectId).catch((err) => {
+            console.warn("Milestones Load Failure:", err);
+            return [];
+          }),
+          projectService.getTasks(projectId).catch((err) => {
+            console.warn("Tasks Load Failure:", err);
+            return [];
+          }),
+          projectService.getProjectSchedule(projectId).catch(() => null),
+          projectService.getProjectProgress(projectId).catch(() => null),
+          projectService.getProjectProfitLoss(projectId).catch(() => null),
+        ]);
+
+      setProject(pData);
+      setSchedule(sData);
+      setProgress(prData);
+      const rawMembers = Array.isArray(mData) ? mData : mData.items || mData.data || [];
+      const mappedMembers = rawMembers.map((m: any) => ({
+        user_id: m.user_id || m.user?.id || m.user?.user_id || m.id,
+        full_name: m.full_name || m.user?.full_name || m.user?.name || `User ${m.user_id || m.id || "Unknown"}`,
+        email: m.email || m.user?.email || "",
+        role: m.role || m.user?.role || "Member"
+      }));
+      setMembers(mappedMembers);
+      setMilestones(
+        Array.isArray(msData) ? msData : msData.items || msData.data || [],
+      );
+      setTasks(Array.isArray(tData) ? tData : tData.items || tData.data || []);
+      setProfitLoss(plData);
+
+      // Expenses could be fetched from finance API if available,
+      // but for now we'll rely on the project data or separate logs
+    } catch (error) {
+      console.error("Failed to fetch project details:", error);
+      toast.error("Failed to load project data");
+    } finally {
       setLoading(false);
-    }, 800);
+    }
   }, [projectId]);
 
   useEffect(() => {
@@ -110,23 +117,68 @@ const ProjectDetailsPage = () => {
   }, [fetchProjectData]);
 
   const handleCreateMilestone = async (milestoneData: any) => {
-    setMilestones(prev => [...prev, { id: Date.now(), ...milestoneData, status: "Planned" }]);
-    toast.success("Milestone created successfully");
+    try {
+      await projectService.createMilestone(projectId, milestoneData);
+      toast.success("Milestone created successfully");
+      fetchProjectData();
+    } catch (error) {
+      toast.error("Failed to create milestone");
+    }
   };
 
   const handleCreateTask = async (taskData: any) => {
-    setTasks(prev => [...prev, { id: Date.now(), ...taskData, status: "Todo" }]);
-    toast.success("Task created successfully");
+    try {
+      await projectService.createTask(projectId, taskData);
+      toast.success("Task created successfully");
+      fetchProjectData();
+    } catch (error) {
+      toast.error("Failed to create task");
+    }
   };
 
   const handleUpdateTask = async (updatedData: any) => {
-    setTasks(prev => prev.map(t => t.id === updatedData.task_id ? { ...t, ...updatedData } : t));
-    toast.success("Task updated successfully");
+    try {
+      const { task_id, project_id: _pid, ...cleanData } = updatedData;
+
+      // Data scrubbing: Ensure we don't send IDs in the body as they are already in the URL
+      // This prevents payload bloat and potential 422/Network errors on strict backends
+      const payload = { ...cleanData };
+      delete (payload as any).task_id;
+      delete (payload as any).project_id;
+
+      // 1. Update core task info (title, description, etc)
+      await projectService.updateTask(projectId, task_id, payload);
+
+      // 2. Explicitly update progress history if percentage is provided.
+      if (payload.percentage !== undefined) {
+        await projectService
+          .updateTaskProgress(projectId, task_id, {
+            task_id: task_id,
+            percentage: payload.percentage,
+            completion_percentage: payload.percentage,
+            remarks: "Updated via edit modal",
+          })
+          .catch((err) =>
+            console.warn("Task progress history sync skipped:", err),
+          );
+      }
+
+      toast.success("Task updated successfully");
+      fetchProjectData();
+    } catch (error) {
+      console.error("Task Update Failed:", error);
+      toast.error("Failed to update task");
+    }
   };
 
   const handleDeleteTask = async (taskId: number) => {
-    setTasks(prev => prev.filter(t => t.id !== taskId));
-    toast.success("Task deleted");
+    try {
+      await projectService.deleteTask(projectId, taskId);
+      toast.success("Task deleted");
+      fetchProjectData();
+    } catch (error) {
+      toast.error("Failed to delete task");
+    }
   };
 
   const handleTaskProgressUpdate = async (
@@ -134,17 +186,37 @@ const ProjectDetailsPage = () => {
     percentage: number,
     remarks: string,
   ) => {
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, completion_percentage: percentage } : t));
-    toast.success("Progress updated");
+    try {
+      await projectService.updateTaskProgress(projectId, taskId, {
+        percentage,
+        remarks,
+      });
+      toast.success("Progress updated");
+      fetchProjectData();
+    } catch (error) {
+      toast.error("Failed to update progress");
+    }
   };
 
   const handleTaskCommentAdd = async (taskId: number, content: string) => {
-    toast.success("Comment added (Mock Mode)");
+    try {
+      await projectService.createTaskComment(projectId, taskId, { content });
+      toast.success("Comment added");
+      fetchProjectData();
+    } catch (error) {
+      toast.error("Failed to add comment");
+    }
   };
 
   const handleEditMilestone = async (updatedData: any) => {
-    setMilestones(prev => prev.map(m => m.id === updatedData.milestone_id ? { ...m, ...updatedData } : m));
-    toast.success("Milestone updated");
+    try {
+      const { milestone_id, ...data } = updatedData;
+      await projectService.updateMilestone(projectId, milestone_id, data);
+      toast.success("Milestone updated");
+      fetchProjectData();
+    } catch (error) {
+      toast.error("Failed to update milestone");
+    }
   };
 
   const handleDeleteMilestoneClick = (id: number) => {
@@ -154,10 +226,15 @@ const ProjectDetailsPage = () => {
 
   const handleDeleteMilestoneConfirm = async () => {
     if (milestoneToDelete) {
-      setMilestones(prev => prev.filter(m => m.id !== milestoneToDelete));
-      toast.success("Milestone removed");
-      setIsDeleteMilestoneModalOpen(false);
-      setMilestoneToDelete(null);
+      try {
+        await projectService.deleteMilestone(projectId, milestoneToDelete);
+        toast.success("Milestone removed");
+        setIsDeleteMilestoneModalOpen(false);
+        setMilestoneToDelete(null);
+        fetchProjectData();
+      } catch (error) {
+        toast.error("Failed to remove milestone");
+      }
     }
   };
 
@@ -188,14 +265,28 @@ const ProjectDetailsPage = () => {
   }, [milestones]);
 
   const handleUpdateProject = async (updatedData: any) => {
-    setProject(prev => prev ? { ...prev, ...updatedData } : null);
-    toast.success("Project updated");
-    setIsEditModalOpen(false);
+    try {
+      await projectService.updateProject(projectId, updatedData);
+      toast.success("Project updated");
+      fetchProjectData();
+    } catch (error) {
+      toast.error("Failed to update project");
+    }
   };
 
   const handleAssignMember = async (newMembers: any[]) => {
-    setMembers(prev => [...prev, ...newMembers.map(m => ({ id: Date.now() + Math.random(), ...m }))]);
-    toast.success("Team member(s) assigned!");
+    try {
+      // API currently takes one member at a time
+      await Promise.all(
+        newMembers.map((m) =>
+          projectService.assignMember(projectId, m.user_id),
+        ),
+      );
+      toast.success("Team member(s) assigned!");
+      fetchProjectData();
+    } catch (error) {
+      toast.error("Failed to assign members");
+    }
   };
 
   const handleRemoveMemberClick = (memberId: number) => {
@@ -205,11 +296,70 @@ const ProjectDetailsPage = () => {
 
   const handleRemoveMemberConfirm = async () => {
     if (memberToDelete) {
-      setMembers(prev => prev.filter(m => m.id !== memberToDelete));
-      toast.success("Member removed from project");
-      setIsDeleteMemberModalOpen(false);
-      setMemberToDelete(null);
+      try {
+        await projectService.removeMember(projectId, memberToDelete);
+        toast.success("Member removed from project");
+        setIsDeleteMemberModalOpen(false);
+        setMemberToDelete(null);
+        fetchProjectData();
+      } catch (error) {
+        toast.error("Failed to remove member");
+      }
     }
+  };
+
+  // --- CSV Import Handlers ---
+  const taskInputRef = useRef<HTMLInputElement>(null);
+  const milestoneInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportCSV = async (file: File, type: "task" | "milestone") => {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const text = e.target?.result as string;
+      const data = parseCSV(text);
+
+      if (data.length === 0) {
+        toast.error("Invalid CSV or empty file.");
+        return;
+      }
+
+      const toastId = toast.loading(`Importing ${data.length} ${type}s...`);
+
+      try {
+        let successCount = 0;
+        for (const item of data) {
+          try {
+            if (type === "task") {
+              await projectService.createTask(projectId, {
+                title: item.title || item.name || "Untitled Task",
+                description: item.description || item.desc || "",
+                status: item.status || "To Do",
+                priority: item.priority || "Medium",
+                start_date: item.start_date || project?.start_date || "",
+                end_date: item.end_date || project?.end_date || "",
+              });
+            } else {
+              await projectService.createMilestone(projectId, {
+                title: item.title || item.name || "Untitled Milestone",
+                description: item.description || item.desc || "",
+                status: item.status || "Pending",
+                start_date: item.start_date || project?.start_date || "",
+                end_date: item.end_date || project?.end_date || "",
+              });
+            }
+            successCount++;
+          } catch (err) {
+            console.error(`Failed to import ${type}:`, item, err);
+          }
+        }
+
+        toast.success(`Successfully imported ${successCount} ${type}s.`, { id: toastId });
+        fetchProjectData();
+      } catch (error) {
+        toast.error(`Failed to complete ${type} import.`, { id: toastId });
+      }
+    };
+    reader.readAsText(file);
   };
 
   if (loading) {
@@ -262,13 +412,12 @@ const ProjectDetailsPage = () => {
                 PRJ-{project.id}
               </span>
               <span
-                className={`px-3 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${
-                  project.status === "Ongoing"
-                    ? "bg-green-100 text-success"
-                    : project.status === "Delayed"
-                      ? "bg-red-100 text-red-600"
-                      : "bg-slate-100 text-slate-500"
-                }`}
+                className={`px-3 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${project.status === "Ongoing"
+                  ? "bg-green-100 text-success"
+                  : project.status === "Delayed"
+                    ? "bg-red-100 text-red-600"
+                    : "bg-slate-100 text-slate-500"
+                  }`}
               >
                 {project.status}
               </span>
@@ -291,7 +440,7 @@ const ProjectDetailsPage = () => {
               </button>
               <button
                 onClick={async () => {
-                  const toastId = toast.loading("Downloading PDF report...");
+                  const toastId = toast.loading("Downloading PDF intelligence report...");
                   try {
                     const blob = new Blob([await projectService.exportProjectPdf(projectId)], { type: "application/pdf" });
                     const url = window.URL.createObjectURL(blob);
@@ -312,7 +461,7 @@ const ProjectDetailsPage = () => {
                   }
                 }}
                 className="px-4 py-2.5 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-all border-r border-slate-100"
-                title="Download PDF"
+                title="Download Intelligence PDF"
               >
                 PDF
               </button>
@@ -343,7 +492,35 @@ const ProjectDetailsPage = () => {
               >
                 CSV
               </button>
+              <button
+                onClick={() => milestoneInputRef.current?.click()}
+                className="px-4 py-2.5 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-all border-l border-slate-100"
+                title="Import Milestones from CSV"
+              >
+                Import
+              </button>
+              <input
+                type="file"
+                ref={milestoneInputRef}
+                className="hidden"
+                accept=".csv"
+                onChange={(e) => e.target.files?.[0] && handleImportCSV(e.target.files[0], "milestone")}
+              />
+              <input
+                type="file"
+                ref={taskInputRef}
+                className="hidden"
+                accept=".csv"
+                onChange={(e) => e.target.files?.[0] && handleImportCSV(e.target.files[0], "task")}
+              />
             </div>
+
+            <button
+              onClick={() => taskInputRef.current?.click()}
+              className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 text-white rounded-xl text-sm font-bold shadow-lg shadow-slate-200 hover:bg-slate-900 transition-all active:scale-95"
+            >
+              Import Tasks (CSV)
+            </button>
 
             <button
               onClick={() => {
@@ -378,11 +555,10 @@ const ProjectDetailsPage = () => {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-6 py-4 text-sm font-bold transition-all border-b-2 -mb-[2px] whitespace-nowrap ${
-                activeTab === tab
-                  ? "text-primary border-primary"
-                  : "text-slate-400 border-transparent hover:text-slate-600"
-              }`}
+              className={`px-6 py-4 text-sm font-bold transition-all border-b-2 -mb-[2px] whitespace-nowrap ${activeTab === tab
+                ? "text-primary border-primary"
+                : "text-slate-400 border-transparent hover:text-slate-600"
+                }`}
             >
               {tab}
             </button>

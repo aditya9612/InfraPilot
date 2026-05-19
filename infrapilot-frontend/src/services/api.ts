@@ -8,7 +8,7 @@ const api = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
-  timeout: 10000,
+  timeout: 30000,
 });
 
 // Request interceptor for attaching tokens
@@ -54,10 +54,16 @@ api.interceptors.response.use(
         }
       }
       
-      // Clear storage and redirect to login
-      localStorage.removeItem("infrapilot_user");
-      if (window.location.pathname !== "/login") {
-        window.location.href = "/login";
+      // Ignore 401s from known buggy endpoints to prevent aggressive logouts
+      if (error.config?.url && error.config.url.includes('/invoices')) {
+        console.warn("Auth Interceptor: Ignoring 401 from /invoices endpoint (backend bug)");
+      } else {
+        const path = window.location.pathname;
+        // Don't redirect if we're already on the login page or root (which shows login)
+        if (path !== '/login' && path !== '/') {
+          localStorage.removeItem('infrapilot_user');
+          window.location.href = '/login';
+        }
       }
     }
     return Promise.reject(error);

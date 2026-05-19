@@ -208,11 +208,15 @@ export default function AddMaterialModal({
                 <option value="" disabled>
                   -- Select from Supplier DB --
                 </option>
-                {suppliers.map((sup) => (
-                  <option key={sup.id} value={sup.name}>
-                    {sup.name}
-                  </option>
-                ))}
+                {suppliers.map((sup) => {
+                  const supId = sup.id ?? (sup as any).supplier_id;
+                  const supName = typeof sup === "string" ? sup : (sup.name || (sup as any).supplier_name || sup.contactPerson || sup.phone || `Supplier #${supId}`);
+                  return (
+                    <option key={supId} value={supName}>
+                      {supName}
+                    </option>
+                  );
+                })}
               </select>
               {errors.supplier_name && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.supplier_name}</p>}
             </div>

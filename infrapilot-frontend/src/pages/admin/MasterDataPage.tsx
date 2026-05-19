@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useState, useEffect, useCallback } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
@@ -8,62 +8,169 @@ import toast from "react-hot-toast";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import { Eye, Edit2, Trash2 } from "lucide-react";
 import MasterDataDetailsModal from "../../components/dashboard/MasterDataDetailsModal";
-
-const initialMasterData = [
-  { id: 1, name: "Cement (OPC 53)", code: "MAT-CEM-01", category: "Construction Material", type: "Material" },
-  { id: 2, name: "Skilled Mason", code: "LAB-SKL-01", category: "Human Resource", type: "Labour" },
-  { id: 3, name: "Excavation", code: "ACT-CIV-01", category: "Civil Works", type: "Activity" },
-  { id: 4, name: "Cubic Meter", code: "UNT-CUM", category: "Measurement", type: "Unit" },
-];
+import { masterService } from "../../services/masterService";
+import type { MasterEntity, MasterStats } from "../../services/masterService";
 
 const MasterDataPage = () => {
   const location = useLocation();
-  const [items, setItems] = useState(initialMasterData);
+  const navigate = useNavigate();
+  const [items, setItems] = useState<MasterEntity[]>([]);
+  const [stats, setStats] = useState<MasterStats>({
+    total_materials: 0,
+    total_labour_types: 0,
+    total_activity_types: 0,
+    total_units: 0
+  });
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("All");
+
+  // Sync tab state with URL path
+  useEffect(() => {
+    const path = location.pathname;
+    if (path.endsWith("/materials")) setActiveTab("Material");
+    else if (path.endsWith("/labour")) setActiveTab("Labour");
+    else if (path.endsWith("/activities")) setActiveTab("Activity");
+    else if (path.endsWith("/units")) setActiveTab("Unit");
+    else setActiveTab("All");
+  }, [location.pathname]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [viewingItem, setViewingItem] = useState<any>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<number | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<MasterEntity | null>(null);
 
-  const filteredItems = items.filter(item =>
-    (activeTab === "All" || item.type === activeTab) &&
-    (item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.code.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const fetchMasterData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      if (activeTab === "All") {
+        const [materials, labour, activities, units] = await Promise.all([
+          masterService.getEntities("materials"),
+          masterService.getEntities("labour-types"),
+          masterService.getEntities("activity-types"),
+          masterService.getEntities("units")
+        ]);
 
-  const handleCreateOrUpdate = (data: any) => {
-    if (editingItem) {
-      setItems(prev => prev.map(item => item.id === editingItem.id ? { ...data, id: item.id } : item));
-      toast.success("Entity updated successfully!");
-    } else {
-      const newItem = { ...data, id: items.length > 0 ? Math.max(...items.map(i => i.id)) + 1 : 1 };
-      setItems(prev => [...prev, newItem]);
-      toast.success("New entity added to master data!");
+        const combined = [
+          ...materials.map(i => ({ ...i, system_tag: "MATERIAL" })),
+          ...labour.map(i => ({ ...i, system_tag: "LABOR" })),
+          ...activities.map(i => ({ ...i, system_tag: "ACTIVITY" })),
+          ...units.map(i => ({ ...i, system_tag: "UNIT" }))
+        ];
+
+        const filtered = combined.filter(i =>
+          i.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          i.unique_code.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+
+        setItems(filtered);
+        setStats({
+          total_materials: materials.length,
+          total_labour_types: labour.length,
+          total_activity_types: activities.length,
+          total_units: units.length
+        });
+      } else {
+        const entityMap: Record<string, "materials" | "labour-types" | "activity-types" | "units"> = {
+          "Material": "materials",
+          "Labour": "labour-types",
+          "Activity": "activity-types",
+          "Unit": "units"
+        };
+        const tagMap: Record<string, string> = {
+          "Material": "MATERIAL",
+          "Labour": "LABOR",
+          "Activity": "ACTIVITY",
+          "Unit": "UNIT"
+        };
+
+        const entityType = entityMap[activeTab];
+        const data = await masterService.getEntities(entityType);
+
+        const filtered = data
+          .map(i => ({ ...i, system_tag: tagMap[activeTab] }))
+          .filter(i =>
+            i.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            i.unique_code.toLowerCase().includes(searchTerm.toLowerCase())
+          );
+
+        setItems(filtered);
+
+        try {
+          const sysStats = await masterService.getMasterStats();
+          setStats(sysStats);
+        } catch (e) {
+          // Keep current stats if /stats is 404
+        }
+      }
+    } catch (error) {
+      console.error("Master Data Fetch Error:", error);
+      toast.error("Failed to load master data. Individual endpoints are being checked.");
+    } finally {
+      setIsLoading(false);
     }
-    setIsModalOpen(false);
-    setEditingItem(null);
+  }, [activeTab, searchTerm]);
+
+  useEffect(() => {
+    fetchMasterData();
+  }, [fetchMasterData]);
+
+  const handleCreateOrUpdate = async (data: any) => {
+    try {
+      const entityMap: Record<string, "units" | "labour-types" | "activity-types" | "materials"> = {
+        "Material": "materials",
+        "Labour": "labour-types",
+        "Activity": "activity-types",
+        "Unit": "units"
+      };
+
+      const entityType = entityMap[data.type] || "materials";
+
+      if (editingItem) {
+        await masterService.updateEntity(entityType, editingItem.id, data);
+        toast.success("Entity updated successfully!");
+      } else {
+        await masterService.createEntity(entityType, data);
+        toast.success("New entity added to master data!");
+      }
+      fetchMasterData();
+      setIsModalOpen(false);
+      setEditingItem(null);
+    } catch (error) {
+      toast.error("Failed to save master entity");
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (itemToDelete) {
-      setItems(prev => prev.filter(item => item.id !== itemToDelete));
-      toast.success("Entity removed from master data.");
-      setIsDeleteModalOpen(false);
-      setItemToDelete(null);
+      try {
+        const entityMap: Record<string, string> = {
+          "MATERIAL": "materials",
+          "LABOR": "labour-types",
+          "ACTIVITY": "activity-types",
+          "UNIT": "units"
+        };
+        const entityType = entityMap[itemToDelete.system_tag || ""] || "materials";
+        await masterService.deleteEntity(entityType, itemToDelete.id);
+        toast.success("Entity removed from master data.");
+        fetchMasterData();
+        setIsDeleteModalOpen(false);
+        setItemToDelete(null);
+      } catch (error) {
+        toast.error("Failed to delete master entity");
+      }
     }
   };
 
   const downloadSchema = () => {
     const headers = ["Entity Name", "Unique Code", "Category", "System Tag"];
-    const rows = filteredItems.map(item => [
+    const rows = items.map(item => [
       item.name,
-      item.code,
+      item.unique_code,
       item.category,
-      item.type
+      item.system_tag || ""
     ]);
 
     const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
@@ -79,9 +186,20 @@ const MasterDataPage = () => {
     toast.success("Schema downloaded successfully!");
   };
 
+  if (isLoading && items.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-slate-50">
+        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <>
-      <Navbar title="Master Data Console" breadcrumb={["Admin", "Master Data"]} />
+      <Navbar
+        title={`${activeTab === "All" ? "Master Data Console" : `${activeTab} Master`}`}
+        breadcrumb={["Admin", "Master Data", activeTab === "All" ? "" : activeTab].filter(Boolean)}
+      />
 
       <PageTransition key={location.pathname} className="p-6 bg-slate-50 min-h-screen">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
@@ -110,10 +228,10 @@ const MasterDataPage = () => {
 
         {/* Master Data Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <StatCard title="Materials" value={items.filter(i => i.type === "Material").length.toString()} sub="Active SKUs" accent="text-primary" />
-          <StatCard title="Labour Types" value={items.filter(i => i.type === "Labour").length.toString()} sub="Specialized roles" accent="text-violet-500" />
-          <StatCard title="Activity Types" value={items.filter(i => i.type === "Activity").length.toString()} sub="Standard procedures" accent="text-amber-500" />
-          <StatCard title="Units" value={items.filter(i => i.type === "Unit").length.toString()} sub="Measurement metrics" accent="text-emerald-500" />
+          <StatCard title="Materials" value={(stats.total_materials || 0).toString()} sub="Active SKUs" accent="text-primary" />
+          <StatCard title="Labour Types" value={(stats.total_labour_types || 0).toString()} sub="Specialized roles" accent="text-violet-500" />
+          <StatCard title="Activity Types" value={(stats.total_activity_types || 0).toString()} sub="Standard procedures" accent="text-amber-500" />
+          <StatCard title="Units" value={(stats.total_units || 0).toString()} sub="Measurement metrics" accent="text-emerald-500" />
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden min-h-[400px]">
@@ -137,7 +255,16 @@ const MasterDataPage = () => {
                 <button
                   key={tab}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${activeTab === tab ? "bg-primary text-white shadow-md shadow-primary/20" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}
-                  onClick={() => setActiveTab(tab)}
+                  onClick={() => {
+                    const paths: Record<string, string> = {
+                      "All": "/admin/master-data",
+                      "Material": "/admin/master-data/materials",
+                      "Labour": "/admin/master-data/labour",
+                      "Activity": "/admin/master-data/activities",
+                      "Unit": "/admin/master-data/units"
+                    };
+                    navigate(paths[tab]);
+                  }}
                 >
                   {tab}
                 </button>
@@ -146,6 +273,7 @@ const MasterDataPage = () => {
           </div>
 
           <div className="overflow-x-auto">
+            {isLoading && items.length > 0 && <div className="absolute inset-0 bg-white/50 z-10 flex items-center justify-center"><div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>}
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
@@ -157,21 +285,21 @@ const MasterDataPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {filteredItems.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
+                {items.map((item) => (
+                  <tr key={`${item.system_tag}-${item.id}`} className="hover:bg-slate-50/50 transition-colors group">
                     <td className="px-6 py-4">
                       <span className="font-bold text-slate-700 group-hover:text-primary transition-colors">{item.name}</span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-xs font-mono font-bold text-slate-500 bg-slate-50 px-2 py-1 rounded border border-slate-100">{item.code}</span>
+                      <span className="text-xs font-mono font-bold text-slate-500 bg-slate-50 px-2 py-1 rounded border border-slate-100">{item.unique_code}</span>
                     </td>
                     <td className="px-6 py-4 text-xs font-semibold text-slate-500">{item.category}</td>
                     <td className="px-6 py-4">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${item.type === "Material" ? "bg-blue-50 text-blue-600" :
-                        item.type === "Labour" ? "bg-violet-50 text-violet-600" :
-                          item.type === "Activity" ? "bg-amber-50 text-amber-600" : "bg-emerald-50 text-emerald-600"
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${item.system_tag === "MATERIAL" ? "bg-blue-50 text-blue-600" :
+                        item.system_tag === "LABOR" ? "bg-violet-50 text-violet-600" :
+                          item.system_tag === "ACTIVITY" ? "bg-amber-50 text-amber-600" : "bg-emerald-50 text-emerald-600"
                         }`}>
-                        {item.type}
+                        {item.system_tag}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
@@ -188,7 +316,12 @@ const MasterDataPage = () => {
                         </button>
                         <button
                           onClick={() => {
-                            setEditingItem(item);
+                            setEditingItem({
+                              ...item,
+                              type: item.system_tag === "MATERIAL" ? "Material" :
+                                item.system_tag === "LABOR" ? "Labour" :
+                                  item.system_tag === "ACTIVITY" ? "Activity" : "Unit"
+                            });
                             setIsModalOpen(true);
                           }}
                           className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200"
@@ -198,7 +331,7 @@ const MasterDataPage = () => {
                         </button>
                         <button
                           onClick={() => {
-                            setItemToDelete(item.id);
+                            setItemToDelete(item);
                             setIsDeleteModalOpen(true);
                           }}
                           className="p-1.5 text-slate-400 hover:text-rose-500 transition-all duration-200"
@@ -213,7 +346,7 @@ const MasterDataPage = () => {
               </tbody>
             </table>
           </div>
-          {filteredItems.length === 0 && (
+          {items.length === 0 && !isLoading && (
             <div className="p-20 text-center">
               <p className="text-slate-400 font-medium">No master data matches your search.</p>
             </div>

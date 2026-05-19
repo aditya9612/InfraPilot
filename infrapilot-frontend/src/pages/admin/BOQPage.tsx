@@ -7,18 +7,11 @@ import CreateBOQModal from "../../components/forms/CreateBOQModal";
 import toast from "react-hot-toast";
 import BOQDetailsModal from "../../components/dashboard/BOQDetailsModal";
 import ConfirmModal from "../../components/common/ConfirmModal";
+import { boqService } from "../../services/boqService";
+import { projectService } from "../../services/projectService";
+import { masterService } from "../../services/masterService";
 import type { BoqItem, BoqSummary } from "../../types/boq";
 import type { Project } from "../../types/project";
-
-const MOCK_PROJECTS: Project[] = [
-  { id: 1, project_name: "Skyline Tower A", description: "Residential tower", location: "Mumbai", status: "Ongoing", start_date: "2026-01-01", end_date: "2027-12-31", total_budget: 50000000 },
-  { id: 2, project_name: "Metro Ph-II", description: "Metro rail project", location: "Delhi", status: "Ongoing", start_date: "2026-06-01", end_date: "2029-12-31", total_budget: 250000000 },
-];
-
-const MOCK_BOQ_DATA: BoqItem[] = [
-  { id: 1, project_id: 1, item_name: "Excavation", category: "Civil", quantity: 500, unit: "cum", unit_cost: 450, total_cost: 225000, actual_quantity: 480, actual_cost: 216000, status: "ACTIVE" },
-  { id: 2, project_id: 1, item_name: "PCC Work", category: "Civil", quantity: 150, unit: "cum", unit_cost: 4200, total_cost: 630000, actual_quantity: 0, actual_cost: 0, status: "Draft" },
-];
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { exportToCSV } from "../../utils/csvExport";
@@ -42,30 +35,9 @@ import {
 import OptimizationModal from "../../components/dashboard/OptimizationModal";
 import BulkImportBOQModal from "../../components/forms/BulkImportBOQModal";
 import ActivityDetailsModal from "../../components/dashboard/ActivityDetailsModal";
+import { BOQ_CATEGORIES } from "../../config/constants";
 
-const INITIAL_ACTIVITIES_DATA = [
-  {
-    id: 1,
-    name: "Site Clearing",
-    type: "Pre-construction",
-    project: "Skyline Tower A",
-    status: "Completed",
-  },
-  {
-    id: 2,
-    name: "Foundation Pouring",
-    type: "Civil",
-    project: "Skyline Tower A",
-    status: "In Progress",
-  },
-  {
-    id: 3,
-    name: "Column Casting",
-    type: "Structure",
-    project: "Metro Ph-II",
-    status: "Pending",
-  },
-];
+// Removing INITIAL_ACTIVITIES_DATA as we fetch from API
 
 const BOQPage = () => {
   const location = useLocation();
@@ -109,7 +81,7 @@ const BOQPage = () => {
   const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
   const [isActivityViewModalOpen, setIsActivityViewModalOpen] = useState(false);
   const [viewingActivity, setViewingActivity] = useState<any>(null);
-  const [activitiesData, setActivitiesData] = useState(INITIAL_ACTIVITIES_DATA);
+  const [activitiesData, setActivitiesData] = useState<any[]>([]);
   const [isActivityDeleteModalOpen, setIsActivityDeleteModalOpen] =
     useState(false);
   const [activityToDelete, setActivityToDelete] = useState<number | null>(null);
@@ -118,46 +90,131 @@ const BOQPage = () => {
   useEffect(() => {
     const loadInitialData = async () => {
       setIsLoading(true);
-      setTimeout(() => {
-        setProjectsList(MOCK_PROJECTS);
+      try {
+        // Fetch projects first for the mapping
+        const projectsRes = await projectService.getProjects(100); // Fetch up to 100 projects
+        const items = projectsRes.items || projectsRes;
+        setProjectsList(items);
+
         const map: Record<number, string> = {};
-        MOCK_PROJECTS.forEach((p) => {
+        items.forEach((p: Project) => {
           map[p.id] = p.project_name;
         });
         setProjectMap(map);
-        setBoqData(MOCK_BOQ_DATA);
+
+        // Fetch Master Activities
+        try {
+          const masterActs = await masterService.getEntities("activity-types");
+          // Map MasterEntity to the old Activity shape if needed, or update consumers
+          const mappedActs = masterActs.map(ma => ({
+            id: ma.id,
+            name: ma.name,
+            type: ma.category || "General",
+            project: "System Master", // Master activities are not project-specific
+            status: "Template",
+            unique_code: ma.unique_code
+          }));
+          setActivitiesData(mappedActs);
+        } catch (e) {
+          console.error("Failed to load master activities", e);
+        }
+
+        // Fetch BOQ items
+        await refreshBoqs();
+      } catch (error) {
+        toast.error("Failed to load initial data");
+      } finally {
         setIsLoading(false);
-      }, 800);
+      }
     };
 
     loadInitialData();
   }, []);
 
   const refreshBoqs = async () => {
-    // Local filtering can be added here if needed, but for now we just use the local state
-    console.log("Mock Refresh with filters:", { searchTerm, statusFilter, categoryFilter, projectFilter });
+    try {
+      const filters = {
+        search: searchTerm || null,
+        status: statusFilter === "all" ? null : statusFilter,
+        category: categoryFilter === "all" ? null : categoryFilter,
+        project_id: projectFilter === "all" ? null : Number(projectFilter),
+        version_no:
+          selectedVersion === "latest" ? null : Number(selectedVersion),
+      };
+
+      const res = await boqService.getBoqs(filters);
+      setBoqData(res.items);
+
+      // Also refresh summary if project is selected
+      if (projectFilter !== "all") {
+        const summary = await boqService.getBoqSummary(Number(projectFilter));
+        setSummaryData(summary);
+      } else {
+        setSummaryData(null);
+      }
+    } catch (error) {
+      console.error("Failed to refresh BOQs", error);
+    }
   };
 
+  // Fetch versions when project filter changes
+  useEffect(() => {
+    const fetchVersions = async () => {
+      if (projectFilter !== "all") {
+        try {
+          const versions = await boqService.getBoqVersions(
+            Number(projectFilter),
+          );
+          setVersionsList(versions);
+        } catch (error: any) {
+          if (error.response?.status === 404) {
+            setVersionsList([]);
+          } else {
+            console.error("Failed to fetch versions", error);
+          }
+        }
+      } else {
+        setVersionsList([]);
+        setSelectedVersion("latest");
+      }
+    };
+    fetchVersions();
+  }, [projectFilter]);
+
+  // Re-fetch when filters change
+  useEffect(() => {
+    if (!isLoading) {
+      refreshBoqs();
+    }
+  }, [
+    searchTerm,
+    statusFilter,
+    categoryFilter,
+    projectFilter,
+    selectedVersion,
+  ]);
+
   const handleCreateOrUpdateBOQ = async (data: any) => {
-    setIsLoading(true);
-    setTimeout(() => {
+    try {
       if (editingItem) {
-        setBoqData(prev => prev.map(item => item.id === editingItem.id ? { ...item, ...data } : item));
+        await boqService.updateBoq(editingItem.id, data);
         toast.success("BOQ item updated successfully!");
       } else {
-        const newItem = { id: Date.now(), ...data, status: "ACTIVE" };
-        setBoqData(prev => [newItem, ...prev]);
+        await boqService.createBoq(data);
         toast.success("BOQ item created successfully!");
       }
+      await refreshBoqs();
       setIsModalOpen(false);
       setEditingItem(null);
-      setIsLoading(false);
-    }, 500);
+    } catch (error) {
+      toast.error(
+        editingItem ? "Failed to update BOQ" : "Failed to create BOQ",
+      );
+    }
   };
 
   const handleViewDetails = (item: BoqItem) => {
-    setViewingItem(item);
-    setIsViewModalOpen(true);
+    navigate(`/admin/boq/${item.project_id}`);
   };
 
   const handleEditClick = (item: BoqItem) => {
@@ -172,14 +229,31 @@ const BOQPage = () => {
 
   const handleDeleteConfirm = async () => {
     if (itemToDelete) {
-      setIsLoading(true);
-      setTimeout(() => {
-        setBoqData(prev => prev.filter(item => item.id !== itemToDelete));
+      try {
+        await boqService.deleteBoq(itemToDelete);
         toast.success("BOQ item deleted successfully!");
+        await refreshBoqs();
         setIsDeleteModalOpen(false);
         setItemToDelete(null);
-        setIsLoading(false);
-      }, 500);
+      } catch (error) {
+        toast.error("Failed to delete BOQ item");
+      }
+    }
+  };
+
+  const handleDeleteActivityClick = (id: number) => {
+    setActivityToDelete(id);
+    setIsActivityDeleteModalOpen(true);
+  };
+
+  const handleDeleteActivityConfirm = () => {
+    if (activityToDelete) {
+      setActivitiesData((prev) =>
+        prev.filter((act) => act.id !== activityToDelete),
+      );
+      toast.success("Activity removed successfully!");
+      setIsActivityDeleteModalOpen(false);
+      setActivityToDelete(null);
     }
   };
 
@@ -188,14 +262,38 @@ const BOQPage = () => {
     actual_cost: number;
   }) => {
     if (activeItemForModal) {
-      setBoqData(prev => prev.map(item => item.id === activeItemForModal.id ? { ...item, ...data } : item));
-      toast.success("Actuals updated successfully!");
-      setIsActualsModalOpen(false);
+      try {
+        await boqService.updateBoqActuals(activeItemForModal.id, data);
+        toast.success("Actuals updated successfully!");
+        await refreshBoqs();
+      } catch (error) {
+        toast.error("Failed to update actuals");
+      }
     }
   };
 
   const handleCreateVersion = async () => {
-    toast.success("New BOQ version created! (Mock Mode)");
+    if (projectFilter === "all") {
+      toast.error("Please select a project first");
+      return;
+    }
+
+    const firstItem = boqData[0];
+    if (!firstItem) {
+      toast.error("No items found to version");
+      return;
+    }
+
+    try {
+      const res = await boqService.createBoqVersion(firstItem.id);
+      toast.success(res.message || "New version created!");
+      await refreshBoqs();
+      if (res.version) {
+        setSelectedVersion(res.version);
+      }
+    } catch (error) {
+      toast.error("Failed to create new version");
+    }
   };
 
   const handleExport = async (format: "excel" | "pdf" | "json") => {
@@ -206,10 +304,72 @@ const BOQPage = () => {
       return;
     }
 
-    setIsExporting(true);
-    toast.loading(`Preparing ${format.toUpperCase()}...`, { id: "export" });
+    try {
+      setIsExporting(true);
+      const firstItem = boqData[0];
+      const isProjectLevel = projectFilter !== "all";
 
-    setTimeout(() => {
+      const exportId =
+        firstItem?.boq_group_id ||
+        (isProjectLevel ? Number(projectFilter) : firstItem?.id);
+
+      if (!exportId) {
+        toast.error("Unable to determine export context");
+        return;
+      }
+
+      const filters = {
+        search: searchTerm || null,
+        status: statusFilter === "all" ? null : statusFilter,
+        category: categoryFilter === "all" ? null : categoryFilter,
+        version_no:
+          selectedVersion === "latest" ? null : Number(selectedVersion),
+      };
+
+      toast.loading(`Preparing ${format.toUpperCase()}...`, { id: "export" });
+      const data = await boqService.exportBoq(
+        exportId,
+        format,
+        filters,
+      );
+
+      const fileName = isProjectLevel
+        ? `boq_project_${exportId}.${format === "json" ? "json" : format === "excel" ? "csv" : "pdf"}`
+        : `boq_export_${exportId}.${format === "json" ? "json" : format === "excel" ? "csv" : "pdf"}`;
+
+      if (format === "json") {
+        const blob = new Blob([JSON.stringify(data, null, 2)], {
+          type: "application/json",
+        });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      } else {
+        const blob = new Blob([data], {
+          type:
+            format === "excel"
+              ? "text/csv;charset=utf-8;"
+              : "application/pdf",
+        });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      }
+      toast.success(`${format.toUpperCase()} exported successfully!`, {
+        id: "export",
+      });
+    } catch (apiError: any) {
+      console.warn(
+        "Backend export failed, falling back to client-side generation",
+        apiError,
+      );
+
       const dateStr = new Date().toISOString().split("T")[0];
       const projectName =
         projectFilter !== "all"
@@ -264,21 +424,16 @@ const BOQPage = () => {
           status: "Status",
         });
         toast.success("Excel/CSV generated successfully", { id: "export" });
-      } else if (format === "json") {
-        const blob = new Blob([JSON.stringify(boqData, null, 2)], {
-          type: "application/json",
-        });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `BOQ_Data_${projectName}_${dateStr}.json`;
-        a.click();
-        window.URL.revokeObjectURL(url);
-        toast.success("JSON exported successfully!", { id: "export" });
+      } else {
+        toast.error(
+          `Export failed: ${apiError.response?.data?.detail || "Connection error"}`,
+          { id: "export" },
+        );
       }
+    } finally {
       setIsExporting(false);
       setIsExportMenuOpen(false);
-    }, 1000);
+    }
   };
 
   const openActualsModal = (item: BoqItem) => {
@@ -370,11 +525,10 @@ const BOQPage = () => {
                 }
                 setIsOptimizationModalOpen(true);
               }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold shadow-lg transition-all ${
-                projectFilter === "all"
-                  ? "bg-slate-100 text-slate-400 cursor-not-allowed opacity-70"
-                  : "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-amber-200 hover:scale-105"
-              }`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold shadow-lg transition-all ${projectFilter === "all"
+                ? "bg-slate-100 text-slate-400 cursor-not-allowed opacity-70"
+                : "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-amber-200 hover:scale-105"
+                }`}
             >
               <Sparkles className="w-4 h-4" />
               {projectFilter === "all"
@@ -382,10 +536,16 @@ const BOQPage = () => {
                 : "Smart Analysis"}
             </button>
             <button
-              onClick={() => setIsBulkImportModalOpen(true)}
+              onClick={() => {
+                if (projectFilter === "all") {
+                  toast.error("Please select a project before importing");
+                  return;
+                }
+                setIsBulkImportModalOpen(true);
+              }}
               className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
             >
-              <Upload className="w-4 h-4 text-primary" />
+              <Download className="w-4 h-4 text-primary" />
               Import Excel
             </button>
             <button
@@ -492,11 +652,11 @@ const BOQPage = () => {
                 className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-primary/10 transition-all"
               >
                 <option value="all">All Categories</option>
-                <option value="construction">Construction</option>
-                <option value="civil">Civil</option>
-                <option value="structure">Structure</option>
-                <option value="electrical">Electrical</option>
-                <option value="finishing">Finishing</option>
+                {BOQ_CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
               </select>
 
               <select
@@ -551,7 +711,7 @@ const BOQPage = () => {
                   onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
                   className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-all"
                 >
-                  <Download className="w-3.5 h-3.5" />
+                  <Upload className="w-3.5 h-3.5" />
                   Export
                 </button>
 
@@ -676,20 +836,19 @@ const BOQPage = () => {
                         </td>
                         <td className="px-6 py-4 text-center">
                           <span
-                            className={`px-2 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${
-                              item.status === "Ongoing" ||
+                            className={`px-2 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${item.status === "Ongoing" ||
                               item.status === "ACTIVE" ||
                               item.status === "Ongoing"
-                                ? "bg-emerald-100 text-emerald-600"
-                                : item.status === "Completed"
-                                  ? "bg-blue-100 text-blue-600"
-                                  : item.status === "Draft"
-                                    ? "bg-slate-100 text-slate-600"
-                                    : "bg-amber-100 text-amber-600"
-                            }`}
+                              ? "bg-emerald-100 text-emerald-600"
+                              : item.status === "Completed"
+                                ? "bg-blue-100 text-blue-600"
+                                : item.status === "Draft"
+                                  ? "bg-slate-100 text-slate-600"
+                                  : "bg-amber-100 text-amber-600"
+                              }`}
                           >
                             {item.status === "Ongoing" ||
-                            item.status === "ACTIVE"
+                              item.status === "ACTIVE"
                               ? "Ongoing"
                               : item.status}
                           </span>
@@ -788,13 +947,12 @@ const BOQPage = () => {
                         </td>
                         <td className="px-6 py-4">
                           <span
-                            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${
-                              act.status === "Completed"
-                                ? "bg-emerald-100 text-emerald-600"
-                                : act.status === "In Progress"
-                                  ? "bg-blue-100 text-blue-600"
-                                  : "bg-slate-100 text-slate-600"
-                            }`}
+                            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${act.status === "Completed"
+                              ? "bg-emerald-100 text-emerald-600"
+                              : act.status === "In Progress"
+                                ? "bg-blue-100 text-blue-600"
+                                : "bg-slate-100 text-slate-600"
+                              }`}
                           >
                             {act.status}
                           </span>
@@ -907,13 +1065,13 @@ const BOQPage = () => {
         initialData={
           activeItemForModal
             ? {
-                item_name: activeItemForModal.item_name,
-                actual_quantity: activeItemForModal.actual_quantity,
-                actual_cost: activeItemForModal.actual_cost,
-                quantity: activeItemForModal.quantity,
-                unit: activeItemForModal.unit,
-                total_cost: activeItemForModal.total_cost || "0",
-              }
+              item_name: activeItemForModal.item_name,
+              actual_quantity: activeItemForModal.actual_quantity,
+              actual_cost: activeItemForModal.actual_cost,
+              quantity: activeItemForModal.quantity,
+              unit: activeItemForModal.unit,
+              total_cost: activeItemForModal.total_cost || "0",
+            }
             : undefined
         }
       />
@@ -936,7 +1094,7 @@ const BOQPage = () => {
       <BulkImportBOQModal
         isOpen={isBulkImportModalOpen}
         onClose={() => setIsBulkImportModalOpen(false)}
-        projectId={projectFilter === "all" ? 1 : Number(projectFilter)}
+        projectId={projectFilter === "all" ? 0 : Number(projectFilter)}
         onSuccess={refreshBoqs}
       />
     </>

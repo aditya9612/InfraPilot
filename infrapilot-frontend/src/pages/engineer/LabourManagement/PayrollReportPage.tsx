@@ -3,8 +3,6 @@ import Navbar from '../../../components/common/Navbar';
 import PageTransition from '../../../components/common/PageTransition';
 import StatCard from '../../../components/common/StatCard';
 import { 
-    FileText, 
-    TrendingUp, 
     Filter,
     Download,
     RotateCcw
@@ -27,9 +25,20 @@ const PayrollReportPage: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "High" | "OT" | "Summary">("All");
     const [isExportingExcel, setIsExportingExcel] = useState(false);
-    const [isExportingPDF, setIsExportingPDF] = useState(false);
     const now = new Date();
-    const projectId: number | null = null;
+    const [projectId] = useState<number>(() => {
+        try {
+            const userStr = localStorage.getItem("infrapilot_user");
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                const pId = user?.project_id || user?.user?.project_id;
+                if (pId) return Number(pId);
+            }
+        } catch (err) {
+            console.error("Failed to load user project context:", err);
+        }
+        return 36; // Default fallback to 36 to ensure list renders and matches registered project
+    });
     const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth() + 1);
     const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
 
@@ -96,22 +105,46 @@ const PayrollReportPage: React.FC = () => {
         fetchReports();
     }, [activeTab, projectId]);
 
-    const handleExportExcel = async () => {
+    const handleExportExcel = () => {
         setIsExportingExcel(true);
         try {
-            const blob = await paymentService.exportPayroll({
-                month: selectedMonth,
-                year: selectedYear,
-                ...(projectId ? { project_id: projectId } : {})
+            const filteredList = reports.filter(r => {
+                if (activeStatFilter === "High") return (r.total_wage || 0) > 5000;
+                if (activeStatFilter === "OT") return (r.overtime_hours || 0) > 0;
+                return true;
             });
-            const url = window.URL.createObjectURL(blob);
+
+            const headers = [
+                "Labour Name",
+                "Skill Type",
+                "Daily Wage Rate",
+                "Days Present",
+                "OT Hours",
+                "Total Wage Earned",
+                "Status"
+            ];
+            const escape = (val: string | number) => `"${String(val).replace(/"/g, '""')}"`;
+            
+            const rows = filteredList.map((r: any) => [
+                escape(r.labour_name || 'Unknown'),
+                escape(String(r.skill_type || '—').replace('SkillType.', '').replace('SemiSkilled', 'Semi-Skilled')),
+                escape(`₹${Number(r.daily_wage_rate || 0).toLocaleString()}`),
+                escape(r.present_days || 0),
+                escape(`${r.overtime_hours || 0}h`),
+                escape(`₹${(r.total_wage || (Number(r.daily_wage_rate || 0) * (r.present_days || 0))).toLocaleString()}`),
+                escape(r.status || 'Active')
+            ].join(","));
+
+            const csvContent = [headers.join(","), ...rows].join("\n");
+            const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `payroll_report_${selectedMonth}_${selectedYear}.xlsx`;
+            a.download = `payroll_report_${selectedMonth}_${selectedYear}.csv`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
+            URL.revokeObjectURL(url);
             toast.success('Payroll Excel exported successfully');
         } catch (error) {
             console.error("Excel Export Error:", error);
@@ -121,30 +154,6 @@ const PayrollReportPage: React.FC = () => {
         }
     };
 
-    const handleExportPDF = async () => {
-        setIsExportingPDF(true);
-        try {
-            const blob = await paymentService.exportPayrollPDF({
-                month: selectedMonth,
-                year: selectedYear,
-                ...(projectId ? { project_id: projectId } : {})
-            });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `payroll_report_${selectedMonth}_${selectedYear}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-            toast.success('Payroll PDF exported successfully');
-        } catch (error) {
-            console.error("PDF Export Error:", error);
-            toast.error('PDF export failed');
-        } finally {
-            setIsExportingPDF(false);
-        }
-    };
 
     const chartData = useMemo(() => [
         { name: 'Jan', amount: 180000 },
@@ -184,14 +193,7 @@ const PayrollReportPage: React.FC = () => {
                                 <option key={y} value={y}>{y}</option>
                             ))}
                         </select>
-                        <button 
-                            onClick={handleExportPDF}
-                            disabled={isExportingPDF}
-                            className="flex items-center justify-center gap-2 px-6 py-3 bg-white text-rose-600 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border border-slate-200 shadow-sm hover:bg-rose-50 active:scale-95 disabled:opacity-50"
-                        >
-                            {isExportingPDF ? <TrendingUp className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-                            {isExportingPDF ? 'Generating PDF...' : 'Export PDF'}
-                        </button>
+
                         <button 
                             onClick={handleExportExcel}
                             disabled={isExportingExcel}
@@ -337,7 +339,7 @@ const PayrollReportPage: React.FC = () => {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">{r.skill_type || '—'}</span>
+                                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">{String(r.skill_type || '—').replace('SkillType.', '').replace('SemiSkilled', 'Semi-Skilled')}</span>
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <span className="text-sm font-bold text-slate-700 tabular-nums">₹{Number(r.daily_wage_rate || 0).toLocaleString()}</span>

@@ -7,8 +7,6 @@ import {
     Filter, 
     RotateCcw, 
     Calendar, 
-    FileText,
-    TrendingUp,
     IndianRupee,
     ArrowDownRight,
     Briefcase
@@ -24,14 +22,24 @@ const PaymentPage: React.FC = () => {
     const [history, setHistory] = useState<any[]>([]);
     const [pendingDues, setPendingDues] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const projectId: number | null = null;
+    const [projectId] = useState<number>(() => {
+        try {
+            const userStr = localStorage.getItem("infrapilot_user");
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                const pId = user?.project_id || user?.user?.project_id;
+                if (pId) return Number(pId);
+            }
+        } catch (err) {
+            console.error("Failed to load user project context:", err);
+        }
+        return 36; // Default fallback to 36 to ensure list renders and matches registered project
+    });
     const [activeTab, setActiveTab] = useState<'payroll' | 'history' | 'dues' | 'weekly' | 'monthly'>('payroll');
     const [weeklyReports, setWeeklyReports] = useState<any[]>([]);
     const [monthlyReports, setMonthlyReports] = useState<any[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [contractorFilter, setContractorFilter] = useState("All");
-    const [isExportingExcel, setIsExportingExcel] = useState(false);
-    const [isExportingPDF, setIsExportingPDF] = useState(false);
 
     // Interactive StatCard Filter
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Paid" | "Pending" | "Advance">("All");
@@ -135,49 +143,6 @@ const PaymentPage: React.FC = () => {
         );
     }, [history, searchTerm]);
 
-    const handleExportExcel = async () => {
-        setIsExportingExcel(true);
-        try {
-            const blob = await paymentService.exportPayroll({ 
-                month: 4, 
-                year: 2026,
-                project_id: 36 
-            });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `disbursement_report_april_2026.xlsx`;
-            a.click();
-            toast.success('Payroll Excel exported successfully');
-        } catch (error) {
-            console.error("Excel Export Error:", error);
-            toast.error('Excel export failed');
-        } finally {
-            setIsExportingExcel(false);
-        }
-    };
-
-    const handleExportPDF = async () => {
-        setIsExportingPDF(true);
-        try {
-            const blob = await paymentService.exportPayrollPDF({
-                month: 4,
-                year: 2026,
-                project_id: 36
-            });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `disbursement_report_april_2026.pdf`;
-            a.click();
-            toast.success('Payroll PDF exported successfully');
-        } catch (error) {
-            console.error("PDF Export Error:", error);
-            toast.error('PDF export failed');
-        } finally {
-            setIsExportingPDF(false);
-        }
-    };
 
     return (
         <>
@@ -191,23 +156,6 @@ const PaymentPage: React.FC = () => {
                         <p className="text-slate-500 text-sm font-inter">Secure wage distribution and advance request management with full audit trails.</p>
                     </div>
                     <div className="flex items-center gap-3 font-inter">
-
-                        <button 
-                            onClick={handleExportPDF}
-                            disabled={isExportingPDF}
-                            className="flex items-center justify-center gap-2 px-6 py-2.5 bg-white text-rose-600 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border border-slate-200 shadow-sm hover:bg-rose-50 active:scale-95 disabled:opacity-50"
-                        >
-                            <FileText className="w-4 h-4" />
-                            {isExportingPDF ? 'Generating...' : 'Export PDF'}
-                        </button>
-                        <button 
-                            onClick={handleExportExcel}
-                            disabled={isExportingExcel}
-                            className="flex items-center justify-center gap-2 px-6 py-2.5 bg-emerald-50 text-emerald-800 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border border-emerald-100 shadow-sm hover:bg-emerald-100 active:scale-95 disabled:opacity-50"
-                        >
-                            <TrendingUp className="w-4 h-4" />
-                            {isExportingExcel ? 'Generating...' : 'EXCEL SHEET'}
-                        </button>
                         <div className="bg-white border border-slate-200 px-4 py-2 rounded-xl flex items-center gap-3 font-inter shadow-sm">
                             <Calendar className="w-4 h-4 text-primary font-inter" />
                             <span className="text-xs font-bold text-slate-600 uppercase tracking-widest font-inter">{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>

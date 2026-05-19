@@ -129,12 +129,13 @@ const SettingsPage = () => {
                 if (prefs.language) setLanguage(prefs.language);
                 if (prefs.timezone) setTimezone(prefs.timezone);
                 if (prefs.dateFormat) setDateFormat(prefs.dateFormat);
+                if (prefs.unitSystem) setUnitSystem(prefs.unitSystem);
+                if (prefs.massUnit) setMassUnit(prefs.massUnit);
                 if (prefs.autoSave !== undefined) setPreferences(p => ({ ...p, autoSave: prefs.autoSave }));
                 if (prefs.compactView !== undefined) setPreferences(p => ({ ...p, compactView: prefs.compactView }));
                 if (prefs.showWeather !== undefined) setPreferences(p => ({ ...p, showWeather: prefs.showWeather }));
                 if (prefs.showGPS !== undefined) setPreferences(p => ({ ...p, showGPS: prefs.showGPS }));
             }
-
             // Map Profile
             setProfileImage(profileRes.profile_image);
 
@@ -175,7 +176,7 @@ const SettingsPage = () => {
 
     const unitOptions = {
         system: ["Metric", "Imperial"],
-        mass: ["Kg", "Ton", "Lbs"],
+        mass: ["Kg", "Feet", "Meter"],
         length: ["Meter", "Feet", "Inch", "Cm"],
     };
 
@@ -217,12 +218,19 @@ const SettingsPage = () => {
         setIsSaving(true);
         const toastId = toast.loading("Syncing configuration…");
         try {
-            // 1. Prepare Settings Update
+             // 1. Prepare Settings Update
             const settingsData: UpdateSettingsRequest = {
                 default_project_id: selectedProject,
                 unit: lengthUnit,
                 notifications_enabled: notifications.emailAlerts || notifications.pushNotifications,
-                preferences: { ...preferences, language, timezone, dateFormat },
+                preferences: { 
+                    ...preferences, 
+                    language, 
+                    timezone, 
+                    dateFormat,
+                    unitSystem,
+                    massUnit
+                },
                 financial_year: financialYear,
                 currency: currency,
                 tax_settings: settings.tax_settings || {},
@@ -258,11 +266,11 @@ const SettingsPage = () => {
             // Update local state immediately with returned data from API
             setSettings(updatedSettings);
             setProfile(updatedProfile);
-            setProfileImage(updatedProfile.profile_image);
+            setProfileImage(settingsService.resolveUrl(updatedProfile.profile_image));
+            setSelectedFile(null);
 
-            // Re-sync local derived states if needed
-            setSelectedProject(updatedSettings.default_project_id);
-            setLengthUnit(updatedSettings.unit || "Meter");
+            // Refetch fresh configurations from backend to keep everything fully synced
+            await fetchData();
 
             toast.success("Account settings synchronized!", { id: toastId });
             console.log("Settings synchronization complete.");
