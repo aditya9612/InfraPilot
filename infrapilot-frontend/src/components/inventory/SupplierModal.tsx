@@ -56,6 +56,8 @@ export default function SupplierModal({
       value = value.replace(/[^a-zA-Z\s]/g, "");
     } else if (name === "phone") {
       value = value.replace(/[^\d]/g, "").slice(0, 10);
+    } else if (name === "gst") {
+      value = value.toUpperCase();
     }
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
@@ -69,7 +71,6 @@ export default function SupplierModal({
     if (!formData.contactPerson.trim()) newErrors.contactPerson = "Contact person is required.";
     if (!formData.phone.trim()) newErrors.phone = "Phone number is required.";
     else if (formData.phone.length !== 10) newErrors.phone = "Phone must be 10 digits.";
-    
     if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Invalid email format.";
     }
@@ -140,11 +141,10 @@ export default function SupplierModal({
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
-                  className={`w-full px-4 py-2 bg-gray-50 border rounded-xl focus:ring-4 transition-all text-sm outline-none ${
-                    errors.name 
-                      ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" 
-                      : "border-gray-200 focus:ring-primary/10 focus:border-primary"
-                  }`}
+                  className={`w-full px-4 py-2 bg-gray-50 border rounded-xl focus:ring-4 transition-all text-sm outline-none ${errors.name
+                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                    : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                    }`}
                   placeholder="e.g. Asian Paints Dealer"
                 />
                 {errors.name && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.name}</p>}
@@ -158,11 +158,10 @@ export default function SupplierModal({
                   name="contactPerson"
                   value={formData.contactPerson}
                   onChange={handleChange}
-                  className={`w-full px-4 py-2 bg-gray-50 border rounded-xl focus:ring-4 transition-all text-sm outline-none ${
-                    errors.contactPerson 
-                      ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" 
-                      : "border-gray-200 focus:ring-primary/10 focus:border-primary"
-                  }`}
+                  className={`w-full px-4 py-2 bg-gray-50 border rounded-xl focus:ring-4 transition-all text-sm outline-none ${errors.contactPerson
+                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                    : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                    }`}
                   placeholder="e.g. Rajesh Kumar"
                 />
                 {errors.contactPerson && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.contactPerson}</p>}
@@ -177,11 +176,10 @@ export default function SupplierModal({
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
-                  className={`w-full px-4 py-2 bg-gray-50 border rounded-xl focus:ring-4 transition-all text-sm outline-none ${
-                    errors.phone 
-                      ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" 
-                      : "border-gray-200 focus:ring-primary/10 focus:border-primary"
-                  }`}
+                  className={`w-full px-4 py-2 bg-gray-50 border rounded-xl focus:ring-4 transition-all text-sm outline-none ${errors.phone
+                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                    : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                    }`}
                   placeholder="9876543210"
                 />
                 {errors.phone && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.phone}</p>}
@@ -195,11 +193,10 @@ export default function SupplierModal({
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  className={`w-full px-4 py-2 bg-gray-50 border rounded-xl focus:ring-4 transition-all text-sm outline-none ${
-                    errors.email 
-                      ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" 
-                      : "border-gray-200 focus:ring-primary/10 focus:border-primary"
-                  }`}
+                  className={`w-full px-4 py-2 bg-gray-50 border rounded-xl focus:ring-4 transition-all text-sm outline-none ${errors.email
+                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                    : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                    }`}
                   placeholder="e.g. contact@supplier.com"
                 />
                 {errors.email && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.email}</p>}
@@ -214,9 +211,13 @@ export default function SupplierModal({
                   name="gst"
                   value={formData.gst}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all text-sm outline-none uppercase"
+                  className={`w-full px-4 py-2 bg-gray-50 border rounded-xl focus:ring-4 transition-all text-sm outline-none uppercase ${errors.gst
+                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                    : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                    }`}
                   placeholder="e.g. 27AAAAA0000A1Z5"
                 />
+                {errors.gst && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.gst}</p>}
               </div>
 
               <div className="md:col-span-2 space-y-1">

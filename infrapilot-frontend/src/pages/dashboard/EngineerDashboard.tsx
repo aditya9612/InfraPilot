@@ -101,9 +101,7 @@ const EngineerDashboard = () => {
             <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all">
               + Safety
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">
-              Create Report
-            </button>
+
           </div>
         </div>
 
@@ -259,8 +257,8 @@ const EngineerDashboard = () => {
                 >
                   <div
                     className={`w-10 h-10 rounded-xl border-2 flex items-center justify-center transition-all ${task.completed
-                        ? "bg-primary border-primary text-white shadow-lg shadow-primary/20"
-                        : "border-slate-100 bg-slate-50 text-slate-300 group-hover:border-primary group-hover:text-primary"
+                      ? "bg-primary border-primary text-white shadow-lg shadow-primary/20"
+                      : "border-slate-100 bg-slate-50 text-slate-300 group-hover:border-primary group-hover:text-primary"
                       }`}
                   >
                     {task.completed ? (

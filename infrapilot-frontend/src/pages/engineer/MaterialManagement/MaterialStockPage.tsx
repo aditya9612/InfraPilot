@@ -20,6 +20,7 @@ import { materialService, type InventoryItem, type MaterialLog, type MaterialRep
 
 
 
+
 const MaterialStockPage = () => {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [report, setReport] = useState<MaterialReport[]>([]);
@@ -241,6 +242,8 @@ const MaterialStockPage = () => {
   const handleExportPdf = async () => {
     setIsExporting(true);
     const loadToast = toast.loading("Generating Strategic PDF report...");
+    
+    // Trigger background API call to show in browser's Network Tab
     try {
       await materialService.exportPdf();
       toast.success("Successful (Status 200) - PDF Exported!", { id: loadToast });

@@ -10,6 +10,14 @@ import {
   Eye,
   Edit2,
   Trash2,
+  CheckCircle2,
+  TrendingUp,
+  Clock,
+  Layout,
+  Filter,
+  FileText,
+  Briefcase,
+  Mail,
   ClipboardList,
   RotateCcw,
   ChevronLeft,
@@ -444,7 +452,6 @@ const ActivityListPage = () => {
         </div>
       </PageTransition>
 
-      {/* Modals */}
       <AddActivityModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}

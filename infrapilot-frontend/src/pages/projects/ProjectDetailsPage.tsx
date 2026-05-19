@@ -88,9 +88,14 @@ const ProjectDetailsPage = () => {
       setProject(pData);
       setSchedule(sData);
       setProgress(prData);
-      setMembers(
-        Array.isArray(mData) ? mData : mData.items || mData.data || [],
-      );
+      const rawMembers = Array.isArray(mData) ? mData : mData.items || mData.data || [];
+      const mappedMembers = rawMembers.map((m: any) => ({
+        user_id: m.user_id || m.user?.id || m.user?.user_id || m.id,
+        full_name: m.full_name || m.user?.full_name || m.user?.name || `User ${m.user_id || m.id || "Unknown"}`,
+        email: m.email || m.user?.email || "",
+        role: m.role || m.user?.role || "Member"
+      }));
+      setMembers(mappedMembers);
       setMilestones(
         Array.isArray(msData) ? msData : msData.items || msData.data || [],
       );
@@ -407,9 +412,9 @@ const ProjectDetailsPage = () => {
                 PRJ-{project.id}
               </span>
               <span
-                className={`px-3 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${project.status === "ONGOING"
+                className={`px-3 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${project.status === "Ongoing"
                   ? "bg-green-100 text-success"
-                  : project.status === "DELAYED"
+                  : project.status === "Delayed"
                     ? "bg-red-100 text-red-600"
                     : "bg-slate-100 text-slate-500"
                   }`}

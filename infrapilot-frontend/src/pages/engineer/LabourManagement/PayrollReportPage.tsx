@@ -155,7 +155,6 @@ const PayrollReportPage: React.FC = () => {
     };
 
 
-
     const chartData = useMemo(() => [
         { name: 'Jan', amount: 180000 },
         { name: 'Feb', amount: 210000 },

@@ -127,13 +127,25 @@ export const projectService = {
   },
 
   async getProjectAlerts() {
-    const response = await api.get('/projects/alerts/projects');
-    return response.data;
+    try {
+      const response = await api.get('/projects/alerts/projects');
+      const data = response.data;
+      return Array.isArray(data) ? data : (data.items || data.data || []);
+    } catch (error) {
+      console.error("Get Project Alerts Error:", error);
+      return [];
+    }
   },
 
   async getTaskAlerts() {
-    const response = await api.get('/projects/alerts/tasks');
-    return response.data;
+    try {
+      const response = await api.get('/projects/alerts/tasks');
+      const data = response.data;
+      return Array.isArray(data) ? data : (data.items || data.data || []);
+    } catch (error) {
+      console.error("Get Task Alerts Error:", error);
+      return [];
+    }
   },
 
   // === Member Management ===

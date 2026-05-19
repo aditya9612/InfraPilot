@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
@@ -7,62 +7,63 @@ import CreateEngineerModal from "../../components/forms/CreateEngineerModal";
 import toast from "react-hot-toast";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import { Eye, Edit2, Trash2 } from "lucide-react";
-
-const initialEngineers = [
-  {
-    id: 1,
-    name: "Arjun Mehta",
-    email: "arjun.m@infrapilot.com",
-    mobile: "+91 95566 77889",
-    projects: "Skyline Tower A",
-    experience: "8 Years",
-    status: "On Site",
-    specialization: "Structural",
-    lastDsr: new Date().toISOString(),
-    weather: "Sunny, 32°C",
-    laborCount: 145,
-    activeTask: "Column Casting (Floor 4)"
-  },
-  {
-    id: 2,
-    name: "Sana Khan",
-    email: "sana.k@infrapilot.com",
-    mobile: "+91 96677 88990",
-    projects: "Metro Ph-II, Bridge Overpass",
-    experience: "5 Years",
-    performance: "Good",
-    status: "On Site",
-    specialization: "Civil & Infrastructure",
-    lastDsr: new Date(Date.now() - 86400000).toISOString(),
-    weather: "Cloudy, 28°C",
-    laborCount: 85,
-    activeTask: "Pillar Reinforcement"
-  },
-  {
-    id: 3,
-    name: "Rahul Deshpande",
-    email: "rahul.d@infrapilot.com",
-    mobile: "+91 97788 99001",
-    projects: "Grand Vista Residency",
-    experience: "12 Years",
-    performance: "Outstanding",
-    status: "Leave",
-    specialization: "Quality Control",
-    lastDsr: new Date().toISOString(),
-    weather: "Clear, 30°C",
-    laborCount: 0,
-    activeTask: "None (On Leave)"
-  },
-];
+import { userService } from "../../services/userService";
 
 const EngineersPage = () => {
   const navigate = useNavigate();
-  const [engineers, setEngineers] = useState(initialEngineers);
+  const [engineers, setEngineers] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEngineer, setEditingEngineer] = useState<any>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [engineerToDelete, setEngineerToDelete] = useState<number | null>(null);
+
+  useEffect(() => {
+    const fetchEngineers = async () => {
+      try {
+        setIsLoading(true);
+        const res = await userService.getAllUsers(100, 0);
+
+        // Robust extraction logic: handles direct array or nested items/data/users property
+        const userList = Array.isArray(res) ? res : (res.items || res.data || res.users || []);
+
+        // Filter for Site Engineers with robust checks for strings or objects
+        const engineerList = userList.filter((u: any) => {
+          const role = typeof u.role === "string" ? u.role : u.role?.name || "";
+
+          // Case-insensitive match for SiteEngineer or Engineer roles
+          const normalizedRole = role.toLowerCase().replace(/\s/g, "");
+          return normalizedRole === "siteengineer" || normalizedRole === "engineer";
+        });
+
+        // Map to UI structure
+        const mapped = engineerList.map((u: any) => ({
+          id: u.user_id,
+          name: u.full_name,
+          email: u.email,
+          mobile: u.mobile_number,
+          projects: u.address || "Main Site",
+          experience: "5 Years", // Mock
+          status: u.is_active ? "On Site" : "Leave",
+          specialization: u.designation || "Civil Engineer",
+          lastDsr: new Date().toISOString(),
+          weather: "Sunny, 32°C",
+          laborCount: 0,
+          activeTask: "General Supervision"
+        }));
+
+        setEngineers(mapped);
+      } catch (error) {
+        console.error("Failed to fetch engineers:", error);
+        toast.error("Failed to load engineering staff.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchEngineers();
+  }, []);
 
   const filteredEngineers = engineers.filter(
     (e) =>
@@ -152,162 +153,169 @@ const EngineersPage = () => {
           />
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden min-h-[400px]">
-          <div className="p-4 border-b border-slate-50">
-            <div className="relative flex-1 max-w-md">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
-              </span>
-              <input
-                type="text"
-                placeholder="Search by name or project..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-              />
-            </div>
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center p-20 bg-white rounded-3xl border border-dashed border-slate-200">
+            <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4"></div>
+            <p className="text-slate-500 font-medium animate-pulse">Syncing Staff Intelligence...</p>
           </div>
+        ) : (
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden min-h-[400px]">
+            <div className="p-4 border-b border-slate-50">
+              <div className="relative flex-1 max-w-md">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                </span>
+                <input
+                  type="text"
+                  placeholder="Search by name or project..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                />
+              </div>
+            </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-                  <th className="px-6 py-4">Engineer Information</th>
-                  <th className="px-6 py-4">Assigned Projects & Weather</th>
-                  <th className="px-6 py-4">Specialization & Labour</th>
-                  <th className="px-6 py-4">Active Supervision</th>
-                  <th className="px-6 py-4">Daily Report (DSR)</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {filteredEngineers.map((e) => {
-                  const isDsrToday = new Date(e.lastDsr).toDateString() === new Date().toDateString();
-                  return (
-                    <tr
-                      key={e.id}
-                      className="hover:bg-slate-50/50 transition-colors group"
-                    >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 font-bold text-xs border border-slate-200 uppercase">
-                            {e.name.split(' ').map((n: string) => n[0]).join('')}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
+                    <th className="px-6 py-4">Engineer Information</th>
+                    <th className="px-6 py-4">Assigned Projects & Weather</th>
+                    <th className="px-6 py-4">Specialization & Labour</th>
+                    <th className="px-6 py-4">Active Supervision</th>
+                    <th className="px-6 py-4">Daily Report (DSR)</th>
+                    <th className="px-6 py-4">Status</th>
+                    <th className="px-6 py-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {filteredEngineers.map((e) => {
+                    const isDsrToday = new Date(e.lastDsr).toDateString() === new Date().toDateString();
+                    return (
+                      <tr
+                        key={e.id}
+                        className="hover:bg-slate-50/50 transition-colors group"
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 font-bold text-xs border border-slate-200 uppercase">
+                              {e.name.split(' ').map((n: string) => n[0]).join('')}
+                            </div>
+                            <div>
+                              <p className="font-bold text-slate-700 group-hover:text-primary transition-colors">
+                                {e.name}
+                              </p>
+                              <p className="text-slate-400 text-[10px]">
+                                {e.mobile} | {e.email}
+                              </p>
+                            </div>
                           </div>
+                        </td>
+                        <td className="px-6 py-4">
                           <div>
-                            <p className="font-bold text-slate-700 group-hover:text-primary transition-colors">
-                              {e.name}
-                            </p>
-                            <p className="text-slate-400 text-[10px]">
-                              {e.mobile} | {e.email}
+                            <p className="text-xs text-slate-600 font-bold">{e.projects}</p>
+                            <div className="flex items-center gap-1.5 mt-1 text-slate-400">
+                              <span className="text-[10px]">{e.weather === "Sunny, 32°C" ? "☀️" : "☁️"}</span>
+                              <span className="text-[10px] font-medium">{e.weather || "Syncing..."}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div>
+                            <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-bold uppercase tracking-wider block w-fit">
+                              {e.specialization || "General"}
+                            </span>
+                            <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tighter">
+                              Labour Force: <span className="text-primary">{e.laborCount || 0} Staff</span>
                             </p>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div>
-                          <p className="text-xs text-slate-600 font-bold">{e.projects}</p>
-                          <div className="flex items-center gap-1.5 mt-1 text-slate-400">
-                            <span className="text-[10px]">{e.weather === "Sunny, 32°C" ? "☀️" : "☁️"}</span>
-                            <span className="text-[10px] font-medium">{e.weather || "Syncing..."}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                            <p className="text-xs font-bold text-slate-700">{e.activeTask || "None"}</p>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div>
-                          <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-bold uppercase tracking-wider block w-fit">
-                            {e.specialization || "General"}
-                          </span>
-                          <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tighter">
-                            Labour Force: <span className="text-primary">{e.laborCount || 0} Staff</span>
-                          </p>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                          <p className="text-xs font-bold text-slate-700">{e.activeTask || "None"}</p>
-                        </div>
-                      </td>
+                        </td>
 
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-2 h-2 rounded-full ${isDsrToday ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${isDsrToday ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${isDsrToday
+                                ? "bg-emerald-50 text-emerald-600"
+                                : "bg-amber-50 text-amber-600"
+                                }`}
+                            >
+                              {isDsrToday ? "Live: Submitted" : "Pending Today"}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
                           <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${isDsrToday
-                              ? "bg-emerald-50 text-emerald-600"
-                              : "bg-amber-50 text-amber-600"
+                            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${e.status === "On Site"
+                              ? "bg-emerald-100 text-emerald-600"
+                              : "bg-slate-100 text-slate-600"
                               }`}
                           >
-                            {isDsrToday ? "Live: Submitted" : "Pending Today"}
+                            {e.status}
                           </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${e.status === "On Site"
-                            ? "bg-emerald-100 text-emerald-600"
-                            : "bg-slate-100 text-slate-600"
-                            }`}
-                        >
-                          {e.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-3">
-                          <button
-                            onClick={() => navigate(`/admin/engineers/${e.id}`)}
-                            className="p-1.5 text-slate-400 hover:text-primary transition-all duration-200"
-                            title="View Profile"
-                          >
-                            <Eye className="w-4.5 h-4.5" strokeWidth={1.5} />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setEditingEngineer(e);
-                              setIsModalOpen(true);
-                            }}
-                            className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200"
-                            title="Edit Engineer"
-                          >
-                            <Edit2 className="w-4.5 h-4.5" strokeWidth={1.5} />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setEngineerToDelete(e.id);
-                              setIsDeleteModalOpen(true);
-                            }}
-                            className="p-1.5 text-slate-400 hover:text-rose-500 transition-all duration-200"
-                            title="Delete Engineer"
-                          >
-                            <Trash2 className="w-4.5 h-4.5" strokeWidth={1.5} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          {filteredEngineers.length === 0 && (
-            <div className="p-20 text-center">
-              <p className="text-slate-400 font-medium">No engineers found matching your search.</p>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-3">
+                            <button
+                              onClick={() => navigate(`/admin/engineers/${e.id}`)}
+                              className="p-1.5 text-slate-400 hover:text-primary transition-all duration-200"
+                              title="View Profile"
+                            >
+                              <Eye className="w-4.5 h-4.5" strokeWidth={1.5} />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingEngineer(e);
+                                setIsModalOpen(true);
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200"
+                              title="Edit Engineer"
+                            >
+                              <Edit2 className="w-4.5 h-4.5" strokeWidth={1.5} />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEngineerToDelete(e.id);
+                                setIsDeleteModalOpen(true);
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-rose-500 transition-all duration-200"
+                              title="Delete Engineer"
+                            >
+                              <Trash2 className="w-4.5 h-4.5" strokeWidth={1.5} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-          )}
-        </div>
+            {filteredEngineers.length === 0 && (
+              <div className="p-20 text-center">
+                <p className="text-slate-400 font-medium">No engineers found matching your search.</p>
+              </div>
+            )}
+          </div>
+        )}
       </PageTransition>
 
       {/* Create Modal */}

@@ -136,7 +136,6 @@ const SettingsPage = () => {
                 if (prefs.showWeather !== undefined) setPreferences(p => ({ ...p, showWeather: prefs.showWeather }));
                 if (prefs.showGPS !== undefined) setPreferences(p => ({ ...p, showGPS: prefs.showGPS }));
             }
-
             // Map Profile
             setProfileImage(profileRes.profile_image);
 

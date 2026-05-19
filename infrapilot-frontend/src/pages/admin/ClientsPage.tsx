@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
@@ -7,82 +7,103 @@ import CreateClientModal from "../../components/forms/CreateClientModal";
 import toast from "react-hot-toast";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import { Eye, Edit2, Trash2 } from "lucide-react";
+import { userService } from "../../services/userService";
+import type { User, UserRole } from "../../types/user";
 
-const initialClients = [
-  {
-    id: 1,
-    name: "Vikram Sethi",
-    company: "Sethi Real Estate Group",
-    email: "vikram@sethigroup.com",
-    mobile: "+91 93344 55667",
-    project: "Skyline Tower A",
-    billing: "₹45.5L Pending",
-    payments: "₹1.2Cr Received",
-    status: "Active",
-  },
-  {
-    id: 2,
-    name: "Anjali Rao",
-    company: "City Infra Development",
-    email: "anjali.rao@cityinfra.com",
-    mobile: "+91 94455 66778",
-    project: "Metro Extension Ph-II",
-    billing: "₹82.0L Processed",
-    payments: "₹4.5Cr Received",
-    status: "Active",
-  },
-  {
-    id: 3,
-    name: "Karan Malhotra",
-    company: "Malhotra & Sons",
-    email: "karan@malhotra.in",
-    mobile: "+91 92233 44556",
-    project: "Grand Vista Residency",
-    billing: "₹12.4L Overdue",
-    payments: "₹85L Received",
-    status: "On Hold",
-  },
-];
 
 const ClientsPage = () => {
   const navigate = useNavigate();
-  const [clients, setClients] = useState(initialClients);
+  const [clients, setClients] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<any>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<number | null>(null);
 
-  const filteredClients = clients.filter(
-    (c) =>
-      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.company.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  const fetchClients = async () => {
+    try {
+      setIsLoading(true);
+      const res = await userService.getAllUsers(100, 0);
+      const userList = Array.isArray(res) ? res : (res.items || res.data || res.users || []);
 
-  const handleCreateOrUpdate = (data: any) => {
-    if (editingClient) {
-      setClients(prev => prev.map(c => c.id === editingClient.id ? { ...data, id: c.id, billing: c.billing, payments: c.payments } : c));
-      toast.success("Client profile updated.");
-    } else {
-      const newClient = {
-        ...data,
-        id: Date.now(),
-        billing: "₹0 Pending",
-        payments: "₹0 Received",
-      };
-      setClients(prev => [newClient, ...prev]);
-      toast.success("New client added to portfolio!");
+      // Filter for Client role with robust check and map to UI format
+      const clientList = userList
+        .filter((u: any) => {
+          const role = typeof u.role === "string" ? u.role : u.role?.name || "";
+          return role.toLowerCase() === "client";
+        })
+        .map((u: User) => ({
+          id: u.user_id,
+          name: u.full_name,
+          company: u.designation || "N/A",
+          email: u.email,
+          mobile: u.mobile_number,
+          project: u.address || "No Project Linked",
+          billing: "₹0 Pending", // Placeholders for now
+          payments: "₹0 Received",
+          status: u.is_active ? "Active" : "Inactive",
+        }));
+
+      setClients(clientList);
+    } catch (error) {
+      toast.error("Failed to fetch clients");
+      console.error(error);
+    } finally {
+      setIsLoading(false);
     }
-    setIsModalOpen(false);
-    setEditingClient(null);
   };
 
-  const handleDelete = () => {
+  useEffect(() => {
+    fetchClients();
+  }, []);
+
+  const filteredClients = clients.filter(
+    (c) =>
+      (c.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (c.company || "").toLowerCase().includes(searchTerm.toLowerCase()),
+  );
+
+  const handleCreateOrUpdate = async (data: any) => {
+    try {
+      const userData: Partial<User> = {
+        full_name: data.name,
+        email: data.email,
+        mobile_number: data.mobile,
+        designation: data.company,
+        address: data.project,
+        role: "Client" as UserRole,
+        is_active: data.status === "Active",
+      };
+
+      if (editingClient) {
+        await userService.updateUser(editingClient.id, userData);
+        toast.success("Client profile updated.");
+      } else {
+        await userService.createUser(userData);
+        toast.success("New client onboarded!");
+      }
+      setIsModalOpen(false);
+      setEditingClient(null);
+      fetchClients();
+    } catch (error) {
+      toast.error(editingClient ? "Failed to update client" : "Failed to onboard client");
+      console.error(error);
+    }
+  };
+
+  const handleDelete = async () => {
     if (clientToDelete) {
-      setClients(prev => prev.filter(c => c.id !== clientToDelete));
-      toast.success("Client removed from database.");
-      setIsDeleteModalOpen(false);
-      setClientToDelete(null);
+      try {
+        await userService.deleteUser(clientToDelete);
+        toast.success("Client removed from database.");
+        setIsDeleteModalOpen(false);
+        setClientToDelete(null);
+        fetchClients();
+      } catch (error) {
+        toast.error("Failed to delete client");
+        console.error(error);
+      }
     }
   };
 
@@ -101,9 +122,6 @@ const ClientsPage = () => {
             </p>
           </div>
           <div className="flex gap-2">
-            <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all">
-              Client Portal
-            </button>
             <button
               onClick={() => {
                 setEditingClient(null);
@@ -179,83 +197,99 @@ const ClientsPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {filteredClients.map((c) => (
-                  <tr
-                    key={c.id}
-                    className="hover:bg-slate-50/50 transition-colors group"
-                  >
-                    <td className="px-6 py-4">
-                      <div
-                        onClick={() => navigate(`/admin/clients/${c.id}`)}
-                        className="cursor-pointer group/link"
-                      >
-                        <p className="font-bold text-slate-700 group-hover/link:text-primary transition-colors">
-                          {c.name}
-                        </p>
-                        <p className="text-slate-500 text-xs font-semibold">
-                          {c.company}
-                        </p>
-                        <p className="text-slate-400 text-[10px]">
-                          {c.mobile} | {c.email}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-600 font-bold">
-                      {c.project}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`text-xs font-bold ${c.billing.includes("Pending") || c.billing.includes("Overdue") ? "text-rose-500" : "text-emerald-500"}`}
-                      >
-                        {c.billing}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-xs text-slate-500 font-medium">
-                      {c.payments}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${c.status === "Active"
-                          ? "bg-emerald-100 text-emerald-600"
-                          : "bg-amber-100 text-amber-600"
-                          }`}
-                      >
-                        {c.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-3">
-                        <button
-                          onClick={() => navigate(`/admin/clients/${c.id}`)}
-                          className="p-1.5 text-slate-400 hover:text-primary transition-all duration-200"
-                          title="View Profile"
-                        >
-                          <Eye className="w-4.5 h-4.5" strokeWidth={1.5} />
-                        </button>
-                        <button
-                          onClick={() => {
-                            setEditingClient(c);
-                            setIsModalOpen(true);
-                          }}
-                          className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200"
-                          title="Edit Client"
-                        >
-                          <Edit2 className="w-4.5 h-4.5" strokeWidth={1.5} />
-                        </button>
-                        <button
-                          onClick={() => {
-                            setClientToDelete(c.id);
-                            setIsDeleteModalOpen(true);
-                          }}
-                          className="p-1.5 text-slate-400 hover:text-rose-500 transition-all duration-200"
-                          title="Delete Client"
-                        >
-                          <Trash2 className="w-4.5 h-4.5" strokeWidth={1.5} />
-                        </button>
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic text-sm">
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+                        Loading clients...
                       </div>
                     </td>
                   </tr>
-                ))}
+                ) : filteredClients.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic text-sm">
+                      No clients found.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredClients.map((c) => (
+                    <tr
+                      key={c.id}
+                      className="hover:bg-slate-50/50 transition-colors group"
+                    >
+                      <td className="px-6 py-4">
+                        <div
+                          onClick={() => navigate(`/admin/clients/${c.id}`)}
+                          className="cursor-pointer group/link"
+                        >
+                          <p className="font-bold text-slate-700 group-hover/link:text-primary transition-colors">
+                            {c.name}
+                          </p>
+                          <p className="text-slate-500 text-xs font-semibold">
+                            {c.company}
+                          </p>
+                          <p className="text-slate-400 text-[10px]">
+                            {c.mobile} | {c.email}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600 font-bold">
+                        {c.project}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`text-xs font-bold ${c.billing.includes("Pending") || c.billing.includes("Overdue") ? "text-rose-500" : "text-emerald-500"}`}
+                        >
+                          {c.billing}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-xs text-slate-500 font-medium">
+                        {c.payments}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${c.status === "Active"
+                            ? "bg-emerald-100 text-emerald-600"
+                            : "bg-amber-100 text-amber-600"
+                            }`}
+                        >
+                          {c.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-3">
+                          <button
+                            onClick={() => navigate(`/admin/clients/${c.id}`)}
+                            className="p-1.5 text-slate-400 hover:text-primary transition-all duration-200"
+                            title="View Profile"
+                          >
+                            <Eye className="w-4.5 h-4.5" strokeWidth={1.5} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingClient(c);
+                              setIsModalOpen(true);
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200"
+                            title="Edit Client"
+                          >
+                            <Edit2 className="w-4.5 h-4.5" strokeWidth={1.5} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setClientToDelete(c.id);
+                              setIsDeleteModalOpen(true);
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-rose-500 transition-all duration-200"
+                            title="Delete Client"
+                          >
+                            <Trash2 className="w-4.5 h-4.5" strokeWidth={1.5} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )))}
               </tbody>
             </table>
           </div>

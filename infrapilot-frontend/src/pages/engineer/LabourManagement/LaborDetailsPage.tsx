@@ -249,6 +249,9 @@ const LaborDetailsPage = () => {
         // Apply Contractor ID filter
         if (contractorFilter !== null && l.contractor_id !== contractorFilter) return false;
 
+        // Apply Contractor ID filter
+        if (contractorFilter !== null && l.contractor_id !== contractorFilter) return false;
+
         // Apply Search Term filter (Name, ID, Worker Code, Aadhaar)
         const search = searchTerm.toLowerCase().trim();
         if (search) {

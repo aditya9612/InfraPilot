@@ -19,12 +19,12 @@ import {
     Calendar,
     Image as ImageIcon,
     RotateCcw,
-    FileDown,
-    ChevronLeft,
-    ChevronRight,
     Check,
     X,
-    Send
+    Send,
+    FileDown,
+    ChevronLeft,
+    ChevronRight
 } from "lucide-react";
 
 import { dsrService } from "../../services/dsrService";
@@ -61,7 +61,6 @@ const DSRPage = () => {
     const [isDetailOpen, setIsDetailOpen] = useState(false);
     const [selectedDsr, setSelectedDsr] = useState<DsrItem | null>(null);
     const [loadingId, setLoadingId] = useState<number | null>(null);
-    const [isExporting, setIsExporting] = useState(false);
 
     useEffect(() => {
         const resolveProjectId = async () => {
@@ -90,8 +89,8 @@ const DSRPage = () => {
         setIsLoading(true);
         try {
             const offset = (currentPage - 1) * itemsPerPage;
-            const response = await dsrService.getDsrByProject(projectId, { 
-                limit: itemsPerPage, 
+            const response = await dsrService.getDsrByProject(projectId, {
+                limit: itemsPerPage,
                 offset
             });
             const apiData = response.items;
@@ -110,7 +109,7 @@ const DSRPage = () => {
                         if (extraPhotos && extraPhotos.length > 0) {
                             photos = extraPhotos;
                         }
-                    } catch (e) {}
+                    } catch (e) { }
                 }
                 return { ...item, photos };
             }));
@@ -143,7 +142,7 @@ const DSRPage = () => {
                     if (extraPhotos && extraPhotos.length > 0) {
                         photos = extraPhotos;
                     }
-                } catch (e) {}
+                } catch (e) { }
             }
 
             setSelectedDsr({ ...data, photos });
@@ -176,7 +175,7 @@ const DSRPage = () => {
                     if (extraPhotos && extraPhotos.length > 0) {
                         photos = extraPhotos;
                     }
-                } catch (e) {}
+                } catch (e) { }
             }
 
             setSelectedDsr({ ...data, photos });
@@ -198,7 +197,7 @@ const DSRPage = () => {
             const created = await dsrService.createDsr(payload);
             toast.success("DSR submitted successfully!");
             setIsCreateOpen(false);
-            
+
             if (created) {
                 const normalizedCreated = {
                     ...created,
@@ -262,20 +261,6 @@ const DSRPage = () => {
         }
     };
 
-    const handleExportExcel = async () => {
-        if (!projectId) return;
-        const toastId = toast.loading("Generating Excel report...");
-        setIsExporting(true);
-        try {
-            await dsrService.exportDsrExcel(projectId, {});
-            toast.success("Excel report exported successfully!", { id: toastId });
-        } catch (err) {
-            console.error("Export Error:", err);
-            toast.error("Failed to export Excel report", { id: toastId });
-        } finally {
-            setIsExporting(false);
-        }
-    };
 
     const filteredList = useMemo(() => {
         let data = dsrList;
@@ -303,7 +288,7 @@ const DSRPage = () => {
         const verified = dsrList.filter(d => d.status === "Verified" || d.status === "Approved").length;
         const pending = dsrList.filter(d => d.status === "Submitted" || d.status === "Draft").length;
         const complianceVal = total > 0 ? Math.round((verified / total) * 100) : 0;
-        
+
         // Efficiency could be measured by (Verified + Submitted) / Total for momentum
         const active = dsrList.filter(d => d.status !== "Rejected" && d.status !== "Draft").length;
         const efficiencyVal = total > 0 ? Math.round((active / total) * 100) : 0;
@@ -343,12 +328,16 @@ const DSRPage = () => {
                             <RotateCcw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
                         </button>
                         <button
-                            onClick={handleExportExcel}
-                            disabled={isExporting}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95 font-inter disabled:opacity-50"
+                            onClick={() => {
+                                const toastId = toast.loading("Generating Excel report...");
+                                dsrService.exportDsrExcel(projectId || 36, {})
+                                    .then(() => toast.success("Excel report exported!", { id: toastId }))
+                                    .catch(() => toast.error("Export failed", { id: toastId }));
+                            }}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95 font-inter"
                         >
-                            {isExporting ? <RotateCcw className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
-                            {isExporting ? "Exporting..." : "Export"}
+                            <FileDown className="w-4 h-4" />
+                            Export
                         </button>
                         <button
                             onClick={() => setIsCreateOpen(true)}
@@ -423,10 +412,10 @@ const DSRPage = () => {
                             </select>
 
                             {activeStatFilter !== "All" && (
-                                <button 
+                                <button
                                     onClick={() => {
                                         setActiveStatFilter("All");
-                                    }} 
+                                    }}
                                     className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors"
                                     title="Reset Filters"
                                 >
@@ -580,7 +569,7 @@ const DSRPage = () => {
                                 Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} entries
                             </span>
                             <div className="flex gap-2 font-inter">
-                                <button 
+                                <button
                                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                     disabled={currentPage === 1}
                                     className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
@@ -591,7 +580,7 @@ const DSRPage = () => {
                                 <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
                                     Page {currentPage} of {totalPages || 1}
                                 </div>
-                                <button 
+                                <button
                                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                                     disabled={currentPage === totalPages || totalPages === 0}
                                     className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
@@ -640,7 +629,7 @@ const DSRPage = () => {
                                         )}
                                     </div>
                                     <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center border-4 border-primary text-[8px] font-black z-20
-                                        ${selectedDsr.status === 'Approved' || selectedDsr.status === 'Verified' ? 'bg-emerald-500' : selectedDsr.status === 'Rejected' ? 'bg-rose-500' : 'bg-amber-500'} animate-pulse`} 
+                                        ${selectedDsr.status === 'Approved' || selectedDsr.status === 'Verified' ? 'bg-emerald-500' : selectedDsr.status === 'Rejected' ? 'bg-rose-500' : 'bg-amber-500'} animate-pulse`}
                                     />
                                 </div>
                                 <div className="flex-1 font-inter">

@@ -17,7 +17,7 @@ const CreateMasterDataModal: React.FC<CreateMasterDataModalProps> = ({
 }) => {
   const [formData, setFormData] = useState({
     name: "",
-    code: "",
+    unique_code: "",
     category: "",
     type: "Material",
   });
@@ -28,7 +28,7 @@ const CreateMasterDataModal: React.FC<CreateMasterDataModalProps> = ({
     } else {
       setFormData({
         name: "",
-        code: "",
+        unique_code: "",
         category: "",
         type: "Material",
       });
@@ -43,7 +43,7 @@ const CreateMasterDataModal: React.FC<CreateMasterDataModalProps> = ({
     } else {
       setFormData({
         name: "",
-        code: "",
+        unique_code: "",
         category: "",
         type: "Material",
       });
@@ -56,7 +56,7 @@ const CreateMasterDataModal: React.FC<CreateMasterDataModalProps> = ({
     const newErrors: Record<string, string> = {};
 
     if (!formData.name.trim()) newErrors.name = "Entity name is required.";
-    if (!formData.code.trim()) newErrors.code = "Unique code is required.";
+    if (!formData.unique_code.trim()) newErrors.unique_code = "Unique code is required.";
     if (!formData.category.trim()) newErrors.category = "Category group is required.";
 
     if (Object.keys(newErrors).length > 0) {
@@ -131,17 +131,17 @@ const CreateMasterDataModal: React.FC<CreateMasterDataModalProps> = ({
                 <input
                   type="text"
                   placeholder="MAT-CEM-01"
-                  className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-mono font-bold ${errors.code
+                  className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-mono font-bold ${errors.unique_code
                     ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
                     : "border-gray-200 focus:ring-primary/10 focus:border-primary"
                     }`}
-                  value={formData.code}
+                  value={formData.unique_code}
                   onChange={(e) => {
-                    setFormData({ ...formData, code: e.target.value });
-                    if (errors.code) setErrors({ ...errors, code: "" });
+                    setFormData({ ...formData, unique_code: e.target.value });
+                    if (errors.unique_code) setErrors({ ...errors, unique_code: "" });
                   }}
                 />
-                {errors.code && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.code}</p>}
+                {errors.unique_code && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.unique_code}</p>}
               </div>
               <div className="space-y-1">
                 <label className="block text-sm font-medium text-gray-600 mb-1">

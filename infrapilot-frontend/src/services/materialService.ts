@@ -4,12 +4,17 @@ import type {
   MaterialCreate,
   MaterialUpdate,
   Supplier,
-  SupplierCreate,
   UsagePayload,
   PurchasePayload,
   InventoryLog,
   MaterialReport,
-  MaterialLog
+  MaterialLog,
+  PurchaseOrder,
+  POCreate,
+  Transfer,
+  TransferCreate,
+  PriceHistory,
+  InventorySummary
 } from "../types/material";
 
 export type {
@@ -28,7 +33,13 @@ export type {
   CreateMaterialRequest,
   IssueType,
   RateType,
-  AlertType
+  AlertType,
+  PurchaseOrder,
+  POCreate,
+  Transfer,
+  TransferCreate,
+  PriceHistory,
+  InventorySummary
 } from "../types/material";
 
 const mapMaterial = (m: any): Material => ({
@@ -741,8 +752,15 @@ export const materialService = {
    * Create a new supplier
    * POST /api/v1/materials/suppliers
    */
-  async createSupplier(data: SupplierCreate): Promise<Supplier> {
-    const response = await api.post<Supplier>("/materials/suppliers", data);
+  async createSupplier(data: any): Promise<Supplier> {
+    const payload = {
+      supplier_name: data.name || data.supplier_name,
+      contact_person: data.contactPerson || data.contact_person || undefined,
+      phone_email: data.phone || data.email ? `${data.phone || ""} ${data.email || ""}`.trim() : (data.phone_email || data.contact || undefined),
+      gst_number: data.gst || data.gst_number || undefined,
+      address: data.address || undefined
+    };
+    const response = await api.post<Supplier>("/materials/suppliers", payload);
     return response.data;
   },
 
@@ -755,4 +773,110 @@ export const materialService = {
     const data = response.data;
     return Array.isArray(data) ? data : ((data as any).items || (data as any).data || []);
   },
+
+  async getSupplier(id: number): Promise<Supplier> {
+    const response = await api.get<Supplier>(`/materials/suppliers/${id}`);
+    return response.data;
+  },
+
+  async updateSupplier(id: number, data: any): Promise<Supplier> {
+    const payload = {
+      supplier_name: data.name || data.supplier_name,
+      contact_person: data.contactPerson || data.contact_person || undefined,
+      phone_email: data.phone || data.email ? `${data.phone || ""} ${data.email || ""}`.trim() : (data.phone_email || data.contact || undefined),
+      gst_number: data.gst || data.gst_number || undefined,
+      address: data.address || undefined
+    };
+    const response = await api.put<Supplier>(`/materials/suppliers/${id}`, payload);
+    return response.data;
+  },
+
+  async deleteSupplier(id: number): Promise<void> {
+    await api.delete(`/materials/suppliers/${id}`);
+  },
+
+  async getSupplierMaterials(supplier_id: number): Promise<Material[]> {
+    const response = await api.get<Material[]>(`/materials/suppliers/${supplier_id}/materials`);
+    return response.data.map(mapMaterial);
+  },
+
+  async getMaterialAlerts(threshold?: number): Promise<Material[]> {
+    const params = threshold ? { threshold } : undefined;
+    const response = await api.get<Material[]>("/materials/alerts", { params });
+    return response.data.map(mapMaterial);
+  },
+
+  async createPurchaseOrder(data: POCreate): Promise<PurchaseOrder> {
+    const response = await api.post<PurchaseOrder>("/materials/purchase-orders", data);
+    return response.data;
+  },
+
+  async listPurchaseOrders(skip: number = 0, limit: number = 50): Promise<PurchaseOrder[]> {
+    const response = await api.get<PurchaseOrder[]>("/materials/purchase-orders", { params: { skip, limit } });
+    return response.data;
+  },
+
+  async getPurchaseOrder(id: number): Promise<PurchaseOrder> {
+    const response = await api.get<PurchaseOrder>(`/materials/purchase-orders/${id}`);
+    return response.data;
+  },
+
+  async updatePurchaseOrder(id: number, data: any): Promise<PurchaseOrder> {
+    const response = await api.put<PurchaseOrder>(`/materials/purchase-orders/${id}`, data);
+    return response.data;
+  },
+
+  async deletePurchaseOrder(id: number): Promise<void> {
+    await api.delete(`/materials/purchase-orders/${id}`);
+  },
+
+  async getProjectTransactions(project_id: number): Promise<MaterialLog[]> {
+    const response = await api.get<MaterialLog[]>(`/materials/projects/${project_id}/transactions`);
+    return response.data;
+  },
+
+  async createTransfer(data: TransferCreate): Promise<Transfer> {
+    const response = await api.post<Transfer>("/materials/transfers", data);
+    return response.data;
+  },
+
+  async getTransfer(id: number): Promise<Transfer> {
+    const response = await api.get<Transfer>(`/materials/transfers/${id}`);
+    return response.data;
+  },
+
+  async listTransfers(skip: number = 0, limit: number = 50): Promise<any> {
+    const response = await api.get<any>("/materials/transfers", { params: { skip, limit } });
+    return response.data;
+  },
+
+  async updateTransferStatus(id: number, status: string): Promise<Transfer> {
+    const response = await api.put<Transfer>(`/materials/transfers/${id}`, { status });
+    return response.data;
+  },
+
+  async adjustInventory(data: any): Promise<any> {
+    const response = await api.post<any>("/materials/inventory", data);
+    return response.data;
+  },
+
+  async getInventoryValuation(): Promise<any> {
+    const response = await api.get<any>("/materials/inventory/valuation");
+    return response.data;
+  },
+
+  async getProjectInventory(project_id: number): Promise<Material[]> {
+    const response = await api.get<Material[]>(`/materials/inventory/${project_id}`);
+    return response.data.map(mapMaterial);
+  },
+
+  async getPriceHistory(material_id: number): Promise<PriceHistory[]> {
+    const response = await api.get<PriceHistory[]>(`/materials/materials/price-history/${material_id}`);
+    return response.data;
+  },
+
+  async getMaterialSummary(): Promise<InventorySummary> {
+    const response = await api.get<InventorySummary>("/materials/summary");
+    return response.data;
+  }
 };

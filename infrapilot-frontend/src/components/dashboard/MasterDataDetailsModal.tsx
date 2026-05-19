@@ -42,7 +42,7 @@ const MasterDataDetailsModal: React.FC<MasterDataDetailsModalProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <InfoItem label="Entity name" value={item.name} />
-            <InfoItem label="System tag" value={item.type} />
+            <InfoItem label="System tag" value={item.system_tag} />
           </div>
         </div>
 
@@ -53,7 +53,7 @@ const MasterDataDetailsModal: React.FC<MasterDataDetailsModalProps> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <InfoItem label="Unique code" value={item.code} isMono />
+            <InfoItem label="Unique code" value={item.unique_code} isMono />
             <InfoItem label="Category group" value={item.category} />
           </div>
         </div>

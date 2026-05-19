@@ -130,14 +130,14 @@ const InventoryPage = () => {
   // Filters
   const filteredInventory = inventory.filter(
     (i) =>
-      i.material_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      i.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      i.supplier_name.toLowerCase().includes(searchTerm.toLowerCase()),
+      (i.material_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (i.category || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (i.supplier_name || "").toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   const filteredSuppliers = suppliers.filter(
     (s) =>
-      s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (s.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       (s.contactPerson || "").toLowerCase().includes(searchTerm.toLowerCase()),
   );
 

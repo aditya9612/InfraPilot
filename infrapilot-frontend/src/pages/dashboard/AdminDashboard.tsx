@@ -20,7 +20,7 @@ import NewProjectModal from "../../components/dashboard/NewProjectModal";
 import CreateUserModal from "../../components/forms/CreateUserModal";
 import PageTransition from "../../components/common/PageTransition";
 import CreateBOQModal from "../../components/forms/CreateBOQModal";
-import CreateReportModal from "../../components/dashboard/CreateReportModal";
+
 import { projectService } from "../../services/projectService";
 import { boqService } from "../../services/boqService";
 import { userService } from "../../services/userService";
@@ -63,7 +63,7 @@ const AdminDashboard = () => {
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
   const [isBOQModalOpen, setIsBOQModalOpen] = useState(false);
-  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+
   const [projects, setProjects] = useState<Project[]>([]);
   const [alerts, setAlerts] = useState<any[]>([]);
   const [graphData, setGraphData] = useState<any[]>([]);
@@ -89,16 +89,20 @@ const AdminDashboard = () => {
         ? pData
         : pData.items || pData.data || [];
       setProjects(projectsList);
-      setProjectAlertsData(Array.isArray(pAlerts) ? pAlerts : []);
+      const projectAlerts = Array.isArray(pAlerts) ? pAlerts : (pAlerts?.items || pAlerts?.data || []);
+      const taskAlerts = Array.isArray(tAlerts) ? tAlerts : (tAlerts?.items || tAlerts?.data || []);
+
+      setProjectAlertsData(projectAlerts);
 
       // Combine alerts for activity feed
       const combinedAlerts = [
-        ...(Array.isArray(pAlerts) ? pAlerts : []),
-        ...(Array.isArray(tAlerts) ? tAlerts : []),
+        ...projectAlerts,
+        ...taskAlerts,
       ].map((a: any) => ({
-        user: a.user_name || "System",
+        user: a.user_name || a.author || "System",
         action:
           a.message ||
+          a.description ||
           a.detail ||
           (a.project_name
             ? `${a.project_name} is ${a.status}`
@@ -309,12 +313,7 @@ const AdminDashboard = () => {
             >
               + Create BOQ
             </button>
-            <button
-              onClick={() => setIsReportModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
-            >
-              Create Report
-            </button>
+
           </div>
         </div>
 
@@ -680,18 +679,9 @@ const AdminDashboard = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
                     </svg>
                   </button>
-                  {Array.from({ length: Math.ceil(projects.length / PROGRESS_PER_PAGE) }).map((_, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setProgressPage(idx)}
-                      className={`w-6 h-6 rounded-md text-[10px] font-bold transition-all ${progressPage === idx
-                        ? "bg-primary text-white shadow-sm"
-                        : "text-slate-400 hover:bg-slate-100"
-                        }`}
-                    >
-                      {idx + 1}
-                    </button>
-                  ))}
+                  <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center text-xs font-bold shadow-sm shadow-primary/20">
+                    {progressPage + 1}
+                  </div>
                   <button
                     onClick={() => setProgressPage(p => Math.min(Math.ceil(projects.length / PROGRESS_PER_PAGE) - 1, p + 1))}
                     disabled={progressPage >= Math.ceil(projects.length / PROGRESS_PER_PAGE) - 1}
@@ -707,57 +697,6 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* Construction Specific Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-500 flex items-center justify-center font-bold">
-              👷
-            </div>
-            <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                Labour Today
-              </p>
-              <p className="text-lg font-bold text-slate-800">
-                1,240{" "}
-                <span className="text-[10px] font-medium text-slate-400">
-                  Personnel
-                </span>
-              </p>
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center font-bold">
-              🏗️
-            </div>
-            <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                Material Used
-              </p>
-              <p className="text-lg font-bold text-slate-800">
-                42{" "}
-                <span className="text-[10px] font-medium text-slate-400">
-                  Truckloads
-                </span>
-              </p>
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-500 flex items-center justify-center font-bold">
-              🚧
-            </div>
-            <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                Site Issues
-              </p>
-              <p className="text-lg font-bold text-slate-800">
-                32{" "}
-                <span className="text-[10px] font-medium text-slate-400">
-                  Tickets Open
-                </span>
-              </p>
-            </div>
-          </div>
-        </div>
 
         {/* Projects Overview Table */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
@@ -888,18 +827,9 @@ const AdminDashboard = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
-                {Array.from({ length: Math.ceil(projects.length / TABLE_PER_PAGE) }).map((_, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setTablePage(idx)}
-                    className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${tablePage === idx
-                      ? "bg-primary text-white shadow-sm"
-                      : "text-slate-400 hover:bg-slate-100"
-                      }`}
-                  >
-                    {idx + 1}
-                  </button>
-                ))}
+                <div className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center text-sm font-bold shadow-sm shadow-primary/20">
+                  {tablePage + 1}
+                </div>
                 <button
                   onClick={() => setTablePage(p => Math.min(Math.ceil(projects.length / TABLE_PER_PAGE) - 1, p + 1))}
                   disabled={tablePage >= Math.ceil(projects.length / TABLE_PER_PAGE) - 1}
@@ -931,11 +861,7 @@ const AdminDashboard = () => {
         onClose={() => setIsBOQModalOpen(false)}
         onSubmit={handleCreateBOQ}
       />
-      <CreateReportModal
-        isOpen={isReportModalOpen}
-        projects={projects}
-        onClose={() => setIsReportModalOpen(false)}
-      />
+
     </>
   );
 };
