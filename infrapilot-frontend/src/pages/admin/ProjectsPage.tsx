@@ -49,6 +49,7 @@ const ProjectsPage = () => {
   const [actTab, setActTab] = useState("All");
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<number | null>(null);
+  const [activities, setActivities] = useState<any[]>([]);
 
   // Edit State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -62,13 +63,41 @@ const ProjectsPage = () => {
   const fetchProjects = useCallback(async () => {
     try {
       setIsLoading(true);
-      // Fetch all projects; status filtering is applied client-side to avoid
-      // backend validation errors on certain status values (e.g. Active, Delayed).
-      const res = await projectService.getProjects(100, 0, debouncedSearch);
-      const projectList = Array.isArray(res) ? res : (res.items || res.data || []);
+      // Fetch data concurrently
+      const [pRes, pAlerts, tAlerts] = await Promise.all([
+        projectService.getProjects(100, 0, debouncedSearch),
+        projectService.getProjectAlerts().catch(() => []),
+        projectService.getTaskAlerts().catch(() => [])
+      ]);
+
+      const projectList = Array.isArray(pRes) ? pRes : (pRes.items || pRes.data || []);
       setProjects(projectList);
+
+      // Process Alerts into Activities
+      const combined = [
+        ...pAlerts.map((a: any) => ({
+          user: a.user_name || "System",
+          action: `${a.project_name} is ${a.status}`,
+          rawTime: a.created_at || "",
+          time: a.created_at ? new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Recent",
+          type: "Site",
+          icon: "⚠️",
+          color: "bg-red-50 text-red-500",
+        })),
+        ...tAlerts.map((a: any) => ({
+          user: a.assigned_to_name || a.author || "Member",
+          action: `${a.task_name}: ${a.status}`,
+          rawTime: a.updated_at || a.created_at || "",
+          time: a.updated_at ? new Date(a.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Recent",
+          type: "Site",
+          icon: "✔",
+          color: "bg-blue-50 text-blue-500",
+        }))
+      ].sort((a, b) => new Date(b.rawTime).getTime() - new Date(a.rawTime).getTime());
+
+      setActivities(combined);
     } catch (error) {
-      toast.error("Failed to fetch projects");
+      toast.error("Failed to fetch data");
       console.error(error);
     } finally {
       setIsLoading(false);
@@ -256,7 +285,7 @@ const ProjectsPage = () => {
           ].map((s) => (
             <div
               key={s.title}
-              onClick={() => s.status && setFilterStatus(s.status as any)}
+              onClick={() => s.status && handleFilterChange(s.status as any)}
               className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all hover:shadow-md cursor-pointer active:scale-95 group hover:border-primary/20"
             >
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 group-hover:text-primary transition-colors">
@@ -409,18 +438,9 @@ const ProjectsPage = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
                           </svg>
                         </button>
-                        {Array.from({ length: Math.ceil(filtered.length / PROGRESS_PER_PAGE) }).map((_, idx) => (
-                          <button
-                            key={idx}
-                            onClick={() => setProgressPage(idx)}
-                            className={`w-6 h-6 rounded-md text-[10px] font-bold transition-all ${progressPage === idx
-                              ? "bg-primary text-white shadow-sm"
-                              : "text-slate-400 hover:bg-slate-100"
-                              }`}
-                          >
-                            {idx + 1}
-                          </button>
-                        ))}
+                        <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center text-xs font-bold shadow-sm shadow-primary/20">
+                          {progressPage + 1}
+                        </div>
                         <button
                           onClick={() => setProgressPage(p => Math.min(Math.ceil(filtered.length / PROGRESS_PER_PAGE) - 1, p + 1))}
                           disabled={progressPage >= Math.ceil(filtered.length / PROGRESS_PER_PAGE) - 1}
@@ -459,58 +479,34 @@ const ProjectsPage = () => {
               </div>
             </div>
             <div className="flex-1 p-6 space-y-6 overflow-y-auto max-h-[420px]">
-              {[
-                {
-                  user: "Ravi K.",
-                  action: "completed Foundation — SARA CITY",
-                  time: "12m ago",
-                  type: "Site",
-                  icon: "✔",
-                  color: "bg-blue-50 text-blue-500",
-                },
-                {
-                  user: "Priya N.",
-                  action: "submitted Invoice #882 for METRO HEIGHTS",
-                  time: "45m ago",
-                  type: "Finance",
-                  icon: "₹",
-                  color: "bg-green-50 text-green-500",
-                },
-                {
-                  user: "Site Bot",
-                  action: "uploaded 12 site photos",
-                  time: "2h ago",
-                  type: "Site",
-                  icon: "📷",
-                  color: "bg-blue-50 text-blue-500",
-                },
-                {
-                  user: "Amit K.",
-                  action: "reported Material Shortage at Hadapsar",
-                  time: "4h ago",
-                  type: "Site",
-                  icon: "⚠️",
-                  color: "bg-red-50 text-red-500",
-                },
-              ]
-                .filter((act) => actTab === "All" || act.type === actTab)
-                .map((act, i) => (
-                  <div key={i} className="flex gap-4 group animate-in fade-in duration-300">
-                    <div
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${act.color}`}
-                    >
-                      {act.icon}
+              {activities.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 opacity-50">
+                  <span className="text-2xl mb-2">✨</span>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    No Activities
+                  </p>
+                </div>
+              ) : (
+                activities
+                  .filter((act) => actTab === "All" || act.type === actTab)
+                  .map((act, i) => (
+                    <div key={i} className="flex gap-4 group animate-in fade-in duration-300">
+                      <div
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${act.color}`}
+                      >
+                        {act.icon}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs text-slate-800 leading-snug">
+                          <span className="font-bold">{act.user}</span> {act.action}
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          {act.time}
+                        </p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-xs text-slate-800 leading-snug">
-                        <span className="font-bold">{act.user}</span> {act.action}
-                      </p>
-                      <p className="text-[10px] text-slate-400 mt-1">
-                        {act.time}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  ))
+              )}
             </div>
           </div>
         </div>
@@ -603,16 +599,9 @@ const ProjectsPage = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
-                {Array.from({ length: Math.ceil(filtered.length / TABLE_PER_PAGE) }).map((_, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setTablePage(idx)}
-                    className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${tablePage === idx ? "bg-primary text-white shadow-sm" : "text-slate-400 hover:bg-slate-100"
-                      }`}
-                  >
-                    {idx + 1}
-                  </button>
-                ))}
+                <div className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center text-sm font-bold shadow-sm shadow-primary/20">
+                  {tablePage + 1}
+                </div>
                 <button
                   onClick={() => setTablePage(p => Math.min(Math.ceil(filtered.length / TABLE_PER_PAGE) - 1, p + 1))}
                   disabled={tablePage >= Math.ceil(filtered.length / TABLE_PER_PAGE) - 1}

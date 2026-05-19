@@ -108,9 +108,8 @@ export const settingsService = {
                 // Note: We don't manually set Content-Type header to let Axios handle the boundary correctly
                 response = await api.put("/settings/profile", formData);
             } else {
-                // Standard JSON body
+                // Standard JSON body. Keep string profile_image if it exists.
                 const bodyData = { ...data };
-                delete bodyData.profile_image;
                 response = await api.put("/settings/profile", bodyData);
             }
 

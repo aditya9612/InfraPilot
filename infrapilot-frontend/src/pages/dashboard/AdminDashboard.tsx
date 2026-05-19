@@ -25,6 +25,7 @@ import { projectService } from "../../services/projectService";
 import { boqService } from "../../services/boqService";
 import { userService } from "../../services/userService";
 import { expenseService } from "../../services/expenseService";
+import { financeService } from "../../services/financeService";
 import { generateProjectListPDF } from "../../utils/projectPDFGenerator";
 import type { Project, ProjectStatus } from "../../types/project";
 
@@ -75,14 +76,35 @@ const AdminDashboard = () => {
   const PROGRESS_PER_PAGE = 6;
   const TABLE_PER_PAGE = 10;
 
+  const [dashboardStats, setDashboardStats] = useState({
+    totalRevenue: 0,
+    totalExpenses: 0,
+    profitLoss: 0,
+    activeUsers: 0,
+    pendingApprovals: 0,
+    activeAlerts: 0
+  });
+
+  const formatCurrency = (amount: number) => {
+    const isNegative = amount < 0;
+    const abs = Math.abs(amount);
+    const sign = isNegative ? "-" : "";
+    if (abs >= 10000000) return `${sign}₹${(abs / 10000000).toFixed(1)}Cr`;
+    if (abs >= 100000) return `${sign}₹${(abs / 100000).toFixed(1)}L`;
+    return `${sign}₹${abs.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  };
+
   const fetchDashboardData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const [pData, pAlerts, tAlerts, expensesData] = await Promise.all([
+      const [pData, pAlerts, tAlerts, expensesData, invoicesRes, usersRes, pendingApprovalsRes] = await Promise.all([
         projectService.getProjects(100, 0),
         projectService.getProjectAlerts().catch(() => []),
         projectService.getTaskAlerts().catch(() => []),
         expenseService.listExpenses().catch(() => []),
+        financeService.getInvoices(100).catch(() => []),
+        userService.getAllUsers(100).catch(() => []),
+        financeService.getPendingInvoices().catch(() => [])
       ]);
 
       const projectsList = Array.isArray(pData)
@@ -91,6 +113,22 @@ const AdminDashboard = () => {
       setProjects(projectsList);
       const projectAlerts = Array.isArray(pAlerts) ? pAlerts : (pAlerts?.items || pAlerts?.data || []);
       const taskAlerts = Array.isArray(tAlerts) ? tAlerts : (tAlerts?.items || tAlerts?.data || []);
+      const invoices = Array.isArray(invoicesRes) ? invoicesRes : ((invoicesRes as any)?.items || (invoicesRes as any)?.data || []);
+      const users = Array.isArray(usersRes) ? usersRes : ((usersRes as any)?.items || (usersRes as any)?.data || []);
+      const pendingApprovals = Array.isArray(pendingApprovalsRes) ? pendingApprovalsRes : ((pendingApprovalsRes as any)?.items || (pendingApprovalsRes as any)?.data || []);
+
+      const totalExpenses = Array.isArray(expensesData) ? expensesData.reduce((sum: number, exp: any) => sum + (Number(exp.amount) || 0), 0) : 0;
+      const totalRevenue = invoices.reduce((sum: number, inv: any) => sum + (Number(inv.total_amount) || Number(inv.amount) || 0), 0);
+      const profitLoss = totalRevenue - totalExpenses;
+
+      setDashboardStats({
+        totalRevenue,
+        totalExpenses,
+        profitLoss,
+        activeUsers: users.filter((u: any) => u.is_active !== false).length,
+        pendingApprovals: pendingApprovals.length,
+        activeAlerts: projectAlerts.length + taskAlerts.length
+      });
 
       setProjectAlertsData(projectAlerts);
 
@@ -358,21 +396,21 @@ const AdminDashboard = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <StatCard
               title="Total Revenue"
-              value="₹12.8Cr"
-              sub="FY 2025-26"
+              value={formatCurrency(dashboardStats.totalRevenue)}
+              sub="Total Invoiced"
               accent="text-indigo-500"
             />
             <StatCard
               title="Total Expenses"
-              value="₹8.4Cr"
-              sub="Payments & Wages"
+              value={formatCurrency(dashboardStats.totalExpenses)}
+              sub="Payments & Purchases"
               accent="text-orange-500"
             />
             <StatCard
               title="Profit / Loss"
-              value="+ ₹4.4Cr"
+              value={`${dashboardStats.profitLoss > 0 ? '+ ' : ''}${formatCurrency(dashboardStats.profitLoss)}`}
               sub="Net Margin"
-              accent="text-green-600"
+              accent={dashboardStats.profitLoss >= 0 ? "text-green-600" : "text-danger"}
             />
           </div>
         </div>
@@ -385,20 +423,20 @@ const AdminDashboard = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <StatCard
               title="Active Users"
-              value="138"
-              sub="Across 12 sites"
+              value={dashboardStats.activeUsers.toString()}
+              sub={`Across ${projects.length} sites`}
               accent="text-sky-500"
             />
             <StatCard
               title="Pending Approvals"
-              value="12"
-              sub="5 Awaiting Admin"
+              value={dashboardStats.pendingApprovals.toString()}
+              sub="Invoices / Work Orders"
               accent="text-amber-500"
             />
             <StatCard
               title="Active Alerts"
-              value="4"
-              sub="Low stock / Over budget"
+              value={dashboardStats.activeAlerts.toString()}
+              sub="Project & Task Updates"
               accent="text-danger"
             />
           </div>
@@ -425,12 +463,11 @@ const AdminDashboard = () => {
                 <option value="This Month">This Month</option>
               </select>
             </div>
-            <div className="h-[300px] w-full">
-              {!isLoading ? (
+            <div className="h-[300px] w-full relative">
+              {!isLoading && graphData.length > 0 ? (
                 <ResponsiveContainer
                   width="100%"
-                  height="100%"
-                  minWidth={0}
+                  height={300}
                   debounce={100}
                 >
                   <LineChart

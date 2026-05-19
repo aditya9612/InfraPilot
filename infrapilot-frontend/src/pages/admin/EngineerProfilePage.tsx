@@ -10,6 +10,9 @@ import {
     TrendingUp, MapPin, Phone, Mail
 } from "lucide-react";
 import { userService } from "../../services/userService";
+import { dsrService } from "../../services/dsrService";
+import { projectService } from "../../services/projectService";
+import { materialService } from "../../services/materialService";
 
 const EngineerProfilePage: React.FC = () => {
     const { id } = useParams();
@@ -17,6 +20,10 @@ const EngineerProfilePage: React.FC = () => {
     const [mirrorFilter, setMirrorFilter] = useState<"photos" | "materials" | "dsr">("photos");
     const [engineer, setEngineer] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [dsrData, setDsrData] = useState<any[]>([]);
+    const [materialLogs, setMaterialLogs] = useState<any[]>([]);
+    const [labourTrend, setLabourTrend] = useState<any>(null);
+    const [projectId, setProjectId] = useState<number | null>(null);
 
     useEffect(() => {
         const fetchEngineer = async () => {
@@ -25,28 +32,89 @@ const EngineerProfilePage: React.FC = () => {
                 setIsLoading(true);
                 const u = await userService.getUserById(parseInt(id));
 
-                // Map to UI structure
-                const mapped = {
-                    id: u.user_id,
-                    name: u.full_name,
-                    email: u.email,
-                    mobile: u.mobile_number,
-                    projects: u.address || "Main Site",
-                    experience: "5 Years",
-                    performance: "Outstanding",
-                    status: u.is_active ? "On Site" : "Leave",
-                    specialization: u.designation || "Site Engineer",
-                    lastDsr: new Date().toISOString(),
-                    weather: "Sunny, 32°C",
-                    laborCount: 120,
-                    activeTask: "Site Supervision",
-                    joiningDate: u.joining_date || "2024-01-01",
-                    humidity: "54%",
-                    windSpeed: "12 km/h",
-                    photos: []
-                };
+                // Find project where user is a member
+                const projectsRes = await projectService.getProjects(100, 0);
+                const allProjects = Array.isArray(projectsRes) ? projectsRes : (projectsRes.items || projectsRes.data || []);
 
-                setEngineer(mapped);
+                let foundProjectId = null;
+                // Brute force check for now: find a project where this user is listed as a member
+                // Or if address matches a project name
+                const projectMatchesAddress = allProjects.find((p: any) => p.project_name === u.address);
+                if (projectMatchesAddress) {
+                    foundProjectId = projectMatchesAddress.id;
+                } else {
+                    // Try checking members for recent projects
+                    const recentProjects = allProjects.slice(0, 10);
+                    const membersLists = await Promise.all(recentProjects.map((p: any) => projectService.getProjectMembers(p.id).catch(() => [])));
+                    const foundIndex = membersLists.findIndex(list => {
+                        const items = Array.isArray(list) ? list : (list.items || list.data || []);
+                        return items.some((m: any) => (m.user_id || m.user?.id || m.id) === u.user_id);
+                    });
+                    if (foundIndex !== -1) {
+                        foundProjectId = recentProjects[foundIndex].id;
+                    }
+                }
+
+                setProjectId(foundProjectId);
+
+                if (foundProjectId) {
+                    const [dsrs, logs, trend] = await Promise.all([
+                        dsrService.getDsrByProject(foundProjectId).catch(() => ({ items: [] })),
+                        materialService.getLogs({ project_id: foundProjectId, limit: 10 }).catch(() => []),
+                        dsrService.getLabourTrend(foundProjectId).catch(() => [])
+                    ]);
+
+                    const latestDsr = dsrs.items?.[0];
+                    const activeTrend = trend[trend.length - 1] || null;
+
+                    setDsrData(dsrs.items || []);
+                    setMaterialLogs(logs);
+                    setLabourTrend(activeTrend);
+
+                    // Map to UI structure with real data
+                    const mapped = {
+                        id: u.user_id,
+                        name: u.full_name,
+                        email: u.email,
+                        mobile: u.mobile_number,
+                        projects: u.address || (foundProjectId ? allProjects.find((p: any) => p.id === foundProjectId)?.project_name : "Not Assigned"),
+                        experience: u.joining_date ? `${Math.floor((new Date().getTime() - new Date(u.joining_date).getTime()) / (1000 * 60 * 60 * 24 * 365))} Years` : "5 Years",
+                        performance: "Outstanding",
+                        status: u.is_active ? "On Site" : "Leave",
+                        specialization: u.designation || "Site Engineer",
+                        lastDsr: latestDsr?.report_date || u.updated_at || new Date().toISOString(),
+                        weather: latestDsr?.weather || "Sunny, 32°C",
+                        laborCount: latestDsr?.total_labour || 0,
+                        activeTask: latestDsr?.work_done ? latestDsr?.work_done.split('.')[0] : "Site Supervision",
+                        joiningDate: u.joining_date || "2024-01-01",
+                        humidity: "54%",
+                        windSpeed: "12 km/h",
+                        photos: []
+                    };
+                    setEngineer(mapped);
+                } else {
+                    // Mapping for user with no project
+                    const mappedFallback = {
+                        id: u.user_id,
+                        name: u.full_name,
+                        email: u.email,
+                        mobile: u.mobile_number,
+                        projects: u.address || "Not Assigned",
+                        experience: u.joining_date ? `${Math.floor((new Date().getTime() - new Date(u.joining_date).getTime()) / (1000 * 60 * 60 * 24 * 365))} Years` : "5 Years",
+                        performance: "Outstanding",
+                        status: u.is_active ? "On Site" : "Leave",
+                        specialization: u.designation || "Site Engineer",
+                        lastDsr: "N/A",
+                        weather: "N/A",
+                        laborCount: 0,
+                        activeTask: "Unassigned",
+                        joiningDate: u.joining_date || "2024-01-01",
+                        humidity: "N/A",
+                        windSpeed: "N/A",
+                        photos: []
+                    };
+                    setEngineer(mappedFallback);
+                }
             } catch (error) {
                 console.error("Failed to fetch engineer:", error);
                 toast.error("Failed to load engineer profile.");
@@ -159,7 +227,10 @@ const EngineerProfilePage: React.FC = () => {
                             <div className="mt-8 space-y-4 pt-8 border-t border-slate-50">
                                 <ContactItem icon={<Phone className="w-4 h-4" />} label="Mobile" value={engineer.mobile} />
                                 <ContactItem icon={<Mail className="w-4 h-4" />} label="Official Email" value={engineer.email} />
-                                <ContactItem icon={<MapPin className="w-4 h-4" />} label="Current Deployment" value={engineer.projects} />
+                                <div className="flex items-center justify-between group cursor-pointer" onClick={() => projectId && window.open(`/admin/projects/${projectId}`, '_blank')}>
+                                    <ContactItem icon={<MapPin className="w-4 h-4" />} label="Current Deployment" value={engineer.projects} />
+                                    {projectId && <div className="text-[9px] font-bold text-primary group-hover:underline">View Project</div>}
+                                </div>
                                 <ContactItem icon={<Calendar className="w-4 h-4" />} label="Joining Date" value={engineer.joiningDate} />
                             </div>
                         </div>
@@ -175,7 +246,7 @@ const EngineerProfilePage: React.FC = () => {
                                         <Thermometer className="w-4 h-4" />
                                         <span className="text-[10px] font-black uppercase tracking-widest">Temperature</span>
                                     </div>
-                                    <p className="text-3xl font-black">{engineer.weather.split(',')[1].trim()}</p>
+                                    <p className="text-3xl font-black">{engineer.weather.includes(',') ? engineer.weather.split(',')[1].trim() : engineer.weather}</p>
                                 </div>
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-2 text-blue-400">
@@ -218,12 +289,16 @@ const EngineerProfilePage: React.FC = () => {
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="p-4 bg-slate-50 rounded-2xl text-center">
-                                        <p className="text-xl font-black text-primary">{Math.round(engineer.laborCount * 0.6)}</p>
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Skilled</p>
+                                        <p className="text-xl font-black text-primary">
+                                            {labourTrend ? labourTrend.labour : Math.round(engineer.laborCount * 0.6)}
+                                        </p>
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Skilled Staff</p>
                                     </div>
                                     <div className="p-4 bg-slate-50 rounded-2xl text-center">
-                                        <p className="text-xl font-black text-slate-600">{Math.round(engineer.laborCount * 0.4)}</p>
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Unskilled</p>
+                                        <p className="text-xl font-black text-slate-600">
+                                            {engineer.laborCount ? Math.max(0, engineer.laborCount - (labourTrend?.labour || Math.round(engineer.laborCount * 0.6))) : 0}
+                                        </p>
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Helpers</p>
                                     </div>
                                 </div>
                             </div>
@@ -253,7 +328,7 @@ const EngineerProfilePage: React.FC = () => {
                                         active={mirrorFilter === "photos"}
                                         onClick={() => setMirrorFilter("photos")}
                                         label="Site Photos"
-                                        count={12}
+                                        count={dsrData.filter(d => d.dsr_image).length}
                                     />
                                     <MirrorTab
                                         active={mirrorFilter === "materials"}
@@ -274,71 +349,81 @@ const EngineerProfilePage: React.FC = () => {
                             <div className="flex-1 overflow-y-auto p-10 custom-scrollbar">
                                 {mirrorFilter === "photos" && (
                                     <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                                        {(engineer.photos && engineer.photos.length > 0 ? engineer.photos : [1, 2, 3, 4, 5, 6]).map((item: any, i: number) => (
-                                            <div key={i} className="group relative aspect-square bg-slate-50 rounded-[2rem] overflow-hidden border border-slate-100 hover:border-primary/30 transition-all cursor-zoom-in">
-                                                {typeof item === "string" ? (
-                                                    <img src={item} alt="Site activity" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                                                ) : (
+                                        {dsrData.filter(d => d.dsr_image).length > 0 ? (
+                                            dsrData.filter(d => d.dsr_image).map((item: any, i: number) => (
+                                                <div key={i} className="group relative aspect-square bg-slate-50 rounded-[2rem] overflow-hidden border border-slate-100 hover:border-primary/30 transition-all cursor-zoom-in">
+                                                    <img src={item.dsr_image} alt="Site activity" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                                                    <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-all translate-y-4 group-hover:translate-y-0">
+                                                        <p className="text-[10px] text-white font-black uppercase tracking-widest">{item.report_date} • Live Feed</p>
+                                                        <p className="text-[9px] text-white/60 font-medium mt-1 truncate">
+                                                            {item.work_done}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            [1, 2, 3, 4, 5, 6].map((_, i) => (
+                                                <div key={i} className="group relative aspect-square bg-slate-50 rounded-[2rem] overflow-hidden border border-slate-100 hover:border-primary/30 transition-all cursor-zoom-in">
                                                     <div className="absolute inset-0 flex items-center justify-center text-slate-200">
                                                         <Camera className="w-12 h-12 opacity-10" />
                                                     </div>
-                                                )}
-                                                <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-all translate-y-4 group-hover:translate-y-0">
-                                                    <p className="text-[10px] text-white font-black uppercase tracking-widest">Section {i + 1} • {typeof item === "string" ? "Live Feed" : "Archive"}</p>
-                                                    <p className="text-[9px] text-white/60 font-medium mt-1">
-                                                        {typeof item === "string" ? "Site activity verification snapshot" : "Foundation reinforcement verification"}
-                                                    </p>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            ))
+                                        )}
                                     </div>
                                 )}
 
                                 {mirrorFilter === "materials" && (
                                     <div className="space-y-4">
-                                        {[
-                                            { item: "Cement (Grade 43)", qty: "45 Bags", time: "09:15 AM", task: "Foundation Pours", color: "bg-blue-500" },
-                                            { item: "Steel TMT (12mm)", qty: "120 kg", time: "11:30 AM", task: "Pillar Reinforcement", color: "bg-slate-600" },
-                                            { item: "Bricks (Fly Ash)", qty: "1500 units", time: "02:20 PM", task: "Wall Construction", color: "bg-rose-500" },
-                                        ].map((log, i) => (
-                                            <div key={i} className="p-6 bg-slate-50 rounded-3xl flex items-center justify-between hover:bg-white hover:shadow-xl hover:shadow-slate-200/50 transition-all border border-transparent hover:border-slate-100 group">
-                                                <div className="flex items-center gap-6">
-                                                    <div className={`w-14 h-14 rounded-2xl ${log.color}/10 flex items-center justify-center text-${log.color.split('-')[0]}-600 group-hover:scale-110 transition-transform`}>
-                                                        <Package className="w-7 h-7" />
+                                        {materialLogs.length > 0 ? (
+                                            materialLogs.map((log, i) => (
+                                                <div key={i} className="p-6 bg-slate-50 rounded-3xl flex items-center justify-between hover:bg-white hover:shadow-xl hover:shadow-slate-200/50 transition-all border border-transparent hover:border-slate-100 group">
+                                                    <div className="flex items-center gap-6">
+                                                        <div className={`w-14 h-14 rounded-2xl ${log.type === "IN" ? "bg-emerald-500" : "bg-blue-500"}/10 flex items-center justify-center text-${log.type === "IN" ? "emerald" : "blue"}-600 group-hover:scale-110 transition-transform`}>
+                                                            <Package className="w-7 h-7" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-base font-black text-slate-800">{log.material_name}</p>
+                                                            <p className="text-xs text-slate-500 font-bold uppercase tracking-tight mt-0.5">{log.type === "IN" ? "Receipt" : "Consumption"} | {new Date(log.created_at).toLocaleString()}</p>
+                                                        </div>
                                                     </div>
-                                                    <div>
-                                                        <p className="text-base font-black text-slate-800">{log.item}</p>
-                                                        <p className="text-xs text-slate-500 font-bold uppercase tracking-tight mt-0.5">{log.task} | Today, {log.time}</p>
-                                                    </div>
+                                                    <p className="text-xl font-black text-slate-800">{log.quantity} {log.unit || "units"}</p>
                                                 </div>
-                                                <p className="text-xl font-black text-slate-800">{log.qty}</p>
-                                            </div>
-                                        ))}
+                                            ))
+                                        ) : (
+                                            <div className="text-center py-10 text-slate-400 font-bold uppercase tracking-widest text-xs">No material logs found</div>
+                                        )}
                                     </div>
                                 )}
 
                                 {mirrorFilter === "dsr" && (
                                     <div className="space-y-10 relative pl-4">
                                         <div className="absolute top-0 bottom-0 left-4 w-0.5 bg-slate-100" />
-                                        {[
-                                            { title: "Day Shift Completion", status: "Submitted", time: "Just Now", details: "Casting for floor 4 completed. Curing in progress for floor 3. No safety incidents reported.", color: "border-primary" },
-                                            { title: "Material Inward", status: "Verified", time: "2h ago", details: "Received 500 bags of cement. Quality tested and approved. Storage in Main Godown.", color: "border-slate-300" },
-                                            { title: "Safety Inspection", status: "Passed", time: "Yesterday", details: "All scaffolding verified for Section B. Harness checks completed for 12 workers.", color: "border-slate-300" },
-                                        ].map((dsr, i) => (
-                                            <div key={i} className={`relative pl-10 border-l-4 ${dsr.color} py-2`}>
-                                                <div className="absolute top-4 -left-[10px] w-4 h-4 rounded-full bg-white border-4 border-slate-200" />
-                                                <div className="flex justify-between items-start mb-4">
-                                                    <div>
-                                                        <h5 className="text-lg font-black text-slate-800 tracking-tight">{dsr.title}</h5>
-                                                        <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">{dsr.status}</span>
+                                        {dsrData.length > 0 ? (
+                                            dsrData.slice(0, 5).map((dsr, i) => (
+                                                <div key={i} className={`relative pl-10 border-l-4 ${i === 0 ? "border-primary" : "border-slate-300"} py-2`}>
+                                                    <div className="absolute top-4 -left-[10px] w-4 h-4 rounded-full bg-white border-4 border-slate-200" />
+                                                    <div className="flex justify-between items-start mb-4">
+                                                        <div>
+                                                            <h5 className="text-lg font-black text-slate-800 tracking-tight">{dsr.work_done?.split('.')[0] || "Site Activity"}</h5>
+                                                            <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">{dsr.status || "Submitted"}</span>
+                                                        </div>
+                                                        <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{new Date(dsr.report_date).toLocaleDateString()}</span>
                                                     </div>
-                                                    <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{dsr.time}</span>
+                                                    <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
+                                                        <p className="text-sm text-slate-600 leading-relaxed font-medium">{dsr.work_done}</p>
+                                                        {dsr.issues && (
+                                                            <div className="mt-3 pt-3 border-t border-slate-200">
+                                                                <p className="text-[9px] font-black text-rose-500 uppercase tracking-widest mb-1">Issue Reported</p>
+                                                                <p className="text-xs text-slate-500">{dsr.issues}</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                                <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
-                                                    <p className="text-sm text-slate-600 leading-relaxed font-medium">{dsr.details}</p>
-                                                </div>
-                                            </div>
-                                        ))}
+                                            ))
+                                        ) : (
+                                            <div className="text-center py-10 text-slate-400 font-bold uppercase tracking-widest text-xs">No daily reports found</div>
+                                        )}
                                     </div>
                                 )}
                             </div>

@@ -932,14 +932,26 @@ const Sidebar = ({ onClose }: SidebarProps) => {
       {/* User + Logout */}
       <div className="px-4 py-4 border-t border-slate-100 bg-slate-50/50">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-md shadow-blue-600/20">
-            {user.name === "Test Client" ? "M" : user.name.charAt(0)}
+          <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-md shadow-blue-600/20 overflow-hidden">
+            {user.profile_image ? (
+              <img
+                src={user.profile_image.startsWith('http') || user.profile_image.startsWith('data:')
+                  ? user.profile_image
+                  : (import.meta.env.VITE_API_URL || '').replace(/\/api\/v1\/?$/, '') + (user.profile_image.startsWith('/') ? '' : '/') + user.profile_image}
+                alt={user.name}
+                className="w-full h-full object-cover rounded-full border border-slate-100"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-blue-600">
+                {user.name === "Test Client" ? "M" : user.name.charAt(0)}
+              </div>
+            )}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-slate-800 truncate">
+            <p className="text-sm font-bold text-slate-800 truncate leading-tight">
               {user.name === "Test Client" ? "Mr. Sharma" : user.name}
             </p>
-            <p className="text-xs text-slate-500 font-medium truncate tracking-tight">
+            <p className="text-[10px] text-slate-500 font-medium truncate tracking-tight mt-0.5">
               {user.mobile}
             </p>
           </div>

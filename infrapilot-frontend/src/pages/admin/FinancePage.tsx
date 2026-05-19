@@ -49,6 +49,8 @@ const FinancePage = () => {
   const [isExpenseDeleteModalOpen, setIsExpenseDeleteModalOpen] = useState(false);
   const [invoiceToDelete, setInvoiceToDelete] = useState<number | null>(null);
   const [expenseToDelete, setExpenseToDelete] = useState<number | null>(null);
+  const [currentPage, setCurrentPage] = useState(0);
+  const PAGE_SIZE = 10;
 
   // Fetch Projects
   const fetchProjects = useCallback(async () => {
@@ -70,7 +72,7 @@ const FinancePage = () => {
   const fetchInvoices = useCallback(async (type?: string, status?: string) => {
     try {
       let data: Invoice[];
-      
+
       if (status === "pending") {
         data = await financeService.getPendingInvoices();
       } else if (type && type !== "all") {
@@ -78,7 +80,7 @@ const FinancePage = () => {
       } else {
         data = await financeService.getInvoices();
       }
-      
+
       setInvoices(data);
     } catch (error) {
       console.error("Finance: Failed to fetch invoices", error);
@@ -102,17 +104,24 @@ const FinancePage = () => {
     }
   }, []);
 
+  // Always fetch invoices (needed for stat cards on all sub-pages)
   useEffect(() => {
-    if (subPage === "invoices") {
-      fetchInvoices(typeFilter, statusFilter);
-    } else if (subPage === "expenses") {
-      fetchExpenses(categoryFilter);
-    }
-  }, [typeFilter, statusFilter, categoryFilter, subPage, fetchInvoices, fetchExpenses]);
+    fetchInvoices(typeFilter === "all" ? undefined : typeFilter, statusFilter === "all" ? undefined : statusFilter);
+  }, [typeFilter, statusFilter, fetchInvoices]);
+
+  // Always fetch expenses
+  useEffect(() => {
+    fetchExpenses(categoryFilter === "all" ? undefined : categoryFilter);
+  }, [categoryFilter, fetchExpenses]);
 
   useEffect(() => {
     fetchProjects();
   }, [fetchProjects]);
+
+  // Reset to page 0 when filters change
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [typeFilter, statusFilter, categoryFilter, subPage, searchTerm, dateFrom, dateTo]);
 
   // Handlers
   const handleCreateOrUpdate = async (data: any) => {
@@ -137,8 +146,8 @@ const FinancePage = () => {
       setIsModalOpen(false);
     } catch (error: any) {
       const errorMessage = error.message || (selectedInvoice
-          ? "Failed to update invoice"
-          : "Failed to create invoice");
+        ? "Failed to update invoice"
+        : "Failed to create invoice");
       toast.error(errorMessage);
     } finally {
     }
@@ -152,7 +161,7 @@ const FinancePage = () => {
   const handleDeleteInvoice = async () => {
     if (invoiceToDelete) {
       try {
-          await financeService.deleteInvoice(invoiceToDelete);
+        await financeService.deleteInvoice(invoiceToDelete);
         setInvoices(invoices.filter((inv) => inv.id !== invoiceToDelete));
         fetchInvoices();
         toast.success("Invoice deleted");
@@ -161,7 +170,7 @@ const FinancePage = () => {
       } catch (error) {
         toast.error("Failed to delete invoice");
       } finally {
-        }
+      }
     }
   };
 
@@ -181,7 +190,7 @@ const FinancePage = () => {
     try {
       toast.loading("Downloading PDF...", { id: "pdf-loading" });
       const blob = await financeService.getInvoicePdf(id);
-      
+
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -190,13 +199,13 @@ const FinancePage = () => {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-      
+
       toast.success("Invoice PDF downloaded!", {
         id: "pdf-loading",
       });
     } catch (error) {
       toast.error("Failed to download PDF from server. Using fallback generator...", { id: "pdf-loading" });
-      
+
       // Fallback to client-side generation
       try {
         const invoice = invoices.find((inv) => inv.id === id);
@@ -240,7 +249,7 @@ const FinancePage = () => {
   const handleDeleteExpense = async () => {
     if (expenseToDelete) {
       try {
-          await expenseService.deleteExpense(expenseToDelete);
+        await expenseService.deleteExpense(expenseToDelete);
         setExpenses(expenses.filter((e) => e.id !== expenseToDelete));
         toast.success("Expense deleted");
         setIsExpenseDeleteModalOpen(false);
@@ -248,7 +257,7 @@ const FinancePage = () => {
       } catch (error) {
         toast.error("Failed to delete expense");
       } finally {
-        }
+      }
     }
   };
 
@@ -298,16 +307,33 @@ const FinancePage = () => {
     });
   }, [expenses, searchTerm, categoryFilter, dateFrom, dateTo, projects]);
 
-  // Totals
+  // Totals — prefer invoice data; fall back to expense data if invoices are empty
   const totals = useMemo(() => {
+    const hasInvoices = invoices.length > 0;
+    const expenseTotal = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
+    const cashModeExpenses = expenses
+      .filter((e) => e.payment_mode?.toLowerCase() === "cash" || e.payment_mode?.toLowerCase() === "pending")
+      .reduce((sum, e) => sum + (e.amount || 0), 0);
+
     return {
-      billing: invoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0),
-      pending: invoices
-        .filter((i) => i.status === "pending")
-        .reduce((sum, i) => sum + (i.total_amount || 0), 0),
-      gst: invoices.reduce((sum, inv) => sum + (inv.gst_amount || 0), 0),
+      billing: hasInvoices
+        ? invoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0)
+        : expenseTotal,
+      pending: hasInvoices
+        ? invoices.filter((i) => i.status === "pending").reduce((sum, i) => sum + (i.total_amount || 0), 0)
+        : cashModeExpenses,
+      gst: hasInvoices
+        ? invoices.reduce((sum, inv) => sum + (inv.gst_amount || 0), 0)
+        : Math.round(expenseTotal * 0.18), // 18% GST estimate on expenses when invoices unavailable
     };
-  }, [invoices]);
+  }, [invoices, expenses]);
+
+  const usingExpenseFallback = invoices.length === 0 && expenses.length > 0;
+
+  const totalItems = subPage === "expenses" ? filteredExpenses.length : filteredInvoices.length;
+  const totalPages = Math.ceil(totalItems / PAGE_SIZE);
+  const paginatedInvoices = filteredInvoices.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+  const paginatedExpenses = filteredExpenses.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 
   return (
     <>
@@ -419,22 +445,27 @@ const FinancePage = () => {
 
         {/* Financial Stat Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          {usingExpenseFallback && (
+            <div className="col-span-3 text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-4 py-2">
+              ⚠️ Invoice data is temporarily unavailable from the server. Showing expense-based estimates instead.
+            </div>
+          )}
           <StatCard
-            title="Total Billing"
+            title={usingExpenseFallback ? "Total Expenses" : "Total Billing"}
             value={`₹${(totals.billing / 100000).toFixed(2)}L`}
-            sub="Gross including taxes"
+            sub={usingExpenseFallback ? "Based on actual expenses" : "Gross including taxes"}
             accent="text-primary"
           />
           <StatCard
-            title="Pending Collections"
+            title={usingExpenseFallback ? "Cash / Pending Payments" : "Pending Collections"}
             value={`₹${(totals.pending / 100000).toFixed(2)}L`}
-            sub="Unpaid invoices"
+            sub={usingExpenseFallback ? "Cash mode expenses" : "Unpaid invoices"}
             accent="text-amber-500"
           />
           <StatCard
-            title="Total GST Collected"
+            title="Total GST"
             value={`₹${(totals.gst / 100000).toFixed(2)}L`}
-            sub="Net tax liability"
+            sub={usingExpenseFallback ? "18% estimate on expenses" : "Net tax liability"}
             accent="text-violet-500"
           />
         </div>
@@ -556,7 +587,7 @@ const FinancePage = () => {
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {subPage === "invoices" ? (
-                  filteredInvoices.map((inv, index) => (
+                  paginatedInvoices.map((inv, index) => (
                     <tr
                       key={`invoice-${inv.id}-${index}`}
                       className="hover:bg-slate-50/50 transition-colors group"
@@ -600,11 +631,10 @@ const FinancePage = () => {
                       </td>
                       <td className="px-6 py-4">
                         <span
-                          className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${
-                            inv.status === "paid"
-                              ? "bg-emerald-100 text-emerald-600"
-                              : "bg-amber-100 text-amber-600"
-                          }`}
+                          className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${inv.status === "paid"
+                            ? "bg-emerald-100 text-emerald-600"
+                            : "bg-amber-100 text-amber-600"
+                            }`}
                         >
                           {inv.status}
                         </span>
@@ -659,7 +689,7 @@ const FinancePage = () => {
                     </tr>
                   ))
                 ) : subPage === "expenses" ? (
-                  filteredExpenses.map((exp, index) => (
+                  paginatedExpenses.map((exp, index) => (
                     <tr
                       key={`expense-${exp.id}-${index}`}
                       className="hover:bg-slate-50/50 transition-colors group"
@@ -725,6 +755,37 @@ const FinancePage = () => {
               </tbody>
             </table>
           </div>
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-50">
+              <span className="text-xs text-slate-400 font-medium">
+                {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, totalItems)} of {totalItems} records
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                  disabled={currentPage === 0}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700">
+                  {currentPage + 1}
+                </div>
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={currentPage >= totalPages - 1}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </PageTransition>
 

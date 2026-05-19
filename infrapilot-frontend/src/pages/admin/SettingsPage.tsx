@@ -1,16 +1,21 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import toast from "react-hot-toast";
-import api from "../../services/api";
+import { Upload, User, Trash2 } from "lucide-react";
+import { settingsService } from "../../services/settingsService";
+import { projectService } from "../../services/projectService";
+import { useAuth } from "../../context/AuthContext";
+import type { UserProfile, UserSettings } from "../../types/settings";
+import type { Project } from "../../types/project";
 
 const SettingsPage = () => {
   const [activeSection, setActiveSection] = useState("general");
   const [loading, setLoading] = useState(true);
+  const { refreshUser } = useAuth();
 
-  // Profile data
-  const [profile, setProfile] = useState<any>({
-    user_id: null,
+  const [profile, setProfile] = useState<UserProfile>({
+    user_id: 0,
     full_name: "",
     role: "",
     mobile_number: "",
@@ -18,15 +23,14 @@ const SettingsPage = () => {
     address: "",
     pan_number: "",
     aadhaar_number: "",
-    profile_image: "",
+    profile_image: null,
     designation: "",
     joining_date: "",
     is_active: true
   });
 
-  // Settings data
-  const [settings, setSettings] = useState<any>({
-    user_id: null,
+  const [settings, setSettings] = useState<UserSettings>({
+    user_id: 0,
     default_project_id: null,
     unit: "Meter",
     notifications_enabled: true,
@@ -38,6 +42,11 @@ const SettingsPage = () => {
     payment_terms: "30 days"
   });
 
+  const [projects, setProjects] = useState<Project[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
+  const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null);
+
   const sections = [
     { id: "general", label: "General", icon: "⚙️" },
     { id: "notifications", label: "Notifications", icon: "🔔" },
@@ -46,30 +55,76 @@ const SettingsPage = () => {
   ];
 
   useEffect(() => {
-    Promise.all([
-      api.get("/settings"),
-      api.get("/settings/profile")
-    ]).then(([settingsRes, profileRes]) => {
-      if (settingsRes.data) setSettings(settingsRes.data);
-      if (profileRes.data) setProfile(profileRes.data);
-      setLoading(false);
-    }).catch(err => {
-      console.error("Failed to fetch settings/profile", err);
-      toast.error("Failed to load settings data");
-      setLoading(false);
-    });
+    const loadData = async () => {
+      try {
+        const [settingsData, profileData, projectsData] = await Promise.all([
+          settingsService.getSettings(),
+          settingsService.getProfile(),
+          projectService.getProjects()
+        ]);
+        setSettings(settingsData);
+        setProfile(profileData);
+        setProjects(Array.isArray(projectsData) ? projectsData : (projectsData.items || []));
+        if (profileData.profile_image) {
+          setProfileImagePreview(settingsService.resolveUrl(profileData.profile_image));
+        }
+      } catch (err) {
+        console.error("Failed to fetch settings/profile", err);
+        toast.error("Failed to load settings data");
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
   }, []);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setProfileImageFile(file);
+      setProfileImagePreview(URL.createObjectURL(file));
+      toast.success("Profile photo selected.");
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setProfileImagePreview(null);
+    setProfileImageFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    setProfile({ ...profile, profile_image: null });
+    toast.success("Profile photo removed.");
+  };
 
   const handleSave = async () => {
     try {
       if (activeSection === "general") {
-        await Promise.all([
-          api.put("/settings", settings),
-          api.put("/settings/profile", profile)
+        const updateData = {
+          ...profile,
+          profile_image: profileImageFile || profile.profile_image
+        };
+        const [updatedSettings, updatedProfile] = await Promise.all([
+          settingsService.updateSettings(settings),
+          settingsService.updateProfile(updateData)
         ]);
+
+        // Update local state with fresh data from backend
+        setSettings(updatedSettings);
+        setProfile(updatedProfile);
+        if (updatedProfile.profile_image) {
+          setProfileImagePreview(settingsService.resolveUrl(updatedProfile.profile_image));
+          setProfileImageFile(null); // Clear the uploaded file state
+        }
+
+        // Update global auth state for sidebar etc.
+        refreshUser({
+          name: updatedProfile.full_name,
+          profile_image: updatedProfile.profile_image
+        });
+
         toast.success("Profile and Settings saved successfully!");
       } else if (activeSection === "notifications") {
-        await api.put("/settings", settings);
+        const updatedSettings = await settingsService.updateSettings(settings);
+        setSettings(updatedSettings);
         toast.success("Notification preferences saved!");
       } else {
         toast.success("Settings saved successfully!");
@@ -148,6 +203,42 @@ const SettingsPage = () => {
                         <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full bg-primary"></span> Profile Information
                         </h3>
+
+                        <div className="flex flex-col md:flex-row items-center gap-6 mb-8 p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+                          <div className="relative group">
+                            <div className="w-20 h-20 rounded-full border-4 border-white bg-slate-100 overflow-hidden flex items-center justify-center text-2xl font-bold text-slate-400 shadow-sm transition-all group-hover:bg-slate-200">
+                              {profileImagePreview ? (
+                                <img src={profileImagePreview} alt="Profile" className="w-full h-full object-cover" />
+                              ) : (
+                                profile.full_name?.charAt(0) || <User className="w-8 h-8" />
+                              )}
+                            </div>
+                            <button
+                              onClick={() => fileInputRef.current?.click()}
+                              className="absolute bottom-0 right-0 w-7 h-7 bg-primary text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-all border-2 border-white"
+                              title="Upload Photo"
+                            >
+                              <Upload className="w-3.5 h-3.5" />
+                            </button>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              ref={fileInputRef}
+                              onChange={handleImageUpload}
+                            />
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-slate-700">Profile Picture</p>
+                            <p className="text-[10px] text-slate-400 mb-2">Max size 2MB. JPG, PNG supported.</p>
+                            {profileImagePreview && (
+                              <button onClick={handleRemoveImage} className="text-[10px] font-bold text-rose-500 hover:text-rose-600 flex items-center gap-1 transition-colors">
+                                <Trash2 className="w-3 h-3" /> Remove Photo
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div className="space-y-1.5">
                             <label className="text-xs font-bold text-slate-500 ml-1">Full Name</label>
@@ -155,11 +246,11 @@ const SettingsPage = () => {
                           </div>
                           <div className="space-y-1.5">
                             <label className="text-xs font-bold text-slate-500 ml-1">Email</label>
-                            <input type="email" value={profile.email || ""} disabled className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed outline-none" />
+                            <input type="email" value={profile.email || ""} onChange={e => setProfile({ ...profile, email: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/10 outline-none" />
                           </div>
                           <div className="space-y-1.5">
                             <label className="text-xs font-bold text-slate-500 ml-1">Mobile Number</label>
-                            <input type="text" value={profile.mobile_number || ""} disabled className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed outline-none" />
+                            <input type="text" value={profile.mobile_number || ""} onChange={e => setProfile({ ...profile, mobile_number: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/10 outline-none" />
                           </div>
                           <div className="space-y-1.5">
                             <label className="text-xs font-bold text-slate-500 ml-1">Address</label>
@@ -172,6 +263,28 @@ const SettingsPage = () => {
                           <div className="space-y-1.5">
                             <label className="text-xs font-bold text-slate-500 ml-1">Aadhaar Number</label>
                             <input type="text" value={profile.aadhaar_number || ""} onChange={e => setProfile({ ...profile, aadhaar_number: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/10 outline-none" />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-slate-500 ml-1">Designation</label>
+                            <input type="text" value={profile.designation || ""} onChange={e => setProfile({ ...profile, designation: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/10 outline-none" />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-slate-500 ml-1">Joining Date</label>
+                            <input type="date" value={profile.joining_date || ""} onChange={e => setProfile({ ...profile, joining_date: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/10 outline-none" />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-slate-500 ml-1">Role</label>
+                            <input type="text" value={profile.role || ""} disabled className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed outline-none" />
+                          </div>
+                          <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                            <div>
+                              <p className="text-xs font-bold text-slate-700">Account Status</p>
+                              <p className="text-[10px] text-slate-400">User active in system</p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer ml-auto">
+                              <input type="checkbox" className="sr-only peer" checked={profile.is_active} onChange={e => setProfile({ ...profile, is_active: e.target.checked })} />
+                              <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                            </label>
                           </div>
                         </div>
                       </section>
@@ -209,6 +322,47 @@ const SettingsPage = () => {
                           <div className="space-y-1.5">
                             <label className="text-xs font-bold text-slate-500 ml-1">Payment Terms</label>
                             <input type="text" value={settings.payment_terms || ""} onChange={e => setSettings({ ...settings, payment_terms: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/10 outline-none" />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-slate-500 ml-1">Tax Settings (JSON)</label>
+                            <textarea
+                              value={JSON.stringify(settings.tax_settings || {}, null, 2)}
+                              onChange={e => {
+                                try {
+                                  setSettings({ ...settings, tax_settings: JSON.parse(e.target.value) });
+                                } catch (err) {
+                                  // Handle invalid JSON while typing
+                                }
+                              }}
+                              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-primary/10 outline-none h-24"
+                            />
+                          </div>
+                          <div className="space-y-1.5 col-span-1 md:col-span-2 pt-4 border-t border-slate-100">
+                            <label className="text-xs font-bold text-slate-500 ml-1">Default Workspace Project</label>
+                            <p className="text-[10px] text-slate-400 ml-1 mb-2">Choose which project loads by default on your dashboard.</p>
+                            <div className="relative group">
+                              <select
+                                value={settings.default_project_id || ""}
+                                onChange={e => setSettings({ ...settings, default_project_id: e.target.value ? Number(e.target.value) : null })}
+                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all appearance-none cursor-pointer"
+                              >
+                                <option value="">Select Project (None)</option>
+                                {projects.map(p => (
+                                  <option key={p.id} value={p.id}>{p.project_name}</option>
+                                ))}
+                              </select>
+                              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </div>
+                            </div>
+                            {settings.default_project_id && (
+                              <div className="mt-2 flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg w-max border border-emerald-100">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                <span className="text-[10px] font-bold uppercase tracking-wider">Active Workspace Selected</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </section>
@@ -297,7 +451,7 @@ const SettingsPage = () => {
 
           </div>
         </div>
-      </PageTransition >
+      </PageTransition>
     </>
   );
 };

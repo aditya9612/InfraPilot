@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { X, UserCheck, Mail, Phone, Award, Briefcase, Tag, Calendar } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -9,26 +9,33 @@ interface CreateEngineerModalProps {
   initialData?: any;
 }
 
+const defaultForm = {
+  name: "",
+  email: "",
+  mobile: "",
+  experience: "",
+  projects: "",
+  specialization: "Structural Engineering",
+  joiningDate: new Date().toISOString().split('T')[0],
+  status: "On Site",
+};
+
 const CreateEngineerModal: React.FC<CreateEngineerModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
   initialData,
 }) => {
-  const [formData, setFormData] = useState(
-    initialData || {
-      name: "",
-      email: "",
-      mobile: "",
-      experience: "",
-      projects: "",
-      specialization: "Structural Engineering",
-      joiningDate: new Date().toISOString().split('T')[0],
-      status: "On Site",
-    }
-  );
-
+  const [formData, setFormData] = useState(initialData || defaultForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Re-sync form whenever the modal opens or initialData changes
+  useEffect(() => {
+    if (isOpen) {
+      setFormData(initialData || defaultForm);
+      setErrors({});
+    }
+  }, [isOpen, initialData]);
 
   if (!isOpen) return null;
 

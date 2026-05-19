@@ -13,6 +13,7 @@ export interface User {
   name: string;
   mobile: string;
   role: Role;
+  profile_image?: string | null;
   token: {
     access_token: string;
     token_type: string;
@@ -23,6 +24,7 @@ interface AuthContextType {
   user: User | null;
   login: (userData: User) => void;
   logout: () => void;
+  refreshUser: (updates: Partial<User>) => void;
   isAuthenticated: boolean;
 }
 
@@ -45,9 +47,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem("infrapilot_user");
   };
 
+  const refreshUser = (updates: Partial<User>) => {
+    if (!user) return;
+    const updatedUser = { ...user, ...updates };
+    setUser(updatedUser);
+    localStorage.setItem("infrapilot_user", JSON.stringify(updatedUser));
+  };
+
   return (
     <AuthContext.Provider
-      value={{ user, login, logout, isAuthenticated: !!user }}
+      value={{ user, login, logout, refreshUser, isAuthenticated: !!user }}
     >
       {children}
     </AuthContext.Provider>
