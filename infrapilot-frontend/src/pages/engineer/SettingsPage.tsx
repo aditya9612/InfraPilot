@@ -4,10 +4,14 @@ import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import { Upload, Trash2, User } from "lucide-react";
 import toast from "react-hot-toast";
-import { useAuth } from "../../context/AuthContext";
 import { settingsService } from "../../services/settingsService";
 import { projectService } from "../../services/projectService";
-import type { UserProfile, UserSettings, UpdateSettingsRequest } from "../../types/settings";
+import type {
+    UserSettings,
+    UserProfile,
+    UpdateSettingsRequest,
+    UpdateProfileRequest
+} from "../../types/settings";
 
 // ─── Toggle Switch ──────────────────────────────────────────────────────────────
 
@@ -57,8 +61,6 @@ const SettingsPage = () => {
     const [profileImage, setProfileImage] = useState<string | null>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    // ── Context ────────────────────────────────────────────────────────
-    const { refreshUser } = useAuth();
 
     // ── Settings State ──────────────────────────────────────────────────
     const [settings, setSettings] = useState<UserSettings | null>(null);
@@ -142,17 +144,6 @@ const SettingsPage = () => {
             const resolvedPath = settingsService.resolveUrl(profileRes.profile_image);
             console.log("Settings Refresh - Resolved Image URL:", resolvedPath);
             setProfileImage(resolvedPath);
-
-            // Sync Notification UI
-            if (settingsRes.preferences?.notifications) {
-                setNotifications(settingsRes.preferences.notifications);
-            } else if (settingsRes.notifications_enabled !== undefined) {
-                setNotifications(n => ({
-                    ...n,
-                    emailAlerts: settingsRes.notifications_enabled,
-                    pushNotifications: settingsRes.notifications_enabled
-                }));
-            }
 
             console.log("Data sync complete:", { settingsRes, profileRes });
         } catch (error) {
@@ -239,8 +230,7 @@ const SettingsPage = () => {
                     timezone,
                     dateFormat,
                     unitSystem,
-                    massUnit,
-                    notifications: notifications // Save individual toggles here
+                    massUnit
                 },
                 financial_year: financialYear,
                 currency: currency,
@@ -261,8 +251,8 @@ const SettingsPage = () => {
                 designation: profile.designation,
                 joining_date: profile.joining_date,
                 is_active: profile.is_active,
-                // Include the actual file if selected, otherwise keep the existing path
-                profile_image: selectedFile || profile?.profile_image
+                // Include the actual file if selected
+                profile_image: selectedFile || undefined
             };
 
             console.log("Syncing All Settings...", { settingsData, profileData });
@@ -282,12 +272,6 @@ const SettingsPage = () => {
 
             // Refetch fresh configurations from backend to keep everything fully synced
             await fetchData();
-
-            // Update global sidebar name and image
-            refreshUser({
-                name: updatedProfile.full_name,
-                profile_image: updatedProfile.profile_image
-            });
 
             toast.success("Account settings synchronized!", { id: toastId });
             console.log("Settings synchronization complete.");
@@ -566,32 +550,45 @@ const SettingsPage = () => {
                         />
 
                         <div className="space-y-4">
-                            <div className="relative group">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                    Active Project
+                                </label>
                                 <select
                                     value={selectedProject || ""}
                                     onChange={e => {
                                         const val = e.target.value;
                                         setSelectedProject(val === "" ? null : Number(val));
                                     }}
-                                    className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all appearance-none cursor-pointer"
+                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none cursor-pointer"
                                 >
-                                    <option value="">Select Site Workspace (None)</option>
+                                    <option value="">Select Project (None)</option>
                                     {projects.map(p => (
                                         <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
                                     ))}
                                 </select>
-                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </div>
                             </div>
-                            {selectedProject && (
-                                <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-xl w-max border border-blue-100">
-                                    <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                                    <span className="text-[10px] font-black uppercase tracking-widest">Active Site: {projects.find(p => p.id === selectedProject)?.project_name || projects.find(p => p.id === selectedProject)?.name}</span>
-                                </div>
-                            )}
+
+                            <div className="space-y-2 mt-2">
+                                {projects.map(p => (
+                                    <button
+                                        key={p.id}
+                                        onClick={() => setSelectedProject(p.id)}
+                                        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold transition-all ${selectedProject === p.id
+                                            ? "bg-blue-50 border-blue-200 text-blue-700"
+                                            : "bg-slate-50 border-slate-100 text-slate-600 hover:border-slate-200"
+                                            }`}
+                                    >
+                                        <span className="flex items-center gap-2.5">
+                                            <span className={`w-2 h-2 rounded-full ${selectedProject === p.id ? "bg-blue-500" : "bg-slate-300"}`} />
+                                            {p.project_name || p.name}
+                                        </span>
+                                        {selectedProject === p.id && (
+                                            <span className="text-[9px] font-bold text-blue-500 uppercase tracking-widest">Active</span>
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     </div>
 
