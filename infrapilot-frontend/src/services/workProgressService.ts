@@ -398,15 +398,8 @@ export const workProgressService = {
    * Get activity history
    */
   async getActivityHistory(id: number): Promise<{ data: any[] }> {
-    try {
-      const response = await api.get(`/work-progress/activities/${id}/history`);
-      return response.data;
-    } catch (error: any) {
-      console.warn("getActivityHistory API error, using virtual success fallback:", error.message);
-      return {
-        data: getHistoryForActivity(id)
-      };
-    }
+    const response = await api.get(`/work-progress/activities/${id}/history`);
+    return response.data;
   }
 };
 

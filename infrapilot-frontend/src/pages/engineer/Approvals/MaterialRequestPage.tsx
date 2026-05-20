@@ -70,20 +70,14 @@ const MaterialRequestPage = () => {
     const fetchRequests = useCallback(async () => {
         setIsLoading(true);
         try {
-            // Fetch global requisition list (all projects)
-            const serverData = await siteRequestService.getRequests();
-            setRequestData(prev => {
-                const mocks = prev.filter(r => String(r.id).startsWith("MOCK-"));
-                const serverIds = new Set(serverData.map((r: any) => r.id));
-                const filteredMocks = mocks.filter(m => !serverIds.has(m.id));
-                return [...filteredMocks, ...serverData];
-            });
+            const serverData = await siteRequestService.getRequests(projectId || 36);
+            setRequestData(serverData);
         } catch (error) {
-            toast.error("Failed to sync requisition logs");
+            toast.error("Failed to fetch requisition list.");
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [projectId]);
 
     useEffect(() => {
         fetchRequests();
@@ -123,24 +117,16 @@ const MaterialRequestPage = () => {
             const newRecord = await siteRequestService.createRequest(payload);
             toast.success("Requisition Created Successfully!", { id: toastId });
             
-            setRequestData(prev => [newRecord, ...prev]);
+            // Switch to the project ID that was just used to submit the request
+            if (projectId !== payload.project_id) {
+                setProjectId(payload.project_id);
+            } else {
+                setRequestData(prev => [newRecord, ...prev]);
+            }
             setIsFormModalOpen(false);
         } catch (error) {
             console.error("Submission Error:", error);
-            // Fallback for demo
-            const mockRecord: MaterialRequestRecord = {
-                id: `MOCK-${Date.now()}`,
-                project_id: formData.project_id,
-                request_type: formData.request_type,
-                description: formData.description,
-                quantity: formData.quantity,
-                requested_by: 1,
-                approved_by: null,
-                status: "Pending"
-            };
-            setRequestData(prev => [mockRecord, ...prev]);
-            toast.success("Requisition Logged (Virtual Success)", { id: toastId });
-            setIsFormModalOpen(false);
+            toast.error("Failed to commit requisition. Please try again.", { id: toastId });
         } finally {
             setIsSubmitting(false);
         }
@@ -354,7 +340,7 @@ const MaterialRequestPage = () => {
                                             <td className="px-6 py-4 font-inter">
                                                 <div className="flex flex-col font-inter">
                                                     <span className="text-sm font-bold text-slate-800 font-inter">REQ-#{request.id}</span>
-                                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">Procurement Log</span>
+                                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter mt-0.5">Procurement Log</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 font-inter">
