@@ -34,7 +34,6 @@ const FinancePage = () => {
   const [dateTo, setDateTo] = useState("");
 
   const [projects, setProjects] = useState<Project[]>([]);
-  const [_isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [showTypeSelector, setShowTypeSelector] = useState(false);
 
@@ -327,6 +326,11 @@ const FinancePage = () => {
         : Math.round(expenseTotal * 0.18), // 18% GST estimate on expenses when invoices unavailable
     };
   }, [invoices, expenses]);
+
+  // Reset to page 0 on tab, search or filter changes
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [subPage, searchTerm, typeFilter, categoryFilter, statusFilter]);
 
   const usingExpenseFallback = invoices.length === 0 && expenses.length > 0;
 
@@ -722,7 +726,7 @@ const FinancePage = () => {
                         {exp.payment_mode}
                       </td>
                       <td className="px-6 py-4 text-xs font-bold text-slate-500">
-                        {new Date(exp.expense_date).toLocaleDateString()}
+                        {exp.expense_date?.split("T")[0]}
                       </td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center gap-1 transition-opacity">
@@ -757,19 +761,17 @@ const FinancePage = () => {
           </div>
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-50">
-              <span className="text-xs text-slate-400 font-medium">
-                {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, totalItems)} of {totalItems} records
-              </span>
+            <div className="p-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, totalItems)} of {totalItems} {subPage === "expenses" ? "Records" : "Invoices"}
+              </p>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
                   disabled={currentPage === 0}
                   className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-                  </svg>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
                 </button>
                 <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700">
                   {currentPage + 1}
@@ -779,9 +781,7 @@ const FinancePage = () => {
                   disabled={currentPage >= totalPages - 1}
                   className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                  </svg>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
                 </button>
               </div>
             </div>

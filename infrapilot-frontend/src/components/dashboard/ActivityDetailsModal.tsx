@@ -31,10 +31,10 @@ const ActivityDetailsModal: React.FC<ActivityDetailsModalProps> = ({ isOpen, onC
         {/* Premium Header */}
         <div className="relative overflow-hidden bg-primary rounded-2xl p-8 text-white shadow-2xl">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32" />
-          
+
           <div className="flex flex-col md:flex-row items-center gap-8 relative z-10">
             <div className="w-24 h-24 rounded-3xl bg-white/20 backdrop-blur-md border border-white/20 flex items-center justify-center font-bold text-3xl shadow-xl overflow-hidden shrink-0 text-white">
-               <span className="bg-gradient-to-br from-white to-white/60 bg-clip-text text-transparent italic">
+              <span className="bg-gradient-to-br from-white to-white/60 bg-clip-text text-transparent italic">
                 {activity.name.substring(0, 2).toUpperCase()}
               </span>
             </div>
@@ -42,9 +42,8 @@ const ActivityDetailsModal: React.FC<ActivityDetailsModalProps> = ({ isOpen, onC
             <div className="text-center md:text-left space-y-2">
               <div className="flex flex-col md:flex-row items-center gap-3">
                 <h3 className="text-2xl font-black tracking-tight">{activity.name}</h3>
-                <span className={`px-3 py-1 bg-white/20 backdrop-blur-md border border-white/10 rounded-lg text-[10px] font-black uppercase tracking-widest ${
-                  activity.status === 'Completed' ? 'text-emerald-300' : 'text-slate-200'
-                }`}>
+                <span className={`px-3 py-1 bg-white/20 backdrop-blur-md border border-white/10 rounded-lg text-[10px] font-black uppercase tracking-widest ${activity.status === 'Completed' ? 'text-emerald-300' : 'text-slate-200'
+                  }`}>
                   {activity.status}
                 </span>
               </div>
@@ -58,7 +57,7 @@ const ActivityDetailsModal: React.FC<ActivityDetailsModalProps> = ({ isOpen, onC
 
         {/* Content Sections */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 px-2">
-          
+
           {/* Activity Information */}
           <Section icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>} title="Activity Information">
             <InfoItem label="Activity Name" value={activity.name} />
@@ -69,8 +68,8 @@ const ActivityDetailsModal: React.FC<ActivityDetailsModalProps> = ({ isOpen, onC
           {/* Execution Status */}
           <Section icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>} title="Execution Status">
             <InfoItem label="Current Status" value={activity.status} valueClass={
-              activity.status === 'Completed' ? 'text-emerald-600' : 
-              activity.status === 'In Progress' ? 'text-primary' : 'text-slate-500'
+              activity.status === 'Completed' ? 'text-emerald-600' :
+                activity.status === 'In Progress' ? 'text-primary' : 'text-slate-500'
             } />
             <InfoItem label="Last Updated" value="Just now" />
           </Section>

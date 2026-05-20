@@ -169,7 +169,7 @@ const NewProjectModal = ({
                 <option value="PLANNED">PLANNED</option>
                 <option value="ONGOING">ONGOING</option>
                 <option value="COMPLETED">COMPLETED</option>
-                <option value="ON HOLD">ON HOLD</option>
+                <option value="ON_HOLD">ON HOLD</option>
               </select>
             </div>
             <div className="md:col-span-2">

@@ -21,6 +21,7 @@ import { useEffect } from "react";
 import { quotationService } from "../../services/quotationService";
 import type { Quotation } from "../../types/quotation";
 import toast from "react-hot-toast";
+import InvoicePreviewModal from "../../components/forms/InvoicePreviewModal";
 
 const QuotationsPage = () => {
     const navigate = useNavigate();
@@ -28,12 +29,19 @@ const QuotationsPage = () => {
     const [quotations, setQuotations] = useState<Quotation[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState("all");
+    const [currentPage, setCurrentPage] = useState(0);
+    const PAGE_SIZE = 8;
 
     // Modal state
     const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [rejectTarget, setRejectTarget] = useState<number | null>(null);
     const [isRejecting, setIsRejecting] = useState(false);
+
+    // Preview state
+    const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+    const [previewData, setPreviewData] = useState<any>(null);
+    const [isFetchingPreview, setIsFetchingPreview] = useState(false);
 
     const fetchQuotations = async () => {
         try {
@@ -74,6 +82,14 @@ const QuotationsPage = () => {
             q.status?.toLowerCase() === statusFilter.toLowerCase();
         return matchSearch && matchStatus;
     });
+
+    const totalPages = Math.max(1, Math.ceil(filteredQuotations.length / PAGE_SIZE));
+    const pagedQuotations = filteredQuotations.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+
+    // Reset to page 0 on search/filter changes
+    useEffect(() => {
+        setCurrentPage(0);
+    }, [searchQuery, statusFilter]);
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -122,6 +138,42 @@ const QuotationsPage = () => {
         } finally {
             setIsRejecting(false);
             setRejectTarget(null);
+        }
+    };
+
+    const handleDownload = async (id: number) => {
+        try {
+            setIsFetchingPreview(true);
+            toast.loading("Preparing preview...", { id: "preview-loading" });
+            const data = await quotationService.getQuotationPreview(id);
+
+            // Map Quotation to InvoicePreview format
+            const mappedData = {
+                clientName: data.client_name,
+                clientAddress: data.billing_address || data.site_address,
+                clientGst: data.gst_number,
+                invoiceNo: data.quotation_no || `QTN-${data.id}`,
+                date: data.created_at ? new Date(data.created_at).toLocaleDateString() : new Date().toLocaleDateString(),
+                items: data.items || [],
+                materialItems: data.material_items || [],
+                labourItems: data.labour_items || [],
+                extraChargeItems: data.extra_charge_items || [],
+                subTotal: data.subtotal || 0,
+                cgstRate: data.cgst_percent || 0,
+                sgstRate: data.sgst_percent || 0,
+                discount: data.discount_amount || 0,
+                advancePaid: data.advance_paid || 0,
+                balanceDue: data.balance_due || 0,
+                grandTotal: data.grand_total || 0
+            };
+
+            setPreviewData(mappedData);
+            setIsPreviewModalOpen(true);
+            toast.success("Ready for print!", { id: "preview-loading" });
+        } catch (error) {
+            toast.error("Failed to load quotation preview", { id: "preview-loading" });
+        } finally {
+            setIsFetchingPreview(false);
         }
     };
 
@@ -224,7 +276,7 @@ const QuotationsPage = () => {
                                         </td>
                                     </tr>
                                 ) : (
-                                    filteredQuotations.map((q) => (
+                                    pagedQuotations.map((q) => (
                                         <tr key={q.id} className="hover:bg-slate-50/50 transition-colors group">
                                             <td className="px-6 py-4">
                                                 <span className="text-sm font-bold text-slate-800">{q.quotation_no || `QTN-${q.id}`}</span>
@@ -275,7 +327,11 @@ const QuotationsPage = () => {
                                                     >
                                                         <Eye className="w-4 h-4" />
                                                     </button>
-                                                    <button className="p-2 text-slate-400 hover:text-emerald-500 transition-colors hidden md:block">
+                                                    <button
+                                                        onClick={() => q.id && handleDownload(q.id)}
+                                                        disabled={isFetchingPreview}
+                                                        className="p-2 text-slate-400 hover:text-emerald-500 transition-colors hidden md:block disabled:opacity-50"
+                                                    >
                                                         <Download className="w-4 h-4" />
                                                     </button>
                                                     <button
@@ -293,11 +349,28 @@ const QuotationsPage = () => {
                         </table>
                     </div>
 
-                    <div className="p-4 border-t border-slate-50 flex items-center justify-between">
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Showing {filteredQuotations.length} of {quotations.length} quotations</p>
-                        <div className="flex gap-2">
-                            <button className="px-3 py-1 bg-slate-50 text-slate-400 rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50" disabled>Prev</button>
-                            <button className="px-3 py-1 bg-primary/10 text-primary rounded-lg text-[10px] font-black uppercase tracking-widest">Next</button>
+                    <div className="p-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                            Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, filteredQuotations.length)} of {filteredQuotations.length} Quotations
+                        </p>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                                disabled={currentPage === 0}
+                                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+                            </button>
+                            <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700">
+                                {currentPage + 1}
+                            </div>
+                            <button
+                                onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                                disabled={currentPage >= totalPages - 1}
+                                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -320,6 +393,11 @@ const QuotationsPage = () => {
                 onConfirm={handleReject}
                 isLoading={isRejecting}
                 title="Reject Quotation"
+            />
+            <InvoicePreviewModal
+                isOpen={isPreviewModalOpen}
+                onClose={() => setIsPreviewModalOpen(false)}
+                data={previewData}
             />
         </>
     );

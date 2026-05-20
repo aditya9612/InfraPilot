@@ -64,7 +64,7 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
             <p className="text-sm font-medium text-slate-400">
               Issue Date:{" "}
               <span className="text-white font-bold">
-                {new Date(invoice.created_at).toLocaleDateString("en-GB")}
+                {invoice.created_at?.split("T")[0]}
               </span>
             </p>
           </div>

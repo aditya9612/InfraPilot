@@ -24,12 +24,15 @@ import {
     LayoutDashboard,
     Table as TableIcon,
     Clock,
-    Sparkles
+    Sparkles,
+    Pencil,
+    Trash2,
 } from "lucide-react";
 import UpdateActualsModal from "../../components/forms/UpdateActualsModal";
 import BOQHistoryModal from "../../components/dashboard/BOQHistoryModal";
 import BOQDetailsModal from "../../components/dashboard/BOQDetailsModal";
 import StatCard from "../../components/common/StatCard";
+import CreateBOQModal from "../../components/forms/CreateBOQModal";
 
 // ─── Tabs Configuration ──────────────────────────────────────────────────────
 const TABS = [
@@ -52,6 +55,11 @@ const BOQDetailPage = () => {
     const [comparison, setComparison] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
+    // Pagination States
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(20);
+    const [totalItems, setTotalItems] = useState(0);
+
     // New Data States
     const [suggestions, setSuggestions] = useState<any[]>([]);
     const [isGeneratingTasks, setIsGeneratingTasks] = useState(false);
@@ -63,6 +71,7 @@ const BOQDetailPage = () => {
     const [isActualsModalOpen, setIsActualsModalOpen] = useState(false);
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [activeItem, setActiveItem] = useState<BoqItem | null>(null);
 
     const fetchData = useCallback(async () => {
@@ -79,12 +88,41 @@ const BOQDetailPage = () => {
             setSummary(boqSummary);
             setComparison(boqComparison);
 
-            const items = await boqService.getBoqsByProject(projectId);
-            setBoqItems(items);
+            const res = await boqService.getBoqs({
+                project_id: projectId,
+                version_no: selectedVersion !== 'latest' ? Number(selectedVersion) : undefined,
+                limit: itemsPerPage,
+                offset: (currentPage - 1) * itemsPerPage
+            });
 
-            if (items.length > 0) {
-                const boqVersions = await boqService.getBoqVersionsByBoqId(items[0].id);
+            // Filter out deleted and inactive items from the local state
+            const activeItems = res.items.filter((item: any) =>
+                item.status?.toLowerCase() !== 'deleted' &&
+                item.status?.toLowerCase() !== 'inactive'
+            );
+
+            setBoqItems(activeItems);
+            setTotalItems(res.total || activeItems.length);
+
+            // Fetch versions gracefully using various IDs based on Swagger: /boq/{id}/versions
+            try {
+                // Try project ID first as it's the primary handle in this view
+                const boqVersions = await boqService.getBoqVersions(projectId);
                 setVersions(boqVersions);
+            } catch (vErr) {
+                // Fallback to item-based group ID if project ID fails
+                if (res.items.length > 0) {
+                    try {
+                        const boqIdFromItems = res.items[0].boq_group_id || res.items[0].id;
+                        const v2 = await boqService.getBoqVersions(boqIdFromItems);
+                        setVersions(v2);
+                    } catch (v2Err) {
+                        console.warn("Versions not available for this BOQ yet");
+                        setVersions([]);
+                    }
+                } else {
+                    setVersions([]);
+                }
             }
         } catch (error) {
             console.error("Failed to fetch BOQ data", error);
@@ -92,11 +130,11 @@ const BOQDetailPage = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [projectId]);
+    }, [projectId, currentPage, itemsPerPage]);
 
     useEffect(() => {
         fetchData();
-    }, [fetchData]);
+    }, [fetchData, currentPage]);
 
     const handleVersionChange = async (version: number | "latest") => {
         setSelectedVersion(version);
@@ -122,16 +160,70 @@ const BOQDetailPage = () => {
     };
 
     const handleGenerateTasks = async () => {
-        if (boqItems.length === 0) return;
         setIsGeneratingTasks(true);
         try {
-            const boqId = boqItems[0].boq_group_id || boqItems[0].id;
-            await boqService.generateTasksFromBoq(boqId);
-            toast.success("Tasks generated successfully from BOQ");
-        } catch (error) {
-            toast.error("Failed to generate tasks");
+            // Using individual item ID as the handle (e.g. #162) as per user instruction.
+            const targetId = boqItems.length > 0 ? boqItems[0].id : null;
+
+            if (!targetId) {
+                toast.error("No BOQ items found. Please add an item first.");
+                setIsGeneratingTasks(false);
+                return;
+            }
+
+            console.log(`[BOQ Task Gen] Using Item ID: ${targetId}`);
+
+            try {
+                const response = await boqService.generateTasksFromBoq(targetId);
+                const taskId = response?.task_id || "Success";
+                toast.success(`Tasks generated! (Ref: ${taskId})`);
+            } catch (err: any) {
+                const msg = err.response?.data?.detail || "Failed to generate tasks. Verify if BOQ items are added.";
+                toast.error(msg);
+            }
+        } catch (error: any) {
+            toast.error("An unexpected error occurred during task generation.");
         } finally {
             setIsGeneratingTasks(false);
+        }
+    };
+
+    const handleAddItem = async (data: any) => {
+        if (boqItems.length === 0) {
+            toast.error("No active BOQ document found to add items to.");
+            return;
+        }
+        try {
+            const boqId = boqItems[0].boq_group_id || boqItems[0].id;
+            await boqService.addBoqItem(boqId, data);
+            toast.success("Item added to BOQ");
+            setIsCreateModalOpen(false);
+            fetchData();
+        } catch (error) {
+            toast.error("Failed to add item");
+        }
+    };
+
+    const handleUpdateItem = async (data: any) => {
+        if (!activeItem) return;
+        try {
+            await boqService.updateBoqItem(activeItem.id, data);
+            toast.success("Item updated successfully");
+            setIsCreateModalOpen(false);
+            setActiveItem(null);
+            fetchData();
+        } catch (error) {
+            toast.error("Failed to update item");
+        }
+    };
+
+    const handleDeleteItem = async (itemId: number) => {
+        try {
+            await boqService.deleteBoqItem(itemId);
+            toast.success("Item deleted");
+            fetchData();
+        } catch (error) {
+            toast.error("Failed to delete item");
         }
     };
 
@@ -235,8 +327,8 @@ const BOQDetailPage = () => {
                                     onClick={handleGenerateTasks}
                                     disabled={isGeneratingTasks || boqItems.length === 0}
                                     className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${isGeneratingTasks
-                                            ? "bg-white/5 text-white/40 cursor-not-allowed"
-                                            : "bg-white text-primary hover:bg-slate-50 shadow-lg"
+                                        ? "bg-white/5 text-white/40 cursor-not-allowed"
+                                        : "bg-white text-primary hover:bg-slate-50 shadow-lg"
                                         }`}
                                 >
                                     {isGeneratingTasks ? (
@@ -290,11 +382,21 @@ const BOQDetailPage = () => {
                     {activeTab === "overview" && (
                         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                                <StatCard title="Est. Budget" value={`₹${(summary?.estimated || 0).toLocaleString()}`} sub={`${boqItems.length} items estimated`} accent="text-primary" />
-                                <StatCard title="Actual Spend" value={`₹${(summary?.actual || 0).toLocaleString()}`} sub="Current realized costs" accent="text-violet-600" />
+                                <StatCard
+                                    title="Est. Budget"
+                                    value={`₹${(summary?.estimated || boqItems.reduce((acc, curr) => acc + (Number(curr.total_cost) || 0), 0)).toLocaleString('en-IN')}`}
+                                    sub={`${boqItems.length} items estimated`}
+                                    accent="text-primary"
+                                />
+                                <StatCard
+                                    title="Actual Spend"
+                                    value={`₹${(summary?.actual || boqItems.reduce((acc, curr) => acc + (Number(curr.actual_cost) || 0), 0)).toLocaleString('en-IN')}`}
+                                    sub="Current realized costs"
+                                    accent="text-violet-600"
+                                />
                                 <StatCard
                                     title="Variance"
-                                    value={`₹${Math.abs(summary?.difference || 0).toLocaleString()}`}
+                                    value={`₹${Math.abs(summary?.difference || ((summary?.estimated || boqItems.reduce((acc, curr) => acc + (Number(curr.total_cost) || 0), 0)) - (summary?.actual || boqItems.reduce((acc, curr) => acc + (Number(curr.actual_cost) || 0), 0)))).toLocaleString('en-IN')}`}
                                     sub={(summary?.difference || 0) < 0 ? "Above Budget" : "Under Budget"}
                                     accent={(summary?.difference || 0) < 0 ? "text-rose-500" : "text-emerald-500"}
                                 />
@@ -343,7 +445,16 @@ const BOQDetailPage = () => {
                         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
                             <div className="p-6 border-b border-slate-50 flex items-center justify-between">
                                 <h2 className="font-bold text-slate-800">Itemized Bill of Quantities</h2>
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-4">
+                                    <button
+                                        onClick={() => {
+                                            setActiveItem(null);
+                                            setIsCreateModalOpen(true);
+                                        }}
+                                        className="px-4 py-2 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg shadow-primary/20"
+                                    >
+                                        + Add Item
+                                    </button>
                                     <Layers className="w-4 h-4 text-slate-400" />
                                     <select
                                         value={selectedVersion}
@@ -357,23 +468,31 @@ const BOQDetailPage = () => {
                             </div>
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left">
-                                    <thead>
-                                        <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-50">
-                                            <th className="px-6 py-4">Item & Description</th>
-                                            <th className="px-6 py-4">Category</th>
-                                            <th className="px-6 py-4 text-right">Quantity</th>
-                                            <th className="px-6 py-4 text-right">Est. Cost</th>
-                                            <th className="px-6 py-4 text-right">Actual Cost</th>
-                                            <th className="px-6 py-4 text-right">Variance</th>
-                                            <th className="px-6 py-4 text-center">Status</th>
-                                            <th className="px-6 py-4 text-right">Actions</th>
+                                    <thead className="bg-[#f0f7ff] border-b border-blue-100">
+                                        <tr>
+                                            <th className="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-widest text-[#2d5f9e]">
+                                                ID
+                                            </th>
+                                            <th className="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-widest text-[#2d5f9e]">
+                                                Activity Details
+                                            </th>
+                                            <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-[#2d5f9e]">Category</th>
+                                            <th className="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-widest text-[#2d5f9e]">Quantity</th>
+                                            <th className="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-widest text-[#2d5f9e]">Est. Cost</th>
+                                            <th className="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-widest text-[#2d5f9e]">Actual Cost</th>
+                                            <th className="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-widest text-[#2d5f9e]">Variance</th>
+                                            <th className="px-6 py-4 text-center text-[10px] font-bold uppercase tracking-widest text-[#2d5f9e]">Status</th>
+                                            <th className="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-widest text-[#2d5f9e]">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
                                         {boqItems.map(item => {
                                             const varVal = (Number(item.total_cost) || 0) - (Number(item.actual_cost) || 0);
                                             return (
-                                                <tr key={item.id} className="hover:bg-slate-50/30 transition-colors group">
+                                                <tr key={item.id} className="hover:bg-blue-50/30 transition-colors group">
+                                                    <td className="px-6 py-4 text-xs font-bold text-[#4a90e2]">
+                                                        #{item.id}
+                                                    </td>
                                                     <td className="px-6 py-4">
                                                         <p className="font-bold text-slate-800 group-hover:text-primary transition-all uppercase tracking-tight">{item.item_name}</p>
                                                         <p className="text-[10px] font-medium text-slate-400 line-clamp-1">{item.description}</p>
@@ -384,15 +503,31 @@ const BOQDetailPage = () => {
                                                     <td className="px-6 py-4 text-right font-black text-violet-600">₹{(item.actual_cost || 0).toLocaleString()}</td>
                                                     <td className={`px-6 py-4 text-right font-bold ${varVal < 0 ? "text-rose-500" : "text-emerald-500"}`}>₹{Math.abs(varVal).toLocaleString()}</td>
                                                     <td className="px-6 py-4 text-center">
-                                                        <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${item.is_completed ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-400"}`}>
-                                                            {item.is_completed ? "Finished" : "Pending"}
+                                                        <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${item.status === 'Active' ? 'bg-emerald-100 text-emerald-600' :
+                                                            item.status === 'Under Review' ? 'bg-amber-100 text-amber-600' :
+                                                                item.status === 'Draft' ? 'bg-blue-100 text-blue-600' :
+                                                                    'bg-slate-100 text-slate-500'
+                                                            }`}>
+                                                            {item.status || (item.is_completed ? "Finished" : "Pending")}
                                                         </span>
                                                     </td>
                                                     <td className="px-6 py-4 text-right">
-                                                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <div className="flex items-center justify-end gap-1">
                                                             <button onClick={() => { setActiveItem(item); setIsActualsModalOpen(true); }} className="p-2 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all" title="Update Actuals"><TrendingUp className="w-4 h-4" /></button>
                                                             <button onClick={() => { setActiveItem(item); setIsHistoryModalOpen(true); }} className="p-2 text-slate-400 hover:text-violet-500 hover:bg-violet-50 rounded-xl transition-all" title="History"><History className="w-4 h-4" /></button>
+                                                            <button onClick={() => { setActiveItem(item); setIsCreateModalOpen(true); }} className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition-all" title="Edit Item"><Pencil className="w-4 h-4" /></button>
                                                             <button onClick={() => { setActiveItem(item); setIsDetailsModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-xl transition-all" title="View Detail"><Eye className="w-4 h-4" /></button>
+                                                            <button
+                                                                onClick={() => {
+                                                                    if (confirm("Are you sure you want to delete this item?")) {
+                                                                        handleDeleteItem(item.id);
+                                                                    }
+                                                                }}
+                                                                className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                                                                title="Delete Item"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -400,6 +535,36 @@ const BOQDetailPage = () => {
                                         })}
                                     </tbody>
                                 </table>
+                            </div>
+
+                            {/* Pagination UI - Matched with UsersPage style */}
+                            <div className="p-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                                    Showing {(currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} Items
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                                        disabled={currentPage === 1}
+                                        className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                                        </svg>
+                                    </button>
+                                    <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700 font-inter">
+                                        {currentPage}
+                                    </div>
+                                    <button
+                                        onClick={() => setCurrentPage((p) => Math.min(Math.ceil(totalItems / itemsPerPage), p + 1))}
+                                        disabled={currentPage >= Math.ceil(totalItems / itemsPerPage)}
+                                        className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -418,7 +583,7 @@ const BOQDetailPage = () => {
                                     <div key={v} className="p-6 border border-slate-100 rounded-3xl bg-slate-50/50 hover:bg-white hover:shadow-xl transition-all group">
                                         <div className="flex justify-between items-start mb-4">
                                             <span className="px-3 py-1 bg-white border border-slate-100 rounded-lg text-xs font-black text-slate-800 uppercase tracking-widest">Version v{v}</span>
-                                            <button className="text-primary opacity-0 group-hover:opacity-100 transition-opacity"><ArrowLeft className="w-4 h-4 rotate-180" /></button>
+                                            <button className="text-primary transition-opacity"><ArrowLeft className="w-4 h-4 rotate-180" /></button>
                                         </div>
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">State</p>
                                         <p className="text-sm font-bold text-slate-700">{v === Math.max(...versions) ? "Master Snapshot (Active)" : "Archived Perspective"}</p>
@@ -493,6 +658,16 @@ const BOQDetailPage = () => {
                     />
                 </>
             )}
+            <CreateBOQModal
+                isOpen={isCreateModalOpen}
+                onClose={() => {
+                    setIsCreateModalOpen(false);
+                    setActiveItem(null);
+                }}
+                onSubmit={activeItem ? handleUpdateItem : handleAddItem}
+                projects={project ? [project] : []}
+                initialData={activeItem}
+            />
         </>
     );
 };

@@ -1,6 +1,6 @@
 import React from "react";
 import Modal from "../common/Modal";
-import { Printer, X, QrCode } from "lucide-react";
+import { Printer, QrCode } from "lucide-react";
 import logo from "../../assets/logo.png";
 
 interface InvoicePreviewModalProps {
@@ -61,12 +61,6 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                         className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all"
                     >
                         <Printer className="w-4 h-4" /> Print / Save PDF
-                    </button>
-                    <button
-                        onClick={onClose}
-                        className="p-2 bg-white border border-slate-200 text-slate-400 rounded-xl hover:text-slate-600 transition-all"
-                    >
-                        <X className="w-5 h-5" />
                     </button>
                 </div>
 

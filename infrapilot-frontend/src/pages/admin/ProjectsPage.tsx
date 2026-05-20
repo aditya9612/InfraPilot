@@ -35,10 +35,19 @@ const statusDot: Record<ProjectStatus, string> = {
   "On Hold": "bg-warning",
 };
 
+const backendStatusMap: Record<string, string> = {
+  "Planned": "PLANNED",
+  "Ongoing": "ONGOING",
+  "Completed": "COMPLETED",
+  "On Hold": "ON_HOLD",
+  "Delayed": "" // Fallback for statuses not yet in backend enum
+};
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 const ProjectsPage = () => {
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [filterStatus, setFilterStatus] = useState<"All" | ProjectStatus>(
@@ -64,14 +73,18 @@ const ProjectsPage = () => {
     try {
       setIsLoading(true);
       // Fetch data concurrently
-      const [pRes, pAlerts, tAlerts] = await Promise.all([
-        projectService.getProjects(100, 0, debouncedSearch),
+      const [pRes, allRes, pAlerts, tAlerts] = await Promise.all([
+        projectService.getProjects(100, 0, debouncedSearch, filterStatus === "All" ? "" : (backendStatusMap[filterStatus] || "")),
+        projectService.getProjects(100, 0),
         projectService.getProjectAlerts().catch(() => []),
         projectService.getTaskAlerts().catch(() => [])
       ]);
 
       const projectList = Array.isArray(pRes) ? pRes : (pRes.items || pRes.data || []);
+      const fullList = Array.isArray(allRes) ? allRes : (allRes.items || allRes.data || []);
+
       setProjects(projectList);
+      setAllProjects(fullList);
 
       // Process Alerts into Activities
       const combined = [
@@ -102,7 +115,7 @@ const ProjectsPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [debouncedSearch]);
+  }, [debouncedSearch, filterStatus]);
 
   useEffect(() => {
     fetchProjects();
@@ -158,7 +171,7 @@ const ProjectsPage = () => {
 
   const filtered = filterStatus === "All"
     ? projects
-    : projects.filter((p) => p.status === filterStatus);
+    : projects.filter((p) => p.status?.toLowerCase() === filterStatus.toLowerCase());
 
   // Reset pages when filter changes
   const handleFilterChange = (s: any) => {
@@ -168,10 +181,10 @@ const ProjectsPage = () => {
   };
 
   const stats = {
-    total: projects.length,
-    active: projects.filter((p) => p.status === "Ongoing").length,
-    completed: projects.filter((p) => p.status === "Completed").length,
-    delayed: projects.filter((p) => p.status === "Delayed").length,
+    total: allProjects.length,
+    active: allProjects.filter((p) => p.status?.toLowerCase() === "ongoing").length,
+    completed: allProjects.filter((p) => p.status?.toLowerCase() === "completed").length,
+    delayed: allProjects.filter((p) => p.status?.toLowerCase() === "delayed").length,
   };
 
   const handleViewProject = (id: number) => {
@@ -400,7 +413,7 @@ const ProjectsPage = () => {
 
                           <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden mt-3 mb-2">
                             <div
-                              className={`h-full ${progressFill[p.status] || "bg-slate-300"} transition-all duration-1000`}
+                              className={`h-full ${progressFill[p.status as ProjectStatus] || progressFill["Ongoing" as ProjectStatus] || "bg-slate-300"} transition-all duration-1000`}
                               style={{ width: `${p.completion_percentage}%` }}
                             />
                           </div>
@@ -408,7 +421,7 @@ const ProjectsPage = () => {
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <span
-                                className={`w-1.5 h-1.5 rounded-full ${statusDot[p.status] || "bg-slate-400"}`}
+                                className={`w-1.5 h-1.5 rounded-full ${statusDot[p.status as ProjectStatus] || statusDot["Ongoing" as ProjectStatus] || "bg-slate-400"}`}
                               />
                               <span className="text-[9px] font-bold text-slate-400 uppercase translate-y-px">
                                 {p.status}
@@ -560,7 +573,7 @@ const ProjectsPage = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${statusBadge[p.status] || "bg-slate-100 text-slate-500"}`}>
+                          <span className={`px-3 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${statusBadge[p.status as ProjectStatus] || statusBadge["Ongoing" as ProjectStatus] || "bg-slate-100 text-slate-500"}`}>
                             {p.status}
                           </span>
                         </td>
