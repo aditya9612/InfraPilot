@@ -19,7 +19,9 @@ import {
   Briefcase,
   Mail,
   ClipboardList,
-  RotateCcw
+  RotateCcw,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 import { workProgressService } from "../../../services/workProgressService";
@@ -66,6 +68,8 @@ const ActivityListPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("All Status");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Interactive StatCard Filter
   const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Compliance" | "Delayed" | "Execution">("All");
@@ -81,11 +85,24 @@ const ActivityListPage = () => {
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
   const loadActivities = useCallback(async () => {
-    if (!projectId) return;
     try {
       setLoading(true);
-      const data = await workProgressService.listActivities(projectId, engineer_id);
-      setActivities(data);
+      const data = await workProgressService.listActivities(projectId || 36, engineer_id);
+      const normalizedData = data.map((a: any) => {
+        let status = a.status;
+        if (status) {
+          const upper = status.toUpperCase().replace(/_/g, " ");
+          if (upper === "NOT STARTED" || upper === "NOT_STARTED") status = "Not Started";
+          if (upper === "ON TRACK" || upper === "ON_TRACK") status = "On Track";
+          if (upper === "DELAY") status = "Delay";
+          if (upper === "COMPLETED") status = "Completed";
+        }
+        return {
+          ...a,
+          status: status || "Not Started"
+        };
+      });
+      setActivities(normalizedData);
     } catch (err) {
       console.error("Load Activities Error:", err);
       toast.error("Failed to load activities");
@@ -134,6 +151,14 @@ const ActivityListPage = () => {
     );
   }, [activities, searchTerm, filterStatus, activeStatFilter]);
 
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterStatus, activeStatFilter]);
+
+  const totalPages = Math.ceil(filteredActivities.length / itemsPerPage);
+  const paginatedActivities = filteredActivities.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
   const handleAddSubmit = async (data: any) => {
     try {
       await workProgressService.createActivity(data);
@@ -179,6 +204,17 @@ const ActivityListPage = () => {
       toast.error("Failed to delete activity");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleView = async (id: number) => {
+    try {
+      const freshActivity = await workProgressService.getActivity(id);
+      setSelectedActivity(freshActivity);
+      setIsViewModalOpen(true);
+    } catch (err) {
+      console.error("Failed to fetch activity details:", err);
+      toast.error("Failed to fetch activity details");
     }
   };
 
@@ -291,7 +327,6 @@ const ActivityListPage = () => {
             <table className="w-full text-left font-inter min-w-[1200px]">
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
-                  <th className="px-6 py-4 font-inter">Ref Code</th>
                   <th className="px-6 py-4 font-inter">Activity Description</th>
                   <th className="px-6 py-4 font-inter">Logistics</th>
                   <th className="px-6 py-4 min-w-[200px] font-inter">% Intensity</th>
@@ -303,16 +338,13 @@ const ActivityListPage = () => {
               <tbody className="divide-y divide-slate-50 font-inter">
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-20 text-center font-inter">
+                    <td colSpan={6} className="px-6 py-20 text-center font-inter">
                       <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
                       <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing Ledger...</p>
                     </td>
                   </tr>
-                ) : filteredActivities.length > 0 ? filteredActivities.map((a) => (
+                ) : paginatedActivities.length > 0 ? paginatedActivities.map((a) => (
                   <tr key={a.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
-                    <td className="px-6 py-4 font-inter">
-                      <span className="font-mono text-[10px] text-slate-400 font-bold uppercase tracking-wider font-inter">{a.boq_code || "No BOQ"}</span>
-                    </td>
                     <td className="px-6 py-4 font-inter">
                       <p className="font-bold text-slate-800 text-sm font-inter">{a.activity_name}</p>
                     </td>
@@ -347,7 +379,7 @@ const ActivityListPage = () => {
                     <td className="px-6 py-4 font-inter">
                       <div className="flex items-center justify-end gap-2 font-inter">
                         <button
-                          onClick={() => { setSelectedActivity(a); setIsViewModalOpen(true); }}
+                          onClick={() => handleView(a.id)}
                           className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-95 font-inter"
                           title="View Insight"
                         >
@@ -379,7 +411,7 @@ const ActivityListPage = () => {
                   </tr>
                 )) : (
                   <tr>
-                    <td colSpan={7} className="px-6 py-20 text-center text-slate-400 font-inter">
+                    <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-inter">
                       No activities found in the project registry.
                     </td>
                   </tr>
@@ -387,6 +419,36 @@ const ActivityListPage = () => {
               </tbody>
             </table>
           </div>
+
+          {/* ── Pagination Controls ──────────────────────────── */}
+          {!loading && filteredActivities.length > 0 && (
+            <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredActivities.length)} of {filteredActivities.length} entries
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center"
+                  title="Previous Page"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
+                  Page {currentPage} of {totalPages || 1}
+                </div>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages || totalPages === 0}
+                  className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center"
+                  title="Next Page"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </PageTransition>
 

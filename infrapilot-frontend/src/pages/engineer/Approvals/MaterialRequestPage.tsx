@@ -70,20 +70,14 @@ const MaterialRequestPage = () => {
     const fetchRequests = useCallback(async () => {
         setIsLoading(true);
         try {
-            // Fetch global requisition list (all projects)
-            const serverData = await siteRequestService.getRequests();
-            setRequestData(prev => {
-                const mocks = prev.filter(r => String(r.id).startsWith("MOCK-"));
-                const serverIds = new Set(serverData.map((r: any) => r.id));
-                const filteredMocks = mocks.filter(m => !serverIds.has(m.id));
-                return [...filteredMocks, ...serverData];
-            });
+            const serverData = await siteRequestService.getRequests(projectId || 36);
+            setRequestData(serverData);
         } catch (error) {
-            toast.error("Failed to sync requisition logs");
+            toast.error("Failed to fetch requisition list.");
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [projectId]);
 
     useEffect(() => {
         fetchRequests();
@@ -123,24 +117,16 @@ const MaterialRequestPage = () => {
             const newRecord = await siteRequestService.createRequest(payload);
             toast.success("Requisition Created Successfully!", { id: toastId });
             
-            setRequestData(prev => [newRecord, ...prev]);
+            // Switch to the project ID that was just used to submit the request
+            if (projectId !== payload.project_id) {
+                setProjectId(payload.project_id);
+            } else {
+                setRequestData(prev => [newRecord, ...prev]);
+            }
             setIsFormModalOpen(false);
         } catch (error) {
             console.error("Submission Error:", error);
-            // Fallback for demo
-            const mockRecord: MaterialRequestRecord = {
-                id: `MOCK-${Date.now()}`,
-                project_id: formData.project_id,
-                request_type: formData.request_type,
-                description: formData.description,
-                quantity: formData.quantity,
-                requested_by: 1,
-                approved_by: null,
-                status: "Pending"
-            };
-            setRequestData(prev => [mockRecord, ...prev]);
-            toast.success("Requisition Logged (Virtual Success)", { id: toastId });
-            setIsFormModalOpen(false);
+            toast.error("Failed to commit requisition. Please try again.", { id: toastId });
         } finally {
             setIsSubmitting(false);
         }
@@ -156,6 +142,9 @@ const MaterialRequestPage = () => {
             setRequestData(prev => prev.map(req => 
                 req.id === id ? { ...req, status: "Approved" as const } : req
             ));
+
+            // Refetch the list from GET API
+            await fetchRequests();
         } catch (error) {
             toast.error("Failed to approve requisition", { id: toastId });
         }
@@ -171,6 +160,9 @@ const MaterialRequestPage = () => {
             setRequestData(prev => prev.map(req => 
                 req.id === id ? { ...req, status: "Rejected" as const } : req
             ));
+
+            // Refetch the list from GET API
+            await fetchRequests();
         } catch (error) {
             toast.error("Failed to reject requisition", { id: toastId });
         }
@@ -348,7 +340,7 @@ const MaterialRequestPage = () => {
                                             <td className="px-6 py-4 font-inter">
                                                 <div className="flex flex-col font-inter">
                                                     <span className="text-sm font-bold text-slate-800 font-inter">REQ-#{request.id}</span>
-                                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">Procurement Log</span>
+                                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter mt-0.5">Procurement Log</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 font-inter">
@@ -434,11 +426,11 @@ const MaterialRequestPage = () => {
                                     <ChevronLeft className="w-4 h-4" />
                                 </button>
                                 <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                                    Page {currentPage} of {1 || 1}
+                                    Page {currentPage} of {totalPages}
                                 </div>
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, 1 || 1))}
-                                    disabled={currentPage >= 1 || 1 === 0}
+                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                    disabled={currentPage >= totalPages}
                                     className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
                                     title="Next Page"
                                 >

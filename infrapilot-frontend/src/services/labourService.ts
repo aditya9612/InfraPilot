@@ -131,8 +131,8 @@ export const labourService = {
             const response = await api.delete(`/labour/${labourId}`);
             return response.data;
         } catch (err: any) {
-            console.warn(`Virtual Success: Bypassing Error for Delete Labour ${labourId}`);
-            return { message: "Labour record deleted successfully (Virtual)" };
+            console.error(`Error for Delete Labour ${labourId}`, err);
+            throw err;
         }
     },
 
@@ -153,12 +153,7 @@ export const labourService = {
             return response.data;
         } catch (err: any) {
             console.error("labourService.assignLabourToProject Error (403/500):", err.response?.data || err.message);
-            // Fallback for UI continuity
-            return {
-                labour_id: labourId,
-                project_id: projectId,
-                assigned_date: new Date().toISOString().split('T')[0]
-            };
+            throw err;
         }
     },
 
@@ -185,41 +180,8 @@ export const labourService = {
             console.log("POST /api/v1/labour/check-in - SUCCESS (200 OK)", response.data);
             return response.data;
         } catch (error: any) {
-            console.warn(`Virtual Success: Bypassing Error for Labour Check-In`, error?.message);
-            
-            // Capture image as Base64 for local persistence
-            let checkInImage = null;
-            if (checkInData.check_in_image instanceof File) {
-                checkInImage = await new Promise((resolve) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => resolve(reader.result as string);
-                    reader.readAsDataURL(checkInData.check_in_image);
-                });
-            }
-
-            const mockResponse = {
-                id: Math.floor(Math.random() * 10000) + 5000,
-                labour_id: Number(labourId),
-                project_id: checkInData.project_id || 1,
-                attendance_date: new Date().toISOString().split('T')[0],
-                status: "present",
-                check_in_address: checkInData.location_address || "Pune (Project Site)",
-                in_time: new Date().toLocaleTimeString('en-GB', { hour12: false }),
-                task_id: checkInData.task_id || null,
-                task_description: checkInData.task_description || "Site Operations",
-                check_in_image: checkInImage,
-                check_out_image: null
-            };
-
-            // Save to offline storage
-            try {
-                const stored = localStorage.getItem("infrapilot_offline_attendance");
-                const saved = stored ? JSON.parse(stored) : [];
-                saved.unshift(mockResponse);
-                localStorage.setItem("infrapilot_offline_attendance", JSON.stringify(saved));
-            } catch (e) { console.error("Offline storage failed", e); }
-
-            return mockResponse;
+            console.error(`Error for Labour Check-In`, error?.message);
+            throw error;
         }
     },
 
@@ -249,48 +211,8 @@ export const labourService = {
             );
             return response.data;
         } catch (error: any) {
-            console.warn(`Virtual Success: Bypassing Error for Labour Check-Out`, error?.message);
-            
-            // Capture image as Base64 for local persistence
-            let checkOutImage = null;
-            let checkOutFile: any = null;
-            
-            if (checkOutData instanceof FormData) {
-                checkOutFile = checkOutData.get("check_out_image");
-            } else {
-                checkOutFile = checkOutData.check_out_image;
-            }
-
-            if (checkOutFile instanceof File) {
-                checkOutImage = await new Promise((resolve) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => resolve(reader.result as string);
-                    reader.readAsDataURL(checkOutFile);
-                });
-            }
-
-            const outTime = new Date().toLocaleTimeString('en-GB', { hour12: false });
-            
-            // Update offline storage record if it exists
-            try {
-                const stored = localStorage.getItem("infrapilot_offline_attendance");
-                if (stored) {
-                    const saved = JSON.parse(stored);
-                    const idx = saved.findIndex((a: any) => a.id === Number(attendanceId));
-                    if (idx !== -1) {
-                        saved[idx].out_time = outTime;
-                        saved[idx].check_out_image = checkOutImage;
-                        saved[idx].status = "completed";
-                        localStorage.setItem("infrapilot_offline_attendance", JSON.stringify(saved));
-                    }
-                }
-            } catch (e) { console.error("Offline storage update failed", e); }
-
-            return { 
-                message: "Check-out successful (Virtual)",
-                out_time: outTime,
-                check_out_image: checkOutImage
-            };
+            console.error(`Error for Labour Check-Out`, error?.message);
+            throw error;
         }
     },
 
@@ -316,27 +238,10 @@ export const labourService = {
                 check_out_image: this.resolveUrl(item.check_out_image)
             }));
 
-            // Fetch offline data for this labour
-            let offlineData: any[] = [];
-            try {
-                const stored = localStorage.getItem("infrapilot_offline_attendance");
-                if (stored) {
-                    offlineData = JSON.parse(stored).filter((a: any) => a.labour_id === Number(labourId));
-                }
-            } catch (e) { console.error("Offline fetch error", e); }
-
-            return [...offlineData, ...normalizedBackend];
+            return normalizedBackend;
         } catch (err) {
-            console.warn("Virtual Success: Fetching Offline History for Labour", labourId);
-            let offlineData: any[] = [];
-            try {
-                const stored = localStorage.getItem("infrapilot_offline_attendance");
-                if (stored) {
-                    offlineData = JSON.parse(stored).filter((a: any) => a.labour_id === Number(labourId));
-                }
-            } catch (e) { console.error("Offline fetch error", e); }
-
-            return offlineData;
+            console.error("Error Fetching History for Labour", labourId);
+            throw err;
         }
     },
 
@@ -378,27 +283,10 @@ export const labourService = {
                 check_out_image: this.resolveUrl(item.check_out_image)
             }));
 
-            // Merge Offline Items
-            let offlineItems: any[] = [];
-            try {
-                const stored = localStorage.getItem("infrapilot_offline_attendance");
-                if (stored) {
-                    offlineItems = JSON.parse(stored).filter((a: any) => a.project_id === Number(projectId));
-                }
-            } catch (e) { console.error("Offline fetch error", e); }
-
-            return { items: [...offlineItems, ...items], total: offlineItems.length + items.length, limit: 50, offset: 0 };
+            return { items, total: items.length, limit: 50, offset: 0 };
         } catch (err: any) {
-            console.warn("Virtual Success: Fetching Offline Attendance Registry");
-            let offlineItems: any[] = [];
-            try {
-                const stored = localStorage.getItem("infrapilot_offline_attendance");
-                if (stored) {
-                    offlineItems = JSON.parse(stored).filter((a: any) => a.project_id === Number(projectId));
-                }
-            } catch (e) { console.error("Offline fetch error", e); }
-            
-            return { items: offlineItems, total: offlineItems.length, limit: 50, offset: 0 };
+            console.error("Error Fetching Attendance Registry", err);
+            throw err;
         }
     },
     async deleteAttendance(attendanceId: number): Promise<any> {
@@ -406,19 +294,8 @@ export const labourService = {
             const response = await api.delete(`/labour/attendance/${attendanceId}`);
             return response.data;
         } catch (err: any) {
-            console.warn(`Virtual Success: Bypassing Error for Delete Attendance ${attendanceId}`);
-            
-            // Remove from offline storage if it exists there
-            try {
-                const stored = localStorage.getItem("infrapilot_offline_attendance");
-                if (stored) {
-                    const saved = JSON.parse(stored);
-                    const filtered = saved.filter((a: any) => a.id !== Number(attendanceId));
-                    localStorage.setItem("infrapilot_offline_attendance", JSON.stringify(filtered));
-                }
-            } catch (e) { console.error("Offline storage delete failed", e); }
-            
-            return { message: "Attendance record deleted successfully (Virtual)" };
+            console.error(`Error for Delete Attendance ${attendanceId}`, err);
+            throw err;
         }
     },
     async updateAttendance(attendanceId: number, data: any): Promise<any> {

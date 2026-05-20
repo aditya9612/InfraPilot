@@ -64,6 +64,10 @@ const ActivityDetailModal = ({ isOpen, onClose, activity, onEdit }: ActivityDeta
               <p className="text-xs font-bold text-slate-600">{activity.start_date} → {activity.end_date}</p>
             </div>
             <div>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Work Order ID</p>
+              <p className="text-xs font-bold text-slate-600">#{activity.work_order_id || "N/A"}</p>
+            </div>
+            <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Status</p>
               <span className={`px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest rounded-lg ${statusBadge[activity.status] || "bg-slate-100 text-slate-500"}`}>
                 {activity.status}

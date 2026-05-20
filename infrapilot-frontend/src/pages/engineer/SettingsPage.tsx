@@ -9,8 +9,7 @@ import { projectService } from "../../services/projectService";
 import type {
     UserSettings,
     UserProfile,
-    UpdateSettingsRequest,
-    UpdateProfileRequest
+    UpdateSettingsRequest
 } from "../../types/settings";
 
 // ─── Toggle Switch ──────────────────────────────────────────────────────────────
@@ -219,15 +218,15 @@ const SettingsPage = () => {
         setIsSaving(true);
         const toastId = toast.loading("Syncing configuration…");
         try {
-            // 1. Prepare Settings Update
+             // 1. Prepare Settings Update
             const settingsData: UpdateSettingsRequest = {
                 default_project_id: selectedProject,
                 unit: lengthUnit,
                 notifications_enabled: notifications.emailAlerts || notifications.pushNotifications,
-                preferences: {
-                    ...preferences,
-                    language,
-                    timezone,
+                preferences: { 
+                    ...preferences, 
+                    language, 
+                    timezone, 
                     dateFormat,
                     unitSystem,
                     massUnit

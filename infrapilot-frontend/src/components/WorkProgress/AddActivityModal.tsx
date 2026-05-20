@@ -22,7 +22,8 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
     unit: "Cum",
     start_date: new Date().toISOString().split("T")[0],
     end_date: "",
-    status: "Not Started"
+    status: "Not Started",
+    work_order_id: "" as any
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -37,6 +38,12 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
 
     if (!formData.planned_quantity || formData.planned_quantity <= 0) {
       errs.planned_quantity = "Planned quantity must be greater than 0";
+    }
+
+    if (!formData.work_order_id) {
+      errs.work_order_id = "Work Order ID is required";
+    } else if (formData.work_order_id <= 0) {
+      errs.work_order_id = "Work Order ID must be greater than 0";
     }
 
     if (!formData.start_date) errs.start_date = "Start date is required";
@@ -59,7 +66,8 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
         ...formData,
         project_id: projectId,
         engineer_id: engineerId,
-        boq_code: formData.boq_code ? Number(formData.boq_code) : null
+        boq_code: formData.boq_code ? Number(formData.boq_code) : null,
+        work_order_id: formData.work_order_id ? Number(formData.work_order_id) : null
       });
       setFormData({
         activity_name: "",
@@ -68,7 +76,8 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
         unit: "Cum",
         start_date: new Date().toISOString().split("T")[0],
         end_date: "",
-        status: "Not Started"
+        status: "Not Started",
+        work_order_id: "" as any
       });
       setErrors({});
     } catch (err) {
@@ -151,6 +160,16 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
               />
             </div>
             <div>
+              <label className={labelClasses}>Work Order ID*</label>
+              <input 
+                required
+                type="number" name="work_order_id" placeholder="Enter Work Order ID"
+                className={inputClasses(errors.work_order_id)}
+                value={formData.work_order_id} onChange={handleChange}
+              />
+              {errors.work_order_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.work_order_id}</p>}
+            </div>
+            <div className="md:col-span-2">
               <label className={labelClasses}>Current Status*</label>
               <select name="status" className={inputClasses()} value={formData.status} onChange={handleChange}>
                 {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
