@@ -4,6 +4,11 @@ import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
 import api from "../../services/api";
 import { Sun, Cloud, CloudRain, CloudSun, CloudDrizzle, CloudFog, CloudSnow, CloudLightning } from "lucide-react";
+import { workProgressService } from "../../services/workProgressService";
+import { labourService } from "../../services/labourService";
+import { issueService } from "../../services/issueService";
+import { materialService } from "../../services/materialService";
+import { qcService } from "../../services/qcService";
 
 const expenseCategoryColors: Record<string, string> = {
     Labour: "bg-blue-50 text-blue-600",
@@ -32,120 +37,37 @@ const EngineerDashboard = () => {
         }
     }
 
-    // 1. Initial State populated instantly with real-time local cache data to prevent any reloads/spinners!
-    const getInitialDashboardData = () => {
-        const activitiesStr = localStorage.getItem("mock-activities");
-        const allActivities = activitiesStr ? JSON.parse(activitiesStr) : [];
-        const list = allActivities.filter((a: any) => a.project_id === projectId || (!a.project_id && projectId === 92));
-
-        const activeActivities = list.filter((a: any) => a.status !== "Completed" && a.completion_percentage < 100);
-        const completedCount = list.filter((a: any) => a.status === "Completed" || a.completion_percentage === 100).length;
-        const total = list.length;
-
-        // If it's project 92, provide the rich defaults if no data
-        const isDefault = projectId === 92;
-        const progress = total > 0 ? Math.round((completedCount / total) * 100) : (isDefault ? 68 : 0);
-        const planned_progress = total > 0 ? 72 : (isDefault ? 72 : 0);
-        const variance = progress - planned_progress;
-
-        const disciplines = ["Structural Work", "Masonry & Brickwork", "Plumbing", "Electrical", "Finishing"];
-        const colors = ["bg-blue-500", "bg-indigo-500", "bg-cyan-500", "bg-amber-500", "bg-rose-400"];
-        const discipline_progress = disciplines.map((d, index) => {
-            const dAct = list.filter((a: any) => (a.discipline || "Structural Work") === d);
-            const avgActual = dAct.length > 0 ? dAct.reduce((sum: number, a: any) => sum + a.completion_percentage, 0) / dAct.length : 0;
-            return {
-                label: d,
-                planned: isDefault ? (d === "Structural Work" ? 72 : d === "Masonry & Brickwork" ? 40 : d === "Plumbing" ? 20 : d === "Electrical" ? 15 : 5) : 0,
-                actual: dAct.length > 0 ? Math.round(avgActual) : (isDefault ? (d === "Structural Work" ? 68 : d === "Masonry & Brickwork" ? 35 : d === "Plumbing" ? 22 : d === "Electrical" ? 10 : 0) : 0),
-                color: colors[index]
-            };
-        });
-
-        const today_work_summary = list.map((a: any) => ({
-            id: a.id,
-            activity: a.activity_name,
-            description: `Executing BOQ code ${a.boq_code || "N/A"}. Planned quantity: ${a.planned_quantity} ${a.unit}.`,
-            status: a.status === "Completed" ? "Completed" : a.status === "Delay" ? "Pending" : "In Progress",
-            time: `Deadline: ${a.end_date}`,
-            statusColor: a.status === "Completed" ? "bg-emerald-100 text-emerald-600" : a.status === "Delay" ? "bg-rose-100 text-rose-600" : "bg-blue-100 text-blue-600"
-        }));
-
-        const defaultWorkSummary = isDefault ? [
-            { id: 1, activity: "Column Reinforcement Check", description: "Checking reinforcement for columns C1–C15 at the 4th floor.", status: "In Progress", time: "Started: 09:00 AM", statusColor: "bg-blue-100 text-blue-600" },
-            { id: 2, activity: "Concrete Pouring – Retaining Wall", description: "Pouring M35 grade concrete for the North-side retaining wall.", status: "Completed", time: "Finished: 02:30 PM", statusColor: "bg-emerald-100 text-emerald-600" },
-            { id: 3, activity: "Shuttering – 5th Floor Slab", description: "Setting formwork for 5th-floor slab casting scheduled tomorrow.", status: "Pending", time: "ETA: 05:00 PM", statusColor: "bg-amber-100 text-amber-600" }
-        ] : [];
-
-        const dailyEntriesStr = localStorage.getItem("mock-daily-entries");
-        const allDailyList = dailyEntriesStr ? JSON.parse(dailyEntriesStr) : [];
-        const dailyList = allDailyList.filter((e: any) => {
-            const act = allActivities.find((a: any) => a.id === e.activity_id);
-            return act && (act.project_id === projectId || (!act.project_id && projectId === 92));
-        });
-
-        const recent_expenses = dailyList.map((e: any) => {
-            const act = list.find((a: any) => a.id === e.activity_id);
-            return {
-                id: e.id,
-                date: e.entry_date,
-                type: "Labour",
-                category: act ? act.activity_name : "General",
-                amount: e.today_progress * 500,
-                note: e.remarks || "Daily progress logging check"
-            };
-        });
-
-        const defaultExpenses = isDefault ? [
-            { id: 1, date: "2026-04-29", type: "Labour", category: "Skilled", amount: 48500, note: "Reinforcement workers – 5 days" },
-            { id: 2, date: "2026-04-28", type: "Material", category: "Concrete", amount: 125000, note: "M35 concrete supply – 50 cum" },
-            { id: 3, date: "2026-04-27", type: "Equipment", category: "Machinery", amount: 18000, note: "Transit mixer rental – 2 days" },
-            { id: 4, date: "2026-04-26", type: "Material", category: "Steel", amount: 87500, note: "Fe500 TMT bars – 5 MT" },
-            { id: 5, date: "2026-04-25", type: "Labour", category: "Unskilled", amount: 21000, note: "Earthwork helpers – 3 days" }
-        ] : [];
-
-        const finalWorkSummary = today_work_summary.length > 0 ? today_work_summary : defaultWorkSummary;
-        const finalExpenses = recent_expenses.length > 0 ? [...recent_expenses, ...defaultExpenses] : defaultExpenses;
-
-        return {
-            project_id: projectId,
-            project_name: projectName,
-            status: "ProjectStatus.PLANNED",
-            progress: progress,
-            planned_progress: planned_progress,
-            variance: variance,
-            vitals: {
-                total_labour_today: isDefault ? 145 : 0,
-                skilled_labour: isDefault ? 85 : 0,
-                unskilled_labour: isDefault ? 60 : 0,
-                active_activities: activeActivities.length || (isDefault ? 12 : 0),
-                open_issues: {
-                    total: isDefault ? 4 : 0,
-                    high_priority: isDefault ? 2 : 0
-                },
-                material_stock_status: isDefault ? [
-                    { material: "Cement", status: "OK" },
-                    { material: "Steel", status: "Low" }
-                ] : []
+    const getEmptyDashboardData = (pId: number, pName: string) => ({
+        project_id: pId,
+        project_name: pName,
+        status: "Planned",
+        progress: 0,
+        planned_progress: 0,
+        variance: 0,
+        vitals: {
+            total_labour_today: 0,
+            skilled_labour: 0,
+            unskilled_labour: 0,
+            active_activities: 0,
+            open_issues: {
+                total: 0,
+                high_priority: 0
             },
-            today_work_summary: finalWorkSummary,
-            discipline_progress: discipline_progress,
-            timeline: isDefault ? [
-                { id: 1, phase: "Site Preparation & Survey", start: "Jan 2026", end: "Feb 2026", progress: 100, status: "Completed" },
-                { id: 2, phase: "Foundation & Excavation", start: "Feb 2026", end: "Mar 2026", progress: 100, status: "Completed" },
-                { id: 3, phase: "Structural Framework – G+2", start: "Mar 2026", end: "May 2026", progress: 68, status: "In Progress" },
-                { id: 4, phase: "External Brickwork & Plaster", start: "May 2026", end: "Jul 2026", progress: 0, status: "Upcoming" },
-                { id: 5, phase: "MEP & Finishing Works", start: "Jul 2026", end: "Sep 2026", progress: 0, status: "Upcoming" },
-                { id: 6, phase: "Handover & Inspection", start: "Sep 2026", end: "Oct 2026", progress: 0, status: "Upcoming" }
-            ] : [],
-            recent_expenses: finalExpenses,
-            weather: {
-                condition: "Clear",
-                temperature: 32
-            }
-        };
-    };
+            material_stock_status: []
+        },
+        today_work_summary: [],
+        discipline_progress: [],
+        timeline: [],
+        recent_expenses: [],
+        weather: {
+            condition: "Clear",
+            temperature: 32
+        }
+    });
 
-    const [dashboardData, setDashboardData] = useState<any>(getInitialDashboardData);
+    const [dashboardData, setDashboardData] = useState<any>(getEmptyDashboardData(projectId, projectName));
+    const [isLoading, setIsLoading] = useState(true);
+
     const weatherData = {
         condition: dashboardData?.weather?.condition || "Clear",
         temperature: dashboardData?.weather?.temperature || 32,
@@ -155,20 +77,121 @@ const EngineerDashboard = () => {
     const [showPlanned, setShowPlanned] = useState(true);
     const [showActual, setShowActual] = useState(true);
 
-    // 3. Silent background fetch to sync dashboardData without blocking page views or showing spinners!
     useEffect(() => {
-        const fetchDashboardStats = async () => {
+        const fetchAllDashboardData = async () => {
+            setIsLoading(true);
             try {
-                const res = await api.get(`/dashboard/engineer/${projectId}`);
-                if (res && res.data) {
-                    setDashboardData(res.data);
-                }
+                // 1. Fire all real service calls concurrently
+                const [
+                    activities,
+                    laboursRes,
+                    issuesRes,
+                    materials
+                ] = await Promise.all([
+                    workProgressService.listActivities(projectId).catch(() => []),
+                    labourService.getLabours(projectId, { status: "Active" }).catch(() => ({ items: [] })),
+                    issueService.listIssuesByProject(projectId).catch(() => ({ items: [] })),
+                    materialService.getInventory(projectId).catch(() => [])
+                ]);
+
+                const issues = issuesRes?.items || [];
+                const labours = laboursRes?.items || [];
+
+                // 2. Process Work Progress Data
+                const activeActivities = activities.filter((a: any) => a.status !== "Completed" && a.completion_percentage < 100);
+                const completedCount = activities.filter((a: any) => a.status === "Completed" || a.completion_percentage === 100).length;
+                const totalAct = activities.length;
+                const progress = totalAct > 0 ? Math.round((completedCount / totalAct) * 100) : 0;
+                
+                // Aggregating disciplines
+                const disciplines = ["Structural Work", "Masonry & Brickwork", "Plumbing", "Electrical", "Finishing"];
+                const colors = ["bg-blue-500", "bg-indigo-500", "bg-cyan-500", "bg-amber-500", "bg-rose-400"];
+                const discipline_progress = disciplines.map((d, index) => {
+                    const dAct = activities.filter((a: any) => (a.discipline || "Structural Work") === d);
+                    const avgActual = dAct.length > 0 ? dAct.reduce((sum: number, a: any) => sum + a.completion_percentage, 0) / dAct.length : 0;
+                    return {
+                        label: d,
+                        planned: 0,
+                        actual: dAct.length > 0 ? Math.round(avgActual) : 0,
+                        color: colors[index]
+                    };
+                });
+
+                const today_work_summary = activities.slice(0, 5).map((a: any) => ({
+                    id: a.id,
+                    activity: a.activity_name,
+                    description: `Executing BOQ code ${a.boq_code || "N/A"}. Planned quantity: ${a.planned_quantity} ${a.unit}.`,
+                    status: a.status === "Completed" ? "Completed" : a.status === "Delay" ? "Pending" : "In Progress",
+                    time: `Deadline: ${a.end_date}`,
+                    statusColor: a.status === "Completed" ? "bg-emerald-100 text-emerald-600" : a.status === "Delay" ? "bg-rose-100 text-rose-600" : "bg-blue-100 text-blue-600"
+                }));
+
+                // 3. Process Labour Data
+                const skilledLabours = labours.filter((l: any) => l.category === "Skilled" || l.type === "Skilled").length;
+                const unskilledLabours = labours.length - skilledLabours;
+
+                // 4. Process Material Data
+                const material_stock_status = materials.slice(0, 3).map((m: any) => ({
+                    material: m.name || m.item_name || "Unknown",
+                    status: (m.quantity || 0) < (m.min_threshold || 10) ? "Low" : "OK"
+                }));
+
+                // 5. Process Issues Data
+                const openIssues = issues.filter((i: any) => i.status !== "Resolved" && i.status !== "Closed");
+                const highPriorityIssues = openIssues.filter((i: any) => i.priority === "High" || i.priority === "Critical");
+
+                // Compile Final Data Structure
+                setDashboardData({
+                    project_id: projectId,
+                    project_name: projectName,
+                    status: "Active",
+                    progress: progress,
+                    planned_progress: 0, // Needs baseline integration
+                    variance: progress, 
+                    vitals: {
+                        total_labour_today: labours.length,
+                        skilled_labour: skilledLabours,
+                        unskilled_labour: unskilledLabours,
+                        active_activities: activeActivities.length,
+                        open_issues: {
+                            total: openIssues.length,
+                            high_priority: highPriorityIssues.length
+                        },
+                        material_stock_status: material_stock_status.length > 0 ? material_stock_status : [{ material: "No Stock Data", status: "N/A" }]
+                    },
+                    today_work_summary: today_work_summary,
+                    discipline_progress: discipline_progress,
+                    timeline: [], // Populated by Gantt/Phases if available
+                    recent_expenses: [], // Needs expenseService integration if added later
+                    weather: {
+                        condition: "Clear",
+                        temperature: 32
+                    }
+                });
+
             } catch (err) {
-                console.warn("Background dashboard sync bypassed, running on responsive local engine", err);
+                console.error("Dashboard Aggregation Error:", err);
+            } finally {
+                setIsLoading(false);
             }
         };
+
         fetchDashboardStats();
-    }, [projectId]);
+        fetchAllDashboardData();
+        
+        // Also fetch from the aggregation endpoint just in case it's populated
+        async function fetchDashboardStats() {
+            try {
+                const res = await api.get(`/dashboard/engineer/${projectId}`);
+                if (res && res.data && Object.keys(res.data).length > 2) {
+                    // Fallback to aggregated endpoint if it's richer
+                    setDashboardData((prev: any) => ({ ...prev, ...res.data }));
+                }
+            } catch (err) {
+                // Ignore silent background fetch error
+            }
+        }
+    }, [projectId, projectName]);
 
     const overallProgress = dashboardData.progress || 0;
     const plannedPercent = dashboardData.planned_progress || 0;
@@ -188,7 +211,16 @@ const EngineerDashboard = () => {
         <>
             <Navbar title="Site Overview" breadcrumb={["InfraPilot", "Engineer", "Dashboard"]} />
 
-            <PageTransition className="p-4 md:p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+            {isLoading ? (
+                <div className="flex flex-col items-center justify-center h-[calc(100vh-64px)] bg-slate-50 font-inter">
+                    <div className="w-16 h-16 relative flex items-center justify-center mb-4">
+                        <div className="absolute inset-0 rounded-full border-4 border-slate-200"></div>
+                        <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
+                    </div>
+                    <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Aggregating Site Data...</p>
+                </div>
+            ) : (
+                <PageTransition className="p-4 md:p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
 
                 {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
@@ -472,6 +504,7 @@ const EngineerDashboard = () => {
                 </div>
 
             </PageTransition>
+            )}
         </>
     );
 };
