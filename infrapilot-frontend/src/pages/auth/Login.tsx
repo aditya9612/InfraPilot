@@ -1,63 +1,17 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import type { Role, User } from "../../context/AuthContext";
 import logo from "../../assets/logo.png";
+import { authService } from "../../services/authService";
+import toast from "react-hot-toast";
 
 type Step = "mobile" | "otp";
 
-const MOCK_OTP = "123456";
-
-const MOCK_USERS: Record<string, User> = {
-  "9999999999": {
-    id: "1",
-    name: "Arjun Mehta",
-    mobile: "9999999999",
-    role: "Admin",
-    token: "tok_admin",
-  },
-  "8888888888": {
-    id: "2",
-    name: "Priya Nair",
-    mobile: "8888888888",
-    role: "Project Manager",
-    token: "tok_pm",
-  },
-  "7777777777": {
-    id: "3",
-    name: "Ravi Kumar",
-    mobile: "7777777777",
-    role: "Site Engineer",
-    token: "tok_eng",
-  },
-  "6666666666": {
-    id: "4",
-    name: "Suresh Patel",
-    mobile: "6666666666",
-    role: "Contractor",
-    token: "tok_con",
-  },
-  "5555555555": {
-    id: "5",
-    name: "Neha Sharma",
-    mobile: "5555555555",
-    role: "Accountant",
-    token: "tok_acc",
-  },
-  "4444444444": {
-    id: "6",
-    name: "Mr. Sharma",
-    mobile: "4444444444",
-    role: "Client",
-    token: "tok_client",
-  },
-};
-
 const ROLE_PATHS: Record<Role, string> = {
   Admin: "/admin",
-  "Project Manager": "/manager",
-  "Site Engineer": "/engineer",
-  Contractor: "/contractor",
+  ProjectManager: "/manager",
+  SiteEngineer: "/engineer",
   Accountant: "/accountant",
   Client: "/client",
 };
@@ -86,6 +40,15 @@ const Login = () => {
     }, 1000);
   };
 
+  // Auto-focus first OTP input when switching to OTP step
+  useEffect(() => {
+    if (step === "otp") {
+      setTimeout(() => {
+        otpRefs.current[0]?.focus();
+      }, 100);
+    }
+  }, [step]);
+
   const handleSendOtp = async () => {
     if (!/^\d{10}$/.test(mobile)) {
       setError("Please enter a valid 10-digit mobile number.");
@@ -93,10 +56,31 @@ const Login = () => {
     }
     setError("");
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    setLoading(false);
-    setStep("otp");
-    startResendTimer();
+    try {
+      // Mock for development testing
+      if (mobile === "4444444444") {
+        await new Promise((r) => setTimeout(r, 800));
+        toast.success("Test OTP: 444444");
+        setStep("otp");
+        startResendTimer();
+        return;
+      }
+
+      const response = await authService.login(mobile);
+      toast.success(response.message || "OTP sent successfully!");
+      setStep("otp");
+      startResendTimer();
+    } catch (err: any) {
+      const errorData = err.response?.data;
+      const message = errorData?.message || errorData?.detail;
+      setError(
+        typeof message === "string"
+          ? message
+          : "Failed to send OTP. Please try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleOtpChange = (index: number, value: string) => {
@@ -104,7 +88,15 @@ const Login = () => {
     const updated = [...otp];
     updated[index] = value;
     setOtp(updated);
-    if (value && index < 5) otpRefs.current[index + 1]?.focus();
+    if (value && index < 5) {
+      otpRefs.current[index + 1]?.focus();
+    } else if (value && index === 5) {
+      // Auto-submit when last digit is entered
+      const finalOtp = updated.join("");
+      if (finalOtp.length === 6) {
+        handleVerifyOtp(finalOtp);
+      }
+    }
   };
 
   const handleOtpKeyDown = (index: number, e: React.KeyboardEvent) => {
@@ -112,28 +104,67 @@ const Login = () => {
       otpRefs.current[index - 1]?.focus();
   };
 
-  const handleVerifyOtp = async () => {
-    if (otp.join("").length < 6) {
+  const handleVerifyOtp = async (forcedOtp?: string) => {
+    const otpValue = forcedOtp || otp.join("");
+    if (otpValue.length < 6) {
       setError("Please enter the complete 6-digit OTP.");
-      return;
-    }
-    if (otp.join("") !== MOCK_OTP) {
-      setError("Invalid OTP. Use 123456 for demo.");
       return;
     }
     setError("");
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    const user = MOCK_USERS[mobile] ?? {
-      id: "99",
-      name: "Guest User",
-      mobile,
-      role: "Site Engineer" as Role,
-      token: "tok_guest",
-    };
-    login(user);
-    setLoading(false);
-    navigate(ROLE_PATHS[user.role]);
+    try {
+      let fullUser: User;
+
+      // Mock for development testing
+      if (mobile === "4444444444") {
+        await new Promise((r) => setTimeout(r, 800));
+        fullUser = {
+          id: "mock-client-id",
+          name: "Test Client",
+          mobile: "4444444444",
+          role: "Client",
+          token: { access_token: "mock-token", token_type: "Bearer" },
+        };
+      } else {
+        const verifyData = await authService.verifyOtp(mobile, otpValue);
+
+        // Temporary store to allow fetch profile
+        const tempUser = {
+          id: String(verifyData.user_id),
+          token: verifyData.token,
+          mobile: mobile,
+        } as any;
+        localStorage.setItem("infrapilot_user", JSON.stringify(tempUser));
+
+        const profile = await authService.getMe();
+
+        fullUser = {
+          id: String(verifyData.user_id),
+          name: profile.full_name || "User",
+          mobile: mobile,
+          role: (profile.role as Role) || "Admin",
+          token: verifyData.token,
+        };
+      }
+
+      login(fullUser);
+      toast.success(`Welcome, ${fullUser.name}!`);
+
+      // Redirect based on role
+      const redirectPath = ROLE_PATHS[fullUser.role] || "/client";
+      navigate(redirectPath);
+    } catch (err: any) {
+      const errorData = err.response?.data;
+      const message = errorData?.message || errorData?.detail;
+      setError(
+        typeof message === "string"
+          ? message
+          : "Invalid OTP or verification failed.",
+      );
+      localStorage.removeItem("infrapilot_user");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleResend = async () => {
@@ -141,9 +172,15 @@ const Login = () => {
     setOtp(["", "", "", "", "", ""]);
     setError("");
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    setLoading(false);
-    startResendTimer();
+    try {
+      const response = await authService.login(mobile);
+      toast.success(response.message || "OTP resent successfully!");
+      startResendTimer();
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to resend OTP.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -161,7 +198,7 @@ const Login = () => {
             <img
               src={logo}
               alt="InfraPilot Logo"
-              className="h-48 w-auto object-contain"
+              className="h-48 w-auto object-contain drop-shadow-2xl"
             />
           </div>
 
@@ -214,11 +251,11 @@ const Login = () => {
       {/* Right Panel — white form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center px-6 py-12 bg-white">
         <div className="w-full max-w-sm">
-          <div className="flex items-center gap-2 mb-8 lg:hidden">
+          <div className="flex items-center justify-center gap-2 mb-10 lg:hidden">
             <img
               src={logo}
               alt="InfraPilot Logo"
-              className="h-24 w-auto object-contain"
+              className="h-32 md:h-36 w-auto object-contain drop-shadow-lg"
             />
           </div>
 
@@ -245,56 +282,63 @@ const Login = () => {
                 Enter your mobile number to receive a secure OTP
               </p>
 
-              <label className="block text-sm font-medium text-slate-600 mb-2">
-                Mobile Number
-              </label>
-              <div className="flex items-center border border-slate-200 rounded-xl bg-slate-50 overflow-hidden focus-within:ring-2 focus-within:ring-primary focus-within:border-primary transition mb-1">
-                <div className="flex items-center gap-2 px-3 py-3 border-r border-slate-200">
-                  <svg
-                    className="w-4 h-4 text-primary"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.8}
-                      d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
-                    />
-                  </svg>
-                  <span className="text-slate-400 text-sm">+91</span>
-                </div>
-                <input
-                  type="tel"
-                  maxLength={10}
-                  value={mobile}
-                  onChange={(e) => {
-                    setMobile(e.target.value.replace(/\D/g, ""));
-                    setError("");
-                  }}
-                  placeholder="99999 99999"
-                  className="flex-1 px-3 py-3 text-sm text-slate-700 bg-transparent outline-none placeholder:text-slate-300"
-                />
-              </div>
-              {error && (
-                <p className="text-red-500 text-xs mt-1.5 mb-2">{error}</p>
-              )}
-
-              <button
-                onClick={handleSendOtp}
-                disabled={loading}
-                className="w-full mt-5 py-3 bg-primary hover:bg-blue-600 disabled:bg-blue-300 text-white text-sm font-bold tracking-widest uppercase rounded-xl transition-colors duration-200 flex items-center justify-center gap-2"
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSendOtp();
+                }}
               >
-                {loading ? (
-                  <>
-                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Sending...
-                  </>
-                ) : (
-                  "Get One-Time Password"
+                <label className="block text-sm font-medium text-slate-600 mb-2">
+                  Mobile Number
+                </label>
+                <div className="flex items-center border border-slate-200 rounded-xl bg-slate-50 overflow-hidden focus-within:ring-2 focus-within:ring-primary focus-within:border-primary transition mb-1">
+                  <div className="flex items-center gap-2 px-3 py-3 border-r border-slate-200">
+                    <svg
+                      className="w-4 h-4 text-primary"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.8}
+                        d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                      />
+                    </svg>
+                    <span className="text-slate-400 text-sm">+91</span>
+                  </div>
+                  <input
+                    type="tel"
+                    maxLength={10}
+                    value={mobile}
+                    onChange={(e) => {
+                      setMobile(e.target.value.replace(/\D/g, ""));
+                      setError("");
+                    }}
+                    placeholder="Enter Your Registered Mobile Number"
+                    className="flex-1 px-3 py-3 text-sm text-slate-700 bg-transparent outline-none placeholder:text-slate-300"
+                  />
+                </div>
+                {error && (
+                  <p className="text-red-500 text-xs mt-1.5 mb-2">{error}</p>
                 )}
-              </button>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full mt-5 py-3 bg-primary hover:bg-blue-600 disabled:bg-blue-300 text-white text-sm font-bold tracking-widest uppercase rounded-xl transition-colors duration-200 flex items-center justify-center gap-2"
+                >
+                  {loading ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    "Get One-Time Password"
+                  )}
+                </button>
+              </form>
             </>
           )}
 
@@ -310,23 +354,6 @@ const Login = () => {
                   +91 {mobile}
                 </span>
               </p>
-              <div className="inline-flex items-center gap-1.5 bg-blue-50 border border-blue-200 text-primary text-xs font-medium px-3 py-1.5 rounded-lg mb-5">
-                <svg
-                  className="w-3 h-3"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                Demo OTP: <span className="font-mono font-bold">123456</span>
-              </div>
-
               <button
                 onClick={() => {
                   setStep("mobile");
@@ -351,55 +378,63 @@ const Login = () => {
                 Change number
               </button>
 
-              <div className="flex gap-2 justify-between mb-2">
-                {otp.map((digit, i) => (
-                  <input
-                    key={i}
-                    ref={(el) => {
-                      otpRefs.current[i] = el;
-                    }}
-                    type="tel"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => handleOtpChange(i, e.target.value)}
-                    onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                    className="w-12 h-12 text-center text-lg font-bold border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition text-slate-800"
-                  />
-                ))}
-              </div>
-              {error && (
-                <p className="text-red-500 text-xs mt-1 mb-2">{error}</p>
-              )}
-
-              <div className="text-right mb-5 mt-2">
-                {resendTimer > 0 ? (
-                  <span className="text-xs text-slate-400">
-                    Resend in {resendTimer}s
-                  </span>
-                ) : (
-                  <button
-                    onClick={handleResend}
-                    className="text-xs text-primary hover:text-blue-600 font-medium transition-colors"
-                  >
-                    Resend OTP
-                  </button>
-                )}
-              </div>
-
-              <button
-                onClick={handleVerifyOtp}
-                disabled={loading}
-                className="w-full py-3 bg-primary hover:bg-blue-600 disabled:bg-blue-300 text-white text-sm font-bold tracking-widest uppercase rounded-xl transition-colors duration-200 flex items-center justify-center gap-2"
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleVerifyOtp();
+                }}
               >
-                {loading ? (
-                  <>
-                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Verifying...
-                  </>
-                ) : (
-                  "Verify OTP"
+                <div className="flex gap-2 justify-between mb-2">
+                  {otp.map((digit, i) => (
+                    <input
+                      key={i}
+                      ref={(el) => {
+                        otpRefs.current[i] = el;
+                      }}
+                      type="tel"
+                      maxLength={1}
+                      value={digit}
+                      onChange={(e) => handleOtpChange(i, e.target.value)}
+                      onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                      className="w-12 h-12 text-center text-lg font-bold border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition text-slate-800"
+                    />
+                  ))}
+                </div>
+                {error && (
+                  <p className="text-red-500 text-xs mt-1 mb-2">{error}</p>
                 )}
-              </button>
+
+                <div className="text-right mb-5 mt-2">
+                  {resendTimer > 0 ? (
+                    <span className="text-xs text-slate-400">
+                      Resend in {resendTimer}s
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleResend}
+                      className="text-xs text-primary hover:text-blue-600 font-medium transition-colors"
+                    >
+                      Resend OTP
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 bg-primary hover:bg-blue-600 disabled:bg-blue-300 text-white text-sm font-bold tracking-widest uppercase rounded-xl transition-colors duration-200 flex items-center justify-center gap-2"
+                >
+                  {loading ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Verifying...
+                    </>
+                  ) : (
+                    "Verify OTP"
+                  )}
+                </button>
+              </form>
             </>
           )}
 

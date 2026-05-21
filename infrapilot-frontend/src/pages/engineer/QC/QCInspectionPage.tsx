@@ -1,0 +1,908 @@
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import PageTransition from "../../../components/common/PageTransition";
+import Navbar from "../../../components/common/Navbar";
+import Modal from "../../../components/common/Modal";
+import ConfirmModal from "../../../components/common/ConfirmModal";
+import StatCard from "../../../components/common/StatCard";
+import toast from "react-hot-toast";
+import { 
+  Plus, 
+  Search,
+  Eye,
+  Edit2,
+  Trash2,
+  Activity,
+  User,
+  ShieldAlert,
+  Briefcase,
+  Mail,
+  RotateCcw,
+  CheckCircle2,
+  Image as ImageIcon,
+  Camera
+,
+    ChevronLeft,
+    ChevronRight} from "lucide-react";
+
+import { qcService } from "../../../services/qcService";
+import { projectService } from "../../../services/projectService";
+import type { QcItem } from "../../../services/qcService";
+
+const INSPECTION_TYPES = ["General", "Concrete", "Steel", "Electrical", "Plumbing", "Finishing"];
+const TEST_TYPES = ["Visual Check", "Cube Test", "Slump Test", "Load Test", "Compression Test"];
+
+const QCInspectionPage = () => {
+    const navigate = useNavigate();
+    
+    // Core Data States
+    const [qcList, setQcList] = useState<QcItem[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    // UI States
+    const [activeTab] = useState<"Inspection" | "Test Reports">("Inspection");
+    const [filterStatus, setFilterStatus] = useState("All");
+    const [filterType, setFilterType] = useState("All");
+    const [searchTerm, setSearchTerm] = useState("");
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
+
+    // Interactive StatCard Filter
+    const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Compliance" | "Failed" | "Momentum">("All");
+    
+    // Modal States
+    const [isNewModalOpen, setIsNewModalOpen] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [viewLoadingId, setViewLoadingId] = useState<number | null>(null);
+    
+    // Selection States
+    const [selectedQc, setSelectedQc] = useState<QcItem | null>(null);
+    const [deleteId, setDeleteId] = useState<number | null>(null);
+    const [projectId, setProjectId] = useState<number | null>(null);
+    const [projects, setProjects] = useState<any[]>([]);
+    
+    interface QcFormData {
+        project_id: number | "";
+        task_id: number | null;
+        dsr_id: number | null;
+        inspection_type: string;
+        test_type: string;
+        result: number | "";
+        standard_value: number | "";
+        status: string;
+        engineer_name: string;
+        remarks: string;
+        report_file: string;
+    }
+
+    // Form States
+    const [formData, setFormData] = useState<QcFormData>({
+        project_id: 92,
+        task_id: null,
+        dsr_id: null,
+        inspection_type: "General",
+        test_type: "Visual Check",
+        result: "",
+        standard_value: "",
+        status: "Pass",
+        engineer_name: "",
+        remarks: "",
+        report_file: ""
+    });
+
+    // â”€â”€â”€ PROJECT RESOLUTION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    useEffect(() => {
+        const initializeProject = async () => {
+            try {
+                // Fetch all projects for the dropdown
+                try {
+                    const res = await projectService.getProjects(100, 0);
+                    const projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
+                    setProjects(projectsList);
+                } catch (err) {
+                    console.error("Failed to fetch projects list", err);
+                }
+
+                const userStr = localStorage.getItem("infrapilot_user");
+                if (userStr) {
+                    const user = JSON.parse(userStr);
+                    const pId = user?.project_id || user?.user?.project_id;
+                    if (pId) {
+                        const resolvedId = Number(pId);
+                        setProjectId(resolvedId);
+                        setFormData(prev => ({ ...prev, project_id: resolvedId, engineer_name: user.full_name || user.username || "" }));
+                        return;
+                    }
+                }
+
+                // Discovery Fallback
+                console.warn("QC Control: No project_id in user context, attempting discovery fallback");
+                const projectsResponse = await projectService.getProjects(1, 0);
+                const projects = Array.isArray(projectsResponse) ? projectsResponse : (projectsResponse.items || []);
+                if (projects && projects.length > 0) {
+                    const resolvedId = Number(projects[0].project_id || projects[0].id);
+                    setProjectId(resolvedId);
+                    setFormData(prev => ({ ...prev, project_id: resolvedId }));
+                } else {
+                    setProjectId(92);
+                    setFormData(prev => ({ ...prev, project_id: 92 }));
+                }
+            } catch (e) {
+                console.error("Failed to resolve project ID", e);
+                setProjectId(92);
+                setFormData(prev => ({ ...prev, project_id: 92 }));
+            }
+        };
+        initializeProject();
+    }, []);
+
+    useEffect(() => {
+        if (isNewModalOpen || isEditModalOpen) {
+            const fetchProjects = async () => {
+                try {
+                    const res = await projectService.getProjects(100, 0);
+                    const projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
+                    setProjects(projectsList);
+                } catch (err) {
+                    console.error("Failed to refresh projects list", err);
+                }
+            };
+            fetchProjects();
+        }
+    }, [isNewModalOpen, isEditModalOpen]);
+
+    // â”€â”€â”€ INITIALIZATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    const fetchData = useCallback(async () => {
+        if (projectId === null) return;
+        setIsLoading(true);
+        try {
+            const res = await qcService.listQc(projectId);
+            setQcList(res.items || []);
+        } catch (err) {
+            toast.error("Failed to sync QC logs");
+        } finally {
+            setIsLoading(false);
+        }
+    }, [projectId]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    // Reset to first page when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, filterType, filterStatus, activeStatFilter]);
+
+    // â”€â”€â”€ ACTIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    const handleCreateSubmit = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        
+        if (!formData.engineer_name.trim()) {
+            toast.error("Please enter the Engineer In-Charge name");
+            return;
+        }
+
+        if (formData.result === null || formData.result === undefined || formData.result === "") {
+            toast.error("Please enter the observed value");
+            return;
+        }
+
+        if (formData.standard_value === null || formData.standard_value === undefined || formData.standard_value === "") {
+            toast.error("Please enter the standard threshold");
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            await qcService.createQc(formData as any);
+            toast.success("QC inspection created successfully!");
+            setIsNewModalOpen(false);
+            resetForm();
+            fetchData();
+        } catch (err: any) {
+            console.error("QC Create Error:", err.response?.data || err.message);
+            const errorMsg = err.response?.data?.detail || err.response?.data?.message || "Failed to create QC inspection";
+            toast.error(errorMsg);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleUpdateSubmit = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        if (!selectedQc) return;
+
+        if (!formData.engineer_name.trim()) {
+            toast.error("Please enter the Engineer In-Charge name");
+            return;
+        }
+
+        if (formData.result === null || formData.result === undefined || formData.result === "") {
+            toast.error("Please enter the observed value");
+            return;
+        }
+
+        if (formData.standard_value === null || formData.standard_value === undefined || formData.standard_value === "") {
+            toast.error("Please enter the standard threshold");
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            await qcService.updateQc(selectedQc.id, formData as any);
+            toast.success("QC inspection updated successfully!");
+            setIsEditModalOpen(false);
+            fetchData();
+        } catch (err: any) {
+            console.error("QC Update Error:", err.response?.data || err.message);
+            const errorMsg = err.response?.data?.detail || err.response?.data?.message || "Failed to update QC inspection";
+            toast.error(errorMsg);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleDeleteConfirm = async () => {
+        if (!deleteId) return;
+        setIsSubmitting(true);
+        try {
+            await qcService.deleteQc(deleteId);
+            toast.success("QC entry deleted successfully!");
+            setIsDeleteModalOpen(false);
+            fetchData();
+        } catch (err) {
+            toast.error("Failed to delete QC entry");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const resetForm = () => {
+        setFormData({
+            project_id: projectId || 92,
+            task_id: null,
+            dsr_id: null,
+            inspection_type: "General",
+            test_type: "Visual Check",
+            result: "",
+            standard_value: "",
+            status: "Pass",
+            engineer_name: "",
+            remarks: "",
+            report_file: ""
+        });
+    };
+
+    const handleViewDetails = async (qc: QcItem) => {
+        setViewLoadingId(qc.id);
+        try {
+            const data = await qcService.getQc(qc.id);
+            setSelectedQc(data);
+            setIsViewModalOpen(true);
+        } catch (error) {
+            console.error("Failed to fetch QC details:", error);
+            setSelectedQc(qc);
+            setIsViewModalOpen(true);
+            toast.error("Using cached data. Live fetch failed.");
+        } finally {
+            setViewLoadingId(null);
+        }
+    };
+
+    const openEdit = (qc: QcItem) => {
+        setSelectedQc(qc);
+        setFormData({
+            project_id: qc.project_id || projectId || 92,
+            task_id: qc.task_id,
+            dsr_id: qc.dsr_id,
+            inspection_type: qc.inspection_type,
+            test_type: qc.test_type,
+            result: qc.result,
+            standard_value: qc.standard_value,
+            status: qc.status,
+            engineer_name: qc.engineer_name,
+            remarks: qc.remarks || "",
+            report_file: qc.report_file || ""
+        });
+        setIsEditModalOpen(true);
+    };
+
+    // â”€â”€â”€ HELPERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    const filteredList = useMemo(() => {
+        let data = qcList;
+
+        if (activeStatFilter === "Compliance") {
+            data = data.filter(q => q.status === "Pass");
+        } else if (activeStatFilter === "Failed") {
+            data = data.filter(q => q.status === "Fail");
+        }
+
+        return data.filter(q => {
+            const term = searchTerm.toLowerCase();
+            const matchesSearch = searchTerm === "" || 
+                                q.engineer_name.toLowerCase().includes(term) || 
+                                q.test_type.toLowerCase().includes(term) ||
+                                q.inspection_type.toLowerCase().includes(term) ||
+                                q.status.toLowerCase().includes(term) ||
+                                (q.remarks || "").toLowerCase().includes(term) ||
+                                String(q.id).includes(term);
+            const matchesType = filterType === "All" || (q.inspection_type || "").toLowerCase().trim() === filterType.toLowerCase().trim();
+            const matchesStatus = filterStatus === "All" || (q.status || "").toLowerCase().trim() === filterStatus.toLowerCase().trim();
+            return matchesSearch && matchesType && matchesStatus;
+        });
+    }, [qcList, searchTerm, filterType, filterStatus, activeStatFilter]);
+
+    const paginatedList = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return filteredList.slice(startIndex, startIndex + itemsPerPage);
+    }, [filteredList, currentPage]);
+
+    const stats = useMemo(() => {
+        const total = filteredList.length;
+        const passed = filteredList.filter(q => q.status === "Pass").length;
+        const failed = filteredList.filter(q => q.status === "Fail").length;
+
+        let totalFields = 0;
+        let filledFields = 0;
+
+        filteredList.forEach(q => {
+            const fields = [
+                q.inspection_type,
+                q.test_type,
+                q.result !== undefined && q.result !== null && String(q.result) !== '',
+                q.standard_value !== undefined && q.standard_value !== null && String(q.standard_value) !== '',
+                q.status,
+                q.engineer_name,
+                q.remarks,
+                q.report_file
+            ];
+            fields.forEach(f => {
+                totalFields++;
+                if (f && String(f).trim() !== '') {
+                    filledFields++;
+                }
+            });
+        });
+
+        const momentum = totalFields > 0 ? Math.round((filledFields / totalFields) * 100) : 100;
+
+        return {
+            total,
+            passed,
+            failed,
+            compliance: Math.round((passed / (total || 1)) * 100),
+            momentum
+        };
+    }, [filteredList]);
+
+    const statusBadge: Record<string, string> = {
+        Pass: "bg-emerald-100 text-emerald-600",
+        Fail: "bg-red-100 text-red-600",
+    };
+
+    return (
+        <>
+            <Navbar title="QC Inspection" breadcrumb={["Engineer", "Quality Control", "Inspection Vault"]} />
+
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Quality Control Ledger</h1>
+                        <p className="text-slate-500 text-sm">Historical record of site inspections and material quality audits.</p>
+                    </div>
+                    <button
+                        onClick={() => { resetForm(); setIsNewModalOpen(true); }}
+                        className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Log QC Entry
+                    </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard title="Total Audits" value={stats.total.toString()} sub="Verified Logs" accent="text-slate-800" />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("Compliance")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Compliance" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard title="Compliance" value={`${stats.compliance}%`} sub="Pass Rate" accent="text-emerald-500" />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("Failed")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Failed" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard title="Failed Tests" value={stats.failed.toString()} sub="Action Required" accent="text-rose-500" />
+                    </div>
+                    <div onClick={() => setActiveStatFilter("Momentum")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Momentum" ? "ring-2 ring-blue-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard title="Audit Momentum" value={`${stats.momentum}%`} sub="Project Efficiency" accent="text-blue-500" />
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-8 border-b border-slate-200 mb-8 font-inter">
+                    <button 
+                        onClick={() => navigate("/engineer/qc/inspection")}
+                        className={`pb-4 text-sm font-bold transition-all relative ${activeTab === "Inspection" ? "text-primary border-b-2 border-primary" : "text-slate-500 hover:text-slate-700"}`}
+                    >
+                        QC Inspection
+                    </button>
+                    <button 
+                        onClick={() => navigate("/engineer/qc/reports")}
+                        className={`pb-4 text-sm font-bold transition-all relative ${activeTab === "Test Reports" ? "text-primary border-b-2 border-primary" : "text-slate-500 hover:text-slate-700"}`}
+                    >
+                        Test Reports
+                    </button>
+                </div>
+
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex flex-col">
+                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
+                        <div className="relative flex-1 max-w-md font-inter">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                                <Search className="w-4 h-4" />
+                            </span>
+                            <input
+                                type="text"
+                                placeholder="Search by test type or engineer..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter font-bold"
+                            />
+                        </div>
+                        <div className="flex items-center gap-3 font-inter">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Filters:</span>
+                            <select
+                                value={filterType}
+                                onChange={(e) => setFilterType(e.target.value)}
+                                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer font-inter uppercase tracking-widest"
+                            >
+                                <option value="All">All Types</option>
+                                {INSPECTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                            </select>
+                            <select
+                                value={filterStatus}
+                                onChange={(e) => setFilterStatus(e.target.value)}
+                                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer font-inter uppercase tracking-widest"
+                            >
+                                <option value="All">All Status</option>
+                                <option value="Pass">Pass</option>
+                                <option value="Fail">Fail</option>
+                            </select>
+                            {activeStatFilter !== "All" && (
+                                <button onClick={() => setActiveStatFilter("All")} className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors">
+                                    <RotateCcw className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                        {isLoading ? (
+                            <div className="p-20 text-center text-slate-400 font-inter">
+                                <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
+                                <p className="text-[10px] font-bold uppercase tracking-widest">Syncing quality logs...</p>
+                            </div>
+                        ) : (
+                            <table className="w-full text-left font-inter min-w-[1000px]">
+                                <thead>
+                                    <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
+                                        <th className="px-6 py-4">Audit Details</th>
+                                        <th className="px-6 py-4">Test Description</th>
+                                        <th className="px-6 py-4">Status</th>
+                                        <th className="px-6 py-4">Values</th>
+                                        <th className="px-6 py-4">Auditor</th>
+                                        <th className="px-6 py-4 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50 font-inter">
+                                    {paginatedList.length > 0 ? (
+                                        paginatedList.map((qc) => (
+                                            <tr key={qc.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
+                                                <td className="px-6 py-4">
+                                                    <div className="flex flex-col font-inter">
+                                                         <span className="text-sm font-bold text-slate-800 font-inter">{qc.inspection_type}</span>
+                                                         <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-inter">AUDIT-#{qc.id}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex flex-col max-w-xs font-inter">
+                                                        <span className="text-xs font-bold text-slate-700 truncate font-inter">{qc.test_type}</span>
+                                                        <div className="flex items-center gap-1 text-[10px] text-slate-400 font-inter truncate">
+                                                            <Activity className="w-3 h-3" />
+                                                            <span className="truncate font-inter">{qc.remarks || "No additional remarks"}</span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border ${statusBadge[qc.status]}`}>
+                                                        {qc.status}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex flex-col font-inter">
+                                                        <p className="text-[10px] font-bold text-slate-800 font-inter">Result: {qc.result}</p>
+                                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest font-inter">Std: {qc.standard_value}</p>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-2 font-inter">
+                                                         <User className="w-3.5 h-3.5 text-slate-400" />
+                                                         <p className="text-[10px] font-bold text-slate-800 font-inter uppercase tracking-widest">{qc.engineer_name}</p>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <div className="flex items-center justify-end gap-2 font-inter">
+                                                        <button
+                                                            onClick={() => handleViewDetails(qc)}
+                                                            disabled={viewLoadingId === qc.id}
+                                                            className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
+                                                        >
+                                                            {viewLoadingId === qc.id ? (
+                                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                            ) : (
+                                                                <Eye className="w-4 h-4" />
+                                                            )}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => openEdit(qc)}
+                                                            className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
+                                                        >
+                                                            <Edit2 className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => { setDeleteId(qc.id); setIsDeleteModalOpen(true); }}
+                                                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-inter font-bold uppercase tracking-widest text-[10px]">
+                                                No quality audits found in the project vault.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                    
+                    {/* â”€â”€ Pagination â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                    {filteredList.length > 0 && (
+                        <div className="p-4 border-t border-slate-50 flex items-center justify-end bg-white font-inter">
+                            <div className="flex items-center gap-2 font-inter">
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    title="Previous Page"
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                </button>
+                                <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
+                                    Page {currentPage} of 20
+                                </div>
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(20, prev + 1))}
+                                    disabled={currentPage === 20}
+                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    title="Next Page"
+                                >
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </PageTransition>
+
+            <Modal
+                isOpen={isNewModalOpen || isEditModalOpen}
+                onClose={() => { setIsNewModalOpen(false); setIsEditModalOpen(false); resetForm(); }}
+                title={isEditModalOpen ? "Modify QC Inspection" : "Log QC Entry"}
+                maxWidth="max-w-2xl"
+                footer={
+                    <div className="flex justify-end gap-3 px-6 pb-6 font-inter">
+                        <button
+                            type="button"
+                            onClick={() => { setIsNewModalOpen(false); setIsEditModalOpen(false); resetForm(); }}
+                            className="px-5 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors font-inter"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => isEditModalOpen ? handleUpdateSubmit() : handleCreateSubmit()}
+                            disabled={isSubmitting}
+                            className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95 disabled:opacity-50 font-inter"
+                        >
+                            {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Update Inspection" : "Commit Entry")}
+                        </button>
+                    </div>
+                }
+            >
+                <div className="p-6 space-y-6 bg-slate-50/30 font-inter max-h-[70vh] overflow-y-auto scrollbar-thin">
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.1em] mb-4 border-b border-slate-50 pb-2 flex items-center gap-2">
+                            <Camera className="w-3.5 h-3.5 text-primary" />
+                            file upload
+                        </h3>
+                        <div className="space-y-4 font-inter">
+                            <div className="group relative border-2 border-dashed border-slate-200 hover:border-primary/50 rounded-2xl p-8 transition-all bg-slate-50/50 hover:bg-blue-50/30 flex flex-col items-center justify-center cursor-pointer overflow-hidden font-inter">
+                                <input 
+                                    type="file" 
+                                    accept="image/*"
+                                    className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                            toast.success(`Selected: ${file.name}`);
+                                            setFormData({...formData, report_file: file.name});
+                                        }
+                                    }}
+                                />
+                                <div className="p-4 bg-white rounded-2xl shadow-sm mb-3 group-hover:scale-110 transition-transform font-inter">
+                                    <ImageIcon className="w-8 h-8 text-primary" />
+                                </div>
+                                <div className="text-center font-inter">
+                                    <p className="text-xs font-bold text-slate-700 mb-1 font-inter">file upload</p>
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">PNG, JPG or PDF up to 10MB</p>
+                                </div>
+                            </div>
+                            {formData.report_file && (
+                                <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-100 rounded-xl font-inter">
+                                    <div className="flex items-center gap-3 font-inter">
+                                        <div className="p-2 bg-white rounded-lg font-inter">
+                                            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                                        </div>
+                                        <div className="font-inter">
+                                            <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest leading-none mb-1 font-inter">Ready for Sync</p>
+                                            <p className="text-[11px] font-bold text-slate-600 truncate max-w-[200px] font-inter">{formData.report_file}</p>
+                                        </div>
+                                    </div>
+                                    <button 
+                                        type="button"
+                                        onClick={() => setFormData({...formData, report_file: ""})}
+                                        className="p-2 hover:bg-emerald-100 rounded-lg transition-colors text-emerald-600 font-inter"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.1em] mb-4 border-b border-slate-50 pb-2 flex items-center gap-2">
+                            <Briefcase className="w-3.5 h-3.5 text-primary" />
+                            Audit Intelligence
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">project_id *</label>
+                                <select 
+                                    value={formData.project_id} 
+                                    onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) })} 
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
+                                    required
+                                >
+                                    <option value="">-- Select project --</option>
+                                    {projects.map(p => (
+                                        <option key={p.project_id || p.id} value={p.project_id || p.id}>
+                                            {p.project_name || p.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">inspection_type *</label>
+                                <select
+                                    value={formData.inspection_type}
+                                    onChange={(e) => setFormData({...formData, inspection_type: e.target.value})}
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
+                                >
+                                    {INSPECTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">test_type *</label>
+                                <select
+                                    value={formData.test_type}
+                                    onChange={(e) => setFormData({...formData, test_type: e.target.value})}
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
+                                >
+                                    {TEST_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">engineer_name *</label>
+                                <input
+                                    type="text"
+                                    placeholder="Enter auditor name..."
+                                    value={formData.engineer_name}
+                                    onChange={(e) => {
+                                        const val = e.target.value.replace(/[^a-zA-Z\s]/g, "");
+                                        setFormData({...formData, engineer_name: val});
+                                    }}
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.1em] mb-4 border-b border-slate-50 pb-2 flex items-center gap-2">
+                            <Activity className="w-3.5 h-3.5 text-primary" />
+                            Measurement Analysis
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">result *</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    placeholder="0"
+                                    value={formData.result}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setFormData({...formData, result: val === "" ? "" : Number(val)});
+                                    }}
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">standard_value *</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    placeholder="0"
+                                    value={formData.standard_value}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setFormData({...formData, standard_value: val === "" ? "" : Number(val)});
+                                    }}
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">status *</label>
+                                <select
+                                    value={formData.status}
+                                    onChange={(e) => setFormData({...formData, status: e.target.value})}
+                                    className={`w-full px-4 py-2.5 border rounded-xl text-sm font-bold outline-none transition-all font-inter cursor-pointer ${formData.status === 'Pass' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-rose-50 border-rose-100 text-rose-700'}`}
+                                >
+                                    <option value="Pass">Pass</option>
+                                    <option value="Fail">Fail</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.1em] mb-4 border-b border-slate-50 pb-2 flex items-center gap-2">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+                            Technical Narrative
+                        </h3>
+                        <div>
+                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                                remark <span className="normal-case text-slate-300">(optional)</span>
+                            </label>
+                            <textarea
+                                rows={3}
+                                placeholder="Describe observations, deviations or site notes for the ledger..."
+                                value={formData.remarks || ""}
+                                onChange={(e) => setFormData({...formData, remarks: e.target.value})}
+                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none font-inter placeholder:text-slate-300"
+                            />
+                        </div>
+                    </div>
+                </div>
+            </Modal>
+
+            <Modal
+                isOpen={isViewModalOpen}
+                onClose={() => setIsViewModalOpen(false)}
+                title="QC Intelligence Insight"
+                maxWidth="max-w-xl"
+            >
+                {selectedQc && (
+                    <div className="p-6 font-inter">
+                        <div className="bg-primary rounded-2xl p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter">
+                            <div className="relative z-10 flex items-center gap-6 font-inter">
+                                <div className="w-24 h-24 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 relative font-inter">
+                                    <ShieldAlert className="w-10 h-10 text-white" />
+                                    <div className={`absolute -bottom-1 -right-1 w-6 h-6 ${selectedQc.status === 'Pass' ? 'bg-emerald-400' : 'bg-red-400'} border-4 border-white/20 rounded-full animate-pulse`} />
+                                </div>
+                                <div className="font-inter">
+                                    <div className="flex items-center gap-3 mb-2 font-inter">
+                                        <h3 className="text-2xl font-bold tracking-tight font-inter uppercase">{selectedQc.test_type}</h3>
+                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest font-inter">{selectedQc.status}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
+                                        <Mail className="w-3 h-3" />
+                                        <span className="text-[11px] font-bold font-inter">qc.audit-#{selectedQc.id}@infrapilot.com</span>
+                                    </div>
+                                     <div className="px-3 py-1 bg-white/20 rounded-full inline-block font-inter">
+                                         <span className="text-[10px] font-bold uppercase tracking-widest font-inter">LOGGED BY: {selectedQc.engineer_name}</span>
+                                     </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-8 px-2 mb-10 font-inter">
+                            <div className="font-inter">
+                                <div className="flex items-center gap-2 mb-6 font-inter">
+                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
+                                        <Briefcase className="w-4 h-4 text-primary" />
+                                    </div>
+                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] font-inter">Audit Intelligence</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Inspection Category</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter uppercase">{selectedQc.inspection_type}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Final Status</p>
+                                        <p className={`text-sm font-bold font-inter uppercase tracking-widest ${selectedQc.status === 'Pass' ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                            {selectedQc.status === 'Pass' ? 'Compliant' : 'Non-Compliant'}
+                                        </p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Observed Value</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter">{selectedQc.result}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Standard Threshold</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter">{selectedQc.standard_value}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="font-inter">
+                                <div className="flex items-center gap-2 mb-6 font-inter">
+                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
+                                        <Activity className="w-4 h-4 text-primary" />
+                                    </div>
+                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] font-inter">Technical Narrative</p>
+                                </div>
+                                <div className="grid grid-cols-1 gap-6 font-inter">
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Auditor Remarks</p>
+                                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm text-slate-600 leading-relaxed font-inter">
+                                            "{selectedQc.remarks || "No additional technical remarks provided for this audit."}"
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={() => setIsViewModalOpen(false)}
+                            className="w-full py-5 bg-primary text-white rounded-xl text-[11px] font-bold uppercase tracking-[0.2em] transition-all shadow-xl shadow-primary/20 active:scale-95 font-inter"
+                        >
+                            Dismiss Audit Insight
+                        </button>
+                    </div>
+                )}
+            </Modal>
+
+            <ConfirmModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={handleDeleteConfirm}
+                title="Discard QC Audit Entry"
+                message="Are you sure you want to delete this QC record? This action will permanently remove the entry from the project ledger."
+                confirmText="Archive Record"
+                type="danger"
+            />
+        </>
+    );
+};
+
+export default QCInspectionPage;

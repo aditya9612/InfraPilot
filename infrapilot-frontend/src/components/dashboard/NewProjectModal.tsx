@@ -2,184 +2,243 @@ import { useState } from "react";
 import Modal from "../common/Modal";
 
 interface NewProjectModalProps {
-    isOpen: boolean;
-    onClose: () => void;
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit?: (projectData: any) => void;
 }
 
-const NewProjectModal = ({ isOpen, onClose }: NewProjectModalProps) => {
-    const [formData, setFormData] = useState({
-        projectId: "",
-        ownerId: "",
-        siteAddress: "",
-        siteArea: "",
-        type: "Residential",
-        startDate: "",
-        endDate: "",
-        duration: "",
-        budget: "",
-        paymentTerms: "",
-        advancePaid: "",
-        remainingBalance: "",
-        engineerName: "",
-        status: "Planning",
-    });
+const NewProjectModal = ({
+  isOpen,
+  onClose,
+  onSubmit,
+}: NewProjectModalProps) => {
+  const [formData, setFormData] = useState({
+    project_name: "",
+    owner_id: "",
+    description: "",
+    start_date: "",
+    end_date: "",
+    status: "PLANNED",
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(false);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-    };
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: name === "owner_id" ? value.replace(/\D/g, "") : value,
+    }));
+    if (errors[name]) {
+      setErrors((prev) => {
+        const { [name]: _, ...rest } = prev;
+        return rest;
+      });
+    }
+  };
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        // Placeholder for actual submit logic
-        console.log("Submitting new project:", formData);
-        onClose();
-    };
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.project_name.trim())
+      newErrors.project_name = "Project name is required.";
+    if (!String(formData.owner_id).trim())
+      newErrors.owner_id = "Owner ID is required.";
+    else if (isNaN(Number(formData.owner_id)))
+      newErrors.owner_id = "Owner ID must be a number.";
+    if (!formData.description.trim())
+      newErrors.description = "Description is required.";
+    if (!formData.start_date) newErrors.start_date = "Start date is required.";
+    if (!formData.end_date) newErrors.end_date = "End date is required.";
+    else if (formData.start_date && formData.end_date < formData.start_date) {
+      newErrors.end_date = "End date cannot be before start date.";
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
-    return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Create New Project">
-            <form onSubmit={handleSubmit} className="space-y-6">
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validate()) return;
 
-                {/* Basic Info */}
-                <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Primary Details</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Project ID <span className="text-red-500">*</span></label>
-                            <input
-                                required type="text" name="projectId" value={formData.projectId} onChange={handleChange} placeholder="e.g. PRJ-2025-01"
-                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-slate-300"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Owner ID <span className="text-red-500">*</span></label>
-                            <input
-                                required type="text" name="ownerId" value={formData.ownerId} onChange={handleChange} placeholder="e.g. OWN-8812"
-                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-slate-300"
-                            />
-                        </div>
-                        <div className="md:col-span-2">
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Site Address <span className="text-red-500">*</span></label>
-                            <input
-                                required type="text" name="siteAddress" value={formData.siteAddress} onChange={handleChange} placeholder="Full site address"
-                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-slate-300"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Site Area (Sq.Ft.)</label>
-                            <input
-                                type="number" name="siteArea" value={formData.siteArea} onChange={handleChange} placeholder="0"
-                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-slate-300"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Type</label>
-                            <select
-                                name="type" value={formData.type} onChange={handleChange}
-                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
-                            >
-                                <option value="Residential">Residential</option>
-                                <option value="Commercial">Commercial</option>
-                                <option value="Industrial">Industrial</option>
-                                <option value="Infrastructure">Infrastructure</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Site Engineer Name</label>
-                            <input
-                                type="text" name="engineerName" value={formData.engineerName} onChange={handleChange} placeholder="Engineer in charge"
-                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-slate-300"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Project Status</label>
-                            <select
-                                name="status" value={formData.status} onChange={handleChange}
-                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
-                            >
-                                <option value="Planning">Planning</option>
-                                <option value="Active">Active</option>
-                                <option value="On Hold">On Hold</option>
-                                <option value="Completed">Completed</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
+    setIsLoading(true);
+    try {
+      const requestBody = {
+        ...formData,
+        owner_id: Number(formData.owner_id),
+      };
+      if (onSubmit) await onSubmit(requestBody);
+      onClose();
+    } catch (error) {
+      console.error("Project creation error:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-                {/* Schedule & Financials */}
-                <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Schedule & Financials</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Expected Start Date</label>
-                            <input
-                                type="date" name="startDate" value={formData.startDate} onChange={handleChange}
-                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all text-slate-700"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Project End Date</label>
-                            <input
-                                type="date" name="endDate" value={formData.endDate} onChange={handleChange}
-                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all text-slate-700"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Est. Duration (Months)</label>
-                            <input
-                                type="number" name="duration" value={formData.duration} onChange={handleChange} placeholder="e.g. 18"
-                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-slate-300"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Est. Budget (₹)</label>
-                            <input
-                                type="number" name="budget" value={formData.budget} onChange={handleChange} placeholder="0.00"
-                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-slate-300"
-                            />
-                        </div>
-                        <div className="md:col-span-2">
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Payment Terms</label>
-                            <input
-                                type="text" name="paymentTerms" value={formData.paymentTerms} onChange={handleChange} placeholder="e.g. 30% Advance, 70% Milestone based"
-                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-slate-300"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Advance Paid (₹)</label>
-                            <input
-                                type="number" name="advancePaid" value={formData.advancePaid} onChange={handleChange} placeholder="0.00"
-                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-slate-300"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Remaining Balance (₹)</label>
-                            <input
-                                type="number" name="remainingBalance" value={formData.remainingBalance} onChange={handleChange} placeholder="0.00"
-                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-slate-300"
-                            />
-                        </div>
-                    </div>
-                </div>
+  const modalFooter = (
+    <>
+      <button
+        type="button"
+        onClick={onClose}
+        className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
+      >
+        Cancel
+      </button>
+      <button
+        form="project-form"
+        type="submit"
+        disabled={isLoading}
+        className="px-5 py-2.5 text-sm font-bold text-white bg-primary rounded-xl hover:bg-blue-600 shadow-md shadow-primary/20 transition-all disabled:opacity-50"
+      >
+        {isLoading ? "Creating..." : "Create Project"}
+      </button>
+    </>
+  );
 
-                {/* Actions */}
-                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 mt-6">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="submit"
-                        className="px-5 py-2.5 text-sm font-bold text-white bg-primary rounded-xl hover:bg-blue-600 shadow-md shadow-primary/20 transition-all"
-                    >
-                        Create Project
-                    </button>
-                </div>
-            </form>
-        </Modal>
-    );
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Create New Project"
+      footer={modalFooter}
+    >
+      <form
+        id="project-form"
+        onSubmit={handleSubmit}
+        noValidate
+        className="space-y-6"
+      >
+        {/* Basic Info */}
+        <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
+          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
+            Project Details
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-slate-500 mb-1">
+                Project Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                required
+                type="text"
+                name="project_name"
+                value={formData.project_name}
+                onChange={handleChange}
+                placeholder="e.g. SARA CITY"
+                className={`w-full px-3 py-2 bg-slate-50 border ${errors.project_name ? "border-red-500 focus:ring-red-200" : "border-slate-200 focus:ring-primary focus:border-primary"} rounded-lg text-sm outline-none transition-all placeholder:text-slate-300`}
+              />
+              {errors.project_name && (
+                <p className="text-[10px] text-red-500 mt-1">
+                  {errors.project_name}
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">
+                Owner ID <span className="text-red-500">*</span>
+              </label>
+              <input
+                required
+                type="text"
+                name="owner_id"
+                value={formData.owner_id}
+                onChange={handleChange}
+                placeholder="e.g. 1"
+                className={`w-full px-3 py-2 bg-slate-50 border ${errors.owner_id ? "border-red-500 focus:ring-red-200" : "border-slate-200 focus:ring-primary focus:border-primary"} rounded-lg text-sm outline-none transition-all placeholder:text-slate-300`}
+              />
+              {errors.owner_id && (
+                <p className="text-[10px] text-red-500 mt-1">
+                  {errors.owner_id}
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">
+                Project Status
+              </label>
+              <select
+                name="status"
+                value={formData.status}
+                onChange={handleChange}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+              >
+                <option value="PLANNED">PLANNED</option>
+                <option value="ONGOING">ONGOING</option>
+                <option value="COMPLETED">COMPLETED</option>
+                <option value="ON_HOLD">ON HOLD</option>
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-slate-500 mb-1">
+                Description <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                required
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                placeholder="Project Details"
+                rows={3}
+                className={`w-full px-3 py-2 bg-slate-50 border ${errors.description ? "border-red-500 focus:ring-red-200" : "border-slate-200 focus:ring-primary focus:border-primary"} rounded-lg text-sm outline-none transition-all placeholder:text-slate-300 resize-none`}
+              />
+              {errors.description && (
+                <p className="text-[10px] text-red-500 mt-1">
+                  {errors.description}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Schedule */}
+        <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
+          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
+            Schedule
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">
+                Start Date
+              </label>
+              <input
+                type="date"
+                name="start_date"
+                value={formData.start_date}
+                onChange={handleChange}
+                className={`w-full px-3 py-2 bg-slate-50 border ${errors.start_date ? "border-red-500 focus:ring-red-200" : "border-slate-200 focus:ring-primary focus:border-primary"} rounded-lg text-sm outline-none transition-all text-slate-700`}
+              />
+              {errors.start_date && (
+                <p className="text-[10px] text-red-500 mt-1">
+                  {errors.start_date}
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">
+                End Date
+              </label>
+              <input
+                type="date"
+                name="end_date"
+                value={formData.end_date}
+                onChange={handleChange}
+                className={`w-full px-3 py-2 bg-slate-50 border ${errors.end_date ? "border-red-500 focus:ring-red-200" : "border-slate-200 focus:ring-primary focus:border-primary"} rounded-lg text-sm outline-none transition-all text-slate-700`}
+              />
+              {errors.end_date && (
+                <p className="text-[10px] text-red-500 mt-1">
+                  {errors.end_date}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </form>
+    </Modal>
+  );
 };
 
 export default NewProjectModal;

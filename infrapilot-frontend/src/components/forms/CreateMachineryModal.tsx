@@ -1,0 +1,252 @@
+import React, { useState, useEffect } from 'react';
+import Modal from '../common/Modal';
+import toast from 'react-hot-toast';
+import { Briefcase } from 'lucide-react';
+import { projectService } from '../../services/projectService';
+
+interface CreateMachineryModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (data: any) => Promise<void>;
+  initialData?: any | null;
+}
+
+const CreateMachineryModal: React.FC<CreateMachineryModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  onSubmit, 
+  initialData 
+}) => {
+  const [formData, setFormData] = useState({
+    equipment_name: '',
+    equipment_code: '',
+    operator_name: '',
+    working_hours: '' as number | '',
+    fuel_used: '' as number | '',
+    condition: 'GOOD',
+    rental_cost: '' as number | '',
+    maintenance_date: '',
+    project_id: '' as number | '',
+  });
+
+  const [projects, setProjects] = useState<any[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const res = await projectService.getProjects(100, 0);
+        const projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
+        setProjects(projectsList);
+      } catch (err) {
+        console.error("Failed to fetch projects list inside modal:", err);
+      }
+    };
+    if (isOpen) {
+      fetchProjects();
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        equipment_name: initialData.equipment_name || '',
+        equipment_code: initialData.equipment_code || '',
+        operator_name: initialData.operator_name || '',
+        working_hours: initialData.working_hours !== undefined && initialData.working_hours !== null ? initialData.working_hours : '',
+        fuel_used: initialData.fuel_used !== undefined && initialData.fuel_used !== null ? initialData.fuel_used : '',
+        condition: initialData.condition || 'GOOD',
+        rental_cost: initialData.rental_cost !== undefined && initialData.rental_cost !== null ? initialData.rental_cost : '',
+        maintenance_date: initialData.maintenance_date || '',
+        project_id: initialData.project_id || '',
+      });
+    } else {
+      setFormData({
+        equipment_name: '',
+        equipment_code: '',
+        operator_name: '',
+        working_hours: '',
+        fuel_used: '',
+        condition: 'GOOD',
+        rental_cost: '',
+        maintenance_date: '',
+        project_id: '',
+      });
+    }
+    setErrors({});
+  }, [initialData, isOpen]);
+
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.equipment_name.trim()) newErrors.equipment_name = "Name is required.";
+    if (!formData.equipment_code.trim()) newErrors.equipment_code = "Code is required.";
+    if (!formData.operator_name.trim()) newErrors.operator_name = "Operator is required.";
+    if (formData.working_hours === '') newErrors.working_hours = "Required";
+    if (formData.fuel_used === '') newErrors.fuel_used = "Required";
+    if (formData.rental_cost === '') newErrors.rental_cost = "Required";
+    if (!formData.maintenance_date) newErrors.maintenance_date = "Required";
+    if (!formData.condition) newErrors.condition = "Required";
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    
+    // Restrict name fields to alphabetical characters only
+    if (['equipment_name', 'operator_name'].includes(name)) {
+      const alphaValue = value.replace(/[^a-zA-Z\s]/g, "");
+      setFormData(prev => ({ ...prev, [name]: alphaValue }));
+      return;
+    }
+
+    setFormData(prev => ({ 
+        ...prev, 
+        [name]: ['working_hours', 'fuel_used', 'rental_cost', 'project_id'].includes(name) 
+          ? (value === '' ? '' : Number(value)) 
+          : value 
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validate()) {
+      toast.error("Please fill all required fields correctly.");
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      await onSubmit(formData);
+      onClose();
+    } catch (error) {
+      // Error handled by parent
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
+  const inputClasses = (error?: string) => `
+    w-full px-4 py-2.5 bg-white border 
+    ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
+    rounded-xl text-sm outline-none transition-all placeholder:text-slate-300
+  `;
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={initialData ? "Edit Equipment Log" : "Register New Equipment"}
+      maxWidth="max-w-4xl"
+      footer={
+        <>
+          <button onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">
+            Cancel
+          </button>
+          <button
+            form="machinery-form"
+            type="submit"
+            disabled={isLoading}
+            className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95"
+          >
+            {isLoading ? "Saving..." : initialData ? "Update Record" : "Register Log"}
+          </button>
+        </>
+      }
+    >
+      <form id="machinery-form" onSubmit={handleSubmit} className="space-y-6">
+        {/* Assign to Project Section */}
+        <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-100 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2.5">
+              <Briefcase className="w-5 h-5 text-primary" />
+              <span className="text-sm font-bold text-slate-800">Assign to project</span>
+            </div>
+            <span className="px-2 py-0.5 bg-blue-100 text-primary text-[10px] font-bold rounded-lg uppercase tracking-wider">
+              optional
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 mb-4 ml-1">
+            Labour create hone ke baada automatically project assign ho jayega
+          </p>
+          <div>
+            <label className={labelClasses}>Select Project *</label>
+            <select
+              name="project_id"
+              value={formData.project_id}
+              onChange={handleChange}
+              className={inputClasses(errors.project_id)}
+            >
+              <option value="">-- Select your project --</option>
+              {projects.map((p: any) => (
+                <option key={p.project_id || p.id} value={p.project_id || p.id}>
+                  {p.project_name || p.name}
+                </option>
+              ))}
+            </select>
+            {errors.project_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.project_id}</p>}
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Asset Identity</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label className={labelClasses}>Equipment Name <span className="text-rose-500">*</span></label>
+              <input name="equipment_name" value={formData.equipment_name} onChange={handleChange} placeholder="e.g. JCB Backhoe Loader" className={inputClasses(errors.equipment_name)} />
+            </div>
+            <div>
+              <label className={labelClasses}>Asset Code / ID <span className="text-rose-500">*</span></label>
+              <input name="equipment_code" value={formData.equipment_code} onChange={handleChange} placeholder="e.g. MC-001" className={inputClasses(errors.equipment_code)} />
+            </div>
+            <div className="md:col-span-2">
+              <label className={labelClasses}>Operator Name <span className="text-rose-500">*</span></label>
+              <input name="operator_name" value={formData.operator_name} onChange={handleChange} placeholder="Full Name" className={inputClasses(errors.operator_name)} />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Operational Telemetry</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div>
+              <label className={labelClasses}>Working Hours <span className="text-rose-500">*</span></label>
+              <input type="number" name="working_hours" value={formData.working_hours} onChange={handleChange} placeholder="0" className={inputClasses(errors.working_hours)} />
+              {errors.working_hours && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.working_hours}</p>}
+            </div>
+            <div>
+              <label className={labelClasses}>Fuel Consumed (Ltrs) <span className="text-rose-500">*</span></label>
+              <input type="number" name="fuel_used" value={formData.fuel_used} onChange={handleChange} placeholder="0" className={inputClasses(errors.fuel_used)} />
+              {errors.fuel_used && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.fuel_used}</p>}
+            </div>
+            <div>
+              <label className={labelClasses}>Rental Cost (₹) <span className="text-rose-500">*</span></label>
+              <input type="number" name="rental_cost" value={formData.rental_cost} onChange={handleChange} placeholder="0" className={inputClasses(errors.rental_cost)} />
+              {errors.rental_cost && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.rental_cost}</p>}
+            </div>
+            <div>
+              <label className={labelClasses}>Maintenance Date <span className="text-rose-500">*</span></label>
+              <input type="date" name="maintenance_date" value={formData.maintenance_date} onChange={handleChange} className={inputClasses(errors.maintenance_date)} />
+              {errors.maintenance_date && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.maintenance_date}</p>}
+            </div>
+            <div>
+              <label className={labelClasses}>Current Condition <span className="text-rose-500">*</span></label>
+              <select name="condition" value={formData.condition} onChange={handleChange} className={inputClasses(errors.condition)}>
+                <option value="GOOD">Good</option>
+                <option value="REPAIR">Repair</option>
+                <option value="DAMAGED">Damaged</option>
+                <option value="MAINTENANCE">Maintenance</option>
+              </select>
+              {errors.condition && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.condition}</p>}
+            </div>
+          </div>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+export default CreateMachineryModal;
