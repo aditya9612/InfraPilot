@@ -218,15 +218,15 @@ const SettingsPage = () => {
         setIsSaving(true);
         const toastId = toast.loading("Syncing configuration…");
         try {
-             // 1. Prepare Settings Update
+            // 1. Prepare Settings Update
             const settingsData: UpdateSettingsRequest = {
                 default_project_id: selectedProject,
                 unit: lengthUnit,
                 notifications_enabled: notifications.emailAlerts || notifications.pushNotifications,
-                preferences: { 
-                    ...preferences, 
-                    language, 
-                    timezone, 
+                preferences: {
+                    ...preferences,
+                    language,
+                    timezone,
                     dateFormat,
                     unitSystem,
                     massUnit
@@ -557,6 +557,7 @@ const SettingsPage = () => {
                         </div>
                     </div>
 
+
                     {/* ─ 1. Project Selection ──────────────────────────────── */}
                     <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
                         <SectionHeader
@@ -568,46 +569,36 @@ const SettingsPage = () => {
                             }
                         />
 
-                        <div className="space-y-4">
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                    Active Project
-                                </label>
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">
+                                Active Workspace Project
+                            </label>
+                            <div className="relative">
                                 <select
                                     value={selectedProject || ""}
                                     onChange={e => {
                                         const val = e.target.value;
                                         setSelectedProject(val === "" ? null : Number(val));
                                     }}
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none cursor-pointer"
+                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none cursor-pointer pr-10"
                                 >
                                     <option value="">Select Project (None)</option>
                                     {projects.map(p => (
                                         <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
                                     ))}
                                 </select>
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </div>
                             </div>
-
-                            <div className="space-y-2 mt-2">
-                                {projects.map(p => (
-                                    <button
-                                        key={p.id}
-                                        onClick={() => setSelectedProject(p.id)}
-                                        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold transition-all ${selectedProject === p.id
-                                            ? "bg-blue-50 border-blue-200 text-blue-700"
-                                            : "bg-slate-50 border-slate-100 text-slate-600 hover:border-slate-200"
-                                            }`}
-                                    >
-                                        <span className="flex items-center gap-2.5">
-                                            <span className={`w-2 h-2 rounded-full ${selectedProject === p.id ? "bg-blue-500" : "bg-slate-300"}`} />
-                                            {p.project_name || p.name}
-                                        </span>
-                                        {selectedProject === p.id && (
-                                            <span className="text-[9px] font-bold text-blue-500 uppercase tracking-widest">Active</span>
-                                        )}
-                                    </button>
-                                ))}
-                            </div>
+                            {selectedProject && (
+                                <div className="mt-2 flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-600 rounded-lg w-max border border-blue-100">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                                    <span className="text-[10px] font-bold uppercase tracking-wider">Active Workspace Sync Enabled</span>
+                                </div>
+                            )}
                         </div>
                     </div>
 

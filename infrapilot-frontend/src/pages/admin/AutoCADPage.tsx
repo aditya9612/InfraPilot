@@ -7,6 +7,8 @@ import CADUploadStep from "../../components/cad/CADUploadStep";
 import CADConvertStep from "../../components/cad/CADConvertStep";
 import CADCanvas from "../../components/cad/CADCanvas";
 import ProjectRecordsModal from "../../components/dashboard/ProjectRecordsModal";
+import ConfirmModal from "../../components/common/ConfirmModal";
+import { Trash2 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Point {
@@ -150,6 +152,10 @@ export default function AutoCADPage() {
   const [currentPage, setCurrentPage] = useState(0);
   const PAGE_SIZE = 5;
 
+  // Deletion state
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [snapshotToDelete, setSnapshotToDelete] = useState<string | null>(null);
+
   const totalPages = Math.max(1, Math.ceil(cadLogs.length / PAGE_SIZE));
   const pagedLogs = cadLogs.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 
@@ -169,10 +175,17 @@ export default function AutoCADPage() {
 
   // Persist visualizations whenever they change
   useEffect(() => {
-    if (visualizations.length > 0) {
-      localStorage.setItem("infrapilot_cad_visualizations", JSON.stringify(visualizations));
-    }
+    localStorage.setItem("infrapilot_cad_visualizations", JSON.stringify(visualizations));
   }, [visualizations]);
+
+  const handleDeleteSnapshot = () => {
+    if (snapshotToDelete) {
+      setVisualizations(prev => prev.filter(v => v.id !== snapshotToDelete));
+      toast.success("Snapshot removed from project history.");
+      setSnapshotToDelete(null);
+      setIsDeleteModalOpen(false);
+    }
+  };
 
   // ── Upload handlers ──────────────────────────────────────────────────────
   const handleCSVReady = (file: File, content: string) => {
@@ -459,6 +472,16 @@ export default function AutoCADPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
                       </button>
+                      <button
+                        onClick={() => {
+                          setSnapshotToDelete(viz.id);
+                          setIsDeleteModalOpen(true);
+                        }}
+                        className="w-10 h-10 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-lg hover:bg-rose-600 transition-colors"
+                        title="Delete Snapshot"
+                      >
+                        <Trash2 size={20} strokeWidth={2.5} />
+                      </button>
                     </div>
                   </div>
 
@@ -497,6 +520,19 @@ export default function AutoCADPage() {
         isOpen={isRecordsModalOpen}
         onClose={() => setIsRecordsModalOpen(false)}
         records={cadLogs}
+      />
+
+      <ConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setSnapshotToDelete(null);
+        }}
+        onConfirm={handleDeleteSnapshot}
+        title="Delete Snapshot"
+        message="Are you sure you want to permanently remove this visualization from the project history? This action cannot be undone."
+        confirmText="Delete Snapshot"
+        type="danger"
       />
     </>
   );

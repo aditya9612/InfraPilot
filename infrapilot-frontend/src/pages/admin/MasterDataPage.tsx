@@ -45,65 +45,23 @@ const MasterDataPage = () => {
   const fetchMasterData = useCallback(async () => {
     setIsLoading(true);
     try {
-      if (activeTab === "All") {
-        const [materials, labour, activities, units] = await Promise.all([
-          masterService.getEntities("materials"),
-          masterService.getEntities("labour-types"),
-          masterService.getEntities("activity-types"),
-          masterService.getEntities("units")
-        ]);
+      const tagMap: Record<string, string> = {
+        "Material": "MATERIAL",
+        "Labour": "LABOR",
+        "Activity": "ACTIVITY",
+        "Unit": "UNIT"
+      };
 
-        const combined = [
-          ...materials.map(i => ({ ...i, system_tag: "MATERIAL" })),
-          ...labour.map(i => ({ ...i, system_tag: "LABOR" })),
-          ...activities.map(i => ({ ...i, system_tag: "ACTIVITY" })),
-          ...units.map(i => ({ ...i, system_tag: "UNIT" }))
-        ];
+      const tag = activeTab === "All" ? "" : tagMap[activeTab];
+      const data = await masterService.getAllMasterData(searchTerm, tag);
+      setItems(data);
 
-        const filtered = combined.filter(i =>
-          i.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          i.unique_code.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-
-        setItems(filtered);
-        setStats({
-          total_materials: materials.length,
-          total_labour_types: labour.length,
-          total_activity_types: activities.length,
-          total_units: units.length
-        });
-      } else {
-        const entityMap: Record<string, "materials" | "labour-types" | "activity-types" | "units"> = {
-          "Material": "materials",
-          "Labour": "labour-types",
-          "Activity": "activity-types",
-          "Unit": "units"
-        };
-        const tagMap: Record<string, string> = {
-          "Material": "MATERIAL",
-          "Labour": "LABOR",
-          "Activity": "ACTIVITY",
-          "Unit": "UNIT"
-        };
-
-        const entityType = entityMap[activeTab];
-        const data = await masterService.getEntities(entityType);
-
-        const filtered = data
-          .map(i => ({ ...i, system_tag: tagMap[activeTab] }))
-          .filter(i =>
-            i.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            i.unique_code.toLowerCase().includes(searchTerm.toLowerCase())
-          );
-
-        setItems(filtered);
-
-        try {
-          const sysStats = await masterService.getMasterStats();
-          setStats(sysStats);
-        } catch (e) {
-          // Keep current stats if /stats is 404
-        }
+      // Always fetch stats to keep counters fresh
+      try {
+        const sysStats = await masterService.getMasterStats();
+        setStats(sysStats);
+      } catch (e) {
+        // Keep current stats if /stats fails
       }
     } catch (error) {
       console.error("Master Data Fetch Error:", error);

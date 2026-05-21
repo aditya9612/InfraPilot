@@ -23,12 +23,12 @@ import BOQPage from "../pages/admin/BOQPage";
 import InventoryPage from "../pages/admin/InventoryPage";
 import FinancePage from "../pages/admin/FinancePage";
 import ApprovalsPage from "../pages/admin/ApprovalsPage";
-// import ReportsPage from "../pages/admin/ReportsPage";
 import NotificationsPage from "../pages/admin/NotificationsPage";
 import DocumentsPage from "../pages/admin/DocumentsPage";
 import MasterDataPage from "../pages/admin/MasterDataPage";
 import IntegrationsPage from "../pages/admin/IntegrationsPage";
-// import SettingsPage from "../pages/admin/SettingsPage";
+import SettingsPage from "../pages/admin/SettingsPage";
+import ReportsPage from "../pages/admin/ReportsPage";
 import RolesPage from "../pages/admin/RolesPage";
 import PermissionsPage from "../pages/admin/PermissionsPage";
 import MeasurementPage from "../pages/admin/MeasurementPage";
@@ -66,8 +66,8 @@ import ClientSettingsPage from "../pages/client/ClientSettingsPage";
 // Engineer Pages
 import DSRPage from "../pages/engineer/DSRPage";
 import SitePhotosPage from "../pages/engineer/SitePhotosPage";
-import ReportsPage from "../pages/engineer/ReportsPage";
-import SettingsPage from "../pages/engineer/SettingsPage";
+import EngineerReportsPage from "../pages/engineer/ReportsPage";
+import EngineerSettingsPage from "../pages/engineer/SettingsPage";
 import EngineerNotificationsPage from "../pages/engineer/NotificationsPage";
 import ActivityListPage from "../pages/engineer/WorkProgress/ActivityListPage";
 import DailyProgressEntryPage from "../pages/engineer/WorkProgress/DailyProgressEntryPage";
@@ -362,9 +362,9 @@ function AppRoutes() {
               <Route path="/engineer" element={<EngineerDashboard />} />
               <Route path="/engineer/dsr" element={<DSRPage />} />
               <Route path="/engineer/photos" element={<SitePhotosPage />} />
-              <Route path="/engineer/reports" element={<ReportsPage />} />
+              <Route path="/engineer/reports" element={<EngineerReportsPage />} />
               <Route path="/engineer/notifications" element={<EngineerNotificationsPage />} />
-              <Route path="/engineer/settings" element={<SettingsPage />} />
+              <Route path="/engineer/settings" element={<EngineerSettingsPage />} />
               <Route path="/engineer/progress/activities" element={<ActivityListPage />} />
               <Route path="/engineer/progress/entry" element={<DailyProgressEntryPage />} />
               <Route path="/engineer/labor/list" element={<LaborDetailsPage />} />
