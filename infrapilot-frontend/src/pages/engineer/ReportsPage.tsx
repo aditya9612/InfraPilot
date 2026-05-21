@@ -3,7 +3,7 @@ import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
-import { 
+import {
     RotateCcw
 } from "lucide-react";
 import StatCard from "../../components/common/StatCard";
@@ -155,96 +155,83 @@ const ReportsPage = () => {
         if (!projectId) return;
         setIsInitialLoading(true);
         try {
-            // Dynamic data synchronization from actual live pages database (localStorage & live metrics)
-            const activitiesStr = localStorage.getItem("mock-activities");
-            const activitiesList = activitiesStr ? JSON.parse(activitiesStr) : [];
-            const dailyEntriesStr = localStorage.getItem("mock-daily-entries");
-            const dailyList = dailyEntriesStr ? JSON.parse(dailyEntriesStr) : [];
-
-            // Calculate active activities and progress matching the dashboard
-            const completedCount = activitiesList.filter((a: any) => a.status === "Completed" || a.completion_percentage === 100).length;
-            const total = activitiesList.length;
-            const progress = total > 0 ? Math.round((completedCount / total) * 100) : 68;
-
-            // Fetch live API reports to trigger backend sync/network requests
-            await Promise.all([
-                reportService.getDailyReport(projectId || 0, selectedDate).catch(() => null),
-                reportService.getWeeklyProgress(projectId || 0).catch(() => null),
-                reportService.getLabourReport(projectId || 0).catch(() => null),
-                reportService.getMaterialReport(projectId || 0).catch(() => null),
-                reportService.getIssueReport(projectId || 0).catch(() => null)
+            const [daily, weekly, labour, material, issues] = await Promise.all([
+                reportService.getDailyReport(projectId, selectedDate).catch(() => null),
+                reportService.getWeeklyProgress(projectId).catch(() => null),
+                reportService.getLabourReport(projectId).catch(() => null),
+                reportService.getMaterialReport(projectId).catch(() => null),
+                reportService.getIssueReport(projectId).catch(() => null)
             ]);
 
             const updatedReports = [...reportTypes];
 
-            // 1. Daily Report Mapping (Synchronized with DailyProgressEntryPage & Dashboard)
+            // 1. Daily Report Mapping
             const dailyIdx = updatedReports.findIndex(r => r.id === "daily");
-            if (dailyIdx !== -1) {
-                const latestEntry = dailyList[0] || {};
-                const workDoneText = latestEntry.remarks || "Column reinforcement casting M35 retaining wall";
+            if (dailyIdx !== -1 && daily && daily.dsr) {
+                const dsr = daily.dsr;
                 updatedReports[dailyIdx] = {
                     ...updatedReports[dailyIdx],
                     metrics: [
-                        { label: "Total Labour", value: "145 Workers", accent: "text-blue-600" },
-                        { label: "Concrete Poured", value: "120 m³" },
-                        { label: "Steel Fixed", value: "8.5 Tons" },
-                        { label: "Work Done", value: workDoneText.substring(0, 20) + (workDoneText.length > 20 ? "..." : "") },
+                        { label: "Total Labour", value: `${dsr.total_labour || 0} Workers`, accent: "text-blue-600" },
+                        { label: "Skilled", value: dsr.skilled_labour?.toString() || "0" },
+                        { label: "Weather", value: dsr.weather || "Clear" },
+                        { label: "Location", value: dsr.site_location || "Site" },
                     ]
                 };
             }
 
-            // 2. Weekly Progress Mapping (Synchronized with Dashboard Progress & Variance)
+            // 2. Weekly Progress Mapping
             const weeklyIdx = updatedReports.findIndex(r => r.id === "weekly");
-            if (weeklyIdx !== -1) {
+            if (weeklyIdx !== -1 && weekly) {
                 updatedReports[weeklyIdx] = {
                     ...updatedReports[weeklyIdx],
                     metrics: [
-                        { label: "Planned Progress", value: "72%" },
-                        { label: "Actual Progress", value: `${progress}%`, accent: "text-emerald-600" },
-                        { label: "Labour Hours", value: "4,800 hrs" },
-                        { label: "Cost This Week", value: "₹45.2 L", accent: "text-rose-500" },
+                        { label: "Completion", value: `${weekly.completion_percentage || 0}%`, accent: "text-emerald-600" },
+                        { label: "Status", value: weekly.status || "In Progress" },
+                        { label: "Issues", value: weekly.total_issues?.toString() || "0" },
+                        { label: "Project", value: weekly.project_name || "Project" },
                     ]
                 };
             }
 
-            // 3. Labour Mapping (Synchronized with Dashboard Vitals & Payroll Report)
+            // 3. Labour Mapping
             const laborIdx = updatedReports.findIndex(r => r.id === "labour");
-            if (laborIdx !== -1) {
+            if (laborIdx !== -1 && labour) {
                 updatedReports[laborIdx] = {
                     ...updatedReports[laborIdx],
                     metrics: [
-                        { label: "Skilled Labour", value: "85", accent: "text-blue-600" },
-                        { label: "Unskilled Labour", value: "60" },
-                        { label: "Supervisors", value: "9" },
-                        { label: "Overtime Hours", value: "24 hrs", accent: "text-amber-600" },
+                        { label: "Total Present", value: labour.total_present?.toString() || "0", accent: "text-blue-600" },
+                        { label: "Contractors", value: labour.contractors_count?.toString() || "0" },
+                        { label: "Absent", value: labour.total_absent?.toString() || "0" },
+                        { label: "Shift", value: "Day" },
                     ]
                 };
             }
 
-            // 4. Material Mapping (Synchronized with Material Request Page list items)
+            // 4. Material Mapping
             const materialIdx = updatedReports.findIndex(r => r.id === "material");
-            if (materialIdx !== -1) {
+            if (materialIdx !== -1 && material) {
                 updatedReports[materialIdx] = {
                     ...updatedReports[materialIdx],
                     metrics: [
-                        { label: "Cement Consumed", value: "150 Bags", accent: "text-rose-500" },
-                        { label: "Steel Used", value: "12 Tons", accent: "text-rose-500" },
-                        { label: "Aggregate Used", value: "320 m³" },
-                        { label: "Closing Stock Value", value: "₹1.2 Cr", accent: "text-emerald-600" },
+                        { label: "Received Today", value: material.received_today?.toString() || "0", accent: "text-rose-500" },
+                        { label: "Consumption", value: material.consumed_today?.toString() || "0" },
+                        { label: "Stock Bal", value: "Checked" },
+                        { label: "Unit", value: "Various" },
                     ]
                 };
             }
 
-            // 5. Issues Mapping (Synchronized with Site Vitals Issues count)
+            // 5. Issues Mapping
             const issueIdx = updatedReports.findIndex(r => r.id === "issue");
-            if (issueIdx !== -1) {
+            if (issueIdx !== -1 && issues) {
                 updatedReports[issueIdx] = {
                     ...updatedReports[issueIdx],
                     metrics: [
-                        { label: "Open Issues", value: "4", accent: "text-rose-500" },
-                        { label: "Resolved Today", value: "2", accent: "text-emerald-600" },
-                        { label: "Weather Delay", value: "4 hrs", accent: "text-amber-600" },
-                        { label: "Manpower Gap", value: "6%", accent: "text-amber-600" },
+                        { label: "Open Issues", value: issues.open_issues?.toString() || "0", accent: "text-rose-500" },
+                        { label: "Critical", value: issues.critical_issues?.toString() || "0" },
+                        { label: "Resolved", value: issues.resolved_today?.toString() || "0" },
+                        { label: "Pending", value: issues.pending_review?.toString() || "0" },
                     ]
                 };
             }
@@ -275,7 +262,7 @@ const ReportsPage = () => {
             "Metric 4"
         ];
         const escape = (val: string | number) => `"${String(val).replace(/"/g, '""')}"`;
-        
+
         const rows = filtered.map((r: ReportType) => {
             const rowData = [
                 escape(r.name),
@@ -553,7 +540,7 @@ const ReportsPage = () => {
             link.click();
             link.remove();
             window.URL.revokeObjectURL(url);
-            
+
             toast.success(`${report.name} exported!`, { id: `exp-${report.id}` });
         } catch (e) {
             toast.error("Export failed", { id: `exp-${report.id}` });
@@ -581,13 +568,13 @@ const ReportsPage = () => {
     const reportsStats = useMemo(() => {
         const total = dynamicReports.length;
         const generatedToday = dynamicReports.filter(r => r.lastGenerated.toLowerCase().includes("today")).length;
-        
+
         // Find issue report and extract open issues count
         const issueReport = dynamicReports.find(r => r.id === "issue");
         // Look for metric that contains "Open Issue" in label
         const openIssuesMetric = issueReport?.metrics.find(m => m.label.includes("Open Issue"));
         const openIssues = openIssuesMetric ? parseInt(openIssuesMetric.value.replace(/[^0-9]/g, "")) || 0 : 0;
-        
+
         // Calculate total size
         const totalSize = dynamicReports.reduce((acc, r) => acc + parseFloat(r.size || "0"), 0);
         const avgSize = total > 0 ? (totalSize / total).toFixed(1) : "0";
