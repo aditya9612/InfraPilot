@@ -29,8 +29,8 @@ import {
   RefreshCcw,
   Upload,
   Eye,
-  Edit2,
   Trash2,
+  Pencil,
 } from "lucide-react";
 import OptimizationModal from "../../components/dashboard/OptimizationModal";
 import BulkImportBOQModal from "../../components/forms/BulkImportBOQModal";
@@ -56,6 +56,11 @@ const BOQPage = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");
+
+  // Pagination States
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(20);
+  const [totalItems, setTotalItems] = useState(0);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -132,18 +137,31 @@ const BOQPage = () => {
   }, []);
 
   const refreshBoqs = async () => {
+    setIsLoading(true);
     try {
-      const filters = {
+      const filters: any = {
         search: searchTerm || null,
         status: statusFilter === "all" ? null : statusFilter,
         category: categoryFilter === "all" ? null : categoryFilter,
         project_id: projectFilter === "all" ? null : Number(projectFilter),
         version_no:
           selectedVersion === "latest" ? null : Number(selectedVersion),
+        limit: itemsPerPage,
+        offset: (currentPage - 1) * itemsPerPage,
       };
 
       const res = await boqService.getBoqs(filters);
-      setBoqData(res.items);
+
+      // Filter out deleted and inactive items from the local state
+      const activeItems = res.items.filter((item: any) =>
+        item.status?.toLowerCase() !== 'deleted' &&
+        item.status?.toLowerCase() !== 'inactive'
+      );
+
+      setBoqData(activeItems);
+      // We set totalItems to the backend total if not filtered, 
+      // or to the local length if we filtered out items to keep pagination consistent.
+      setTotalItems(res.total || activeItems.length);
 
       // Also refresh summary if project is selected
       if (projectFilter !== "all") {
@@ -181,7 +199,7 @@ const BOQPage = () => {
     fetchVersions();
   }, [projectFilter]);
 
-  // Re-fetch when filters change
+  // Re-fetch when filters or page change
   useEffect(() => {
     if (!isLoading) {
       refreshBoqs();
@@ -192,7 +210,13 @@ const BOQPage = () => {
     categoryFilter,
     projectFilter,
     selectedVersion,
+    currentPage,
   ]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, categoryFilter, projectFilter, selectedVersion]);
 
   const handleCreateOrUpdateBOQ = async (data: any) => {
     try {
@@ -503,18 +527,42 @@ const BOQPage = () => {
         key={location.pathname}
         className="p-6 bg-slate-50 min-h-screen"
       >
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
-              {isSetup ? "BOQ Master Setup" : "Project Activity List"}
-            </h1>
+            <div className="flex items-center gap-2 h-8">
+              <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+                {isSetup ? "BOQ Master Setup" : "Project Activity List"}
+              </h1>
+              <div className={`transition-all duration-300 ${projectFilter === "all" ? "w-0 opacity-0 overflow-hidden" : "w-24 opacity-100"}`}>
+                <span className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase tracking-wider rounded-md border border-emerald-100 animate-pulse whitespace-nowrap">
+                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+                  Live Data
+                </span>
+              </div>
+            </div>
             <p className="text-slate-500 text-sm">
               {isSetup
                 ? "Define Bill of Quantities and cost estimates for projects."
                 : "Track site activities and progress against BOQ items."}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <select
+              value={projectFilter}
+              onChange={(e) => setProjectFilter(e.target.value)}
+              className={`min-w-[200px] px-4 py-2 border rounded-xl text-sm font-bold outline-none focus:ring-4 transition-all duration-300 ${projectFilter === "all"
+                ? "bg-slate-50/50 border-slate-200 text-slate-500 hover:bg-slate-100"
+                : "bg-white border-primary/30 text-primary shadow-lg shadow-primary/5 ring-2 ring-primary/5"
+                }`}
+            >
+              <option value="all">📁 All Projects View</option>
+              {Object.entries(projectMap).map(([id, name]) => (
+                <option key={id} value={id}>
+                  {name}
+                </option>
+              ))}
+            </select>
+            <div className="h-6 w-px bg-slate-200 hidden md:block mx-1" />
             <button
               onClick={() => {
                 if (projectFilter === "all") {
@@ -525,15 +573,17 @@ const BOQPage = () => {
                 }
                 setIsOptimizationModalOpen(true);
               }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold shadow-lg transition-all ${projectFilter === "all"
+              className={`flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-bold shadow-lg transition-all duration-300 min-w-48 ${projectFilter === "all"
                 ? "bg-slate-100 text-slate-400 cursor-not-allowed opacity-70"
                 : "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-amber-200 hover:scale-105"
                 }`}
             >
               <Sparkles className="w-4 h-4" />
-              {projectFilter === "all"
-                ? "Select Project for Analysis"
-                : "Smart Analysis"}
+              <span className="truncate">
+                {projectFilter === "all"
+                  ? "Select Project for Analysis"
+                  : "Smart Analysis"}
+              </span>
             </button>
             <button
               onClick={() => {
@@ -543,9 +593,12 @@ const BOQPage = () => {
                 }
                 setIsBulkImportModalOpen(true);
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 ${projectFilter === "all"
+                ? "bg-slate-50 text-slate-400 border border-slate-100 cursor-not-allowed opacity-60"
+                : "bg-white border border-primary/20 text-slate-700 hover:bg-slate-50 shadow-sm active:scale-95"
+                }`}
             >
-              <Download className="w-4 h-4 text-primary" />
+              <Download className={`w-4 h-4 ${projectFilter === "all" ? "text-slate-300" : "text-primary"}`} />
               Import Excel
             </button>
             <button
@@ -563,7 +616,7 @@ const BOQPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <StatCard
             title="Estimated Total"
-            value={`₹${(summaryData?.estimated || filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.total_cost?.toString() || "0"), 0) / 10000000).toFixed(2)}Cr`}
+            value={`₹${(summaryData?.estimated || filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.total_cost?.toString() || "0"), 0)).toLocaleString('en-IN')}`}
             sub={
               summaryData
                 ? `${summaryData.total_items} items total`
@@ -574,17 +627,17 @@ const BOQPage = () => {
           />
           <StatCard
             title="Actual Total"
-            value={`₹${((summaryData?.actual || 0) / 10000000).toFixed(2)}Cr`}
+            value={`₹${(summaryData?.actual || filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.actual_cost?.toString() || "0"), 0)).toLocaleString('en-IN')}`}
             sub="Recorded real-world costs"
             accent="text-violet-500"
             icon={<TrendingUp className="w-5 h-5" />}
           />
           <StatCard
             title="Variance/Difference"
-            value={`₹${((summaryData?.difference || 0) / 10000000).toFixed(2)}Cr`}
+            value={`₹${Math.abs(summaryData?.difference || (filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.total_cost?.toString() || "0"), 0) - filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.actual_cost?.toString() || "0"), 0))).toLocaleString('en-IN')}`}
             sub="Budget gap analysis"
             accent={
-              (summaryData?.difference || 0) < 0
+              (summaryData?.difference || (filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.total_cost?.toString() || "0"), 0) - filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.actual_cost?.toString() || "0"), 0))) < 0
                 ? "text-rose-500"
                 : "text-emerald-500"
             }
@@ -593,7 +646,7 @@ const BOQPage = () => {
           <StatCard
             title="Pending Approval"
             value={filteredBoqData
-              .filter((i) => i.status === "Draft" || i.status === "Draft")
+              .filter((i) => i.status?.toLowerCase().includes("review") || i.status?.toLowerCase().includes("draft"))
               .length.toString()}
             sub="Awaiting rate review"
             accent="text-amber-500"
@@ -659,18 +712,6 @@ const BOQPage = () => {
                 ))}
               </select>
 
-              <select
-                value={projectFilter}
-                onChange={(e) => setProjectFilter(e.target.value)}
-                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-primary/10 transition-all"
-              >
-                <option value="all">All Projects</option>
-                {Object.entries(projectMap).map(([id, name]) => (
-                  <option key={id} value={id}>
-                    {name}
-                  </option>
-                ))}
-              </select>
 
               {projectFilter !== "all" && versionsList.length > 0 && (
                 <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-2 py-1">
@@ -887,7 +928,7 @@ const BOQPage = () => {
                               className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200"
                               title="Update BOQ"
                             >
-                              <Edit2
+                              <Pencil
                                 className="w-4.5 h-4.5"
                                 strokeWidth={1.5}
                               />
@@ -996,6 +1037,36 @@ const BOQPage = () => {
                 </tbody>
               </table>
             )}
+          </div>
+
+          {/* Pagination UI - Matched with UsersPage style */}
+          <div className="p-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+              Showing {(currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} Entries
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700 font-inter">
+                {currentPage}
+              </div>
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(Math.ceil(totalItems / itemsPerPage), p + 1))}
+                disabled={currentPage >= Math.ceil(totalItems / itemsPerPage)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </PageTransition>

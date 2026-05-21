@@ -114,6 +114,8 @@ export default function OwnersListPage() {
     {},
   );
   const [isSaving, setIsSaving] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const PAGE_SIZE = 8;
 
   const fetchOwners = useCallback(async (search = "") => {
     try {
@@ -232,6 +234,14 @@ export default function OwnersListPage() {
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
   };
 
+  const totalPages = Math.max(1, Math.ceil(owners.length / PAGE_SIZE));
+  const pagedOwners = owners.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+
+  // Reset to page 0 on search
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [searchTerm]);
+
   return (
     <>
       <Navbar
@@ -313,7 +323,7 @@ export default function OwnersListPage() {
                     </td>
                   </tr>
                 ) : (
-                  owners.map((o) => (
+                  pagedOwners.map((o) => (
                     <tr key={o.id} className="hover:bg-slate-50/40 transition-colors group">
                       {/* Owner Details */}
                       <td className="px-8 py-5">
@@ -401,8 +411,27 @@ export default function OwnersListPage() {
           {/* Footer */}
           <div className="p-5 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.35em]">
-              System Status: Cloud Synchronization Active
+              Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, owners.length)} of {owners.length} stakeholders
             </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                disabled={currentPage === 0}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+              </button>
+              <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700 font-inter">
+                {currentPage + 1}
+              </div>
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={currentPage >= totalPages - 1}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+              </button>
+            </div>
           </div>
         </div>
       </PageTransition>

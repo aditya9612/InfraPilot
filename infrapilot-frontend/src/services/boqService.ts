@@ -117,17 +117,13 @@ export const boqService = {
     }
   },
 
-  /**
-   * Get all versions of BOQ for a project
-   * GET /api/v1/boq/versions/{project_id}
-   */
-  async getBoqVersions(projectId: number): Promise<number[]> {
+  async getBoqVersions(boqId: number): Promise<number[]> {
     try {
-      const response = await api.get(`/boq/versions/${projectId}`);
+      const response = await api.get(`/boq/${boqId}/versions`);
       return response.data.versions || [];
     } catch (error: any) {
       console.error(
-        `Get versions for Project ${projectId} Error:`,
+        `Get versions for Boq ${boqId} Error:`,
         error.response?.data || error.message,
       );
       throw error;
@@ -206,16 +202,83 @@ export const boqService = {
   },
 
   /**
-   * Get audit logs for a specific BOQ item
+   * Get audit logs for a specific BOQ item or document
    * GET /api/v1/boq/{boq_id}/logs
    */
-  async getBoqLogs(boqId: number): Promise<any[]> {
+  async getBoqLogs(id: number): Promise<any[]> {
     try {
-      const response = await api.get(`/boq/${boqId}/logs`);
+      const response = await api.get(`/boq/${id}/logs`);
       return response.data;
     } catch (error: any) {
       console.error(
-        `Get Logs for Boq ${boqId} Error:`,
+        `Get Logs for BOQ ${id} Error:`,
+        error.response?.data || error.message,
+      );
+      throw error;
+    }
+  },
+
+  /**
+   * Add a single item to a BOQ document
+   * POST /api/v1/boq/{boq_id}/items
+   */
+  async addBoqItem(boqId: number, itemData: CreateBoqRequest): Promise<BoqItem> {
+    try {
+      const response = await api.post(`/boq/${boqId}/items`, itemData);
+      return response.data;
+    } catch (error: any) {
+      console.error(
+        `Add Item to Boq ${boqId} Error:`,
+        error.response?.data || error.message,
+      );
+      throw error;
+    }
+  },
+
+  /**
+   * List all items for a specific BOQ document
+   * GET /api/v1/boq/{boq_id}/items
+   */
+  async getBoqItems(boqId: number): Promise<BoqItem[]> {
+    try {
+      const response = await api.get(`/boq/${boqId}/items`);
+      return response.data;
+    } catch (error: any) {
+      console.error(
+        `Get Items for Boq ${boqId} Error:`,
+        error.response?.data || error.message,
+      );
+      throw error;
+    }
+  },
+
+  /**
+   * Update a specific BOQ line item
+   * PUT /api/v1/boq/items/{item_id}
+   */
+  async updateBoqItem(itemId: number, itemData: UpdateBoqRequest): Promise<BoqItem> {
+    try {
+      const response = await api.put(`/boq/items/${itemId}`, itemData);
+      return response.data;
+    } catch (error: any) {
+      console.error(
+        `Update Boq Item ${itemId} Error:`,
+        error.response?.data || error.message,
+      );
+      throw error;
+    }
+  },
+
+  /**
+   * Delete a specific BOQ line item
+   * DELETE /api/v1/boq/items/{item_id}
+   */
+  async deleteBoqItem(itemId: number): Promise<void> {
+    try {
+      await api.delete(`/boq/items/${itemId}`);
+    } catch (error: any) {
+      console.error(
+        `Delete Boq Item ${itemId} Error:`,
         error.response?.data || error.message,
       );
       throw error;

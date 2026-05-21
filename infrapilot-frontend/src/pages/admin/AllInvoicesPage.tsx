@@ -16,6 +16,7 @@ import ConfirmationModal from "../../components/common/ConfirmationModal";
 import { quotationService } from "../../services/quotationService";
 import type { Quotation } from "../../types/quotation";
 import toast from "react-hot-toast";
+import { exportToCSV } from "../../utils/csvExport";
 
 const AllInvoicesPage = () => {
   const [quotations, setQuotations] = useState<Quotation[]>([]);
@@ -24,6 +25,8 @@ const AllInvoicesPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const PAGE_SIZE = 8;
 
   useEffect(() => {
     const fetchEstimates = async () => {
@@ -69,12 +72,44 @@ const AllInvoicesPage = () => {
     });
   }, [quotations, searchTerm, statusFilter]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / PAGE_SIZE));
+  const pagedData = filteredData.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+
+  // Reset to page 0 on search/filter changes
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [searchTerm, statusFilter]);
+
   const stats = useMemo(() => {
     const total = quotations.reduce((sum, q) => sum + (q.grand_total || 0), 0);
     const approved = quotations.filter(q => q.status === "approved").reduce((sum, q) => sum + (q.grand_total || 0), 0);
     const draft = quotations.filter(q => q.status === "draft").reduce((sum, q) => sum + (q.grand_total || 0), 0);
     return { total, pending: draft, paid: approved, labelTotal: "Pipeline Value", labelPending: "Draft Estimates", labelPaid: "Approved Proposals" };
   }, [quotations]);
+
+  const handleExportAll = () => {
+    if (filteredData.length === 0) {
+      toast.error("No data to export.");
+      return;
+    }
+    const csvData = filteredData.map((q) => ({
+      quotation_no: q.quotation_no || `QTN-${q.id}`,
+      client_name: q.client_name || "Unknown",
+      project_name: q.project_name || "-",
+      date: q.created_at ? new Date(q.created_at).toLocaleDateString() : "-",
+      grand_total: q.grand_total || 0,
+      status: q.status || "draft",
+    }));
+    exportToCSV(csvData, `invoices_export_${new Date().toISOString().split("T")[0]}.csv`, {
+      quotation_no: "Invoice #",
+      client_name: "Client Name",
+      project_name: "Project / Description",
+      date: "Date",
+      grand_total: "Amount (₹)",
+      status: "Status",
+    });
+    toast.success(`Exported ${filteredData.length} records to CSV!`);
+  };
 
   return (
     <>
@@ -90,7 +125,9 @@ const AllInvoicesPage = () => {
               <p className="text-sm text-slate-500">Track and manage all client estimates and final invoices.</p>
             </div>
             <div className="flex gap-3">
-              <button className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2">
+              <button
+                onClick={handleExportAll}
+                className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2">
                 <Download className="w-4 h-4" /> Export All
               </button>
               <Link
@@ -183,7 +220,7 @@ const AllInvoicesPage = () => {
                       </td>
                     </tr>
                   ) : (
-                    (filteredData as Quotation[]).map((q) => (
+                    (pagedData as Quotation[]).map((q) => (
                       <tr key={q.id} className="hover:bg-slate-50/50 transition-colors group">
                         <td className="px-6 py-4 text-sm font-black text-slate-800">
                           {q.quotation_no || `QTN-${q.id}`}
@@ -234,6 +271,33 @@ const AllInvoicesPage = () => {
                 </tbody>
               </table>
             </div>
+            {/* Pagination Component */}
+            {totalPages > 1 && (
+              <div className="p-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                  Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, filteredData.length)} of {filteredData.length} records
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                    disabled={currentPage === 0}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+                  </button>
+                  <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700">
+                    {currentPage + 1}
+                  </div>
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                    disabled={currentPage >= totalPages - 1}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
         </div>

@@ -20,6 +20,8 @@ const ClientsPage = () => {
   const [editingClient, setEditingClient] = useState<any>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<number | null>(null);
+  const [currentPage, setCurrentPage] = useState(0);
+  const PAGE_SIZE = 8;
 
   const fetchClients = async () => {
     try {
@@ -63,6 +65,14 @@ const ClientsPage = () => {
       (c.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       (c.company || "").toLowerCase().includes(searchTerm.toLowerCase()),
   );
+
+  const totalPages = Math.max(1, Math.ceil(filteredClients.length / PAGE_SIZE));
+  const pagedClients = filteredClients.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+
+  // Reset to page 0 on search
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [searchTerm]);
 
   const handleCreateOrUpdate = async (data: any) => {
     try {
@@ -213,7 +223,7 @@ const ClientsPage = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredClients.map((c) => (
+                  pagedClients.map((c) => (
                     <tr
                       key={c.id}
                       className="hover:bg-slate-50/50 transition-colors group"
@@ -293,11 +303,30 @@ const ClientsPage = () => {
               </tbody>
             </table>
           </div>
-          {filteredClients.length === 0 && (
-            <div className="p-20 text-center">
-              <p className="text-slate-400 font-medium">No clients found matching your search.</p>
+          <div className="p-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+              Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, filteredClients.length)} of {filteredClients.length} Clients
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                disabled={currentPage === 0}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+              </button>
+              <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700 font-inter">
+                {currentPage + 1}
+              </div>
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={currentPage >= totalPages - 1}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+              </button>
             </div>
-          )}
+          </div>
         </div>
       </PageTransition>
 

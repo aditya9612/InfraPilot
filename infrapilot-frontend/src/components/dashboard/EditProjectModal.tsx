@@ -127,7 +127,7 @@ const EditProjectModal = ({ isOpen, onClose, project, onSubmit }: EditProjectMod
                                 <option value="PLANNED">PLANNED</option>
                                 <option value="ONGOING">ONGOING</option>
                                 <option value="COMPLETED">COMPLETED</option>
-                                <option value="ON HOLD">ON HOLD</option>
+                                <option value="ON_HOLD">ON HOLD</option>
                             </select>
                         </div>
 

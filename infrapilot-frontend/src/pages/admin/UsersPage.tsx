@@ -20,6 +20,8 @@ const UsersPage = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [roleFilter, setRoleFilter] = useState("All Roles");
   const [statusFilter, setStatusFilter] = useState("All Status");
+  const [currentPage, setCurrentPage] = useState(0);
+  const PAGE_SIZE = 8;
 
   const fetchUsers = async () => {
     try {
@@ -123,6 +125,14 @@ const UsersPage = () => {
     return matchesSearch && matchesRole && matchesStatus;
   });
 
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
+  const pagedUsers = filteredUsers.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+
+  // Reset to page 0 on search/filter changes
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [searchTerm, roleFilter, statusFilter]);
+
   return (
     <>
       <Navbar title="User Management" breadcrumb={["Admin", "Users"]} />
@@ -225,7 +235,7 @@ const UsersPage = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredUsers.map((user) => (
+                  pagedUsers.map((user) => (
                     <tr
                       key={user.user_id}
                       className="hover:bg-slate-50/50 transition-colors group"
@@ -372,8 +382,27 @@ const UsersPage = () => {
 
           <div className="p-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-              Showing {filteredUsers.length} Users
+              Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, filteredUsers.length)} of {filteredUsers.length} Users
             </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                disabled={currentPage === 0}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+              </button>
+              <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700 font-inter">
+                {currentPage + 1}
+              </div>
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={currentPage >= totalPages - 1}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+              </button>
+            </div>
           </div>
         </div>
       </PageTransition>
