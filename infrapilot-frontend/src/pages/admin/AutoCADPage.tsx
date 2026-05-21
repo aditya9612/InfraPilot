@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import CADUploadStep from "../../components/cad/CADUploadStep";
 import CADConvertStep from "../../components/cad/CADConvertStep";
 import CADCanvas from "../../components/cad/CADCanvas";
+import ProjectRecordsModal from "../../components/dashboard/ProjectRecordsModal";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Point {
@@ -145,6 +146,12 @@ export default function AutoCADPage() {
   // CAD Logs & Visualizations
   const [cadLogs, setCadLogs] = useState<any[]>([]);
   const [visualizations, setVisualizations] = useState<any[]>([]);
+  const [isRecordsModalOpen, setIsRecordsModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const PAGE_SIZE = 5;
+
+  const totalPages = Math.max(1, Math.ceil(cadLogs.length / PAGE_SIZE));
+  const pagedLogs = cadLogs.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 
   useEffect(() => {
     api.get("/cad/logs").then((r) => setCadLogs(r.data)).catch(() => { });
@@ -326,16 +333,16 @@ export default function AutoCADPage() {
         )}
 
         {/* ── CAD Logs Table ─────────────────────────────────────────────── */}
-        <div className="mt-8 bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+        <div id="cad-logs-section" className="mt-8 bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold text-slate-800">CAD Conversion Logs</h3>
             {cadLogs.length > 0 && (
               <span className="text-xs text-slate-400 font-medium">{cadLogs.length} records</span>
             )}
           </div>
-          <div className="overflow-x-auto max-h-[320px] overflow-y-auto custom-scrollbar">
+          <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
-              <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs sticky top-0 bg-white z-10 shadow-sm">
+              <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs sticky top-0 bg-white z-10 shadow-sm border-b border-slate-100">
                 <tr>
                   <th className="px-4 py-3 rounded-tl-lg">ID</th>
                   <th className="px-4 py-3">Project Name</th>
@@ -346,7 +353,7 @@ export default function AutoCADPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {cadLogs.length > 0 ? (
-                  cadLogs.map((log) => (
+                  pagedLogs.map((log) => (
                     <tr key={log.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-3 font-medium text-slate-700">{log.id}</td>
                       <td className="px-4 py-3 text-slate-600 font-semibold">{log.project_name || "N/A"}</td>
@@ -380,6 +387,33 @@ export default function AutoCADPage() {
               </tbody>
             </table>
           </div>
+
+          {cadLogs.length > 0 && (
+            <div className="mt-4 p-4 border-t border-slate-50 flex items-center justify-between">
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, cadLogs.length)} of {cadLogs.length} Logs
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                  disabled={currentPage === 0}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <div className="w-8 h-8 flex items-center justify-center rounded-lg bg-primary/5 border border-primary/10 text-xs font-bold text-primary font-inter">
+                  {currentPage + 1}
+                </div>
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={currentPage >= totalPages - 1}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── Project Visualization Gallery ──────────────────────────────── */}
@@ -389,7 +423,12 @@ export default function AutoCADPage() {
               <h3 className="text-lg font-bold text-slate-800 tracking-tight">Recent Project Snapshots</h3>
               <p className="text-sm text-slate-500">Historical visualizations saved to this project library.</p>
             </div>
-            <span className="bg-primary/5 text-primary text-[10px] font-bold uppercase px-2 py-1 rounded border border-primary/10">Project Records</span>
+            <button
+              onClick={() => setIsRecordsModalOpen(true)}
+              className="bg-primary/5 text-primary text-[10px] font-bold uppercase px-2 py-1 rounded border border-primary/10 hover:bg-primary/10 transition-colors shadow-sm active:scale-95"
+            >
+              Project Records
+            </button>
           </div>
 
           {visualizations.length > 0 ? (
@@ -453,6 +492,12 @@ export default function AutoCADPage() {
           )}
         </div>
       </PageTransition>
+
+      <ProjectRecordsModal
+        isOpen={isRecordsModalOpen}
+        onClose={() => setIsRecordsModalOpen(false)}
+        records={cadLogs}
+      />
     </>
   );
 }
