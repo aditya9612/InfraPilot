@@ -28,7 +28,7 @@ const QCTestReportsPage = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
 
-    // ─── PROJECT RESOLUTION ─────────────────────────────────────────────
+    // â”€â”€â”€ PROJECT RESOLUTION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     useEffect(() => {
         const initializeProject = async () => {
             try {
@@ -49,17 +49,17 @@ const QCTestReportsPage = () => {
                 if (projects && projects.length > 0) {
                     setProjectId(Number(projects[0].project_id || projects[0].id));
                 } else {
-                    setProjectId(36);
+                    setProjectId(92);
                 }
             } catch (e) {
                 console.error("Failed to resolve project ID", e);
-                setProjectId(36);
+                setProjectId(92);
             }
         };
         initializeProject();
     }, []);
 
-    // ─── INITIALIZATION ──────────────────────────────────────────────────
+    // â”€â”€â”€ INITIALIZATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     const fetchData = useCallback(async () => {
         if (projectId === null) return;
@@ -83,7 +83,7 @@ const QCTestReportsPage = () => {
         setCurrentPage(1);
     }, [activeStatFilter]);
 
-    // ─── HELPERS & ANALYTICS ─────────────────────────────────────────────
+    // â”€â”€â”€ HELPERS & ANALYTICS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     const filteredQcList = useMemo(() => {
         if (activeStatFilter === "Pass") return qcList.filter(q => q.status === "Pass");
@@ -96,12 +96,37 @@ const QCTestReportsPage = () => {
         const passCount = filteredQcList.filter(q => q.status === "Pass").length;
         const failCount = filteredQcList.filter(q => q.status === "Fail").length;
         
+        let totalFields = 0;
+        let filledFields = 0;
+
+        filteredQcList.forEach(q => {
+            const fields = [
+                q.inspection_type,
+                q.test_type,
+                q.result !== undefined && q.result !== null && String(q.result) !== '',
+                q.standard_value !== undefined && q.standard_value !== null && String(q.standard_value) !== '',
+                q.status,
+                q.engineer_name,
+                q.remarks,
+                q.report_file
+            ];
+            fields.forEach(f => {
+                totalFields++;
+                if (f && String(f).trim() !== '') {
+                    filledFields++;
+                }
+            });
+        });
+
+        const dataQuality = totalFields > 0 ? Math.round((filledFields / totalFields) * 100) : 100;
+
         return {
             total,
             passCount,
             failCount,
             passRate: total > 0 ? Math.round((passCount / total) * 100) : 0,
-            failRate: total > 0 ? Math.round((failCount / total) * 100) : 0
+            failRate: total > 0 ? Math.round((failCount / total) * 100) : 0,
+            dataQuality
         };
     }, [filteredQcList]);
 
@@ -109,8 +134,6 @@ const QCTestReportsPage = () => {
         const startIndex = (currentPage - 1) * itemsPerPage;
         return filteredQcList.slice(startIndex, startIndex + itemsPerPage);
     }, [filteredQcList, currentPage]);
-
-    const totalPages = Math.ceil(filteredQcList.length / itemsPerPage);
 
     const breakdown = useMemo(() => {
         const groups: Record<string, { total: number; passed: number; failed: number }> = {};
@@ -131,14 +154,14 @@ const QCTestReportsPage = () => {
         }));
     }, [filteredQcList]);
 
-    // ─── RENDER ──────────────────────────────────────────────────────────
+    // â”€â”€â”€ RENDER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     return (
         <>
             <Navbar title="QC Test Reports" breadcrumb={["Engineer", "Quality Control", "Analytical Insights"]} />
 
             <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
-                {/* ── Header ──────────────────────────────────────────────── */}
+                {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Test Analytics Vault</h1>
@@ -146,7 +169,7 @@ const QCTestReportsPage = () => {
                     </div>
                 </div>
 
-                {/* ── Summary Stats ───────────────────────────── */}
+                {/* â”€â”€ Summary Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
@@ -171,12 +194,12 @@ const QCTestReportsPage = () => {
                     </div>
                     <StatCard
                         title="Data Quality"
-                        value="100%"
+                        value={`${stats.dataQuality}%`}
                         sub="Verification Level"
                         accent="text-blue-500" />
                 </div>
 
-                {/* ── Tab Bar ────────────────────────────────────────────── */}
+                {/* â”€â”€ Tab Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex items-center gap-8 border-b border-slate-200 mb-8">
                     <button 
                         onClick={() => navigate("/engineer/qc/inspection")}
@@ -192,7 +215,7 @@ const QCTestReportsPage = () => {
                     </button>
                 </div>
 
-                {/* ── Scrollable Content Area ────────────────────────── */}
+                {/* â”€â”€ Scrollable Content Area â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex-1 overflow-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200">
                 {isLoading ? (
                     <div className="py-20 text-center text-slate-400 font-inter">
@@ -300,40 +323,37 @@ const QCTestReportsPage = () => {
                                         </table>
                                     </div>
                                      
-                                     {/* ── Pagination ────────────────────────────────────────── */}
-                                     {totalPages > 1 && (
-                                         <div className="p-4 border-t border-slate-50 flex items-center justify-between bg-white font-inter">
-                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                                 Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredQcList.length)} of {filteredQcList.length} entries
-                                             </p>
+                                     {/* â”€â”€ Pagination â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                                     {filteredQcList.length > 0 && (
+                                         <div className="p-4 border-t border-slate-50 flex items-center justify-end bg-white font-inter">
                                              <div className="flex items-center gap-2 font-inter">
-                                <button
-                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                                    disabled={currentPage === 1}
-                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
-                                    title="Previous Page"
-                                >
-                                    <ChevronLeft className="w-4 h-4" />
-                                </button>
-                                <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                                    Page {currentPage} of {1 || 1}
-                                </div>
-                                <button
-                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, 1 || 1))}
-                                    disabled={currentPage >= 1 || 1 === 0}
-                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
-                                    title="Next Page"
-                                >
-                                    <ChevronRight className="w-4 h-4" />
-                                </button>
-                            </div>
+                                                 <button
+                                                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                                     disabled={currentPage === 1}
+                                                     className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                                     title="Previous Page"
+                                                 >
+                                                     <ChevronLeft className="w-4 h-4" />
+                                                 </button>
+                                                 <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
+                                                     Page {currentPage} of 20
+                                                 </div>
+                                                 <button
+                                                     onClick={() => setCurrentPage(prev => Math.min(20, prev + 1))}
+                                                     disabled={currentPage === 20}
+                                                     className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                                     title="Next Page"
+                                                 >
+                                                     <ChevronRight className="w-4 h-4" />
+                                                 </button>
+                                             </div>
                                          </div>
                                      )}
                                 </div>
                             </div>
                         ) : (
                             <div className="py-20 text-center bg-white rounded-2xl border-2 border-dashed border-slate-200 font-inter">
-                                <p className="text-4xl mb-4">📊</p>
+                                <p className="text-4xl mb-4">ðŸ“Š</p>
                                 <h3 className="text-lg font-bold text-slate-400 font-inter">No test reports available</h3>
                                 <p className="text-slate-400 text-sm font-inter">Complete inspections to generate data insights</p>
                             </div>

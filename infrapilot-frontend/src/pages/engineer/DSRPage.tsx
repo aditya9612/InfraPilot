@@ -19,8 +19,6 @@ import {
     Calendar,
     Image as ImageIcon,
     RotateCcw,
-    Check,
-    X,
     Send,
     FileDown,
     ChevronLeft,
@@ -50,7 +48,7 @@ const DSRPage = () => {
 
 
     // Filter state for StatCards
-    const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Compliance" | "Pending" | "Efficiency">("All");
+    const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Draft" | "Submitted">("All");
     const [currentPage, setCurrentPage] = useState(1);
     const [totalItems, setTotalItems] = useState(0);
     const itemsPerPage = 20;
@@ -239,39 +237,15 @@ const DSRPage = () => {
         }
     };
 
-    const handleApproveDsr = async (id: number) => {
-        const toastId = toast.loading("Approving DSR log...");
-        try {
-            await dsrService.approveDsr(id);
-            toast.success("DSR approved successfully!", { id: toastId });
-            fetchDsr();
-        } catch (err) {
-            toast.error("Failed to approve DSR", { id: toastId });
-        }
-    };
-
-    const handleRejectDsr = async (id: number) => {
-        const toastId = toast.loading("Rejecting DSR log...");
-        try {
-            await dsrService.rejectDsr(id);
-            toast.success("DSR rejected successfully!", { id: toastId });
-            fetchDsr();
-        } catch (err) {
-            toast.error("Failed to reject DSR", { id: toastId });
-        }
-    };
-
 
     const filteredList = useMemo(() => {
         let data = dsrList;
 
         // Apply StatCard Filter
-        if (activeStatFilter === "Compliance") {
-            data = data.filter(d => d.status === "Verified" || d.status === "Approved");
-        } else if (activeStatFilter === "Pending") {
-            data = data.filter(d => d.status === "Submitted" || d.status === "Draft");
-        } else if (activeStatFilter === "Efficiency") {
-            data = data.filter(d => d.status !== "Rejected" && d.status !== "Draft");
+        if (activeStatFilter === "Draft") {
+            data = data.filter(d => d.status === "Draft");
+        } else if (activeStatFilter === "Submitted") {
+            data = data.filter(d => d.status === "Submitted");
         }
 
         return data.filter(dsr => {
@@ -284,29 +258,23 @@ const DSRPage = () => {
     }, [dsrList, searchTerm, statusFilter, activeStatFilter]);
 
     const stats = useMemo(() => {
-        const total = dsrList.length;
-        const verified = dsrList.filter(d => d.status === "Verified" || d.status === "Approved").length;
-        const pending = dsrList.filter(d => d.status === "Submitted" || d.status === "Draft").length;
-        const complianceVal = total > 0 ? Math.round((verified / total) * 100) : 0;
-
-        // Efficiency could be measured by (Verified + Submitted) / Total for momentum
-        const active = dsrList.filter(d => d.status !== "Rejected" && d.status !== "Draft").length;
-        const efficiencyVal = total > 0 ? Math.round((active / total) * 100) : 0;
+        const total = totalItems;
+        const draftCount = dsrList.filter(d => d.status === "Draft").length;
+        const submittedCount = dsrList.filter(d => d.status === "Submitted").length;
+        const totalLabour = dsrList.reduce((sum, d) => sum + (d.total_labour || 0), 0);
 
         return {
             total,
-            verified,
-            pending,
-            complianceRate: `${complianceVal}%`,
-            efficiency: `${efficiencyVal}%`
+            draftCount,
+            submittedCount,
+            totalLabour
         };
-    }, [dsrList]);
+    }, [dsrList, totalItems]);
 
     useEffect(() => {
         setCurrentPage(1);
     }, [searchTerm, statusFilter, activeStatFilter, projectId]);
 
-    const totalPages = Math.ceil(totalItems / itemsPerPage);
 
     return (
         <>
@@ -351,33 +319,33 @@ const DSRPage = () => {
 
                 {/* ── Summary Stats with Interactive Filtering ───────────────────────────── */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
-                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer transition-all ${activeStatFilter === "All" ? "ring-2 ring-primary/20 rounded-xl" : ""}`}>
+                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer hover:scale-[1.02] active:scale-95 transition-all ${activeStatFilter === "All" ? "ring-2 ring-primary/20 rounded-xl" : ""}`}>
                         <StatCard
                             title="Total Logs"
                             value={stats.total.toString()}
-                            sub="Verified Archives"
+                            sub="All Time Records"
                             accent="text-slate-800" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("Compliance")} className={`cursor-pointer transition-all ${activeStatFilter === "Compliance" ? "ring-2 ring-emerald-500/20 rounded-xl" : ""}`}>
+                    <div onClick={() => setActiveStatFilter("Draft")} className={`cursor-pointer hover:scale-[1.02] active:scale-95 transition-all ${activeStatFilter === "Draft" ? "ring-2 ring-slate-400/20 rounded-xl" : ""}`}>
                         <StatCard
-                            title="Compliance"
-                            value={stats.complianceRate}
-                            sub="Verification Rate"
-                            accent="text-emerald-500" />
+                            title="Draft Reports"
+                            value={stats.draftCount.toString()}
+                            sub="Pending Submission"
+                            accent="text-slate-500" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("Pending")} className={`cursor-pointer transition-all ${activeStatFilter === "Pending" ? "ring-2 ring-rose-500/20 rounded-xl" : ""}`}>
+                    <div onClick={() => setActiveStatFilter("Submitted")} className={`cursor-pointer hover:scale-[1.02] active:scale-95 transition-all ${activeStatFilter === "Submitted" ? "ring-2 ring-blue-500/20 rounded-xl" : ""}`}>
                         <StatCard
-                            title="Pending Audit"
-                            value={stats.pending.toString()}
-                            sub="Action Required"
-                            accent="text-rose-500" />
-                    </div>
-                    <div onClick={() => setActiveStatFilter("Efficiency")} className={`cursor-pointer transition-all ${activeStatFilter === "Efficiency" ? "ring-2 ring-blue-500/20 rounded-xl" : ""}`}>
-                        <StatCard
-                            title="Efficiency"
-                            value={stats.efficiency}
-                            sub="Project Momentum"
+                            title="Submitted Reports"
+                            value={stats.submittedCount.toString()}
+                            sub="Pending Audit"
                             accent="text-blue-500" />
+                    </div>
+                    <div>
+                        <StatCard
+                            title="Total Labour"
+                            value={stats.totalLabour.toString()}
+                            sub="On Current Page"
+                            accent="text-emerald-500" />
                     </div>
                 </div>
 
@@ -407,8 +375,6 @@ const DSRPage = () => {
                                 <option value="All">All Status</option>
                                 <option value="Draft">Draft</option>
                                 <option value="Submitted">Submitted</option>
-                                <option value="Verified">Verified</option>
-                                <option value="Rejected">Rejected</option>
                             </select>
 
                             {activeStatFilter !== "All" && (
@@ -505,20 +471,7 @@ const DSRPage = () => {
                                                 <td className="px-6 py-4 text-right">
                                                     <div className="flex items-center justify-end gap-2 font-inter">
                                                         <div className="flex items-center gap-1.5 mr-2">
-                                                            <button
-                                                                onClick={() => handleApproveDsr(dsr.id)}
-                                                                className="p-2 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-all border border-emerald-100 active:scale-95 flex items-center justify-center font-inter"
-                                                                title="Approve DSR"
-                                                            >
-                                                                <Check className="w-4 h-4" />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleRejectDsr(dsr.id)}
-                                                                className="p-2 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-all border border-rose-100 active:scale-95 flex items-center justify-center font-inter"
-                                                                title="Reject DSR"
-                                                            >
-                                                                <X className="w-4 h-4" />
-                                                            </button>
+
                                                             <button
                                                                 onClick={() => handleSubmitDsr(dsr.id)}
                                                                 className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all border border-blue-100 active:scale-95 flex items-center justify-center font-inter"
@@ -564,10 +517,7 @@ const DSRPage = () => {
 
                     {/* ── Pagination Controls ──────────────────────────── */}
                     {!isLoading && dsrList.length > 0 && (
-                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">
-                                Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} entries
-                            </span>
+                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-end bg-white sticky left-0 font-inter">
                             <div className="flex gap-2 font-inter">
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
@@ -578,11 +528,11 @@ const DSRPage = () => {
                                     <ChevronLeft className="w-4 h-4" />
                                 </button>
                                 <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                                    Page {currentPage} of {totalPages || 1}
+                                    Page {currentPage} of 20
                                 </div>
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                                    disabled={currentPage === totalPages || totalPages === 0}
+                                    onClick={() => setCurrentPage(prev => Math.min(20, prev + 1))}
+                                    disabled={currentPage === 20}
                                     className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
                                     title="Next Page"
                                 >

@@ -3,6 +3,7 @@ import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
 import api from "../../services/api";
+import { Sun, Cloud, CloudRain, CloudSun, CloudDrizzle, CloudFog, CloudSnow, CloudLightning } from "lucide-react";
 
 const expenseCategoryColors: Record<string, string> = {
     Labour: "bg-blue-50 text-blue-600",
@@ -19,12 +20,12 @@ const phaseStatusStyle: Record<string, string> = {
 const EngineerDashboard = () => {
     // Dynamic user context extraction
     const userStr = localStorage.getItem("infrapilot_user");
-    let projectId = 36;
+    let projectId = 92;
     let projectName = "SARA CITY";
     if (userStr) {
         try {
             const parsed = JSON.parse(userStr);
-            projectId = parsed?.project_id || parsed?.user?.project_id || 36;
+            projectId = parsed?.project_id || parsed?.user?.project_id || 92;
             projectName = parsed?.project_name || parsed?.user?.project_name || "SARA CITY";
         } catch (e) {
             console.error("Failed to parse user session", e);
@@ -34,149 +35,125 @@ const EngineerDashboard = () => {
     // 1. Initial State populated instantly with real-time local cache data to prevent any reloads/spinners!
     const getInitialDashboardData = () => {
         const activitiesStr = localStorage.getItem("mock-activities");
-        const list = activitiesStr ? JSON.parse(activitiesStr) : [];
-        
+        const allActivities = activitiesStr ? JSON.parse(activitiesStr) : [];
+        const list = allActivities.filter((a: any) => a.project_id === projectId || (!a.project_id && projectId === 92));
+
         const activeActivities = list.filter((a: any) => a.status !== "Completed" && a.completion_percentage < 100);
         const completedCount = list.filter((a: any) => a.status === "Completed" || a.completion_percentage === 100).length;
         const total = list.length;
-        const progress = total > 0 ? Math.round((completedCount / total) * 100) : 68;
-        const planned_progress = total > 0 ? 72 : 72;
+
+        // If it's project 92, provide the rich defaults if no data
+        const isDefault = projectId === 92;
+        const progress = total > 0 ? Math.round((completedCount / total) * 100) : (isDefault ? 68 : 0);
+        const planned_progress = total > 0 ? 72 : (isDefault ? 72 : 0);
         const variance = progress - planned_progress;
-        
+
         const disciplines = ["Structural Work", "Masonry & Brickwork", "Plumbing", "Electrical", "Finishing"];
         const colors = ["bg-blue-500", "bg-indigo-500", "bg-cyan-500", "bg-amber-500", "bg-rose-400"];
         const discipline_progress = disciplines.map((d, index) => {
-          const dAct = list.filter((a: any) => (a.discipline || "Structural Work") === d);
-          const avgActual = dAct.length > 0 ? dAct.reduce((sum: number, a: any) => sum + a.completion_percentage, 0) / dAct.length : 0;
-          return {
-            label: d,
-            planned: d === "Structural Work" ? 72 : d === "Masonry & Brickwork" ? 40 : d === "Plumbing" ? 20 : d === "Electrical" ? 15 : 5,
-            actual: dAct.length > 0 ? Math.round(avgActual) : (d === "Structural Work" ? 68 : d === "Masonry & Brickwork" ? 35 : d === "Plumbing" ? 22 : d === "Electrical" ? 10 : 0),
-            color: colors[index]
-          };
+            const dAct = list.filter((a: any) => (a.discipline || "Structural Work") === d);
+            const avgActual = dAct.length > 0 ? dAct.reduce((sum: number, a: any) => sum + a.completion_percentage, 0) / dAct.length : 0;
+            return {
+                label: d,
+                planned: isDefault ? (d === "Structural Work" ? 72 : d === "Masonry & Brickwork" ? 40 : d === "Plumbing" ? 20 : d === "Electrical" ? 15 : 5) : 0,
+                actual: dAct.length > 0 ? Math.round(avgActual) : (isDefault ? (d === "Structural Work" ? 68 : d === "Masonry & Brickwork" ? 35 : d === "Plumbing" ? 22 : d === "Electrical" ? 10 : 0) : 0),
+                color: colors[index]
+            };
         });
 
         const today_work_summary = list.map((a: any) => ({
-          id: a.id,
-          activity: a.activity_name,
-          description: `Executing BOQ code ${a.boq_code || "N/A"}. Planned quantity: ${a.planned_quantity} ${a.unit}.`,
-          status: a.status === "Completed" ? "Completed" : a.status === "Delay" ? "Pending" : "In Progress",
-          time: `Deadline: ${a.end_date}`,
-          statusColor: a.status === "Completed" ? "bg-emerald-100 text-emerald-600" : a.status === "Delay" ? "bg-rose-100 text-rose-600" : "bg-blue-100 text-blue-600"
+            id: a.id,
+            activity: a.activity_name,
+            description: `Executing BOQ code ${a.boq_code || "N/A"}. Planned quantity: ${a.planned_quantity} ${a.unit}.`,
+            status: a.status === "Completed" ? "Completed" : a.status === "Delay" ? "Pending" : "In Progress",
+            time: `Deadline: ${a.end_date}`,
+            statusColor: a.status === "Completed" ? "bg-emerald-100 text-emerald-600" : a.status === "Delay" ? "bg-rose-100 text-rose-600" : "bg-blue-100 text-blue-600"
         }));
 
-        const defaultWorkSummary = [
-          { id: 1, activity: "Column Reinforcement Check", description: "Checking reinforcement for columns C1–C15 at the 4th floor.", status: "In Progress", time: "Started: 09:00 AM", statusColor: "bg-blue-100 text-blue-600" },
-          { id: 2, activity: "Concrete Pouring – Retaining Wall", description: "Pouring M35 grade concrete for the North-side retaining wall.", status: "Completed", time: "Finished: 02:30 PM", statusColor: "bg-emerald-100 text-emerald-600" },
-          { id: 3, activity: "Shuttering – 5th Floor Slab", description: "Setting formwork for 5th-floor slab casting scheduled tomorrow.", status: "Pending", time: "ETA: 05:00 PM", statusColor: "bg-amber-100 text-amber-600" }
-        ];
+        const defaultWorkSummary = isDefault ? [
+            { id: 1, activity: "Column Reinforcement Check", description: "Checking reinforcement for columns C1–C15 at the 4th floor.", status: "In Progress", time: "Started: 09:00 AM", statusColor: "bg-blue-100 text-blue-600" },
+            { id: 2, activity: "Concrete Pouring – Retaining Wall", description: "Pouring M35 grade concrete for the North-side retaining wall.", status: "Completed", time: "Finished: 02:30 PM", statusColor: "bg-emerald-100 text-emerald-600" },
+            { id: 3, activity: "Shuttering – 5th Floor Slab", description: "Setting formwork for 5th-floor slab casting scheduled tomorrow.", status: "Pending", time: "ETA: 05:00 PM", statusColor: "bg-amber-100 text-amber-600" }
+        ] : [];
 
         const dailyEntriesStr = localStorage.getItem("mock-daily-entries");
-        const dailyList = dailyEntriesStr ? JSON.parse(dailyEntriesStr) : [];
-        const recent_expenses = dailyList.map((e: any) => {
-          const act = list.find((a: any) => a.id === e.activity_id);
-          return {
-            id: e.id,
-            date: e.entry_date,
-            type: "Labour",
-            category: act ? act.activity_name : "General",
-            amount: e.today_progress * 500,
-            note: e.remarks || "Daily progress logging check"
-          };
+        const allDailyList = dailyEntriesStr ? JSON.parse(dailyEntriesStr) : [];
+        const dailyList = allDailyList.filter((e: any) => {
+            const act = allActivities.find((a: any) => a.id === e.activity_id);
+            return act && (act.project_id === projectId || (!act.project_id && projectId === 92));
         });
 
-        const defaultExpenses = [
-          { id: 1, date: "2026-04-29", type: "Labour", category: "Skilled", amount: 48500, note: "Reinforcement workers – 5 days" },
-          { id: 2, date: "2026-04-28", type: "Material", category: "Concrete", amount: 125000, note: "M35 concrete supply – 50 cum" },
-          { id: 3, date: "2026-04-27", type: "Equipment", category: "Machinery", amount: 18000, note: "Transit mixer rental – 2 days" },
-          { id: 4, date: "2026-04-26", type: "Material", category: "Steel", amount: 87500, note: "Fe500 TMT bars – 5 MT" },
-          { id: 5, date: "2026-04-25", type: "Labour", category: "Unskilled", amount: 21000, note: "Earthwork helpers – 3 days" }
-        ];
+        const recent_expenses = dailyList.map((e: any) => {
+            const act = list.find((a: any) => a.id === e.activity_id);
+            return {
+                id: e.id,
+                date: e.entry_date,
+                type: "Labour",
+                category: act ? act.activity_name : "General",
+                amount: e.today_progress * 500,
+                note: e.remarks || "Daily progress logging check"
+            };
+        });
+
+        const defaultExpenses = isDefault ? [
+            { id: 1, date: "2026-04-29", type: "Labour", category: "Skilled", amount: 48500, note: "Reinforcement workers – 5 days" },
+            { id: 2, date: "2026-04-28", type: "Material", category: "Concrete", amount: 125000, note: "M35 concrete supply – 50 cum" },
+            { id: 3, date: "2026-04-27", type: "Equipment", category: "Machinery", amount: 18000, note: "Transit mixer rental – 2 days" },
+            { id: 4, date: "2026-04-26", type: "Material", category: "Steel", amount: 87500, note: "Fe500 TMT bars – 5 MT" },
+            { id: 5, date: "2026-04-25", type: "Labour", category: "Unskilled", amount: 21000, note: "Earthwork helpers – 3 days" }
+        ] : [];
 
         const finalWorkSummary = today_work_summary.length > 0 ? today_work_summary : defaultWorkSummary;
         const finalExpenses = recent_expenses.length > 0 ? [...recent_expenses, ...defaultExpenses] : defaultExpenses;
 
         return {
-          project_id: projectId,
-          project_name: projectName,
-          status: "ProjectStatus.PLANNED",
-          progress: progress || 68,
-          planned_progress: planned_progress || 72,
-          variance: variance || -4,
-          vitals: {
-            total_labour_today: 145,
-            skilled_labour: 85,
-            unskilled_labour: 60,
-            active_activities: activeActivities.length || 12,
-            open_issues: {
-              total: 4,
-              high_priority: 2
+            project_id: projectId,
+            project_name: projectName,
+            status: "ProjectStatus.PLANNED",
+            progress: progress,
+            planned_progress: planned_progress,
+            variance: variance,
+            vitals: {
+                total_labour_today: isDefault ? 145 : 0,
+                skilled_labour: isDefault ? 85 : 0,
+                unskilled_labour: isDefault ? 60 : 0,
+                active_activities: activeActivities.length || (isDefault ? 12 : 0),
+                open_issues: {
+                    total: isDefault ? 4 : 0,
+                    high_priority: isDefault ? 2 : 0
+                },
+                material_stock_status: isDefault ? [
+                    { material: "Cement", status: "OK" },
+                    { material: "Steel", status: "Low" }
+                ] : []
             },
-            material_stock_status: [
-              { material: "Cement", status: "OK" },
-              { material: "Steel", status: "Low" }
-            ]
-          },
-          today_work_summary: finalWorkSummary,
-          discipline_progress: discipline_progress,
-          timeline: [
-            { id: 1, phase: "Site Preparation & Survey", start: "Jan 2026", end: "Feb 2026", progress: 100, status: "Completed" },
-            { id: 2, phase: "Foundation & Excavation", start: "Feb 2026", end: "Mar 2026", progress: 100, status: "Completed" },
-            { id: 3, phase: "Structural Framework – G+2", start: "Mar 2026", end: "May 2026", progress: 68, status: "In Progress" },
-            { id: 4, phase: "External Brickwork & Plaster", start: "May 2026", end: "Jul 2026", progress: 0, status: "Upcoming" },
-            { id: 5, phase: "MEP & Finishing Works", start: "Jul 2026", end: "Sep 2026", progress: 0, status: "Upcoming" },
-            { id: 6, phase: "Handover & Inspection", start: "Sep 2026", end: "Oct 2026", progress: 0, status: "Upcoming" }
-          ],
-          recent_expenses: finalExpenses,
-          weather: {
-            condition: "Clear",
-            temperature: 32
-          }
+            today_work_summary: finalWorkSummary,
+            discipline_progress: discipline_progress,
+            timeline: isDefault ? [
+                { id: 1, phase: "Site Preparation & Survey", start: "Jan 2026", end: "Feb 2026", progress: 100, status: "Completed" },
+                { id: 2, phase: "Foundation & Excavation", start: "Feb 2026", end: "Mar 2026", progress: 100, status: "Completed" },
+                { id: 3, phase: "Structural Framework – G+2", start: "Mar 2026", end: "May 2026", progress: 68, status: "In Progress" },
+                { id: 4, phase: "External Brickwork & Plaster", start: "May 2026", end: "Jul 2026", progress: 0, status: "Upcoming" },
+                { id: 5, phase: "MEP & Finishing Works", start: "Jul 2026", end: "Sep 2026", progress: 0, status: "Upcoming" },
+                { id: 6, phase: "Handover & Inspection", start: "Sep 2026", end: "Oct 2026", progress: 0, status: "Upcoming" }
+            ] : [],
+            recent_expenses: finalExpenses,
+            weather: {
+                condition: "Clear",
+                temperature: 32
+            }
         };
     };
 
     const [dashboardData, setDashboardData] = useState<any>(getInitialDashboardData);
-    const [weatherData, setWeatherData] = useState({
-        condition: "Clear",
-        temperature: 32,
-        humidity: 54,
-        windSpeed: 12
-    });
-
-    // 2. Fetch real-time live weather dynamically based on open-meteo API
-    useEffect(() => {
-        const fetchLiveWeather = async () => {
-            try {
-                const res = await fetch("https://api.open-meteo.com/v1/forecast?latitude=18.5204&longitude=73.8567&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m");
-                const data = await res.json();
-                if (data && data.current) {
-                    const temp = Math.round(data.current.temperature_2m);
-                    const hum = data.current.relative_humidity_2m;
-                    const wind = Math.round(data.current.wind_speed_10m);
-                    const code = data.current.weather_code;
-                    
-                    let cond = "Clear";
-                    if (code >= 1 && code <= 3) cond = "Partly Cloudy";
-                    else if (code === 45 || code === 48) cond = "Foggy";
-                    else if (code >= 51 && code <= 55) cond = "Drizzle";
-                    else if (code >= 61 && code <= 65) cond = "Rainy";
-                    else if (code >= 71 && code <= 77) cond = "Snowy";
-                    else if (code >= 80 && code <= 82) cond = "Showers";
-                    else if (code >= 95) cond = "Thunderstorm";
-
-                    setWeatherData({
-                        condition: cond,
-                        temperature: temp,
-                        humidity: hum,
-                        windSpeed: wind
-                    });
-                }
-            } catch (err) {
-                console.error("Failed to fetch live weather", err);
-            }
-        };
-        fetchLiveWeather();
-    }, []);
+    const weatherData = {
+        condition: dashboardData?.weather?.condition || "Clear",
+        temperature: dashboardData?.weather?.temperature || 32,
+        humidity: dashboardData?.weather?.humidity || 54,
+        windSpeed: dashboardData?.weather?.windSpeed || dashboardData?.weather?.wind_speed || 12
+    };
+    const [showPlanned, setShowPlanned] = useState(true);
+    const [showActual, setShowActual] = useState(true);
 
     // 3. Silent background fetch to sync dashboardData without blocking page views or showing spinners!
     useEffect(() => {
@@ -213,7 +190,7 @@ const EngineerDashboard = () => {
 
             <PageTransition className="p-4 md:p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
 
-                {/* ── Header ─────────────────────────────────────────────────── */}
+                {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
                     <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">Project</p>
@@ -221,11 +198,17 @@ const EngineerDashboard = () => {
                         <p className="text-slate-500 text-sm">Real-time site progress, labor, and material monitoring.</p>
                     </div>
                     <div className="flex items-center gap-3 px-5 py-3 bg-white border border-slate-200 text-slate-700 rounded-2xl shadow-sm">
-                        <span className="text-3xl">
-                            {weatherData.condition === "Clear" ? "☀️" : 
-                             weatherData.condition === "Partly Cloudy" ? "⛅" : 
-                             weatherData.condition === "Rainy" ? "🌧️" : "☁️"}
-                        </span>
+                        <div className="flex items-center justify-center p-2 rounded-xl bg-slate-50">
+                            {weatherData.condition === "Clear" ? <Sun className="w-8 h-8 text-amber-500" /> :
+                                weatherData.condition === "Partly Cloudy" ? <CloudSun className="w-8 h-8 text-amber-500" /> :
+                                    weatherData.condition === "Foggy" ? <CloudFog className="w-8 h-8 text-slate-400" /> :
+                                        weatherData.condition === "Drizzle" ? <CloudDrizzle className="w-8 h-8 text-blue-400" /> :
+                                            weatherData.condition === "Rainy" ? <CloudRain className="w-8 h-8 text-blue-500" /> :
+                                                weatherData.condition === "Snowy" ? <CloudSnow className="w-8 h-8 text-blue-200" /> :
+                                                    weatherData.condition === "Showers" ? <CloudRain className="w-8 h-8 text-blue-600" /> :
+                                                        weatherData.condition === "Thunderstorm" ? <CloudLightning className="w-8 h-8 text-purple-500" /> :
+                                                            <Cloud className="w-8 h-8 text-slate-400" />}
+                        </div>
                         <div>
                             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-1">Weather – Live</p>
                             <p className="text-sm font-bold text-slate-800 tracking-tight">{weatherData.condition}, {weatherData.temperature}°C</p>
@@ -234,7 +217,7 @@ const EngineerDashboard = () => {
                     </div>
                 </div>
 
-                {/* ── Site Vitals ───────────────────────────────────────────── */}
+                {/* â”€â”€ Site Vitals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="mb-6">
                     <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Site Vitals</h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -261,7 +244,7 @@ const EngineerDashboard = () => {
                     </div>
                 </div>
 
-                {/* ── Today's Work + Progress Circle ────────────────────────── */}
+                {/* â”€â”€ Today's Work + Progress Circle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 mb-6 md:mb-8">
                     <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -314,7 +297,7 @@ const EngineerDashboard = () => {
                     </div>
                 </div>
 
-                {/* ── Work Progress % ────────────────────────────────────────── */}
+                {/* â”€â”€ Work Progress % â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="mb-8">
                     <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Work Progress %</h2>
                     <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
@@ -333,15 +316,15 @@ const EngineerDashboard = () => {
                                     <div className="flex items-center justify-between mb-1.5">
                                         <p className="text-sm font-bold text-slate-700">{item.label}</p>
                                         <div className="flex items-center gap-3 text-[11px] font-bold">
-                                            <span className="text-slate-400">Planned: <span className="text-slate-600">{item.planned}%</span></span>
-                                            <span className={item.actual >= item.planned ? "text-emerald-600" : "text-rose-500"}>
+                                            {showPlanned && <span className="text-slate-400">Planned: <span className="text-slate-600">{item.planned}%</span></span>}
+                                            {showActual && <span className={item.actual >= item.planned ? "text-emerald-600" : "text-rose-500"}>
                                                 Actual: {item.actual}%
-                                            </span>
+                                            </span>}
                                         </div>
                                     </div>
                                     <div className="relative h-3 bg-slate-100 rounded-full overflow-hidden">
-                                        <div className="absolute inset-0 bg-slate-200 rounded-full" style={{ width: `${item.planned}%` }} />
-                                        <div className={`absolute inset-0 h-full rounded-full transition-all duration-700 ${item.color}`} style={{ width: `${item.actual}%` }} />
+                                        {showPlanned && <div className="absolute inset-0 bg-slate-200 rounded-full" style={{ width: `${item.planned}%` }} />}
+                                        {showActual && <div className={`absolute inset-0 h-full rounded-full transition-all duration-700 ${item.color}`} style={{ width: `${item.actual}%` }} />}
                                     </div>
                                     <div className="flex justify-between mt-1">
                                         <span className="text-[9px] text-slate-300 font-bold">0%</span>
@@ -351,13 +334,19 @@ const EngineerDashboard = () => {
                             ))}
                         </div>
                         <div className="flex items-center gap-5 mt-6 pt-5 border-t border-slate-50">
-                            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-slate-200" /><span className="text-[10px] font-bold text-slate-400">Planned</span></div>
-                            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-primary" /><span className="text-[10px] font-bold text-slate-400">Actual</span></div>
+                            <button onClick={() => setShowPlanned(!showPlanned)} className="flex items-center gap-1.5 focus:outline-none hover:opacity-80 transition-opacity">
+                                <div className={`w-3 h-3 rounded-sm transition-all ${showPlanned ? 'bg-slate-200' : 'bg-slate-100 border border-slate-200'}`} />
+                                <span className={`text-[10px] font-bold transition-all ${showPlanned ? 'text-slate-400' : 'text-slate-300 line-through'}`}>Planned</span>
+                            </button>
+                            <button onClick={() => setShowActual(!showActual)} className="flex items-center gap-1.5 focus:outline-none hover:opacity-80 transition-opacity">
+                                <div className={`w-3 h-3 rounded-sm transition-all ${showActual ? 'bg-primary' : 'bg-primary/20'}`} />
+                                <span className={`text-[10px] font-bold transition-all ${showActual ? 'text-slate-400' : 'text-slate-300 line-through'}`}>Actual</span>
+                            </button>
                         </div>
                     </div>
                 </div>
 
-                {/* ── Timeline Tracking ──────────────────────────────────────── */}
+                {/* â”€â”€ Timeline Tracking â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="mb-8">
                     <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Timeline Tracking</h2>
                     <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
@@ -410,7 +399,7 @@ const EngineerDashboard = () => {
                     </div>
                 </div>
 
-                {/* ── Site-wise Expense Tracking ────────────────────────────── */}
+                {/* â”€â”€ Site-wise Expense Tracking â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="mb-8">
                     <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Site-wise Expense Tracking</h2>
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">

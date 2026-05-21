@@ -112,23 +112,7 @@ export const drawingService = {
         }
     },
 
-    /**
-     * Delete a drawing record
-     * DELETE /api/v1/drawings/{id}
-     */
-    async deleteDrawing(id: number | string) {
-        try {
-            const response = await api.delete(`/drawings/${id}`);
-            return response.data;
-        } catch (error: any) {
-            const status = error.response?.status;
-            if (status === 403 || status === 404 || status === 500) {
-                console.warn(`Virtual Success: Bypassing Delete Drawing ${status} Error`);
-                return { message: "Deleted" };
-            }
-            throw error;
-        }
-    },
+
 
     /**
      * View a specific drawing document

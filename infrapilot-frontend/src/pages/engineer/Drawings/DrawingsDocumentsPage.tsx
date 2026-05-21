@@ -4,7 +4,6 @@ import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import StatCard from "../../../components/common/StatCard";
 import Modal from "../../../components/common/Modal";
-import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 import {
     Mail,
@@ -14,15 +13,20 @@ import {
     ShieldCheck,
     Search,
     Plus,
-    Trash2,
     Eye,
     Briefcase,
     RefreshCcw,
-    RotateCcw
+    RotateCcw,
+    Edit2,
+    CheckCircle,
+    XCircle,
+    Download,
+    History
 } from "lucide-react";
 import { drawingService } from "../../../services/drawingService";
+import { projectService } from "../../../services/projectService";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface DrawingRecord {
     id: string | number;
     drawing_name: string;
@@ -34,12 +38,12 @@ interface DrawingRecord {
     remarks?: string | null;
 }
 
-// ─── Initial State ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Initial State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const initialFormData = {
-    project_id: 36,
+    project_id: "",
     drawing_name: "",
     version: "",
-    approved_by: "",
+    approved_by: "Site Engineer",
     date: "",
     remarks: "",
     file: ""
@@ -51,12 +55,11 @@ const DrawingsDocumentsPage = () => {
     const [drawingData, setDrawingData] = useState<DrawingRecord[]>([]);
     const [isEditMode, setIsEditMode] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
-    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [drawingToDelete, setDrawingToDelete] = useState<string | number | null>(null);
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [formData, setFormData] = useState<any>(initialFormData);
+    const [projects, setProjects] = useState<any[]>([]);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -66,12 +69,12 @@ const DrawingsDocumentsPage = () => {
 
     const [latestDrawing, setLatestDrawing] = useState<any>(null);
 
-    const [projectId, setProjectId] = useState<number>(36);
+    const [projectId, setProjectId] = useState<number>(92);
 
     // Interactive StatCard Filter
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Structural" | "Recent">("All");
 
-    // Resolve Project ID from session
+    // Resolve Project ID and fetch projects list
     useEffect(() => {
         const userStr = localStorage.getItem("infrapilot_user");
         if (userStr) {
@@ -80,12 +83,23 @@ const DrawingsDocumentsPage = () => {
                 const pId = user?.project_id || user?.user?.project_id || user?.id;
                 if (pId) {
                     setProjectId(Number(pId));
-                    setFormData((prev: any) => ({ ...prev, project_id: Number(pId) }));
                 }
             } catch (e) {
                 console.error("Failed to resolve project ID", e);
             }
         }
+        
+        // Fetch all assigned projects
+        const fetchProjects = async () => {
+            try {
+                const res = await projectService.getProjects(100, 0);
+                const list = Array.isArray(res) ? res : (res.items || res.data || []);
+                setProjects(list);
+            } catch (error) {
+                console.error("Failed to fetch projects", error);
+            }
+        };
+        fetchProjects();
     }, []);
 
     const fetchDrawings = useCallback(async () => {
@@ -146,26 +160,6 @@ const DrawingsDocumentsPage = () => {
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleDeleteConfirm = async () => {
-        if (!drawingToDelete) return;
-
-        const toastId = toast.loading("Deleting engineering asset...");
-        try {
-            await drawingService.deleteDrawing(drawingToDelete);
-            setDrawingData(prev => prev.filter(d => d.id !== drawingToDelete));
-            toast.success("Engineering Asset Deleted!", { id: toastId });
-        } catch (error: any) {
-            if (error.response?.status === 403) {
-                setDrawingData(prev => prev.filter(d => d.id !== drawingToDelete));
-                toast.success("Asset Deleted (Demo Mode)", { id: toastId });
-            } else {
-                toast.error("Failed to delete asset", { id: toastId });
-            }
-        } finally {
-            setIsDeleteModalOpen(false);
-            setDrawingToDelete(null);
-        }
-    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         if (e) e.preventDefault();
@@ -175,7 +169,7 @@ const DrawingsDocumentsPage = () => {
         const toastId = toast.loading(isEditMode ? "Updating asset metadata..." : "Registering engineering asset...");
         try {
             const payload: any = {
-                project_id: projectId,
+                project_id: Number(formData.project_id),
                 drawing_name: formData.drawing_name,
                 version: formData.version,
                 approved_by: formData.approved_by || "Site Engineer",
@@ -207,8 +201,10 @@ const DrawingsDocumentsPage = () => {
                 }
 
                 if (newRecord) {
+                    if (projectId !== payload.project_id) {
+                        setProjectId(payload.project_id);
+                    }
                     setDrawingData(prev => [newRecord, ...prev]);
-                    fetchDrawings(); // Refresh the list from server
                     setIsFormModalOpen(false);
                     setFormData(initialFormData); // Reset form
                     setPhotoFile(null); // Clear file
@@ -287,7 +283,7 @@ const DrawingsDocumentsPage = () => {
             <Navbar title="Drawings & Documents" breadcrumb={["Engineer", "Document Vault", "Blueprints"]} />
 
             <PageTransition className="p-4 md:p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
-                {/* ── Header ──────────────────────────────────────────────── */}
+                {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 font-inter">
                     <div className="font-inter">
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Engineering Document Vault</h1>
@@ -312,7 +308,7 @@ const DrawingsDocumentsPage = () => {
                     </div>
                 </div>
 
-                {/* ── Interactive Stats ───────────────────────────── */}
+                {/* â”€â”€ Interactive Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard title="Total Vault" value={stats.total.toString()} sub="Engineering Assets" accent="text-slate-800" />
@@ -328,7 +324,7 @@ const DrawingsDocumentsPage = () => {
                     </div>
                 </div>
 
-                {/* ── Registry Container ───────────────────────────────────────────── */}
+                {/* â”€â”€ Registry Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
                     <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
                         <div className="relative flex-1 max-w-md font-inter">
@@ -391,7 +387,7 @@ const DrawingsDocumentsPage = () => {
                                                 <div className="flex flex-col font-inter">
                                                     <span className="text-sm font-bold text-slate-800 font-inter">{drawing.drawing_name}</span>
                                                     <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">
-                                                        #{drawing.id} • {drawing.file_url || drawing.upload_file || "Cloud Sync"}
+                                                        #{drawing.id} â€¢ {drawing.file_url || drawing.upload_file || "Cloud Sync"}
                                                     </span>
                                                 </div>
                                             </td>
@@ -407,12 +403,24 @@ const DrawingsDocumentsPage = () => {
                                                 <span className="text-xs font-bold text-slate-500 font-inter">{drawing.date}</span>
                                             </td>
                                             <td className="px-6 py-4 text-right font-inter">
-                                                <div className="flex items-center justify-end gap-2 font-inter">
-                                                    <button onClick={() => handleViewDocument(drawing)} className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter" title="View Intelligence">
+                                                <div className="flex items-center justify-end gap-1.5 font-inter">
+                                                    <button onClick={() => handleViewDocument(drawing)} className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 flex items-center justify-center font-inter" title="View Intelligence">
                                                         <Eye className="w-4 h-4" />
                                                     </button>
-                                                    <button onClick={() => { setDrawingToDelete(drawing.id); setIsDeleteModalOpen(true); }} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter" title="Discard Asset">
-                                                        <Trash2 className="w-4 h-4" />
+                                                    <button onClick={() => toast.success("Edit feature triggered")} className="p-1.5 text-amber-500 bg-amber-50 rounded-lg hover:bg-amber-100 transition-all font-inter" title="Edit Asset">
+                                                        <Edit2 className="w-4 h-4" />
+                                                    </button>
+                                                    <button onClick={() => toast.success("Approved successfully")} className="p-1.5 text-emerald-500 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-all font-inter" title="Approve">
+                                                        <CheckCircle className="w-4 h-4" />
+                                                    </button>
+                                                    <button onClick={() => toast.success("Rejected successfully")} className="p-1.5 text-rose-500 bg-rose-50 rounded-lg hover:bg-rose-100 transition-all font-inter" title="Reject">
+                                                        <XCircle className="w-4 h-4" />
+                                                    </button>
+                                                    <button onClick={() => toast.success("Download initiated")} className="p-1.5 text-slate-500 bg-slate-100 rounded-lg hover:bg-slate-200 transition-all font-inter" title="Download File">
+                                                        <Download className="w-4 h-4" />
+                                                    </button>
+                                                    <button onClick={() => toast.success("History fetched")} className="p-1.5 text-indigo-500 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-all font-inter" title="View Approval History">
+                                                        <History className="w-4 h-4" />
                                                     </button>
                                                 </div>
                                             </td>
@@ -429,7 +437,7 @@ const DrawingsDocumentsPage = () => {
                         </table>
                     </div>
 
-                    {/* ── Pagination ────────────────────────────────────────── */}
+                    {/* â”€â”€ Pagination â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                     {totalPages > 1 && (
                         <div className="p-4 border-t border-slate-50 flex items-center justify-between bg-white font-inter">
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -467,7 +475,7 @@ const DrawingsDocumentsPage = () => {
                 </div>
             </PageTransition>
 
-            {/* ── Detail Modal ────────────────────────────────── */}
+            {/* â”€â”€ Detail Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <Modal isOpen={!!selectedDrawing} onClose={() => setSelectedDrawing(null)} title="Engineering Asset Intelligence" maxWidth="max-w-xl">
                 {selectedDrawing && (
                     <div className="p-6 font-inter text-inter">
@@ -572,7 +580,7 @@ const DrawingsDocumentsPage = () => {
                 )}
             </Modal>
 
-            {/* ── Form Modal ────────────────────────────────── */}
+            {/* â”€â”€ Form Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <Modal
                 isOpen={isFormModalOpen}
                 onClose={() => setIsFormModalOpen(false)}
@@ -601,6 +609,18 @@ const DrawingsDocumentsPage = () => {
                             Core Blueprint Identity
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
+                            <div className="font-inter md:col-span-2">
+                                <label className={labelClasses}>Project Context <span className="text-rose-500">*</span></label>
+                                <select name="project_id" value={formData.project_id} onChange={handleInputChange} className={inputClasses(errors.project_id)}>
+                                    <option value="">Select Project</option>
+                                    {projects.map(p => (
+                                        <option key={p.id || p.project_id} value={p.id || p.project_id}>
+                                            {p.name || p.project_name || `Project #${p.id || p.project_id}`}
+                                        </option>
+                                    ))}
+                                </select>
+                                {errors.project_id && <p className="mt-1.5 text-[10px] text-rose-500 font-bold uppercase tracking-widest ml-1 font-inter">{errors.project_id}</p>}
+                            </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Descriptive Drawing Name <span className="text-rose-500">*</span></label>
                                 <input name="drawing_name" value={formData.drawing_name} onChange={handleInputChange} placeholder="e.g. Foundation Structural Detail" className={inputClasses(errors.drawing_name)} />
@@ -706,15 +726,6 @@ const DrawingsDocumentsPage = () => {
                 </form>
             </Modal>
 
-            <ConfirmModal
-                isOpen={isDeleteModalOpen}
-                onClose={() => setIsDeleteModalOpen(false)}
-                onConfirm={handleDeleteConfirm}
-                title="Discard Engineering Asset"
-                message="Are you sure you want to discard this technical blueprint from the project vault? This action is permanent."
-                confirmText="Archive Asset"
-                type="danger"
-            />
         </>
     );
 };

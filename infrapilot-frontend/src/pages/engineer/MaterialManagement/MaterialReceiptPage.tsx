@@ -5,27 +5,25 @@ import Modal from "../../../components/common/Modal";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import StatCard from "../../../components/common/StatCard";
 import toast from "react-hot-toast";
-import { 
-  Plus, 
-  Package, 
-  ShoppingCart, 
-  Eye, 
-  Edit2, 
+import {
+  Plus,
+  Package,
+  ShoppingCart,
+  Eye,
+  Edit2,
   Trash2,
-  Tag,
-  Truck,
-  CreditCard,
   Search,
   RotateCcw
-,
-    ChevronLeft,
-    ChevronRight} from "lucide-react";
+  ,
+  ChevronLeft,
+  ChevronRight
+} from "lucide-react";
 import { materialService, type MaterialItem, type MaterialLog, type CreateMaterialRequest, type IssueType, type RateType, type Supplier } from "../../../services/materialService";
 
 const CATEGORIES = ["Construction", "Electrical", "Plumbing", "Finishing", "Other"];
 const UNITS = ["Bags", "Kg", "Ton", "Litre", "Nos", "Sqft", "Rft", "Cum"];
 const RATE_TYPES = ["FIXED", "VARIABLE"];
-const ISSUE_TYPES = ["SYSTEM", "MANUAL"];
+const ISSUE_TYPES = ["SYSTEM", "SITE", "DAMAGE", "LOSS", "VENDOR", "TRANSFER", "ADJUSTMENT", "PURCHASE"];
 
 const MaterialReceiptPage = () => {
   const [materials, setMaterials] = useState<MaterialItem[]>([]);
@@ -70,6 +68,7 @@ const MaterialReceiptPage = () => {
     quantity: 0,
     rate: 0,
     amount_paid: 0,
+    project_id: projectId || 1,
     issue_type: "SYSTEM"
   });
 
@@ -123,13 +122,15 @@ const MaterialReceiptPage = () => {
           const finalPId = Number(pId);
           setProjectId(finalPId);
           setFormData((prev: Partial<CreateMaterialRequest>) => ({ ...prev, project_id: finalPId }));
+          setPurchaseData((prev) => ({ ...prev, project_id: finalPId }));
         } else {
-          setProjectId(36);
-          setFormData((prev: Partial<CreateMaterialRequest>) => ({ ...prev, project_id: 36 }));
+          setProjectId(92);
+          setFormData((prev: Partial<CreateMaterialRequest>) => ({ ...prev, project_id: 92 }));
+          setPurchaseData((prev) => ({ ...prev, project_id: 92 }));
         }
       } catch (e) {
         console.error("Failed to resolve project ID", e);
-        setProjectId(36);
+        setProjectId(92);
       }
     }
   }, []);
@@ -233,8 +234,8 @@ const MaterialReceiptPage = () => {
       data = data.filter(m => m.quantity_purchased > 0);
     }
 
-    return data.filter(m => 
-      searchTerm === "" || 
+    return data.filter(m =>
+      searchTerm === "" ||
       m.material_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       m.material_code.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -244,8 +245,6 @@ const MaterialReceiptPage = () => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     return filteredMaterials.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredMaterials, currentPage]);
-
-  const totalPages = Math.ceil(filteredMaterials.length / itemsPerPage);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -262,8 +261,6 @@ const MaterialReceiptPage = () => {
 
   const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
   const inputClasses = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 focus:ring-primary/20 focus:border-primary";
-  const sectionClasses = "bg-white p-5 rounded-2xl border border-slate-100 shadow-sm";
-  const sectionTitleClasses = "text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 flex items-center gap-2";
 
   return (
     <>
@@ -286,16 +283,16 @@ const MaterialReceiptPage = () => {
             <button
               onClick={() => {
                 setFormData({
-                    project_id: projectId || 0,
-                    material_name: "",
-                    category: "Construction",
-                    unit: "Bags",
-                    supplier_id: suppliers.length > 0 ? suppliers[0].id : 0,
-                    purchase_rate: 0,
-                    rate_type: "FIXED",
-                    quantity_purchased: 0,
-                    payment_given: 0,
-                    minimum_stock_level: 0
+                  project_id: projectId || 0,
+                  material_name: "",
+                  category: "Construction",
+                  unit: "Bags",
+                  supplier_id: suppliers.length > 0 ? suppliers[0].id : 0,
+                  purchase_rate: 0,
+                  rate_type: "FIXED",
+                  quantity_purchased: 0,
+                  payment_given: 0,
+                  minimum_stock_level: 0
                 });
                 setIsAddModalOpen(true);
               }}
@@ -307,11 +304,11 @@ const MaterialReceiptPage = () => {
             <button
               onClick={() => {
                 if (materials.length > 0) {
-                    setSelectedMaterial(materials[0]);
-                    setPurchaseData({ quantity: 0, rate: materials[0].purchase_rate || 0, amount_paid: 0, issue_type: "SYSTEM" });
-                    setIsPurchaseModalOpen(true);
+                  setSelectedMaterial(materials[0]);
+                  setPurchaseData({ quantity: 0, rate: materials[0].purchase_rate || 0, amount_paid: 0, project_id: projectId || 1, issue_type: "SYSTEM" });
+                  setIsPurchaseModalOpen(true);
                 } else {
-                    toast.error("Please add a material first");
+                  toast.error("Please add a material first");
                 }
               }}
               className="flex items-center gap-2 px-4 py-2.5 border border-emerald-500 text-emerald-600 bg-white rounded-xl text-sm font-bold hover:bg-emerald-50 transition-all active:scale-95 font-inter shadow-sm"
@@ -323,7 +320,7 @@ const MaterialReceiptPage = () => {
         </div>
 
         {/* Stats Row with Interactive Filtering */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
           <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
             <StatCard
               title="Total Materials"
@@ -436,57 +433,57 @@ const MaterialReceiptPage = () => {
                       </td>
                       <td className="px-6 py-4 text-right font-inter">
                         <div className="flex items-center justify-end gap-2 font-inter">
-                          <button 
-                            onClick={async () => { 
-                                try {
-                                    const details = await materialService.getMaterial(m.id);
-                                    setSelectedMaterial(details); 
-                                    setIsDetailModalOpen(true); 
-                                } catch (error) {
-                                    toast.error("Failed to fetch material details");
-                                }
+                          <button
+                            onClick={async () => {
+                              try {
+                                const details = await materialService.getMaterial(m.id);
+                                setSelectedMaterial(details);
+                                setIsDetailModalOpen(true);
+                              } catch (error) {
+                                toast.error("Failed to fetch material details");
+                              }
                             }}
                             className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
                             title="View Intelligence"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          <button 
+                          <button
                             onClick={async () => {
-                                try {
-                                    const details = await materialService.getMaterial(m.id);
-                                    setSelectedMaterial(details);
-                                    setFormData({
-                                        material_name: details.material_name,
-                                        category: details.category,
-                                        unit: details.unit,
-                                        supplier_id: details.supplier_id,
-                                        purchase_rate: details.purchase_rate,
-                                        rate_type: details.rate_type,
-                                        minimum_stock_level: details.minimum_stock_level
-                                    });
-                                    setIsEditModalOpen(true);
-                                } catch (error) {
-                                    toast.error("Failed to fetch latest material data");
-                                }
+                              try {
+                                const details = await materialService.getMaterial(m.id);
+                                setSelectedMaterial(details);
+                                setFormData({
+                                  material_name: details.material_name,
+                                  category: details.category,
+                                  unit: details.unit,
+                                  supplier_id: details.supplier_id,
+                                  purchase_rate: details.purchase_rate,
+                                  rate_type: details.rate_type,
+                                  minimum_stock_level: details.minimum_stock_level
+                                });
+                                setIsEditModalOpen(true);
+                              } catch (error) {
+                                toast.error("Failed to fetch latest material data");
+                              }
                             }}
                             className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all font-inter"
                             title="Modify Record"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
-                          <button 
+                          <button
                             onClick={() => {
-                                setSelectedMaterial(m);
-                                setPurchaseData({ quantity: 0, rate: m.purchase_rate || 0, amount_paid: 0, issue_type: "SYSTEM" });
-                                setIsPurchaseModalOpen(true);
+                              setSelectedMaterial(m);
+                              setPurchaseData({ quantity: 0, rate: m.purchase_rate || 0, amount_paid: 0, project_id: projectId || 1, issue_type: "SYSTEM" });
+                              setIsPurchaseModalOpen(true);
                             }}
                             className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all font-inter"
                             title="Acquisition"
                           >
                             <ShoppingCart className="w-4 h-4" />
                           </button>
-                          <button 
+                          <button
                             onClick={() => { setDeleteId(m.id); setIsDeleteModalOpen(true); }}
                             className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"
                             title="Archive Record"
@@ -507,31 +504,28 @@ const MaterialReceiptPage = () => {
           </div>
 
           {/* Pagination Controls */}
-          <div className="px-6 py-4 bg-slate-50/30 border-t border-slate-50 flex items-center justify-between font-inter">
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">
-              Showing {paginatedMaterials.length} of {filteredMaterials.length} Resource Identities
-            </div>
+          <div className="px-6 py-4 bg-slate-50/30 border-t border-slate-50 flex items-center justify-end font-inter">
             <div className="flex items-center gap-2 font-inter">
-                                <button
-                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                                    disabled={currentPage === 1}
-                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
-                                    title="Previous Page"
-                                >
-                                    <ChevronLeft className="w-4 h-4" />
-                                </button>
-                                <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                                    Page {currentPage} of {totalPages || 1}
-                                </div>
-                                <button
-                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages || 1))}
-                                    disabled={currentPage >= totalPages || totalPages === 0}
-                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
-                                    title="Next Page"
-                                >
-                                    <ChevronRight className="w-4 h-4" />
-                                </button>
-                            </div>
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                title="Previous Page"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
+                Page {currentPage} of 20
+              </div>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, 20))}
+                disabled={currentPage === 20}
+                className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                title="Next Page"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -559,12 +553,12 @@ const MaterialReceiptPage = () => {
                       <td className="px-6 py-4 text-xs font-bold text-slate-500 font-inter uppercase tracking-widest">{new Date(log.created_at).toLocaleDateString()}</td>
                       <td className="px-6 py-4 font-inter">
                         <div className="flex flex-col font-inter">
-                            <span className="font-bold text-slate-800 text-sm font-inter">
-                                {materials.find(m => m.id === log.material_id)?.material_name || `MID-#{log.material_id}`}
-                            </span>
-                            <span className="text-[10px] font-bold text-slate-400 font-inter tracking-widest uppercase">
-                                {materials.find(m => m.id === log.material_id)?.material_code || "Unknown Code"}
-                            </span>
+                          <span className="font-bold text-slate-800 text-sm font-inter">
+                            {materials.find(m => m.id === log.material_id)?.material_name || `MID-#{log.material_id}`}
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-400 font-inter tracking-widest uppercase">
+                            {materials.find(m => m.id === log.material_id)?.material_code || "Unknown Code"}
+                          </span>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-center font-bold text-slate-800 text-sm font-inter">+{log.quantity.toLocaleString()}</td>
@@ -591,165 +585,262 @@ const MaterialReceiptPage = () => {
       </PageTransition>
 
       {/* Add / Edit Modal */}
+      {/* Add Modal */}
       <Modal
-        isOpen={isAddModalOpen || isEditModalOpen}
-        onClose={() => { setIsAddModalOpen(false); setIsEditModalOpen(false); }}
-        title={isEditModalOpen ? "Modify Resource Parameters" : "Register Project Resource"}
-        maxWidth="max-w-4xl"
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        title="Register Project Resource"
+        maxWidth="max-w-xl"
         footer={
           <>
             <button
               type="button"
-              onClick={() => { setIsAddModalOpen(false); setIsEditModalOpen(false); }}
+              onClick={() => setIsAddModalOpen(false)}
               className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
             <button
-              onClick={isEditModalOpen ? handleEditSubmit : handleAddSubmit}
+              onClick={handleAddSubmit}
               disabled={isSubmitting}
               className={`px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 ${isSubmitting ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}
             >
-              {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Push Changes" : "Commit Resources")}
+              {isSubmitting ? "Syncing..." : "Commit Resources"}
             </button>
           </>
         }
       >
-        <div className="space-y-6">
-          <div className={sectionClasses}>
-            <h3 className={sectionTitleClasses}>
-              <Tag className="w-4 h-4 text-primary" />
-              Intelligence Identifier
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-inter">
-              <div className="md:col-span-2 font-inter">
-                <label className={labelClasses}>Descriptive Name <span className="text-rose-500">*</span></label>
-                <input
-                  required
-                  type="text"
-                  value={formData.material_name}
-                  onChange={(e) => setFormData({ ...formData, material_name: e.target.value })}
-                  className={inputClasses}
-                  placeholder="e.g. TMT Steel Bars (12mm)"
-                />
-              </div>
-              <div className="font-inter">
-                <label className={labelClasses}>Context Category <span className="text-rose-500">*</span></label>
-                <select
-                  required
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className={inputClasses}
-                >
-                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-              <div className="font-inter">
-                <label className={labelClasses}>Standard Unit <span className="text-rose-500">*</span></label>
-                <select
-                  required
-                  value={formData.unit}
-                  onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                  className={inputClasses}
-                >
-                  {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                </select>
-              </div>
-            </div>
+        <div className="p-6 space-y-5 font-inter">
+          <div className="font-inter">
+            <label className={labelClasses}>project_id <span className="text-rose-500">*</span></label>
+            <input
+              required
+              type="number"
+              value={formData.project_id || ""}
+              onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) })}
+              className={inputClasses}
+              placeholder="1"
+            />
           </div>
-
-          <div className={sectionClasses}>
-            <h3 className={sectionTitleClasses}>
-              <Truck className="w-4 h-4 text-amber-500" />
-              Procurement Matrix
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-inter">
-              <div className="font-inter">
-                <label className={labelClasses}>Supplier <span className="text-rose-500">*</span></label>
-                <select
-                  required
-                  value={formData.supplier_id || ""}
-                  onChange={(e) => setFormData({ ...formData, supplier_id: Number(e.target.value) })}
-                  className={inputClasses}
-                >
-                  <option value="">Select Supplier</option>
-                  {suppliers.map(s => {
-                    const supId = s.id ?? (s as any).supplier_id;
-                    const supName = typeof s === "string" ? s : (s.name || (s as any).supplier_name || s.contactPerson || s.phone || `Supplier #${supId}`);
-                    return (
-                      <option key={supId} value={supId}>{supName}</option>
-                    );
-                  })}
-                </select>
-              </div>
-              <div className="font-inter">
-                <label className={labelClasses}>Acquisition Rate <span className="text-rose-500">*</span></label>
-                <input
-                  required
-                  type="number"
-                  value={formData.purchase_rate}
-                  onChange={(e) => setFormData({ ...formData, purchase_rate: Number(e.target.value) })}
-                  className={inputClasses}
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="font-inter">
-                  <label className={labelClasses}>Rate Protocol <span className="text-rose-500">*</span></label>
-                  <select
-                      required
-                      value={formData.rate_type}
-                      onChange={(e) => setFormData({ ...formData, rate_type: e.target.value as RateType })}
-                      className={inputClasses}
-                  >
-                      {RATE_TYPES.map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
-              </div>
-              <div className="font-inter">
-                <label className={labelClasses}>Inventory Floor (Min) <span className="text-rose-500">*</span></label>
-                <input
-                  required
-                  type="number"
-                  value={formData.minimum_stock_level}
-                  onChange={(e) => setFormData({ ...formData, minimum_stock_level: Number(e.target.value) })}
-                  className={inputClasses}
-                  placeholder="0"
-                />
-              </div>
-            </div>
+          <div className="font-inter">
+            <label className={labelClasses}>material_name <span className="text-rose-500">*</span></label>
+            <input
+              required
+              type="text"
+              value={formData.material_name}
+              onChange={(e) => setFormData({ ...formData, material_name: e.target.value })}
+              className={inputClasses}
+              placeholder="e.g. Cement"
+            />
           </div>
+          <div className="font-inter">
+            <label className={labelClasses}>category <span className="text-rose-500">*</span></label>
+            <select
+              required
+              value={formData.category || ""}
+              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              className={inputClasses}
+            >
+              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="font-inter">
+            <label className={labelClasses}>unit <span className="text-rose-500">*</span></label>
+            <select
+              required
+              value={formData.unit || ""}
+              onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+              className={inputClasses}
+            >
+              {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+            </select>
+          </div>
+          <div className="font-inter">
+            <label className={labelClasses}>supplier_id <span className="text-rose-500">*</span></label>
+            <select
+              required
+              value={formData.supplier_id || ""}
+              onChange={(e) => setFormData({ ...formData, supplier_id: Number(e.target.value) })}
+              className={inputClasses}
+            >
+              <option value="">Select Supplier</option>
+              {suppliers.map(s => {
+                const supId = s.id ?? (s as any).supplier_id;
+                const supName = typeof s === "string" ? s : (s.name || (s as any).supplier_name || `Supplier #${supId}`);
+                return (
+                  <option key={supId} value={supId}>{supName} (ID: {supId})</option>
+                );
+              })}
+            </select>
+          </div>
+          <div className="font-inter">
+            <label className={labelClasses}>purchase_rate <span className="text-rose-500">*</span></label>
+            <input
+              required
+              type="number"
+              value={formData.purchase_rate || ""}
+              onChange={(e) => setFormData({ ...formData, purchase_rate: Number(e.target.value) })}
+              className={inputClasses}
+              placeholder="355"
+            />
+          </div>
+          <div className="font-inter">
+            <label className={labelClasses}>rate_type <span className="text-rose-500">*</span></label>
+            <select
+              required
+              value={formData.rate_type || ""}
+              onChange={(e) => setFormData({ ...formData, rate_type: e.target.value as RateType })}
+              className={inputClasses}
+            >
+              {RATE_TYPES.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+          <div className="font-inter">
+            <label className={labelClasses}>quantity_purchased <span className="text-rose-500">*</span></label>
+            <input
+              required
+              type="number"
+              value={formData.quantity_purchased || ""}
+              onChange={(e) => setFormData({ ...formData, quantity_purchased: Number(e.target.value) })}
+              className={inputClasses}
+              placeholder="200"
+            />
+          </div>
+          <div className="font-inter">
+            <label className={labelClasses}>payment_given <span className="text-rose-500">*</span></label>
+            <input
+              required
+              type="number"
+              value={formData.payment_given || ""}
+              onChange={(e) => setFormData({ ...formData, payment_given: Number(e.target.value) })}
+              className={inputClasses}
+              placeholder="71000"
+            />
+          </div>
+          <div className="font-inter">
+            <label className={labelClasses}>minimum_stock_level <span className="text-rose-500">*</span></label>
+            <input
+              required
+              type="number"
+              value={formData.minimum_stock_level || ""}
+              onChange={(e) => setFormData({ ...formData, minimum_stock_level: Number(e.target.value) })}
+              className={inputClasses}
+              placeholder="200"
+            />
+          </div>
+        </div>
+      </Modal>
 
-          {!isEditModalOpen && (
-            <div className={sectionClasses}>
-                <h3 className={sectionTitleClasses}>
-                <CreditCard className="w-4 h-4 text-emerald-500" />
-                Initial Commitment
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-inter">
-                <div className="font-inter">
-                    <label className={labelClasses}>Initial Quantity <span className="text-rose-500">*</span></label>
-                    <input
-                    required
-                    type="number"
-                    value={formData.quantity_purchased}
-                    onChange={(e) => setFormData({ ...formData, quantity_purchased: Number(e.target.value) })}
-                    className={inputClasses}
-                    placeholder="0"
-                    />
-                </div>
-                <div className="font-inter">
-                    <label className={labelClasses}>Initial Disbursement <span className="text-rose-500">*</span></label>
-                    <input
-                    required
-                    type="number"
-                    value={formData.payment_given}
-                    onChange={(e) => setFormData({ ...formData, payment_given: Number(e.target.value) })}
-                    className={inputClasses}
-                    placeholder="0.00"
-                    />
-                </div>
-                </div>
-            </div>
-          )}
+      {/* Edit Modal */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        title="Modify Resource Parameters"
+        maxWidth="max-w-xl"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setIsEditModalOpen(false)}
+              className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleEditSubmit}
+              disabled={isSubmitting}
+              className={`px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 ${isSubmitting ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}
+            >
+              {isSubmitting ? "Syncing..." : "Push Changes"}
+            </button>
+          </>
+        }
+      >
+        <div className="p-6 space-y-5 font-inter">
+          <div className="font-inter">
+            <label className={labelClasses}>material_name <span className="text-rose-500">*</span></label>
+            <input
+              required
+              type="text"
+              value={formData.material_name}
+              onChange={(e) => setFormData({ ...formData, material_name: e.target.value })}
+              className={inputClasses}
+              placeholder="e.g. Ambuja Cement"
+            />
+          </div>
+          <div className="font-inter">
+            <label className={labelClasses}>category <span className="text-rose-500">*</span></label>
+            <select
+              required
+              value={formData.category || ""}
+              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              className={inputClasses}
+            >
+              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="font-inter">
+            <label className={labelClasses}>unit <span className="text-rose-500">*</span></label>
+            <select
+              required
+              value={formData.unit || ""}
+              onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+              className={inputClasses}
+            >
+              {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+            </select>
+          </div>
+          <div className="font-inter">
+            <label className={labelClasses}>supplier_id <span className="text-rose-500">*</span></label>
+            <select
+              required
+              value={formData.supplier_id || ""}
+              onChange={(e) => setFormData({ ...formData, supplier_id: Number(e.target.value) })}
+              className={inputClasses}
+            >
+              <option value="">Select Supplier</option>
+              {suppliers.map(s => {
+                const supId = s.id ?? (s as any).supplier_id;
+                const supName = typeof s === "string" ? s : (s.name || (s as any).supplier_name || `Supplier #${supId}`);
+                return (
+                  <option key={supId} value={supId}>{supName} (ID: {supId})</option>
+                );
+              })}
+            </select>
+          </div>
+          <div className="font-inter">
+            <label className={labelClasses}>purchase_rate <span className="text-rose-500">*</span></label>
+            <input
+              required
+              type="number"
+              value={formData.purchase_rate || ""}
+              onChange={(e) => setFormData({ ...formData, purchase_rate: Number(e.target.value) })}
+              className={inputClasses}
+              placeholder="355"
+            />
+          </div>
+          <div className="font-inter">
+            <label className={labelClasses}>rate_type <span className="text-rose-500">*</span></label>
+            <select
+              required
+              value={formData.rate_type || ""}
+              onChange={(e) => setFormData({ ...formData, rate_type: e.target.value as RateType })}
+              className={inputClasses}
+            >
+              {RATE_TYPES.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+          <div className="font-inter">
+            <label className={labelClasses}>minimum_stock_level <span className="text-rose-500">*</span></label>
+            <input
+              required
+              type="number"
+              value={formData.minimum_stock_level || ""}
+              onChange={(e) => setFormData({ ...formData, minimum_stock_level: Number(e.target.value) })}
+              className={inputClasses}
+              placeholder="40"
+            />
+          </div>
         </div>
       </Modal>
 
@@ -769,86 +860,92 @@ const MaterialReceiptPage = () => {
               Cancel
             </button>
             <button
-              disabled={isSubmitting || purchaseData.quantity <= 0}
+              disabled={isSubmitting}
               onClick={handlePurchaseSubmit}
-              className={`px-8 py-2.5 bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all flex items-center gap-2 ${isSubmitting || purchaseData.quantity <= 0 ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}
+              className={`px-8 py-2.5 bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all flex items-center gap-2 ${isSubmitting ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}
             >
               {isSubmitting ? "Syncing..." : "Confirm Acquisition"}
             </button>
           </>
         }
       >
-        <div className="space-y-6">
-          <div className={sectionClasses}>
-            <h3 className={sectionTitleClasses}>
-              <ShoppingCart className="w-4 h-4 text-emerald-500" />
-              Acquisition Matrix
-            </h3>
-            <div className="space-y-5 font-inter">
-                <div className="font-inter">
-                    <label className={labelClasses}>Resource Target <span className="text-rose-500">*</span></label>
-                    <select
-                        required
-                        value={selectedMaterial?.id || ""}
-                        onChange={(e) => {
-                            const newMaterial = materials.find(m => m.id === Number(e.target.value)) || null;
-                            setSelectedMaterial(newMaterial);
-                            if (newMaterial) {
-                                setPurchaseData(prev => ({ ...prev, rate: newMaterial.purchase_rate || 0 }));
-                            }
-                        }}
-                        className={inputClasses}
-                    >
-                        {materials.map(m => <option key={m.id} value={m.id}>{m.material_name} ({m.material_code})</option>)}
-                    </select>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 font-inter">
-                  <div className="font-inter">
-                    <label className={labelClasses}>Quantity Target <span className="text-rose-500">*</span></label>
-                    <input
-                      required
-                      type="number"
-                      value={purchaseData.quantity}
-                      onChange={(e) => setPurchaseData({ ...purchaseData, quantity: Number(e.target.value) })}
-                      className={inputClasses}
-                      placeholder="0"
-                    />
-                  </div>
-                  <div className="font-inter">
-                    <label className={labelClasses}>Procurement Rate <span className="text-rose-500">*</span></label>
-                    <input
-                      required
-                      type="number"
-                      value={purchaseData.rate}
-                      onChange={(e) => setPurchaseData({ ...purchaseData, rate: Number(e.target.value) })}
-                      className={inputClasses}
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div className="font-inter">
-                    <label className={labelClasses}>Disbursement Amount <span className="text-rose-500">*</span></label>
-                    <input
-                      required
-                      type="number"
-                      value={purchaseData.amount_paid}
-                      onChange={(e) => setPurchaseData({ ...purchaseData, amount_paid: Number(e.target.value) })}
-                      className={inputClasses}
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-                <div className="font-inter">
-                    <label className={labelClasses}>Protocol Type <span className="text-rose-500">*</span></label>
-                    <select
-                        required
-                        value={purchaseData.issue_type}
-                        onChange={(e) => setPurchaseData({ ...purchaseData, issue_type: e.target.value })}
-                        className={inputClasses}
-                    >
-                        {ISSUE_TYPES.map(i => <option key={i} value={i}>{i}</option>)}
-                    </select>
-                </div>
-            </div>
+        <div className="p-6 space-y-5 font-inter">
+          <div className="font-inter">
+            <label className={labelClasses}>Material <span className="text-rose-500">*</span></label>
+            <select
+              required
+              value={selectedMaterial?.id || ""}
+              onChange={(e) => {
+                const newMaterial = materials.find(m => m.id === Number(e.target.value)) || null;
+                setSelectedMaterial(newMaterial);
+                if (newMaterial) {
+                  setPurchaseData(prev => ({ ...prev, rate: newMaterial.purchase_rate || 0 }));
+                }
+              }}
+              className={inputClasses}
+            >
+              <option value="">Select Material</option>
+              {materials.map(m => (
+                <option key={m.id} value={m.id}>
+                  {m.material_name} (ID: {m.id})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="font-inter">
+            <label className={labelClasses}>quantity <span className="text-rose-500">*</span></label>
+            <input
+              required
+              type="number"
+              value={purchaseData.quantity || ""}
+              onChange={(e) => setPurchaseData({ ...purchaseData, quantity: Number(e.target.value) })}
+              className={inputClasses}
+              placeholder="70"
+            />
+          </div>
+          <div className="font-inter">
+            <label className={labelClasses}>rate <span className="text-rose-500">*</span></label>
+            <input
+              required
+              type="number"
+              value={purchaseData.rate || ""}
+              onChange={(e) => setPurchaseData({ ...purchaseData, rate: Number(e.target.value) })}
+              className={inputClasses}
+              placeholder="355"
+            />
+          </div>
+          <div className="font-inter">
+            <label className={labelClasses}>amount_paid <span className="text-rose-500">*</span></label>
+            <input
+              required
+              type="number"
+              value={purchaseData.amount_paid || ""}
+              onChange={(e) => setPurchaseData({ ...purchaseData, amount_paid: Number(e.target.value) })}
+              className={inputClasses}
+              placeholder="21000"
+            />
+          </div>
+          <div className="font-inter">
+            <label className={labelClasses}>project_id <span className="text-rose-500">*</span></label>
+            <input
+              required
+              type="number"
+              value={purchaseData.project_id || ""}
+              onChange={(e) => setPurchaseData({ ...purchaseData, project_id: Number(e.target.value) })}
+              className={inputClasses}
+              placeholder="1"
+            />
+          </div>
+          <div className="font-inter">
+            <label className={labelClasses}>issue_type <span className="text-rose-500">*</span></label>
+            <select
+              required
+              value={purchaseData.issue_type}
+              onChange={(e) => setPurchaseData({ ...purchaseData, issue_type: e.target.value })}
+              className={inputClasses}
+            >
+              {ISSUE_TYPES.map(i => <option key={i} value={i}>{i}</option>)}
+            </select>
           </div>
         </div>
       </Modal>
@@ -861,52 +958,52 @@ const MaterialReceiptPage = () => {
         maxWidth="max-w-2xl"
       >
         {selectedMaterial && (
-            <div className="p-6 font-inter space-y-8">
-                <div className="bg-primary rounded-2xl p-8 text-white shadow-2xl relative overflow-hidden font-inter">
-                    <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -mr-20 -mt-20 blur-3xl" />
-                    <div className="relative z-10 flex items-center gap-8 font-inter">
-                        <div className="w-24 h-24 bg-white/10 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-white/20 shadow-inner group relative font-inter">
-                            <Package className="w-10 h-10 text-white" />
-                        </div>
-                        <div className="flex-1 font-inter">
-                            <div className="flex items-center gap-3 mb-2 font-inter">
-                                <h3 className="text-2xl font-bold tracking-tight uppercase">{selectedMaterial.material_name}</h3>
-                                <span className="px-3 py-0.5 bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest">{selectedMaterial.material_code}</span>
-                            </div>
-                            <div className="bg-white/15 px-4 py-2 rounded-xl border border-white/10 inline-flex items-center gap-3 font-inter">
-                                <span className="text-[10px] font-bold uppercase tracking-widest text-white/60">Category:</span>
-                                <span className="text-xs font-bold uppercase tracking-widest">{selectedMaterial.category}</span>
-                            </div>
-                        </div>
-                    </div>
+          <div className="p-6 font-inter space-y-8">
+            <div className="bg-primary rounded-2xl p-8 text-white shadow-2xl relative overflow-hidden font-inter">
+              <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -mr-20 -mt-20 blur-3xl" />
+              <div className="relative z-10 flex items-center gap-8 font-inter">
+                <div className="w-24 h-24 bg-white/10 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-white/20 shadow-inner group relative font-inter">
+                  <Package className="w-10 h-10 text-white" />
                 </div>
-
-                <div className="grid grid-cols-2 gap-8 px-2 font-inter">
-                    <div className="font-inter">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 font-inter">Total Acquisition</p>
-                        <p className="text-xl font-bold text-slate-800 font-inter">{selectedMaterial.quantity_purchased.toLocaleString()} {selectedMaterial.unit}</p>
-                    </div>
-                    <div className="font-inter">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 font-inter">Total Commitment</p>
-                        <p className="text-xl font-bold text-slate-800 font-inter">₹{selectedMaterial.total_amount?.toLocaleString()}</p>
-                    </div>
-                    <div className="font-inter">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 font-inter">Payment Disbursed</p>
-                        <p className="text-xl font-bold text-emerald-600 font-inter">₹{selectedMaterial.payment_given?.toLocaleString()}</p>
-                    </div>
-                    <div className="font-inter">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 font-inter">Pending Dues</p>
-                        <p className="text-xl font-bold text-rose-600 font-inter">₹{selectedMaterial.payment_pending?.toLocaleString()}</p>
-                    </div>
+                <div className="flex-1 font-inter">
+                  <div className="flex items-center gap-3 mb-2 font-inter">
+                    <h3 className="text-2xl font-bold tracking-tight uppercase">{selectedMaterial.material_name}</h3>
+                    <span className="px-3 py-0.5 bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest">{selectedMaterial.material_code}</span>
+                  </div>
+                  <div className="bg-white/15 px-4 py-2 rounded-xl border border-white/10 inline-flex items-center gap-3 font-inter">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-white/60">Category:</span>
+                    <span className="text-xs font-bold uppercase tracking-widest">{selectedMaterial.category}</span>
+                  </div>
                 </div>
-
-                <button 
-                    onClick={() => setIsDetailModalOpen(false)}
-                    className="w-full py-5 bg-primary text-white rounded-xl text-[11px] font-bold uppercase tracking-[0.2em] hover:bg-blue-600 transition-all shadow-lg shadow-primary/20 active:scale-95 font-inter"
-                >
-                    Dismiss Resource Insight
-                </button>
+              </div>
             </div>
+
+            <div className="grid grid-cols-2 gap-8 px-2 font-inter">
+              <div className="font-inter">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 font-inter">Total Acquisition</p>
+                <p className="text-xl font-bold text-slate-800 font-inter">{selectedMaterial.quantity_purchased.toLocaleString()} {selectedMaterial.unit}</p>
+              </div>
+              <div className="font-inter">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 font-inter">Total Commitment</p>
+                <p className="text-xl font-bold text-slate-800 font-inter">₹{selectedMaterial.total_amount?.toLocaleString()}</p>
+              </div>
+              <div className="font-inter">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 font-inter">Payment Disbursed</p>
+                <p className="text-xl font-bold text-emerald-600 font-inter">₹{selectedMaterial.payment_given?.toLocaleString()}</p>
+              </div>
+              <div className="font-inter">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 font-inter">Pending Dues</p>
+                <p className="text-xl font-bold text-rose-600 font-inter">₹{selectedMaterial.payment_pending?.toLocaleString()}</p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsDetailModalOpen(false)}
+              className="w-full py-5 bg-primary text-white rounded-xl text-[11px] font-bold uppercase tracking-[0.2em] hover:bg-blue-600 transition-all shadow-lg shadow-primary/20 active:scale-95 font-inter"
+            >
+              Dismiss Resource Insight
+            </button>
+          </div>
         )}
       </Modal>
 

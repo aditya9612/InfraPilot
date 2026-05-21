@@ -4,6 +4,7 @@ import { Upload, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import { ACTIVITY_TAGS, LOCATION_TAGS } from '../../pages/engineer/SitePhotosPage';
+import { projectService } from '../../services/projectService';
 
 interface UploadPhotoModalProps {
     isOpen: boolean;
@@ -15,11 +16,13 @@ interface UploadPhotoModalProps {
 const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, onSubmit, projectId }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [formData, setFormData] = useState({
+        project_id: "",
         date: new Date().toISOString().split("T")[0],
         activity_tag: "",
         location_tag: "",
         description: "",
     });
+    const [projects, setProjects] = useState<any[]>([]);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -27,6 +30,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
     useEffect(() => {
         if (!isOpen) {
             setFormData({
+                project_id: "",
                 date: new Date().toISOString().split("T")[0],
                 activity_tag: "",
                 location_tag: "",
@@ -34,8 +38,19 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
             });
             setSelectedFile(null);
             setErrors({});
+        } else {
+            const fetchProjects = async () => {
+                try {
+                    const res = await projectService.getProjects(100, 0);
+                    const list = Array.isArray(res) ? res : (res.items || res.data || []);
+                    setProjects(list);
+                } catch (error) {
+                    console.error("Failed to fetch projects", error);
+                }
+            };
+            fetchProjects();
         }
-    }, [isOpen]);
+    }, [isOpen, projectId]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -53,6 +68,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
     const validate = () => {
         const errs: Record<string, string> = {};
         if (!selectedFile) errs.photo = "Required";
+        if (!formData.project_id) errs.project_id = "Required";
         if (!formData.activity_tag) errs.activity_tag = "Required";
         if (!formData.location_tag) errs.location_tag = "Required";
         if (!formData.description.trim()) errs.description = "Required";
@@ -71,7 +87,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
         setIsSubmitting(true);
         try {
             const data = new FormData();
-            data.append("project_id", String(projectId));
+            data.append("project_id", String(formData.project_id));
             data.append("date", formData.date);
             data.append("activity_tag", formData.activity_tag);
             data.append("location_tag", formData.location_tag);
@@ -145,11 +161,25 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
 
                 <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                     <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Contextual Metadata</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+                        <div>
+                            <label className={labelClasses}>Project Context *</label>
+                            <select name="project_id" value={formData.project_id} onChange={handleChange} className={inputClasses(errors.project_id)}>
+                                <option value="">Select Project</option>
+                                {projects.map(p => (
+                                    <option key={p.id || p.project_id} value={p.id || p.project_id}>
+                                        {p.name || p.project_name || `Project #${p.id || p.project_id}`}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                         <div>
                             <label className={labelClasses}>Observed Date *</label>
                             <input type="date" name="date" value={formData.date} onChange={handleChange} className={inputClasses(errors.date)} />
                         </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
                         <div>
                             <label className={labelClasses}>Activity Tag *</label>
                             <select name="activity_tag" value={formData.activity_tag} onChange={handleChange} className={inputClasses(errors.activity_tag)}>

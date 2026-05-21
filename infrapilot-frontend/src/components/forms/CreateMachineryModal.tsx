@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../common/Modal';
 import toast from 'react-hot-toast';
+import { Briefcase } from 'lucide-react';
+import { projectService } from '../../services/projectService';
 
 interface CreateMachineryModalProps {
   isOpen: boolean;
@@ -19,12 +21,32 @@ const CreateMachineryModal: React.FC<CreateMachineryModalProps> = ({
     equipment_name: '',
     equipment_code: '',
     operator_name: '',
-    working_hours: 0,
-    fuel_used: 0,
+    working_hours: '' as number | '',
+    fuel_used: '' as number | '',
     condition: 'GOOD',
-    rental_cost: 0,
+    rental_cost: '' as number | '',
     maintenance_date: '',
+    project_id: '' as number | '',
   });
+
+  const [projects, setProjects] = useState<any[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const res = await projectService.getProjects(100, 0);
+        const projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
+        setProjects(projectsList);
+      } catch (err) {
+        console.error("Failed to fetch projects list inside modal:", err);
+      }
+    };
+    if (isOpen) {
+      fetchProjects();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (initialData) {
@@ -32,37 +54,37 @@ const CreateMachineryModal: React.FC<CreateMachineryModalProps> = ({
         equipment_name: initialData.equipment_name || '',
         equipment_code: initialData.equipment_code || '',
         operator_name: initialData.operator_name || '',
-        working_hours: initialData.working_hours || 0,
-        fuel_used: initialData.fuel_used || 0,
+        working_hours: initialData.working_hours !== undefined && initialData.working_hours !== null ? initialData.working_hours : '',
+        fuel_used: initialData.fuel_used !== undefined && initialData.fuel_used !== null ? initialData.fuel_used : '',
         condition: initialData.condition || 'GOOD',
-        rental_cost: initialData.rental_cost || 0,
+        rental_cost: initialData.rental_cost !== undefined && initialData.rental_cost !== null ? initialData.rental_cost : '',
         maintenance_date: initialData.maintenance_date || '',
+        project_id: initialData.project_id || '',
       });
     } else {
       setFormData({
         equipment_name: '',
         equipment_code: '',
         operator_name: '',
-        working_hours: 0,
-        fuel_used: 0,
+        working_hours: '',
+        fuel_used: '',
         condition: 'GOOD',
-        rental_cost: 0,
+        rental_cost: '',
         maintenance_date: '',
+        project_id: '',
       });
     }
+    setErrors({});
   }, [initialData, isOpen]);
-
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(false);
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
     if (!formData.equipment_name.trim()) newErrors.equipment_name = "Name is required.";
     if (!formData.equipment_code.trim()) newErrors.equipment_code = "Code is required.";
     if (!formData.operator_name.trim()) newErrors.operator_name = "Operator is required.";
-    if (!formData.working_hours || formData.working_hours <= 0) newErrors.working_hours = "Required";
-    if (!formData.fuel_used || formData.fuel_used <= 0) newErrors.fuel_used = "Required";
-    if (!formData.rental_cost || formData.rental_cost <= 0) newErrors.rental_cost = "Required";
+    if (formData.working_hours === '') newErrors.working_hours = "Required";
+    if (formData.fuel_used === '') newErrors.fuel_used = "Required";
+    if (formData.rental_cost === '') newErrors.rental_cost = "Required";
     if (!formData.maintenance_date) newErrors.maintenance_date = "Required";
     if (!formData.condition) newErrors.condition = "Required";
     
@@ -82,7 +104,9 @@ const CreateMachineryModal: React.FC<CreateMachineryModalProps> = ({
 
     setFormData(prev => ({ 
         ...prev, 
-        [name]: ['working_hours', 'fuel_used', 'rental_cost'].includes(name) ? Number(value) : value 
+        [name]: ['working_hours', 'fuel_used', 'rental_cost', 'project_id'].includes(name) 
+          ? (value === '' ? '' : Number(value)) 
+          : value 
     }));
   };
 
@@ -134,6 +158,39 @@ const CreateMachineryModal: React.FC<CreateMachineryModalProps> = ({
       }
     >
       <form id="machinery-form" onSubmit={handleSubmit} className="space-y-6">
+        {/* Assign to Project Section */}
+        <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-100 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2.5">
+              <Briefcase className="w-5 h-5 text-primary" />
+              <span className="text-sm font-bold text-slate-800">Assign to project</span>
+            </div>
+            <span className="px-2 py-0.5 bg-blue-100 text-primary text-[10px] font-bold rounded-lg uppercase tracking-wider">
+              optional
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 mb-4 ml-1">
+            Labour create hone ke baada automatically project assign ho jayega
+          </p>
+          <div>
+            <label className={labelClasses}>Select Project *</label>
+            <select
+              name="project_id"
+              value={formData.project_id}
+              onChange={handleChange}
+              className={inputClasses(errors.project_id)}
+            >
+              <option value="">-- Select your project --</option>
+              {projects.map((p: any) => (
+                <option key={p.project_id || p.id} value={p.project_id || p.id}>
+                  {p.project_name || p.name}
+                </option>
+              ))}
+            </select>
+            {errors.project_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.project_id}</p>}
+          </div>
+        </div>
+
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
           <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Asset Identity</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -157,17 +214,17 @@ const CreateMachineryModal: React.FC<CreateMachineryModalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             <div>
               <label className={labelClasses}>Working Hours <span className="text-rose-500">*</span></label>
-              <input type="number" name="working_hours" value={formData.working_hours} onChange={handleChange} className={inputClasses(errors.working_hours)} />
+              <input type="number" name="working_hours" value={formData.working_hours} onChange={handleChange} placeholder="0" className={inputClasses(errors.working_hours)} />
               {errors.working_hours && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.working_hours}</p>}
             </div>
             <div>
               <label className={labelClasses}>Fuel Consumed (Ltrs) <span className="text-rose-500">*</span></label>
-              <input type="number" name="fuel_used" value={formData.fuel_used} onChange={handleChange} className={inputClasses(errors.fuel_used)} />
+              <input type="number" name="fuel_used" value={formData.fuel_used} onChange={handleChange} placeholder="0" className={inputClasses(errors.fuel_used)} />
               {errors.fuel_used && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.fuel_used}</p>}
             </div>
             <div>
               <label className={labelClasses}>Rental Cost (₹) <span className="text-rose-500">*</span></label>
-              <input type="number" name="rental_cost" value={formData.rental_cost} onChange={handleChange} className={inputClasses(errors.rental_cost)} />
+              <input type="number" name="rental_cost" value={formData.rental_cost} onChange={handleChange} placeholder="0" className={inputClasses(errors.rental_cost)} />
               {errors.rental_cost && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.rental_cost}</p>}
             </div>
             <div>

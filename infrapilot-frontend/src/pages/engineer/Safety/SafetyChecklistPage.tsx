@@ -4,27 +4,27 @@ import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import StatCard from "../../../components/common/StatCard";
 import Modal from "../../../components/common/Modal";
-import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
-import { 
-  Plus, 
-  Search, 
-  Eye, 
-  Edit2, 
-  Trash2,
-  User,
-  ShieldAlert,
-  AlertCircle,
-  FileText,
-  Filter,
-  Mail,
-  Briefcase,
-  RotateCcw
-,
+import {
+    Plus,
+    Search,
+    Eye,
+    Edit2,
+    User,
+    ShieldAlert,
+    AlertCircle,
+    FileText,
+    Filter,
+    Mail,
+    Briefcase,
+    RotateCcw
+    ,
     ChevronLeft,
-    ChevronRight} from "lucide-react";
+    ChevronRight
+} from "lucide-react";
 
 import { safetyService } from "../../../services/safetyService";
+import { projectService } from "../../../services/projectService";
 import type { IncidentItem as SafetyItem, CreateIncidentRequest as CreateSafetyRequest } from "../../../services/safetyService";
 
 const violationTypeColors: Record<string, string> = {
@@ -51,7 +51,7 @@ const SafetyChecklistPage = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
-    
+
     // Interactive StatCard Filter
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Compliance" | "HighRisk">("All");
     const [currentPage, setCurrentPage] = useState(1);
@@ -61,16 +61,15 @@ const SafetyChecklistPage = () => {
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    
+
     // Selection States
     const [selectedIncident, setSelectedIncident] = useState<SafetyItem | null>(null);
-    const [deleteId, setDeleteId] = useState<number | null>(null);
-    
+
     // Filter State
     const [filterViolationType, setFilterViolationType] = useState("");
-    
+
     const [projectId, setProjectId] = useState<number | null>(null);
+    const [projects, setProjects] = useState<any[]>([]);
 
     // Form State
     const [formData, setFormData] = useState<CreateSafetyRequest>({
@@ -85,29 +84,57 @@ const SafetyChecklistPage = () => {
         ppe_compliance: true
     });
 
-    // ─── PROJECT RESOLUTION ─────────────────────────────────────────────
+    // â”€â”€â”€ PROJECT RESOLUTION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     useEffect(() => {
-        const userStr = localStorage.getItem("infrapilot_user");
-        if (userStr) {
+        const initializeProject = async () => {
             try {
-                const user = JSON.parse(userStr);
-                const pId = user?.project_id || user?.user?.project_id;
-                if (pId) {
-                    const finalPId = Number(pId);
-                    setProjectId(finalPId);
-                    setFormData((prev: CreateSafetyRequest) => ({ ...prev, project_id: finalPId }));
-                } else {
-                    setProjectId(36);
-                    setFormData((prev: CreateSafetyRequest) => ({ ...prev, project_id: 36 }));
+                // Fetch all projects for the dropdown
+                try {
+                    const res = await projectService.getProjects(100, 0);
+                    const projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
+                    setProjects(projectsList);
+                } catch (err) {
+                    console.error("Failed to fetch projects list", err);
                 }
+
+                const userStr = localStorage.getItem("infrapilot_user");
+                if (userStr) {
+                    const user = JSON.parse(userStr);
+                    const pId = user?.project_id || user?.user?.project_id;
+                    if (pId) {
+                        const finalPId = Number(pId);
+                        setProjectId(finalPId);
+                        setFormData((prev: CreateSafetyRequest) => ({ ...prev, project_id: finalPId }));
+                        return;
+                    }
+                }
+                setProjectId(92);
+                setFormData((prev: CreateSafetyRequest) => ({ ...prev, project_id: 92 }));
             } catch (e) {
                 console.error("Failed to resolve project ID", e);
-                setProjectId(36);
+                setProjectId(92);
             }
-        }
+        };
+        initializeProject();
     }, []);
 
-    // ─── DATA FETCHING ──────────────────────────────────────────────────
+    // Refresh projects list whenever a modal opens
+    useEffect(() => {
+        if (isNewModalOpen || isEditModalOpen) {
+            const fetchProjects = async () => {
+                try {
+                    const res = await projectService.getProjects(100, 0);
+                    const projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
+                    setProjects(projectsList);
+                } catch (err) {
+                    console.error("Failed to refresh projects list", err);
+                }
+            };
+            fetchProjects();
+        }
+    }, [isNewModalOpen, isEditModalOpen]);
+
+    // â”€â”€â”€ DATA FETCHING â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     const fetchData = useCallback(async () => {
         if (!projectId) return;
@@ -127,61 +154,83 @@ const SafetyChecklistPage = () => {
         fetchData();
     }, [fetchData]);
 
-    const stats = useMemo(() => {
-        const data = incidentList;
-        const total = data.length;
-        const critical = data.filter(i => 
-            i.violation_type === "Electrical Hazard" || i.violation_type === "Fire Hazard"
-        ).length;
-        const noInjury = data.filter(i => !i.injury_details || i.injury_details.toLowerCase().includes("no injury")).length;
-        
-        return {
-            total,
-            critical,
-            compliance: Math.round((noInjury / (total || 1)) * 100),
-            momentum: 98
-        };
-    }, [incidentList]);
-
-    const filteredList = useMemo(() => {
-        let data = incidentList;
-
-        // Apply StatCard Filter
-        if (activeStatFilter === "HighRisk") {
-          data = data.filter(i => i.violation_type === "Electrical Hazard" || i.violation_type === "Fire Hazard");
-        } else if (activeStatFilter === "Compliance") {
-          data = data.filter(i => !i.injury_details || i.injury_details.toLowerCase().includes("no injury"));
-        }
-
-        return data.filter(item => {
+    const baseFilteredList = useMemo(() => {
+        return incidentList.filter(item => {
             const matchesSearch = item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 item.responsible_person.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 item.violation_type.toLowerCase().includes(searchTerm.toLowerCase());
-            
+
             const matchesViolationType = !filterViolationType || item.violation_type === filterViolationType;
 
             return matchesSearch && matchesViolationType;
         });
-    }, [incidentList, searchTerm, filterViolationType, activeStatFilter]);
+    }, [incidentList, searchTerm, filterViolationType]);
+
+    const stats = useMemo(() => {
+        const data = baseFilteredList;
+        const total = data.length;
+        const critical = data.filter(i =>
+            i.violation_type === "Electrical Hazard" || i.violation_type === "Fire Hazard"
+        ).length;
+        const noInjury = data.filter(i => !i.injury_details || i.injury_details.toLowerCase().includes("no injury")).length;
+
+        // Site Safety score: average of PPE compliance, checklist completion, and injury-free rates
+        const ppeCompliant = data.filter(i => i.ppe_compliance === true).length;
+        const checklistCompleted = data.filter(i => i.safety_checklist_status === "completed").length;
+
+        const ppeRate = total > 0 ? (ppeCompliant / total) * 100 : 100;
+        const checklistRate = total > 0 ? (checklistCompleted / total) * 100 : 100;
+        const injuryFreeRate = total > 0 ? (noInjury / total) * 100 : 100;
+
+        const siteSafety = Math.round((ppeRate + checklistRate + injuryFreeRate) / 3);
+
+        return {
+            total,
+            critical,
+            compliance: Math.round((noInjury / (total || 1)) * 100),
+            siteSafety
+        };
+    }, [baseFilteredList]);
+
+    const filteredList = useMemo(() => {
+        let data = baseFilteredList;
+
+        // Apply StatCard Filter
+        if (activeStatFilter === "HighRisk") {
+            data = data.filter(i => i.violation_type === "Electrical Hazard" || i.violation_type === "Fire Hazard");
+        } else if (activeStatFilter === "Compliance") {
+            data = data.filter(i => !i.injury_details || i.injury_details.toLowerCase().includes("no injury"));
+        }
+
+        return data;
+    }, [baseFilteredList, activeStatFilter]);
 
     const paginatedList = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
         return filteredList.slice(startIndex, startIndex + itemsPerPage);
     }, [filteredList, currentPage]);
 
-    const totalPages = Math.ceil(filteredList.length / itemsPerPage);
+
 
     // Reset page on filter change
     useEffect(() => {
         setCurrentPage(1);
     }, [searchTerm, filterViolationType, activeStatFilter]);
 
-    // ─── HANDLERS ──────────────────────────────────────────────────────
+    // â”€â”€â”€ HANDLERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
         const val = type === "checkbox" ? (e.target as HTMLInputElement).checked : value;
         setFormData((prev: CreateSafetyRequest) => ({ ...prev, [name]: val }));
+    };
+
+    // Alpha-only handler for responsible_person field
+    const handlePersonNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const raw = e.target.value;
+        // Strip digits entirely — only allow letters, spaces, dots, hyphens
+        const cleaned = raw.replace(/[^a-zA-Z\s.'-]/g, "");
+        setFormData((prev: CreateSafetyRequest) => ({ ...prev, responsible_person: cleaned }));
     };
 
     const handleCreateSubmit = async (e?: React.BaseSyntheticEvent) => {
@@ -196,10 +245,10 @@ const SafetyChecklistPage = () => {
             const newIncident = await safetyService.createIncident(formData);
             toast.success("Safety incident created successfully!");
             setIsNewModalOpen(false);
-            
+
             // Instantly update UI with the new record
             setIncidentList(prev => [newIncident, ...prev]);
-            
+
             fetchData();
             // Reset form
             setFormData({
@@ -254,7 +303,7 @@ const SafetyChecklistPage = () => {
     const handleUpdateSubmit = async (e?: React.BaseSyntheticEvent) => {
         if (e) e.preventDefault();
         if (!selectedIncident) return;
-        
+
         setIsSubmitting(true);
         try {
             await safetyService.updateIncident(selectedIncident.id, formData);
@@ -268,24 +317,8 @@ const SafetyChecklistPage = () => {
         }
     };
 
-    const handleDeleteClick = (id: number) => {
-        setDeleteId(id);
-        setIsDeleteModalOpen(true);
-    };
 
-    const handleDeleteConfirm = async () => {
-        if (!deleteId) return;
-        try {
-            await safetyService.deleteIncident(deleteId);
-            toast.success("Safety incident deleted successfully!");
-            setIsDeleteModalOpen(false);
-            fetchData();
-        } catch (error) {
-            toast.error("Failed to delete safety incident");
-        }
-    };
-
-    // ─── RENDER HELPERS ────────────────────────────────────────────────
+    // â”€â”€â”€ RENDER HELPERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
     const inputClasses = "w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter";
@@ -295,7 +328,7 @@ const SafetyChecklistPage = () => {
             <Navbar title="Safety Management" breadcrumb={["Engineer", "Safety", "Checklist Vault"]} />
 
             <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
-                {/* ── Header ──────────────────────────────────────────────── */}
+                {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
                     <div className="font-inter">
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Safety Audit Registry</h1>
@@ -305,7 +338,7 @@ const SafetyChecklistPage = () => {
                         type="button"
                         onClick={() => {
                             setFormData({
-                                project_id: projectId || 36,
+                                project_id: projectId || 92,
                                 date: new Date().toISOString().split("T")[0],
                                 violation_type: "No Helmet",
                                 description: "",
@@ -324,55 +357,55 @@ const SafetyChecklistPage = () => {
                     </button>
                 </div>
 
-                {/* ── Interactive Stats ───────────────────────────── */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
+                {/* â”€â”€ Interactive Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                      <StatCard
-                          title="Total Audits"
-                          value={stats.total.toString()}
-                          sub="Verified Logs"
-                          accent="text-slate-800" />
+                        <StatCard
+                            title="Total Audits"
+                            value={stats.total.toString()}
+                            sub="Verified Logs"
+                            accent="text-slate-800" />
                     </div>
                     <div onClick={() => setActiveStatFilter("Compliance")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Compliance" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                      <StatCard
-                          title="Compliance"
-                          value={`${stats.compliance}%`}
-                          sub="Safe Operations"
-                          accent="text-emerald-500" />
+                        <StatCard
+                            title="Compliance"
+                            value={`${stats.compliance}%`}
+                            sub="Safe Operations"
+                            accent="text-emerald-500" />
                     </div>
                     <div onClick={() => setActiveStatFilter("HighRisk")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "HighRisk" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                      <StatCard
-                          title="High Risks"
-                          value={stats.critical.toString()}
-                          sub="Critical Hazards"
-                          accent="text-rose-500" />
+                        <StatCard
+                            title="High Risks"
+                            value={stats.critical.toString()}
+                            sub="Critical Hazards"
+                            accent="text-rose-500" />
                     </div>
                     <div className="cursor-default group transition-all rounded-xl hover:scale-[1.01]">
-                      <StatCard
-                          title="Site Safety"
-                          value={`${stats.momentum}%`}
-                          sub="Safety Momentum"
-                          accent="text-blue-500" />
+                        <StatCard
+                            title="Site Safety"
+                            value={`${stats.siteSafety}%`}
+                            sub="Safety Momentum"
+                            accent="text-blue-500" />
                     </div>
                 </div>
 
-                {/* ── Tabs ────────────────────────────────────────────────── */}
+                {/* â”€â”€ Tabs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex items-center gap-8 border-b border-slate-200 mb-8 font-inter">
-                    <button 
-                        className="pb-4 text-sm font-bold uppercase tracking-widest text-primary border-b-2 border-primary transition-all font-inter"
+                    <button
+                        className="pb-4 text-sm font-bold text-primary border-b-2 border-primary transition-all font-inter"
                         onClick={() => navigate("/engineer/safety/checklist")}
                     >
                         Safety Checklist
                     </button>
-                    <button 
-                        className="pb-4 text-sm font-bold uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-all font-inter"
+                    <button
+                        className="pb-4 text-sm font-bold text-slate-400 hover:text-slate-600 transition-all font-inter"
                         onClick={() => navigate("/engineer/safety/incident")}
                     >
                         Incident Report
                     </button>
                 </div>
 
-                {/* ── Registry Container ───────────────────────────────────────────── */}
+                {/* â”€â”€ Registry Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
                     {/* Integrated Filter Bar */}
                     <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
@@ -390,22 +423,22 @@ const SafetyChecklistPage = () => {
                         </div>
                         <div className="flex items-center gap-3 font-inter">
                             <div className="flex items-center gap-2 font-inter">
-                              <Filter className="w-4 h-4 text-slate-400" />
-                              <select
-                                  value={filterViolationType}
-                                  onChange={(e) => setFilterViolationType(e.target.value)}
-                                  className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter shadow-sm"
-                              >
-                                  <option value="">All Violation Types</option>
-                                  {VIOLATION_TYPES.map(vt => (
-                                    <option key={vt} value={vt}>{vt}</option>
-                                  ))}
-                              </select>
+                                <Filter className="w-4 h-4 text-slate-400" />
+                                <select
+                                    value={filterViolationType}
+                                    onChange={(e) => setFilterViolationType(e.target.value)}
+                                    className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter shadow-sm"
+                                >
+                                    <option value="">All Violation Types</option>
+                                    {VIOLATION_TYPES.map(vt => (
+                                        <option key={vt} value={vt}>{vt}</option>
+                                    ))}
+                                </select>
                             </div>
                             {activeStatFilter !== "All" && (
-                              <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter">
-                                <RotateCcw className="w-4 h-4" />
-                              </button>
+                                <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter">
+                                    <RotateCcw className="w-4 h-4" />
+                                </button>
                             )}
                         </div>
                     </div>
@@ -454,7 +487,7 @@ const SafetyChecklistPage = () => {
                                                 <td className="px-6 py-4 font-inter">
                                                     <div className="flex items-center gap-2 font-inter">
                                                         <div className="w-6 h-6 bg-slate-100 rounded-full flex items-center justify-center font-inter">
-                                                          <User className="w-3 h-3 text-slate-500" />
+                                                            <User className="w-3 h-3 text-slate-500" />
                                                         </div>
                                                         <p className="text-[10px] font-bold text-slate-700 font-inter uppercase tracking-widest">{item.responsible_person}</p>
                                                     </div>
@@ -475,13 +508,6 @@ const SafetyChecklistPage = () => {
                                                         >
                                                             <Edit2 className="w-4 h-4" />
                                                         </button>
-                                                        <button
-                                                            onClick={() => handleDeleteClick(item.id)}
-                                                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"
-                                                            title="Archive Record"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -498,12 +524,9 @@ const SafetyChecklistPage = () => {
                         )}
                     </div>
 
-                    {/* ── Pagination Controls ──────────────────────────── */}
+                    {/* â”€â”€ Pagination Controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                     {!isLoading && filteredList.length > 0 && (
-                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">
-                                Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredList.length)} of {filteredList.length} entries
-                            </span>
+                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-end bg-white sticky left-0 font-inter">
                             <div className="flex items-center gap-2 font-inter">
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
@@ -514,11 +537,11 @@ const SafetyChecklistPage = () => {
                                     <ChevronLeft className="w-4 h-4" />
                                 </button>
                                 <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                                    Page {currentPage} of {1 || 1}
+                                    Page {currentPage} of 20
                                 </div>
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, 1 || 1))}
-                                    disabled={currentPage >= 1 || 1 === 0}
+                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, 20))}
+                                    disabled={currentPage >= 20}
                                     className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
                                     title="Next Page"
                                 >
@@ -537,7 +560,7 @@ const SafetyChecklistPage = () => {
                 maxWidth="max-w-2xl"
                 footer={
                     <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
-                        <button 
+                        <button
                             onClick={() => { setIsNewModalOpen(false); setIsEditModalOpen(false); }}
                             className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter"
                         >
@@ -556,100 +579,128 @@ const SafetyChecklistPage = () => {
             >
                 <div className="p-6 space-y-6 font-inter">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
+                        {/* project_id */}
+                        <div className="md:col-span-2 font-inter">
+                            <label className={labelClasses}>Project <span className="text-rose-500">*</span></label>
+                            <select
+                                name="project_id"
+                                value={formData.project_id}
+                                onChange={(e) => setFormData((prev: CreateSafetyRequest) => ({ ...prev, project_id: Number(e.target.value) }))}
+                                className={inputClasses}
+                            >
+                                <option value="">-- Select Project --</option>
+                                {projects.map((p: any) => (
+                                    <option key={p.id || p.project_id} value={p.id || p.project_id}>
+                                        {p.name || p.project_name || `Project #${p.id || p.project_id}`}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        {/* date */}
                         <div className="font-inter">
-                            <label className={labelClasses}>Observation Date <span className="text-rose-500">*</span></label>
-                            <input 
-                                name="date" 
-                                type="date" 
-                                value={formData.date} 
-                                onChange={handleInputChange} 
-                                className={inputClasses} 
+                            <label className={labelClasses}>Date <span className="text-rose-500">*</span></label>
+                            <input
+                                name="date"
+                                type="date"
+                                value={formData.date}
+                                onChange={handleInputChange}
+                                className={inputClasses}
                             />
                         </div>
+                        {/* safety_checklist_status */}
                         <div className="font-inter">
-                            <label className={labelClasses}>Violation Profile <span className="text-rose-500">*</span></label>
-                                <select 
-                                    name="violation_type" 
-                                    value={formData.violation_type} 
-                                    onChange={handleInputChange} 
-                                    className={inputClasses}
-                                >
-                                    {VIOLATION_TYPES.map(vt => (
-                                        <option key={vt} value={vt}>{vt}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="font-inter">
-                                <label className={labelClasses}>Vault Status <span className="text-rose-500">*</span></label>
-                                <select 
-                                    name="safety_checklist_status" 
-                                    value={formData.safety_checklist_status} 
-                                    onChange={handleInputChange} 
-                                    className={inputClasses}
-                                >
-                                    <option value="pending">pending</option>
-                                    <option value="completed">completed</option>
-                                    <option value="failed">failed</option>
-                                </select>
-                            </div>
-                            <div className="flex items-center gap-3 pt-6 font-inter">
-                                <input 
-                                    name="ppe_compliance" 
-                                    type="checkbox"
-                                    checked={formData.ppe_compliance} 
-                                    onChange={handleInputChange}
-                                    className="w-5 h-5 rounded-lg border-slate-300 text-primary focus:ring-primary/20 transition-all cursor-pointer font-inter"
-                                />
-                                <label className="text-[11px] font-bold uppercase tracking-widest text-slate-700 cursor-pointer font-inter">PPE Compliance Verified</label>
-                            </div>
+                            <label className={labelClasses}>Safety Checklist Status <span className="text-rose-500">*</span></label>
+                            <select
+                                name="safety_checklist_status"
+                                value={formData.safety_checklist_status}
+                                onChange={handleInputChange}
+                                className={inputClasses}
+                            >
+                                <option value="pending">Pending</option>
+                                <option value="completed">Completed</option>
+                                <option value="failed">Failed</option>
+                            </select>
+                        </div>
+                        {/* ppe_compliance */}
+                        <div className="flex items-center gap-3 pt-2 font-inter">
+                            <input
+                                name="ppe_compliance"
+                                type="checkbox"
+                                checked={formData.ppe_compliance}
+                                onChange={handleInputChange}
+                                className="w-5 h-5 rounded-lg border-slate-300 text-primary focus:ring-primary/20 transition-all cursor-pointer font-inter"
+                            />
+                            <label className="text-[11px] font-bold uppercase tracking-widest text-slate-700 cursor-pointer font-inter">PPE Compliance Verified</label>
+                        </div>
+                        {/* violation_type */}
+                        <div className="font-inter">
+                            <label className={labelClasses}>Violation Type <span className="text-rose-500">*</span></label>
+                            <select
+                                name="violation_type"
+                                value={formData.violation_type}
+                                onChange={handleInputChange}
+                                className={inputClasses}
+                            >
+                                {VIOLATION_TYPES.map(vt => (
+                                    <option key={vt} value={vt}>{vt}</option>
+                                ))}
+                            </select>
+                        </div>
+                        {/* description */}
                         <div className="md:col-span-2 font-inter">
-                            <label className={labelClasses}>Incident Narrative <span className="text-rose-500">*</span></label>
-                            <textarea 
-                                name="description" 
-                                rows={3} 
-                                value={formData.description} 
-                                onChange={handleInputChange} 
-                                placeholder="Detail the operational hazard..." 
-                                className={`${inputClasses} resize-none font-bold`} 
+                            <label className={labelClasses}>Description <span className="text-rose-500">*</span></label>
+                            <textarea
+                                name="description"
+                                rows={3}
+                                value={formData.description}
+                                onChange={handleInputChange}
+                                placeholder="Describe the safety observation or incident..."
+                                className={`${inputClasses} resize-none font-bold`}
                             />
                         </div>
+                        {/* injury_details */}
                         <div className="md:col-span-2 font-inter">
-                            <label className={labelClasses}>Physical Injury Audit (Optional)</label>
-                            <textarea 
-                                name="injury_details" 
-                                rows={2} 
-                                value={formData.injury_details || ""} 
-                                onChange={handleInputChange} 
-                                placeholder="Describe any physical trauma..." 
-                                className={`${inputClasses} resize-none font-bold`} 
+                            <label className={labelClasses}>Injury Details (Optional)</label>
+                            <textarea
+                                name="injury_details"
+                                rows={2}
+                                value={formData.injury_details || ""}
+                                onChange={handleInputChange}
+                                placeholder="Describe any physical injuries..."
+                                className={`${inputClasses} resize-none font-bold`}
                             />
                         </div>
+                        {/* action_taken */}
                         <div className="md:col-span-2 font-inter">
-                            <label className={labelClasses}>Compliance Protocol <span className="text-rose-500">*</span></label>
-                            <textarea 
-                                name="action_taken" 
-                                rows={2} 
-                                value={formData.action_taken} 
-                                onChange={handleInputChange} 
-                                placeholder="What corrective actions were deployed?" 
-                                className={`${inputClasses} resize-none font-bold`} 
+                            <label className={labelClasses}>Action Taken <span className="text-rose-500">*</span></label>
+                            <textarea
+                                name="action_taken"
+                                rows={2}
+                                value={formData.action_taken}
+                                onChange={handleInputChange}
+                                placeholder="What corrective actions were taken?"
+                                className={`${inputClasses} resize-none font-bold`}
                             />
                         </div>
+                        {/* responsible_person */}
                         <div className="md:col-span-2 font-inter">
-                            <label className={labelClasses}>Responsible Safety Officer <span className="text-rose-500">*</span></label>
-                            <input 
-                                name="responsible_person" 
-                                value={formData.responsible_person} 
-                                onChange={handleInputChange} 
-                                placeholder="Enter officer name" 
-                                className={inputClasses} 
+                            <label className={labelClasses}>Responsible Person <span className="text-rose-500">*</span></label>
+                            <input
+                                name="responsible_person"
+                                value={formData.responsible_person}
+                                onChange={handlePersonNameChange}
+                                placeholder="Enter responsible officer name"
+                                className={`${inputClasses}${/\d/.test(formData.responsible_person) ? " border-rose-400 focus:border-rose-400 focus:ring-rose-400/20" : ""}`}
                             />
+                            {/\d/.test(formData.responsible_person) && (
+                                <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">⚠ Only alphabetic characters allowed — no numbers.</p>
+                            )}
                         </div>
                     </div>
                 </div>
             </Modal>
 
-            {/* ── View Detail Modal ──────────────────────────── */}
+            {/* â”€â”€ View Detail Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <Modal
                 isOpen={isViewModalOpen}
                 onClose={() => setIsViewModalOpen(false)}
@@ -658,7 +709,7 @@ const SafetyChecklistPage = () => {
             >
                 {selectedIncident && (
                     <div className="p-6 font-inter">
-                        {/* ── Profile Style Header ────────────────── */}
+                        {/* â”€â”€ Profile Style Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                         <div className="bg-primary rounded-2xl p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter">
                             <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl" />
                             <div className="relative z-10 flex items-center gap-8 font-inter">
@@ -744,15 +795,7 @@ const SafetyChecklistPage = () => {
                 )}
             </Modal>
 
-            <ConfirmModal
-                isOpen={isDeleteModalOpen}
-                onClose={() => setIsDeleteModalOpen(false)}
-                onConfirm={handleDeleteConfirm}
-                title="Discard Audit Entry"
-                message="Are you sure you want to discard this safety intelligence record from the project vault? This action is permanent."
-                confirmText="Archive Intelligence"
-                type="danger"
-            />
+
         </>
     );
 };

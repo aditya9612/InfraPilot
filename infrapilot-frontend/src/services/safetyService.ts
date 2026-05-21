@@ -39,7 +39,7 @@ export type UpdateIncidentRequest = CreateIncidentRequest;
 const DEFAULT_INCIDENTS: IncidentItem[] = [
     {
         id: 1,
-        project_id: 36,
+        project_id: 92,
         date: "2026-04-24",
         violation_type: "No Helmet",
         description: "Worker found without safety helmet in foundation area",
@@ -51,7 +51,7 @@ const DEFAULT_INCIDENTS: IncidentItem[] = [
     },
     {
         id: 2,
-        project_id: 36,
+        project_id: 92,
         date: "2026-04-23",
         violation_type: "Unsafe Equipment Usage",
         description: "Worker used damaged ladder leading to fall",
@@ -64,8 +64,11 @@ const DEFAULT_INCIDENTS: IncidentItem[] = [
 ];
 
 export const safetyService = {
-    listIncidents: async (project_id: number, violation_type?: string): Promise<IncidentResponse> => {
-        const params: Record<string, any> = { project_id: project_id || 36 };
+    listIncidents: async (project_id?: number, violation_type?: string): Promise<IncidentResponse> => {
+        const params: Record<string, any> = {};
+        if (project_id) {
+            // Ignored as requested to use simple API URL
+        }
         if (violation_type) {
             params.violation_type = violation_type;
         }

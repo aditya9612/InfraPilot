@@ -55,14 +55,14 @@ const AttendancePage: React.FC = () => {
         } catch (err) {
             console.error("Failed to load user project context:", err);
         }
-        return 36; // Default fallback to 36 to guarantee list renders and matches registered project
+        return 92; // Default fallback to 92 to guarantee list renders and matches registered project
     });
     const [contractorFilter, setContractorFilter] = useState<number | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
     // Pagination states
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 10;
+    const itemsPerPage = 20;
 
 
 
@@ -78,6 +78,27 @@ const AttendancePage: React.FC = () => {
                 registeredLabours = labourRes.items || [];
             } catch (err) {
                 console.warn("Labour list fetch failed for project:", projectId);
+            }
+
+            // Merge with local additions
+            try {
+                const localKey = `created_labourers_${projectId || 92}`;
+                const localSaved = localStorage.getItem(localKey);
+                const localItems = localSaved ? JSON.parse(localSaved) : [];
+                const existingIds = new Set(registeredLabours.map((l: any) => l.id));
+                localItems.forEach((l: any) => {
+                    if (!existingIds.has(l.id)) {
+                        registeredLabours.unshift(l);
+                    }
+                });
+
+                // Apply local deletions
+                const deletedKey = `deleted_labourers_ids_${projectId || 92}`;
+                const deletedSaved = localStorage.getItem(deletedKey);
+                const deletedIds = new Set(deletedSaved ? JSON.parse(deletedSaved) : []);
+                registeredLabours = registeredLabours.filter((l: any) => !deletedIds.has(l.id));
+            } catch (e) {
+                console.error("Failed to merge local created/deleted labourers", e);
             }
 
             // Fetch attendance
@@ -164,6 +185,19 @@ const AttendancePage: React.FC = () => {
         setCurrentPage(1); // Reset pagination on project change
     }, [projectId]);
 
+    // Re-fetch whenever the page becomes visible (e.g. user navigates back from LaborDetailsPage)
+    // This ensures newly created or deleted labours are reflected immediately
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === "visible") {
+                fetchData();
+            }
+        };
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+        return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [projectId]);
+
     const today = new Date().toISOString().split('T')[0];
 
     // Workers who checked in TODAY
@@ -206,7 +240,7 @@ const AttendancePage: React.FC = () => {
                 skill_type: labour.skill_type,
                 contractor_id: labour.contractor_id,
                 status: "Absent",
-                in_time: "—",
+                in_time: "â€”",
                 out_time: null,
                 working_hours: 0,
                 overtime_hours: 0,
@@ -230,7 +264,7 @@ const AttendancePage: React.FC = () => {
 
             // Aggressive status matching
             let currentStatus = a.status?.toLowerCase();
-            if (a.out_time && a.out_time !== '—' && currentStatus !== 'absent') {
+            if (a.out_time && a.out_time !== 'â€”' && currentStatus !== 'absent') {
                 currentStatus = 'completed';
             }
 
@@ -281,7 +315,6 @@ const AttendancePage: React.FC = () => {
         setCurrentPage(1);
     }, [searchTerm, statusFilter, activeStatFilter, contractorFilter]);
 
-    const totalPages = Math.ceil(filteredAttendances.length / itemsPerPage);
     const paginatedAttendances = filteredAttendances.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
     return (
@@ -289,7 +322,7 @@ const AttendancePage: React.FC = () => {
             <Navbar title="Daily Attendance" breadcrumb={["Engineer", "Human Resources", "Attendance Registry"]} />
 
             <PageTransition className="p-4 md:p-6 bg-slate-50 font-inter flex flex-col min-h-screen">
-                {/* ── Header ──────────────────────────────────────────────── */}
+                {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Workforce Attendance Registry</h1>
@@ -304,7 +337,7 @@ const AttendancePage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* ── Summary Stats with Interactive Filtering ───────────────────────────── */}
+                {/* â”€â”€ Summary Stats with Interactive Filtering â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
                     <div onClick={() => setActiveStatFilter("Present")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Present" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
@@ -336,7 +369,7 @@ const AttendancePage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* ── Registry Table Container ───────────────────────────────────────────── */}
+                {/* â”€â”€ Registry Table Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 mb-6 font-inter">
                     <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white">
                         <div className="relative flex-1 max-w-md">
@@ -422,11 +455,11 @@ const AttendancePage: React.FC = () => {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-center">
-                                                <span className="text-sm font-bold text-slate-700 tabular-nums">{a.in_time || '—'}</span>
+                                                <span className="text-sm font-bold text-slate-700 tabular-nums">{a.in_time || 'â€”'}</span>
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <span className={`text-sm font-bold tabular-nums ${a.out_time ? 'text-slate-700' : 'text-slate-300'}`}>
-                                                    {a.out_time || '—'}
+                                                    {a.out_time || 'â€”'}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-center">
@@ -444,11 +477,11 @@ const AttendancePage: React.FC = () => {
                                                     <div className="flex items-center justify-center gap-3">
                                                         <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border ${a.check_in_image ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-100 opacity-50'}`}>
                                                             <Camera className="w-3 h-3" />
-                                                            <span className="text-[9px] font-bold uppercase tracking-widest">{a.check_in_image ? 'Selfie ✓' : 'Pending'}</span>
+                                                            <span className="text-[9px] font-bold uppercase tracking-widest">{a.check_in_image ? 'Selfie âœ“' : 'Pending'}</span>
                                                         </div>
                                                         <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border ${a.check_in_address ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-slate-50 text-slate-400 border-slate-100 opacity-50'}`}>
                                                             <MapPin className="w-3 h-3" />
-                                                            <span className="text-[9px] font-bold uppercase tracking-widest">{a.check_in_address ? 'GPS ✓' : 'Pending'}</span>
+                                                            <span className="text-[9px] font-bold uppercase tracking-widest">{a.check_in_address ? 'GPS âœ“' : 'Pending'}</span>
                                                         </div>
                                                     </div>
                                                 )}
@@ -496,12 +529,9 @@ const AttendancePage: React.FC = () => {
                             </div>
                         )}
 
-                        {/* ── Pagination Controls ──────────────────────────── */}
+                        {/* â”€â”€ Pagination Controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                         {!isLoading && filteredAttendances.length > 0 && (
-                            <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                    Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredAttendances.length)} of {filteredAttendances.length} entries
-                                </span>
+                            <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-end bg-white sticky left-0 font-inter">
                                 <div className="flex items-center gap-2">
                                     <button
                                         onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
@@ -512,11 +542,11 @@ const AttendancePage: React.FC = () => {
                                         <ChevronLeft className="w-4 h-4" />
                                     </button>
                                     <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                                        Page {currentPage} of {totalPages || 1}
+                                        Page {currentPage} of 20
                                     </div>
                                     <button
-                                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                                        disabled={currentPage === totalPages || totalPages === 0}
+                                        onClick={() => setCurrentPage(prev => Math.min(20, prev + 1))}
+                                        disabled={currentPage === 20}
                                         className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center"
                                         title="Next Page"
                                     >
@@ -635,7 +665,7 @@ const AttendancePage: React.FC = () => {
                         </div>
                     </div>
                 </div>
-                {/* ── Modals ─────────────────────────────────────── */}
+                {/* â”€â”€ Modals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <CheckInModal
                     isOpen={!!checkInTarget}
                     onClose={() => setCheckInTarget(null)}
@@ -650,7 +680,7 @@ const AttendancePage: React.FC = () => {
                     onSuccess={fetchData}
                 />
 
-                {/* ── Detail Modal ────────────────────────────────── */}
+                {/* â”€â”€ Detail Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <Modal
                     isOpen={isDetailModalOpen}
                     onClose={() => setIsDetailModalOpen(false)}

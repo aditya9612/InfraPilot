@@ -8,9 +8,7 @@ export const issueService = {
      */
     async getIssues(params?: any): Promise<IssueResponse> {
         try {
-            const queryParams: any = {
-                project_id: params?.project_id || 1
-            };
+            const queryParams: any = {};
 
             // Omit empty fields to prevent 422 errors
             if (params?.status && params.status !== "All") queryParams.status = params.status;
@@ -34,13 +32,12 @@ export const issueService = {
 
     /**
      * Get Lists Issues By Project ID
-     * GET /api/v1/issues?project_id=36
+     * GET /api/v1/issues?project_id=92
      */
-    async listIssuesByProject(project_id: number, params?: any): Promise<IssueResponse> {
+    async listIssuesByProject(_project_id: number, params?: any): Promise<IssueResponse> {
         try {
-            const activeProjectId = project_id || 36;
             const response = await api.get(`/issues`, { 
-                params: { ...params, project_id: activeProjectId } 
+                params: { ...params } 
             });
             return response.data;
         } catch (error: any) {
@@ -65,14 +62,12 @@ export const issueService = {
 
     /**
      * Create Issue
-     * POST /api/v1/issues?project_id=36
+     * POST /api/v1/issues?project_id=92
      */
     async createIssue(data: CreateIssueRequest): Promise<IssueItem> {
         try {
             console.log("Creating Issue with payload:", data);
-            const response = await api.post("/issues", data, {
-                params: { project_id: data.project_id || 36 }
-            });
+            const response = await api.post("/issues", data);
             return response.data;
         } catch (error: any) {
             console.error("Create Issue API Error:", error.response?.data || error.message);

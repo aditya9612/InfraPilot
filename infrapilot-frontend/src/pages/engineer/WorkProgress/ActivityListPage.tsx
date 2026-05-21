@@ -10,14 +10,6 @@ import {
   Eye,
   Edit2,
   Trash2,
-  CheckCircle2,
-  TrendingUp,
-  Clock,
-  Layout,
-  Filter,
-  FileText,
-  Briefcase,
-  Mail,
   ClipboardList,
   RotateCcw,
   ChevronLeft,
@@ -54,11 +46,11 @@ const ActivityListPage = () => {
         if (pId) {
           setProjectId(Number(pId));
         } else {
-          setProjectId(36);
+          setProjectId(92);
         }
       } catch (e) {
         console.error("Failed to resolve project ID", e);
-        setProjectId(36);
+        setProjectId(92);
       }
     }
   }, []);
@@ -69,7 +61,17 @@ const ActivityListPage = () => {
   const [filterStatus, setFilterStatus] = useState("All Status");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 20;
+
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return "N/A";
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}-${month}-${year}`;
+  };
 
   // Interactive StatCard Filter
   const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Compliance" | "Delayed" | "Execution">("All");
@@ -87,7 +89,7 @@ const ActivityListPage = () => {
   const loadActivities = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await workProgressService.listActivities(projectId || 36, engineer_id);
+      const data = await workProgressService.listActivities(projectId || 92, engineer_id);
       const normalizedData = data.map((a: any) => {
         let status = a.status;
         if (status) {
@@ -156,7 +158,6 @@ const ActivityListPage = () => {
     setCurrentPage(1);
   }, [searchTerm, filterStatus, activeStatFilter]);
 
-  const totalPages = Math.ceil(filteredActivities.length / itemsPerPage);
   const paginatedActivities = filteredActivities.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const handleAddSubmit = async (data: any) => {
@@ -230,7 +231,7 @@ const ActivityListPage = () => {
       <Navbar title="Activity List" breadcrumb={["InfraPilot", "Engineer", "Work Progress"]} />
       <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
 
-        {/* ── Header ──────────────────────────────────────────────── */}
+        {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Project Work Progress</h1>
@@ -254,7 +255,7 @@ const ActivityListPage = () => {
           </div>
         </div>
 
-        {/* ── Summary Stats with Interactive Filtering ───────────────────────────── */}
+        {/* â”€â”€ Summary Stats with Interactive Filtering â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
             <StatCard
@@ -286,7 +287,7 @@ const ActivityListPage = () => {
           </div>
         </div>
 
-        {/* ── Filter Bar & Registry Container ───────────────────────────────────────────── */}
+        {/* â”€â”€ Filter Bar & Registry Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
           {/* Integrated Filter Bar */}
           <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
@@ -367,8 +368,8 @@ const ActivityListPage = () => {
                     </td>
                     <td className="px-6 py-4 font-inter">
                       <div className="flex flex-col font-inter">
-                        <span className="text-xs font-bold text-slate-600 font-inter">{a.start_date}</span>
-                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest font-inter">To {a.end_date}</span>
+                        <span className="text-xs font-bold text-slate-600 font-inter">{formatDate(a.start_date)}</span>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest font-inter">To {formatDate(a.end_date)}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 font-inter">
@@ -420,28 +421,25 @@ const ActivityListPage = () => {
             </table>
           </div>
 
-          {/* ── Pagination Controls ──────────────────────────── */}
+          {/* ── Pagination Controls ── */}
           {!loading && filteredActivities.length > 0 && (
-            <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredActivities.length)} of {filteredActivities.length} entries
-              </span>
-              <div className="flex items-center gap-2">
+            <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-end bg-white sticky left-0 font-inter">
+              <div className="flex gap-2 font-inter">
                 <button
                   onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                   disabled={currentPage === 1}
-                  className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center"
+                  className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
                   title="Previous Page"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
                 <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                  Page {currentPage} of {totalPages || 1}
+                  Page {currentPage} of 20
                 </div>
                 <button
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages || totalPages === 0}
-                  className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center"
+                  onClick={() => setCurrentPage(prev => Math.min(20, prev + 1))}
+                  disabled={currentPage === 20}
+                  className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
                   title="Next Page"
                 >
                   <ChevronRight className="w-4 h-4" />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+﻿import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Navbar from '../../../components/common/Navbar';
 import PageTransition from '../../../components/common/PageTransition';
 import StatCard from '../../../components/common/StatCard';
@@ -33,7 +33,7 @@ const PaymentPage: React.FC = () => {
         } catch (err) {
             console.error("Failed to load user project context:", err);
         }
-        return 36; // Default fallback to 36 to ensure list renders and matches registered project
+        return 92; // Default fallback to 92 to ensure list renders and matches registered project
     });
     const [activeTab, setActiveTab] = useState<'payroll' | 'history' | 'dues' | 'weekly' | 'monthly'>('payroll');
     const [weeklyReports, setWeeklyReports] = useState<any[]>([]);
@@ -149,7 +149,7 @@ const PaymentPage: React.FC = () => {
             <Navbar title="Financial Operations" breadcrumb={["Engineer", "Human Resources", "Payroll Management"]} />
             
             <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
-                {/* ── Header ──────────────────────────────────────────────── */}
+                {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 font-inter">
                     <div className="font-inter">
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Workforce Disbursement Terminal</h1>
@@ -163,7 +163,7 @@ const PaymentPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* ── Interactive Stats ───────────────────────────── */}
+                {/* â”€â”€ Interactive Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
                     <div onClick={() => setActiveStatFilter("Paid")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Paid" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                       <StatCard
@@ -195,7 +195,7 @@ const PaymentPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* ── Navigation Tabs ───────────────────────────────────────────── */}
+                {/* â”€â”€ Navigation Tabs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-wrap gap-2 mb-8 font-inter">
                     {[
                         { id: 'payroll', label: 'Active Payroll' },
@@ -214,7 +214,7 @@ const PaymentPage: React.FC = () => {
                     ))}
                 </div>
 
-                {/* ── Registry Container ───────────────────────────────────────────── */}
+                {/* â”€â”€ Registry Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex flex-col">
                     {/* Integrated Filter Bar */}
                     <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row md:items-center flex-wrap gap-4 bg-white font-inter">
@@ -381,7 +381,7 @@ const PaymentPage: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-4 text-right font-inter">
                                                 <div className="flex items-center justify-end gap-2 text-emerald-500 font-inter">
-                                                  <span className="text-[10px] font-bold uppercase tracking-widest font-inter">Confirmed Audit ✓</span>
+                                                  <span className="text-[10px] font-bold uppercase tracking-widest font-inter">Confirmed Audit âœ“</span>
                                                 </div>
                                             </td>
                                         </tr>
@@ -470,7 +470,7 @@ const PaymentPage: React.FC = () => {
                         )}
                     </div>
                 </div>
-                {/* ── Modals ─────────────────────────────────────── */}
+                {/* â”€â”€ Modals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <PaySalaryModal 
                     isOpen={!!payTarget} 
                     onClose={() => setPayTarget(null)} 

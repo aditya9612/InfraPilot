@@ -8,12 +8,12 @@ export const sitePhotoService = {
     resolveUrl(path: string | null): string | null {
         if (!path) return null;
         if (path.startsWith('http') || path.startsWith('data:')) return path;
-        
+
         let baseUrl = import.meta.env.VITE_API_URL || '';
         if (
-            path.startsWith('/uploads') || 
-            path.startsWith('uploads') || 
-            path.startsWith('/static') || 
+            path.startsWith('/uploads') ||
+            path.startsWith('uploads') ||
+            path.startsWith('/static') ||
             path.startsWith('static')
         ) {
             try {
@@ -23,7 +23,7 @@ export const sitePhotoService = {
                 baseUrl = baseUrl.replace(/\/api\/v1\/?$/, '');
             }
         }
-        
+
         const cleanPath = path.startsWith('/') ? path : `/${path}`;
         return `${baseUrl}${cleanPath}`;
     },
@@ -37,37 +37,37 @@ export const sitePhotoService = {
             const queryParams: any = {
                 project_id: params?.project_id || 1
             };
-            
+
             if (params?.activity_tag) queryParams.activity_tag = params.activity_tag;
             if (params?.location_tag) queryParams.location_tag = params.location_tag;
             if (params?.start_date) queryParams.start_date = params.start_date;
             if (params?.end_date) queryParams.end_date = params.end_date;
 
             console.log(`GET /api/v1/site-photos - Params:`, queryParams);
-            
-            const response = await api.get("/site-photos", { 
-                params: queryParams 
+
+            const response = await api.get("/site-photos", {
+                params: queryParams
             });
-            
+
             console.log("GET /api/v1/site-photos - Response:", response.data);
-            
+
             // Defensive structure normalization for production data
             const rawData = response.data;
             let items: SitePhoto[] = [];
-            
+
             if (Array.isArray(rawData)) {
                 items = rawData;
             } else if (rawData && typeof rawData === 'object') {
                 items = rawData.items || rawData.data || (Array.isArray(rawData) ? rawData : []);
             }
-            
+
             // Load persisted offline uploads from localStorage to merge with backend data
             let savedUploads: any[] = [];
             try {
                 const stored = localStorage.getItem("infrapilot_offline_photos");
                 if (stored) savedUploads = JSON.parse(stored);
             } catch (e) { console.error("Failed to parse offline photos"); }
-            
+
             // Normalize photo_url to url for UI compatibility
             const normalizedItems = items.map((p: any) => ({
                 ...p,
@@ -79,14 +79,14 @@ export const sitePhotoService = {
             return { items: [...savedUploads, ...normalizedItems] };
         } catch (error: any) {
             console.error("GET /api/v1/site-photos Sync Failure:", error?.message);
-            
+
             // Load persisted offline uploads from localStorage
             let savedUploads: any[] = [];
             try {
                 const stored = localStorage.getItem("infrapilot_offline_photos");
                 if (stored) savedUploads = JSON.parse(stored);
             } catch (e) { console.error("Failed to parse offline photos"); }
-            
+
             return { items: savedUploads };
         }
     },
@@ -97,10 +97,10 @@ export const sitePhotoService = {
      * Body: multipart/form-data
      */
     async uploadPhoto(data: FormData): Promise<SitePhoto> {
-        const projectId = data.get("project_id") || "36";
+        const projectId = data.get("project_id") || "92";
         try {
             console.log(`POST /api/v1/site-photos/upload?project_id=${projectId}`);
-            
+
             const response = await api.post("/site-photos/upload", data, {
                 params: { project_id: projectId },
                 headers: { "Content-Type": "multipart/form-data" }
@@ -118,11 +118,11 @@ export const sitePhotoService = {
             const activity_tag = data.get("activity_tag") as string || "General";
             const location_tag = data.get("location_tag") as string || "Site Area";
             const description = data.get("description") as string || "Photo uploaded successfully.";
-            
+
             // Generate a persistent Base64 string for the uploaded file so it survives page reloads
             const file = data.get("file") as File;
             let photoUrl = "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=800&q=80"; // fallback
-            
+
             if (file && file.size > 0) {
                 photoUrl = await new Promise((resolve) => {
                     const reader = new FileReader();
@@ -144,7 +144,7 @@ export const sitePhotoService = {
                 photo_url: photoUrl,
                 url: photoUrl
             };
-            
+
             // Save to localStorage so it persists in the gallery
             try {
                 const stored = localStorage.getItem("infrapilot_offline_photos");
@@ -170,7 +170,7 @@ export const sitePhotoService = {
             return response.data;
         } catch (error: any) {
             console.warn(`Virtual Success: Bypassing Error for Delete Photo ID ${id}`, error?.message);
-            
+
             // Remove from local offline storage if it exists
             try {
                 const stored = localStorage.getItem("infrapilot_offline_photos");

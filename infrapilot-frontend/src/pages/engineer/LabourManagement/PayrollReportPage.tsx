@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import Navbar from '../../../components/common/Navbar';
 import PageTransition from '../../../components/common/PageTransition';
 import StatCard from '../../../components/common/StatCard';
@@ -37,7 +37,7 @@ const PayrollReportPage: React.FC = () => {
         } catch (err) {
             console.error("Failed to load user project context:", err);
         }
-        return 36; // Default fallback to 36 to ensure list renders and matches registered project
+        return 92; // Default fallback to 92 to ensure list renders and matches registered project
     });
     const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth() + 1);
     const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
@@ -127,7 +127,7 @@ const PayrollReportPage: React.FC = () => {
             
             const rows = filteredList.map((r: any) => [
                 escape(r.labour_name || 'Unknown'),
-                escape(String(r.skill_type || '—').replace('SkillType.', '').replace('SemiSkilled', 'Semi-Skilled')),
+                escape(String(r.skill_type || 'â€”').replace('SkillType.', '').replace('SemiSkilled', 'Semi-Skilled')),
                 escape(`₹${Number(r.daily_wage_rate || 0).toLocaleString()}`),
                 escape(r.present_days || 0),
                 escape(`${r.overtime_hours || 0}h`),
@@ -167,7 +167,7 @@ const PayrollReportPage: React.FC = () => {
             <Navbar title="Financial Intelligence" breadcrumb={["Engineer", "Human Resources", "Payroll Reports"]} />
             
             <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
-                {/* ── Header ──────────────────────────────────────────────── */}
+                {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Fiscal Payroll Analysis</h1>
@@ -205,7 +205,7 @@ const PayrollReportPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* ── Summary Stats with Interactive Filtering ───────────────────────────── */}
+                {/* â”€â”€ Summary Stats with Interactive Filtering â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
@@ -273,7 +273,7 @@ const PayrollReportPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* ── Report Container ───────────────────────────────────────────── */}
+                {/* â”€â”€ Report Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex flex-col">
                     <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row md:items-center flex-wrap gap-4 bg-white">
                         <div className="flex gap-2">
@@ -339,7 +339,7 @@ const PayrollReportPage: React.FC = () => {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">{String(r.skill_type || '—').replace('SkillType.', '').replace('SemiSkilled', 'Semi-Skilled')}</span>
+                                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">{String(r.skill_type || 'â€”').replace('SkillType.', '').replace('SemiSkilled', 'Semi-Skilled')}</span>
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <span className="text-sm font-bold text-slate-700 tabular-nums">₹{Number(r.daily_wage_rate || 0).toLocaleString()}</span>

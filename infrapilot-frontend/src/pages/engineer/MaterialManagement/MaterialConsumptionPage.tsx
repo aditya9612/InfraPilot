@@ -4,17 +4,26 @@ import PageTransition from "../../../components/common/PageTransition";
 import Modal from "../../../components/common/Modal";
 import StatCard from "../../../components/common/StatCard";
 import toast from "react-hot-toast";
-import { 
-  Activity, 
-  ClipboardCheck,
+import {
+  Activity,
   Search,
   RotateCcw
-,
-    ChevronLeft,
-    ChevronRight} from "lucide-react";
+  ,
+  ChevronLeft,
+  ChevronRight
+} from "lucide-react";
 import { materialService, type InventoryItem, type MaterialLog, type IssueType } from "../../../services/materialService";
 
-const ISSUE_TYPES = ["SITE", "STORE"];
+const ISSUE_TYPES = [
+  "SYSTEM",
+  "SITE",
+  "DAMAGE",
+  "LOSS",
+  "VENDOR",
+  "TRANSFER",
+  "ADJUSTMENT",
+  "PURCHASE"
+];
 
 const MaterialConsumptionPage = () => {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -23,7 +32,7 @@ const MaterialConsumptionPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [projectId, setProjectId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  
+
   // Pagination States
   const [currentPageInv, setCurrentPageInv] = useState(1);
   const [currentPageLogs, setCurrentPageLogs] = useState(1);
@@ -35,9 +44,11 @@ const MaterialConsumptionPage = () => {
 
   const [isUsageModalOpen, setIsUsageModalOpen] = useState(false);
   const [selectedInventory, setSelectedInventory] = useState<InventoryItem | null>(null);
-  
-  const [usageData, setUsageData] = useState({
-    quantity: 0,
+  const [materialsList, setMaterialsList] = useState<any[]>([]);
+
+  const [usageData, setUsageData] = useState<{ quantity: number | string; project_id: number; issue_type: string }>({
+    quantity: "",
+    project_id: projectId || 1,
     issue_type: "SITE"
   });
 
@@ -50,18 +61,19 @@ const MaterialConsumptionPage = () => {
         materialService.getLogs({ project_id: projectId || 0, type: "USAGE" }),
         materialService.listMaterials(projectId)
       ]);
-      
+
       const realIds = new Set((realList || []).map(m => m.id));
       const realNames = new Set((realList || []).map(m => m.material_name.toLowerCase()));
-      
-      const filteredInv = (invList || []).filter(item => 
-        realNames.has(item.material_name.toLowerCase()) || 
-        realIds.has(item.material_id) || 
+
+      const filteredInv = (invList || []).filter(item =>
+        realNames.has(item.material_name.toLowerCase()) ||
+        realIds.has(item.material_id) ||
         realIds.has(item.id)
       );
-      
+
       setInventory(filteredInv);
       setLogs(lList || []);
+      setMaterialsList(realList || []);
     } catch (error) {
       toast.error("Failed to load consumption data");
     } finally {
@@ -76,13 +88,16 @@ const MaterialConsumptionPage = () => {
         const user = JSON.parse(userStr);
         const pId = user?.project_id || user?.user?.project_id;
         if (pId) {
-          setProjectId(Number(pId));
+          const finalPId = Number(pId);
+          setProjectId(finalPId);
+          setUsageData((prev) => ({ ...prev, project_id: finalPId }));
         } else {
-          setProjectId(36);
+          setProjectId(92);
+          setUsageData((prev) => ({ ...prev, project_id: 92 }));
         }
       } catch (e) {
         console.error("Failed to resolve project ID", e);
-        setProjectId(36);
+        setProjectId(92);
       }
     }
   }, []);
@@ -98,9 +113,9 @@ const MaterialConsumptionPage = () => {
     try {
       const targetMatId = selectedInventory.id ?? selectedInventory.material_id;
       await materialService.recordUsage(targetMatId, {
-        ...usageData,
-        issue_type: usageData.issue_type as IssueType,
-        project_id: projectId || 0
+        quantity: Number(usageData.quantity),
+        project_id: Number(usageData.project_id),
+        issue_type: usageData.issue_type as IssueType
       });
       toast.success("Material usage recorded!");
       setIsUsageModalOpen(false);
@@ -128,8 +143,8 @@ const MaterialConsumptionPage = () => {
       data = data.filter(i => i.remaining_stock > 0);
     }
 
-    return data.filter(i => 
-      searchTerm === "" || 
+    return data.filter(i =>
+      searchTerm === "" ||
       i.material_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       String(i.material_id).includes(searchTerm)
     );
@@ -140,14 +155,10 @@ const MaterialConsumptionPage = () => {
     return filteredInventory.slice(startIndex, startIndex + itemsPerPageInv);
   }, [filteredInventory, currentPageInv]);
 
-  const totalPagesInv = Math.ceil(filteredInventory.length / itemsPerPageInv);
-
   const paginatedLogs = useMemo(() => {
     const startIndex = (currentPageLogs - 1) * itemsPerPageLogs;
     return logs.slice(startIndex, startIndex + itemsPerPageLogs);
   }, [logs, currentPageLogs]);
-
-  const totalPagesLogs = Math.ceil(logs.length / itemsPerPageLogs);
 
   useEffect(() => {
     setCurrentPageInv(1);
@@ -175,7 +186,7 @@ const MaterialConsumptionPage = () => {
               onClick={() => {
                 if (inventory.length > 0) {
                   setSelectedInventory(inventory[0]);
-                  setUsageData({ quantity: 0, issue_type: "SITE" });
+                  setUsageData({ quantity: "", project_id: projectId || 1, issue_type: "SITE" });
                   setIsUsageModalOpen(true);
                 } else {
                   toast.error("No materials available for usage");
@@ -190,7 +201,7 @@ const MaterialConsumptionPage = () => {
         </div>
 
         {/* Stats with Interactive Filtering */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 font-inter">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 font-inter">
           <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
             <StatCard
               title="Total Materials"
@@ -278,10 +289,10 @@ const MaterialConsumptionPage = () => {
                         <span className="text-sm font-bold text-slate-800 font-inter">₹{inv.total_value?.toLocaleString()}</span>
                       </td>
                       <td className="px-6 py-4 text-right font-inter">
-                        <button 
+                        <button
                           onClick={() => {
                             setSelectedInventory(inv);
-                            setUsageData({ quantity: 0, issue_type: "SITE" });
+                            setUsageData({ quantity: "", project_id: projectId || 1, issue_type: "SITE" });
                             setIsUsageModalOpen(true);
                           }}
                           className="px-4 py-2 bg-slate-50 text-slate-600 hover:text-white hover:bg-rose-500 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border border-slate-200 hover:border-rose-500 font-inter active:scale-95"
@@ -303,31 +314,28 @@ const MaterialConsumptionPage = () => {
           </div>
 
           {/* Inventory Pagination */}
-          <div className="px-6 py-4 bg-slate-50/30 border-t border-slate-50 flex items-center justify-between font-inter">
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">
-              Showing {paginatedInventory.length} of {filteredInventory.length} Resource Identities
-            </div>
+          <div className="px-6 py-4 bg-slate-50/30 border-t border-slate-50 flex items-center justify-end font-inter">
             <div className="flex items-center gap-2 font-inter">
-                                <button
-                                    onClick={() => setCurrentPageInv(prev => Math.max(prev - 1, 1))}
-                                    disabled={currentPageInv === 1}
-                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
-                                    title="Previous Page"
-                                >
-                                    <ChevronLeft className="w-4 h-4" />
-                                </button>
-                                <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                                    Page {currentPageInv} of {1 || 1}
-                                </div>
-                                <button
-                                    onClick={() => setCurrentPageInv(prev => Math.min(prev + 1, 1 || 1))}
-                                    disabled={currentPageInv >= 1 || 1 === 0}
-                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
-                                    title="Next Page"
-                                >
-                                    <ChevronRight className="w-4 h-4" />
-                                </button>
-                            </div>
+              <button
+                onClick={() => setCurrentPageInv(prev => Math.max(prev - 1, 1))}
+                disabled={currentPageInv === 1}
+                className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                title="Previous Page"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
+                Page {currentPageInv} of 20
+              </div>
+              <button
+                onClick={() => setCurrentPageInv(prev => Math.min(prev + 1, 20))}
+                disabled={currentPageInv === 20}
+                className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                title="Next Page"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -354,7 +362,7 @@ const MaterialConsumptionPage = () => {
                       <td className="px-6 py-4 text-xs font-bold text-slate-500 font-inter uppercase tracking-widest">{new Date(log.created_at).toLocaleDateString()}</td>
                       <td className="px-6 py-4 font-inter">
                         <span className="font-bold text-slate-700 text-sm font-inter uppercase">
-                            {inventory.find(inv => inv.material_id === log.material_id)?.material_name || `MID: ${log.material_id}`}
+                          {inventory.find(inv => inv.material_id === log.material_id)?.material_name || `MID: ${log.material_id}`}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-center font-bold text-rose-500 text-sm font-inter">-{log.quantity}</td>
@@ -372,33 +380,30 @@ const MaterialConsumptionPage = () => {
               </tbody>
             </table>
           </div>
-          
+
           {/* Logs Pagination */}
-          <div className="px-6 py-4 bg-slate-50/30 border-t border-slate-50 flex items-center justify-between font-inter">
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">
-              Showing {paginatedLogs.length} of {logs.length} Audit History Events
-            </div>
+          <div className="px-6 py-4 bg-slate-50/30 border-t border-slate-50 flex items-center justify-end font-inter">
             <div className="flex items-center gap-2 font-inter">
-                                <button
-                                    onClick={() => setCurrentPageLogs(prev => Math.max(prev - 1, 1))}
-                                    disabled={currentPageLogs === 1}
-                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
-                                    title="Previous Page"
-                                >
-                                    <ChevronLeft className="w-4 h-4" />
-                                </button>
-                                <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                                    Page {currentPageLogs} of {1 || 1}
-                                </div>
-                                <button
-                                    onClick={() => setCurrentPageLogs(prev => Math.min(prev + 1, 1 || 1))}
-                                    disabled={currentPageLogs >= 1 || 1 === 0}
-                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
-                                    title="Next Page"
-                                >
-                                    <ChevronRight className="w-4 h-4" />
-                                </button>
-                            </div>
+              <button
+                onClick={() => setCurrentPageLogs(prev => Math.max(prev - 1, 1))}
+                disabled={currentPageLogs === 1}
+                className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                title="Previous Page"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
+                Page {currentPageLogs} of 20
+              </div>
+              <button
+                onClick={() => setCurrentPageLogs(prev => Math.min(prev + 1, 20))}
+                disabled={currentPageLogs === 20}
+                className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                title="Next Page"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       </PageTransition>
@@ -418,7 +423,7 @@ const MaterialConsumptionPage = () => {
               Cancel
             </button>
             <button
-              disabled={isSubmitting || usageData.quantity <= 0 || usageData.quantity > (selectedInventory?.remaining_stock || 0)}
+              disabled={isSubmitting}
               onClick={handleUsageSubmit}
               className="flex-[2] py-3 bg-rose-500 text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-rose-500/20 hover:bg-rose-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
             >
@@ -427,54 +432,72 @@ const MaterialConsumptionPage = () => {
           </div>
         }
       >
-        <div className="p-6 space-y-6 font-inter">
-          <div className="p-5 bg-rose-50 rounded-2xl border border-rose-100 flex items-start gap-4 font-inter">
-              <div className="p-2 bg-white rounded-xl shadow-sm font-inter">
-                  <ClipboardCheck className="w-5 h-5 text-rose-500 font-inter" />
-              </div>
-              <div className="font-inter">
-                  <p className="text-[10px] font-bold text-rose-800 uppercase tracking-widest mb-1 font-inter">Audit Context</p>
-                  <p className="text-xs font-bold text-rose-600 font-inter">{selectedInventory?.material_name}</p>
-                  <p className="text-[10px] text-rose-500 font-bold font-inter mt-1">Vault Balance: {selectedInventory?.remaining_stock} {selectedInventory?.unit}</p>
-              </div>
+        <div className="p-6 space-y-5 font-inter">
+          <div className="font-inter">
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Material <span className="text-rose-500">*</span></label>
+            <select
+              required
+              value={selectedInventory?.material_id || ""}
+              onChange={(e) => {
+                const targetId = Number(e.target.value);
+                const matchedInv = inventory.find(inv => inv.material_id === targetId || inv.id === targetId);
+                if (matchedInv) {
+                  setSelectedInventory(matchedInv);
+                } else {
+                  const matchedMat = materialsList.find(m => m.id === targetId);
+                  setSelectedInventory({
+                    id: targetId,
+                    material_id: targetId,
+                    material_name: matchedMat?.material_name || "",
+                    remaining_stock: 0,
+                    unit: matchedMat?.unit || "Bags",
+                    avg_rate: matchedMat?.purchase_rate || 0,
+                    total_value: 0
+                  } as InventoryItem);
+                }
+              }}
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-inter"
+            >
+              <option value="">Select Material</option>
+              {materialsList.map(mat => (
+                <option key={mat.id} value={mat.id}>
+                  {mat.material_name} (ID: {mat.id})
+                </option>
+              ))}
+            </select>
           </div>
-          
-          <div className="space-y-5 font-inter">
-            <div className="font-inter">
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Resource Selection *</label>
-                <select
-                    required
-                    value={selectedInventory?.material_id || ""}
-                    onChange={(e) => setSelectedInventory(inventory.find(inv => inv.material_id === Number(e.target.value)) || null)}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-inter"
-                >
-                    {inventory.map(inv => <option key={inv.material_id} value={inv.material_id}>{inv.material_name} (Bal: {inv.remaining_stock})</option>)}
-                </select>
-            </div>
-            <div className="font-inter">
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Disbursement Quantity *</label>
-              <input
-                required
-                type="number"
-                max={selectedInventory?.remaining_stock}
-                value={usageData.quantity}
-                onChange={(e) => setUsageData({ ...usageData, quantity: Number(e.target.value) })}
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-inter"
-                placeholder="0"
-              />
-              <p className="text-[9px] text-slate-400 font-bold uppercase mt-1.5 ml-1 tracking-widest font-inter">Limit: {selectedInventory?.remaining_stock} {selectedInventory?.unit}</p>
-            </div>
-            <div className="font-inter">
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Logistics Channel *</label>
-                <select
-                    required
-                    value={usageData.issue_type}
-                    onChange={(e) => setUsageData({ ...usageData, issue_type: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-inter"
-                >
-                    {ISSUE_TYPES.map(i => <option key={i} value={i}>{i}</option>)}
-                </select>
-            </div>
+          <div className="font-inter">
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">quantity <span className="text-rose-500">*</span></label>
+            <input
+              required
+              type="number"
+              value={usageData.quantity}
+              onChange={(e) => setUsageData({ ...usageData, quantity: e.target.value === "" ? "" : Number(e.target.value) })}
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-inter"
+              placeholder="30"
+            />
+          </div>
+          <div className="font-inter">
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">project_id <span className="text-rose-500">*</span></label>
+            <input
+              required
+              type="number"
+              value={usageData.project_id}
+              onChange={(e) => setUsageData({ ...usageData, project_id: Number(e.target.value) })}
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-inter"
+              placeholder="1"
+            />
+          </div>
+          <div className="font-inter">
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">issue_type <span className="text-rose-500">*</span></label>
+            <select
+              required
+              value={usageData.issue_type}
+              onChange={(e) => setUsageData({ ...usageData, issue_type: e.target.value })}
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-inter"
+            >
+              {ISSUE_TYPES.map(i => <option key={i} value={i}>{i}</option>)}
+            </select>
           </div>
         </div>
       </Modal>

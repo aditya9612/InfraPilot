@@ -22,6 +22,7 @@ import {
 
 import { checklistService } from "../../../services/checklistService";
 import type { ChecklistItem, ChecklistLog } from "../../../services/checklistService";
+import { projectService } from "../../../services/projectService";
 
 const typeColors: Record<string, string> = {
     "Daily Checklist": "bg-blue-50 text-blue-600 border-blue-100",
@@ -35,7 +36,7 @@ const ChecklistsPage = () => {
     const [checklists, setChecklists] = useState<ChecklistItem[]>([]);
     const [logs, setLogs] = useState<ChecklistLog[]>([]);
     const [activeTab, setActiveTab] = useState<"Daily Checklist" | "Activity Checklist" | "Safety" | "Quality">("Daily Checklist");
-    const [projectId, setProjectId] = useState<number>(36);
+    const [projectId, setProjectId] = useState<number>(92);
     
     // UI States
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -56,6 +57,8 @@ const ChecklistsPage = () => {
     const [selectedChecklist, setSelectedChecklist] = useState<ChecklistItem | null>(null);
     const [newChecklistName, setNewChecklistName] = useState("");
     const [newChecklistType, setNewChecklistType] = useState("Safety");
+    const [newChecklistProjectId, setNewChecklistProjectId] = useState("");
+    const [projects, setProjects] = useState<any[]>([]);
     const [newChecklistItems, setNewChecklistItems] = useState<string[]>([]);
     const [tempItemText, setTempItemText] = useState("");
     const [addItemText, setAddItemText] = useState("");
@@ -63,7 +66,7 @@ const ChecklistsPage = () => {
     const [executeRemarks, setExecuteRemarks] = useState("");
     const [deleteId, setDeleteId] = useState<number | null>(null);
 
-    // Resolve Project ID
+    // Resolve Project ID and fetch assigned projects list
     useEffect(() => {
         const userStr = localStorage.getItem("infrapilot_user");
         if (userStr) {
@@ -75,6 +78,18 @@ const ChecklistsPage = () => {
                 console.error("Failed to resolve project ID", e);
             }
         }
+        
+        // Fetch all assigned projects
+        const fetchProjects = async () => {
+            try {
+                const res = await projectService.getProjects(100, 0);
+                const list = Array.isArray(res) ? res : (res.items || res.data || []);
+                setProjects(list);
+            } catch (error) {
+                console.error("Failed to fetch projects", error);
+            }
+        };
+        fetchProjects();
     }, []);
 
     const fetchData = useCallback(async () => {
@@ -83,7 +98,19 @@ const ChecklistsPage = () => {
                 checklistService.listChecklists(),
                 checklistService.listLogs()
             ]);
-            setChecklists(clRes);
+            
+            // Merge with local storage created checklists to support mock/virtual fallback persistence
+            const localSaved = localStorage.getItem("created_checklists");
+            const localChecklists = localSaved ? JSON.parse(localSaved) : [];
+            const combined = [...clRes];
+            const existingIds = new Set(combined.map(c => c.id));
+            localChecklists.forEach((c: any) => {
+                if (!existingIds.has(c.id)) {
+                    combined.unshift(c);
+                }
+            });
+            
+            setChecklists(combined);
             setLogs(logsRes.items || []);
         } catch (err) {
             toast.error("Failed to sync checklist vault");
@@ -96,6 +123,10 @@ const ChecklistsPage = () => {
 
     const handleCreateChecklist = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!newChecklistProjectId) {
+            toast.error("Project is required");
+            return;
+        }
         if (!newChecklistName.trim()) {
             toast.error("Name is required");
             return;
@@ -104,7 +135,7 @@ const ChecklistsPage = () => {
         setIsSubmitting(true);
         try {
             const created = await checklistService.createChecklist({
-                project_id: projectId,
+                project_id: Number(newChecklistProjectId),
                 name: newChecklistName,
                 type: newChecklistType
             });
@@ -116,10 +147,25 @@ const ChecklistsPage = () => {
                 });
             }
 
+            // Save to localStorage for robust virtual/fallback persistence
+            try {
+                const localSaved = localStorage.getItem("created_checklists");
+                const localChecklists = localSaved ? JSON.parse(localSaved) : [];
+                localChecklists.unshift(created);
+                localStorage.setItem("created_checklists", JSON.stringify(localChecklists));
+            } catch (err) {
+                console.error("Failed to save created checklist to localStorage", err);
+            }
+
             toast.success("Checklist created successfully!");
-            setChecklists(prev => [created, ...prev]);
+            if (projectId !== Number(newChecklistProjectId)) {
+                setProjectId(Number(newChecklistProjectId));
+            }
+            setActiveTab(newChecklistType as any);
+            await fetchData();
             setIsNewModalOpen(false);
             setNewChecklistName("");
+            setNewChecklistProjectId("");
             setNewChecklistItems([]);
         } catch (err) {
             toast.error("Failed to create checklist");
@@ -180,6 +226,19 @@ const ChecklistsPage = () => {
         setIsSubmitting(true);
         try {
             await checklistService.deleteChecklist(deleteId);
+
+            // Remove from localStorage
+            try {
+                const localSaved = localStorage.getItem("created_checklists");
+                if (localSaved) {
+                    const localChecklists = JSON.parse(localSaved);
+                    const filtered = localChecklists.filter((c: any) => c.id !== deleteId);
+                    localStorage.setItem("created_checklists", JSON.stringify(filtered));
+                }
+            } catch (err) {
+                console.error("Failed to update localStorage", err);
+            }
+
             toast.success("Checklist deleted successfully!");
             setChecklists(prev => prev.filter(c => c.id !== deleteId));
             setLogs(prev => prev.filter(l => l.checklist_id !== deleteId));
@@ -193,7 +252,8 @@ const ChecklistsPage = () => {
     };
 
     const stats = useMemo(() => {
-        const total = checklists.length;
+        const activeChecklists = checklists.filter(c => c.type === activeTab);
+        const total = activeChecklists.length;
         
         const latestLogsMap = new Map();
         const sortedLogs = [...logs].sort((a, b) => b.id - a.id);
@@ -205,7 +265,7 @@ const ChecklistsPage = () => {
         });
 
         let done = 0;
-        checklists.forEach(c => {
+        activeChecklists.forEach(c => {
             const latestLog = latestLogsMap.get(c.id);
             if (latestLog && latestLog.status === "Done") {
                 done++;
@@ -213,15 +273,18 @@ const ChecklistsPage = () => {
         });
 
         const pending = total - done;
+        const compliance = Math.round((done / (total || 1)) * 100);
+        const globalHealth = compliance > 0 ? compliance : 0;
 
         return {
             total,
-            executed: logs.length,
+            executed: logs.filter(l => activeChecklists.some(c => c.id === l.checklist_id)).length,
             done,
             pending,
-            compliance: Math.round((done / (total || 1)) * 100)
+            compliance,
+            globalHealth
         };
-    }, [checklists, logs]);
+    }, [checklists, logs, activeTab]);
 
     const filteredLogs = useMemo(() => {
         let data = logs;
@@ -245,8 +308,6 @@ const ChecklistsPage = () => {
         return filteredLogs.slice(startIndex, startIndex + itemsPerPage);
     }, [filteredLogs, currentPage]);
 
-    const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
-
     // Reset page on filter change
     useEffect(() => {
         setCurrentPage(1);
@@ -267,7 +328,7 @@ const ChecklistsPage = () => {
             <Navbar title="Checklists" breadcrumb={["Engineer", "Execution", "Checklist Vault"]} />
 
             <PageTransition className="p-4 md:p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
-                {/* ── Header ──────────────────────────────────────────────── */}
+                {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 font-inter">
                     <div className="font-inter">
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Checklist Intelligence Ledger</h1>
@@ -282,7 +343,7 @@ const ChecklistsPage = () => {
                     </button>
                 </div>
 
-                {/* ── Interactive Stats ───────────────────────────── */}
+                {/* â”€â”€ Interactive Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                       <StatCard
@@ -308,13 +369,13 @@ const ChecklistsPage = () => {
                     <div className="cursor-default group transition-all rounded-xl hover:scale-[1.01]">
                       <StatCard
                           title="Global Health"
-                          value="94%"
+                          value={`${stats.globalHealth}%`}
                           sub="Process Momentum"
                           accent="text-blue-500" />
                     </div>
                 </div>
 
-                {/* ── Tab Selector ────────────────────────────────────────────── */}
+                {/* â”€â”€ Tab Selector â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex items-center gap-4 md:gap-8 border-b border-slate-200 mb-6 md:mb-8 overflow-x-auto scrollbar-hide font-inter">
                     {["Daily Checklist", "Activity Checklist", "Safety", "Quality"].map((tab) => (
                         <button
@@ -332,9 +393,9 @@ const ChecklistsPage = () => {
                     ))}
                 </div>
 
-                {/* ── Scrollable Content Area ────────────────────────── */}
+                {/* â”€â”€ Scrollable Content Area â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex-1 overflow-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200">
-                {/* ── Protocols Registry ──────────────────────────────── */}
+                {/* â”€â”€ Protocols Registry â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="mb-12 font-inter">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 font-inter">
                       {checklists.filter(c => c.type === activeTab).map((cl) => (
@@ -371,7 +432,7 @@ const ChecklistsPage = () => {
                                       title="Add Item"
                                   >
                                       <PlusSquare className="w-4 h-4" />
-                                      <span className="text-[10px] font-bold uppercase tracking-widest">Append</span>
+                                      <span className="text-[10px] font-bold uppercase tracking-widest">Add Item</span>
                                   </button>
                                   <button 
                                       onClick={() => { setSelectedChecklist(cl); setIsExecuteModalOpen(true); }}
@@ -379,7 +440,7 @@ const ChecklistsPage = () => {
                                       title="Execute Audit"
                                   >
                                       <CheckCircle2 className="w-4 h-4" />
-                                      <span className="text-[10px] font-bold uppercase tracking-widest">Audit</span>
+                                      <span className="text-[10px] font-bold uppercase tracking-widest">Execute Checklist</span>
                                   </button>
                                   <button 
                                       onClick={() => { setDeleteId(cl.id); setIsDeleteModalOpen(true); }}
@@ -387,7 +448,7 @@ const ChecklistsPage = () => {
                                       title="Archive"
                                   >
                                       <Trash2 className="w-4 h-4" />
-                                      <span className="text-[10px] font-bold uppercase tracking-widest">Discard</span>
+                                      <span className="text-[10px] font-bold uppercase tracking-widest">Delete</span>
                                   </button>
                               </div>
                           </div>
@@ -401,7 +462,7 @@ const ChecklistsPage = () => {
                   </div>
                 </div>
 
-                {/* ── Execution Intelligence Registry ────────────────────────────── */}
+                {/* â”€â”€ Execution Intelligence Registry â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-12 font-inter flex flex-col">
                     <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
                         <div className="relative flex-1 max-w-md font-inter">
@@ -479,12 +540,9 @@ const ChecklistsPage = () => {
                     </div>
                     </div>
                     
-                    {/* ── Pagination Controls ──────────────────────────── */}
+                    {/* â”€â”€ Pagination Controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                     {filteredLogs.length > 0 && (
-                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">
-                                Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredLogs.length)} of {filteredLogs.length} entries
-                            </span>
+                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-end bg-white sticky left-0 font-inter">
                             <div className="flex items-center gap-2 font-inter">
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
@@ -495,11 +553,11 @@ const ChecklistsPage = () => {
                                     <ChevronLeft className="w-4 h-4" />
                                 </button>
                                 <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                                    Page {currentPage} of {1 || 1}
+                                    Page {currentPage} of 20
                                 </div>
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, 1 || 1))}
-                                    disabled={currentPage >= 1 || 1 === 0}
+                                    onClick={() => setCurrentPage(prev => Math.min(20, prev + 1))}
+                                    disabled={currentPage === 20}
                                     className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
                                     title="Next Page"
                                 >
@@ -511,7 +569,7 @@ const ChecklistsPage = () => {
                 </div>
             </PageTransition>
 
-            {/* ── MODALS ────────────────────────────────────────────────── */}
+            {/* â”€â”€ MODALS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
 
             {/* Modal 1: New Checklist */}
             <Modal
@@ -539,6 +597,21 @@ const ChecklistsPage = () => {
                           Protocol Intelligence Profile
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
+                            <div className="font-inter md:col-span-2">
+                                <label className={labelClasses}>Project Context <span className="text-rose-500">*</span></label>
+                                <select 
+                                    value={newChecklistProjectId}
+                                    onChange={(e) => setNewChecklistProjectId(e.target.value)}
+                                    className={inputClasses}
+                                >
+                                    <option value="">Select Project</option>
+                                    {projects.map(p => (
+                                        <option key={p.id || p.project_id} value={p.id || p.project_id}>
+                                            {p.name || p.project_name || `Project #${p.id || p.project_id}`}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Descriptive Title <span className="text-rose-500">*</span></label>
                                 <input 
@@ -583,7 +656,7 @@ const ChecklistsPage = () => {
                                 onClick={addTempItem}
                                 className="px-6 bg-slate-900 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-slate-800 transition-all active:scale-95 font-inter"
                             >
-                                Append Point
+                                ADD ITEM
                             </button>
                         </div>
                         

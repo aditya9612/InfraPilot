@@ -22,7 +22,7 @@ import {
 import { sitePhotoService } from "../../services/sitePhotoService";
 import type { SitePhoto } from "../../types/sitePhoto";
 
-// ─── Constants ──────────────────────────────────────────────────────────────
+// â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const ACTIVITY_TAGS = [
     "Foundation Work",
     "RCC Column Casting",
@@ -73,11 +73,11 @@ const SitePhotosPage = () => {
                 if (pId) {
                     setProjectId(Number(pId));
                 } else {
-                    setProjectId(36);
+                    setProjectId(92);
                 }
             } catch (e) {
                 console.error("Failed to resolve project ID", e);
-                setProjectId(36);
+                setProjectId(92);
             }
         }
     }, []);
@@ -138,8 +138,22 @@ const SitePhotosPage = () => {
         }
     };
 
+    const baseFilteredPhotos = useMemo(() => {
+        return photos.filter(p => {
+            const desc = p.description || "";
+            const actTag = p.activity_tag || "";
+            const locTag = p.location_tag || "";
+            
+            const matchesSearch = desc.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                String(p.id).includes(searchQuery);
+            const matchesActivity = filterActivity === "All Activities" || actTag === filterActivity;
+            const matchesLocation = filterLocation === "All Locations" || locTag === filterLocation;
+            return matchesSearch && matchesActivity && matchesLocation;
+        });
+    }, [photos, searchQuery, filterActivity, filterLocation]);
+
     const filteredPhotos = useMemo(() => {
-        let data = photos;
+        let data = baseFilteredPhotos;
 
         // Apply StatCard Filter
         if (activeStatFilter === "Recent") {
@@ -155,18 +169,8 @@ const SitePhotosPage = () => {
             data = data.filter(p => !!p.location_tag);
         }
 
-        return data.filter(p => {
-            const desc = p.description || "";
-            const actTag = p.activity_tag || "";
-            const locTag = p.location_tag || "";
-            
-            const matchesSearch = desc.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                String(p.id).includes(searchQuery);
-            const matchesActivity = filterActivity === "All Activities" || actTag === filterActivity;
-            const matchesLocation = filterLocation === "All Locations" || locTag === filterLocation;
-            return matchesSearch && matchesActivity && matchesLocation;
-        });
-    }, [photos, searchQuery, filterActivity, filterLocation, activeStatFilter]);
+        return data;
+    }, [baseFilteredPhotos, activeStatFilter]);
 
     const paginatedPhotos = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
@@ -177,16 +181,16 @@ const SitePhotosPage = () => {
 
     const stats = useMemo(() => {
         return {
-            total: filteredPhotos.length,
-            thisWeek: filteredPhotos.filter(p => {
+            total: baseFilteredPhotos.length,
+            thisWeek: baseFilteredPhotos.filter(p => {
                 const sevenDaysAgo = new Date();
                 sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
                 return new Date(p.date) >= sevenDaysAgo;
             }).length,
-            activities: new Set(filteredPhotos.map(p => p.activity_tag)).size,
-            locations: new Set(filteredPhotos.map(p => p.location_tag)).size,
+            activities: baseFilteredPhotos.filter(p => !!p.activity_tag).length,
+            locations: baseFilteredPhotos.filter(p => !!p.location_tag).length,
         };
-    }, [filteredPhotos]);
+    }, [baseFilteredPhotos]);
 
     const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
 
@@ -195,7 +199,7 @@ const SitePhotosPage = () => {
             <Navbar title="Site Evidence" breadcrumb={["Engineer", "Site Photos", "Gallery"]} />
 
             <PageTransition className="p-4 md:p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
-                {/* ── Header ──────────────────────────────────────────────── */}
+                {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 font-inter">
                     <div className="font-inter">
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Evidence Documentation Ledger</h1>
@@ -213,7 +217,7 @@ const SitePhotosPage = () => {
                     </button>
                 </div>
 
-                {/* ── Interactive Stats ───────────────────────────── */}
+                {/* â”€â”€ Interactive Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
@@ -245,7 +249,7 @@ const SitePhotosPage = () => {
                     </div>
                 </div>
 
-                {/* ── Evidence Vault Container ───────────────────────────────────────────── */}
+                {/* â”€â”€ Evidence Vault Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
                     {/* Integrated Filter Bar */}
                     <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
@@ -367,7 +371,7 @@ const SitePhotosPage = () => {
                                                         <p className="text-xs font-bold text-slate-800 truncate uppercase tracking-widest font-inter">{photo.uploaded_by}</p>
                                                         <div className="flex items-center gap-1.5 text-slate-400 font-inter">
                                                             <Calendar className="w-3 h-3 shrink-0" />
-                                                            <p className="text-[10px] font-bold uppercase tracking-widest truncate font-inter">{photo.time} • {photo.date}</p>
+                                                            <p className="text-[10px] font-bold uppercase tracking-widest truncate font-inter">{photo.time} â€¢ {photo.date}</p>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -446,7 +450,7 @@ const SitePhotosPage = () => {
                         )}
                     </div>
 
-                    {/* ── Pagination ────────────────────────────────────────── */}
+                    {/* â”€â”€ Pagination â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                     {totalPages > 1 && (
                         <div className="p-4 border-t border-slate-50 flex items-center justify-between bg-white font-inter">
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -544,7 +548,7 @@ const SitePhotosPage = () => {
                 )}
             </Modal>
 
-            {/* ── Evidence Upload Modal ────────────────────────────────── */}
+            {/* â”€â”€ Evidence Upload Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <UploadPhotoModal
                 isOpen={isUploadOpen}
                 onClose={() => setIsUploadOpen(false)}

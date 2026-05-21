@@ -181,29 +181,26 @@ const WorkApprovalPage = () => {
         setRequestToDelete(null);
     };
 
+    const baseFilteredApprovals = useMemo(() => {
+        return approvalData.filter(a =>
+            a.entity_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            String(a.id).toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (a.remarks && a.remarks.toLowerCase().includes(searchTerm.toLowerCase()))
+        );
+    }, [approvalData, searchTerm]);
+
     const filteredApprovals = useMemo(() => {
-        let data = approvalData;
+        let data = baseFilteredApprovals;
         
         // Apply StatCard Filter
         if (activeFilter === "Approved") {
             data = data.filter(a => a.status === "Approved");
         } else if (activeFilter === "Pending") {
             data = data.filter(a => a.status !== "Approved");
-        } else if (activeFilter === "Rate") {
-            // Rate filter shows everything or maybe just the cleared ones?
-            // User said "Rate par click karte hi list page ki sari overall percentage dikhani chaiye"
-            // Usually this means showing all data but focused on the rate metric.
-            // I'll show all data for "Rate" as well.
-            data = approvalData;
         }
-
-        // Apply Search Filter
-        return data.filter(a =>
-            a.entity_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            String(a.id).toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (a.remarks && a.remarks.toLowerCase().includes(searchTerm.toLowerCase()))
-        );
-    }, [approvalData, searchTerm, activeFilter]);
+        
+        return data;
+    }, [baseFilteredApprovals, activeFilter]);
 
     const paginatedApprovals = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
@@ -217,10 +214,10 @@ const WorkApprovalPage = () => {
     }, [searchTerm, activeFilter]);
 
     const stats = {
-        total: approvalData.length,
-        cleared: approvalData.filter(a => a.status === "Approved").length,
-        pending: approvalData.filter(a => a.status !== "Approved").length,
-        clearanceRate: `${approvalData.length > 0 ? Math.round((approvalData.filter(a => a.status === "Approved").length / approvalData.length) * 100) : 0}%`
+        total: baseFilteredApprovals.length,
+        cleared: baseFilteredApprovals.filter(a => a.status === "Approved").length,
+        pending: baseFilteredApprovals.filter(a => a.status !== "Approved").length,
+        clearanceRate: `${baseFilteredApprovals.length > 0 ? Math.round((baseFilteredApprovals.filter(a => a.status === "Approved").length / baseFilteredApprovals.length) * 100) : 0}%`
     };
 
     const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
@@ -234,7 +231,7 @@ const WorkApprovalPage = () => {
         <>
             <Navbar title="Work Approvals" breadcrumb={["Engineer", "Approvals", "Technical Clearance"]} />
 
-            <PageTransition className="p-4 md:p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
+            <PageTransition className="p-4 md:p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter flex flex-col">
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
                     <div>
@@ -302,9 +299,9 @@ const WorkApprovalPage = () => {
                 </div>
 
                 {/* ── Filter Bar & Table Container ───────────────────────────────────────────── */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
-                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
-                        <div className="relative flex-1 max-w-md font-inter">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex flex-col">
+                    <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row md:items-center gap-4 bg-white font-inter">
+                        <div className="relative w-full md:max-w-md font-inter">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                                 <Search className="w-4 h-4" />
                             </span>
@@ -316,8 +313,8 @@ const WorkApprovalPage = () => {
                                 className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter font-bold"
                             />
                         </div>
-                        <div className="flex items-center gap-3 font-inter">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active Filter:</span>
+                        <div className="flex flex-wrap items-center gap-3 font-inter">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Active Filter:</span>
                             <span className="px-3 py-1 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-primary uppercase tracking-widest shadow-sm">
                                 {activeFilter === "Rate" ? "Overall Precision" : activeFilter === "All" ? "Full Ledger" : activeFilter}
                             </span>
@@ -329,8 +326,8 @@ const WorkApprovalPage = () => {
                         </div>
                     </div>
 
-                    <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
-                        <table className="w-full text-left font-inter min-w-[1200px]">
+                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                        <table className="w-full text-left font-inter min-w-[1000px]">
                             <thead>
                                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
                                     <th className="px-6 py-4">Work Authorization</th>
@@ -420,11 +417,8 @@ const WorkApprovalPage = () => {
 
                     {/* ── Pagination Controls ──────────────────────────── */}
                     {!loading && filteredApprovals.length > 0 && (
-                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">
-                                Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredApprovals.length)} of {filteredApprovals.length} entries
-                            </span>
-                            <div className="flex items-center gap-2 font-inter">
+                        <div className="px-4 md:px-6 py-4 border-t border-slate-50 flex flex-col sm:flex-row items-center justify-between sm:justify-end gap-4 bg-white sticky left-0 font-inter">
+                            <div className="flex items-center flex-wrap gap-2 font-inter justify-center">
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                                     disabled={currentPage === 1}
@@ -433,12 +427,24 @@ const WorkApprovalPage = () => {
                                 >
                                     <ChevronLeft className="w-4 h-4" />
                                 </button>
-                                <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                                    Page {currentPage} of {1 || 1}
-                                </div>
+                                
+                                {Array.from({ length: Math.min(totalPages, 20) }, (_, i) => i + 1).map(page => (
+                                    <button
+                                        key={page}
+                                        onClick={() => setCurrentPage(page)}
+                                        className={`w-10 h-10 rounded-xl text-sm font-bold transition-all shadow-sm flex items-center justify-center font-inter ${
+                                            currentPage === page 
+                                                ? 'bg-primary text-white border-transparent' 
+                                                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-primary'
+                                        }`}
+                                    >
+                                        {page}
+                                    </button>
+                                ))}
+
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, 1 || 1))}
-                                    disabled={currentPage >= 1 || 1 === 0}
+                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                    disabled={currentPage >= totalPages || totalPages === 0}
                                     className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
                                     title="Next Page"
                                 >

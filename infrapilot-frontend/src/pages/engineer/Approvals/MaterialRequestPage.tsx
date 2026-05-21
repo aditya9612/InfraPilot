@@ -14,13 +14,15 @@ import {
     RotateCcw,
     FileText,
     Box
-,
+    ,
     ChevronLeft,
-    ChevronRight} from "lucide-react";
+    ChevronRight
+} from "lucide-react";
 import { siteRequestService } from "../../../services/siteRequestService";
+import { projectService } from "../../../services/projectService";
 import type { CreateSiteRequest } from "../../../services/siteRequestService";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface MaterialRequestRecord {
     id: string | number;
     project_id?: string | number;
@@ -40,6 +42,7 @@ const MaterialRequestPage = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [projectId, setProjectId] = useState<number | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
+    const [projects, setProjects] = useState<any[]>([]);
     const itemsPerPage = 20;
 
     // Interactive StatCard Filter
@@ -65,19 +68,34 @@ const MaterialRequestPage = () => {
         }
     }, []);
 
+    const [selectedProjectFilter, setSelectedProjectFilter] = useState<number | "All">("All");
+
+    useEffect(() => {
+        const fetchProjects = async () => {
+            try {
+                const res = await projectService.getProjects(100, 0);
+                const list = Array.isArray(res) ? res : (res.items || res.data || []);
+                setProjects(list);
+            } catch (error) {
+                console.error("Failed to fetch projects", error);
+            }
+        };
+        fetchProjects();
+    }, []);
+
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     const fetchRequests = useCallback(async () => {
         setIsLoading(true);
         try {
-            const serverData = await siteRequestService.getRequests(projectId || 36);
+            const serverData = await siteRequestService.getRequests(selectedProjectFilter);
             setRequestData(serverData);
         } catch (error) {
             toast.error("Failed to fetch requisition list.");
         } finally {
             setIsLoading(false);
         }
-    }, [projectId]);
+    }, [selectedProjectFilter]);
 
     useEffect(() => {
         fetchRequests();
@@ -95,7 +113,7 @@ const MaterialRequestPage = () => {
         if (!formData.request_type) newErrors.request_type = "Request type is required";
         if (!formData.description.trim()) newErrors.description = "Technical narrative is required";
         if (!formData.quantity || Number(formData.quantity) <= 0) newErrors.quantity = "Valid numeric quantity is required";
-        
+
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -116,7 +134,7 @@ const MaterialRequestPage = () => {
 
             const newRecord = await siteRequestService.createRequest(payload);
             toast.success("Requisition Created Successfully!", { id: toastId });
-            
+
             // Switch to the project ID that was just used to submit the request
             if (projectId !== payload.project_id) {
                 setProjectId(payload.project_id);
@@ -137,9 +155,9 @@ const MaterialRequestPage = () => {
         try {
             await siteRequestService.approveRequest(id);
             toast.success("Requisition Approved!", { id: toastId });
-            
+
             // Update local state immediately for real-time UI feedback
-            setRequestData(prev => prev.map(req => 
+            setRequestData(prev => prev.map(req =>
                 req.id === id ? { ...req, status: "Approved" as const } : req
             ));
 
@@ -155,9 +173,9 @@ const MaterialRequestPage = () => {
         try {
             await siteRequestService.rejectRequest(id);
             toast.success("Requisition Rejected", { id: toastId });
-            
+
             // Update local state immediately for real-time UI feedback
-            setRequestData(prev => prev.map(req => 
+            setRequestData(prev => prev.map(req =>
                 req.id === id ? { ...req, status: "Rejected" as const } : req
             ));
 
@@ -170,21 +188,25 @@ const MaterialRequestPage = () => {
 
     const [selectedRequest, setSelectedRequest] = useState<MaterialRequestRecord | null>(null);
 
-    const filteredRequests = useMemo(() => {
-        let data = requestData;
-
-        // Apply StatCard Filter
-        if (activeStatFilter === "Approved") {
-          data = data.filter(r => r.status === "Approved");
-        } else if (activeStatFilter === "Pending") {
-          data = data.filter(r => r.status === "Pending");
-        }
-
-        return data.filter(r =>
+    const baseFilteredRequests = useMemo(() => {
+        return requestData.filter(r =>
             r.request_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
             String(r.id).toLowerCase().includes(searchTerm.toLowerCase())
         );
-    }, [requestData, searchTerm, activeStatFilter]);
+    }, [requestData, searchTerm]);
+
+    const filteredRequests = useMemo(() => {
+        let data = baseFilteredRequests;
+
+        // Apply StatCard Filter
+        if (activeStatFilter === "Approved") {
+            data = data.filter(r => r.status === "Approved");
+        } else if (activeStatFilter === "Pending") {
+            data = data.filter(r => r.status === "Pending");
+        }
+
+        return data;
+    }, [baseFilteredRequests, activeStatFilter]);
 
     const paginatedRequests = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
@@ -199,10 +221,10 @@ const MaterialRequestPage = () => {
     }, [searchTerm, activeStatFilter]);
 
     const stats = {
-        total: requestData.length,
-        approved: requestData.filter(r => r.status === "Approved").length,
-        pending: requestData.filter(r => r.status === "Pending").length,
-        fulfillment: Math.round((requestData.filter(r => r.status === "Approved").length / (requestData.length || 1)) * 100)
+        total: baseFilteredRequests.length,
+        approved: baseFilteredRequests.filter(r => r.status === "Approved").length,
+        pending: baseFilteredRequests.filter(r => r.status === "Pending").length,
+        fulfillment: Math.round((baseFilteredRequests.filter(r => r.status === "Approved").length / (baseFilteredRequests.length || 1)) * 100) || 0
     };
 
     const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
@@ -225,7 +247,7 @@ const MaterialRequestPage = () => {
             <Navbar title="Material Requests" breadcrumb={["Engineer", "Approvals", "Material Requisition"]} />
 
             <PageTransition className="p-4 md:p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
-                {/* ── Header ──────────────────────────────────────────────── */}
+                {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 font-inter">
                     <div className="font-inter">
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Procurement Requisition Ledger</h1>
@@ -258,40 +280,40 @@ const MaterialRequestPage = () => {
                     </div>
                 </div>
 
-                {/* ── Interactive Stats ───────────────────────────── */}
-                {/* ── Scrollable Content Area ────────────────────────── */}
+                {/* â”€â”€ Interactive Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                {/* â”€â”€ Scrollable Content Area â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
-                        <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                      <StatCard
-                          title="Total Logs"
-                          value={stats.total.toString()}
-                          sub="All Requests"
-                          accent="text-slate-800" />
+                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard
+                            title="Total Logs"
+                            value={stats.total.toString()}
+                            sub="All Requests"
+                            accent="text-slate-800" />
                     </div>
                     <div onClick={() => setActiveStatFilter("Approved")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Approved" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                      <StatCard
-                          title="Approved"
-                          value={stats.approved.toString()}
-                          sub="Released for Site"
-                          accent="text-emerald-500" />
+                        <StatCard
+                            title="Approved"
+                            value={stats.approved.toString()}
+                            sub="Released for Site"
+                            accent="text-emerald-500" />
                     </div>
                     <div onClick={() => setActiveStatFilter("Pending")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Pending" ? "ring-2 ring-amber-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                      <StatCard
-                          title="Pending Review"
-                          value={stats.pending.toString()}
-                          sub="PM Validation"
-                          accent="text-amber-500" />
+                        <StatCard
+                            title="Pending Review"
+                            value={stats.pending.toString()}
+                            sub="PM Validation"
+                            accent="text-amber-500" />
                     </div>
                     <div className="cursor-default group transition-all rounded-xl hover:scale-[1.01]">
-                      <StatCard
-                          title="Fulfillment"
-                          value={`${stats.fulfillment}%`}
-                          sub="Procurement Yield"
-                          accent="text-blue-500" />
+                        <StatCard
+                            title="Fulfillment"
+                            value={`${stats.fulfillment}%`}
+                            sub="Procurement Yield"
+                            accent="text-blue-500" />
                     </div>
                 </div>
 
-                {/* ── Registry Container ───────────────────────────────────────────── */}
+                {/* â”€â”€ Registry Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
                     <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
                         <div className="relative flex-1 max-w-md font-inter">
@@ -306,11 +328,25 @@ const MaterialRequestPage = () => {
                                 className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
                             />
                         </div>
-                        {activeStatFilter !== "All" && (
-                          <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter">
-                            <RotateCcw className="w-4 h-4" />
-                          </button>
-                        )}
+                        <div className="flex items-center gap-3 font-inter">
+                            <select
+                                value={selectedProjectFilter}
+                                onChange={(e) => setSelectedProjectFilter(e.target.value === "All" ? "All" : Number(e.target.value))}
+                                className="bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter"
+                            >
+                                <option value="All">All Projects</option>
+                                {projects.map((p: any) => (
+                                    <option key={`filter-${p.id || p.project_id}`} value={p.id || p.project_id}>
+                                        {p.name || p.project_name || `Project #${p.id || p.project_id}`}
+                                    </option>
+                                ))}
+                            </select>
+                            {activeStatFilter !== "All" && (
+                                <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter">
+                                    <RotateCcw className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
@@ -358,10 +394,10 @@ const MaterialRequestPage = () => {
                                             </td>
                                             <td className="px-6 py-4 font-inter">
                                                 <div className="flex items-center gap-2 font-inter">
-                                                  <div className="p-1.5 bg-blue-50 rounded-lg shrink-0">
-                                                    <Box className="w-3 h-3 text-blue-500" />
-                                                  </div>
-                                                  <span className="text-sm font-bold text-slate-800 tabular-nums font-inter">{request.quantity} Units</span>
+                                                    <div className="p-1.5 bg-blue-50 rounded-lg shrink-0">
+                                                        <Box className="w-3 h-3 text-blue-500" />
+                                                    </div>
+                                                    <span className="text-sm font-bold text-slate-800 tabular-nums font-inter">{request.quantity} Units</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-right font-inter">
@@ -369,14 +405,14 @@ const MaterialRequestPage = () => {
                                                     <button
                                                         onClick={() => setSelectedRequest(request)}
                                                         className={`p-2 text-white rounded-xl shadow-lg transition-all active:scale-95 font-inter ${request.status === 'Approved' ? 'bg-emerald-600 shadow-emerald-600/20 hover:bg-emerald-700' :
-                                                                request.status === 'Pending' ? 'bg-amber-600 shadow-amber-600/20 hover:bg-amber-700' :
-                                                                    'bg-rose-600 shadow-rose-600/20 hover:bg-rose-700'
+                                                            request.status === 'Pending' ? 'bg-amber-600 shadow-amber-600/20 hover:bg-amber-700' :
+                                                                'bg-rose-600 shadow-rose-600/20 hover:bg-rose-700'
                                                             }`}
                                                         title="Analyze Requisition"
                                                     >
                                                         <Eye className="w-4 h-4" />
                                                     </button>
-                                                    
+
                                                     {request.status === "Pending" && (
                                                         <div className="flex items-center gap-1 border-l border-slate-100 pl-2 font-inter">
                                                             <button
@@ -410,7 +446,7 @@ const MaterialRequestPage = () => {
                         </table>
                     </div>
 
-                    {/* ── Pagination Controls ──────────────────────────── */}
+                    {/* â”€â”€ Pagination Controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                     {!isLoading && filteredRequests.length > 0 && (
                         <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">
@@ -442,7 +478,7 @@ const MaterialRequestPage = () => {
                 </div>
             </PageTransition>
 
-            {/* ── Detail Modal ────────────────────────────────── */}
+            {/* â”€â”€ Detail Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <Modal
                 isOpen={!!selectedRequest}
                 onClose={() => setSelectedRequest(null)}
@@ -491,8 +527,8 @@ const MaterialRequestPage = () => {
                         <button
                             onClick={() => setSelectedRequest(null)}
                             className={`w-full py-5 text-white rounded-xl text-[10px] font-bold uppercase tracking-[0.4em] transition-all shadow-2xl active:scale-95 font-inter mb-2 ${selectedRequest.status === 'Approved' ? 'bg-emerald-600 shadow-emerald-600/30 hover:bg-emerald-700' :
-                                    selectedRequest.status === 'Pending' ? 'bg-amber-600 shadow-amber-600/30 hover:bg-amber-700' :
-                                        'bg-rose-600 shadow-rose-600/30 hover:bg-rose-700'
+                                selectedRequest.status === 'Pending' ? 'bg-amber-600 shadow-amber-600/30 hover:bg-amber-700' :
+                                    'bg-rose-600 shadow-rose-600/30 hover:bg-rose-700'
                                 }`}
                         >
                             Dismiss Artifact Analysis
@@ -501,42 +537,47 @@ const MaterialRequestPage = () => {
                 )}
             </Modal>
 
-            {/* ── Form Modal ────────────────────────────────── */}
+            {/* â”€â”€ Form Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <Modal
                 isOpen={isFormModalOpen}
                 onClose={() => setIsFormModalOpen(false)}
                 title="Initiate Resource Requisition"
                 maxWidth="max-w-4xl"
                 footer={
-                  <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
-                      <button onClick={() => setIsFormModalOpen(false)} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter">Cancel</button>
-                      <button 
-                          onClick={handleSubmit}
-                          disabled={isSubmitting}
-                          className="flex-[2] py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
-                      >
-                          {isSubmitting ? "Syncing..." : "Commit Requisition"}
-                      </button>
-                  </div>
+                    <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
+                        <button onClick={() => setIsFormModalOpen(false)} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter">Cancel</button>
+                        <button
+                            onClick={handleSubmit}
+                            disabled={isSubmitting}
+                            className="flex-[2] py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
+                        >
+                            {isSubmitting ? "Syncing..." : "Commit Requisition"}
+                        </button>
+                    </div>
                 }
             >
                 <form id="request-form" onSubmit={handleSubmit} className="p-6 space-y-8 font-inter">
                     <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
                         <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
-                          <Box className="w-4 h-4 text-primary" />
-                          Requisition Core Identity
+                            <Box className="w-4 h-4 text-primary" />
+                            Requisition Core Identity
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
                             <div className="font-inter">
-                                <label className={labelClasses}>Project ID <span className="text-rose-500">*</span></label>
-                                <input
+                                <label className={labelClasses}>Project <span className="text-rose-500">*</span></label>
+                                <select
                                     name="project_id"
-                                    type="number"
                                     value={formData.project_id}
                                     onChange={handleInputChange}
-                                    placeholder="e.g. 1"
                                     className={inputClasses(errors.project_id)}
-                                />
+                                >
+                                    <option value="">-- Select Project --</option>
+                                    {projects.map((p: any) => (
+                                        <option key={p.id || p.project_id} value={p.id || p.project_id}>
+                                            {p.name || p.project_name || `Project #${p.id || p.project_id}`}
+                                        </option>
+                                    ))}
+                                </select>
                                 {errors.project_id && <p className="mt-1.5 text-[9px] text-rose-500 font-black uppercase tracking-widest ml-1 font-inter">{errors.project_id}</p>}
                             </div>
                             <div className="font-inter">
@@ -558,8 +599,8 @@ const MaterialRequestPage = () => {
 
                     <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
                         <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
-                          <FileText className="w-4 h-4 text-primary" />
-                          Technical Specifications Narrative
+                            <FileText className="w-4 h-4 text-primary" />
+                            Technical Specifications Narrative
                         </h3>
                         <div className="font-inter space-y-6">
                             <div className="font-inter">

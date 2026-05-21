@@ -1,4 +1,4 @@
-import api from "./api";
+﻿import api from "./api";
 import type { 
     AdvanceRequestPayload, 
     Payment, 
@@ -33,7 +33,7 @@ export const paymentService = {
         try {
             // Standardize parameters to avoid 422 Validation Errors
             const cleanParams: any = {
-                project_id: params?.project_id?.toString() || "36"
+                project_id: params?.project_id?.toString() || "92"
             };
             if (params?.limit) cleanParams.limit = Number(params.limit);
             if (params?.offset !== undefined) cleanParams.offset = Number(params.offset);

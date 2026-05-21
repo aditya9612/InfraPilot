@@ -1,6 +1,7 @@
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import Modal from "../common/Modal";
 import type { CreateActivityRequest } from "../../types/workProgress";
+import { projectService } from "../../services/projectService";
 
 interface AddActivityModalProps {
   isOpen: boolean;
@@ -15,28 +16,53 @@ const STATUSES = ["Not Started", "On Track", "Delay"];
 
 const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: AddActivityModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [projects, setProjects] = useState<any[]>([]);
   const [formData, setFormData] = useState({
+    project_id: projectId || "",
     activity_name: "",
     boq_code: "" as any,
-    planned_quantity: 0,
+    planned_quantity: "" as any,
     unit: "Cum",
-    start_date: new Date().toISOString().split("T")[0],
+    start_date: "",
     end_date: "",
     status: "Not Started",
     work_order_id: "" as any
   });
 
+  useEffect(() => {
+    if (isOpen) {
+      setFormData(prev => ({ ...prev, project_id: projectId || "" }));
+      const fetchProjects = async () => {
+        try {
+          const res = await projectService.getProjects(100, 0);
+          const projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
+          setProjects(projectsList);
+          if (projectsList.length > 0 && !projectId) {
+            setFormData(prev => ({ ...prev, project_id: projectsList[0].id }));
+          }
+        } catch (err) {
+          console.error("Failed to fetch projects", err);
+        }
+      };
+      fetchProjects();
+    }
+  }, [isOpen, projectId]);
+
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const validate = () => {
     const errs: Record<string, string> = {};
+    if (!formData.project_id) {
+      errs.project_id = "Project selection is required";
+    }
+
     if (!formData.activity_name.trim()) {
       errs.activity_name = "Activity name is required";
     } else if (/[0-9]/.test(formData.activity_name)) {
       errs.activity_name = "Activity name must be alphabetic only (no numbers)";
     }
 
-    if (!formData.planned_quantity || formData.planned_quantity <= 0) {
+    if (formData.planned_quantity === "" || formData.planned_quantity <= 0) {
       errs.planned_quantity = "Planned quantity must be greater than 0";
     }
 
@@ -64,17 +90,19 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
     try {
       await onSubmit({
         ...formData,
-        project_id: projectId,
+        project_id: Number(formData.project_id) || projectId,
         engineer_id: engineerId,
+        planned_quantity: Number(formData.planned_quantity),
         boq_code: formData.boq_code ? Number(formData.boq_code) : null,
         work_order_id: formData.work_order_id ? Number(formData.work_order_id) : null
       });
       setFormData({
+        project_id: projectId || "",
         activity_name: "",
         boq_code: "",
-        planned_quantity: 0,
+        planned_quantity: "",
         unit: "Cum",
-        start_date: new Date().toISOString().split("T")[0],
+        start_date: "",
         end_date: "",
         status: "Not Started",
         work_order_id: "" as any
@@ -142,7 +170,22 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Required Fields *</span>
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
+            <div>
+              <label className={labelClasses}>Project*</label>
+              <select 
+                name="project_id"
+                className={inputClasses(errors.project_id)}
+                value={formData.project_id}
+                onChange={handleChange}
+              >
+                <option value="">Select Project</option>
+                {projects.map(p => (
+                  <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>
+                ))}
+              </select>
+              {errors.project_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.project_id}</p>}
+            </div>
+            <div>
               <label className={labelClasses}>Activity Name*</label>
               <input 
                 required type="text" name="activity_name" placeholder="e.g. Excavation, RCC, Brickwork"
@@ -189,7 +232,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
               <input 
                 required type="number" name="planned_quantity" min="0" step="any"
                 className={inputClasses(errors.planned_quantity)}
-                value={formData.planned_quantity} onChange={e => setFormData({...formData, planned_quantity: Number(e.target.value)})}
+                value={formData.planned_quantity} onChange={e => setFormData({...formData, planned_quantity: e.target.value})}
               />
               {errors.planned_quantity && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.planned_quantity}</p>}
             </div>
@@ -209,7 +252,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className={labelClasses}>Mobilization Date*</label>
+              <label className={labelClasses}>Start Date*</label>
               <input 
                 required type="date" name="start_date" className={inputClasses(errors.start_date)}
                 value={formData.start_date} onChange={handleChange}
@@ -217,7 +260,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
               {errors.start_date && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.start_date}</p>}
             </div>
             <div>
-              <label className={labelClasses}>Estimated Completion*</label>
+              <label className={labelClasses}>End Date*</label>
               <input 
                 required type="date" name="end_date" className={inputClasses(errors.end_date)}
                 value={formData.end_date} onChange={handleChange}

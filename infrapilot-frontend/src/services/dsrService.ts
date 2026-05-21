@@ -160,27 +160,11 @@ export const dsrService = {
    * PUT /api/v1/dsr/{id}/submit
    */
   async submitDsr(id: number): Promise<{ message: string }> {
-    const response = await api.put<{ message: string }>(`/dsr/${id}/submit`);
+    const response = await api.put<{ message: string }>(`/dsr/${id}/submit`, {});
     return response.data;
   },
 
-  /**
-   * Approve DSR (Submitted → Approved)
-   * PUT /api/v1/dsr/{id}/approve
-   */
-  async approveDsr(id: number): Promise<{ message: string }> {
-    const response = await api.put<{ message: string }>(`/dsr/${id}/approve`);
-    return response.data;
-  },
 
-  /**
-   * Reject DSR (Submitted → Draft)
-   * PUT /api/v1/dsr/{id}/reject
-   */
-  async rejectDsr(id: number): Promise<{ message: string }> {
-    const response = await api.put<{ message: string }>(`/dsr/${id}/reject`);
-    return response.data;
-  },
 
   /**
    * Upload photo for a DSR

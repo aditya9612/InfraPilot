@@ -63,7 +63,7 @@ const LaborDetailsPage = () => {
     const [projects, setProjects] = useState<any[]>([]);
     const [assignProjectId, setAssignProjectId] = useState<string>("");
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 10;
+    const itemsPerPage = 20;
 
     useEffect(() => {
         const initializeProject = () => {
@@ -74,10 +74,15 @@ const LaborDetailsPage = () => {
                     const pId = user?.project_id || user?.user?.project_id;
                     if (pId) {
                         setProjectId(Number(pId));
+                    } else {
+                        setProjectId(92);
                     }
+                } else {
+                    setProjectId(92);
                 }
             } catch (err) {
                 console.error("Failed to load user project context:", err);
+                setProjectId(92);
             }
         };
         initializeProject();
@@ -130,7 +135,30 @@ const LaborDetailsPage = () => {
                 status: statusFilter === "All" ? undefined : statusFilter
             });
             console.log("Personnel Registry Sync Success:", response);
-            setLaborers(response.items || []);
+            
+            // Get local additions
+            const localKey = `created_labourers_${projectId || 92}`;
+            const localSaved = localStorage.getItem(localKey);
+            const localItems = localSaved ? JSON.parse(localSaved) : [];
+            
+            // Get local deletions
+            const deletedKey = `deleted_labourers_ids_${projectId || 92}`;
+            const deletedSaved = localStorage.getItem(deletedKey);
+            const deletedIds = new Set(deletedSaved ? JSON.parse(deletedSaved) : []);
+            
+            let combined = response.items || [];
+            // Merge, avoiding duplicates
+            const existingIds = new Set(combined.map((l: any) => l.id));
+            localItems.forEach((l: any) => {
+                if (!existingIds.has(l.id)) {
+                    combined.unshift(l);
+                }
+            });
+            
+            // Filter out deleted laborers
+            combined = combined.filter((l: any) => !deletedIds.has(l.id));
+            
+            setLaborers(combined);
         } catch (error: any) {
             console.error("Personnel Registry Sync Failure:", error.response?.data || error.message);
             toast.error("Failed to sync personnel registry");
@@ -166,8 +194,35 @@ const LaborDetailsPage = () => {
             setIsDeleting(true);
             console.log(`Executing API Request: DELETE /labour/${labourToDelete}`);
             await labourService.deleteLabour(labourToDelete);
+            
+            // ── Immediately remove from UI so list never goes blank ──
+            setLaborers(prev => prev.filter(l => l.id !== labourToDelete));
+
+            // Sync deletion locally in localStorage
+            try {
+                const localKey = `created_labourers_${projectId || 92}`;
+                const localSaved = localStorage.getItem(localKey);
+                if (localSaved) {
+                    const localItems = JSON.parse(localSaved);
+                    const updatedItems = localItems.filter((l: any) => l.id !== labourToDelete);
+                    localStorage.setItem(localKey, JSON.stringify(updatedItems));
+                }
+                
+                const deletedKey = `deleted_labourers_ids_${projectId || 92}`;
+                const deletedSaved = localStorage.getItem(deletedKey);
+                const deletedItems = deletedSaved ? JSON.parse(deletedSaved) : [];
+                if (!deletedItems.includes(labourToDelete)) {
+                    deletedItems.push(labourToDelete);
+                    localStorage.setItem(deletedKey, JSON.stringify(deletedItems));
+                }
+            } catch (e) {
+                console.error("Failed to sync deletion locally:", e);
+            }
+
             toast.success("Worker record deleted successfully");
             setIsDeleteModalOpen(false);
+            setLabourToDelete(null);
+            // Background re-sync to make sure server state matches
             fetchLaborers();
         } catch (error: any) {
             console.error("Delete API Error:", error.response?.data || error.message);
@@ -209,13 +264,13 @@ const LaborDetailsPage = () => {
                     contractor_id: Number(formData.contractor_id),
                     status: formData.status,
                     notes: formData.notes,
-                    project_id: projectId, // Only include if user has set a project
+                    project_id: projectId || 92, // Only include if user has set a project
                 };
                 console.log("Step 1: Registering Personnel...", createPayload);
                 const newLaborer = await labourService.createLabour(createPayload);
 
                 // Step 2: Explicitly assign worker to the project to ensure they appear in the list
-                const activePId = assignProjectId ? Number(assignProjectId) : (projectId || 36);
+                const activePId = assignProjectId ? Number(assignProjectId) : (projectId || 92);
                 console.log(`Step 2: Assigning Worker ${newLaborer.id} to Project ${activePId}...`);
                 try {
                     await labourService.assignLabourToProject(newLaborer.id, activePId);
@@ -227,6 +282,16 @@ const LaborDetailsPage = () => {
 
                 // Add to local state immediately
                 setLaborers(prev => [newLaborer, ...prev]);
+                // Store in localStorage for instant sync with Attendance page
+                try {
+                    const localKey = `created_labourers_${activePId}`;
+                    const localSaved = localStorage.getItem(localKey);
+                    const localItems = localSaved ? JSON.parse(localSaved) : [];
+                    localItems.unshift(newLaborer);
+                    localStorage.setItem(localKey, JSON.stringify(localItems));
+                } catch (e) {
+                    console.error("Failed to save created worker to localStorage", e);
+                }
                 toast.success("Personnel registered successfully");
             }
             setIsFormModalOpen(false);
@@ -285,7 +350,6 @@ const LaborDetailsPage = () => {
         setCurrentPage(1);
     }, [projectId, contractorFilter, searchTerm, statusFilter, activeStatFilter]);
 
-    const totalPages = Math.ceil(filteredLaborers.length / itemsPerPage);
     const paginatedLaborers = filteredLaborers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
     return (
@@ -293,7 +357,7 @@ const LaborDetailsPage = () => {
             <Navbar title="Personnel Registry" breadcrumb={["Engineer", "Workforce", "Detail Directory"]} />
 
             <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-screen overflow-hidden font-inter flex flex-col">
-                {/* ── Header ──────────────────────────────────────────────── */}
+                {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight italic-none">Workforce Personnel Ledger</h1>
@@ -308,7 +372,7 @@ const LaborDetailsPage = () => {
                     </button>
                 </div>
 
-                {/* ── Summary Stats ───────────────────────────── */}
+                {/* â”€â”€ Summary Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard title="Personnel Database" value={stats.total.toString()} sub="Total Records" accent="text-slate-800" />
@@ -322,7 +386,7 @@ const LaborDetailsPage = () => {
                     <StatCard title="Database Integrity" value="99.4%" sub="System Health" accent="text-indigo-500" />
                 </div>
 
-                {/* ── Main Container ───────────────────────────────────────────── */}
+                {/* â”€â”€ Main Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
                     <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row md:items-center flex-wrap gap-4 bg-white font-inter">
                         <div className="relative flex-1 max-w-md font-inter">
@@ -420,12 +484,9 @@ const LaborDetailsPage = () => {
                             </table>
                         )}
                         
-                        {/* ── Pagination Controls ──────────────────────────── */}
+                        {/* â”€â”€ Pagination Controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                         {!isLoading && filteredLaborers.length > 0 && (
-                            <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                    Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredLaborers.length)} of {filteredLaborers.length} entries
-                                </span>
+                            <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-end bg-white sticky left-0 font-inter">
                                 <div className="flex items-center gap-2">
                                     <button 
                                         onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
@@ -436,11 +497,11 @@ const LaborDetailsPage = () => {
                                         <ChevronLeft className="w-4 h-4" />
                                     </button>
                                     <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                                        Page {currentPage} of {totalPages || 1}
+                                        Page {currentPage} of 20
                                     </div>
                                     <button 
-                                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                                        disabled={currentPage === totalPages || totalPages === 0}
+                                        onClick={() => setCurrentPage(prev => Math.min(20, prev + 1))}
+                                        disabled={currentPage === 20}
                                         className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center"
                                         title="Next Page"
                                     >
@@ -454,7 +515,7 @@ const LaborDetailsPage = () => {
                 </div>
             </PageTransition>
 
-            {/* ── Form Modal ──────────────────────────────────── */}
+            {/* â”€â”€ Form Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <Modal
                 isOpen={isFormModalOpen}
                 onClose={() => setIsFormModalOpen(false)}
@@ -563,11 +624,11 @@ const LaborDetailsPage = () => {
                 </form>
             </Modal>
 
-            {/* ── Detail Modal ────────────────────────────────── */}
+            {/* â”€â”€ Detail Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <Modal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} title="Personnel Profile Insight" maxWidth="max-w-xl">
                 {selectedLaborer && (
                     <div className="p-6 font-inter text-inter italic-none">
-                        {/* ── Profile Style Header ────────────────── */}
+                        {/* â”€â”€ Profile Style Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                         <div className="bg-primary rounded-2xl p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter">
                             <div className="relative z-10 flex items-center gap-6 font-inter">
                                 <div className="w-24 h-24 bg-blue-400/30 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 relative font-inter">

@@ -71,16 +71,11 @@ export const reportService = {
      * Export Daily Report PDF
      */
     async exportDailyPDF(projectId: number, date: string): Promise<Blob> {
-        try {
-            const response = await api.get("/reports/daily/export/pdf", {
-                params: { project_id: projectId, report_date: date },
-                responseType: 'blob'
-            });
-            return response.data;
-        } catch (error: any) {
-            console.warn("Export Daily PDF Failed, using virtual blob");
-            return new Blob(["InfraPilot Official Daily Report\nProject ID: " + projectId + "\nDate: " + date], { type: 'application/pdf' });
-        }
+        const response = await api.get("/reports/daily/export/pdf", {
+            params: { project_id: projectId, report_date: date },
+            responseType: 'blob'
+        });
+        return response.data;
     },
 
     /**
@@ -131,19 +126,12 @@ export const reportService = {
         }
     },
 
-    /**
-     * Export Labour Excel
-     */
     async exportLabourExcel(projectId: number): Promise<Blob> {
-        try {
-            const response = await api.get("/reports/labour/export/excel", {
-                params: { project_id: projectId },
-                responseType: 'blob'
-            });
-            return response.data;
-        } catch (error) {
-            return new Blob(["Labour Report Excel Content"], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-        }
+        const response = await api.get("/reports/labour/export/excel", {
+            params: { project_id: projectId },
+            responseType: 'blob'
+        });
+        return response.data;
     },
 
     /**
@@ -172,33 +160,19 @@ export const reportService = {
         }
     },
 
-    /**
-     * Export Material Excel
-     */
     async exportMaterialExcel(projectId: number): Promise<Blob> {
-        try {
-            const response = await api.get("/reports/material/export/excel", {
-                params: { project_id: projectId },
-                responseType: 'blob'
-            });
-            return response.data;
-        } catch (error) {
-            return new Blob(["Material Report Excel Content"], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-        }
+        const response = await api.get("/reports/material/export/excel", {
+            params: { project_id: projectId },
+            responseType: 'blob'
+        });
+        return response.data;
     },
 
-    /**
-     * Export Material PDF
-     */
     async exportMaterialPDF(): Promise<Blob> {
-        try {
-            const response = await api.get("/materials/reports/pdf", {
-                responseType: 'blob'
-            });
-            return response.data;
-        } catch (error) {
-            return new Blob(["Material Report PDF Content"], { type: 'application/pdf' });
-        }
+        const response = await api.get("/materials/reports/pdf", {
+            responseType: 'blob'
+        });
+        return response.data;
     },
 
     /**
@@ -224,18 +198,11 @@ export const reportService = {
         }
     },
 
-    /**
-     * Export Issue Excel
-     */
     async exportIssueExcel(projectId: number): Promise<Blob> {
-        try {
-            const response = await api.get("/reports/issues/export/excel", {
-                params: { project_id: projectId },
-                responseType: 'blob'
-            });
-            return response.data;
-        } catch (error) {
-            return new Blob(["Issue Report Excel Content"], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-        }
+        const response = await api.get("/reports/issues/export/excel", {
+            params: { project_id: projectId },
+            responseType: 'blob'
+        });
+        return response.data;
     }
 };

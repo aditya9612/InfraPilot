@@ -4,14 +4,12 @@ import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import StatCard from "../../../components/common/StatCard";
 import Modal from "../../../components/common/Modal";
-import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 import {
     Plus,
     Search,
     Eye,
     Edit2,
-    Trash2,
     Calendar,
     ShieldAlert,
     HeartPulse,
@@ -25,6 +23,7 @@ import {
     ChevronRight} from "lucide-react";
 
 import { safetyService } from "../../../services/safetyService";
+import { projectService } from "../../../services/projectService";
 import type { IncidentItem, CreateIncidentRequest } from "../../../services/safetyService";
 
 const violationTypeOptions = [
@@ -56,17 +55,16 @@ const IncidentReportPage = () => {
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
     // Selection States
     const [selectedIncident, setSelectedIncident] = useState<IncidentItem | null>(null);
-    const [deleteId, setDeleteId] = useState<number | null>(null);
 
     // Filter State
     const [filterViolationType, setFilterViolationType] = useState("");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [projectId, setProjectId] = useState<number | null>(null);
+    const [projects, setProjects] = useState<any[]>([]);
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Month" | "Critical" | "Compliance">("All");
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 20;
@@ -86,27 +84,55 @@ const IncidentReportPage = () => {
 
     // ─── PROJECT RESOLUTION ─────────────────────────────────────────────
     useEffect(() => {
-        const userStr = localStorage.getItem("infrapilot_user");
-        if (userStr) {
+        const initializeProject = async () => {
             try {
-                const user = JSON.parse(userStr);
-                const pId = user?.project_id || user?.user?.project_id;
-                if (pId) {
-                    const resolvedId = Number(pId);
-                    setProjectId(resolvedId);
-                    setFormData(prev => ({ ...prev, project_id: resolvedId }));
-                } else {
-                    setProjectId(36);
-                    setFormData(prev => ({ ...prev, project_id: 36 }));
+                // Fetch all projects for the dropdown
+                try {
+                    const res = await projectService.getProjects(100, 0);
+                    const projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
+                    setProjects(projectsList);
+                } catch (err) {
+                    console.error("Failed to fetch projects list", err);
                 }
+
+                const userStr = localStorage.getItem("infrapilot_user");
+                if (userStr) {
+                    const user = JSON.parse(userStr);
+                    const pId = user?.project_id || user?.user?.project_id;
+                    if (pId) {
+                        const resolvedId = Number(pId);
+                        setProjectId(resolvedId);
+                        setFormData(prev => ({ ...prev, project_id: resolvedId }));
+                        return;
+                    }
+                }
+                setProjectId(92);
+                setFormData(prev => ({ ...prev, project_id: 92 }));
             } catch (e) {
                 console.error("Failed to resolve project ID", e);
-                setProjectId(36);
+                setProjectId(92);
             }
-        }
+        };
+        initializeProject();
     }, []);
 
-    // ─── DATA FETCHING ──────────────────────────────────────────────────
+    // Refresh projects list whenever a modal opens
+    useEffect(() => {
+        if (isNewModalOpen || isEditModalOpen) {
+            const fetchProjects = async () => {
+                try {
+                    const res = await projectService.getProjects(100, 0);
+                    const projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
+                    setProjects(projectsList);
+                } catch (err) {
+                    console.error("Failed to refresh projects list", err);
+                }
+            };
+            fetchProjects();
+        }
+    }, [isNewModalOpen, isEditModalOpen]);
+
+    // â”€â”€â”€ DATA FETCHING â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     const fetchData = useCallback(async () => {
         if (!projectId) return;
@@ -126,7 +152,7 @@ const IncidentReportPage = () => {
         fetchData();
     }, [fetchData]);
 
-    // ─── STATS CALCULATION ──────────────────────────────────────────────
+    // â”€â”€â”€ STATS CALCULATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     const stats = useMemo(() => {
         const data = incidents;
@@ -183,19 +209,25 @@ const IncidentReportPage = () => {
         return filteredList.slice(startIndex, startIndex + itemsPerPage);
     }, [filteredList, currentPage]);
 
-    const totalPages = Math.ceil(filteredList.length / itemsPerPage);
-
     // Reset page on filter change
     useEffect(() => {
         setCurrentPage(1);
     }, [searchTerm, startDate, endDate, filterViolationType, activeStatFilter]);
 
-    // ─── HANDLERS ──────────────────────────────────────────────────────
+    // â”€â”€â”€ HANDLERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
         const val = type === "checkbox" ? (e.target as HTMLInputElement).checked : value;
         setFormData(prev => ({ ...prev, [name]: val }));
+    };
+
+    // Alpha-only handler for responsible_person field
+    const handlePersonNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const raw = e.target.value;
+        // Strip digits — only allow letters, spaces, dots, hyphens, apostrophes
+        const cleaned = raw.replace(/[^a-zA-Z\s.'-]/g, "");
+        setFormData(prev => ({ ...prev, responsible_person: cleaned }));
     };
 
     const handleCreateSubmit = async (e?: React.BaseSyntheticEvent) => {
@@ -273,24 +305,9 @@ const IncidentReportPage = () => {
         }
     };
 
-    const handleDeleteClick = (id: number) => {
-        setDeleteId(id);
-        setIsDeleteModalOpen(true);
-    };
 
-    const handleDeleteConfirm = async () => {
-        if (!deleteId) return;
-        try {
-            await safetyService.deleteIncident(deleteId);
-            toast.success("Incident deleted successfully!");
-            setIncidents(prev => prev.filter(item => item.id !== deleteId));
-            setIsDeleteModalOpen(false);
-        } catch (error) {
-            toast.error("Failed to delete incident");
-        }
-    };
 
-    // ─── RENDER HELPERS ────────────────────────────────────────────────
+    // â”€â”€â”€ RENDER HELPERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
     const inputClasses = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-300 font-inter";
@@ -300,7 +317,7 @@ const IncidentReportPage = () => {
             <Navbar title="Safety Management" breadcrumb={["Engineer", "Safety", "Incident Logs"]} />
 
             <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
-                {/* ── Header ──────────────────────────────────────────────── */}
+                {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Incident Response Vault</h1>
@@ -316,7 +333,7 @@ const IncidentReportPage = () => {
                     </button>
                 </div>
 
-                {/* ── Summary Stats ───────────────────────────── */}
+                {/* â”€â”€ Summary Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
@@ -348,23 +365,23 @@ const IncidentReportPage = () => {
                     </div>
                 </div>
 
-                {/* ── Tabs ────────────────────────────────────────────────── */}
+                {/* â”€â”€ Tabs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex items-center gap-8 border-b border-slate-200 mb-8">
                     <button
-                        className="pb-4 text-sm font-bold text-slate-400 hover:text-slate-600 transition-all"
+                        className="pb-4 text-sm font-bold text-slate-400 hover:text-slate-600 transition-all font-inter"
                         onClick={() => navigate("/engineer/safety/checklist")}
                     >
                         Safety Checklist
                     </button>
                     <button
-                        className="pb-4 text-sm font-bold text-rose-600 border-b-2 border-rose-600 transition-all"
+                        className="pb-4 text-sm font-bold text-rose-600 border-b-2 border-rose-600 transition-all font-inter"
                         onClick={() => navigate("/engineer/safety/incident")}
                     >
                         Incident Report
                     </button>
                 </div>
 
-                {/* ── Registry Container ───────────────────────────────────────────── */}
+                {/* â”€â”€ Registry Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
                     {/* Integrated Filter Bar */}
                     <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
@@ -481,12 +498,7 @@ const IncidentReportPage = () => {
                                                         >
                                                             <Edit2 className="w-4 h-4" />
                                                         </button>
-                                                        <button
-                                                            onClick={() => handleDeleteClick(item.id)}
-                                                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </button>
+
                                                     </div>
                                                 </td>
                                             </tr>
@@ -503,12 +515,9 @@ const IncidentReportPage = () => {
                         )}
                     </div>
 
-                    {/* ── Pagination Controls ──────────────────────────── */}
+                    {/* ———————————————————————————————— */}
                     {!isLoading && filteredList.length > 0 && (
-                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">
-                                Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredList.length)} of {filteredList.length} entries
-                            </span>
+                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-end bg-white sticky left-0 font-inter">
                             <div className="flex items-center gap-2 font-inter">
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
@@ -519,11 +528,11 @@ const IncidentReportPage = () => {
                                     <ChevronLeft className="w-4 h-4" />
                                 </button>
                                 <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                                    Page {currentPage} of {1 || 1}
+                                    Page {currentPage} of 20
                                 </div>
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, 1 || 1))}
-                                    disabled={currentPage >= 1 || 1 === 0}
+                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, 20))}
+                                    disabled={currentPage >= 20}
                                     className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
                                     title="Next Page"
                                 >
@@ -535,165 +544,154 @@ const IncidentReportPage = () => {
                 </div>
             </PageTransition>
 
-            {/* ── New Incident Modal ─────────────────────────── */}
             <Modal
-                isOpen={isNewModalOpen}
-                onClose={() => setIsNewModalOpen(false)}
-                title="Log New Incident Report"
+                isOpen={isNewModalOpen || isEditModalOpen}
+                onClose={() => { setIsNewModalOpen(false); setIsEditModalOpen(false); }}
+                title={isEditModalOpen ? "Modify Incident Report" : "Log New Incident Report"}
                 maxWidth="max-w-2xl"
                 footer={
-                    <div className="flex items-center justify-end gap-3 p-4 bg-slate-50/50 rounded-b-3xl font-inter">
-                        <button
-                            onClick={() => setIsNewModalOpen(false)}
-                            className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-white rounded-xl transition-all"
+                    <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
+                        <button 
+                            onClick={() => { setIsNewModalOpen(false); setIsEditModalOpen(false); }}
+                            className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter"
                         >
                             Cancel
                         </button>
                         <button
                             type="button"
-                            onClick={handleCreateSubmit}
+                            onClick={isEditModalOpen ? handleUpdateSubmit : handleCreateSubmit}
                             disabled={isSubmitting}
-                            className="px-8 py-2.5 bg-rose-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-rose-600/20 hover:bg-rose-700 transition-all disabled:opacity-50"
+                            className="flex-[2] py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
                         >
-                            {isSubmitting ? "Logging..." : "Submit Report"}
+                            {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Push Changes" : "Commit Entry")}
                         </button>
                     </div>
                 }
             >
-                <div className="p-6 space-y-6">
+                <div className="p-6 space-y-6 font-inter">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
-                        <div>
-                            <label className={labelClasses}>Incident Date <span className="text-rose-500">*</span></label>
-                            <input name="date" type="date" value={formData.date} onChange={handleInputChange} className={inputClasses} required />
-                        </div>
-                        <div>
-                            <label className={labelClasses}>Violation Type <span className="text-rose-500">*</span></label>
-                            <select name="violation_type" value={formData.violation_type} onChange={handleInputChange} className={inputClasses} required>
-                                {violationTypeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className={labelClasses}>Vault Status <span className="text-rose-500">*</span></label>
+                        {/* project_id */}
+                        <div className="md:col-span-2 font-inter">
+                            <label className={labelClasses}>Project <span className="text-rose-500">*</span></label>
                             <select
-                                name="safety_checklist_status"
-                                value={formData.safety_checklist_status}
-                                onChange={handleInputChange}
+                                name="project_id"
+                                value={formData.project_id}
+                                onChange={(e) => setFormData((prev: CreateIncidentRequest) => ({ ...prev, project_id: Number(e.target.value) }))}
                                 className={inputClasses}
-                                required
                             >
-                                <option value="pending">pending</option>
-                                <option value="completed">completed</option>
-                                <option value="failed">failed</option>
+                                <option value="">-- Select Project --</option>
+                                {projects.map((p: any) => (
+                                    <option key={p.id || p.project_id} value={p.id || p.project_id}>
+                                        {p.name || p.project_name || `Project #${p.id || p.project_id}`}
+                                    </option>
+                                ))}
                             </select>
                         </div>
-                        <div className="flex items-center gap-3 pt-6">
-                            <input
-                                name="ppe_compliance"
-                                type="checkbox"
-                                checked={formData.ppe_compliance}
-                                onChange={handleInputChange}
-                                className="w-5 h-5 rounded-lg border-slate-300 text-rose-600 focus:ring-rose-500/20 transition-all cursor-pointer"
+                        {/* date */}
+                        <div className="font-inter">
+                            <label className={labelClasses}>Date <span className="text-rose-500">*</span></label>
+                            <input 
+                                name="date" 
+                                type="date" 
+                                value={formData.date} 
+                                onChange={handleInputChange} 
+                                className={inputClasses} 
                             />
-                            <label className="text-xs font-bold text-slate-700 cursor-pointer">PPE Compliance Verified</label>
                         </div>
-                        <div className="md:col-span-2">
-                            <label className={labelClasses}>Incident Description <span className="text-rose-500">*</span></label>
-                            <textarea name="description" rows={3} value={formData.description} onChange={handleInputChange} placeholder="Describe the incident details..." className={`${inputClasses} resize-none`} required />
+                        {/* safety_checklist_status */}
+                        <div className="font-inter">
+                            <label className={labelClasses}>Safety Checklist Status <span className="text-rose-500">*</span></label>
+                            <select 
+                                name="safety_checklist_status" 
+                                value={formData.safety_checklist_status} 
+                                onChange={handleInputChange} 
+                                className={inputClasses}
+                            >
+                                <option value="pending">Pending</option>
+                                <option value="completed">Completed</option>
+                                <option value="failed">Failed</option>
+                            </select>
                         </div>
-                        <div className="md:col-span-2">
-                            <label className={labelClasses}>Injury Details <span className="text-rose-500">*</span></label>
-                            <textarea name="injury_details" rows={2} value={formData.injury_details} onChange={handleInputChange} placeholder="Describe injuries or enter 'No Injury'..." className={`${inputClasses} resize-none`} required />
+                        {/* ppe_compliance */}
+                        <div className="flex items-center gap-3 pt-2 font-inter">
+                            <input 
+                                name="ppe_compliance" 
+                                type="checkbox"
+                                checked={formData.ppe_compliance} 
+                                onChange={handleInputChange}
+                                className="w-5 h-5 rounded-lg border-slate-300 text-primary focus:ring-primary/20 transition-all cursor-pointer font-inter"
+                            />
+                            <label className="text-[11px] font-bold uppercase tracking-widest text-slate-700 cursor-pointer font-inter">PPE Compliance Verified</label>
                         </div>
-                        <div className="md:col-span-2">
+                        {/* violation_type */}
+                        <div className="font-inter">
+                            <label className={labelClasses}>Violation Type <span className="text-rose-500">*</span></label>
+                            <select 
+                                name="violation_type" 
+                                value={formData.violation_type} 
+                                onChange={handleInputChange} 
+                                className={inputClasses}
+                            >
+                                {violationTypeOptions.map(vt => (
+                                    <option key={vt} value={vt}>{vt}</option>
+                                ))}
+                            </select>
+                        </div>
+                        {/* description */}
+                        <div className="md:col-span-2 font-inter">
+                            <label className={labelClasses}>Description <span className="text-rose-500">*</span></label>
+                            <textarea 
+                                name="description" 
+                                rows={3} 
+                                value={formData.description} 
+                                onChange={handleInputChange} 
+                                placeholder="Describe the safety observation or incident..." 
+                                className={`${inputClasses} resize-none font-bold`} 
+                            />
+                        </div>
+                        {/* injury_details */}
+                        <div className="md:col-span-2 font-inter">
+                            <label className={labelClasses}>Injury Details (Optional)</label>
+                            <textarea 
+                                name="injury_details" 
+                                rows={2} 
+                                value={formData.injury_details || ""} 
+                                onChange={handleInputChange} 
+                                placeholder="Describe any physical injuries..." 
+                                className={`${inputClasses} resize-none font-bold`} 
+                            />
+                        </div>
+                        {/* action_taken */}
+                        <div className="md:col-span-2 font-inter">
                             <label className={labelClasses}>Action Taken <span className="text-rose-500">*</span></label>
-                            <textarea name="action_taken" rows={2} value={formData.action_taken} onChange={handleInputChange} placeholder="What immediate actions were taken?" className={`${inputClasses} resize-none font-inter`} required />
+                            <textarea 
+                                name="action_taken" 
+                                rows={2} 
+                                value={formData.action_taken} 
+                                onChange={handleInputChange} 
+                                placeholder="What corrective actions were taken?" 
+                                className={`${inputClasses} resize-none font-bold`} 
+                            />
                         </div>
-                        <div className="md:col-span-2">
+                        {/* responsible_person */}
+                        <div className="md:col-span-2 font-inter">
                             <label className={labelClasses}>Responsible Person <span className="text-rose-500">*</span></label>
-                            <input name="responsible_person" value={formData.responsible_person} onChange={handleInputChange} placeholder="Enter name" className={inputClasses} required />
+                            <input 
+                                name="responsible_person" 
+                                value={formData.responsible_person} 
+                                onChange={handlePersonNameChange} 
+                                placeholder="Enter responsible officer name" 
+                                className={`${inputClasses}${/\d/.test(formData.responsible_person) ? " border-rose-400 focus:border-rose-400 focus:ring-rose-400/20" : ""}`}
+                            />
+                            {/\d/.test(formData.responsible_person) && (
+                                <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">⚠ Only alphabetic characters allowed — no numbers.</p>
+                            )}
                         </div>
                     </div>
                 </div>
             </Modal>
 
-            {/* ── Edit Incident Modal ────────────────────────── */}
-            <Modal
-                isOpen={isEditModalOpen}
-                onClose={() => setIsEditModalOpen(false)}
-                title="Update Incident Intelligence"
-                maxWidth="max-w-2xl"
-                footer={
-                    <div className="flex items-center justify-end gap-3 p-4 bg-slate-50/50 rounded-b-3xl">
-                        <button onClick={() => setIsEditModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-white rounded-xl transition-all font-inter">
-                            Cancel
-                        </button>
-                        <button
-                            onClick={handleUpdateSubmit}
-                            disabled={isSubmitting}
-                            className="px-8 py-2.5 bg-rose-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-rose-600/20 hover:bg-rose-700 transition-all disabled:opacity-50 font-inter"
-                        >
-                            {isSubmitting ? "Updating..." : "Commit Update"}
-                        </button>
-                    </div>
-                }
-            >
-                <div className="p-6 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
-                        <div>
-                            <label className={labelClasses}>Incident Date <span className="text-rose-500">*</span></label>
-                            <input name="date" type="date" value={formData.date} onChange={handleInputChange} className={inputClasses} required />
-                        </div>
-                        <div>
-                            <label className={labelClasses}>Violation Type <span className="text-rose-500">*</span></label>
-                            <select name="violation_type" value={formData.violation_type} onChange={handleInputChange} className={inputClasses} required>
-                                {violationTypeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className={labelClasses}>Vault Status <span className="text-rose-500">*</span></label>
-                            <select
-                                name="safety_checklist_status"
-                                value={formData.safety_checklist_status}
-                                onChange={handleInputChange}
-                                className={inputClasses}
-                                required
-                            >
-                                <option value="pending">pending</option>
-                                <option value="completed">completed</option>
-                                <option value="failed">failed</option>
-                            </select>
-                        </div>
-                        <div className="flex items-center gap-3 pt-6">
-                            <input
-                                name="ppe_compliance"
-                                type="checkbox"
-                                checked={formData.ppe_compliance}
-                                onChange={handleInputChange}
-                                className="w-5 h-5 rounded-lg border-slate-300 text-rose-600 focus:ring-rose-500/20 transition-all cursor-pointer"
-                            />
-                            <label className="text-xs font-bold text-slate-700 cursor-pointer">PPE Compliance Verified</label>
-                        </div>
-                        <div className="md:col-span-2">
-                            <label className={labelClasses}>Incident Description <span className="text-rose-500">*</span></label>
-                            <textarea name="description" rows={3} value={formData.description} onChange={handleInputChange} className={`${inputClasses} resize-none`} required />
-                        </div>
-                        <div className="md:col-span-2">
-                            <label className={labelClasses}>Injury Details <span className="text-rose-500">*</span></label>
-                            <textarea name="injury_details" rows={2} value={formData.injury_details} onChange={handleInputChange} className={`${inputClasses} resize-none`} required />
-                        </div>
-                        <div className="md:col-span-2">
-                            <label className={labelClasses}>Action Taken <span className="text-rose-500">*</span></label>
-                            <textarea name="action_taken" rows={2} value={formData.action_taken} onChange={handleInputChange} className={`${inputClasses} resize-none`} required />
-                        </div>
-                        <div className="md:col-span-2">
-                            <label className={labelClasses}>Responsible Person <span className="text-rose-500">*</span></label>
-                            <input name="responsible_person" value={formData.responsible_person} onChange={handleInputChange} className={inputClasses} required />
-                        </div>
-                    </div>
-                </div>
-            </Modal>
-
-            {/* ── View Detail Modal ──────────────────────────── */}
+            {/* â”€â”€ View Detail Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <Modal
                 isOpen={isViewModalOpen}
                 onClose={() => setIsViewModalOpen(false)}
@@ -702,7 +700,7 @@ const IncidentReportPage = () => {
             >
                 {selectedIncident && (
                     <div className="p-6 font-inter">
-                        {/* ── Profile Style Header ────────────────── */}
+                        {/* â”€â”€ Profile Style Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                         <div className="bg-primary rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter">
                             <div className="relative z-10 flex items-center gap-6 font-inter">
                                 <div className="w-24 h-24 bg-white/20 backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/20 relative font-inter">
@@ -788,15 +786,7 @@ const IncidentReportPage = () => {
                 )}
             </Modal>
 
-            <ConfirmModal
-                isOpen={isDeleteModalOpen}
-                onClose={() => setIsDeleteModalOpen(false)}
-                onConfirm={handleDeleteConfirm}
-                title="Discard Incident Report"
-                message="Are you sure you want to delete this incident record? This action will permanently remove the log from the project vault."
-                confirmText="Archive Report"
-                type="danger"
-            />
+
         </>
     );
 };

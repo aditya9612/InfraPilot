@@ -1,6 +1,6 @@
 export type RateType  = 'FIXED' | 'VARIABLE';
 export type AlertType = 'LOW_STOCK' | 'IN_STOCK' | 'NEAR_LOW';
-export type IssueType = 'SITE' | 'SYSTEM' | 'STORE' | 'MANUAL';
+export type IssueType = 'SITE' | 'SYSTEM' | 'STORE' | 'MANUAL' | 'DAMAGE' | 'LOSS' | 'VENDOR' | 'TRANSFER' | 'ADJUSTMENT' | 'PURCHASE';
 
 export interface Supplier {
   id: number;

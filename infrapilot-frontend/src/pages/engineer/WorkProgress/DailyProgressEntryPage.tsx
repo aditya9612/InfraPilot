@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+﻿import { useState, useEffect, useMemo, useCallback } from "react";
 import Navbar from "../../../components/common/Navbar";
 import PageTransition from "../../../components/common/PageTransition";
 import StatCard from "../../../components/common/StatCard";
@@ -49,11 +49,11 @@ const DailyProgressEntryPage = () => {
         if (pId) {
           setProjectId(Number(pId));
         } else {
-          setProjectId(36);
+          setProjectId(92);
         }
       } catch (e) {
         console.error("Failed to resolve project ID", e);
-        setProjectId(36);
+        setProjectId(92);
       }
     }
   }, []);
@@ -87,7 +87,7 @@ const DailyProgressEntryPage = () => {
 
   const loadActivities = useCallback(async () => {
     try {
-      const data = await workProgressService.listActivities(projectId || 36, engineer_id);
+      const data = await workProgressService.listActivities(projectId || 92, engineer_id);
       const normalizedData = data.map((a: any) => {
         let status = a.status;
         if (status) {
@@ -304,7 +304,7 @@ const DailyProgressEntryPage = () => {
       <Navbar title="Field Progress Terminal" breadcrumb={["Engineer", "Work Progress", "Field Logs"]} />
       <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
 
-        {/* ── Header ──────────────────────────────────────────────── */}
+        {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
           <div className="font-inter">
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter uppercase">Field Execution Reporting Terminal</h1>
@@ -319,7 +319,7 @@ const DailyProgressEntryPage = () => {
           </button>
         </div>
 
-        {/* ── Interactive Stats ───────────────────────────── */}
+        {/* â”€â”€ Interactive Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
           <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
             <StatCard
@@ -351,9 +351,9 @@ const DailyProgressEntryPage = () => {
           </div>
         </div>
 
-        {/* ── Scrollable Content Area ────────────────────────── */}
+        {/* â”€â”€ Scrollable Content Area â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="flex-1 overflow-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200">
-          {/* ── Navigation Tabs ────────────────────────────────────────────── */}
+          {/* â”€â”€ Navigation Tabs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <div className="flex items-center gap-10 border-b border-slate-200 mb-10 font-inter">
             <button
               onClick={() => setActiveTab('today')}
@@ -369,7 +369,7 @@ const DailyProgressEntryPage = () => {
             </button>
           </div>
 
-          {/* ── Registry Container ───────────────────────────────────────────── */}
+          {/* â”€â”€ Registry Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex flex-col">
             {/* Integrated Filter Bar */}
             <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
@@ -513,7 +513,7 @@ const DailyProgressEntryPage = () => {
                     )}
                   </div>
 
-                  {/* ── Pagination for Today's Logs ──────────────────────────── */}
+                  {/* â”€â”€ Pagination for Today's Logs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                   {!loading && filteredTodayActivities.length > 0 && (
                     <div className="mt-6 px-6 py-4 border border-slate-100 rounded-2xl flex items-center justify-between bg-white sticky left-0 font-inter shadow-sm">
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -571,7 +571,7 @@ const DailyProgressEntryPage = () => {
                                 <p className="font-bold text-slate-800 text-sm font-inter leading-tight uppercase tracking-tight">
                                   {currentActivity?.activity_name || "Unknown Strategic Item"}
                                 </p>
-                                <span className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-widest font-inter">{currentActivity?.boq_code || "—"}</span>
+                                <span className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-widest font-inter">{currentActivity?.boq_code || "â€”"}</span>
                               </td>
                               <td className="px-6 py-6 font-inter">
                                 <div className="flex items-center gap-2 font-inter">
@@ -616,7 +616,7 @@ const DailyProgressEntryPage = () => {
                     </table>
                   </div>
 
-                  {/* ── Pagination for Historical Logs ──────────────────────────── */}
+                  {/* â”€â”€ Pagination for Historical Logs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                   {filteredHistoryEntries.length > 0 && (
                     <div className="mt-6 px-6 py-4 border border-slate-100 rounded-2xl flex items-center justify-between bg-white sticky left-0 font-inter shadow-sm">
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">

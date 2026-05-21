@@ -82,7 +82,18 @@ export const checklistService = {
     listChecklists: async (): Promise<ChecklistItem[]> => {
         try {
             const response = await api.get('/checklists');
-            return response.data && response.data.length > 0 ? response.data : DEFAULT_CHECKLISTS;
+            if (Array.isArray(response.data)) {
+                const serverData = response.data;
+                const combined = [...serverData];
+                const existingNames = new Set(serverData.map(c => c.name.toLowerCase()));
+                DEFAULT_CHECKLISTS.forEach(c => {
+                    if (!existingNames.has(c.name.toLowerCase())) {
+                        combined.push(c);
+                    }
+                });
+                return combined;
+            }
+            return DEFAULT_CHECKLISTS;
         } catch (error) {
             console.warn("Checklist List Fetch Failed, using fallback data");
             return DEFAULT_CHECKLISTS;

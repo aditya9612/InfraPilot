@@ -272,6 +272,26 @@ const SettingsPage = () => {
             // Refetch fresh configurations from backend to keep everything fully synced
             await fetchData();
 
+            // UPDATE LOCAL STORAGE WITH NEW ACTIVE PROJECT
+            try {
+                const userStr = localStorage.getItem("infrapilot_user");
+                if (userStr && selectedProject) {
+                    const parsed = JSON.parse(userStr);
+                    const selectedProjObj = projects.find(p => p.id === selectedProject);
+                    if (selectedProjObj) {
+                        parsed.project_id = selectedProject;
+                        parsed.project_name = selectedProjObj.project_name || selectedProjObj.name;
+                        if (parsed.user) {
+                            parsed.user.project_id = selectedProject;
+                            parsed.user.project_name = selectedProjObj.project_name || selectedProjObj.name;
+                        }
+                        localStorage.setItem("infrapilot_user", JSON.stringify(parsed));
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to update user session with new project", e);
+            }
+
             toast.success("Account settings synchronized!", { id: toastId });
             console.log("Settings synchronization complete.");
         } catch (error: any) {

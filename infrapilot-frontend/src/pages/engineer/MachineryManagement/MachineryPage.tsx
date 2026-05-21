@@ -52,19 +52,7 @@ const MachineryPage = () => {
     const itemsPerPage = 10;
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "GOOD" | "REPAIR" | "DAMAGED" | "MAINTENANCE">("All");
 
-    const [selectedProjectId, setSelectedProjectId] = useState<number>(() => {
-        try {
-            const userStr = localStorage.getItem("infrapilot_user");
-            if (userStr) {
-                const user = JSON.parse(userStr);
-                const pId = user?.project_id || user?.user?.project_id;
-                if (pId) return Number(pId);
-            }
-        } catch (err) {
-            console.error("Failed to load user project context:", err);
-        }
-        return 36; // Default fallback to 36
-    });
+    const [selectedProjectId, setSelectedProjectId] = useState<number>(0);
 
     useEffect(() => {
         const fetchProjects = async () => {
@@ -118,12 +106,27 @@ const MachineryPage = () => {
     };
 
     const handleCreateOrUpdate = async (data: any) => {
+        let targetProjectId = data.project_id ? Number(data.project_id) : selectedProjectId;
+        if (!targetProjectId) {
+            try {
+                const userStr = localStorage.getItem("infrapilot_user");
+                if (userStr) {
+                    const user = JSON.parse(userStr);
+                    const pId = user?.project_id || user?.user?.project_id;
+                    if (pId) targetProjectId = Number(pId);
+                }
+            } catch (err) {
+                console.error("Failed to load user project context:", err);
+            }
+        }
+        if (!targetProjectId) targetProjectId = 92; // Fallback to 92
+
         try {
             if (editingEquipment) {
-                await equipmentService.updateEquipment(editingEquipment.id, { ...data, project_id: selectedProjectId });
+                await equipmentService.updateEquipment(editingEquipment.id, { ...data, project_id: targetProjectId });
                 toast.success("Machinery log updated");
             } else {
-                await equipmentService.createEquipment({ ...data, project_id: selectedProjectId });
+                await equipmentService.createEquipment({ ...data, project_id: targetProjectId });
                 toast.success("Equipment registered successfully");
             }
             fetchEquipment(selectedProjectId);
@@ -166,8 +169,6 @@ const MachineryPage = () => {
         return filteredList.slice(startIndex, startIndex + itemsPerPage);
     }, [filteredList, currentPage]);
 
-    const totalPages = Math.ceil(filteredList.length / itemsPerPage);
-
     // Reset page on filter change
     useEffect(() => {
         setCurrentPage(1);
@@ -190,7 +191,7 @@ const MachineryPage = () => {
             <Navbar title="Machinery & Equipment" breadcrumb={["Engineer", "Machinery", "Asset List"]} />
 
             <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
-                {/* ── Header ──────────────────────────────────────────────── */}
+                {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Heavy Machinery Registry</h1>
@@ -216,7 +217,7 @@ const MachineryPage = () => {
                     </div>
                 </div>
 
-                {/* ── Summary Stats ───────────────────────────── */}
+                {/* â”€â”€ Summary Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
@@ -255,7 +256,7 @@ const MachineryPage = () => {
                     </div>
                 </div>
 
-                {/* ── Filter Bar ───────────────────────────────────────────── */}
+                {/* â”€â”€ Filter Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
                     <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white">
                         <div className="relative flex-1 max-w-md">
@@ -290,8 +291,8 @@ const MachineryPage = () => {
                                 onChange={(e) => setSelectedProjectId(Number(e.target.value))}
                                 className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-primary/10 transition-all cursor-pointer uppercase tracking-wider"
                             >
-                                <option value={36}>Skyline Tower A</option>
-                                {projects.filter((p: any) => (p.project_id || p.id) !== 36).map((p: any) => (
+                                <option value={0}>All Projects</option>
+                                {projects.map((p: any) => (
                                     <option key={p.project_id || p.id} value={p.project_id || p.id}>
                                         {p.project_name || p.name}
                                     </option>
@@ -386,12 +387,9 @@ const MachineryPage = () => {
                         )}
                     </div>
                     
-                    {/* ── Pagination Controls ──────────────────────────── */}
+                    {/* â”€â”€ Pagination Controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                     {!isLoading && filteredList.length > 0 && (
-                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredList.length)} of {filteredList.length} entries
-                            </span>
+                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-end bg-white sticky left-0 font-inter">
                             <div className="flex items-center gap-2">
                                 <button 
                                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
@@ -402,11 +400,11 @@ const MachineryPage = () => {
                                     <ChevronLeft className="w-4 h-4" />
                                 </button>
                                 <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                                    Page {currentPage} of {totalPages || 1}
+                                    Page {currentPage} of 20
                                 </div>
                                 <button 
-                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                                    disabled={currentPage === totalPages || totalPages === 0}
+                                    onClick={() => setCurrentPage(prev => Math.min(20, prev + 1))}
+                                    disabled={currentPage === 20}
                                     className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center"
                                     title="Next Page"
                                 >
@@ -443,7 +441,7 @@ const MachineryPage = () => {
             >
                 {viewingEquipment && (
                     <div className="p-6 font-inter">
-                        {/* ── Profile Style Header ────────────────── */}
+                        {/* â”€â”€ Profile Style Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                         <div className={`${conditionColors[viewingEquipment.condition as keyof typeof conditionColors] || 'bg-primary'} rounded-2xl p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter`}>
                             <div className="relative z-10 flex items-center gap-6 font-inter">
                                 <div className="w-24 h-24 bg-blue-400/30 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 relative font-inter">

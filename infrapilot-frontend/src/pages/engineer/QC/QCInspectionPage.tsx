@@ -27,7 +27,7 @@ import {
 
 import { qcService } from "../../../services/qcService";
 import { projectService } from "../../../services/projectService";
-import type { QcItem, CreateQcRequest } from "../../../services/qcService";
+import type { QcItem } from "../../../services/qcService";
 
 const INSPECTION_TYPES = ["General", "Concrete", "Steel", "Electrical", "Plumbing", "Finishing"];
 const TEST_TYPES = ["Visual Check", "Cube Test", "Slump Test", "Load Test", "Compression Test"];
@@ -62,26 +62,50 @@ const QCInspectionPage = () => {
     const [selectedQc, setSelectedQc] = useState<QcItem | null>(null);
     const [deleteId, setDeleteId] = useState<number | null>(null);
     const [projectId, setProjectId] = useState<number | null>(null);
+    const [projects, setProjects] = useState<any[]>([]);
     
+    interface QcFormData {
+        project_id: number | "";
+        task_id: number | null;
+        dsr_id: number | null;
+        inspection_type: string;
+        test_type: string;
+        result: number | "";
+        standard_value: number | "";
+        status: string;
+        engineer_name: string;
+        remarks: string;
+        report_file: string;
+    }
+
     // Form States
-    const [formData, setFormData] = useState<CreateQcRequest>({
-        project_id: 36,
+    const [formData, setFormData] = useState<QcFormData>({
+        project_id: 92,
         task_id: null,
         dsr_id: null,
         inspection_type: "General",
         test_type: "Visual Check",
-        result: 1,
-        standard_value: 1,
+        result: "",
+        standard_value: "",
         status: "Pass",
         engineer_name: "",
         remarks: "",
         report_file: ""
     });
 
-    // ─── PROJECT RESOLUTION ─────────────────────────────────────────────
+    // â”€â”€â”€ PROJECT RESOLUTION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     useEffect(() => {
         const initializeProject = async () => {
             try {
+                // Fetch all projects for the dropdown
+                try {
+                    const res = await projectService.getProjects(100, 0);
+                    const projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
+                    setProjects(projectsList);
+                } catch (err) {
+                    console.error("Failed to fetch projects list", err);
+                }
+
                 const userStr = localStorage.getItem("infrapilot_user");
                 if (userStr) {
                     const user = JSON.parse(userStr);
@@ -103,19 +127,34 @@ const QCInspectionPage = () => {
                     setProjectId(resolvedId);
                     setFormData(prev => ({ ...prev, project_id: resolvedId }));
                 } else {
-                    setProjectId(36);
-                    setFormData(prev => ({ ...prev, project_id: 36 }));
+                    setProjectId(92);
+                    setFormData(prev => ({ ...prev, project_id: 92 }));
                 }
             } catch (e) {
                 console.error("Failed to resolve project ID", e);
-                setProjectId(36);
-                setFormData(prev => ({ ...prev, project_id: 36 }));
+                setProjectId(92);
+                setFormData(prev => ({ ...prev, project_id: 92 }));
             }
         };
         initializeProject();
     }, []);
 
-    // ─── INITIALIZATION ──────────────────────────────────────────────────
+    useEffect(() => {
+        if (isNewModalOpen || isEditModalOpen) {
+            const fetchProjects = async () => {
+                try {
+                    const res = await projectService.getProjects(100, 0);
+                    const projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
+                    setProjects(projectsList);
+                } catch (err) {
+                    console.error("Failed to refresh projects list", err);
+                }
+            };
+            fetchProjects();
+        }
+    }, [isNewModalOpen, isEditModalOpen]);
+
+    // â”€â”€â”€ INITIALIZATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     const fetchData = useCallback(async () => {
         if (projectId === null) return;
@@ -139,7 +178,7 @@ const QCInspectionPage = () => {
         setCurrentPage(1);
     }, [searchTerm, filterType, filterStatus, activeStatFilter]);
 
-    // ─── ACTIONS ─────────────────────────────────────────────────────────
+    // â”€â”€â”€ ACTIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     const handleCreateSubmit = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
@@ -149,19 +188,19 @@ const QCInspectionPage = () => {
             return;
         }
 
-        if (formData.result === null || formData.result === undefined) {
+        if (formData.result === null || formData.result === undefined || formData.result === "") {
             toast.error("Please enter the observed value");
             return;
         }
 
-        if (formData.standard_value === null || formData.standard_value === undefined) {
+        if (formData.standard_value === null || formData.standard_value === undefined || formData.standard_value === "") {
             toast.error("Please enter the standard threshold");
             return;
         }
 
         setIsSubmitting(true);
         try {
-            await qcService.createQc(formData);
+            await qcService.createQc(formData as any);
             toast.success("QC inspection created successfully!");
             setIsNewModalOpen(false);
             resetForm();
@@ -184,19 +223,19 @@ const QCInspectionPage = () => {
             return;
         }
 
-        if (formData.result === null || formData.result === undefined) {
+        if (formData.result === null || formData.result === undefined || formData.result === "") {
             toast.error("Please enter the observed value");
             return;
         }
 
-        if (formData.standard_value === null || formData.standard_value === undefined) {
+        if (formData.standard_value === null || formData.standard_value === undefined || formData.standard_value === "") {
             toast.error("Please enter the standard threshold");
             return;
         }
 
         setIsSubmitting(true);
         try {
-            await qcService.updateQc(selectedQc.id, formData);
+            await qcService.updateQc(selectedQc.id, formData as any);
             toast.success("QC inspection updated successfully!");
             setIsEditModalOpen(false);
             fetchData();
@@ -226,13 +265,13 @@ const QCInspectionPage = () => {
 
     const resetForm = () => {
         setFormData({
-            project_id: projectId || 36,
+            project_id: projectId || 92,
             task_id: null,
             dsr_id: null,
             inspection_type: "General",
             test_type: "Visual Check",
-            result: 1,
-            standard_value: 1,
+            result: "",
+            standard_value: "",
             status: "Pass",
             engineer_name: "",
             remarks: "",
@@ -259,7 +298,7 @@ const QCInspectionPage = () => {
     const openEdit = (qc: QcItem) => {
         setSelectedQc(qc);
         setFormData({
-            project_id: projectId || 36,
+            project_id: qc.project_id || projectId || 92,
             task_id: qc.task_id,
             dsr_id: qc.dsr_id,
             inspection_type: qc.inspection_type,
@@ -268,13 +307,13 @@ const QCInspectionPage = () => {
             standard_value: qc.standard_value,
             status: qc.status,
             engineer_name: qc.engineer_name,
-            remarks: qc.remarks,
+            remarks: qc.remarks || "",
             report_file: qc.report_file || ""
         });
         setIsEditModalOpen(true);
     };
 
-    // ─── HELPERS ─────────────────────────────────────────────────────────
+    // â”€â”€â”€ HELPERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     const filteredList = useMemo(() => {
         let data = qcList;
@@ -305,17 +344,41 @@ const QCInspectionPage = () => {
         return filteredList.slice(startIndex, startIndex + itemsPerPage);
     }, [filteredList, currentPage]);
 
-    const totalPages = Math.ceil(filteredList.length / itemsPerPage);
-
     const stats = useMemo(() => {
         const total = filteredList.length;
         const passed = filteredList.filter(q => q.status === "Pass").length;
         const failed = filteredList.filter(q => q.status === "Fail").length;
+
+        let totalFields = 0;
+        let filledFields = 0;
+
+        filteredList.forEach(q => {
+            const fields = [
+                q.inspection_type,
+                q.test_type,
+                q.result !== undefined && q.result !== null && String(q.result) !== '',
+                q.standard_value !== undefined && q.standard_value !== null && String(q.standard_value) !== '',
+                q.status,
+                q.engineer_name,
+                q.remarks,
+                q.report_file
+            ];
+            fields.forEach(f => {
+                totalFields++;
+                if (f && String(f).trim() !== '') {
+                    filledFields++;
+                }
+            });
+        });
+
+        const momentum = totalFields > 0 ? Math.round((filledFields / totalFields) * 100) : 100;
+
         return {
             total,
             passed,
             failed,
-            compliance: Math.round((passed / (total || 1)) * 100)
+            compliance: Math.round((passed / (total || 1)) * 100),
+            momentum
         };
     }, [filteredList]);
 
@@ -354,7 +417,7 @@ const QCInspectionPage = () => {
                         <StatCard title="Failed Tests" value={stats.failed.toString()} sub="Action Required" accent="text-rose-500" />
                     </div>
                     <div onClick={() => setActiveStatFilter("Momentum")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Momentum" ? "ring-2 ring-blue-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard title="Audit Momentum" value="98%" sub="Project Efficiency" accent="text-blue-500" />
+                        <StatCard title="Audit Momentum" value={`${stats.momentum}%`} sub="Project Efficiency" accent="text-blue-500" />
                     </div>
                 </div>
 
@@ -509,15 +572,12 @@ const QCInspectionPage = () => {
                         )}
                     </div>
                     
-                    {/* ── Pagination ────────────────────────────────────────── */}
+                    {/* â”€â”€ Pagination â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                     {filteredList.length > 0 && (
-                        <div className="p-4 border-t border-slate-50 flex items-center justify-between bg-white font-inter">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredList.length)} of {filteredList.length} entries
-                            </p>
+                        <div className="p-4 border-t border-slate-50 flex items-center justify-end bg-white font-inter">
                             <div className="flex items-center gap-2 font-inter">
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                     disabled={currentPage === 1}
                                     className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
                                     title="Previous Page"
@@ -525,11 +585,11 @@ const QCInspectionPage = () => {
                                     <ChevronLeft className="w-4 h-4" />
                                 </button>
                                 <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                                    Page {currentPage} of {1 || 1}
+                                    Page {currentPage} of 20
                                 </div>
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, 1 || 1))}
-                                    disabled={currentPage >= 1 || 1 === 0}
+                                    onClick={() => setCurrentPage(prev => Math.min(20, prev + 1))}
+                                    disabled={currentPage === 20}
                                     className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
                                     title="Next Page"
                                 >
@@ -570,7 +630,7 @@ const QCInspectionPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.1em] mb-4 border-b border-slate-50 pb-2 flex items-center gap-2">
                             <Camera className="w-3.5 h-3.5 text-primary" />
-                            Audit Evidence
+                            file upload
                         </h3>
                         <div className="space-y-4 font-inter">
                             <div className="group relative border-2 border-dashed border-slate-200 hover:border-primary/50 rounded-2xl p-8 transition-all bg-slate-50/50 hover:bg-blue-50/30 flex flex-col items-center justify-center cursor-pointer overflow-hidden font-inter">
@@ -590,7 +650,7 @@ const QCInspectionPage = () => {
                                     <ImageIcon className="w-8 h-8 text-primary" />
                                 </div>
                                 <div className="text-center font-inter">
-                                    <p className="text-xs font-bold text-slate-700 mb-1 font-inter">Click to Capture or Upload</p>
+                                    <p className="text-xs font-bold text-slate-700 mb-1 font-inter">file upload</p>
                                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">PNG, JPG or PDF up to 10MB</p>
                                 </div>
                             </div>
@@ -624,13 +684,23 @@ const QCInspectionPage = () => {
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Project Identifier</label>
-                                <div className="px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm font-bold text-slate-500 font-inter">
-                                    PROJECT-{projectId || 36}
-                                </div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">project_id *</label>
+                                <select 
+                                    value={formData.project_id} 
+                                    onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) })} 
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
+                                    required
+                                >
+                                    <option value="">-- Select project --</option>
+                                    {projects.map(p => (
+                                        <option key={p.project_id || p.id} value={p.project_id || p.id}>
+                                            {p.project_name || p.name}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Inspection Category *</label>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">inspection_type *</label>
                                 <select
                                     value={formData.inspection_type}
                                     onChange={(e) => setFormData({...formData, inspection_type: e.target.value})}
@@ -640,7 +710,7 @@ const QCInspectionPage = () => {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Technical Test Type *</label>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">test_type *</label>
                                 <select
                                     value={formData.test_type}
                                     onChange={(e) => setFormData({...formData, test_type: e.target.value})}
@@ -650,7 +720,7 @@ const QCInspectionPage = () => {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Engineer In-Charge *</label>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">engineer_name *</label>
                                 <input
                                     type="text"
                                     placeholder="Enter auditor name..."
@@ -672,29 +742,35 @@ const QCInspectionPage = () => {
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Observed Value *</label>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">result *</label>
                                 <input
                                     type="number"
                                     min="0"
                                     placeholder="0"
                                     value={formData.result}
-                                    onChange={(e) => setFormData({...formData, result: Number(e.target.value)})}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setFormData({...formData, result: val === "" ? "" : Number(val)});
+                                    }}
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
                                 />
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Standard Threshold *</label>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">standard_value *</label>
                                 <input
                                     type="number"
                                     min="0"
                                     placeholder="0"
                                     value={formData.standard_value}
-                                    onChange={(e) => setFormData({...formData, standard_value: Number(e.target.value)})}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setFormData({...formData, standard_value: val === "" ? "" : Number(val)});
+                                    }}
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
                                 />
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Audit Status *</label>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">status *</label>
                                 <select
                                     value={formData.status}
                                     onChange={(e) => setFormData({...formData, status: e.target.value})}
@@ -714,7 +790,7 @@ const QCInspectionPage = () => {
                         </h3>
                         <div>
                             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                Detailed Remarks <span className="normal-case text-slate-300">(optional)</span>
+                                remark <span className="normal-case text-slate-300">(optional)</span>
                             </label>
                             <textarea
                                 rows={3}

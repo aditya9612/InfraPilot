@@ -1,4 +1,4 @@
-import api from "./api";
+﻿import api from "./api";
 import type {
   Material,
   MaterialCreate,
@@ -179,13 +179,13 @@ export const materialService = {
     // 2. ALWAYS generate and print the gorgeous, detailed PDF template filled with actual stock data matching the user's image!
     let materials: any[] = [];
       let allLogs: any[] = [];
-      let projectId = 36;
+      let projectId = 92;
       
       try {
         const userString = localStorage.getItem("infrapilot_user");
         if (userString) {
           const user = JSON.parse(userString);
-          projectId = user.project_id || 36;
+          projectId = user.project_id || 92;
         }
         materials = await materialService.listMaterials(projectId);
       } catch (e) {
@@ -695,10 +695,10 @@ export const materialService = {
     let materials: any[] = [];
       try {
         const userString = localStorage.getItem("infrapilot_user");
-        let projectId = 36;
+        let projectId = 92;
         if (userString) {
           const user = JSON.parse(userString);
-          projectId = user.project_id || 36;
+          projectId = user.project_id || 92;
         }
         materials = await materialService.listMaterials(projectId);
       } catch (e) {
