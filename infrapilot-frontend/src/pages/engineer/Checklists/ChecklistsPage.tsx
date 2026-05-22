@@ -5,20 +5,21 @@ import StatCard from "../../../components/common/StatCard";
 import Modal from "../../../components/common/Modal";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
-import { 
-  Plus, 
-  Trash2,
-  CheckCircle2,
-  PlusSquare,
-  ClipboardList,
-  Search,
-  Activity,
-  FileText,
-  RotateCcw,
-  Layout
-,
+import {
+    Plus,
+    Trash2,
+    CheckCircle2,
+    PlusSquare,
+    ClipboardList,
+    Search,
+    Activity,
+    FileText,
+    RotateCcw,
+    Layout
+    ,
     ChevronLeft,
-    ChevronRight} from "lucide-react";
+    ChevronRight
+} from "lucide-react";
 
 import { checklistService } from "../../../services/checklistService";
 import type { ChecklistItem, ChecklistLog } from "../../../services/checklistService";
@@ -37,11 +38,11 @@ const ChecklistsPage = () => {
     const [logs, setLogs] = useState<ChecklistLog[]>([]);
     const [activeTab, setActiveTab] = useState<"Daily Checklist" | "Activity Checklist" | "Safety" | "Quality">("Daily Checklist");
     const [projectId, setProjectId] = useState<number>(92);
-    
+
     // UI States
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
-    
+
     // Interactive StatCard Filter
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Pending" | "Done">("All");
     const [currentPage, setCurrentPage] = useState(1);
@@ -52,7 +53,7 @@ const ChecklistsPage = () => {
     const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
     const [isExecuteModalOpen, setIsExecuteModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    
+
     // Selection / Form States
     const [selectedChecklist, setSelectedChecklist] = useState<ChecklistItem | null>(null);
     const [newChecklistName, setNewChecklistName] = useState("");
@@ -78,7 +79,7 @@ const ChecklistsPage = () => {
                 console.error("Failed to resolve project ID", e);
             }
         }
-        
+
         // Fetch all assigned projects
         const fetchProjects = async () => {
             try {
@@ -98,7 +99,7 @@ const ChecklistsPage = () => {
                 checklistService.listChecklists(),
                 checklistService.listLogs()
             ]);
-            
+
             // Merge with local storage created checklists to support mock/virtual fallback persistence
             const localSaved = localStorage.getItem("created_checklists");
             const localChecklists = localSaved ? JSON.parse(localSaved) : [];
@@ -109,7 +110,7 @@ const ChecklistsPage = () => {
                     combined.unshift(c);
                 }
             });
-            
+
             setChecklists(combined);
             setLogs(logsRes.items || []);
         } catch (err) {
@@ -254,10 +255,10 @@ const ChecklistsPage = () => {
     const stats = useMemo(() => {
         const activeChecklists = checklists.filter(c => c.type === activeTab);
         const total = activeChecklists.length;
-        
+
         const latestLogsMap = new Map();
         const sortedLogs = [...logs].sort((a, b) => b.id - a.id);
-        
+
         sortedLogs.forEach(log => {
             if (!latestLogsMap.has(log.checklist_id)) {
                 latestLogsMap.set(log.checklist_id, log);
@@ -296,27 +297,29 @@ const ChecklistsPage = () => {
         };
     }, [checklists, logs, activeTab]);
 
-    const filteredLogs = useMemo(() => {
-        let data = logs;
+    const filteredChecklists = useMemo(() => {
+        let cls = checklists;
 
-        // Apply StatCard Filter
-        if (activeStatFilter === "Done") {
-          data = data.filter(l => l.status === "Done");
-        } else if (activeStatFilter === "Pending") {
-          data = data.filter(l => l.status === "Pending");
-        }
+        return cls.filter(cl => {
+            if (searchTerm && !cl.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+                return false;
+            }
 
-        return data.filter(log => {
-            const checklistName = checklists.find(c => c.id === log.checklist_id)?.name || "";
-            return checklistName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                   log.remarks.toLowerCase().includes(searchTerm.toLowerCase());
+            if (activeStatFilter !== "All") {
+                const latestLog = [...logs].sort((a,b) => b.id - a.id).find(l => l.checklist_id === cl.id);
+                const isDone = latestLog?.status === 'Done';
+                if (activeStatFilter === "Done" && !isDone) return false;
+                if (activeStatFilter === "Pending" && isDone) return false;
+            }
+
+            return true;
         });
-    }, [logs, checklists, searchTerm, activeStatFilter]);
+    }, [checklists, logs, activeTab, activeStatFilter, searchTerm]);
 
-    const paginatedLogs = useMemo(() => {
+    const paginatedChecklists = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
-        return filteredLogs.slice(startIndex, startIndex + itemsPerPage);
-    }, [filteredLogs, currentPage]);
+        return filteredChecklists.slice(startIndex, startIndex + itemsPerPage);
+    }, [filteredChecklists, currentPage]);
 
     // Reset page on filter change
     useEffect(() => {
@@ -354,34 +357,34 @@ const ChecklistsPage = () => {
                 </div>
 
                 {/* â”€â”€ Interactive Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                      <StatCard
-                          title="Total Vault"
-                          value={stats.total.toString()}
-                          sub="Protocols Logged"
-                          accent="text-slate-800" />
+                        <StatCard
+                            title="Total Vault"
+                            value={stats.total.toString()}
+                            sub="Protocols Logged"
+                            accent="text-slate-800" />
                     </div>
                     <div onClick={() => setActiveStatFilter("Done")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Done" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                      <StatCard
-                          title="Compliance"
-                          value={`${stats.compliance}%`}
-                          sub={`${stats.done} / ${stats.total} Passed`}
-                          accent="text-emerald-500" />
+                        <StatCard
+                            title="Compliance"
+                            value={`${stats.compliance}%`}
+                            sub={`${stats.done} / ${stats.total} Passed`}
+                            accent="text-emerald-500" />
                     </div>
                     <div onClick={() => setActiveStatFilter("Pending")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Pending" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                      <StatCard
-                          title="Pending Audits"
-                          value={stats.pending.toString()}
-                          sub={`${stats.pending} Need Action`}
-                          accent="text-rose-500" />
+                        <StatCard
+                            title="Pending Audits"
+                            value={stats.pending.toString()}
+                            sub={`${stats.pending} Need Action`}
+                            accent="text-rose-500" />
                     </div>
                     <div className="cursor-default group transition-all rounded-xl hover:scale-[1.01]">
-                      <StatCard
-                          title="Global Health"
-                          value={`${stats.globalHealth}%`}
-                          sub={`${stats.globalDone} / ${stats.globalTotal} Overall`}
-                          accent="text-blue-500" />
+                        <StatCard
+                            title="Global Health"
+                            value={`${stats.globalHealth}%`}
+                            sub={`${stats.globalDone} / ${stats.globalTotal} Overall`}
+                            accent="text-blue-500" />
                     </div>
                 </div>
 
@@ -391,9 +394,8 @@ const ChecklistsPage = () => {
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab as any)}
-                            className={`pb-4 text-[10px] font-bold uppercase tracking-widest transition-all relative whitespace-nowrap font-inter ${
-                                activeTab === tab ? "text-primary" : "text-slate-400 hover:text-slate-600"
-                            }`}
+                            className={`pb-4 text-[10px] font-bold uppercase tracking-widest transition-all relative whitespace-nowrap font-inter ${activeTab === tab ? "text-primary" : "text-slate-400 hover:text-slate-600"
+                                }`}
                         >
                             {tab}
                             {activeTab === tab && (
@@ -405,173 +407,175 @@ const ChecklistsPage = () => {
 
                 {/* â”€â”€ Scrollable Content Area â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex-1 overflow-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200">
-                {/* â”€â”€ Protocols Registry â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                <div className="mb-12 font-inter">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 font-inter">
-                      {checklists.filter(c => c.type === activeTab).map((cl) => (
-                          <div key={cl.id} className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 hover:shadow-2xl hover:shadow-primary/5 transition-all duration-500 group relative overflow-hidden font-inter">
-                              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-primary/10 transition-colors" />
-                              
-                              <div className="flex items-start justify-between mb-8 relative z-10 font-inter">
-                                  <div className="flex-1 font-inter">
-                                      <h3 className="text-lg font-bold text-slate-800 group-hover:text-primary transition-colors leading-tight mb-2 font-inter">{cl.name}</h3>
-                                      <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest border font-inter ${typeColors[cl.type] || "bg-slate-50 text-slate-400"}`}>
-                                          {cl.type}
-                                      </span>
-                                  </div>
-                                  <div className="p-3 bg-slate-50 rounded-2xl group-hover:bg-primary group-hover:text-white transition-all duration-500 font-inter">
-                                    <ClipboardList className="w-5 h-5" />
-                                  </div>
-                              </div>
+                    {/* â”€â”€ Protocols Registry â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                    <div className="mb-12 font-inter">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 font-inter">
+                            {checklists.filter(c => c.type === activeTab).map((cl) => (
+                                <div key={cl.id} className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 hover:shadow-2xl hover:shadow-primary/5 transition-all duration-500 group relative overflow-hidden font-inter">
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-primary/10 transition-colors" />
 
-                              <div className="space-y-6 mb-8 relative z-10 font-inter">
-                                  <div className="flex items-center justify-between font-inter">
-                                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">Intelligence Domain</span>
-                                      <span className="text-[10px] font-bold text-slate-800 uppercase tracking-widest font-inter">VERIFIED VAULT</span>
-                                  </div>
-                                  <div className="flex items-center justify-between font-inter">
-                                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">Reference Hash</span>
-                                      <span className="text-[10px] font-bold text-primary uppercase tracking-widest font-inter">LOG-#{cl.id}</span>
-                                  </div>
-                              </div>
+                                    <div className="flex items-start justify-between mb-8 relative z-10 font-inter">
+                                        <div className="flex-1 font-inter">
+                                            <h3 className="text-lg font-bold text-slate-800 group-hover:text-primary transition-colors leading-tight mb-2 font-inter">{cl.name}</h3>
+                                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest border font-inter ${typeColors[cl.type] || "bg-slate-50 text-slate-400"}`}>
+                                                {cl.type}
+                                            </span>
+                                        </div>
+                                        <div className="p-3 bg-slate-50 rounded-2xl group-hover:bg-primary group-hover:text-white transition-all duration-500 font-inter">
+                                            <ClipboardList className="w-5 h-5" />
+                                        </div>
+                                    </div>
 
-                              <div className="grid grid-cols-3 gap-3 relative z-10 font-inter">
-                                  <button 
-                                      onClick={() => { setSelectedChecklist(cl); setIsAddItemModalOpen(true); }}
-                                      className="flex flex-col items-center gap-2 p-3 bg-slate-50 hover:bg-blue-50 text-slate-400 hover:text-primary rounded-2xl transition-all font-inter active:scale-95 border border-slate-100"
-                                      title="Add Item"
-                                  >
-                                      <PlusSquare className="w-4 h-4" />
-                                      <span className="text-[10px] font-bold uppercase tracking-widest">Add Item</span>
-                                  </button>
-                                  <button 
-                                      onClick={() => { setSelectedChecklist(cl); setIsExecuteModalOpen(true); }}
-                                      className="flex flex-col items-center gap-2 p-3 bg-primary text-white rounded-2xl transition-all shadow-lg shadow-primary/20 hover:bg-blue-600 font-inter active:scale-95"
-                                      title="Execute Audit"
-                                  >
-                                      <CheckCircle2 className="w-4 h-4" />
-                                      <span className="text-[10px] font-bold uppercase tracking-widest">Execute Checklist</span>
-                                  </button>
-                                  <button 
-                                      onClick={() => { setDeleteId(cl.id); setIsDeleteModalOpen(true); }}
-                                      className="flex flex-col items-center gap-2 p-3 bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-2xl transition-all font-inter active:scale-95 border border-slate-100"
-                                      title="Archive"
-                                  >
-                                      <Trash2 className="w-4 h-4" />
-                                      <span className="text-[10px] font-bold uppercase tracking-widest">Delete</span>
-                                  </button>
-                              </div>
-                          </div>
-                      ))}
-                      {checklists.filter(c => c.type === activeTab).length === 0 && (
-                          <div className="col-span-full py-32 text-center bg-white rounded-2xl border-4 border-dashed border-slate-50 font-inter">
-                              <Layout className="w-16 h-16 mx-auto mb-6 text-slate-200" />
-                              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">No technical protocols discovered in the {activeTab} domain.</p>
-                          </div>
-                      )}
-                  </div>
-                </div>
+                                    <div className="space-y-6 mb-8 relative z-10 font-inter">
+                                        <div className="flex items-center justify-between font-inter">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">Intelligence Domain</span>
+                                            <span className="text-[10px] font-bold text-slate-800 uppercase tracking-widest font-inter">VERIFIED VAULT</span>
+                                        </div>
 
-                {/* â”€â”€ Execution Intelligence Registry â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-12 font-inter flex flex-col">
-                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
-                        <div className="relative flex-1 max-w-md font-inter">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                                <Search className="w-4 h-4" />
-                            </span>
-                            <input
-                                type="text"
-                                placeholder="Search by protocol or remarks..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
-                            />
+                                    </div>
+
+                                    <div className="grid grid-cols-3 gap-3 relative z-10 font-inter">
+                                        <button
+                                            onClick={() => { setSelectedChecklist(cl); setIsAddItemModalOpen(true); }}
+                                            className="flex flex-col items-center gap-2 p-3 bg-slate-50 hover:bg-blue-50 text-slate-400 hover:text-primary rounded-2xl transition-all font-inter active:scale-95 border border-slate-100"
+                                            title="Add Item"
+                                        >
+                                            <PlusSquare className="w-4 h-4" />
+                                            <span className="text-[10px] font-bold uppercase tracking-widest">Add Item</span>
+                                        </button>
+                                        <button
+                                            onClick={() => { setSelectedChecklist(cl); setIsExecuteModalOpen(true); }}
+                                            className="flex flex-col items-center gap-2 p-3 bg-primary text-white rounded-2xl transition-all shadow-lg shadow-primary/20 hover:bg-blue-600 font-inter active:scale-95"
+                                            title="Execute Audit"
+                                        >
+                                            <CheckCircle2 className="w-4 h-4" />
+                                            <span className="text-[10px] font-bold uppercase tracking-widest">Execute Checklist</span>
+                                        </button>
+                                        <button
+                                            onClick={() => { setDeleteId(cl.id); setIsDeleteModalOpen(true); }}
+                                            className="flex flex-col items-center gap-2 p-3 bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-2xl transition-all font-inter active:scale-95 border border-slate-100"
+                                            title="Archive"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                            <span className="text-[10px] font-bold uppercase tracking-widest">Delete</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                            {checklists.filter(c => c.type === activeTab).length === 0 && (
+                                <div className="col-span-full py-32 text-center bg-white rounded-2xl border-4 border-dashed border-slate-50 font-inter">
+                                    <Layout className="w-16 h-16 mx-auto mb-6 text-slate-200" />
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">No technical protocols discovered in the {activeTab} domain.</p>
+                                </div>
+                            )}
                         </div>
-                        {activeStatFilter !== "All" && (
-                          <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter">
-                            <RotateCcw className="w-4 h-4" />
-                          </button>
-                        )}
                     </div>
-                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
-                        <table className="w-full text-left font-inter min-w-[1000px]">
-                            <thead>
-                                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
-                                    <th className="px-6 py-4 font-inter">Protocol Identity</th>
-                                    <th className="px-6 py-4 font-inter">Compliance Profile</th>
-                                    <th className="px-6 py-4 font-inter">Intelligence Remarks</th>
-                                    <th className="px-6 py-4 text-right font-inter">Audit Sequence</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-50 font-inter">
-                                {paginatedLogs.length > 0 ? (
-                                    paginatedLogs.map((log) => (
-                                        <tr key={log.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
-                                            <td className="px-6 py-4 font-inter">
-                                                <div className="flex flex-col font-inter">
-                                                  <span className="text-sm font-bold text-slate-800 font-inter">
-                                                      {checklists.find(c => c.id === log.checklist_id)?.name || "Ref: #" + log.checklist_id}
-                                                  </span>
-                                                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">LOG-#{log.id}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 font-inter">
-                                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest border font-inter ${
-                                                    log.status === 'Done' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'
-                                                }`}>
-                                                    {log.status}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 font-inter">
-                                                <div className="flex items-center gap-2 font-inter max-w-xs">
-                                                  <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                                  <span className="text-xs font-bold text-slate-600 font-inter uppercase tracking-tight truncate">
-                                                      {log.remarks}
-                                                  </span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-right font-inter">
-                                                <div className="flex flex-col items-end font-inter">
-                                                  <span className="text-xs font-bold text-slate-800 font-inter">{log.created_at ? new Date(log.created_at).toLocaleDateString() : "Live Audit"}</span>
-                                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">Timestamp</span>
-                                                </div>
+
+                    {/* â”€â”€ Execution Intelligence Registry â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-12 font-inter flex flex-col">
+                        <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
+                            <div className="relative flex-1 max-w-md font-inter">
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                                    <Search className="w-4 h-4" />
+                                </span>
+                                <input
+                                    type="text"
+                                    placeholder="Search by protocol or remarks..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
+                                />
+                            </div>
+                            {activeStatFilter !== "All" && (
+                                <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter">
+                                    <RotateCcw className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
+                        <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                            <table className="w-full text-left font-inter min-w-[1000px]">
+                                <thead>
+                                    <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
+                                        <th className="px-6 py-4 font-inter">Protocol Identity</th>
+                                        <th className="px-6 py-4 font-inter">Compliance Profile</th>
+                                        <th className="px-6 py-4 font-inter">Intelligence Remarks</th>
+                                        <th className="px-6 py-4 text-right font-inter">Audit Sequence</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50 font-inter">
+                                    {paginatedChecklists.length > 0 ? (
+                                        paginatedChecklists.map((cl) => {
+                                            const latestLog = [...logs].sort((a,b) => b.id - a.id).find(l => l.checklist_id === cl.id);
+                                            const isDone = latestLog?.status === 'Done';
+                                            return (
+                                                <tr key={cl.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
+                                                    <td className="px-6 py-4 font-inter">
+                                                        <div className="flex flex-col font-inter">
+                                                            <span className="text-sm font-bold text-slate-800 font-inter">
+                                                                {cl.name}
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 font-inter">
+                                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest border font-inter ${isDone ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'
+                                                            }`}>
+                                                            {isDone ? 'DONE' : 'PENDING'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 font-inter">
+                                                        <div className="flex items-center gap-2 font-inter max-w-xs">
+                                                            <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                                            <span className="text-xs font-bold text-slate-600 font-inter uppercase tracking-tight truncate">
+                                                                {latestLog?.remarks || "PENDING AUDIT"}
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right font-inter">
+                                                        <div className="flex flex-col items-end font-inter">
+                                                            <span className="text-xs font-bold text-slate-800 font-inter">{latestLog?.created_at ? new Date(latestLog.created_at).toLocaleDateString() : "Not Audited"}</span>
+                                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">Timestamp</span>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    ) : (
+                                        <tr>
+                                            <td colSpan={4} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
+                                                No checklists discovered in the project vault.
                                             </td>
                                         </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan={4} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
-                                            No execution intelligence artifacts discovered in the project vault.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                    </div>
-                    
+
                     {/* â”€â”€ Pagination Controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                    {filteredLogs.length > 0 && (
-                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-end bg-white sticky left-0 font-inter">
-                            <div className="flex items-center gap-2 font-inter">
+                    {filteredChecklists.length > 0 && (
+                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                                PAGE {currentPage} OF {Math.max(1, Math.ceil(filteredChecklists.length / itemsPerPage))}
+                            </div>
+                            <div className="flex items-center gap-2">
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                     disabled={currentPage === 1}
-                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
                                     title="Previous Page"
                                 >
-                                    <ChevronLeft className="w-4 h-4" />
+                                    <ChevronLeft className="w-5 h-5" />
                                 </button>
-                                <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                                    Page {currentPage} of 20
+                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
+                                    {currentPage}
                                 </div>
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.min(20, prev + 1))}
-                                    disabled={currentPage === 20}
-                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    onClick={() => setCurrentPage(prev => Math.min(Math.max(1, Math.ceil(filteredChecklists.length / itemsPerPage)), prev + 1))}
+                                    disabled={currentPage === Math.max(1, Math.ceil(filteredChecklists.length / itemsPerPage))}
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
                                     title="Next Page"
                                 >
-                                    <ChevronRight className="w-4 h-4" />
+                                    <ChevronRight className="w-5 h-5" />
                                 </button>
                             </div>
                         </div>
@@ -590,7 +594,7 @@ const ChecklistsPage = () => {
                 footer={
                     <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
                         <button onClick={() => setIsNewModalOpen(false)} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter">Cancel</button>
-                        <button 
+                        <button
                             onClick={handleCreateChecklist}
                             disabled={isSubmitting}
                             className="flex-[2] py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
@@ -603,13 +607,13 @@ const ChecklistsPage = () => {
                 <div className="p-6 space-y-8 font-inter">
                     <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
                         <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
-                          <Activity className="w-4 h-4 text-primary" />
-                          Protocol Intelligence Profile
+                            <Activity className="w-4 h-4 text-primary" />
+                            Protocol Intelligence Profile
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
                             <div className="font-inter md:col-span-2">
                                 <label className={labelClasses}>Project Context <span className="text-rose-500">*</span></label>
-                                <select 
+                                <select
                                     value={newChecklistProjectId}
                                     onChange={(e) => setNewChecklistProjectId(e.target.value)}
                                     className={inputClasses}
@@ -624,8 +628,8 @@ const ChecklistsPage = () => {
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Descriptive Title <span className="text-rose-500">*</span></label>
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     value={newChecklistName}
                                     onChange={(e) => setNewChecklistName(e.target.value)}
                                     placeholder="e.g. Foundation Pouring Protocol"
@@ -634,7 +638,7 @@ const ChecklistsPage = () => {
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Domain Category <span className="text-rose-500">*</span></label>
-                                 <select 
+                                <select
                                     value={newChecklistType}
                                     onChange={(e) => setNewChecklistType(e.target.value)}
                                     className={inputClasses}
@@ -650,18 +654,18 @@ const ChecklistsPage = () => {
 
                     <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
                         <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
-                          <CheckCircle2 className="w-4 h-4 text-primary" />
-                          Verification Points Matrix
+                            <CheckCircle2 className="w-4 h-4 text-primary" />
+                            Verification Points Matrix
                         </h3>
                         <div className="flex gap-3 mb-6 font-inter">
-                            <input 
-                                type="text" 
+                            <input
+                                type="text"
                                 value={tempItemText}
                                 onChange={(e) => setTempItemText(e.target.value)}
                                 placeholder="Enter technical verification point..."
                                 className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 transition-all font-inter"
                             />
-                            <button 
+                            <button
                                 type="button"
                                 onClick={addTempItem}
                                 className="px-6 bg-slate-900 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-slate-800 transition-all active:scale-95 font-inter"
@@ -669,7 +673,7 @@ const ChecklistsPage = () => {
                                 ADD ITEM
                             </button>
                         </div>
-                        
+
                         <div className="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar font-inter">
                             {newChecklistItems.map((item, idx) => (
                                 <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl group/item hover:bg-blue-50 hover:border-blue-100 transition-all font-inter">
@@ -677,7 +681,7 @@ const ChecklistsPage = () => {
                                         <div className="w-6 h-6 bg-primary text-white rounded-lg flex items-center justify-center text-[10px] font-bold font-inter">{idx + 1}</div>
                                         <span className="text-xs font-bold text-slate-700 uppercase tracking-tight font-inter">{item}</span>
                                     </div>
-                                    <button 
+                                    <button
                                         onClick={() => setNewChecklistItems(prev => prev.filter((_, i) => i !== idx))}
                                         className="p-2 text-slate-400 hover:text-rose-500 hover:bg-white rounded-xl transition-all font-inter"
                                     >
@@ -704,7 +708,7 @@ const ChecklistsPage = () => {
                 footer={
                     <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
                         <button onClick={() => setIsAddItemModalOpen(false)} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter">Cancel</button>
-                        <button 
+                        <button
                             onClick={handleAddItem}
                             disabled={isSubmitting}
                             className="flex-[2] py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
@@ -716,8 +720,8 @@ const ChecklistsPage = () => {
             >
                 <div className="p-6 font-inter">
                     <label className={labelClasses}>New Technical Verification Point</label>
-                    <input 
-                        type="text" 
+                    <input
+                        type="text"
                         value={addItemText}
                         onChange={(e) => setAddItemText(e.target.value)}
                         placeholder="e.g. Verify aggregate compaction ratio"
@@ -735,7 +739,7 @@ const ChecklistsPage = () => {
                 footer={
                     <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
                         <button onClick={() => setIsExecuteModalOpen(false)} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter">Cancel</button>
-                        <button 
+                        <button
                             onClick={handleExecuteChecklist}
                             disabled={isSubmitting}
                             className="flex-[2] py-3 bg-emerald-600 text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all active:scale-95 disabled:opacity-50 font-inter"
@@ -749,11 +753,11 @@ const ChecklistsPage = () => {
                     <div className="p-6 bg-primary rounded-2xl border border-primary/20 text-white shadow-2xl relative overflow-hidden font-inter">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full -mr-16 -mt-16 blur-2xl" />
                         <div className="relative z-10 font-inter">
-                          <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2 font-inter">Active Protocol Execution</p>
-                          <p className="text-lg font-bold tracking-tight font-inter">{selectedChecklist?.name}</p>
+                            <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2 font-inter">Active Protocol Execution</p>
+                            <p className="text-lg font-bold tracking-tight font-inter">{selectedChecklist?.name}</p>
                         </div>
                     </div>
-                    
+
                     <div className="font-inter">
                         <label className={labelClasses}>Operational Compliance Status</label>
                         <div className="flex gap-3 font-inter">
@@ -762,11 +766,10 @@ const ChecklistsPage = () => {
                                     key={s}
                                     type="button"
                                     onClick={() => setExecuteStatus(s as any)}
-                                    className={`flex-1 py-4 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border font-inter ${
-                                        executeStatus === s 
-                                            ? (s === "Done" ? "bg-emerald-600 border-emerald-600 text-white shadow-xl shadow-emerald-200 scale-[1.02]" : "bg-amber-500 border-yellow-500 text-white shadow-xl shadow-yellow-200 scale-[1.02]") 
+                                    className={`flex-1 py-4 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border font-inter ${executeStatus === s
+                                            ? (s === "Done" ? "bg-emerald-600 border-emerald-600 text-white shadow-xl shadow-emerald-200 scale-[1.02]" : "bg-amber-500 border-yellow-500 text-white shadow-xl shadow-yellow-200 scale-[1.02]")
                                             : "bg-white border-slate-200 text-slate-400 hover:bg-slate-50"
-                                    }`}
+                                        }`}
                                 >
                                     {s}
                                 </button>
@@ -776,7 +779,7 @@ const ChecklistsPage = () => {
 
                     <div className="font-inter">
                         <label className={labelClasses}>Field Audit Intelligence Remarks</label>
-                        <textarea 
+                        <textarea
                             rows={4}
                             value={executeRemarks}
                             onChange={(e) => setExecuteRemarks(e.target.value)}

@@ -5,9 +5,10 @@ import {
     Filter, Search, Plus, Eye, Calendar, User, 
     CheckCircle, Clock, AlertCircle, XCircle, List, Grid, 
     Download, Share2, ChevronDown, ChevronUp, Folder,
-    Paperclip, Send, X, FileText
+    Paperclip, Send, X, FileText, Edit2, Trash2
 } from 'lucide-react';
 import CreateTaskDrawer from './CreateTaskDrawer';
+import Modal from '../../../components/common/Modal';
 
 interface TaskItem {
     id: string;
@@ -132,7 +133,7 @@ const priorityBadges: Record<string, string> = {
 
 const TaskManagementPage = () => {
     const [activeTab, setActiveTab] = useState("All Tasks");
-    const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
+    const [viewMode, setViewMode] = useState<"list" | "grid">("list");
     
     // Project Accordion State
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
@@ -142,6 +143,20 @@ const TaskManagementPage = () => {
     const [modalTab, setModalTab] = useState<"Details" | "Activity" | "Comments">("Details");
 
     const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
+
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [selectedEditTask, setSelectedEditTask] = useState<TaskItem | null>(null);
+
+    const openEditModal = (task: TaskItem) => {
+        setSelectedEditTask(task);
+        setIsEditModalOpen(true);
+    };
+
+    const handleEditFormSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsEditModalOpen(false);
+        // Handle submit logic here
+    };
 
     const toggleProject = (id: string) => {
         setExpandedProjects(prev => 
@@ -305,14 +320,14 @@ const TaskManagementPage = () => {
                         <>
                             {/* All Tasks Filters Toolbar */}
                             <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                                <div className="flex items-center gap-3 text-slate-800">
-                                    <div className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center">
-                                        <Filter className="w-4 h-4" />
+                                <div className="flex flex-wrap items-center gap-6 text-slate-800">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center">
+                                            <Filter className="w-4 h-4" />
+                                        </div>
+                                        <span className="font-bold text-sm">All Tasks Filters</span>
                                     </div>
-                                    <span className="font-bold text-sm">All Tasks Filters</span>
-                                </div>
 
-                                <div className="flex flex-wrap items-center gap-3">
                                     <div className="relative">
                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                             <Search className="h-4 w-4 text-slate-400" />
@@ -320,13 +335,15 @@ const TaskManagementPage = () => {
                                         <input
                                             type="text"
                                             placeholder="Search tasks..."
-                                            className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all w-48"
+                                            className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all w-64 bg-slate-50 hover:bg-white"
                                         />
                                     </div>
+                                </div>
 
+                                <div className="flex flex-wrap items-end gap-4">
                                     <div className="flex flex-col">
-                                        <span className="text-[10px] font-bold text-slate-800 mb-1">Status</span>
-                                        <select className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-600 outline-none cursor-pointer">
+                                        <span className="text-[10px] font-black text-slate-800 mb-1">Status</span>
+                                        <select className="border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer bg-slate-50 hover:bg-white transition-colors">
                                             <option>All Status</option>
                                             <option>To Do</option>
                                             <option>In Progress</option>
@@ -337,8 +354,8 @@ const TaskManagementPage = () => {
                                     </div>
 
                                     <div className="flex flex-col">
-                                        <span className="text-[10px] font-bold text-slate-800 mb-1">Filter</span>
-                                        <select className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-600 outline-none cursor-pointer">
+                                        <span className="text-[10px] font-black text-slate-800 mb-1">Filter</span>
+                                        <select className="border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer bg-slate-50 hover:bg-white transition-colors">
                                             <option>All Tasks</option>
                                             <option>Created Tasks</option>
                                             <option>Received Tasks</option>
@@ -346,29 +363,29 @@ const TaskManagementPage = () => {
                                     </div>
 
                                     <div className="flex flex-col">
-                                        <span className="text-[10px] font-bold text-slate-800 mb-1">Department</span>
-                                        <select className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-600 outline-none cursor-pointer">
+                                        <span className="text-[10px] font-black text-slate-800 mb-1">Department</span>
+                                        <select className="border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer bg-slate-50 hover:bg-white transition-colors">
                                             <option>All Departments</option>
                                             <option>Engineering</option>
                                         </select>
                                     </div>
 
-                                    <div className="flex items-center gap-1 mt-5">
+                                    <div className="flex items-center gap-1">
                                         <button 
                                             onClick={() => setViewMode('list')}
-                                            className={`p-2 rounded-lg transition-colors border ${viewMode === 'list' ? 'bg-indigo-500 text-white border-indigo-500' : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50'}`}
+                                            className={`p-2 rounded-xl transition-colors border ${viewMode === 'list' ? 'bg-indigo-500 text-white border-indigo-500 shadow-sm' : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50'}`}
                                         >
                                             <List className="w-4 h-4" />
                                         </button>
                                         <button 
                                             onClick={() => setViewMode('grid')}
-                                            className={`p-2 rounded-lg transition-colors border ${viewMode === 'grid' ? 'bg-indigo-500 text-white border-indigo-500' : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50'}`}
+                                            className={`p-2 rounded-xl transition-colors border ${viewMode === 'grid' ? 'bg-indigo-500 text-white border-indigo-500 shadow-sm' : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50'}`}
                                         >
                                             <Grid className="w-4 h-4" />
                                         </button>
                                     </div>
 
-                                    <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 mt-5 transition-colors">
+                                    <button className="flex items-center gap-2 px-4 py-2 bg-slate-800 border border-slate-800 text-white rounded-xl text-sm font-bold hover:bg-slate-700 transition-colors shadow-sm">
                                         <Download className="w-4 h-4" />
                                         Export
                                     </button>
@@ -454,6 +471,7 @@ const TaskManagementPage = () => {
                                                     <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Assigned To</th>
                                                     <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Priority</th>
                                                     <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Deadline</th>
+                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Selfies</th>
                                                     <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Status</th>
                                                     <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Actions</th>
                                                 </tr>
@@ -498,6 +516,26 @@ const TaskManagementPage = () => {
                                                                 {task.deadline}
                                                             </div>
                                                         </td>
+                                                        <td className="p-4 text-center">
+                                                            <div className="flex items-center justify-center -space-x-2">
+                                                                <div className="relative group cursor-pointer" title="Start Selfie">
+                                                                    <div className="w-8 h-8 rounded-full border-2 border-white bg-emerald-100 flex items-center justify-center relative z-20 shadow-sm overflow-hidden">
+                                                                        <User className="w-4 h-4 text-emerald-600" />
+                                                                    </div>
+                                                                    <div className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-30">
+                                                                        <Eye className="w-3 h-3 text-white" />
+                                                                    </div>
+                                                                </div>
+                                                                <div className="relative group cursor-pointer" title="End Selfie">
+                                                                    <div className="w-8 h-8 rounded-full border-2 border-white bg-rose-100 flex items-center justify-center relative z-10 shadow-sm overflow-hidden">
+                                                                        <User className="w-4 h-4 text-rose-600" />
+                                                                    </div>
+                                                                    <div className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-30">
+                                                                        <Eye className="w-3 h-3 text-white" />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </td>
                                                         <td className="p-4">
                                                             <div className="relative inline-block w-full min-w-[130px]">
                                                                 <select 
@@ -524,9 +562,17 @@ const TaskManagementPage = () => {
                                                             </div>
                                                         </td>
                                                         <td className="p-4 text-center">
-                                                            <button onClick={() => openTaskModal(task)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
-                                                                <Eye className="w-4 h-4" />
-                                                            </button>
+                                                            <div className="flex items-center justify-center gap-1">
+                                                                <button onClick={() => openTaskModal(task)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="View">
+                                                                    <Eye className="w-4 h-4" />
+                                                                </button>
+                                                                <button onClick={() => openEditModal(task)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
+                                                                    <Edit2 className="w-4 h-4" />
+                                                                </button>
+                                                                <button className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors" title="Delete">
+                                                                    <Trash2 className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
                                                         </td>
                                                     </tr>
                                                 ))}
@@ -540,31 +586,30 @@ const TaskManagementPage = () => {
                         <>
                             {/* Project Tasks Filters Toolbar */}
                             <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                                <div className="flex items-center gap-3 text-slate-800">
-                                    <div className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center">
-                                        <Filter className="w-4 h-4" />
+                                <div className="flex flex-wrap items-center gap-6 text-slate-800">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center">
+                                            <Filter className="w-4 h-4" />
+                                        </div>
+                                        <span className="font-bold text-sm">Filter Projects</span>
                                     </div>
-                                    <span className="font-bold text-sm">Filter Projects</span>
+
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <Search className="h-4 w-4 text-slate-400" />
+                                        </div>
+                                        <input
+                                            type="text"
+                                            placeholder="Search projects or task..."
+                                            className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all w-64 bg-slate-50 hover:bg-white"
+                                        />
+                                    </div>
                                 </div>
 
-                                <div className="flex flex-wrap items-center gap-3">
+                                <div className="flex flex-wrap items-end gap-4">
                                     <div className="flex flex-col">
-                                        <span className="text-[10px] font-bold text-slate-800 mb-1">Search</span>
-                                        <div className="relative">
-                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                <Search className="h-4 w-4 text-slate-400" />
-                                            </div>
-                                            <input
-                                                type="text"
-                                                placeholder="Search projects or task"
-                                                className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all w-48"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="flex flex-col">
-                                        <span className="text-[10px] font-bold text-slate-800 mb-1">Status</span>
-                                        <select className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-600 outline-none cursor-pointer">
+                                        <span className="text-[10px] font-black text-slate-800 mb-1">Status</span>
+                                        <select className="border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer bg-slate-50 hover:bg-white transition-colors">
                                             <option>All Status</option>
                                             <option>Planned</option>
                                             <option>Completed</option>
@@ -572,8 +617,8 @@ const TaskManagementPage = () => {
                                     </div>
 
                                     <div className="flex flex-col">
-                                        <span className="text-[10px] font-bold text-slate-800 mb-1">Ownership</span>
-                                        <select className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-600 outline-none cursor-pointer">
+                                        <span className="text-[10px] font-black text-slate-800 mb-1">Ownership</span>
+                                        <select className="border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer bg-slate-50 hover:bg-white transition-colors">
                                             <option>Entire View</option>
                                             <option>My Projects</option>
                                         </select>
@@ -835,6 +880,137 @@ const TaskManagementPage = () => {
                 </div>
             )}
             
+            {/* Edit Task Modal */}
+            <Modal
+                isOpen={isEditModalOpen}
+                onClose={() => setIsEditModalOpen(false)}
+                title="Edit Task"
+                maxWidth="max-w-2xl"
+                hideHeader
+            >
+                <form onSubmit={handleEditFormSubmit} className="flex flex-col h-full font-inter">
+                    {/* Custom Header */}
+                    <div className="flex items-start justify-between p-6 border-b border-slate-100 bg-slate-50/50">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center text-white shadow-sm -rotate-3">
+                                <Edit2 className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-bold text-slate-800 tracking-tight">Edit Task</h2>
+                                <p className="text-xs text-slate-500 mt-0.5">Update task details and assignment</p>
+                            </div>
+                        </div>
+                        <button 
+                            type="button"
+                            onClick={() => setIsEditModalOpen(false)}
+                            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    <div className="p-6 space-y-5 flex-1 overflow-y-auto">
+                        <div className="space-y-1.5">
+                            <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                                Task Title <span className="text-rose-500">*</span>
+                            </label>
+                            <input 
+                                type="text"
+                                defaultValue={selectedEditTask?.title}
+                                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                                required
+                            />
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                                Description <span className="text-rose-500">*</span>
+                            </label>
+                            <textarea 
+                                rows={4}
+                                defaultValue={selectedEditTask?.subtitle}
+                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all resize-none"
+                                required
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div className="space-y-1.5">
+                                <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                                    <User className="w-4 h-4 text-indigo-500" />
+                                    Assign To
+                                </label>
+                                <select 
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all appearance-none cursor-pointer"
+                                >
+                                    <option>{selectedEditTask?.assignedTo?.name || ""}</option>
+                                    <option>Suresh Chaudhari</option>
+                                    <option>Vishal Sathe</option>
+                                    <option>Amit Khare</option>
+                                </select>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                                    <Calendar className="w-4 h-4 text-indigo-500" />
+                                    Start Date
+                                </label>
+                                <input 
+                                    type="date"
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                                    <Calendar className="w-4 h-4 text-indigo-500" />
+                                    Deadline <span className="text-rose-500">*</span>
+                                </label>
+                                <input 
+                                    type="date"
+                                    defaultValue={selectedEditTask?.deadline ? new Date(selectedEditTask.deadline).toISOString().split('T')[0] : ''}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                                    required
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                                    <FileText className="w-4 h-4 text-indigo-500" />
+                                    Project (Optional)
+                                </label>
+                                <select 
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all appearance-none cursor-pointer"
+                                >
+                                    <option>None</option>
+                                    <option>Shopex</option>
+                                    <option>Test Project</option>
+                                    <option>staffly</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex items-center justify-end gap-3 rounded-b-3xl">
+                        <button 
+                            type="button"
+                            onClick={() => setIsEditModalOpen(false)}
+                            className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl hover:bg-slate-50 transition-colors shadow-sm active:scale-95"
+                        >
+                            Cancel
+                        </button>
+                        <button 
+                            type="submit"
+                            className="px-6 py-2.5 bg-indigo-500 text-white text-sm font-bold rounded-xl hover:bg-indigo-600 transition-colors shadow-sm active:scale-95"
+                        >
+                            Save Changes
+                        </button>
+                    </div>
+                </form>
+            </Modal>
+
             {/* Create Task Drawer */}
             <CreateTaskDrawer 
                 isOpen={isCreateDrawerOpen} 

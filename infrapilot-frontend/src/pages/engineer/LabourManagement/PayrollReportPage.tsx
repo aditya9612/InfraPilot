@@ -5,7 +5,9 @@ import StatCard from '../../../components/common/StatCard';
 import { 
     Filter,
     Download,
-    RotateCcw
+    RotateCcw,
+    ChevronLeft,
+    ChevronRight
 } from "lucide-react";
 import { paymentService } from '../../../services/paymentService';
 import { labourService } from '../../../services/labourService';
@@ -49,6 +51,13 @@ const PayrollReportPage: React.FC = () => {
         otIntensive: 0,
         advanceAdjusted: 0
     });
+
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 20;
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [activeTab, projectId, activeStatFilter, selectedMonth, selectedYear]);
 
     const fetchReports = async () => {
         setIsLoading(true);
@@ -182,8 +191,11 @@ const PayrollReportPage: React.FC = () => {
         }
     };
 
-
-
+    const filteredReports = reports.filter(r => {
+        if (activeStatFilter === "High") return (r.total_wage || 0) > 5000;
+        if (activeStatFilter === "OT") return (r.overtime_hours || 0) > 0;
+        return true;
+    });
 
     return (
         <>
@@ -322,11 +334,7 @@ const PayrollReportPage: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
-                                    {reports.filter(r => {
-                                        if (activeStatFilter === "High") return (r.total_wage || 0) > 5000;
-                                        if (activeStatFilter === "OT") return (r.overtime_hours || 0) > 0;
-                                        return true;
-                                    }).map((r, idx) => (
+                                    {filteredReports.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((r, idx) => (
                                         <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
@@ -362,7 +370,7 @@ const PayrollReportPage: React.FC = () => {
                                             </td>
                                         </tr>
                                     ))}
-                                    {reports.length === 0 && !isLoading && (
+                                    {filteredReports.length === 0 && !isLoading && (
                                         <tr>
                                             <td colSpan={7} className="px-6 py-16 text-center text-slate-400">
                                                 <p className="text-[10px] font-bold uppercase tracking-widest">No payroll records found</p>
@@ -371,6 +379,36 @@ const PayrollReportPage: React.FC = () => {
                                     )}
                                 </tbody>
                             </table>
+                        )}
+                        
+                        {/* ── Pagination Controls ───────────────────────── */}
+                        {!isLoading && filteredReports.length > 0 && (
+                            <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white font-inter">
+                                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                                    PAGE {currentPage} OF {Math.max(1, Math.ceil(filteredReports.length / itemsPerPage))}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                        disabled={currentPage === 1}
+                                        className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
+                                        title="Previous Page"
+                                    >
+                                        <ChevronLeft className="w-5 h-5" />
+                                    </button>
+                                    <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
+                                        {currentPage}
+                                    </div>
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.min(Math.max(1, Math.ceil(filteredReports.length / itemsPerPage)), prev + 1))}
+                                        disabled={currentPage === Math.max(1, Math.ceil(filteredReports.length / itemsPerPage))}
+                                        className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
+                                        title="Next Page"
+                                    >
+                                        <ChevronRight className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            </div>
                         )}
                     </div>
                 </div>

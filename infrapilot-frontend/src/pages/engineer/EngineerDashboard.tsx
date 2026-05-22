@@ -102,9 +102,8 @@ const EngineerDashboard = () => {
 
                 // 2. Process Work Progress Data
                 const activeActivities = activities.filter((a: any) => a.status !== "Completed" && a.completion_percentage < 100);
-                const completedCount = activities.filter((a: any) => a.status === "Completed" || a.completion_percentage === 100).length;
                 const totalAct = activities.length;
-                const progress = totalAct > 0 ? Math.round((completedCount / totalAct) * 100) : 0;
+                const progress = totalAct > 0 ? Math.round(activities.reduce((sum: number, a: any) => sum + (a.completion_percentage || 0), 0) / totalAct) : 0;
                 
                 // Aggregating disciplines
                 const disciplines = ["Structural Work", "Masonry & Brickwork", "Plumbing", "Electrical", "Finishing"];
@@ -189,7 +188,14 @@ const EngineerDashboard = () => {
                 const res = await api.get(`/dashboard/engineer`, { params: { project_id: projectId } });
                 if (res && res.data && Object.keys(res.data).length > 2) {
                     // Fallback to aggregated endpoint if it's richer
-                    setDashboardData((prev: any) => ({ ...prev, ...res.data }));
+                    setDashboardData((prev: any) => {
+                        const newData = { ...prev, ...res.data };
+                        // Preserve local mock progress if backend returns 0
+                        if (prev.progress > 0 && (!res.data.progress || res.data.progress === 0)) {
+                            newData.progress = prev.progress;
+                        }
+                        return newData;
+                    });
                 }
             } catch (err) {
                 // Ignore silent background fetch error
