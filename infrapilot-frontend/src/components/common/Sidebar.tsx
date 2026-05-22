@@ -10,6 +10,18 @@ import logo from "../../assets/logo.png";
 // ... (icons remain unchanged)
 
 const icons: Record<string, JSX.Element> = {
+  info: (
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <circle cx="12" cy="12" r="10" strokeWidth="1.8" />
+      <line x1="12" y1="16" x2="12" y2="12" strokeLinecap="round" strokeWidth="1.8" />
+      <line x1="12" y1="8" x2="12.01" y2="8" strokeLinecap="round" strokeWidth="1.8" />
+    </svg>
+  ),
   grid: (
     <svg
       className="w-4 h-4"

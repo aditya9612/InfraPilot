@@ -58,12 +58,12 @@ const ClientPhotosPage = () => {
             <h1 className="text-3xl font-black text-slate-800 tracking-tight">Project Photo Gallery</h1>
             <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">A visual chronicle of your project's transformation</p>
           </div>
-          <div className="flex gap-2 flex-wrap bg-white p-2 rounded-[24px] shadow-sm border border-slate-100">
+          <div className="flex gap-2 bg-white p-2 rounded-[24px] shadow-sm border border-slate-100 overflow-x-auto max-w-full custom-scrollbar">
             {tags.map((tag) => (
               <button
                 key={tag}
                 onClick={() => setActiveTag(tag)}
-                className={`px-5 py-2 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${
+                className={`flex-shrink-0 whitespace-nowrap px-5 py-2 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${
                   activeTag === tag
                     ? "bg-slate-900 text-white shadow-lg"
                     : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"

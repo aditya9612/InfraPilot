@@ -1,22 +1,38 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "../../components/common/Navbar";
+import { drawingService } from "../../services/drawingService";
+import { API_BASE_URL } from "../../services/api";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 
-const docs = [
-  { name: "Master Service Agreement - Phase 3", type: "Agreement", uploadDate: "02 Apr 2026", version: "v2.1", size: "2.4 MB" },
-  { name: "Architectural Drawing - Floor 4 Layout", type: "Drawing", uploadDate: "28 Mar 2026", version: "v1.4", size: "12.8 MB" },
-  { name: "Structural Reinforcement - Slab S3", type: "Drawing", uploadDate: "20 Mar 2026", version: "v1.2", size: "8.5 MB" },
-  { name: "Procurement Invoice - Steel & Cement", type: "Invoice", uploadDate: "15 Mar 2026", version: "v1.0", size: "1.1 MB" },
-  { name: "Electrical & Plumbing Layout - L3", type: "Drawing", uploadDate: "10 Mar 2026", version: "v1.1", size: "6.2 MB" },
-  { name: "Legal Clearance Receipt", type: "Agreement", uploadDate: "05 Mar 2026", version: "v1.0", size: "0.8 MB" },
+
+interface DrawingDoc {
+  id: number;
+  project_id: number;
+  drawing_name: string;
+  version: string;
+  date: string;
+  remarks: string;
+  file_url: string;
+  approval_status: string;
+  approval_id: number | null;
+}
+
+// Static fallback docs (non-drawing types)
+const staticDocs = [
+  { name: "Master Service Agreement - Phase 3", type: "Agreement", uploadDate: "02 Apr 2026", version: "v2.1", size: "2.4 MB", file_url: "" },
+  { name: "Procurement Invoice - Steel & Cement", type: "Invoice", uploadDate: "15 Mar 2026", version: "v1.0", size: "1.1 MB", file_url: "" },
+  { name: "Legal Clearance Receipt", type: "Agreement", uploadDate: "05 Mar 2026", version: "v1.0", size: "0.8 MB", file_url: "" },
 ];
+
+// State for latest drawing
 
 const tabs = ["All", "Agreement", "Drawing", "Invoice"];
 
-// ── PDF generator ─────────────────────────────────────────────────────────────
-const downloadDocument = (doc: { name: string; type: string; version: string; uploadDate: string; size: string }) => {
+const generateDocumentHtml = (doc: { name: string; type: string; version: string; uploadDate: string; size: string }) => {
   const generated = new Date().toLocaleString("en-IN");
 
-  const html = `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
@@ -98,28 +114,166 @@ const downloadDocument = (doc: { name: string; type: string; version: string; up
 
 </body>
 </html>`;
+};
 
-  const iframe = document.createElement("iframe");
-  iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:none;";
-  document.body.appendChild(iframe);
-  const docObj = iframe.contentWindow?.document;
-  if (!docObj) return;
-  docObj.open();
-  docObj.write(html);
-  docObj.close();
-  setTimeout(() => {
-    iframe.contentWindow?.focus();
-    iframe.contentWindow?.print();
-    setTimeout(() => document.body.removeChild(iframe), 2000);
-  }, 600);
+const downloadFromUrl = (fileUrl: string, fileName: string) => {
+  // Build full URL for download
+  let fullUrl = fileUrl;
+  if (!fileUrl.startsWith('http')) {
+    // Resolve relative path: /uploads/... or uploads/...
+    const basePath = API_BASE_URL?.replace(/\/api\/v1\/?$/, '') || '';
+    const cleanPath = fileUrl.startsWith('/') ? fileUrl : `/${fileUrl}`;
+    fullUrl = `${basePath}${cleanPath}`;
+  }
+
+  console.log(">>> Downloading file from:", fullUrl);
+
+  const link = document.createElement("a");
+  link.href = fullUrl;
+  link.download = fileName;
+  link.target = "_blank";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+const downloadDocument = (doc: { name: string; type: string; version: string; uploadDate: string; size: string }) => {
+  const docPdf = new jsPDF();
+  const generated = new Date().toLocaleString("en-IN");
+  
+  // Header
+  docPdf.setFont("helvetica", "bold");
+  docPdf.setFontSize(22);
+  docPdf.setTextColor(37, 99, 235); // #2563EB
+  docPdf.text("InfraPilot", 14, 22);
+  
+  docPdf.setFont("helvetica", "bold");
+  docPdf.setFontSize(10);
+  docPdf.setTextColor(148, 163, 184); // #94a3b8
+  docPdf.text("Project Transparency Portal", 14, 28);
+  
+  // Meta block right aligned (approximate by X=196)
+  docPdf.setFont("helvetica", "bold");
+  docPdf.setFontSize(9);
+  docPdf.setTextColor(37, 99, 235);
+  docPdf.text("OFFICIAL PROJECT DOCUMENT", 196, 22, { align: "right" });
+  
+  docPdf.setFont("helvetica", "normal");
+  docPdf.setTextColor(100, 116, 139);
+  docPdf.text(`Generated: ${generated}`, 196, 28, { align: "right" });
+  
+  // Draw line
+  docPdf.setDrawColor(37, 99, 235);
+  docPdf.setLineWidth(1);
+  docPdf.line(14, 32, 196, 32);
+  
+  // Title
+  docPdf.setFont("helvetica", "bold");
+  docPdf.setFontSize(18);
+  docPdf.setTextColor(15, 23, 42);
+  docPdf.text(doc.name, 14, 46);
+  
+  docPdf.setFontSize(10);
+  docPdf.setTextColor(100, 116, 139);
+  docPdf.text("PROJECT REPOSITORY ARCHIVAL RECORD", 14, 52);
+  
+  // Document Meta Box (Table using jspdf-autotable)
+  autoTable(docPdf, {
+    startY: 60,
+    theme: "plain",
+    styles: { fontSize: 10, cellPadding: 4 },
+    columnStyles: {
+      0: { fontStyle: "bold", textColor: [148, 163, 184] },
+      1: { fontStyle: "bold", textColor: [30, 41, 59] }
+    },
+    body: [
+      ["Document Type", doc.type],
+      ["Version Control", doc.version],
+      ["Upload Date", doc.uploadDate],
+      ["File Size", doc.size],
+      ["Security Hash", "SHA-256: 8a4c...d9f2"]
+    ],
+    margin: { left: 14, right: 14 },
+    tableLineColor: [226, 232, 240],
+    tableLineWidth: 0.5,
+  });
+  
+  const finalY = (docPdf as any).lastAutoTable.finalY + 15;
+  
+  // Content
+  docPdf.setFont("helvetica", "bold");
+  docPdf.setFontSize(11);
+  docPdf.setTextColor(71, 85, 105);
+  docPdf.text("Document Status: Verified & Approved", 14, finalY);
+  
+  docPdf.setFont("helvetica", "normal");
+  const contentText = `This document serves as an official record within the InfraPilot Transparency Portal. It is part of the Project Repository Ledger and has been authenticated for accuracy against the physical records submitted on ${doc.uploadDate}. Access to this document is logged and monitored for project transparency and compliance.`;
+  
+  const splitText = docPdf.splitTextToSize(contentText, 180);
+  docPdf.text(splitText, 14, finalY + 10);
+  
+  // Footer
+  docPdf.setFont("helvetica", "bold");
+  docPdf.setFontSize(9);
+  docPdf.setTextColor(148, 163, 184);
+  docPdf.text("InfraPilot © 2026 — Project Transparency Portal", 14, 285);
+  docPdf.text("SECURE ARCHIVE | Page 1 of 1", 196, 285, { align: "right" });
+  
+  // Save PDF
+  docPdf.save(`${doc.name.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`);
+};
+
+const viewDocument = (doc: { name: string; type: string; version: string; uploadDate: string; size: string }) => {
+  const html = generateDocumentHtml(doc);
+  const newWindow = window.open('', '_blank');
+  if (newWindow) {
+    newWindow.document.write(html);
+    newWindow.document.close();
+  }
 };
 
 const ClientDocumentsPage = () => {
   const [activeTab, setActiveTab] = useState("All");
+  const [apiDrawings, setApiDrawings] = useState<DrawingDoc[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchLatestDrawing = async () => {
+      try {
+        console.log(">>> Fetching latest drawing for project 96...");
+        const data = await drawingService.getLatest(96);
+        console.log(">>> Latest drawing response:", JSON.stringify(data));
+        if (data) {
+          // Handle both single object and array responses
+          const drawings = Array.isArray(data) ? data : [data];
+          setApiDrawings(drawings);
+        }
+      } catch (err: any) {
+        console.error(">>> Failed to fetch latest drawing:", err?.response?.data || err?.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchLatestDrawing();
+  }, []);
+
+  // Convert API drawings to table-compatible format
+  const drawingDocs = apiDrawings.map((d) => ({
+    name: d.drawing_name,
+    type: "Drawing" as const,
+    uploadDate: d.date ? new Date(d.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—",
+    version: d.version || "v1",
+    size: "—",
+    file_url: d.file_url || "",
+    approval_status: d.approval_status,
+  }));
+
+  // Combine API drawings with static docs
+  const allDocs = [...drawingDocs, ...staticDocs.map(d => ({ ...d, approval_status: "" }))];
 
   const filteredDocs = activeTab === "All"
-    ? docs
-    : docs.filter((d) => d.type === activeTab);
+    ? allDocs
+    : allDocs.filter((d) => d.type === activeTab);
 
   return (
     <>
@@ -151,7 +305,12 @@ const ClientDocumentsPage = () => {
           </div>
 
           <div className="overflow-x-auto">
-            {filteredDocs.length === 0 ? (
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-24 text-slate-400">
+                <div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin mb-4"></div>
+                <p className="text-sm font-black uppercase tracking-widest">Loading documents...</p>
+              </div>
+            ) : filteredDocs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-24 text-slate-400">
                 <svg className="w-14 h-14 mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -179,7 +338,9 @@ const ClientDocumentsPage = () => {
                           </div>
                           <div>
                             <p className="text-sm font-black text-slate-800 leading-tight">{doc.name}</p>
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{doc.size}</p>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+                              {doc.size !== "—" ? doc.size : doc.approval_status ? `Status: ${doc.approval_status}` : ""}
+                            </p>
                           </div>
                         </div>
                       </td>
@@ -197,13 +358,28 @@ const ClientDocumentsPage = () => {
                       <td className="p-6 text-center whitespace-nowrap">
                         <p className="text-xs font-bold text-slate-500">{doc.uploadDate}</p>
                       </td>
-                      <td className="p-6 pr-10 text-right">
-                        <button 
-                          onClick={() => downloadDocument(doc)}
-                          className="text-primary hover:text-blue-700 text-[10px] font-black uppercase tracking-widest transition-colors active:scale-95 transform"
-                        >
-                          Download
-                        </button>
+                      <td className="p-6 pr-10">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => viewDocument(doc)}
+                            className="p-2 text-slate-400 hover:text-primary transition-colors active:scale-95 transform"
+                            title="View Document"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => downloadDocument(doc)}
+                            className="p-2 text-slate-400 hover:text-primary transition-colors active:scale-95 transform"
+                            title="Download Document"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

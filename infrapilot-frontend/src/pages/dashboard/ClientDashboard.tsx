@@ -1,9 +1,11 @@
 import Navbar from "../../components/common/Navbar";
 import { useAuth } from "../../context/AuthContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Modal from "../../components/common/Modal";
+import { dashboardService, type ClientDashboardData } from "../../services/dashboardService";
+import toast from "react-hot-toast";
 
 const costData = [
   { name: "Phase 1", budget: 1.2, actual: 1.1 },
@@ -27,6 +29,41 @@ const ClientDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [isBotOpen, setIsBotOpen] = useState(false);
+  const [dashboardData, setDashboardData] = useState<ClientDashboardData | null>(null);
+
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const data = await dashboardService.getClientDashboard(96);
+        setDashboardData(data);
+      } catch (error) {
+        const mockData: ClientDashboardData = {
+          project_id: 96,
+          status: "ONGOING",
+          progress_percent: 0,
+          budget_total: 0,
+          total_expense: 0,
+          budget_used_percent: 0,
+          remaining_budget: 0,
+          milestones_total: 0,
+          milestones_completed: 0,
+          tasks_total: 0,
+          tasks_completed: 0,
+          start_date: "2026-05-21",
+          end_date: "2026-06-01",
+          days_remaining: 10,
+        };
+        setDashboardData(mockData);
+        toast.error("Failed to load dashboard data – using mock data");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
 
   const botMessages = [
     { role: "assistant", text: "Hello! I am your InfraPilot AI assistant. How can I help you today?", time: "Just now" },
@@ -34,7 +71,35 @@ const ClientDashboard = () => {
     { role: "assistant", text: "Phase 3 (Roof Slab & MEP Hookups) is currently 42% complete. Rebar arrangement is the current focus today.", time: "Just now" },
   ];
 
+  const formatDate = (d: string | undefined) => {
+    if (!d) return "N/A";
+    const date = new Date(d);
+    return isNaN(date.getTime()) ? d : date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  };
+
+  if (loading) {
   return (
+    <>
+      <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Dashboard"]} />
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+        <div className="w-12 h-12 border-4 border-slate-200 border-t-primary rounded-full animate-spin" />
+      </div>
+    </>
+  );
+}
+
+if (!dashboardData) {
+  return (
+    <>
+      <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Dashboard"]} />
+      <div className="p-6 bg-slate-50 min-h-screen font-inter">
+        <p className="text-slate-500">Failed to load dashboard data.</p>
+      </div>
+    </>
+  );
+}
+
+return (
     <>
       <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Dashboard"]} />
       <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
@@ -42,31 +107,30 @@ const ClientDashboard = () => {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
           <div>
             <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-[10px] mb-1">Project Command Center</p>
-            <h1 className="text-4xl font-black text-slate-800 tracking-tight">Skyline Tower Project</h1>
+            <h1 className="text-4xl font-black text-slate-800 tracking-tight">SARA CITY</h1>
           </div>
           <div className="flex items-center gap-4">
             <div className="bg-white border border-slate-200 rounded-2xl px-6 py-3 shadow-sm flex items-center gap-3">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <p className="text-sm font-black text-slate-700">Project Status: Healthy</p>
+              <p className="text-sm font-black text-slate-700">Project Status: {dashboardData ? dashboardData.status.charAt(0) + dashboardData.status.slice(1).toLowerCase() : "Loading..."}</p>
             </div>
           </div>
         </div>
         {/* Vital Metrics Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-10">
+        <div className="grid grid-cols-4 gap-6 mb-10">
           {[
-            { label: "Overall Progress", value: "68%", sub: "Phase 3 in progress", icon: "📊", color: "text-blue-600 bg-blue-50" },
-            { label: "Budget / Spent", value: "₹8.2Cr / ₹5.3Cr", sub: "Actual vs Projection", icon: "📉", color: "text-indigo-600 bg-indigo-50" },
-            { label: "Total Paid / Pending", value: "₹4.8Cr / ₹0.5Cr", sub: "Financial Clearance", icon: "💰", color: "text-emerald-600 bg-emerald-50" },
-            { label: "Expected Completion", value: "12 Oct 2026", sub: "Target Timeline", icon: "📅", color: "text-amber-600 bg-amber-50" },
-            { label: "Days Remaining", value: "188 Days", sub: "Operational Runway", icon: "⏳", color: "text-orange-600 bg-orange-50" },
-            { label: "Open Issues", value: "3 Open", sub: "Variation Approvals", icon: "⚠️", color: "text-red-600 bg-red-50" },
-            { label: "Latest Update", value: "Slab Reinforcement", sub: "Today's Execution", icon: "🚀", color: "text-purple-600 bg-purple-50" },
-            { label: "Client Account", value: user?.name || "Mr. Sharma", sub: `${user?.role || "Premium"} Access`, icon: "👤", color: "text-slate-600 bg-slate-50" },
+            { label: "Overall Progress", value: dashboardData ? `${dashboardData.progress_percent}%` : "—", sub: "Progress Percent" },
+            { label: "Budget Used", value: dashboardData ? `${dashboardData.budget_used_percent}%` : "—", sub: "Budget Used Percent" },
+            { label: "Budget / Expense", value: dashboardData ? `₹${dashboardData.budget_total.toLocaleString("en-IN")} / ₹${dashboardData.total_expense.toLocaleString("en-IN")}` : "—", sub: "Total vs Expense" },
+            { label: "Remaining Budget", value: dashboardData ? `₹${dashboardData.remaining_budget.toLocaleString("en-IN")}` : "—", sub: "Remaining" },
+            { label: "Milestones", value: dashboardData ? `${dashboardData.milestones_completed} / ${dashboardData.milestones_total}` : "—", sub: "Completed / Total" },
+            { label: "Tasks", value: dashboardData ? `${dashboardData.tasks_completed} / ${dashboardData.tasks_total}` : "—", sub: "Completed / Total" },
+            { label: "Project Dates", value: dashboardData ? `${formatDate(dashboardData.start_date)}\n${formatDate(dashboardData.end_date)}` : "—", sub: "Start / End Date", smallText: true },
+            { label: "Days Remaining", value: dashboardData ? `${dashboardData.days_remaining}` : "—", sub: "Days Remaining" },
           ].map((card, i) => (
-            <div key={i} className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 transition-all hover:shadow-2xl hover:shadow-blue-500/5 group">
-              <div className={`w-12 h-12 ${card.color} rounded-2xl flex items-center justify-center text-xl mb-6 shadow-inner group-hover:scale-110 transition-transform`}>{card.icon}</div>
+            <div key={i} className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 transition-all hover:shadow-2xl hover:shadow-blue-500/5 group pt-10">
               <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">{card.label}</p>
-              <p className="text-xl font-black text-slate-800 tracking-tight leading-none">{card.value}</p>
+              <p className={`${card.smallText ? "text-sm" : "text-xl"} font-black text-slate-800 tracking-tight leading-snug whitespace-pre-line`}>{card.value}</p>
               <p className="text-[10px] text-slate-400 font-bold mt-2 uppercase tracking-tight">{card.sub}</p>
             </div>
           ))}
@@ -77,19 +141,24 @@ const ClientDashboard = () => {
             <div className="bg-white rounded-[48px] p-12 shadow-sm border border-slate-100 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/50 rounded-full blur-3xl -mr-32 -mt-32" />
               <div className="flex flex-col md:flex-row gap-12 items-center relative z-10">
-                <div className="relative w-56 h-56 flex items-center justify-center">
-                  <svg className="w-full h-full transform -rotate-90">
-                    <circle cx="112" cy="112" r="100" stroke="currentColor" strokeWidth="16" fill="transparent" className="text-slate-100" />
-                    <circle cx="112" cy="112" r="100" stroke="currentColor" strokeWidth="16" fill="transparent" strokeDasharray={628.3} strokeDashoffset={628.3 * (1 - 0.68)} className="text-primary rounded-full transition-all duration-1000 shadow-lg shadow-blue-500/20" />
+                <div className="relative w-40 h-40 flex items-center justify-center shrink-0">
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 224 224">
+                    <circle cx="112" cy="112" r="100" stroke="#e2e8f0" strokeWidth="14" fill="transparent" />
+                    <circle cx="112" cy="112" r="100" stroke="#2563EB" strokeWidth="14" fill="transparent"
+                      strokeDasharray={628.3}
+                      strokeDashoffset={628.3 - (628.3 * (dashboardData?.progress_percent ?? 0)) / 100}
+                      strokeLinecap="round"
+                      className="transition-all duration-1000"
+                    />
                   </svg>
                   <div className="absolute flex flex-col items-center">
-                    <span className="text-5xl font-black text-slate-800 tracking-tighter">68%</span>
-                    <span className="text-[10px] font-black text-slate-400 tracking-[0.3em] uppercase">Project Progress</span>
+                    <span className="text-2xl font-black text-slate-800 tracking-tighter leading-none">{dashboardData ? `${dashboardData.progress_percent}%` : "0%"}</span>
+                    <span className="text-[7px] font-black text-slate-400 tracking-[0.15em] uppercase mt-1">Project Progress</span>
                   </div>
                 </div>
                 <div className="flex-1 space-y-8">
                   <div>
-                    <h2 className="text-2xl font-black text-slate-800 tracking-tight leading-tight">Structural Phase III: <br/>Roof Slab & MEP Hookups</h2>
+                    <h2 className="text-2xl font-black text-slate-800 tracking-tight leading-tight">Structural Phase III: <br />Roof Slab & MEP Hookups</h2>
                     <p className="text-slate-400 text-sm font-medium mt-2 leading-relaxed">Today's Work focus: Finalizing rebar arrangement for the primary roof slab and ensuring plumbing sleeves are accurately placed.</p>
                   </div>
                   <div className="grid grid-cols-2 gap-6">
@@ -124,7 +193,7 @@ const ClientDashboard = () => {
                 </div>
               </div>
               <div className="h-72 w-full">
-              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <BarChart data={costData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} />
@@ -144,7 +213,7 @@ const ClientDashboard = () => {
             <div className="space-y-6 pb-6">
               <div className="flex items-center justify-between px-4">
                 <h2 className="text-xl font-black text-slate-800 tracking-tight">Recent Site Evidence</h2>
-                <button className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline">Explore Full Gallery</button>
+                <button onClick={() => navigate("/client/site-updates/photos")} className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline">Explore Full Gallery</button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
                 {sitePhotos.map(photo => (
@@ -182,7 +251,7 @@ const ClientDashboard = () => {
                 <div className="flex-1">
                   <p className="text-[11px] font-black text-red-600 uppercase tracking-widest italic">Variation Alert</p>
                   <p className="text-sm text-red-500 font-bold mt-2 leading-relaxed">Phase 2 structural budget variation of ₹20L requires signature.</p>
-                  <button className="mt-4 px-6 py-2.5 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-red-700 transition-colors shadow-lg shadow-red-500/20">Sign Now</button>
+                  <button onClick={() => navigate("/client/approvals/pending")} className="mt-4 px-6 py-2.5 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-red-700 transition-colors shadow-lg shadow-red-500/20">Sign Now</button>
                 </div>
               </div>
             </div>
@@ -192,7 +261,7 @@ const ClientDashboard = () => {
               <div className="relative z-10">
                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400 mb-6 italic">Support Access</p>
                 <div className="space-y-4">
-                  <button 
+                  <button
                     onClick={() => navigate("/client/communication/messages")}
                     className="w-full flex items-center justify-between p-5 bg-white/5 border border-white/10 rounded-3xl hover:bg-white/10 transition-all group"
                   >
@@ -202,7 +271,7 @@ const ClientDashboard = () => {
                     </div>
                     <span className="text-xl group-hover:translate-x-1 transition-transform">→</span>
                   </button>
-                  <button 
+                  <button
                     onClick={() => setIsBotOpen(true)}
                     className="w-full flex items-center justify-between p-5 bg-primary rounded-3xl shadow-2xl shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all group"
                   >
@@ -220,9 +289,9 @@ const ClientDashboard = () => {
       </div>
 
       {/* AI Assistant Modal */}
-      <Modal 
-        isOpen={isBotOpen} 
-        onClose={() => setIsBotOpen(false)} 
+      <Modal
+        isOpen={isBotOpen}
+        onClose={() => setIsBotOpen(false)}
         title="InfraPilot AI Assistant"
         maxWidth="max-w-md"
       >
@@ -239,12 +308,12 @@ const ClientDashboard = () => {
           </div>
           <div className="mt-4 pt-4 border-t border-slate-100">
             <div className="flex items-center gap-3 bg-slate-50 rounded-2xl px-4 py-3 border border-slate-200 focus-within:border-primary transition-all">
-              <input 
-                placeholder="Ask anything about your project..." 
+              <input
+                placeholder="Ask anything about your project..."
                 className="flex-1 text-sm outline-none bg-transparent placeholder:text-slate-400 font-bold"
                 onKeyPress={(e) => e.key === "Enter" && setIsBotOpen(false)}
               />
-              <button 
+              <button
                 onClick={() => setIsBotOpen(false)}
                 className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white shadow-xl shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all"
               >
