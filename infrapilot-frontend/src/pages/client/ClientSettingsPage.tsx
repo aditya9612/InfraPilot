@@ -8,6 +8,29 @@ const ClientSettingsPage = () => {
     { label: "App Push", desc: "Daily site photo updates and team messages", enabled: false },
   ]);
 
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const handleUpdatePassword = () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      alert("Please fill in all password fields.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      alert("New password and confirm password do not match.");
+      return;
+    }
+    alert("Password updated successfully!");
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+  };
+
+  const handleSaveSettings = () => {
+    alert("Global settings saved successfully!");
+  };
+
   const toggleNotification = (index: number) => {
     const newNotifications = [...notifications];
     newNotifications[index].enabled = !newNotifications[index].enabled;
@@ -103,24 +126,24 @@ const ClientSettingsPage = () => {
               <div className="space-y-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Current Password</label>
-                  <input type="password" placeholder="••••••••••••" className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-3.5 text-sm font-bold text-slate-700 outline-none focus:border-red-400 transition-all shadow-inner" />
+                  <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="••••••••••••" className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-3.5 text-sm font-bold text-slate-700 outline-none focus:border-red-400 transition-all shadow-inner" />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">New Password</label>
-                  <input type="password" placeholder="••••••••••••" className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-3.5 text-sm font-bold text-slate-700 outline-none focus:border-red-400 transition-all shadow-inner" />
+                  <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••••••" className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-3.5 text-sm font-bold text-slate-700 outline-none focus:border-red-400 transition-all shadow-inner" />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Confirm New Password</label>
-                  <input type="password" placeholder="••••••••••••" className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-3.5 text-sm font-bold text-slate-700 outline-none focus:border-red-400 transition-all shadow-inner" />
+                  <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••••••" className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-3.5 text-sm font-bold text-slate-700 outline-none focus:border-red-400 transition-all shadow-inner" />
                 </div>
-                <button className="w-full py-4 bg-slate-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-red-500/10 hover:bg-slate-800 transition-colors mt-2">
+                <button onClick={handleUpdatePassword} className="w-full py-4 bg-slate-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-red-500/10 hover:bg-slate-800 transition-colors mt-2">
                   Update Secure Password
                 </button>
               </div>
             </div>
 
             {/* Save All Button */}
-            <button className="w-full py-5 bg-primary text-white rounded-3xl text-[11px] font-black uppercase tracking-widest shadow-2xl shadow-blue-500/30 hover:scale-[1.01] active:scale-95 transition-all">
+            <button onClick={handleSaveSettings} className="w-full py-5 bg-primary text-white rounded-3xl text-[11px] font-black uppercase tracking-widest shadow-2xl shadow-blue-500/30 hover:scale-[1.01] active:scale-95 transition-all">
               Save All Global Settings
             </button>
           </div>

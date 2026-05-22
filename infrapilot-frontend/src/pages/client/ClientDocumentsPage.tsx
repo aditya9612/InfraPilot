@@ -12,11 +12,10 @@ const docs = [
 
 const tabs = ["All", "Agreement", "Drawing", "Invoice"];
 
-// ── PDF generator ─────────────────────────────────────────────────────────────
-const downloadDocument = (doc: { name: string; type: string; version: string; uploadDate: string; size: string }) => {
+const generateDocumentHtml = (doc: { name: string; type: string; version: string; uploadDate: string; size: string }) => {
   const generated = new Date().toLocaleString("en-IN");
 
-  const html = `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
@@ -98,7 +97,10 @@ const downloadDocument = (doc: { name: string; type: string; version: string; up
 
 </body>
 </html>`;
+};
 
+const downloadDocument = (doc: { name: string; type: string; version: string; uploadDate: string; size: string }) => {
+  const html = generateDocumentHtml(doc);
   const iframe = document.createElement("iframe");
   iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:none;";
   document.body.appendChild(iframe);
@@ -112,6 +114,15 @@ const downloadDocument = (doc: { name: string; type: string; version: string; up
     iframe.contentWindow?.print();
     setTimeout(() => document.body.removeChild(iframe), 2000);
   }, 600);
+};
+
+const viewDocument = (doc: { name: string; type: string; version: string; uploadDate: string; size: string }) => {
+  const html = generateDocumentHtml(doc);
+  const newWindow = window.open('', '_blank');
+  if (newWindow) {
+    newWindow.document.write(html);
+    newWindow.document.close();
+  }
 };
 
 const ClientDocumentsPage = () => {
@@ -197,13 +208,28 @@ const ClientDocumentsPage = () => {
                       <td className="p-6 text-center whitespace-nowrap">
                         <p className="text-xs font-bold text-slate-500">{doc.uploadDate}</p>
                       </td>
-                      <td className="p-6 pr-10 text-right">
-                        <button 
-                          onClick={() => downloadDocument(doc)}
-                          className="text-primary hover:text-blue-700 text-[10px] font-black uppercase tracking-widest transition-colors active:scale-95 transform"
-                        >
-                          Download
-                        </button>
+                      <td className="p-6 pr-10">
+                        <div className="flex items-center justify-end gap-2">
+                          <button 
+                            onClick={() => viewDocument(doc)}
+                            className="p-2 text-slate-400 hover:text-primary transition-colors active:scale-95 transform"
+                            title="View Document"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                          </button>
+                          <button 
+                            onClick={() => downloadDocument(doc)}
+                            className="p-2 text-slate-400 hover:text-primary transition-colors active:scale-95 transform"
+                            title="Download Document"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

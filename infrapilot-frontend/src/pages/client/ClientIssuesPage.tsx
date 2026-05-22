@@ -1,4 +1,7 @@
+import { useState } from "react";
 import Navbar from "../../components/common/Navbar";
+import Modal from "../../components/common/Modal";
+import { issueService } from "../../services/issueService";
 
 const issues = [
   { 
@@ -43,13 +46,69 @@ const issues = [
   }
 ];
 
-const ClientIssuesPage = () => (
+const ClientIssuesPage = () => {
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [issueTitle, setIssueTitle] = useState("");
+  const [issueCategory, setIssueCategory] = useState("Material");
+  const [issueImpact, setIssueImpact] = useState("High");
+  const [issueDescription, setIssueDescription] = useState("");
+  const [formErrors, setFormErrors] = useState<{ title?: string; description?: string }>({});
+
+  const handleCreateIssue = async () => {
+    // Validate inputs
+    const errors: { title?: string; description?: string } = {};
+    if (!issueTitle.trim()) errors.title = "Issue title is required";
+    if (!issueDescription.trim()) errors.description = "Issue description is required";
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+
+    // Prepare payload matching API schema
+    const payload = {
+      project_id: 96,
+      title: issueTitle,
+      category: issueCategory,
+      description: issueDescription,
+      reported_date: new Date().toISOString().split('T')[0], // YYYY-MM-DD
+      priority: issueImpact,
+    };
+
+    try {
+      const response = await issueService.createIssue(payload);
+      console.log('Issue created:', response);
+      // Show success toast (replace with your toast implementation)
+      alert(`Issue created successfully! ID: ${response.id}`);
+      // Reset form
+      setIsCreateModalOpen(false);
+      setIssueTitle("");
+      setIssueDescription("");
+      setIssueCategory("Material");
+      setIssueImpact("High");
+    } catch (err) {
+      console.error('Error creating issue:', err);
+      alert('Failed to create issue. Please try again.');
+    }
+  };
+
+  return (
   <>
     <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Issues & Risks"]} />
     <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
-      <div className="mb-8">
-        <h1 className="text-3xl font-black text-slate-800 tracking-tight">Issues & Risk Ledger</h1>
-        <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">Real-time tracking of project hurdles, safety flags, and mitigation strategies</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+        <div>
+          <h1 className="text-3xl font-black text-slate-800 tracking-tight">Issues & Risk Ledger</h1>
+          <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">Real-time tracking of project hurdles, safety flags, and mitigation strategies</p>
+        </div>
+        <button 
+          onClick={() => setIsCreateModalOpen(true)}
+          className="flex items-center justify-center gap-2 px-6 py-3 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all w-full md:w-auto text-center shrink-0"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+          </svg>
+          Create Issue
+        </button>
       </div>
 
       {/* Status Counters */}
@@ -120,7 +179,73 @@ const ClientIssuesPage = () => (
         </div>
       </div>
     </div>
+
+    {/* Create Issue Modal */}
+    <Modal
+      isOpen={isCreateModalOpen}
+      onClose={() => setIsCreateModalOpen(false)}
+      title="Create New Issue"
+      maxWidth="max-w-xl"
+    >
+      <div className="space-y-6">
+        <div>
+          <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Issue Title</label>
+          <input 
+            type="text" 
+            value={issueTitle}
+            onChange={(e) => setIssueTitle(e.target.value)}
+            placeholder="E.g., Plumbing material delay" 
+            className={`w-full bg-slate-50 border ${formErrors.title ? 'border-red-400 focus:border-red-500' : 'border-slate-200 focus:border-primary'} rounded-xl px-4 py-3 text-sm font-bold text-slate-700 outline-none transition-colors`} 
+          />
+          {formErrors.title && <p className="text-[10px] font-black text-red-500 mt-1 uppercase tracking-widest">{formErrors.title}</p>}
+        </div>
+        <div className="grid grid-cols-2 gap-6">
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Category</label>
+            <select 
+              value={issueCategory}
+              onChange={(e) => setIssueCategory(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-colors"
+            >
+              <option>Material</option>
+              <option>Safety</option>
+              <option>Delay</option>
+              <option>Financial</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Impact Level</label>
+            <select 
+              value={issueImpact}
+              onChange={(e) => setIssueImpact(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-colors"
+            >
+              <option>High</option>
+              <option>Medium</option>
+              <option>Low</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Description</label>
+          <textarea 
+            placeholder="Describe the issue in detail..." 
+            value={issueDescription}
+            onChange={(e) => setIssueDescription(e.target.value)}
+            rows={4} 
+            className={`w-full bg-slate-50 border ${formErrors.description ? 'border-red-400 focus:border-red-500' : 'border-slate-200 focus:border-primary'} rounded-xl px-4 py-3 text-sm font-medium text-slate-700 outline-none transition-colors resize-none custom-scrollbar`} 
+          />
+          {formErrors.description && <p className="text-[10px] font-black text-red-500 mt-1 uppercase tracking-widest">{formErrors.description}</p>}
+        </div>
+        <div className="pt-4 flex items-center justify-end gap-4 border-t border-slate-100">
+           <button onClick={() => setIsCreateModalOpen(false)} className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
+           <button onClick={handleCreateIssue} className="px-6 py-3 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all">Submit Issue</button>
+        </div>
+      </div>
+    </Modal>
   </>
 );
+};
 
 export default ClientIssuesPage;

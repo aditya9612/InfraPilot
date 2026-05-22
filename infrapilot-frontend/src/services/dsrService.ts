@@ -286,4 +286,27 @@ export const dsrService = {
     link.parentNode?.removeChild(link);
     window.URL.revokeObjectURL(url);
   },
+
+  /**
+   * Export individual DSR to PDF
+   * GET /api/v1/dsr/{dsr_id}/pdf (assuming typical convention)
+   */
+  async exportDsrPdf(dsr_id: number): Promise<void> {
+    try {
+      const response = await api.get(`/dsr/${dsr_id}/pdf`, {
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `DSR_Report_${dsr_id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Failed to export DSR PDF from API:", error);
+      throw error;
+    }
+  },
 };

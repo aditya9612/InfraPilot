@@ -1,4 +1,6 @@
 import Navbar from "../../../components/common/Navbar";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const invoices = [
   { 
@@ -55,33 +57,45 @@ const invoices = [
   },
 ];
 
-// ── CSV generator ─────────────────────────────────────────────────────────────
-const downloadInvoicesCsv = () => {
-  const headers = ["Invoice Number", "Bill", "Date", "Work Description", "Base Amount", "GST", "Total Amount", "Paid", "Pending", "Status", "Due Date"];
-  const rows = invoices.map(inv => [
-    inv.invoiceNumber,
-    inv.bill,
-    inv.date,
-    inv.workDescription,
-    inv.amount,
-    inv.gst,
-    inv.totalAmount,
-    inv.paidAmount,
-    inv.pendingAmount,
-    inv.status,
-    inv.dueDate
-  ]);
+// ── PDF generator ─────────────────────────────────────────────────────────────
+const downloadInvoicesPdf = () => {
+  try {
+    const doc = new jsPDF("landscape");
+    
+    doc.setFontSize(18);
+    doc.text("Project Invoices Report", 14, 22);
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(`Generated on: ${new Date().toLocaleDateString("en-IN")}`, 14, 30);
+    
+    const head = [["Invoice Number", "Bill", "Date", "Work Description", "Base Amount", "GST", "Total Amount", "Paid", "Pending", "Status", "Due Date"]];
+    const body = invoices.map(inv => [
+      inv.invoiceNumber,
+      inv.bill,
+      inv.date,
+      inv.workDescription,
+      inv.amount,
+      inv.gst,
+      inv.totalAmount,
+      inv.paidAmount,
+      inv.pendingAmount,
+      inv.status,
+      inv.dueDate
+    ]);
 
-  const csvContent = [headers, ...rows].map(e => e.map(String).map(s => `"${s.replace(/"/g, '""')}"`).join(",")).join("\n");
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.setAttribute("href", url);
-  link.setAttribute("download", `Project_Invoices_${new Date().toLocaleDateString("en-IN").replace(/\//g, '-')}.csv`);
-  link.style.visibility = "hidden";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+    autoTable(doc, {
+      startY: 35,
+      head: head,
+      body: body,
+      theme: "striped",
+      headStyles: { fillColor: [37, 99, 235] },
+      styles: { fontSize: 8 }
+    });
+
+    doc.save(`Project_Invoices_${new Date().toLocaleDateString("en-IN").replace(/\//g, '-')}.pdf`);
+  } catch (error) {
+    console.error("Failed to generate PDF:", error);
+  }
 };
 
 const ClientInvoicesPage = () => (
@@ -111,10 +125,10 @@ const ClientInvoicesPage = () => (
         <div className="p-8 border-b border-slate-50 flex items-center justify-between">
            <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Awaiting & Recent Invoices</h2>
            <button 
-             onClick={downloadInvoicesCsv}
+             onClick={downloadInvoicesPdf}
              className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline active:scale-95 transition-transform"
            >
-             Download All (CSV)
+             Download All (PDF)
            </button>
         </div>
         <div className="overflow-x-auto">
