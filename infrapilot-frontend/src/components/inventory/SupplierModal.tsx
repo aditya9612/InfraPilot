@@ -5,6 +5,7 @@ interface SupplierModalProps {
   onClose: () => void;
   onSubmit: (data: any) => void;
   initialData?: any | null;
+  apiErrors?: Record<string, string>;
 }
 
 export default function SupplierModal({
@@ -12,6 +13,7 @@ export default function SupplierModal({
   onClose,
   onSubmit,
   initialData,
+  apiErrors,
 }: SupplierModalProps) {
   const [formData, setFormData] = useState({
     name: "",
@@ -46,6 +48,13 @@ export default function SupplierModal({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Merge backend errors into form errors
+  useEffect(() => {
+    if (apiErrors && Object.keys(apiErrors).length > 0) {
+      setErrors(prev => ({ ...prev, ...apiErrors }));
+    }
+  }, [apiErrors]);
+
   if (!isOpen) return null;
 
   const handleChange = (
@@ -57,7 +66,7 @@ export default function SupplierModal({
     } else if (name === "phone") {
       value = value.replace(/[^\d]/g, "").slice(0, 10);
     } else if (name === "gst") {
-      value = value.toUpperCase();
+      value = value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 15);
     }
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
@@ -204,7 +213,7 @@ export default function SupplierModal({
 
               <div className="md:col-span-2 space-y-1">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
-                  GST Number (Optional)
+                  GST Number
                 </label>
                 <input
                   type="text"
@@ -215,8 +224,14 @@ export default function SupplierModal({
                     ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
                     : "border-gray-200 focus:ring-primary/10 focus:border-primary"
                     }`}
-                  placeholder="e.g. 27AAAAA0000A1Z5"
+                  maxLength={15}
+                  placeholder="e.g. 24ABCDE5678K1Z6"
                 />
+                {!errors.gst && (
+                  <p className="text-[10px] text-gray-400 font-medium ml-1 mt-1">
+                    Format: 2 numbers, 5 alphabets, 4 numbers, 1 alphabet, 1 number, 1 alphabet, 1 number
+                  </p>
+                )}
                 {errors.gst && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.gst}</p>}
               </div>
 

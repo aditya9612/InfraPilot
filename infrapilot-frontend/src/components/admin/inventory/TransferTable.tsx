@@ -39,7 +39,9 @@ const TransferTable: React.FC<TransferTableProps> = ({
               <td className="px-6 py-4">
                 <p className="font-bold text-slate-800">TR-{tr.id.toString().padStart(4, '0')}</p>
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                  {new Date(tr.created_at).toLocaleDateString()}
+                  {tr.created_at && !isNaN(new Date(tr.created_at).getTime())
+                    ? new Date(tr.created_at).toLocaleDateString("en-IN")
+                    : "—"}
                 </p>
               </td>
               <td className="px-6 py-4 text-sm font-semibold text-slate-700">
@@ -62,23 +64,27 @@ const TransferTable: React.FC<TransferTableProps> = ({
               </td>
               <td className="px-6 py-4 text-right">
                 <div className="flex items-center justify-end gap-2">
-                  {tr.status === "PENDING" && onStatusUpdate && (
+                  {tr.status === "PENDING" && onStatusUpdate ? (
                     <>
                       <button
                         onClick={() => onStatusUpdate(tr.id, "COMPLETED")}
-                        className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg text-xs font-bold transition-colors"
                         title="Complete Transfer"
                       >
-                        <CheckCircle size={18} />
+                        <CheckCircle size={14} /> Complete
                       </button>
                       <button
                         onClick={() => onStatusUpdate(tr.id, "CANCELLED")}
-                        className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg text-xs font-bold transition-colors"
                         title="Cancel Transfer"
                       >
-                        <XCircle size={18} />
+                        <XCircle size={14} /> Cancel
                       </button>
                     </>
+                  ) : (
+                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+                      {tr.status === "COMPLETED" ? "Completed" : "Cancelled"}
+                    </span>
                   )}
                 </div>
               </td>
