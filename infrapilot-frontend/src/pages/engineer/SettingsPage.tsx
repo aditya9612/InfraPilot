@@ -218,15 +218,15 @@ const SettingsPage = () => {
         setIsSaving(true);
         const toastId = toast.loading("Syncing configuration…");
         try {
-             // 1. Prepare Settings Update
+            // 1. Prepare Settings Update
             const settingsData: UpdateSettingsRequest = {
                 default_project_id: selectedProject,
                 unit: lengthUnit,
                 notifications_enabled: notifications.emailAlerts || notifications.pushNotifications,
-                preferences: { 
-                    ...preferences, 
-                    language, 
-                    timezone, 
+                preferences: {
+                    ...preferences,
+                    language,
+                    timezone,
                     dateFormat,
                     unitSystem,
                     massUnit
@@ -566,27 +566,6 @@ const SettingsPage = () => {
                                         <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
                                     ))}
                                 </select>
-                            </div>
-
-                            <div className="space-y-2 mt-2">
-                                {projects.map(p => (
-                                    <button
-                                        key={p.id}
-                                        onClick={() => setSelectedProject(p.id)}
-                                        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold transition-all ${selectedProject === p.id
-                                            ? "bg-blue-50 border-blue-200 text-blue-700"
-                                            : "bg-slate-50 border-slate-100 text-slate-600 hover:border-slate-200"
-                                            }`}
-                                    >
-                                        <span className="flex items-center gap-2.5">
-                                            <span className={`w-2 h-2 rounded-full ${selectedProject === p.id ? "bg-blue-500" : "bg-slate-300"}`} />
-                                            {p.project_name || p.name}
-                                        </span>
-                                        {selectedProject === p.id && (
-                                            <span className="text-[9px] font-bold text-blue-500 uppercase tracking-widest">Active</span>
-                                        )}
-                                    </button>
-                                ))}
                             </div>
                         </div>
                     </div>
