@@ -478,37 +478,15 @@ const BOQPage = () => {
 
   // Filtered Activities Logic (Frontend filtering for mock/local data)
   const filteredActivities = useMemo(() => {
-    return activitiesData.filter((act) => {
-      const matchesSearch =
-        act.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        act.project.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        act.type.toLowerCase().includes(searchTerm.toLowerCase());
-
-      const matchesStatus =
-        statusFilter === "all" ||
-        act.status.toLowerCase() === statusFilter.toLowerCase();
-
-      // Category mapping if necessary, or direct match
-      const matchesCategory =
-        categoryFilter === "all" ||
-        act.type.toLowerCase().includes(categoryFilter.toLowerCase());
-
-      // Project mapping (using projectMap or direct name match from mock)
-      const projectName =
-        projectFilter === "all" ? null : projectMap[Number(projectFilter)];
-      const matchesProject =
-        projectFilter === "all" || act.project === projectName;
-
-      return (
-        matchesSearch && matchesStatus && matchesCategory && matchesProject
-      );
-    });
+    return filteredBoqData.map(item => ({
+      id: item.id,
+      name: item.item_name,
+      type: item.category,
+      project: projectMap[item.project_id] || "N/A",
+      status: item.is_completed ? "Completed" : (item.status === 'ACTIVE' || item.status === 'Ongoing') ? "Active" : item.status || "In Progress"
+    }));
   }, [
-    activitiesData,
-    searchTerm,
-    statusFilter,
-    categoryFilter,
-    projectFilter,
+    filteredBoqData,
     projectMap,
   ]);
 

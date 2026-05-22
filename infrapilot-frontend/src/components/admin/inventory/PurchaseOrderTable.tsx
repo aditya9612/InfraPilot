@@ -56,13 +56,13 @@ const PurchaseOrderTable: React.FC<PurchaseOrderTableProps> = ({
               </td>
               <td className="px-6 py-4 text-right">
                 <div className="flex items-center justify-end gap-3">
-                  {po.status === "CREATED" && onStatusUpdate && (
+                  {po.status !== "COMPLETED" && po.status !== "CANCELLED" && onStatusUpdate && (
                     <button
                       onClick={() => onStatusUpdate(po.id, "COMPLETED")}
                       className="p-1.5 text-slate-400 hover:text-emerald-500 transition-all duration-200"
                       title="Mark as Completed"
                     >
-                      <CheckCircle className="w-4.5 h-4.5" strokeWidth={1.5} />
+                      <CheckCircle className="w-4 h-4" strokeWidth={1.5} />
                     </button>
                   )}
                   <button
@@ -70,14 +70,14 @@ const PurchaseOrderTable: React.FC<PurchaseOrderTableProps> = ({
                     className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200"
                     title="Edit PO"
                   >
-                    <Edit2 className="w-4.5 h-4.5" strokeWidth={1.5} />
+                    <Edit2 className="w-4 h-4" strokeWidth={1.5} />
                   </button>
                   <button
                     onClick={() => onDelete(po.id)}
                     className="p-1.5 text-slate-400 hover:text-rose-500 transition-all duration-200"
                     title="Delete PO"
                   >
-                    <Trash2 className="w-4.5 h-4.5" strokeWidth={1.5} />
+                    <Trash2 className="w-4 h-4" strokeWidth={1.5} />
                   </button>
                 </div>
               </td>

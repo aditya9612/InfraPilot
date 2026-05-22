@@ -63,11 +63,12 @@ export const materialService = {
    * List all materials for a project
    * GET /api/v1/materials
    */
-  async listMaterials(project_id: number, skip: number = 0, limit: number = 50): Promise<Material[]> {
+  async listMaterials(project_id?: number, skip: number = 0, limit: number = 50): Promise<Material[]> {
     console.log("GET /api/v1/materials Request Params:", { project_id, skip, limit });
-    const response = await api.get<Material[]>("/materials", {
-      params: { project_id, skip, limit }
-    });
+    const params: any = { skip, limit };
+    if (project_id !== undefined) params.project_id = project_id;
+
+    const response = await api.get<Material[]>("/materials", { params });
     const data = response.data;
     const items = Array.isArray(data) ? data : ((data as any).items || (data as any).data || []);
     return items.map(mapMaterial);
@@ -138,7 +139,7 @@ export const materialService = {
    * GET /api/v1/materials/logs
    */
   async getLogs(params: {
-    project_id: number;
+    project_id?: number;
     material_id?: number;
     type?: string;
     limit?: number;
@@ -861,7 +862,7 @@ export const materialService = {
   },
 
   async updateTransferStatus(id: number, status: string): Promise<Transfer> {
-    const response = await api.put<Transfer>(`/materials/transfers/${id}`, { status });
+    const response = await api.put<Transfer>(`/materials/transfers/${id}`, null, { params: { status } });
     return response.data;
   },
 

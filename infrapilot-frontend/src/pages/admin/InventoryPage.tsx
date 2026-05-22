@@ -48,6 +48,7 @@ import SupplierTable from "../../components/admin/inventory/SupplierTable";
 import PurchaseOrderTable from "../../components/admin/inventory/PurchaseOrderTable";
 import TransferTable from "../../components/admin/inventory/TransferTable";
 import InventoryLogsTable from "../../components/admin/inventory/InventoryLogsTable";
+import EditPOModal from "../../components/admin/inventory/EditPOModal";
 
 const projects: Record<number, string> = {
   1: "Site A - City Center Complex",
@@ -63,8 +64,8 @@ const InventoryPage = () => {
 
   const [inventory, setInventory] = useState<Material[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [pos, setPos] = useState<PurchaseOrder[]>(mockPOs);
-  const [transfers, setTransfers] = useState<Transfer[]>(mockTransfers);
+  const [pos, setPos] = useState<PurchaseOrder[]>([]);
+  const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [logs, setLogs] = useState<InventoryLog[]>(mockLogs);
   const [summary, setSummary] = useState<InventorySummary | null>(mockSummary);
   const [isLoading, setIsLoading] = useState(false);
@@ -75,6 +76,10 @@ const InventoryPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
 
   const [isSupplierModalOpen, setSupplierModalOpen] = useState(false);
+  const [supplierApiErrors, setSupplierApiErrors] = useState<Record<string, string>>({});
+  const [supplierPage, setSupplierPage] = useState(1);
+  const [logsPage, setLogsPage] = useState(1);
+  const PAGE_SIZE = 10;;
   const [isTransferModalOpen, setTransferModalOpen] = useState(false);
   const [isMaterialFormOpen, setMaterialFormOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -91,21 +96,33 @@ const InventoryPage = () => {
 
   const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
   const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
+  const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
+  const [isEditPOModalOpen, setIsEditPOModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{
     id: any;
-    type: "material" | "supplier";
+    type: "material" | "supplier" | "po";
   } | null>(null);
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [invData, supData] = await Promise.all([
-        materialService.listMaterials(1),
-        materialService.getSuppliers()
+      const [invData, supData, poData, transferData, summaryData, logsData] = await Promise.all([
+        materialService.listMaterials(), // Fetch all materials across all sites
+        materialService.getSuppliers(),
+        materialService.listPurchaseOrders(),
+        materialService.listTransfers(),
+        materialService.getMaterialSummary(),
+        materialService.getLogs({}) // Fetch logs across all sites
       ]);
       setInventory(invData);
       setSuppliers(supData);
+      setPos(Array.isArray(poData) ? poData : []);
+      // API returns { total, skip, limit, data: [...] }
+      const transferItems = Array.isArray(transferData) ? transferData : (transferData?.data || []);
+      setTransfers(transferItems);
+      setSummary(summaryData);
+      setLogs(Array.isArray(logsData) ? logsData : []);
     } catch (error) {
       console.error("Failed to fetch inventory data, falling back to mock data:", error);
       toast.error("Live Sync Failed: Showing mock data due to server error.");
@@ -143,39 +160,64 @@ const InventoryPage = () => {
 
   // Handlers
   const handleSupplierSubmit = async (data: any) => {
+    setSupplierApiErrors({});
     try {
+      const payload = {
+        supplier_name: data.name,
+        contact_person: data.contactPerson,
+        phone_email: data.phone,
+        gst_number: data.gst,
+        address: data.address,
+      };
       if (selectedSupplier) {
+        const updated = await materialService.updateSupplier(selectedSupplier.id, payload);
         setSuppliers((prev) =>
-          prev.map((s) =>
-            s.id === selectedSupplier.id ? { ...data, id: s.id, contact: data.phone } : s,
-          ),
+          prev.map((s) => s.id === selectedSupplier.id ? { ...s, ...updated } : s)
         );
-        toast.success("Supplier updated successfully! (Mock)");
+        toast.success("Supplier updated successfully!");
       } else {
-        const payload = {
-          ...data,
-          contact: data.phone // Map phone to contact for API
-        };
         const newSupplier = await materialService.createSupplier(payload);
         setSuppliers((prev) => [...prev, newSupplier]);
         toast.success("Supplier added successfully!");
       }
       setSupplierModalOpen(false);
       setSelectedSupplier(null);
-    } catch (error) {
-      toast.error("Failed to save supplier");
+    } catch (error: any) {
+      // Parse backend validation error and highlight the field
+      const detail = error?.response?.data?.detail;
+      if (Array.isArray(detail)) {
+        const fieldErrors: Record<string, string> = {};
+        detail.forEach((err: any) => {
+          const field = err?.loc?.[err.loc.length - 1];
+          if (field === 'gst_number') fieldErrors.gst = err.msg || "Invalid GST number format";
+          else if (field) fieldErrors[field] = err.msg;
+        });
+        if (Object.keys(fieldErrors).length > 0) {
+          setSupplierApiErrors(fieldErrors);
+          return; // Keep modal open to show errors
+        }
+      }
+      toast.error(typeof detail === 'string' ? detail : "Failed to save supplier");
     }
   };
 
   const handleCreateOrUpdateMaterial = async (data: any) => {
     try {
       if (selectedMaterial) {
+        const supplier = suppliers.find(s => s.name === data.supplier_name);
+        // Note: some backend APIs don't take all fields in put request, so we pick the relevant ones
+        const payload = {
+          ...data,
+          supplier_id: supplier?.id || selectedMaterial.supplier_id,
+        };
+        const updatedMaterial = await materialService.updateMaterial(selectedMaterial.id, payload);
+
         setInventory((prev) =>
           prev.map((m) =>
-            m.id === selectedMaterial.id ? { ...m, ...data } : m,
+            m.id === selectedMaterial.id ? { ...m, ...updatedMaterial } : m,
           ),
         );
-        toast.success("Material updated successfully! (Mock)");
+        toast.success("Material updated successfully!");
       } else {
         const supplier = suppliers.find(s => s.name === data.supplier_name);
         const payload: MaterialCreate = {
@@ -207,70 +249,56 @@ const InventoryPage = () => {
     try {
       const material = purchaseActionConfig.material;
       if (data.actionType === "usage") {
+        const payload = {
+          quantity: data.quantity,
+          project_id: data.project_id || material.project_id,
+          issue_type: data.issue_type || "SITE"
+        };
+        const updatedMaterial = await materialService.recordUsage(material.id, payload);
+
         setInventory((prev) =>
           prev.map((m) =>
-            m.id === material.id
-              ? {
-                ...m,
-                quantity_used: m.quantity_used + data.quantity,
-                remaining_stock: m.remaining_stock - data.quantity,
-              }
-              : m,
+            m.id === material.id ? { ...m, ...updatedMaterial } : m
           ),
         );
-        const newLog: InventoryLog = {
-          id: logs.length + 1,
-          material_id: material.id,
-          type: "USAGE",
-          quantity: data.quantity,
-          rate: material.purchase_rate,
-          avg_rate: material.purchase_rate,
-          total_amount: material.purchase_rate * data.quantity,
-          amount_paid: 0,
-          payment_pending: 0,
-          issue_type: data.issue_type || "SITE",
-          project_id: data.project_id || material.project_id,
-          created_at: new Date().toLocaleString(),
-        };
-        setLogs((prev) => [newLog, ...prev]);
-        toast.success("Usage logged successfully! (Mock)");
+        toast.success("Usage logged successfully!");
+
+        // Refresh logs to get the new transaction
+        const newLogs = await materialService.getLogs({});
+        setLogs(Array.isArray(newLogs) ? newLogs : []);
       } else {
+        const payload = {
+          quantity: data.quantity,
+          rate: Number(data.rate) || material.purchase_rate || 0,
+          amount_paid: data.payment,
+          project_id: data.project_id || material.project_id,
+          issue_type: data.issue_type || "PURCHASE"
+        };
+        const updatedMaterial = await materialService.recordPurchase(material.id, payload);
+
         setInventory((prev) =>
           prev.map((m) =>
-            m.id === material.id
-              ? {
-                ...m,
-                quantity_purchased: m.quantity_purchased + data.quantity,
-                remaining_stock: m.remaining_stock + data.quantity,
-                payment_given: m.payment_given + data.payment,
-                payment_pending: m.payment_pending + (m.purchase_rate * data.quantity - data.payment)
-              }
-              : m,
+            m.id === material.id ? { ...m, ...updatedMaterial } : m
           ),
         );
-        const newLog: InventoryLog = {
-          id: logs.length + 1,
-          material_id: material.id,
-          type: "PURCHASE",
-          quantity: data.quantity,
-          rate: material.purchase_rate,
-          avg_rate: material.purchase_rate,
-          total_amount: material.purchase_rate * data.quantity,
-          amount_paid: data.payment,
-          payment_pending: (material.purchase_rate * data.quantity) - data.payment,
-          issue_type: data.issue_type || "SYSTEM",
-          project_id: data.project_id || material.project_id,
-          created_at: new Date().toLocaleString(),
-        };
-        setLogs((prev) => [newLog, ...prev]);
-        toast.success("Purchase added successfully! (Mock)");
+        toast.success("Purchase added successfully!");
+
+        // Refresh logs to get the new transaction
+        const newLogs = await materialService.getLogs({});
+        setLogs(Array.isArray(newLogs) ? newLogs : []);
       }
+
+      // Update summary
+      const newSummary = await materialService.getMaterialSummary();
+      setSummary(newSummary);
+
       setPurchaseActionConfig({
         isOpen: false,
-        type: "purchase",
+        type: "purchase", // Default
         material: null,
       });
     } catch (error) {
+      console.error(error);
       toast.error("Failed to log action");
     }
   };
@@ -288,34 +316,23 @@ const InventoryPage = () => {
         ),
       );
 
-      const newTransfer: Transfer = {
-        id: transfers.length + 1,
-        material: {
-          id: material.id,
-          name: material.material_name,
-        },
-        from_project: {
-          id: data.from_project_id,
-          name: projects[data.from_project_id] || "Unknown Site",
-        },
-        to_project: {
-          id: data.to_project_id,
-          name: projects[data.to_project_id] || "Unknown Site",
-        },
-        quantity: data.quantity,
-        status: "PENDING",
-        created_at: new Date().toISOString().split("T")[0],
-      };
+      const newTransfer = await materialService.createTransfer({
+        material_id: material.id,
+        from_project_id: data.from_project_id,
+        to_project_id: data.to_project_id,
+        quantity: data.quantity
+      });
+
       setTransfers((prev) => [newTransfer, ...prev]);
 
       setTransferModalOpen(false);
-      toast.success("Material transfer recorded! (Mock)");
+      toast.success("Material transfer recorded!");
     } catch (error) {
       toast.error("Failed to transfer material");
     }
   };
 
-  const handleDeleteClick = (id: any, type: "material" | "supplier") => {
+  const handleDeleteClick = (id: any, type: "material" | "supplier" | "po") => {
     setItemToDelete({ id, type });
     setIsDeleteModalOpen(true);
   };
@@ -324,11 +341,17 @@ const InventoryPage = () => {
     if (!itemToDelete) return;
     try {
       if (itemToDelete.type === "material") {
+        await materialService.deleteMaterial(itemToDelete.id);
         setInventory((prev) => prev.filter((m) => m.id !== itemToDelete.id));
-        toast.success("Material deleted successfully! (Mock)");
+        toast.success("Material deleted successfully!");
+      } else if (itemToDelete.type === "po") {
+        await materialService.deletePurchaseOrder(itemToDelete.id);
+        setPos((prev) => prev.filter((p) => p.id !== itemToDelete.id));
+        toast.success("Purchase Order deleted successfully!");
       } else {
+        await materialService.deleteSupplier(itemToDelete.id);
         setSuppliers((prev) => prev.filter((s) => s.id !== itemToDelete.id));
-        toast.success("Supplier deleted successfully! (Mock)");
+        toast.success("Supplier deleted successfully!");
       }
       setIsDeleteModalOpen(false);
       setItemToDelete(null);
@@ -337,14 +360,7 @@ const InventoryPage = () => {
     }
   };
 
-  // Stats Calculation based on exact API schema fields
-  const totalStockUnits = inventory.reduce(
-    (acc, m) => acc + m.remaining_stock,
-    0,
-  );
-  const lowStockCount = inventory.filter((m) => m.remaining_stock < 10).length;
-  const totalValuation = inventory.reduce((acc, m) => acc + m.total_amount, 0);
-  const totalPendingPayments = inventory.reduce((acc, m) => acc + m.payment_pending, 0);
+  // Remove local calculate, rely on API summary for stat cards
 
   return (
     <>
@@ -500,19 +516,19 @@ const InventoryPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <StatCard
                 title="Total Stock Valuation"
-                value={`₹${totalValuation.toLocaleString()}`}
+                value={`₹${(summary?.total_stock_value || 0).toLocaleString()}`}
                 sub="Across all sites"
                 accent="text-emerald-500"
               />
               <StatCard
                 title="Total Materials"
-                value={inventory.length.toLocaleString()}
+                value={(summary?.total_materials || 0).toLocaleString()}
                 sub="Active catalog items"
                 accent="text-primary"
               />
               <StatCard
                 title="Pending Payments"
-                value={`₹${totalPendingPayments.toLocaleString()}`}
+                value={`₹${(summary?.total_pending_payments || 0).toLocaleString()}`}
                 sub="Supplier payables"
                 accent="text-rose-500"
               />
@@ -558,7 +574,7 @@ const InventoryPage = () => {
               </div>
             ) : (
               <>
-                {activeTab === "inventory" && (
+                {(activeTab === "inventory" || activeTab === "overview") && (
                   <InventoryTable
                     materials={filteredInventory}
                     projects={projects}
@@ -583,16 +599,42 @@ const InventoryPage = () => {
                     onDelete={(id) => handleDeleteClick(id, "material")}
                   />
                 )}
-                {activeTab === "suppliers" && (
-                  <SupplierTable
-                    suppliers={filteredSuppliers}
-                    onEdit={(s) => {
-                      setSelectedSupplier(s);
-                      setSupplierModalOpen(true);
-                    }}
-                    onDelete={(id) => handleDeleteClick(id, "supplier")}
-                  />
-                )}
+                {activeTab === "suppliers" && (() => {
+                  const totalPages = Math.max(1, Math.ceil(filteredSuppliers.length / PAGE_SIZE));
+                  const paged = filteredSuppliers.slice((supplierPage - 1) * PAGE_SIZE, supplierPage * PAGE_SIZE);
+                  return (
+                    <>
+                      <SupplierTable
+                        suppliers={paged}
+                        onEdit={(s) => { setSelectedSupplier(s); setSupplierModalOpen(true); }}
+                        onDelete={(id) => handleDeleteClick(id, "supplier")}
+                      />
+                      {totalPages > 1 && (
+                        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100">
+                          <span className="text-xs text-slate-400 font-medium">
+                            Showing {(supplierPage - 1) * PAGE_SIZE + 1}–{Math.min(supplierPage * PAGE_SIZE, filteredSuppliers.length)} of {filteredSuppliers.length}
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => setSupplierPage(p => Math.max(1, p - 1))} disabled={supplierPage === 1}
+                              className="px-3 py-1 text-xs font-bold rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 transition">
+                              ← Prev
+                            </button>
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
+                              <button key={n} onClick={() => setSupplierPage(n)}
+                                className={`px-3 py-1 text-xs font-bold rounded-lg border transition ${n === supplierPage ? 'bg-primary text-white border-primary' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                                  }`}>{n}
+                              </button>
+                            ))}
+                            <button onClick={() => setSupplierPage(p => Math.min(totalPages, p + 1))} disabled={supplierPage === totalPages}
+                              className="px-3 py-1 text-xs font-bold rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 transition">
+                              Next →
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
                 {activeTab === "pos" && (
                   <PurchaseOrderTable
                     pos={pos.filter((p) =>
@@ -600,11 +642,14 @@ const InventoryPage = () => {
                         .toLowerCase()
                         .includes(searchTerm.toLowerCase()),
                     )}
-                    onEdit={() => { }}
-                    onDelete={(id) => { }}
+                    onEdit={(po) => {
+                      setSelectedPO(po);
+                      setIsEditPOModalOpen(true);
+                    }}
+                    onDelete={(id) => handleDeleteClick(id, "po")}
                     onStatusUpdate={async (id, status) => {
                       setPos(prev => prev.map(p => p.id === id ? { ...p, status } : p));
-                      toast.success("PO status updated! (Mock)");
+                      toast.success("PO status updated!");
                     }}
                   />
                 )}
@@ -612,12 +657,48 @@ const InventoryPage = () => {
                   <TransferTable
                     transfers={transfers}
                     onStatusUpdate={async (id, status) => {
-                      setTransfers(prev => prev.map(t => t.id === id ? { ...t, status } : t));
-                      toast.success("Transfer status updated! (Mock)");
+                      try {
+                        await materialService.updateTransferStatus(id, status);
+                        setTransfers(prev => prev.map(t => t.id === id ? { ...t, status } : t));
+                        toast.success(`Transfer marked as ${status.toLowerCase()}!`);
+                      } catch {
+                        toast.error("Failed to update transfer status");
+                      }
                     }}
                   />
                 )}
-                {activeTab === "logs" && <InventoryLogsTable logs={logs} />}
+                {activeTab === "logs" && (() => {
+                  const totalPages = Math.max(1, Math.ceil(logs.length / PAGE_SIZE));
+                  const paged = logs.slice((logsPage - 1) * PAGE_SIZE, logsPage * PAGE_SIZE);
+                  return (
+                    <>
+                      <InventoryLogsTable logs={paged} />
+                      {totalPages > 1 && (
+                        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100">
+                          <span className="text-xs text-slate-400 font-medium">
+                            Showing {(logsPage - 1) * PAGE_SIZE + 1}–{Math.min(logsPage * PAGE_SIZE, logs.length)} of {logs.length}
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => setLogsPage(p => Math.max(1, p - 1))} disabled={logsPage === 1}
+                              className="px-3 py-1 text-xs font-bold rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 transition">
+                              ← Prev
+                            </button>
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
+                              <button key={n} onClick={() => setLogsPage(n)}
+                                className={`px-3 py-1 text-xs font-bold rounded-lg border transition ${n === logsPage ? 'bg-primary text-white border-primary' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                                  }`}>{n}
+                              </button>
+                            ))}
+                            <button onClick={() => setLogsPage(p => Math.min(totalPages, p + 1))} disabled={logsPage === totalPages}
+                              className="px-3 py-1 text-xs font-bold rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 transition">
+                              Next →
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </>
             )}
           </div>
@@ -629,9 +710,11 @@ const InventoryPage = () => {
         onClose={() => {
           setSupplierModalOpen(false);
           setSelectedSupplier(null);
+          setSupplierApiErrors({});
         }}
         onSubmit={handleSupplierSubmit}
         initialData={selectedSupplier}
+        apiErrors={supplierApiErrors}
       />
       <AddMaterialModal
         isOpen={isMaterialFormOpen}
@@ -673,6 +756,20 @@ const InventoryPage = () => {
         }))}
       />
 
+      <EditPOModal
+        isOpen={isEditPOModalOpen}
+        po={selectedPO}
+        onClose={() => {
+          setIsEditPOModalOpen(false);
+          setSelectedPO(null);
+        }}
+        onSubmit={async (id, data) => {
+          const updated = await materialService.updatePurchaseOrder(id, data);
+          setPos(prev => prev.map(p => p.id === id ? { ...p, ...updated } : p));
+          toast.success("Purchase Order updated successfully!");
+        }}
+      />
+
       <ConfirmModal
         isOpen={isDeleteModalOpen}
         onClose={() => {
@@ -680,8 +777,8 @@ const InventoryPage = () => {
           setItemToDelete(null);
         }}
         onConfirm={handleDeleteConfirm}
-        title={`Delete ${itemToDelete?.type === "material" ? "Material" : "Supplier"}`}
-        message={`Are you sure you want to delete this ${itemToDelete?.type}? This action will permanently remove the record from the database.`}
+        title={`Delete ${itemToDelete?.type === "material" ? "Material" : itemToDelete?.type === "po" ? "Purchase Order" : "Supplier"}`}
+        message={`Are you sure you want to delete this ${itemToDelete?.type === "po" ? "purchase order" : itemToDelete?.type}? This action will permanently remove the record.`}
         confirmText="Delete"
         type="danger"
       />
