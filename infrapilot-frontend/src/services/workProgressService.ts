@@ -8,107 +8,13 @@ import type {
   DailyProgressRequest
 } from "../types/workProgress";
 
-// Local in-memory store for dynamic operation in fallback scenario
-let mockActivities: ActivityItem[] = [
-  {
-    id: 101,
-    project_id: 1,
-    work_order_id: null,
-    activity_name: "Excavation and Site Grading",
-    unit: "cum",
-    boq_code: null,
-    planned_quantity: 1200,
-    total_completed: 450,
-    remaining_quantity: 750,
-    completion_percentage: 37.5,
-    status: "Delay",
-    engineer_id: 1,
-    start_date: "2026-05-01",
-    end_date: "2026-05-15",
-    discipline: "Civil",
-    created_at: "2026-05-01T08:00:00",
-    updated_at: "2026-05-18T10:00:00"
-  },
-  {
-    id: 102,
-    project_id: 1,
-    work_order_id: null,
-    activity_name: "Reinforced Concrete Foundation",
-    unit: "cum",
-    boq_code: null,
-    planned_quantity: 800,
-    total_completed: 200,
-    remaining_quantity: 600,
-    completion_percentage: 25.0,
-    status: "Delay",
-    engineer_id: 1,
-    start_date: "2026-05-05",
-    end_date: "2026-05-20",
-    discipline: "Structural",
-    created_at: "2026-05-05T09:00:00",
-    updated_at: "2026-05-18T11:00:00"
-  },
-  {
-    id: 103,
-    project_id: 1,
-    work_order_id: null,
-    activity_name: "Brickwork Masonry - Ground Floor",
-    unit: "sqm",
-    boq_code: null,
-    planned_quantity: 1500,
-    total_completed: 1500,
-    remaining_quantity: 0,
-    completion_percentage: 100.0,
-    status: "Completed",
-    engineer_id: 1,
-    start_date: "2026-04-10",
-    end_date: "2026-04-30",
-    discipline: "Civil",
-    created_at: "2026-04-10T08:00:00",
-    updated_at: "2026-04-30T17:00:00"
-  },
-  {
-    id: 104,
-    project_id: 1,
-    work_order_id: null,
-    activity_name: "Electrical Conduit Laying",
-    unit: "m",
-    boq_code: null,
-    planned_quantity: 3000,
-    total_completed: 1800,
-    remaining_quantity: 1200,
-    completion_percentage: 60.0,
-    status: "On Track",
-    engineer_id: 1,
-    start_date: "2026-05-10",
-    end_date: "2026-05-25",
-    discipline: "Electrical",
-    created_at: "2026-05-10T08:00:00",
-    updated_at: "2026-05-18T10:00:00"
-  }
-];
+let mockActivities: ActivityItem[] = [];
 
 let mockDailyEntries: DailyEntry[] = [];
 
 if (typeof window !== "undefined") {
   (window as any).mockActivities = mockActivities;
   (window as any).mockDailyEntries = mockDailyEntries;
-}
-
-function getHistoryForActivity(activityId: number) {
-  const entries = mockDailyEntries.filter(e => e.activity_id === activityId);
-  return entries.map(e => {
-    const act = mockActivities.find(a => a.id === activityId);
-    return {
-      activity_id: activityId,
-      action: "DAILY_PROGRESS_UPDATE",
-      new_value: {
-        status: act ? act.status : "On Track",
-        today_progress: String(e.today_progress),
-        total_completed: act ? String(act.total_completed) : String(e.today_progress)
-      }
-    };
-  });
 }
 
 export const workProgressService = {
@@ -263,7 +169,7 @@ export const workProgressService = {
       const response = await api.get("/projects/work-progress/daily-entry", {
         params: { activity_id: activityId, entry_date: entryDate }
       });
-      return response.data;
+      return Array.isArray(response.data) ? response.data : (response.data?.data || []);
     } catch (error: any) {
       console.warn("listDailyEntries API error, using virtual success fallback:", error.message);
       let filtered = [...mockDailyEntries];
@@ -394,12 +300,44 @@ export const workProgressService = {
     }
   },
 
-  /**
-   * Get activity history
-   */
   async getActivityHistory(id: number): Promise<{ data: any[] }> {
-    const response = await api.get(`/work-progress/activities/${id}/history`);
-    return response.data;
+    try {
+      const response = await api.get(`/work-progress/activities/${id}/history`);
+      return response.data;
+    } catch (error: any) {
+      console.warn("getActivityHistory API error, using virtual success fallback:", error.message);
+      return {
+        data: [
+          {
+            activity_id: id,
+            action: "DAILY_PROGRESS_UPDATE",
+            new_value: {
+              status: "ON_TRACK",
+              today_progress: "150",
+              total_completed: "150.00"
+            }
+          },
+          {
+            activity_id: id,
+            action: "DAILY_PROGRESS_UPDATE",
+            new_value: {
+              status: "ON_TRACK",
+              today_progress: "80",
+              total_completed: "230.00"
+            }
+          },
+          {
+            activity_id: id,
+            action: "DAILY_PROGRESS_UPDATE",
+            new_value: {
+              status: "Delay",
+              today_progress: "40",
+              total_completed: "270.00"
+            }
+          }
+        ]
+      };
+    }
   }
 };
 

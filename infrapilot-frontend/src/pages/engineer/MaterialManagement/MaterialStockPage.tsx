@@ -266,7 +266,7 @@ const MaterialStockPage = () => {
   return (
     <>
       <Navbar title="Inventory Intelligence" breadcrumb={["Engineer", "Logistics", "Strategic Stock"]} />
-      <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
+      <PageTransition className="p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter flex flex-col pb-8">
         {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
           <div className="font-inter">
@@ -331,7 +331,7 @@ const MaterialStockPage = () => {
         </div>
 
         {/* â”€â”€ Filter Bar & Card Grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter">
           <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
             <div className="relative flex-1 max-w-md font-inter">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-inter">
@@ -356,7 +356,7 @@ const MaterialStockPage = () => {
             )}
           </div>
 
-          <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+          <div className="overflow-auto max-h-[400px] scrollbar-thin scrollbar-thumb-slate-200 font-inter">
             <table className="w-full text-left font-inter min-w-[1000px]">
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
@@ -422,7 +422,7 @@ const MaterialStockPage = () => {
               <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest font-inter">Strategic Financial Matrix</h3>
             </div>
           </div>
-          <div className="overflow-x-auto font-inter scrollbar-thin scrollbar-thumb-slate-200">
+          <div className="overflow-auto max-h-[400px] font-inter scrollbar-thin scrollbar-thumb-slate-200">
             <table className="w-full text-left font-inter min-w-[1000px]">
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">

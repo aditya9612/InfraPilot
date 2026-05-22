@@ -12,20 +12,20 @@ interface EditDailyEntryModalProps {
 const EditDailyEntryModal = ({ isOpen, onClose, onSubmit, entry }: EditDailyEntryModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
-    today_progress: 0,
+    today_progress: "" as any,
     remarks: ""
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (entry) {
+    if (isOpen && entry) {
       setFormData({
-        today_progress: entry.today_progress,
+        today_progress: entry.today_progress === 0 ? "" : entry.today_progress,
         remarks: entry.remarks
       });
     }
-  }, [entry]);
+  }, [isOpen, entry]);
 
   const validate = () => {
     const errs: Record<string, string> = {};
@@ -86,40 +86,60 @@ const EditDailyEntryModal = ({ isOpen, onClose, onSubmit, entry }: EditDailyEntr
         form="edit-daily-entry-form"
         type="submit"
         disabled={isSubmitting}
-        className={`px-8 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center gap-2 ${isSubmitting ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}
+        className={`px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 ${isSubmitting ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}
       >
-        {isSubmitting ? "Syncing..." : "Update Field Record"}
+        {isSubmitting ? "Syncing..." : "Update Daily Entry"}
       </button>
     </>
   );
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Edit Field Record" footer={modalFooter} maxWidth="max-w-lg">
-      <form id="edit-daily-entry-form" onSubmit={handleSubmit} className="space-y-6">
+    <Modal isOpen={isOpen} onClose={onClose} title="Update Daily Entry" footer={modalFooter} maxWidth="max-w-2xl">
+      <form id="edit-daily-entry-form" onSubmit={handleSubmit} className="space-y-6 p-2 font-inter">
+        {/* Basic Information */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
           <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
-            Execution Logistics
+            Basic Information
           </h3>
-          <div className="space-y-4">
-            <div>
-              <label className={labelClasses}>Quantity Executed*</label>
-              <input
-                required type="number" name="today_progress" min="0" step="any" 
-                className={inputClasses(errors.today_progress)}
-                value={formData.today_progress} onChange={handleChange}
-              />
-              {errors.today_progress && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.today_progress}</p>}
-            </div>
-            <div>
-              <label className={labelClasses}>Operational Narrative*</label>
-              <textarea
-                name="remarks" rows={3} className={`${inputClasses(errors.remarks)} resize-none font-inter`}
-                placeholder="Enter remarks..."
-                value={formData.remarks} onChange={handleChange}
-              />
-              {errors.remarks && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.remarks}</p>}
-            </div>
+          <div>
+            <label className={labelClasses}>Entry Date</label>
+            <input
+              type="date"
+              disabled
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-400 outline-none transition-all font-inter"
+              value={entry?.entry_date || ""}
+            />
           </div>
+        </div>
+
+        {/* Execution Details */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
+            Execution Details
+          </h3>
+          <div>
+            <label className={labelClasses}>Today Progress <span className="text-rose-500">*</span></label>
+            <input
+              required type="number" name="today_progress" min="0" step="any" placeholder="Enter quantity"
+              className={inputClasses(errors.today_progress)}
+              value={formData.today_progress} onChange={handleChange}
+            />
+            {errors.today_progress && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.today_progress}</p>}
+          </div>
+        </div>
+
+        {/* Additional Information */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
+            Additional Information
+          </h3>
+          <label className={labelClasses}>Remarks <span className="text-rose-500">*</span></label>
+          <textarea
+            name="remarks" rows={3} className={`${inputClasses(errors.remarks)} resize-none font-inter`}
+            placeholder="Describe site conditions or progress..."
+            value={formData.remarks} onChange={handleChange}
+          />
+          {errors.remarks && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.remarks}</p>}
         </div>
       </form>
     </Modal>

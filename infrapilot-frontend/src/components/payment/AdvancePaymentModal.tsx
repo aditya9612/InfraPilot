@@ -19,8 +19,9 @@ const AdvancePaymentModal: React.FC<Props> = ({ isOpen, onClose, labour, onSucce
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // SRS: Max 50% of monthly salary
-    const monthlySalary = (parseFloat(labour?.daily_wage_rate || '0') * 26);
+    // SRS: Max 50% of monthly salary (26 working days)
+    const dailyWage = parseFloat(labour?.daily_wage_rate || '0');
+    const monthlySalary = dailyWage * 26;
     const maxAllowed = monthlySalary * 0.5;
 
     useEffect(() => {
@@ -93,8 +94,8 @@ const AdvancePaymentModal: React.FC<Props> = ({ isOpen, onClose, labour, onSucce
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Monthly Salary</p>
-                        <p className="text-lg font-black text-slate-800 italic-none">₹{monthlySalary.toLocaleString()}</p>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Daily Basic Amount</p>
+                        <p className="text-lg font-black text-slate-800 italic-none">₹{dailyWage.toLocaleString()}</p>
                     </div>
                     <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100">
                         <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">Max Allowed</p>

@@ -272,9 +272,17 @@ const ChecklistsPage = () => {
             }
         });
 
+        let globalDone = 0;
+        checklists.forEach(c => {
+            const latestLog = latestLogsMap.get(c.id);
+            if (latestLog && latestLog.status === "Done") {
+                globalDone++;
+            }
+        });
+
         const pending = total - done;
-        const compliance = Math.round((done / (total || 1)) * 100);
-        const globalHealth = compliance > 0 ? compliance : 0;
+        const compliance = total > 0 ? Math.round((done / total) * 100) : 0;
+        const globalHealth = checklists.length > 0 ? Math.round((globalDone / checklists.length) * 100) : 0;
 
         return {
             total,
@@ -282,7 +290,9 @@ const ChecklistsPage = () => {
             done,
             pending,
             compliance,
-            globalHealth
+            globalHealth,
+            globalDone,
+            globalTotal: checklists.length
         };
     }, [checklists, logs, activeTab]);
 
@@ -327,7 +337,7 @@ const ChecklistsPage = () => {
         <>
             <Navbar title="Checklists" breadcrumb={["Engineer", "Execution", "Checklist Vault"]} />
 
-            <PageTransition className="p-4 md:p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
+            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter flex flex-col">
                 {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 font-inter">
                     <div className="font-inter">
@@ -356,21 +366,21 @@ const ChecklistsPage = () => {
                       <StatCard
                           title="Compliance"
                           value={`${stats.compliance}%`}
-                          sub="Audit Success"
+                          sub={`${stats.done} / ${stats.total} Passed`}
                           accent="text-emerald-500" />
                     </div>
                     <div onClick={() => setActiveStatFilter("Pending")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Pending" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                       <StatCard
                           title="Pending Audits"
                           value={stats.pending.toString()}
-                          sub="Attention Required"
+                          sub={`${stats.pending} Need Action`}
                           accent="text-rose-500" />
                     </div>
                     <div className="cursor-default group transition-all rounded-xl hover:scale-[1.01]">
                       <StatCard
                           title="Global Health"
                           value={`${stats.globalHealth}%`}
-                          sub="Process Momentum"
+                          sub={`${stats.globalDone} / ${stats.globalTotal} Overall`}
                           accent="text-blue-500" />
                     </div>
                 </div>

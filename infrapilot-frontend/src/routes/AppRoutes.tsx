@@ -75,6 +75,7 @@ import AttendancePage from "../pages/engineer/LabourManagement/AttendancePage";
 import PaymentPage from "../pages/engineer/LabourManagement/PaymentPage";
 import PayrollReportPage from "../pages/engineer/LabourManagement/PayrollReportPage";
 import LaborDetailsPage from "../pages/engineer/LabourManagement/LaborDetailsPage";
+import LabourTaskDetailPage from "../pages/engineer/LabourManagement/LabourTaskDetailPage";
 import MaterialReceiptPage from "../pages/engineer/MaterialManagement/MaterialReceiptPage";
 import MaterialConsumptionPage from "../pages/engineer/MaterialManagement/MaterialConsumptionPage";
 import MaterialStockPage from "../pages/engineer/MaterialManagement/MaterialStockPage";
@@ -88,6 +89,7 @@ import DrawingsDocumentsPage from "../pages/engineer/Drawings/DrawingsDocumentsP
 import ChecklistsPage from "../pages/engineer/Checklists/ChecklistsPage";
 import MaterialRequestPage from "../pages/engineer/Approvals/MaterialRequestPage";
 import WorkApprovalPage from "../pages/engineer/Approvals/WorkApprovalPage";
+import TaskManagementPage from "../pages/engineer/TaskManagement/TaskManagementPage";
 
 
 
@@ -257,6 +259,7 @@ function AppRoutes() {
               <Route path="approvals/expense" element={<ManagerApprovalsPage />} />
               <Route path="boq" element={<BOQPage />} />
               <Route path="labour" element={<LaborDetailsPage />} />
+              <Route path="labour/:id" element={<LabourTaskDetailPage />} />
               <Route path="resources/orchestrator" element={<ResourceOrchestratorPage />} />
               <Route path="compliance/qc" element={<QCGovernancePage />} />
               <Route path="compliance/safety" element={<SafetyChecklistPage />} />
@@ -368,9 +371,11 @@ function AppRoutes() {
               <Route path="/engineer/progress/activities" element={<ActivityListPage />} />
               <Route path="/engineer/progress/entry" element={<DailyProgressEntryPage />} />
               <Route path="/engineer/labor/list" element={<LaborDetailsPage />} />
+              <Route path="/engineer/labor/:id" element={<LabourTaskDetailPage />} />
               <Route path="/engineer/labor/attendance" element={<AttendancePage />} />
               <Route path="/engineer/labor/payments" element={<PaymentPage />} />
               <Route path="/engineer/labor/reports" element={<PayrollReportPage />} />
+              <Route path="/engineer/tasks" element={<TaskManagementPage />} />
               <Route path="/engineer/material/receipt" element={<MaterialReceiptPage />} />
               <Route path="/engineer/material/consumption" element={<MaterialConsumptionPage />} />
               <Route path="/engineer/material/stock" element={<MaterialStockPage />} />

@@ -391,7 +391,7 @@ const QCInspectionPage = () => {
         <>
             <Navbar title="QC Inspection" breadcrumb={["Engineer", "Quality Control", "Inspection Vault"]} />
 
-            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
+            <PageTransition className="p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter flex flex-col pb-8">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Quality Control Ledger</h1>

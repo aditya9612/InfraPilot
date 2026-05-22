@@ -252,6 +252,11 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       ],
     },
     {
+      label: "Task Management",
+      path: "/engineer/tasks",
+      icon: "check-square",
+    },
+    {
       label: "Material Management",
       path: "/engineer/material/receipt",
       icon: "package",

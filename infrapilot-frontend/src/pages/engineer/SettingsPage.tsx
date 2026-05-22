@@ -321,7 +321,7 @@ const SettingsPage = () => {
                 breadcrumb={["InfraPilot", "Engineer", "Settings"]}
             />
 
-            <PageTransition className="p-4 md:p-8 bg-slate-50 h-[calc(100vh-64px)] overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+            <PageTransition className="p-4 md:p-8 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter">
 
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6 md:mb-10">

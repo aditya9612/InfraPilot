@@ -88,14 +88,23 @@ const MaterialRequestPage = () => {
     const fetchRequests = useCallback(async () => {
         setIsLoading(true);
         try {
-            const serverData = await siteRequestService.getRequests(selectedProjectFilter);
-            setRequestData(serverData);
+            let activeProjectIds = selectedProjectFilter !== "All" 
+                ? [selectedProjectFilter] 
+                : projects.map((p: any) => p.id || p.project_id);
+                
+            if (activeProjectIds.length === 0) activeProjectIds = [projectId || 92];
+
+            const promises = activeProjectIds.map(id => siteRequestService.getRequests(id as number).catch(() => []));
+            const results = await Promise.all(promises);
+            const combinedData = results.flat();
+
+            setRequestData(combinedData);
         } catch (error) {
             toast.error("Failed to fetch requisition list.");
         } finally {
             setIsLoading(false);
         }
-    }, [selectedProjectFilter]);
+    }, [selectedProjectFilter, projects, projectId]);
 
     useEffect(() => {
         fetchRequests();
@@ -160,9 +169,6 @@ const MaterialRequestPage = () => {
             setRequestData(prev => prev.map(req =>
                 req.id === id ? { ...req, status: "Approved" as const } : req
             ));
-
-            // Refetch the list from GET API
-            await fetchRequests();
         } catch (error) {
             toast.error("Failed to approve requisition", { id: toastId });
         }
@@ -178,9 +184,6 @@ const MaterialRequestPage = () => {
             setRequestData(prev => prev.map(req =>
                 req.id === id ? { ...req, status: "Rejected" as const } : req
             ));
-
-            // Refetch the list from GET API
-            await fetchRequests();
         } catch (error) {
             toast.error("Failed to reject requisition", { id: toastId });
         }
@@ -246,7 +249,7 @@ const MaterialRequestPage = () => {
         <>
             <Navbar title="Material Requests" breadcrumb={["Engineer", "Approvals", "Material Requisition"]} />
 
-            <PageTransition className="p-4 md:p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
+            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter flex flex-col">
                 {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 font-inter">
                     <div className="font-inter">
@@ -448,11 +451,8 @@ const MaterialRequestPage = () => {
 
                     {/* â”€â”€ Pagination Controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                     {!isLoading && filteredRequests.length > 0 && (
-                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">
-                                Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredRequests.length)} of {filteredRequests.length} entries
-                            </span>
-                            <div className="flex items-center gap-2 font-inter">
+                        <div className="px-4 md:px-6 py-4 border-t border-slate-50 flex flex-col sm:flex-row items-center justify-between sm:justify-end gap-4 bg-white sticky left-0 font-inter">
+                            <div className="flex items-center flex-wrap gap-2 font-inter justify-center">
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                                     disabled={currentPage === 1}
@@ -461,12 +461,24 @@ const MaterialRequestPage = () => {
                                 >
                                     <ChevronLeft className="w-4 h-4" />
                                 </button>
-                                <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                                    Page {currentPage} of {totalPages}
-                                </div>
+                                
+                                {Array.from({ length: Math.min(totalPages, 20) }, (_, i) => i + 1).map(page => (
+                                    <button
+                                        key={page}
+                                        onClick={() => setCurrentPage(page)}
+                                        className={`w-10 h-10 rounded-xl text-sm font-bold transition-all shadow-sm flex items-center justify-center font-inter ${
+                                            currentPage === page 
+                                                ? 'bg-primary text-white border-transparent' 
+                                                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-primary'
+                                        }`}
+                                    >
+                                        {page}
+                                    </button>
+                                ))}
+
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                                    disabled={currentPage >= totalPages}
+                                    disabled={currentPage >= totalPages || totalPages === 0}
                                     className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
                                     title="Next Page"
                                 >

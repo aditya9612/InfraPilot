@@ -22,14 +22,14 @@ const PaySalaryModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess })
         payment_method: 'UPI' as PaymentMethod
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [daysPresent, setDaysPresent] = useState<number | ''>('');
+    const [overtimeAmount, setOvertimeAmount] = useState<number | ''>('');
+    const [advanceDeduction, setAdvanceDeduction] = useState<number | ''>('');
 
-    // Mock calculations as per SRS: (Daily Wage × Days) + Overtime − Advance
-    const daysPresent = 24;
+    // Dynamic calculations as per SRS:
     const dailyWage = parseFloat(labour?.daily_wage_rate || '0');
-    const baseSalary = daysPresent * dailyWage;
-    const overtimeAmount = 1500;
-    const advanceDeduction = 2000;
-    const finalSalary = baseSalary + overtimeAmount - advanceDeduction;
+    const baseSalary = ((Number(daysPresent) || 0) * dailyWage);
+    const finalSalary = baseSalary + (Number(overtimeAmount) || 0) - (Number(advanceDeduction) || 0);
 
     useEffect(() => {
         if (isOpen && labour) {
@@ -94,6 +94,42 @@ const PaySalaryModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess })
             }
         >
             <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 col-span-2">
+                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Days Worked in Cycle</label>
+                        <input 
+                            type="number" 
+                            min="0"
+                            max="31"
+                            value={daysPresent}
+                            onChange={(e) => setDaysPresent(e.target.value === '' ? '' : parseInt(e.target.value))}
+                            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary transition-all font-bold"
+                        />
+                    </div>
+                    <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100">
+                        <label className="block text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1.5 ml-1">Overtime Bonus</label>
+                        <input 
+                            type="number" 
+                            min="0"
+                            value={overtimeAmount}
+                            onChange={(e) => setOvertimeAmount(e.target.value === '' ? '' : parseInt(e.target.value))}
+                            className="w-full px-4 py-3 bg-white border border-emerald-200 rounded-xl text-sm outline-none focus:border-emerald-500 transition-all font-bold text-emerald-700 placeholder-emerald-300"
+                            placeholder="₹0"
+                        />
+                    </div>
+                    <div className="bg-rose-50/50 p-4 rounded-2xl border border-rose-100">
+                        <label className="block text-[10px] font-black text-rose-600 uppercase tracking-widest mb-1.5 ml-1">Advance Recovery</label>
+                        <input 
+                            type="number" 
+                            min="0"
+                            value={advanceDeduction}
+                            onChange={(e) => setAdvanceDeduction(e.target.value === '' ? '' : parseInt(e.target.value))}
+                            className="w-full px-4 py-3 bg-white border border-rose-200 rounded-xl text-sm outline-none focus:border-rose-500 transition-all font-bold text-rose-700 placeholder-rose-300"
+                            placeholder="₹0"
+                        />
+                    </div>
+                </div>
+
                 {/* Breakdown Card */}
                 <div className="bg-slate-900 rounded-[2rem] p-6 text-white shadow-2xl relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl" />
@@ -106,14 +142,16 @@ const PaySalaryModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess })
                         </div>
                         
                         <div className="grid grid-cols-2 gap-y-3">
-                            <p className="text-sm font-bold text-white/60">Base ({daysPresent} Days)</p>
+                            <p className="text-sm font-bold text-white/60">
+                                Base ({daysPresent || 0} Days)
+                            </p>
                             <p className="text-sm font-black text-right">₹{baseSalary.toLocaleString()}</p>
                             
                             <p className="text-sm font-bold text-white/60">Overtime Bonus</p>
-                            <p className="text-sm font-black text-right text-emerald-400">+ ₹{overtimeAmount.toLocaleString()}</p>
+                            <p className="text-sm font-black text-right text-emerald-400">+ ₹{(Number(overtimeAmount) || 0).toLocaleString()}</p>
                             
                             <p className="text-sm font-bold text-white/60">Advance Recovery</p>
-                            <p className="text-sm font-black text-right text-rose-400">- ₹{advanceDeduction.toLocaleString()}</p>
+                            <p className="text-sm font-black text-right text-rose-400">- ₹{(Number(advanceDeduction) || 0).toLocaleString()}</p>
                         </div>
 
                         <div className="pt-4 border-t border-white/10 flex justify-between items-end">

@@ -13,6 +13,7 @@ import {
   ChevronRight
 } from "lucide-react";
 import { materialService, type InventoryItem, type MaterialLog, type IssueType } from "../../../services/materialService";
+import { projectService } from "../../../services/projectService";
 
 const ISSUE_TYPES = [
   "SYSTEM",
@@ -31,6 +32,7 @@ const MaterialConsumptionPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [projectId, setProjectId] = useState<number | null>(null);
+  const [projectsList, setProjectsList] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
 
   // Pagination States
@@ -106,6 +108,19 @@ const MaterialConsumptionPage = () => {
     fetchData();
   }, [fetchData]);
 
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const res = await projectService.getProjects(100, 0);
+        const list = Array.isArray(res) ? res : (res.items || res.data || []);
+        setProjectsList(list);
+      } catch (err) {
+        console.error("Failed to fetch projects", err);
+      }
+    };
+    fetchProjects();
+  }, []);
+
   const handleUsageSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedInventory) return;
@@ -167,7 +182,7 @@ const MaterialConsumptionPage = () => {
   return (
     <>
       <Navbar title="Material Consumption" breadcrumb={["Engineer", "Logistics", "Material Consumption"]} />
-      <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
+      <PageTransition className="p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter flex flex-col pb-8">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
           <div className="font-inter">
@@ -186,7 +201,7 @@ const MaterialConsumptionPage = () => {
               onClick={() => {
                 if (inventory.length > 0) {
                   setSelectedInventory(inventory[0]);
-                  setUsageData({ quantity: "", project_id: projectId || 1, issue_type: "SITE" });
+                  setUsageData({ quantity: "", project_id: "" as any, issue_type: "SITE" });
                   setIsUsageModalOpen(true);
                 } else {
                   toast.error("No materials available for usage");
@@ -292,7 +307,7 @@ const MaterialConsumptionPage = () => {
                         <button
                           onClick={() => {
                             setSelectedInventory(inv);
-                            setUsageData({ quantity: "", project_id: projectId || 1, issue_type: "SITE" });
+                            setUsageData({ quantity: "", project_id: "" as any, issue_type: "SITE" });
                             setIsUsageModalOpen(true);
                           }}
                           className="px-4 py-2 bg-slate-50 text-slate-600 hover:text-white hover:bg-rose-500 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border border-slate-200 hover:border-rose-500 font-inter active:scale-95"
@@ -432,74 +447,84 @@ const MaterialConsumptionPage = () => {
           </div>
         }
       >
-        <div className="p-6 space-y-5 font-inter">
-          <div className="font-inter">
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Material <span className="text-rose-500">*</span></label>
-            <select
-              required
-              value={selectedInventory?.material_id || ""}
-              onChange={(e) => {
-                const targetId = Number(e.target.value);
-                const matchedInv = inventory.find(inv => inv.material_id === targetId || inv.id === targetId);
-                if (matchedInv) {
-                  setSelectedInventory(matchedInv);
-                } else {
-                  const matchedMat = materialsList.find(m => m.id === targetId);
-                  setSelectedInventory({
-                    id: targetId,
-                    material_id: targetId,
-                    material_name: matchedMat?.material_name || "",
-                    remaining_stock: 0,
-                    unit: matchedMat?.unit || "Bags",
-                    avg_rate: matchedMat?.purchase_rate || 0,
-                    total_value: 0
-                  } as InventoryItem);
-                }
-              }}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-inter"
-            >
-              <option value="">Select Material</option>
-              {materialsList.map(mat => (
-                <option key={mat.id} value={mat.id}>
-                  {mat.material_name} (ID: {mat.id})
-                </option>
-              ))}
-            </select>
+        <form id="usage-material-form" onSubmit={handleUsageSubmit} className="space-y-6">
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+            <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
+              Disbursement Details
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="font-inter md:col-span-2">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Project <span className="text-rose-500">*</span></label>
+                <select
+                  required
+                  value={usageData.project_id}
+                  onChange={(e) => setUsageData({ ...usageData, project_id: Number(e.target.value) })}
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:ring-primary/20 focus:border-primary font-inter"
+                >
+                  <option value="">Select Project</option>
+                  {projectsList.map(p => (
+                    <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="font-inter md:col-span-2">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Material <span className="text-rose-500">*</span></label>
+                <select
+                  required
+                  value={selectedInventory?.material_id || ""}
+                  onChange={(e) => {
+                    const targetId = Number(e.target.value);
+                    const matchedInv = inventory.find(inv => inv.material_id === targetId || inv.id === targetId);
+                    if (matchedInv) {
+                      setSelectedInventory(matchedInv);
+                    } else {
+                      const matchedMat = materialsList.find(m => m.id === targetId);
+                      setSelectedInventory({
+                        id: targetId,
+                        material_id: targetId,
+                        material_name: matchedMat?.material_name || "",
+                        remaining_stock: 0,
+                        unit: matchedMat?.unit || "Bags",
+                        avg_rate: matchedMat?.purchase_rate || 0,
+                        total_value: 0
+                      } as InventoryItem);
+                    }
+                  }}
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:ring-primary/20 focus:border-primary font-inter"
+                >
+                  <option value="">Select Material</option>
+                  {materialsList.map(mat => (
+                    <option key={mat.id} value={mat.id}>
+                      {mat.material_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="font-inter">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Quantity <span className="text-rose-500">*</span></label>
+                <input
+                  required
+                  type="number"
+                  value={usageData.quantity}
+                  onChange={(e) => setUsageData({ ...usageData, quantity: e.target.value === "" ? "" : Number(e.target.value) })}
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:ring-primary/20 focus:border-primary font-inter"
+                  placeholder="30"
+                />
+              </div>
+              <div className="font-inter">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Issue Type <span className="text-rose-500">*</span></label>
+                <select
+                  required
+                  value={usageData.issue_type}
+                  onChange={(e) => setUsageData({ ...usageData, issue_type: e.target.value })}
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:ring-primary/20 focus:border-primary font-inter"
+                >
+                  {ISSUE_TYPES.map(i => <option key={i} value={i}>{i}</option>)}
+                </select>
+              </div>
+            </div>
           </div>
-          <div className="font-inter">
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">quantity <span className="text-rose-500">*</span></label>
-            <input
-              required
-              type="number"
-              value={usageData.quantity}
-              onChange={(e) => setUsageData({ ...usageData, quantity: e.target.value === "" ? "" : Number(e.target.value) })}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-inter"
-              placeholder="30"
-            />
-          </div>
-          <div className="font-inter">
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">project_id <span className="text-rose-500">*</span></label>
-            <input
-              required
-              type="number"
-              value={usageData.project_id}
-              onChange={(e) => setUsageData({ ...usageData, project_id: Number(e.target.value) })}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-inter"
-              placeholder="1"
-            />
-          </div>
-          <div className="font-inter">
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">issue_type <span className="text-rose-500">*</span></label>
-            <select
-              required
-              value={usageData.issue_type}
-              onChange={(e) => setUsageData({ ...usageData, issue_type: e.target.value })}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-inter"
-            >
-              {ISSUE_TYPES.map(i => <option key={i} value={i}>{i}</option>)}
-            </select>
-          </div>
-        </div>
+        </form>
       </Modal>
     </>
   );

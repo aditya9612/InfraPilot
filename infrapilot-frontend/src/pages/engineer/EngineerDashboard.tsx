@@ -8,8 +8,6 @@ import { workProgressService } from "../../services/workProgressService";
 import { labourService } from "../../services/labourService";
 import { issueService } from "../../services/issueService";
 import { materialService } from "../../services/materialService";
-import { qcService } from "../../services/qcService";
-
 const expenseCategoryColors: Record<string, string> = {
     Labour: "bg-blue-50 text-blue-600",
     Material: "bg-emerald-50 text-emerald-600",
@@ -27,11 +25,13 @@ const EngineerDashboard = () => {
     const userStr = localStorage.getItem("infrapilot_user");
     let projectId = 92;
     let projectName = "SARA CITY";
+    let engineer_id = 1;
     if (userStr) {
         try {
             const parsed = JSON.parse(userStr);
             projectId = parsed?.project_id || parsed?.user?.project_id || 92;
             projectName = parsed?.project_name || parsed?.user?.project_name || "SARA CITY";
+            engineer_id = Number(parsed?.id) || Number(parsed?.user?.id) || 1;
         } catch (e) {
             console.error("Failed to parse user session", e);
         }
@@ -78,8 +78,11 @@ const EngineerDashboard = () => {
     const [showActual, setShowActual] = useState(true);
 
     useEffect(() => {
+        let isFirstLoad = true;
         const fetchAllDashboardData = async () => {
-            setIsLoading(true);
+            if (isFirstLoad) {
+                setIsLoading(true);
+            }
             try {
                 // 1. Fire all real service calls concurrently
                 const [
@@ -88,7 +91,7 @@ const EngineerDashboard = () => {
                     issuesRes,
                     materials
                 ] = await Promise.all([
-                    workProgressService.listActivities(projectId).catch(() => []),
+                    workProgressService.listActivities(projectId, engineer_id).catch(() => []),
                     labourService.getLabours(projectId, { status: "Active" }).catch(() => ({ items: [] })),
                     issueService.listIssuesByProject(projectId).catch(() => ({ items: [] })),
                     materialService.getInventory(projectId).catch(() => [])
@@ -172,17 +175,18 @@ const EngineerDashboard = () => {
             } catch (err) {
                 console.error("Dashboard Aggregation Error:", err);
             } finally {
-                setIsLoading(false);
+                if (isFirstLoad) {
+                    setIsLoading(false);
+                    isFirstLoad = false;
+                }
             }
         };
 
-        fetchDashboardStats();
-        fetchAllDashboardData();
-        
         // Also fetch from the aggregation endpoint just in case it's populated
         async function fetchDashboardStats() {
             try {
-                const res = await api.get(`/dashboard/engineer/${projectId}`);
+                // Pass project_id as a query parameter to avoid 500 Internal Server Error
+                const res = await api.get(`/dashboard/engineer`, { params: { project_id: projectId } });
                 if (res && res.data && Object.keys(res.data).length > 2) {
                     // Fallback to aggregated endpoint if it's richer
                     setDashboardData((prev: any) => ({ ...prev, ...res.data }));
@@ -191,7 +195,17 @@ const EngineerDashboard = () => {
                 // Ignore silent background fetch error
             }
         }
-    }, [projectId, projectName]);
+
+        fetchDashboardStats();
+        fetchAllDashboardData();
+
+        const intervalId = setInterval(() => {
+            fetchDashboardStats();
+            fetchAllDashboardData();
+        }, 10000);
+
+        return () => clearInterval(intervalId);
+    }, [projectId, projectName, engineer_id]);
 
     const overallProgress = dashboardData.progress || 0;
     const plannedPercent = dashboardData.planned_progress || 0;
@@ -212,7 +226,7 @@ const EngineerDashboard = () => {
             <Navbar title="Site Overview" breadcrumb={["InfraPilot", "Engineer", "Dashboard"]} />
 
             {isLoading ? (
-                <div className="flex flex-col items-center justify-center h-[calc(100vh-64px)] bg-slate-50 font-inter">
+                <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] bg-slate-50 font-inter">
                     <div className="w-16 h-16 relative flex items-center justify-center mb-4">
                         <div className="absolute inset-0 rounded-full border-4 border-slate-200"></div>
                         <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
@@ -220,7 +234,7 @@ const EngineerDashboard = () => {
                     <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Aggregating Site Data...</p>
                 </div>
             ) : (
-                <PageTransition className="p-4 md:p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
 
                 {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
