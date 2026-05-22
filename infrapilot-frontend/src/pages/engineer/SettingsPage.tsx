@@ -557,7 +557,6 @@ const SettingsPage = () => {
                         </div>
                     </div>
 
-
                     {/* ─ 1. Project Selection ──────────────────────────────── */}
                     <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
                         <SectionHeader
@@ -569,36 +568,25 @@ const SettingsPage = () => {
                             }
                         />
 
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">
-                                Active Workspace Project
-                            </label>
-                            <div className="relative">
+                        <div className="space-y-4">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                    Active Project
+                                </label>
                                 <select
                                     value={selectedProject || ""}
                                     onChange={e => {
                                         const val = e.target.value;
                                         setSelectedProject(val === "" ? null : Number(val));
                                     }}
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none cursor-pointer pr-10"
+                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none cursor-pointer"
                                 >
                                     <option value="">Select Project (None)</option>
                                     {projects.map(p => (
                                         <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
                                     ))}
                                 </select>
-                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </div>
                             </div>
-                            {selectedProject && (
-                                <div className="mt-2 flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-600 rounded-lg w-max border border-blue-100">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                                    <span className="text-[10px] font-bold uppercase tracking-wider">Active Workspace Sync Enabled</span>
-                                </div>
-                            )}
                         </div>
                     </div>
 
