@@ -1,36 +1,39 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
+import { approvalService } from "../../../services/approvalService";
+import toast from "react-hot-toast";
 
-const initialPendingApprovals = [
-   {
-      id: "APR-042",
-      requestType: "Billing",
-      description: "Phase 2 structural completion milestone payment request for slab and column work.",
-      amountQuantity: "₹45,50,000",
-      requestedBy: "Projects Dept (Rajesh M.)",
-      status: "Pending",
-      remarks: "Work verified by site engineer on 30th Mar. Quality certificates attached."
-   },
-   {
-      id: "APR-043",
-      requestType: "Material",
-      description: "Procurement of high-tensile reinforcement steel (Fe500D) for Phase 3 foundation.",
-      amountQuantity: "45 Tons",
-      requestedBy: "Procurement Team",
-      status: "Pending",
-      remarks: "Current market rate applied. Bulk discount included."
-   },
-   {
-      id: "APR-044",
-      requestType: "Design",
-      description: "Modification of balcony railing design from steel to toughened glass for improved aesthetics.",
-      amountQuantity: "All External Balconies",
-      requestedBy: "Lead Architect (Anjali D.)",
-      status: "Pending",
-      remarks: "No structural impact. Slight increase in material cost offset by maintenance savings."
-   }
+const initialPendingApprovals: any[] = [
+  {
+    id: "1",
+    requestType: "Billing",
+    description: "Phase 2 structural completion milestone payment request for slab and column work.",
+    amountQuantity: "₹45,50,000",
+    requestedBy: "Projects Dept (Rajesh M.)",
+    status: "Pending",
+    remarks: "Work verified by site engineer on 30th Mar. Quality certificates attached."
+  },
+  {
+    id: "2",
+    requestType: "Material",
+    description: "Procurement of high-tensile reinforcement steel (Fe500D) for Phase 3 foundation.",
+    amountQuantity: "45 Tons",
+    requestedBy: "Procurement Team",
+    status: "Pending",
+    remarks: "Current market rate applied. Bulk discount included."
+  },
+  {
+    id: "3",
+    requestType: "Design",
+    description: "Modification of balcony railing design from steel to toughened glass for improved aesthetics.",
+    amountQuantity: "All External Balconies",
+    requestedBy: "Lead Architect (Anjali D.)",
+    status: "Pending",
+    remarks: "No structural impact. Slight increase in material cost offset by maintenance savings."
+  }
 ];
+
 
 const ClientPendingApprovalsPage = () => {
    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -41,8 +44,27 @@ const ClientPendingApprovalsPage = () => {
    const [description, setDescription] = useState("");
    const [remarks, setRemarks] = useState("");
    const [formErrors, setFormErrors] = useState<{ valueQty?: string; requestedBy?: string; description?: string }>({});
+  const [loading, setLoading] = useState(true);
 
-   const handleCreateApproval = () => {
+  useEffect(() => {
+    const fetchApprovals = async () => {
+      try {
+        const data = await approvalService.getApprovals();
+        const pending = data.filter((a: any) => a.status === 'Pending');
+        if (pending && pending.length > 0) {
+          setApprovalsList(pending);
+        }
+      } catch (err) {
+        console.error('Failed to fetch approvals', err);
+        toast.error('Failed to load approvals');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchApprovals();
+  }, []);
+
+   const handleCreateApproval = async () => {
       const errors: { valueQty?: string; requestedBy?: string; description?: string } = {};
       if (!valueQty.trim()) errors.valueQty = "Value / Quantity is required";
       if (!requestedBy.trim()) errors.requestedBy = "Requestor name is required";
@@ -54,30 +76,84 @@ const ClientPendingApprovalsPage = () => {
       }
 
       setFormErrors({});
-      setIsCreateModalOpen(false);
-      
-      const newApproval = {
-         id: `APR-0${approvalsList.length + 45}`,
-         requestType,
-         description,
-         amountQuantity: valueQty,
-         requestedBy,
-         status: "Pending",
-         remarks: remarks || "Pending review."
-      };
-      setApprovalsList([newApproval, ...approvalsList]);
-      
-      // Reset form
-      setRequestType("Billing");
-      setValueQty("");
-      setRequestedBy("");
-      setDescription("");
-      setRemarks("");
+      const loadingToast = toast.loading("Creating approval request...");
+
+      try {
+         // Map the UI requestType to the expected backend 'entity_type' enum (e.g. "bill", "material")
+         let entityType = "bill";
+         if (requestType === "Material") entityType = "material";
+         if (requestType === "Design") entityType = "design";
+         if (requestType === "Variation") entityType = "variation";
+
+         const payload = {
+            entity_type: entityType,
+            entity_id: 2, // Hardcoded for demo as numeric entity ID is required
+            remarks: remarks || "Approved after financial review" // Fallback to provided API example
+         };
+
+         const response = await approvalService.createApproval(payload);
+
+         if (response && response.error) {
+            throw new Error(response.error);
+         }
+
+         toast.success("Approval Request Created successfully!", { id: loadingToast });
+         setIsCreateModalOpen(false);
+
+         // Add to local state to reflect UI changes instantly
+         const newApproval = {
+            id: response?.id?.toString() || `${Math.floor(Math.random() * 1000)}`,
+            requestType,
+            description,
+            amountQuantity: valueQty,
+            requestedBy,
+            status: "Pending",
+            remarks: payload.remarks
+         };
+         setApprovalsList([newApproval, ...approvalsList]);
+
+         // Reset form
+         setRequestType("Billing");
+         setValueQty("");
+         setRequestedBy("");
+         setDescription("");
+         setRemarks("");
+      } catch (err: any) {
+         console.error("Create approval error:", err);
+         toast.error(err?.message || "Failed to create approval request", { id: loadingToast });
+      }
    };
 
-   const handleAction = (id: string) => {
-      // In a real app we would call API to approve/reject
-      setApprovalsList(approvalsList.filter(a => a.id !== id));
+   const handleApprove = async (id: string) => {
+      const loadingToast = toast.loading("Approving request...");
+      try {
+         const response = await approvalService.approve(id, "we approved it");
+         // Explicitly check for error string if backend returns 200 with error property
+         if (response && response.error) {
+            throw new Error(response.error);
+         }
+         toast.success("Request Approved", { id: loadingToast });
+         setApprovalsList(prev => prev.filter(a => a.id !== id));
+      } catch (err: any) {
+         console.error("Approve error:", err);
+         toast.error(err?.message || "Failed to approve request", { id: loadingToast });
+      }
+   };
+
+   const handleReject = async (id: string) => {
+      const loadingToast = toast.loading("Rejecting request...");
+      try {
+         const response = await approvalService.reject(id, "we rejectedit");
+         // Explicitly check for error string if backend returns 200 with error property
+         if (response && response.error) {
+            throw new Error(response.error);
+         }
+         toast.success("Request Rejected", { id: loadingToast });
+         setApprovalsList(prev => prev.filter(a => a.id !== id));
+      } catch (err: any) {
+         console.error("Reject error:", err);
+         toast.error(err?.message || "Failed to reject request", { id: loadingToast });
+      }
    };
 
    return (
@@ -151,11 +227,11 @@ const ClientPendingApprovalsPage = () => {
                   </div>
 
                   <div className="flex flex-col md:flex-row gap-4 pt-6">
-                     <button onClick={() => handleAction(apr.id)} className="flex-1 px-8 py-4 bg-emerald-500 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all text-center">
-                        Approve Request
+                     <button onClick={() => handleApprove(apr.id)} className="flex-1 px-8 py-4 bg-emerald-500 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all text-center flex justify-center items-center gap-2">
+                        <span>Approve Request</span>
                      </button>
-                     <button onClick={() => handleAction(apr.id)} className="flex-1 px-8 py-4 bg-red-50 text-red-600 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-red-100 transition-colors text-center">
-                        Reject Request
+                     <button onClick={() => handleReject(apr.id)} className="flex-1 px-8 py-4 bg-red-50 text-red-600 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-red-100 transition-colors text-center flex justify-center items-center gap-2">
+                        <span>Reject Request</span>
                      </button>
                   </div>
                </div>

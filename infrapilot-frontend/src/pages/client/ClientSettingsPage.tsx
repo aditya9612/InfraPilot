@@ -1,7 +1,25 @@
 import Navbar from "../../components/common/Navbar";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { settingsService } from "../../services/settingsService";
+import type { UserProfile } from "../../types/settings";
 
 const ClientSettingsPage = () => {
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const data = await settingsService.getProfile();
+        setProfile(data);
+      } catch (err) {
+        console.error("Failed to load profile", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProfile();
+  }, []);
   const [notifications, setNotifications] = useState([
     { label: "Email Notifications", desc: "Weekly summaries and financial milestones", enabled: true },
     { label: "SMS Alerts", desc: "Critical safety notices and final approvals", enabled: true },
@@ -53,31 +71,43 @@ const ClientSettingsPage = () => {
             {/* Client Profile */}
             <div className="bg-white rounded-[40px] p-10 shadow-sm border border-slate-100">
               <div className="flex items-center gap-6 mb-10">
-                <div className="w-20 h-20 bg-slate-900 rounded-3xl flex items-center justify-center text-white text-3xl font-black shadow-xl shadow-blue-500/10">S</div>
+                {profile?.profile_image ? (
+                  <img src={settingsService.resolveUrl(profile.profile_image) || ''} alt="Profile" className="w-20 h-20 rounded-3xl object-cover shadow-xl shadow-blue-500/10 border-4 border-white" />
+                ) : (
+                  <div className="w-20 h-20 bg-slate-900 rounded-3xl flex items-center justify-center text-white text-3xl font-black shadow-xl shadow-blue-500/10">
+                    {profile?.full_name?.charAt(0) || "C"}
+                  </div>
+                )}
                 <div>
                   <h2 className="text-xl font-black text-slate-800 tracking-tight">Client Profile</h2>
                   <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Manage your identity and contact across InfraPilot</p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 italic">Full Name</label>
-                  <input type="text" defaultValue="Mr. Sharma" className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-3.5 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-all shadow-inner" />
+              {loading ? (
+                <div className="flex justify-center p-8">
+                   <div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin"></div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 italic">Primary Email</label>
-                  <input type="email" defaultValue="sharma@vikrambuild.com" disabled className="w-full bg-slate-100 border border-slate-100 rounded-2xl px-6 py-3.5 text-sm font-bold text-slate-500 outline-none transition-all shadow-inner cursor-not-allowed" />
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 italic">Full Name</label>
+                    <input type="text" value={profile?.full_name || ""} onChange={(e) => setProfile(p => p ? { ...p, full_name: e.target.value } : null)} className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-3.5 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-all shadow-inner" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 italic">Primary Email</label>
+                    <input type="email" value={profile?.email || ""} disabled className="w-full bg-slate-100 border border-slate-100 rounded-2xl px-6 py-3.5 text-sm font-bold text-slate-500 outline-none transition-all shadow-inner cursor-not-allowed" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 italic">Contact Number</label>
+                    <input type="text" value={profile?.mobile_number || ""} disabled className="w-full bg-slate-100 border border-slate-100 rounded-2xl px-6 py-3.5 text-sm font-bold text-slate-500 outline-none transition-all shadow-inner cursor-not-allowed" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 italic">Location / Address</label>
+                    <input type="text" value={profile?.address || ""} onChange={(e) => setProfile(p => p ? { ...p, address: e.target.value } : null)} className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-3.5 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-all shadow-inner" />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 italic">Contact Number</label>
-                  <input type="text" defaultValue="+91 98765 43210" disabled className="w-full bg-slate-100 border border-slate-100 rounded-2xl px-6 py-3.5 text-sm font-bold text-slate-500 outline-none transition-all shadow-inner cursor-not-allowed" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 italic">Company / Organization</label>
-                  <input type="text" defaultValue="Vikram Real Estate Group" className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-3.5 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-all shadow-inner" />
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Notification Preferences */}

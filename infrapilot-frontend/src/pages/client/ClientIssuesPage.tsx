@@ -64,6 +64,8 @@ const ClientIssuesPage = () => {
       return;
     }
 
+    setFormErrors({});
+
     // Prepare payload matching API schema
     const payload = {
       project_id: 96,
@@ -74,20 +76,24 @@ const ClientIssuesPage = () => {
       priority: issueImpact,
     };
 
+    console.log(">>> Submitting create issue with payload:", JSON.stringify(payload));
+
     try {
       const response = await issueService.createIssue(payload);
-      console.log('Issue created:', response);
-      // Show success toast (replace with your toast implementation)
-      alert(`Issue created successfully! ID: ${response.id}`);
+      console.log('>>> Issue created successfully:', JSON.stringify(response));
+      alert(`Issue created successfully! ID: ${response.id}, Business ID: ${response.business_id}`);
       // Reset form
       setIsCreateModalOpen(false);
       setIssueTitle("");
       setIssueDescription("");
       setIssueCategory("Material");
       setIssueImpact("High");
-    } catch (err) {
-      console.error('Error creating issue:', err);
-      alert('Failed to create issue. Please try again.');
+    } catch (err: any) {
+      console.error('>>> Error creating issue:', err);
+      console.error('>>> Error response data:', err?.response?.data);
+      console.error('>>> Error response status:', err?.response?.status);
+      const errorMsg = err?.response?.data?.detail || err?.response?.data?.message || err?.message || 'Unknown error';
+      alert(`Failed to create issue: ${errorMsg}`);
     }
   };
 

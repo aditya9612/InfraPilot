@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Modal from "../../components/common/Modal";
 import { dashboardService, type ClientDashboardData } from "../../services/dashboardService";
+import toast from "react-hot-toast";
 
 const costData = [
   { name: "Phase 1", budget: 1.2, actual: 1.1 },
@@ -30,13 +31,34 @@ const ClientDashboard = () => {
   const [isBotOpen, setIsBotOpen] = useState(false);
   const [dashboardData, setDashboardData] = useState<ClientDashboardData | null>(null);
 
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const data = await dashboardService.getClientDashboard(1);
+        const data = await dashboardService.getClientDashboard(96);
         setDashboardData(data);
       } catch (error) {
-        console.error("Error fetching dashboard data:", error);
+        const mockData: ClientDashboardData = {
+          project_id: 96,
+          status: "ONGOING",
+          progress_percent: 0,
+          budget_total: 0,
+          total_expense: 0,
+          budget_used_percent: 0,
+          remaining_budget: 0,
+          milestones_total: 0,
+          milestones_completed: 0,
+          tasks_total: 0,
+          tasks_completed: 0,
+          start_date: "2026-05-21",
+          end_date: "2026-06-01",
+          days_remaining: 10,
+        };
+        setDashboardData(mockData);
+        toast.error("Failed to load dashboard data – using mock data");
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -55,7 +77,29 @@ const ClientDashboard = () => {
     return isNaN(date.getTime()) ? d : date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
   };
 
+  if (loading) {
   return (
+    <>
+      <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Dashboard"]} />
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+        <div className="w-12 h-12 border-4 border-slate-200 border-t-primary rounded-full animate-spin" />
+      </div>
+    </>
+  );
+}
+
+if (!dashboardData) {
+  return (
+    <>
+      <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Dashboard"]} />
+      <div className="p-6 bg-slate-50 min-h-screen font-inter">
+        <p className="text-slate-500">Failed to load dashboard data.</p>
+      </div>
+    </>
+  );
+}
+
+return (
     <>
       <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Dashboard"]} />
       <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">

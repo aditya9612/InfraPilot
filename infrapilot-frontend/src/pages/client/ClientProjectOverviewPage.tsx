@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Navbar from "../../components/common/Navbar";
 import { projectService } from "../../services/projectService";
+import toast from "react-hot-toast";
 
 const milestones = [
   { name: "Site Preparation & Excavation", status: "done", date: "Jan 2025" },
@@ -53,6 +54,17 @@ const ClientProjectOverviewPage = () => {
     };
     fetchProject();
   }, []);
+
+  if (loading) {
+    return (
+      <>
+        <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Project Overview"]} />
+        <div className="flex items-center justify-center min-h-screen bg-slate-50">
+          <div className="w-12 h-12 border-4 border-slate-200 border-t-primary rounded-full animate-spin" />
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
