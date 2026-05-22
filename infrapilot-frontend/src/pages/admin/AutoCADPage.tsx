@@ -6,6 +6,9 @@ import toast from "react-hot-toast";
 import CADUploadStep from "../../components/cad/CADUploadStep";
 import CADConvertStep from "../../components/cad/CADConvertStep";
 import CADCanvas from "../../components/cad/CADCanvas";
+import ProjectRecordsModal from "../../components/dashboard/ProjectRecordsModal";
+import ConfirmModal from "../../components/common/ConfirmModal";
+import { Trash2 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Point {
@@ -145,6 +148,16 @@ export default function AutoCADPage() {
   // CAD Logs & Visualizations
   const [cadLogs, setCadLogs] = useState<any[]>([]);
   const [visualizations, setVisualizations] = useState<any[]>([]);
+  const [isRecordsModalOpen, setIsRecordsModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const PAGE_SIZE = 5;
+
+  // Deletion state
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [snapshotToDelete, setSnapshotToDelete] = useState<string | null>(null);
+
+  const totalPages = Math.max(1, Math.ceil(cadLogs.length / PAGE_SIZE));
+  const pagedLogs = cadLogs.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 
   useEffect(() => {
     api.get("/cad/logs").then((r) => setCadLogs(r.data)).catch(() => { });
@@ -162,10 +175,17 @@ export default function AutoCADPage() {
 
   // Persist visualizations whenever they change
   useEffect(() => {
-    if (visualizations.length > 0) {
-      localStorage.setItem("infrapilot_cad_visualizations", JSON.stringify(visualizations));
-    }
+    localStorage.setItem("infrapilot_cad_visualizations", JSON.stringify(visualizations));
   }, [visualizations]);
+
+  const handleDeleteSnapshot = () => {
+    if (snapshotToDelete) {
+      setVisualizations(prev => prev.filter(v => v.id !== snapshotToDelete));
+      toast.success("Snapshot removed from project history.");
+      setSnapshotToDelete(null);
+      setIsDeleteModalOpen(false);
+    }
+  };
 
   // ── Upload handlers ──────────────────────────────────────────────────────
   const handleCSVReady = (file: File, content: string) => {
@@ -326,16 +346,16 @@ export default function AutoCADPage() {
         )}
 
         {/* ── CAD Logs Table ─────────────────────────────────────────────── */}
-        <div className="mt-8 bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+        <div id="cad-logs-section" className="mt-8 bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold text-slate-800">CAD Conversion Logs</h3>
             {cadLogs.length > 0 && (
               <span className="text-xs text-slate-400 font-medium">{cadLogs.length} records</span>
             )}
           </div>
-          <div className="overflow-x-auto max-h-[320px] overflow-y-auto custom-scrollbar">
+          <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
-              <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs sticky top-0 bg-white z-10 shadow-sm">
+              <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs sticky top-0 bg-white z-10 shadow-sm border-b border-slate-100">
                 <tr>
                   <th className="px-4 py-3 rounded-tl-lg">ID</th>
                   <th className="px-4 py-3">Project Name</th>
@@ -346,7 +366,7 @@ export default function AutoCADPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {cadLogs.length > 0 ? (
-                  cadLogs.map((log) => (
+                  pagedLogs.map((log) => (
                     <tr key={log.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-3 font-medium text-slate-700">{log.id}</td>
                       <td className="px-4 py-3 text-slate-600 font-semibold">{log.project_name || "N/A"}</td>
@@ -380,6 +400,33 @@ export default function AutoCADPage() {
               </tbody>
             </table>
           </div>
+
+          {cadLogs.length > 0 && (
+            <div className="mt-4 p-4 border-t border-slate-50 flex items-center justify-between">
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, cadLogs.length)} of {cadLogs.length} Logs
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                  disabled={currentPage === 0}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <div className="w-8 h-8 flex items-center justify-center rounded-lg bg-primary/5 border border-primary/10 text-xs font-bold text-primary font-inter">
+                  {currentPage + 1}
+                </div>
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={currentPage >= totalPages - 1}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── Project Visualization Gallery ──────────────────────────────── */}
@@ -389,7 +436,12 @@ export default function AutoCADPage() {
               <h3 className="text-lg font-bold text-slate-800 tracking-tight">Recent Project Snapshots</h3>
               <p className="text-sm text-slate-500">Historical visualizations saved to this project library.</p>
             </div>
-            <span className="bg-primary/5 text-primary text-[10px] font-bold uppercase px-2 py-1 rounded border border-primary/10">Project Records</span>
+            <button
+              onClick={() => setIsRecordsModalOpen(true)}
+              className="bg-primary/5 text-primary text-[10px] font-bold uppercase px-2 py-1 rounded border border-primary/10 hover:bg-primary/10 transition-colors shadow-sm active:scale-95"
+            >
+              Project Records
+            </button>
           </div>
 
           {visualizations.length > 0 ? (
@@ -419,6 +471,16 @@ export default function AutoCADPage() {
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSnapshotToDelete(viz.id);
+                          setIsDeleteModalOpen(true);
+                        }}
+                        className="w-10 h-10 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-lg hover:bg-rose-600 transition-colors"
+                        title="Delete Snapshot"
+                      >
+                        <Trash2 size={20} strokeWidth={2.5} />
                       </button>
                     </div>
                   </div>
@@ -453,6 +515,25 @@ export default function AutoCADPage() {
           )}
         </div>
       </PageTransition>
+
+      <ProjectRecordsModal
+        isOpen={isRecordsModalOpen}
+        onClose={() => setIsRecordsModalOpen(false)}
+        records={cadLogs}
+      />
+
+      <ConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setSnapshotToDelete(null);
+        }}
+        onConfirm={handleDeleteSnapshot}
+        title="Delete Snapshot"
+        message="Are you sure you want to permanently remove this visualization from the project history? This action cannot be undone."
+        confirmText="Delete Snapshot"
+        type="danger"
+      />
     </>
   );
 }

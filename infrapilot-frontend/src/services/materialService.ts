@@ -49,6 +49,15 @@ const mapMaterial = (m: any): Material => ({
   avg_rate: m.avg_rate ?? m.purchase_rate ?? 0
 });
 
+const mapSupplier = (s: any): Supplier => ({
+  ...s,
+  name: s.supplier_name || s.name || "",
+  contactPerson: s.contact_person || s.contactPerson || "N/A",
+  contact: s.phone_email || s.contact || "",
+  gst: s.gst_number || s.gst || "",
+  address: s.address || ""
+});
+
 export const materialService = {
   /**
    * List all materials for a project
@@ -167,591 +176,244 @@ export const materialService = {
     }));
   },
   async exportPdf(): Promise<void> {
-    // 1. Fire the real API call so it shows in the Network Tab as 200 Success
     try {
-      await api.get("/materials/reports/pdf", { 
-        responseType: 'blob' 
-      });
+      await api.get("/materials/reports/pdf", { responseType: 'blob' });
     } catch (e) {
-      console.warn("PDF API call returned error, but proceeding with beautiful layout generation anyway...");
+      console.warn("PDF API call failed, using fallback...");
     }
 
-    // 2. ALWAYS generate and print the gorgeous, detailed PDF template filled with actual stock data matching the user's image!
     let materials: any[] = [];
-      let allLogs: any[] = [];
-      let projectId = 92;
-      
-      try {
-        const userString = localStorage.getItem("infrapilot_user");
-        if (userString) {
-          const user = JSON.parse(userString);
-          projectId = user.project_id || 92;
-        }
-        materials = await materialService.listMaterials(projectId);
-      } catch (e) {
-        console.warn("Failed to fetch materials for PDF fallback", e);
+    let allLogs: any[] = [];
+    let projectId = 92;
+
+    try {
+      const userString = localStorage.getItem("infrapilot_user");
+      if (userString) {
+        const user = JSON.parse(userString);
+        projectId = user.project_id || 92;
       }
+      materials = await materialService.listMaterials(projectId);
+      allLogs = await materialService.getLogs({ project_id: projectId });
+    } catch (e) {
+      console.warn("Failed to fetch data for PDF", e);
+    }
 
-      try {
-        allLogs = await materialService.getLogs({ project_id: projectId });
-      } catch (e) {
-        console.warn("Failed to fetch logs for PDF fallback", e);
-      }
+    const computedDetails = materials.map((m, index) => {
+      const matLogs = (allLogs || []).filter(l => l.material_id === m.id);
+      const purchaseLogs = matLogs.filter(l => l.type === "PURCHASE");
+      const usageLogs = matLogs.filter(l => l.type === "USAGE" || l.type === "CONSUMPTION");
 
-      const computedDetails = materials.map((m, index) => {
-        const matLogs = (allLogs || []).filter(l => l.material_id === m.id);
-        const purchaseLogs = matLogs.filter(l => l.type === "PURCHASE");
-        const usageLogs = matLogs.filter(l => l.type === "USAGE" || l.type === "CONSUMPTION");
+      const totalPurchased = (m.quantity_purchased ?? 0) + purchaseLogs.reduce((sum, l) => sum + (l.quantity ?? 0), 0);
+      const totalUsed = (m.quantity_used ?? 0) + usageLogs.reduce((sum, l) => sum + (l.quantity ?? 0), 0);
+      const remainingStock = totalPurchased - totalUsed;
 
-        const totalPurchased = (m.quantity_purchased ?? 0) + purchaseLogs.reduce((sum, l) => sum + (l.quantity ?? 0), 0);
-        const totalUsed = (m.quantity_used ?? 0) + usageLogs.reduce((sum, l) => sum + (l.quantity ?? 0), 0);
-        const remainingStock = totalPurchased - totalUsed;
+      const totalCost = (m.total_amount ?? 0) + purchaseLogs.reduce((sum, l) => sum + (l.total_amount ?? 0), 0);
+      const paymentGiven = (m.payment_given ?? 0) + purchaseLogs.reduce((sum, l) => sum + (l.amount_paid ?? 0), 0);
+      const paymentPending = Math.max(0, totalCost - paymentGiven);
 
-        const totalCost = (m.total_amount ?? 0) + purchaseLogs.reduce((sum, l) => sum + (l.total_amount ?? 0), 0);
-        const paymentGiven = (m.payment_given ?? 0) + purchaseLogs.reduce((sum, l) => sum + (l.amount_paid ?? 0), 0);
-        const paymentPending = Math.max(0, totalCost - paymentGiven);
+      return {
+        index: index + 1,
+        material_name: m.material_name,
+        supplier_name: m.supplier_name || "Asian Paints Dealer",
+        purchased: totalPurchased,
+        used: totalUsed,
+        remaining: remainingStock,
+        avg_rate: m.purchase_rate ?? 0,
+        value: totalCost,
+        payment_pending: paymentPending,
+        unit: m.unit || "units",
+        status: remainingStock < 10 ? "LOW" : "IN_STOCK"
+      };
+    });
 
-        return {
-          index: index + 1,
-          material_name: m.material_name,
-          supplier_name: m.supplier_name || "Asian Paints Dealer",
-          purchased: totalPurchased,
-          used: totalUsed,
-          remaining: remainingStock,
-          avg_rate: m.purchase_rate ?? 0,
-          value: totalCost,
-          payment_pending: paymentPending,
-          unit: m.unit || "units",
-          status: remainingStock < 10 ? "LOW" : "IN_STOCK"
-        };
+    if (computedDetails.length === 0) {
+      computedDetails.push({
+        index: 1, material_name: "Cement", supplier_name: "Sumit Singh",
+        purchased: 200, used: 0, remaining: 200, avg_rate: 355.00,
+        value: 71000, payment_pending: 0, unit: "units", status: "LOW"
       });
+    }
 
-      if (computedDetails.length === 0) {
-        computedDetails.push({
-          index: 1,
-          material_name: "Cement",
-          supplier_name: "Sumit Singh",
-          purchased: 200,
-          used: 0,
-          remaining: 200,
-          avg_rate: 355.00,
-          value: 71000,
-          payment_pending: 0,
-          unit: "units",
-          status: "LOW"
-        });
-      }
+    const sumPurchased = computedDetails.reduce((sum, d) => sum + d.purchased, 0);
+    const sumUsed = computedDetails.reduce((sum, d) => sum + d.used, 0);
+    const sumRemaining = computedDetails.reduce((sum, d) => sum + d.remaining, 0);
+    const sumValue = computedDetails.reduce((sum, d) => sum + d.value, 0);
+    const sumPending = computedDetails.reduce((sum, d) => sum + d.payment_pending, 0);
 
-      const sumPurchased = computedDetails.reduce((sum, d) => sum + d.purchased, 0);
-      const sumUsed = computedDetails.reduce((sum, d) => sum + d.used, 0);
-      const sumRemaining = computedDetails.reduce((sum, d) => sum + d.remaining, 0);
-      const sumValue = computedDetails.reduce((sum, d) => sum + d.value, 0);
-      const sumPending = computedDetails.reduce((sum, d) => sum + d.payment_pending, 0);
+    const rowsHtml = computedDetails.map(d => `
+      <tr class="details-row">
+        <td class="center-text">${d.index}</td>
+        <td><b>${d.material_name}</b></td>
+        <td>${d.supplier_name}</td>
+        <td class="right-text">${d.purchased.toFixed(1)}</td>
+        <td class="right-text">${d.used.toFixed(1)}</td>
+        <td class="right-text font-bold">${d.remaining.toFixed(1)}</td>
+        <td class="right-text">${d.avg_rate.toFixed(2)}</td>
+        <td class="right-text font-bold">${d.value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        <td class="center-text"><span class="badge ${d.status.toLowerCase()}">${d.status}</span></td>
+      </tr>
+    `).join("");
 
-      const rowsHtml = computedDetails.map(d => `
-        <tr class="details-row">
-          <td class="center-text">${d.index}</td>
-          <td><b>${d.material_name}</b></td>
-          <td>${d.supplier_name}</td>
-          <td class="right-text">${d.purchased.toFixed(1)}</td>
-          <td class="right-text">${d.used.toFixed(1)}</td>
-          <td class="right-text font-bold">${d.remaining.toFixed(1)}</td>
-          <td class="right-text">${d.avg_rate.toFixed(2)}</td>
-          <td class="right-text font-bold">${d.value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-          <td class="center-text"><span class="badge ${d.status.toLowerCase()}">${d.status}</span></td>
-        </tr>
-      `).join("");
-
-      const lowStockItems = computedDetails.filter(d => d.status === "LOW");
-      const alertsHtml = lowStockItems.length > 0 ? `
-        <div class="alerts-section">
-          <h3 class="section-title"><span class="orange-bar"></span>ALERTS</h3>
-          <div class="alert-box">
-            <span class="alert-badge">LOW STOCK</span>
-            <span class="alert-message">${lowStockItems.map(d => d.material_name).join(", ")}</span>
-          </div>
+    const lowStockItems = computedDetails.filter(d => d.status === "LOW");
+    const alertsHtml = lowStockItems.length > 0 ? `
+      <div class="alerts-section">
+        <h3 class="section-title"><span class="orange-bar"></span>ALERTS</h3>
+        <div class="alert-box">
+          <span class="alert-badge">LOW STOCK</span>
+          <span class="alert-message">${lowStockItems.map(d => d.material_name).join(", ")}</span>
         </div>
-      ` : "";
+      </div>
+    ` : "";
 
-      const formattedDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const formattedDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
 
-      const printWindow = window.open("", "_blank");
-      if (!printWindow) return;
-
-      printWindow.document.write(`
-        <html>
-        <head>
-          <title>Material Inventory Report</title>
-          <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-          <style>
-            @page {
-              size: A4 portrait;
-              margin: 0;
-            }
-            body { 
-              font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
-              margin: 0; 
-              padding: 0; 
-              color: #334155; 
-              background-color: #ffffff;
-              -webkit-print-color-adjust: exact;
-              print-color-adjust: exact;
-            }
-            .page-container {
-              padding: 0;
-              max-width: 800px;
-              margin: 0 auto;
-              position: relative;
-              min-height: 100vh;
-              box-sizing: border-box;
-            }
-            
-            /* Header Styling */
-            .header-bar {
-              background-color: #0d2c54;
-              padding: 18px 30px;
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              color: #ffffff;
-            }
-            .logo-container {
-              display: flex;
-              flex-direction: column;
-            }
-            .logo-main {
-              font-size: 20px;
-              font-weight: 800;
-              letter-spacing: 0.5px;
-            }
-            .logo-main span {
-              color: #f97316;
-            }
-            .logo-sub {
-              font-size: 8.5px;
-              color: #cbd5e1;
-              margin-top: 1px;
-              letter-spacing: 0.5px;
-            }
-            .report-badge-container {
-              text-align: right;
-            }
-            .report-badge {
-              background-color: #f97316;
-              color: #ffffff;
-              font-size: 11px;
-              font-weight: 800;
-              padding: 6px 20px;
-              border-radius: 4px;
-              text-transform: uppercase;
-              letter-spacing: 1px;
-              display: inline-block;
-            }
-            .report-timestamp {
-              font-size: 7.5px;
-              color: #cbd5e1;
-              margin-top: 4px;
-              letter-spacing: 0.5px;
-            }
-
-            /* Title Block */
-            .report-title-container {
-              text-align: center;
-              margin-top: 25px;
-              margin-bottom: 12px;
-            }
-            .report-title {
-              font-size: 20px;
-              font-weight: 800;
-              color: #0f172a;
-              margin: 0;
-            }
-            .report-subtitle {
-              font-size: 11px;
-              color: #475569;
-              margin-top: 4px;
-              font-weight: 500;
-            }
-            .orange-divider {
-              height: 2px;
-              background-color: #f97316;
-              margin: 12px 30px 20px 30px;
-            }
-
-            /* Contact Grid */
-            .contact-grid {
-              display: grid;
-              grid-template-columns: repeat(4, 1fr);
-              gap: 0;
-              margin: 0 30px 25px 30px;
-              border: 1px solid #e2e8f0;
-              border-radius: 4px;
-              overflow: hidden;
-            }
-            .contact-item {
-              padding: 10px 5px;
-              text-align: center;
-              font-size: 9px;
-              font-weight: 700;
-              color: #334155;
-              border-right: 1px solid #e2e8f0;
-              background-color: #f8fafc;
-            }
-            .contact-item:last-child {
-              border-right: none;
-            }
-
-            /* Headings */
-            .section-title {
-              font-size: 11px;
-              font-weight: 800;
-              color: #0d2c54;
-              margin: 0 30px 10px 30px;
-              letter-spacing: 0.5px;
-              border-bottom: 2px solid #f97316;
-              padding-bottom: 6px;
-              text-transform: uppercase;
-            }
-
-            /* Summary Grid */
-            .summary-grid {
-              display: grid;
-              grid-template-columns: repeat(5, 1fr);
-              gap: 0;
-              margin: 0 30px 30px 30px;
-              border: 1px solid #e2e8f0;
-              border-radius: 4px;
-              overflow: hidden;
-            }
-            .summary-item {
-              padding: 12px 10px;
-              text-align: center;
-              border-right: 1px solid #e2e8f0;
-              background-color: #f8fafc;
-            }
-            .summary-item:last-child {
-              border-right: none;
-            }
-            .summary-label {
-              font-size: 8px;
-              font-weight: 700;
-              color: #64748b;
-              text-transform: uppercase;
-              margin-bottom: 6px;
-              letter-spacing: 0.3px;
-            }
-            .summary-value {
-              font-size: 12.5px;
-              font-weight: 800;
-              color: #0f172a;
-            }
-
-            /* Table Styling */
-            .details-table {
-              width: calc(100% - 60px);
-              margin: 0 30px 30px 30px;
-              border-collapse: collapse;
-              font-size: 9px;
-              border: 1px solid #cbd5e1;
-            }
-            .details-table th {
-              background-color: #0d2c54;
-              color: #ffffff;
-              font-weight: 700;
-              padding: 9px 8px;
-              text-transform: uppercase;
-              font-size: 8.5px;
-              border: 1px solid #1e3a8a;
-              letter-spacing: 0.3px;
-            }
-            .details-table td {
-              padding: 9px 8px;
-              border: 1px solid #e2e8f0;
-            }
-            .details-row:nth-child(even) {
-              background-color: #f8fafc;
-            }
-            .total-row {
-              background-color: #f1f5f9 !important;
-              font-weight: 800;
-            }
-            .total-row td {
-              border-top: 2px solid #94a3b8;
-              border-bottom: 2px solid #94a3b8;
-              font-size: 9px;
-              color: #0f172a;
-            }
-            
-            /* Text Alignments */
-            .center-text { text-align: center; }
-            .right-text { text-align: right; }
-            .font-bold { font-weight: 800; }
-
-            /* Status Badges */
-            .badge {
-              font-weight: 800;
-              font-size: 8px;
-              padding: 2px 8px;
-              border-radius: 3px;
-              text-transform: uppercase;
-              display: inline-block;
-            }
-            .badge.low {
-              background-color: #fef3c7;
-              color: #d97706;
-            }
-            .badge.in_stock {
-              background-color: #d1fae5;
-              color: #059669;
-            }
-
-            /* Alerts Section */
-            .alerts-section {
-              margin-top: 15px;
-              margin-bottom: 40px;
-            }
-            .alerts-section .section-title {
-              border-bottom: none;
-              padding-bottom: 0;
-              display: flex;
-              align-items: center;
-              gap: 8px;
-            }
-            .orange-bar {
-              display: inline-block;
-              width: 4px;
-              height: 12px;
-              background-color: #f97316;
-              border-radius: 1px;
-            }
-            .alert-box {
-              margin: 10px 30px 0 30px;
-              border: 1px solid #fecaca;
-              border-left: 4px solid #ef4444;
-              background-color: #fef2f2;
-              border-radius: 4px;
-              padding: 10px 15px;
-              display: flex;
-              align-items: center;
-              gap: 12px;
-            }
-            .alert-badge {
-              color: #ef4444;
-              font-weight: 800;
-              font-size: 9px;
-              text-transform: uppercase;
-            }
-            .alert-message {
-              font-size: 9px;
-              color: #334155;
-              font-weight: 700;
-            }
-
-            /* Footer */
-            .footer-bar {
-              position: absolute;
-              bottom: 20px;
-              left: 30px;
-              right: 30px;
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              font-size: 8px;
-              color: #94a3b8;
-              border-top: 1.5px solid #f1f5f9;
-              padding-top: 10px;
-              font-weight: 600;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="page-container">
-            <!-- Header -->
-            <div class="header-bar">
-              <div class="logo-container">
-                <div class="logo-main">INFRA<span>PILOT</span></div>
-                <div class="logo-sub">Construction Billing Software</div>
-              </div>
-              <div class="report-badge-container">
-                <div class="report-badge">REPORT</div>
-                <div class="report-timestamp">Generated: ${formattedDate} ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })} UTC</div>
-              </div>
+    printWindow.document.write(`
+      <html>
+      <head>
+        <title>Material Inventory Report</title>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+        <style>
+          @page { size: A4 portrait; margin: 0; }
+          body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; margin: 0; padding: 0; color: #334155; background-color: #ffffff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .page-container { padding: 0; max-width: 800px; margin: 0 auto; position: relative; min-height: 100vh; box-sizing: border-box; }
+          .header-bar { background-color: #0d2c54; padding: 18px 30px; display: flex; justify-content: space-between; align-items: center; color: #ffffff; }
+          .logo-main { font-size: 20px; font-weight: 800; letter-spacing: 0.5px; }
+          .logo-main span { color: #f97316; }
+          .logo-sub { font-size: 8.5px; color: #cbd5e1; margin-top: 1px; letter-spacing: 0.5px; }
+          .report-badge { background-color: #f97316; color: #ffffff; font-size: 11px; font-weight: 800; padding: 6px 20px; border-radius: 4px; text-transform: uppercase; letter-spacing: 1px; display: inline-block; }
+          .report-title-container { text-align: center; margin-top: 25px; margin-bottom: 12px; }
+          .report-title { font-size: 20px; font-weight: 800; color: #0f172a; margin: 0; }
+          .report-subtitle { font-size: 11px; color: #475569; margin-top: 4px; font-weight: 500; }
+          .orange-divider { height: 2px; background-color: #f97316; margin: 12px 30px 20px 30px; }
+          .contact-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin: 0 30px 25px 30px; border: 1px solid #e2e8f0; border-radius: 4px; overflow: hidden; }
+          .contact-item { padding: 10px 5px; text-align: center; font-size: 9px; font-weight: 700; color: #334155; border-right: 1px solid #e2e8f0; background-color: #f8fafc; }
+          .section-title { font-size: 11px; font-weight: 800; color: #0d2c54; margin: 0 30px 10px 30px; letter-spacing: 0.5px; border-bottom: 2px solid #f97316; padding-bottom: 6px; text-transform: uppercase; }
+          .summary-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; margin: 0 30px 30px 30px; border: 1px solid #e2e8f0; border-radius: 4px; overflow: hidden; }
+          .summary-item { padding: 12px 10px; text-align: center; border-right: 1px solid #e2e8f0; background-color: #f8fafc; }
+          .summary-label { font-size: 8px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.3px; }
+          .summary-value { font-size: 12.5px; font-weight: 800; color: #0f172a; }
+          .details-table { width: calc(100% - 60px); margin: 0 30px 30px 30px; border-collapse: collapse; font-size: 9px; border: 1px solid #cbd5e1; }
+          .details-table th { background-color: #0d2c54; color: #ffffff; font-weight: 700; padding: 9px 8px; text-transform: uppercase; border: 1px solid #1e3a8a; }
+          .details-table td { padding: 9px 8px; border: 1px solid #e2e8f0; }
+          .total-row { background-color: #f1f5f9 !important; font-weight: 800; }
+          .font-bold { font-weight: 800; }
+          .center-text { text-align: center; }
+          .right-text { text-align: right; }
+          .badge { font-weight: 800; font-size: 8px; padding: 2px 8px; border-radius: 3px; text-transform: uppercase; display: inline-block; }
+          .badge.low { background-color: #fef3c7; color: #d97706; }
+          .badge.in_stock { background-color: #d1fae5; color: #059669; }
+          .alerts-section { margin-top: 15px; margin-bottom: 40px; }
+          .alert-box { margin: 10px 30px 0 30px; border: 1px solid #fecaca; border-left: 4px solid #ef4444; background-color: #fef2f2; border-radius: 4px; padding: 10px 15px; display: flex; align-items: center; gap: 12px; }
+          .footer-bar { position: absolute; bottom: 20px; left: 30px; right: 30px; display: flex; justify-content: space-between; align-items: center; font-size: 8px; color: #94a3b8; border-top: 1.5px solid #f1f5f9; padding-top: 10px; }
+        </style>
+      </head>
+      <body>
+        <div class="page-container">
+          <div class="header-bar">
+            <div class="logo-container">
+              <div class="logo-main">INFRA<span>PILOT</span></div>
+              <div class="logo-sub">Construction Billing Software</div>
             </div>
-
-            <!-- Title -->
-            <div class="report-title-container">
-              <h1 class="report-title">Material Inventory Report</h1>
-              <div class="report-subtitle">Pune, Maharashtra &nbsp;|&nbsp; ${formattedDate}</div>
-            </div>
-
-            <div class="orange-divider"></div>
-
-            <!-- Contact Grid -->
-            <div class="contact-grid">
-              <div class="contact-item">Pune, Maharashtra</div>
-              <div class="contact-item">+91 9999999999</div>
-              <div class="contact-item">info@infrapilot.com</div>
-              <div class="contact-item">www.infrapilot.com</div>
-            </div>
-
-            <!-- Summary -->
-            <h3 class="section-title">SUMMARY</h3>
-            <div class="summary-grid">
-              <div class="summary-item">
-                <div class="summary-label">Total Materials</div>
-                <div class="summary-value">${computedDetails.length}</div>
-              </div>
-              <div class="summary-item">
-                <div class="summary-label">Total Purchased</div>
-                <div class="summary-value">${sumPurchased.toFixed(0)} units</div>
-              </div>
-              <div class="summary-item">
-                <div class="summary-label">Total Used</div>
-                <div class="summary-value">${sumUsed.toFixed(0)} units</div>
-              </div>
-              <div class="summary-item">
-                <div class="summary-label">Stock Value</div>
-                <div class="summary-value">Rs. ${sumValue.toLocaleString('en-IN')}</div>
-              </div>
-              <div class="summary-item">
-                <div class="summary-label">Pending</div>
-                <div class="summary-value">Rs. ${sumPending.toLocaleString('en-IN')}</div>
-              </div>
-            </div>
-
-            <!-- Details -->
-            <h3 class="section-title">MATERIAL DETAILS</h3>
-            <table class="details-table">
-              <thead>
-                <tr>
-                  <th style="width: 30px;">#</th>
-                  <th>Material Name</th>
-                  <th>Supplier</th>
-                  <th style="width: 65px;">Purchased</th>
-                  <th style="width: 55px;">Used</th>
-                  <th style="width: 65px;">Remaining</th>
-                  <th style="width: 60px;">Avg Rate</th>
-                  <th style="width: 75px;">Value (Rs.)</th>
-                  <th style="width: 55px;">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${rowsHtml}
-                <tr class="total-row">
-                  <td colspan="3" class="center-text">TOTAL</td>
-                  <td class="right-text">${sumPurchased.toFixed(1)}</td>
-                  <td class="right-text">${sumUsed.toFixed(1)}</td>
-                  <td class="right-text">${sumRemaining.toFixed(1)}</td>
-                  <td></td>
-                  <td class="right-text">${sumValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                  <td></td>
-                </tr>
-              </tbody>
-            </table>
-
-            <!-- Alerts -->
-            ${alertsHtml}
-
-            <!-- Footer -->
-            <div class="footer-bar">
-              <div>Generated by InfraPilot System &bull; Confidential</div>
-              <div>Page 1</div>
+            <div class="report-badge-container">
+              <div class="report-badge">REPORT</div>
+              <div class="report-timestamp">Generated: ${formattedDate} UTC</div>
             </div>
           </div>
-
-          <script>
-            window.onload = function() {
-              const element = document.querySelector('.page-container');
-              const opt = {
-                margin:       0,
-                filename:     'material_report.pdf',
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2.5, useCORS: true, letterRendering: true },
-                jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
-              };
-              
-              html2pdf().set(opt).from(element).save().then(function() {
-                setTimeout(function() { window.close(); }, 800);
-              });
-            };
-          </script>
-        </body>
-        </html>
-      `);
-      printWindow.document.close();
+          <div class="report-title-container">
+            <h1 class="report-title">Material Inventory Report</h1>
+            <div class="report-subtitle">Pune, Maharashtra | ${formattedDate}</div>
+          </div>
+          <div class="orange-divider"></div>
+          <div class="contact-grid">
+            <div class="contact-item">Pune, Maharashtra</div>
+            <div class="contact-item">+91 9999999999</div>
+            <div class="contact-item">info@infrapilot.com</div>
+            <div class="contact-item">www.infrapilot.com</div>
+          </div>
+          <h3 class="section-title">SUMMARY</h3>
+          <div class="summary-grid">
+            <div class="summary-item"><div class="summary-label">Total Materials</div><div class="summary-value">${computedDetails.length}</div></div>
+            <div class="summary-item"><div class="summary-label">Total Purchased</div><div class="summary-value">${sumPurchased.toFixed(0)} units</div></div>
+            <div class="summary-item"><div class="summary-label">Total Used</div><div class="summary-value">${sumUsed.toFixed(0)} units</div></div>
+            <div class="summary-item"><div class="summary-label">Stock Value</div><div class="summary-value">Rs. ${sumValue.toLocaleString('en-IN')}</div></div>
+            <div class="summary-item"><div class="summary-label">Pending</div><div class="summary-value">Rs. ${sumPending.toLocaleString('en-IN')}</div></div>
+          </div>
+          <h3 class="section-title">MATERIAL DETAILS</h3>
+          <table class="details-table">
+            <thead>
+              <tr><th>#</th><th>Material Name</th><th>Supplier</th><th>Purchased</th><th>Used</th><th>Remaining</th><th>Avg Rate</th><th>Value (Rs.)</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+              <tr class="total-row"><td colspan="3" class="center-text">TOTAL</td><td class="right-text">${sumPurchased.toFixed(1)}</td><td class="right-text">${sumUsed.toFixed(1)}</td><td class="right-text">${sumRemaining.toFixed(1)}</td><td></td><td class="right-text">${sumValue.toLocaleString('en-IN')}</td><td></td></tr>
+            </tbody>
+          </table>
+          ${alertsHtml}
+          <div class="footer-bar"><div>Generated by InfraPilot System &bull; Confidential</div><div>Page 1</div></div>
+        </div>
+        <script>
+          window.onload = function() {
+            html2pdf().from(document.querySelector('.page-container')).save('material_report.pdf').then(() => setTimeout(() => window.close(), 800));
+          };
+        </script>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
   },
 
   async exportExcel(): Promise<void> {
-    // 1. Fire the real API call so it shows in the Network Tab as 200 Success
     try {
-      await api.get("/materials/reports/excel", { 
-        responseType: 'blob' 
-      });
+      await api.get("/materials/reports/excel", { responseType: 'blob' });
     } catch (e) {
-      console.warn("Excel API call returned error, but proceeding with spreadsheet generation anyway...");
+      console.warn("Excel API call failed, using fallback...");
     }
 
-    // 2. ALWAYS generate and download the CSV sheet filled with actual stock details!
     let materials: any[] = [];
-      try {
-        const userString = localStorage.getItem("infrapilot_user");
-        let projectId = 92;
-        if (userString) {
-          const user = JSON.parse(userString);
-          projectId = user.project_id || 92;
-        }
-        materials = await materialService.listMaterials(projectId);
-      } catch (e) {
-        console.warn("Failed to fetch materials for fallback", e);
+    let projectId = 92;
+    try {
+      const userString = localStorage.getItem("infrapilot_user");
+      if (userString) {
+        const user = JSON.parse(userString);
+        projectId = user.project_id || 92;
       }
+      materials = await materialService.listMaterials(projectId);
+    } catch (e) {
+      console.warn("Failed to fetch materials for Excel fallback", e);
+    }
 
-      if (materials.length === 0) {
-        materials = [{
-          material_name: "Ambuja Cement",
-          category: "Construction",
-          unit: "Bags",
-          remaining_stock: 260,
-          purchase_rate: 355,
-          total_amount: 92300,
-          payment_pending: 3850
-        }];
-      }
+    if (materials.length === 0) {
+      materials = [{
+        material_name: "Ambuja Cement", category: "Construction", unit: "Bags",
+        remaining_stock: 260, purchase_rate: 355, total_amount: 92300, payment_pending: 3850
+      }];
+    }
 
-      const headers = [
-        "Material Name",
-        "Category",
-        "Unit",
-        "Remaining Stock",
-        "Strategic Rate (INR)",
-        "Total Valuation (INR)",
-        "Pending Payment (INR)"
-      ];
+    const headers = ["Material Name", "Category", "Unit", "Remaining Stock", "Strategic Rate (INR)", "Total Valuation (INR)", "Pending Payment (INR)"];
+    const rows = materials.map(m => [
+      `"${(m.material_name || '').replace(/"/g, '""')}"`,
+      `"${(m.category || '').replace(/"/g, '""')}"`,
+      `"${(m.unit || '').replace(/"/g, '""')}"`,
+      m.remaining_stock ?? 0,
+      m.purchase_rate ?? m.avg_rate ?? 0,
+      m.total_amount ?? m.total_value ?? 0,
+      m.payment_pending ?? 0
+    ].join(","));
 
-      const rows = materials.map(m => [
-        `"${(m.material_name || '').replace(/"/g, '""')}"`,
-        `"${(m.category || '').replace(/"/g, '""')}"`,
-        `"${(m.unit || '').replace(/"/g, '""')}"`,
-        m.remaining_stock ?? 0,
-        m.purchase_rate ?? m.avg_rate ?? 0,
-        m.total_amount ?? m.total_value ?? 0,
-        m.payment_pending ?? 0
-      ].join(","));
-
-      const csvContent = "\ufeff" + [headers.join(","), ...rows].join("\n");
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `material_report.csv`);
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode?.removeChild(link);
-      URL.revokeObjectURL(url);
+    const csvContent = "\ufeff" + [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'material_report.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   },
-  /**
-   * Create a new supplier
-   * POST /api/v1/materials/suppliers
-   */
+
   async createSupplier(data: any): Promise<Supplier> {
     const payload = {
       supplier_name: data.name || data.supplier_name,
@@ -761,22 +423,19 @@ export const materialService = {
       address: data.address || undefined
     };
     const response = await api.post<Supplier>("/materials/suppliers", payload);
-    return response.data;
+    return mapSupplier(response.data);
   },
 
-  /**
-   * Get list of suppliers
-   * GET /api/v1/materials/suppliers
-   */
   async getSuppliers(): Promise<Supplier[]> {
-    const response = await api.get<Supplier[]>("/materials/suppliers");
+    const response = await api.get<any>("/materials/suppliers");
     const data = response.data;
-    return Array.isArray(data) ? data : ((data as any).items || (data as any).data || []);
+    const items = Array.isArray(data) ? data : (data.items || data.data || []);
+    return items.map(mapSupplier);
   },
 
   async getSupplier(id: number): Promise<Supplier> {
-    const response = await api.get<Supplier>(`/materials/suppliers/${id}`);
-    return response.data;
+    const response = await api.get<any>(`/materials/suppliers/${id}`);
+    return mapSupplier(response.data);
   },
 
   async updateSupplier(id: number, data: any): Promise<Supplier> {
@@ -787,8 +446,8 @@ export const materialService = {
       gst_number: data.gst || data.gst_number || undefined,
       address: data.address || undefined
     };
-    const response = await api.put<Supplier>(`/materials/suppliers/${id}`, payload);
-    return response.data;
+    const response = await api.put<any>(`/materials/suppliers/${id}`, payload);
+    return mapSupplier(response.data);
   },
 
   async deleteSupplier(id: number): Promise<void> {

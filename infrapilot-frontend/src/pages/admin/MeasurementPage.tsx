@@ -3,15 +3,16 @@ import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
 import ConfirmModal from "../../components/common/ConfirmModal";
+import Modal from "../../components/common/Modal";
 import { measurementService } from "../../services/measurementService";
 import { projectService } from "../../services/projectService";
 import type { Measurement } from "../../types/measurement";
 import type { Project } from "../../types/project";
 import toast from "react-hot-toast";
-import { 
-  Ruler, 
-  Trash2, 
-  Plus, 
+import {
+  Ruler,
+  Trash2,
+  Plus,
   Search,
   Edit3
 } from "lucide-react";
@@ -26,7 +27,7 @@ const MeasurementPage = () => {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [targetId, setTargetId] = useState<number | null>(null);
   const [editingItem, setEditingItem] = useState<Measurement | null>(null);
-  
+
   const [formData, setFormData] = useState({
     project_id: "",
     final_area: "",
@@ -143,7 +144,7 @@ const MeasurementPage = () => {
   return (
     <>
       <Navbar title="Field Measurements" breadcrumb={["Admin", "Finance", "Measurements"]} />
-      
+
       <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter pb-20">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
           <div>
@@ -169,21 +170,21 @@ const MeasurementPage = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-          <StatCard 
-            title="Total Certified" 
-            value={`₹${((totalFinal + totalExtra) / 100000).toFixed(2)}L`} 
+          <StatCard
+            title="Total Certified"
+            value={`₹${((totalFinal + totalExtra) / 100000).toFixed(2)}L`}
             sub="Combined aggregate value"
             accent="text-primary"
           />
-          <StatCard 
-            title="Standard Area" 
-            value={`₹${(totalFinal / 100000).toFixed(2)}L`} 
+          <StatCard
+            title="Standard Area"
+            value={`₹${(totalFinal / 100000).toFixed(2)}L`}
             sub="Based on approved rates"
             accent="text-emerald-500"
           />
-          <StatCard 
-            title="Extra Deviation" 
-            value={`₹${(totalExtra / 100000).toFixed(2)}L`} 
+          <StatCard
+            title="Extra Deviation"
+            value={`₹${(totalExtra / 100000).toFixed(2)}L`}
             sub="Non-standard work value"
             accent="text-amber-500"
           />
@@ -287,108 +288,113 @@ const MeasurementPage = () => {
       </PageTransition>
 
       {/* Form Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
-          <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-2xl border border-white/20 overflow-hidden">
-            <div className="p-12">
-              <h3 className="text-2xl font-black text-slate-800 tracking-tight mb-2">
-                {editingItem ? "Recalibrate Record" : "New Field Measurement"}
-              </h3>
-              <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-10">Data input for financial certification</p>
-              
-              <form onSubmit={handleCreateOrUpdate} className="space-y-8">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Target Project Node</label>
-                  <select
-                    value={formData.project_id}
-                    onChange={(e) => setFormData({ ...formData, project_id: e.target.value })}
-                    className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl text-sm font-bold focus:outline-none focus:border-primary/20 transition-all appearance-none"
-                  >
-                    <option value="">Select Node</option>
-                    {projects.map(p => (
-                      <option key={p.id} value={p.id}>{p.project_name}</option>
-                    ))}
-                  </select>
-                </div>
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => { setIsModalOpen(false); setEditingItem(null); }}
+        title={editingItem ? "Recalibrate Record" : "New Field Measurement"}
+        maxWidth="max-w-2xl"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => { setIsModalOpen(false); setEditingItem(null); }}
+              className="px-6 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              form="measurement-form"
+              type="submit"
+              className="px-8 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95"
+            >
+              {editingItem ? "Recalibrate Matrix" : "Authorize Entry"}
+            </button>
+          </>
+        }
+      >
+        <form id="measurement-form" onSubmit={handleCreateOrUpdate} noValidate>
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-1 h-6 bg-primary rounded-full" />
+              <h3 className="font-semibold text-gray-700">Target Project Node</h3>
+            </div>
+            <select
+              value={formData.project_id}
+              onChange={(e) => setFormData({ ...formData, project_id: e.target.value })}
+              className="w-full px-4 py-2 bg-gray-50 border border-gray-200 focus:ring-2 focus:ring-primary/20 focus:border-primary rounded-xl transition-all outline-none appearance-none"
+            >
+              <option value="">Select Project Node</option>
+              {projects.map(p => (
+                <option key={p.id} value={p.id}>{p.project_name}</option>
+              ))}
+            </select>
+          </div>
 
-                <div className="grid grid-cols-2 gap-8">
-                  <div className="space-y-6">
-                    <div className="p-6 bg-emerald-50/50 rounded-[2rem] border border-emerald-100/50">
-                      <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-4">Standard Certs</p>
-                      <div className="space-y-4">
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Final Area</label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={formData.final_area}
-                            onChange={(e) => setFormData({ ...formData, final_area: e.target.value })}
-                            className="w-full bg-white border border-slate-100 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-emerald-200"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Approved Rate</label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={formData.approved_rate}
-                            onChange={(e) => setFormData({ ...formData, approved_rate: e.target.value })}
-                            className="w-full bg-white border border-slate-100 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-emerald-200"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-6">
-                    <div className="p-6 bg-amber-50/50 rounded-[2rem] border border-amber-100/50">
-                      <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-4">Extra Deviations</p>
-                      <div className="space-y-4">
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Extra Area</label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={formData.extra_area}
-                            onChange={(e) => setFormData({ ...formData, extra_area: e.target.value })}
-                            className="w-full bg-white border border-slate-100 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-amber-200"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Extra Rate</label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={formData.extra_rate}
-                            onChange={(e) => setFormData({ ...formData, extra_rate: e.target.value })}
-                            className="w-full bg-white border border-slate-100 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-amber-200"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-1 h-6 bg-emerald-500 rounded-full" />
+                <h3 className="font-semibold text-gray-700">Standard Certs</h3>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Final Area</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.final_area}
+                    onChange={(e) => setFormData({ ...formData, final_area: e.target.value })}
+                    className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 rounded-xl transition-all outline-none font-semibold"
+                    placeholder="0.00"
+                  />
                 </div>
-
-                <div className="flex gap-4 pt-6">
-                  <button
-                    type="button"
-                    onClick={() => { setIsModalOpen(false); setEditingItem(null); }}
-                    className="flex-1 px-8 py-5 text-sm font-black text-slate-400 hover:text-slate-600 transition-all"
-                  >
-                    Abort Sync
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 px-8 py-5 bg-primary text-white rounded-[1.5rem] text-sm font-black shadow-2xl shadow-primary/20 hover:bg-blue-600 transition-all"
-                  >
-                    {editingItem ? "Recalibrate Matrix" : "Authorize Entry"}
-                  </button>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Approved Rate</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.approved_rate}
+                    onChange={(e) => setFormData({ ...formData, approved_rate: e.target.value })}
+                    className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 rounded-xl transition-all outline-none font-semibold"
+                    placeholder="0.00"
+                  />
                 </div>
-              </form>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-1 h-6 bg-amber-500 rounded-full" />
+                <h3 className="font-semibold text-gray-700">Extra Deviations</h3>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Extra Area</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.extra_area}
+                    onChange={(e) => setFormData({ ...formData, extra_area: e.target.value })}
+                    className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-amber-200 focus:border-amber-400 rounded-xl transition-all outline-none font-semibold"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Extra Rate</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.extra_rate}
+                    onChange={(e) => setFormData({ ...formData, extra_rate: e.target.value })}
+                    className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-amber-200 focus:border-amber-400 rounded-xl transition-all outline-none font-semibold"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        </form>
+      </Modal>
 
       <ConfirmModal
         isOpen={isDeleteOpen}

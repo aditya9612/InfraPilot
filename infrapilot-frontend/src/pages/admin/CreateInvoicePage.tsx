@@ -144,8 +144,6 @@ const CreateInvoicePage = () => {
     { id: "3", description: "Stone Work", unit: "Brass", quantity: 0, rate: 0, amount: 0 }
   ]);
 
-  const [cgstRate, setCgstRate] = useState(0);
-  const [sgstRate, setSgstRate] = useState(0);
   const [discount, setDiscount] = useState(0);
   const [advancePaid, setAdvancePaid] = useState(0);
 
@@ -2095,8 +2093,11 @@ const CreateInvoicePage = () => {
                     <span className="font-bold text-slate-500">CGST</span>
                     <input
                       type="number"
-                      value={cgstRate}
-                      onChange={(e) => setCgstRate(parseFloat(e.target.value) || 0)}
+                      value={gstRates.cgst}
+                      onChange={(e) => setGstRates(prev => {
+                        const val = parseFloat(e.target.value) || 0;
+                        return { ...prev, cgst: val, gst: val + prev.sgst };
+                      })}
                       readOnly={isReadOnly}
                       className={`w-12 px-1 py-0.5 bg-slate-50 border border-slate-100 rounded text-center text-xs font-black outline-none focus:ring-1 focus:ring-indigo-200 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                     />
@@ -2110,8 +2111,11 @@ const CreateInvoicePage = () => {
                     <span className="font-bold text-slate-500">SGST</span>
                     <input
                       type="number"
-                      value={sgstRate}
-                      onChange={(e) => setSgstRate(parseFloat(e.target.value) || 0)}
+                      value={gstRates.sgst}
+                      onChange={(e) => setGstRates(prev => {
+                        const val = parseFloat(e.target.value) || 0;
+                        return { ...prev, sgst: val, gst: val + prev.cgst };
+                      })}
                       readOnly={isReadOnly}
                       className={`w-12 px-1 py-0.5 bg-slate-50 border border-slate-100 rounded text-center text-xs font-black outline-none focus:ring-1 focus:ring-indigo-200 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                     />
@@ -2397,11 +2401,11 @@ const CreateInvoicePage = () => {
                   <span className="font-black text-slate-800">₹{subTotal.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="font-bold text-slate-500">CGST ({cgstRate}%)</span>
+                  <span className="font-bold text-slate-500">CGST ({gstRates.cgst}%)</span>
                   <span className="font-black text-slate-800">₹{cgst.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="font-bold text-slate-500">SGST ({sgstRate}%)</span>
+                  <span className="font-bold text-slate-500">SGST ({gstRates.sgst}%)</span>
                   <span className="font-black text-slate-800">₹{sgst.toLocaleString()}</span>
                 </div>
                 {discount > 0 && (

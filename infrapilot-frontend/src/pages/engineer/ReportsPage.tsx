@@ -3,17 +3,13 @@ import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
-import { 
+import {
     RotateCcw
 } from "lucide-react";
 import StatCard from "../../components/common/StatCard";
 import { reportService } from "../../services/reportService";
-import { dsrService } from "../../services/dsrService";
-import { labourService } from "../../services/labourService";
-import { materialService } from "../../services/materialService";
-import { issueService } from "../../services/issueService";
 
-// ─── Types ─────────────────────────────────────────────────────────────────────────────
+// ─── Types ──────────────────────────────────────────────────────────────────────
 
 interface ReportMetric {
     label: string;
@@ -26,7 +22,6 @@ interface ReportType {
     name: string;
     description: string;
     icon: string;
-    image: string;
     badgeColor: string;       // badge background + text
     accentBar: string;        // left accent bar colour
     lastGenerated: string;
@@ -35,7 +30,7 @@ interface ReportType {
     metrics: ReportMetric[];
 }
 
-// ─── Report Definitions ─────────────────────────────────────────────────────────────────────────────
+// ─── Report Definitions ─────────────────────────────────────────────────────────
 
 const reportTypes: ReportType[] = [
     {
@@ -43,7 +38,6 @@ const reportTypes: ReportType[] = [
         name: "Daily Report",
         description: "Full summary of today's site operations — labour deployed, work completed, materials consumed, and any issues logged.",
         icon: "📋",
-        image: "https://images.unsplash.com/photo-1541888086425-d81bb19240f5?w=500&q=80",
         badgeColor: "bg-blue-50 text-blue-600",
         accentBar: "bg-blue-600",
         lastGenerated: "Today, 08:30 AM",
@@ -61,7 +55,6 @@ const reportTypes: ReportType[] = [
         name: "Weekly Progress",
         description: "7-day performance summary covering milestone achievements, planned vs actual progress, and workforce trends.",
         icon: "📈",
-        image: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=500&q=80",
         badgeColor: "bg-emerald-50 text-emerald-600",
         accentBar: "bg-emerald-500",
         lastGenerated: "Mon, 10:00 AM",
@@ -79,7 +72,6 @@ const reportTypes: ReportType[] = [
         name: "Labour Report",
         description: "Workforce breakdown by skill category, attendance, overtime, and contractor-wise deployment summary.",
         icon: "👷",
-        image: "https://images.unsplash.com/photo-1504307651254-35680f356f12?w=500&q=80",
         badgeColor: "bg-amber-50 text-amber-600",
         accentBar: "bg-amber-500",
         lastGenerated: "Today, 07:15 AM",
@@ -97,7 +89,6 @@ const reportTypes: ReportType[] = [
         name: "Material Consumption",
         description: "Inflow vs outflow reconciliation for all materials — cement, steel, aggregates — with stock closing balances.",
         icon: "🏗️",
-        image: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500&q=80",
         badgeColor: "bg-indigo-50 text-indigo-600",
         accentBar: "bg-indigo-500",
         lastGenerated: "Yesterday, 05:45 PM",
@@ -115,7 +106,6 @@ const reportTypes: ReportType[] = [
         name: "Issue Report",
         description: "Logged site issues, safety observations, delays, and their current resolution status and priority levels.",
         icon: "⚠️",
-        image: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=500&q=80",
         badgeColor: "bg-rose-50 text-rose-600",
         accentBar: "bg-rose-500",
         lastGenerated: "Today, 11:30 AM",
@@ -130,7 +120,7 @@ const reportTypes: ReportType[] = [
     },
 ];
 
-// â”€â”€â”€ Main Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Main Component ─────────────────────────────────────────────────────────────
 
 const ReportsPage = () => {
     const [selectedReport, setSelectedReport] = useState<ReportType | null>(null);
@@ -141,7 +131,6 @@ const ReportsPage = () => {
     const [dynamicReports, setDynamicReports] = useState<ReportType[]>(reportTypes);
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
     const [projectId, setProjectId] = useState<number | null>(null);
-    const [searchQuery, setSearchQuery] = useState("");
 
     // Resolve Project ID from session
     useEffect(() => {
@@ -153,11 +142,11 @@ const ReportsPage = () => {
                 if (pId) {
                     setProjectId(Number(pId));
                 } else {
-                    setProjectId(92);
+                    setProjectId(36);
                 }
             } catch (e) {
                 console.error("Failed to resolve project ID", e);
-                setProjectId(92);
+                setProjectId(36);
             }
         }
     }, []);
@@ -166,120 +155,85 @@ const ReportsPage = () => {
         if (!projectId) return;
         setIsInitialLoading(true);
         try {
+            const [daily, weekly, labour, material, issues] = await Promise.all([
+                reportService.getDailyReport(projectId, selectedDate).catch(() => null),
+                reportService.getWeeklyProgress(projectId).catch(() => null),
+                reportService.getLabourReport(projectId).catch(() => null),
+                reportService.getMaterialReport(projectId).catch(() => null),
+                reportService.getIssueReport(projectId).catch(() => null)
+            ]);
+
             const updatedReports = [...reportTypes];
 
-            // ── 1. Daily Report ── fetch from DSR service ───────────────────────
-            try {
-                const dsrResp = await dsrService.getDsrByProject(projectId, { limit: 1 }).catch(() => null);
-                const latestDsr = dsrResp?.items?.[0] || null;
-                const dailyIdx = updatedReports.findIndex(r => r.id === "daily");
-                if (dailyIdx !== -1) {
-                    updatedReports[dailyIdx] = {
-                        ...updatedReports[dailyIdx],
-                        lastGenerated: latestDsr
-                            ? new Date(latestDsr.report_date || latestDsr.created_at || "").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
-                            : updatedReports[dailyIdx].lastGenerated,
-                        metrics: [
-                            { label: "Total Labour", value: latestDsr?.total_labour != null ? `${latestDsr.total_labour} Workers` : "–", accent: "text-blue-600" },
-                            { label: "Skilled Workers", value: latestDsr?.skilled_labour != null ? String(latestDsr.skilled_labour) : "–" },
-                            { label: "Work Done", value: latestDsr?.work_done ? latestDsr.work_done.substring(0, 24) + (latestDsr.work_done.length > 24 ? "…" : "") : "–" },
-                            { label: "Weather", value: latestDsr?.weather || "–", accent: "text-emerald-600" },
-                        ]
-                    };
-                }
-            } catch (e) {
-                console.warn("DSR fetch failed for Reports sync", e);
+            // 1. Daily Report Mapping
+            const dailyIdx = updatedReports.findIndex(r => r.id === "daily");
+            if (dailyIdx !== -1 && daily && daily.dsr) {
+                const dsr = daily.dsr;
+                updatedReports[dailyIdx] = {
+                    ...updatedReports[dailyIdx],
+                    metrics: [
+                        { label: "Total Labour", value: `${dsr.total_labour || 0} Workers`, accent: "text-blue-600" },
+                        { label: "Skilled", value: dsr.skilled_labour?.toString() || "0" },
+                        { label: "Weather", value: dsr.weather || "Clear" },
+                        { label: "Location", value: dsr.site_location || "Site" },
+                    ]
+                };
             }
 
-            // ── 2. Labour Report ── fetch from labourService ────────────────────
-            try {
-                const labourResp = await labourService.getLabours(projectId, { limit: 100 }).catch(() => null);
-                const items = labourResp?.items || [];
-                const skilled   = items.filter((l: any) => (l.skill_type || "").toLowerCase().includes("skilled")).length;
-                const unskilled = items.filter((l: any) => (l.skill_type || "").toLowerCase().includes("unskilled")).length;
-                const supervisors = items.filter((l: any) => (l.skill_type || "").toLowerCase().includes("super")).length;
-                const total = items.length;
-                const laborIdx = updatedReports.findIndex(r => r.id === "labour");
-                if (laborIdx !== -1) {
-                    updatedReports[laborIdx] = {
-                        ...updatedReports[laborIdx],
-                        metrics: [
-                            { label: "Total Workers", value: String(total), accent: "text-blue-600" },
-                            { label: "Skilled Labour", value: String(skilled) },
-                            { label: "Unskilled Labour", value: String(unskilled) },
-                            { label: "Supervisors", value: String(supervisors), accent: "text-amber-600" },
-                        ]
-                    };
-                }
-            } catch (e) {
-                console.warn("Labour fetch failed for Reports sync", e);
+            // 2. Weekly Progress Mapping
+            const weeklyIdx = updatedReports.findIndex(r => r.id === "weekly");
+            if (weeklyIdx !== -1 && weekly) {
+                updatedReports[weeklyIdx] = {
+                    ...updatedReports[weeklyIdx],
+                    metrics: [
+                        { label: "Completion", value: `${weekly.completion_percentage || 0}%`, accent: "text-emerald-600" },
+                        { label: "Status", value: weekly.status || "In Progress" },
+                        { label: "Issues", value: weekly.total_issues?.toString() || "0" },
+                        { label: "Project", value: weekly.project_name || "Project" },
+                    ]
+                };
             }
 
-            // ── 3. Material Report ── fetch from materialService ────────────────
-            try {
-                const materials = await materialService.listMaterials(projectId, 0, 100).catch(() => []);
-                const totalPurchased = materials.reduce((s: number, m: any) => s + (m.quantity_purchased ?? 0), 0);
-                const totalUsed = materials.reduce((s: number, m: any) => s + (m.quantity_used ?? 0), 0);
-                const stockValue = materials.reduce((s: number, m: any) => s + (m.total_value ?? m.total_amount ?? 0), 0);
-                const pendingPay = materials.reduce((s: number, m: any) => s + (m.payment_pending ?? 0), 0);
-                const materialIdx = updatedReports.findIndex(r => r.id === "material");
-                if (materialIdx !== -1) {
-                    updatedReports[materialIdx] = {
-                        ...updatedReports[materialIdx],
-                        metrics: [
-                            { label: "Total Purchased", value: `${totalPurchased} units`, accent: "text-indigo-600" },
-                            { label: "Total Used", value: `${totalUsed} units`, accent: "text-rose-500" },
-                            { label: "Stock Value", value: `₹${stockValue.toLocaleString("en-IN")}`, accent: "text-emerald-600" },
-                            { label: "Payment Pending", value: `₹${pendingPay.toLocaleString("en-IN")}`, accent: "text-amber-600" },
-                        ]
-                    };
-                }
-            } catch (e) {
-                console.warn("Material fetch failed for Reports sync", e);
+            // 3. Labour Mapping
+            const laborIdx = updatedReports.findIndex(r => r.id === "labour");
+            if (laborIdx !== -1 && labour) {
+                updatedReports[laborIdx] = {
+                    ...updatedReports[laborIdx],
+                    metrics: [
+                        { label: "Total Present", value: labour.total_present?.toString() || "0", accent: "text-blue-600" },
+                        { label: "Contractors", value: labour.contractors_count?.toString() || "0" },
+                        { label: "Absent", value: labour.total_absent?.toString() || "0" },
+                        { label: "Shift", value: "Day" },
+                    ]
+                };
             }
 
-            // ── 4. Issue Report ── fetch from issueService ──────────────────────
-            try {
-                const issueResp = await issueService.getIssues().catch(() => null);
-                const allIssues: any[] = Array.isArray(issueResp) ? issueResp : (issueResp?.items || []);
-                const openIssues     = allIssues.filter((i: any) => (i.status || "").toLowerCase() === "open").length;
-                const resolvedIssues = allIssues.filter((i: any) => (i.status || "").toLowerCase() === "resolved" || (i.status || "").toLowerCase() === "closed").length;
-                const highPriority   = allIssues.filter((i: any) => (i.priority || "").toLowerCase() === "high").length;
-                const issueIdx = updatedReports.findIndex(r => r.id === "issue");
-                if (issueIdx !== -1) {
-                    updatedReports[issueIdx] = {
-                        ...updatedReports[issueIdx],
-                        metrics: [
-                            { label: "Total Issues", value: String(allIssues.length), accent: "text-slate-600" },
-                            { label: "Open Issues", value: String(openIssues), accent: "text-rose-500" },
-                            { label: "Resolved", value: String(resolvedIssues), accent: "text-emerald-600" },
-                            { label: "High Priority", value: String(highPriority), accent: "text-amber-600" },
-                        ]
-                    };
-                }
-            } catch (e) {
-                console.warn("Issue fetch failed for Reports sync", e);
+            // 4. Material Mapping
+            const materialIdx = updatedReports.findIndex(r => r.id === "material");
+            if (materialIdx !== -1 && material) {
+                updatedReports[materialIdx] = {
+                    ...updatedReports[materialIdx],
+                    metrics: [
+                        { label: "Received Today", value: material.received_today?.toString() || "0", accent: "text-rose-500" },
+                        { label: "Consumption", value: material.consumed_today?.toString() || "0" },
+                        { label: "Stock Bal", value: "Checked" },
+                        { label: "Unit", value: "Various" },
+                    ]
+                };
             }
 
-            // ── 5. Weekly Report ── fetch from reportService (weekly) ───────────
-            try {
-                const weeklyData = await reportService.getWeeklyProgress(projectId).catch(() => null);
-                const progress = weeklyData?.weekly_progress_percent ?? weeklyData?.actual_progress ?? 0;
-                const planned  = weeklyData?.planned_progress ?? weeklyData?.planned ?? 0;
-                const weeklyIdx = updatedReports.findIndex(r => r.id === "weekly");
-                if (weeklyIdx !== -1) {
-                    updatedReports[weeklyIdx] = {
-                        ...updatedReports[weeklyIdx],
-                        metrics: [
-                            { label: "Planned Progress", value: `${planned || 72}%` },
-                            { label: "Actual Progress", value: `${progress}%`, accent: "text-emerald-600" },
-                            { label: "Tasks Count", value: String(weeklyData?.tasks_count ?? "–") },
-                            { label: "Cost This Week", value: weeklyData?.cost_this_week ? `₹${weeklyData.cost_this_week}` : "₹45.2 L", accent: "text-rose-500" },
-                        ]
-                    };
-                }
-            } catch (e) {
-                console.warn("Weekly Progress fetch failed for Reports sync", e);
+            // 5. Issues Mapping
+            const issueIdx = updatedReports.findIndex(r => r.id === "issue");
+            if (issueIdx !== -1 && issues) {
+                updatedReports[issueIdx] = {
+                    ...updatedReports[issueIdx],
+                    metrics: [
+                        { label: "Open Issues", value: issues.open_issues?.toString() || "0", accent: "text-rose-500" },
+                        { label: "Critical", value: issues.critical_issues?.toString() || "0" },
+                        { label: "Resolved", value: issues.resolved_today?.toString() || "0" },
+                        { label: "Pending", value: issues.pending_review?.toString() || "0" },
+                    ]
+                };
             }
 
             setDynamicReports(updatedReports);
@@ -308,7 +262,7 @@ const ReportsPage = () => {
             "Metric 4"
         ];
         const escape = (val: string | number) => `"${String(val).replace(/"/g, '""')}"`;
-        
+
         const rows = filtered.map((r: ReportType) => {
             const rowData = [
                 escape(r.name),
@@ -324,7 +278,7 @@ const ReportsPage = () => {
                 if (metric) {
                     rowData.push(escape(`${metric.label}: ${metric.value}`));
                 } else {
-                    rowData.push(escape("â€”"));
+                    rowData.push(escape("—"));
                 }
             }
 
@@ -552,35 +506,30 @@ const ReportsPage = () => {
         toast.success("PDF Print dialog opened successfully!");
     };
 
-    const handleExport = async (report: ReportType, format: 'pdf' | 'excel' = 'pdf') => {
-        setLoadingId(`${report.id}-${format}`);
-        toast.loading(`Exporting ${report.name} as ${format.toUpperCase()}...`, { id: `exp-${report.id}` });
+    const handleExport = async (report: ReportType) => {
+        setLoadingId(report.id);
+        toast.loading(`Exporting ${report.name}...`, { id: `exp-${report.id}` });
         try {
             let blob: Blob;
             let filename: string;
             const today = new Date().toISOString().split("T")[0];
 
-            if (format === 'pdf') {
-                if (report.id === "daily") {
-                    blob = await reportService.exportDailyPDF(projectId || 0, selectedDate);
-                } else if (report.id === "material") {
-                    blob = await reportService.exportMaterialPDF();
-                } else {
-                    blob = new Blob([`PDF Report Content for ${report.name}`], { type: 'application/pdf' });
-                }
-                filename = `${report.name.replace(/\s+/g, '_')}_${today}.pdf`;
+            if (report.id === "daily") {
+                blob = await reportService.exportDailyPDF(projectId || 0, selectedDate);
+                filename = `Daily_Report_${selectedDate}.pdf`;
+            } else if (report.id === "material") {
+                blob = await reportService.exportMaterialExcel(projectId || 0);
+                filename = `Material_Report_${today}.xlsx`;
+            } else if (report.id === "labor") {
+                blob = await reportService.exportLabourExcel(projectId || 0);
+                filename = `Labour_Deployment_${today}.xlsx`;
+            } else if (report.id === "issue") {
+                blob = await reportService.exportIssueExcel(projectId || 0);
+                filename = `Issue_Registry_${today}.xlsx`;
             } else {
-                if (report.id === "material") {
-                    blob = await reportService.exportMaterialExcel(projectId || 0);
-                } else if (report.id === "labor") {
-                    blob = await reportService.exportLabourExcel(projectId || 0);
-                } else if (report.id === "issue") {
-                    blob = await reportService.exportIssueExcel(projectId || 0);
-                } else {
-                    // Fallback for others (Daily, Weekly, etc.)
-                    blob = new Blob([`Excel Report Content for ${report.name}`], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-                }
-                filename = `${report.name.replace(/\s+/g, '_')}_${today}.xlsx`;
+                // Fallback for others (Weekly, etc.)
+                blob = new Blob([`Report Content for ${report.name}`], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                filename = `${report.name}_Report_${today}.xlsx`;
             }
 
             const url = window.URL.createObjectURL(blob);
@@ -591,7 +540,7 @@ const ReportsPage = () => {
             link.click();
             link.remove();
             window.URL.revokeObjectURL(url);
-            
+
             toast.success(`${report.name} exported!`, { id: `exp-${report.id}` });
         } catch (e) {
             toast.error("Export failed", { id: `exp-${report.id}` });
@@ -601,12 +550,10 @@ const ReportsPage = () => {
     };
 
     const filtered = useMemo(() => {
-        // 1. Frequency filter
         let data = activeFilter === "All"
             ? dynamicReports
             : dynamicReports.filter(r => r.frequency === activeFilter);
 
-        // 2. Stat filter
         if (activeStatFilter === "Recent") {
             data = data.filter(r => r.lastGenerated.toLowerCase().includes("today"));
         } else if (activeStatFilter === "Large") {
@@ -615,59 +562,25 @@ const ReportsPage = () => {
             data = data.filter(r => r.id === "issue");
         }
 
-        // 3. Search filter — matches name, description, or report id
-        if (searchQuery.trim()) {
-            const q = searchQuery.toLowerCase().trim();
-            data = data.filter(r =>
-                r.name.toLowerCase().includes(q) ||
-                r.description.toLowerCase().includes(q) ||
-                r.id.toLowerCase().includes(q) ||
-                r.frequency.toLowerCase().includes(q)
-            );
-        }
-
-        // 4. Date filter — show only reports whose lastGenerated matches the selected date
-        if (selectedDate) {
-            const [y, m, d] = selectedDate.split("-");
-            const formatted = `${d}-${m}-${y}`; // DD-MM-YYYY
-            // Only filter if user has picked a non-today date; otherwise show all
-            const todayStr = new Date().toISOString().split("T")[0];
-            if (selectedDate !== todayStr) {
-                data = data.filter(r =>
-                    r.lastGenerated.includes(formatted) ||
-                    r.lastGenerated.toLowerCase().includes("today")
-                );
-            }
-        }
-
         return data;
-    }, [activeFilter, activeStatFilter, dynamicReports, searchQuery, selectedDate]);
+    }, [activeFilter, activeStatFilter, dynamicReports]);
 
     const reportsStats = useMemo(() => {
-        const total = filtered.length;
-        
-        // Find Total Labour
-        let totalLabour = 0;
-        let closingStock = "₹0";
-        let openIssues = 0;
+        const total = dynamicReports.length;
+        const generatedToday = dynamicReports.filter(r => r.lastGenerated.toLowerCase().includes("today")).length;
 
-        filtered.forEach(r => {
-            if (r.id === "daily" || r.id === "labour") {
-                const workerMetric = r.metrics.find(m => m.label.toLowerCase().includes("labour") || m.label.toLowerCase().includes("workers"));
-                if (workerMetric) totalLabour += parseInt(workerMetric.value.replace(/[^0-9]/g, "")) || 0;
-            }
-            if (r.id === "material") {
-                const stockMetric = r.metrics.find(m => m.label.toLowerCase().includes("stock"));
-                if (stockMetric) closingStock = stockMetric.value;
-            }
-            if (r.id === "issue") {
-                const issueMetric = r.metrics.find(m => m.label.toLowerCase().includes("open"));
-                if (issueMetric) openIssues += parseInt(issueMetric.value.replace(/[^0-9]/g, "")) || 0;
-            }
-        });
+        // Find issue report and extract open issues count
+        const issueReport = dynamicReports.find(r => r.id === "issue");
+        // Look for metric that contains "Open Issue" in label
+        const openIssuesMetric = issueReport?.metrics.find(m => m.label.includes("Open Issue"));
+        const openIssues = openIssuesMetric ? parseInt(openIssuesMetric.value.replace(/[^0-9]/g, "")) || 0 : 0;
 
-        return { total, totalLabour, closingStock, openIssues };
-    }, [filtered]);
+        // Calculate total size
+        const totalSize = dynamicReports.reduce((acc, r) => acc + parseFloat(r.size || "0"), 0);
+        const avgSize = total > 0 ? (totalSize / total).toFixed(1) : "0";
+
+        return { total, generatedToday, openIssues, avgSize };
+    }, [dynamicReports]);
 
     return (
         <>
@@ -678,7 +591,7 @@ const ReportsPage = () => {
 
             <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter flex flex-col pb-8">
 
-                {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6 md:mb-10">
                     <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
@@ -708,61 +621,45 @@ const ReportsPage = () => {
                     </button>
                 </div>
 
-                {/* ─── Stat Cards ───────────────────────────────────────────────────────────────────────────── */}
+                {/* ── Stat Cards ───────────────────────────────────────────── */}
                 <div className="mb-8">
                     <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">
                         Report Overview
                     </h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {filtered.length === 1 ? (
-                            // Show the specific metrics of the single filtered report
-                            filtered[0].metrics.map((m: ReportMetric, i: number) => (
-                                <div key={i} className="group transition-all rounded-xl hover:scale-[1.01]">
-                                    <StatCard
-                                        title={m.label}
-                                        value={m.value}
-                                        sub={`${filtered[0].name} Detail`}
-                                        accent={m.accent ? m.accent : "text-primary"} />
-                                </div>
-                            ))
-                        ) : (
-                            // Show aggregated summary stats for multiple reports
-                            <>
-                                <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary bg-primary/5 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                                    <StatCard
-                                        title="Total Reports"
-                                        value={reportsStats.total.toString()}
-                                        sub="Available in Catalog"
-                                        accent="text-primary" />
-                                </div>
-                                <div className={`group transition-all rounded-xl hover:scale-[1.01]`}>
-                                    <StatCard
-                                        title="Total Labour Deploy"
-                                        value={reportsStats.totalLabour.toString()}
-                                        sub="Workers Across Site"
-                                        accent="text-blue-500" />
-                                </div>
-                                <div className={`group transition-all rounded-xl hover:scale-[1.01]`}>
-                                    <StatCard
-                                        title="Material Stock"
-                                        value={reportsStats.closingStock}
-                                        sub="Closing Value"
-                                        accent="text-emerald-500" />
-                                </div>
-                                <div onClick={() => setActiveStatFilter("Issues")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Issues" ? "ring-2 ring-rose-500 bg-rose-50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                                    <StatCard
-                                        title="Open Issues"
-                                        value={reportsStats.openIssues.toString()}
-                                        sub="High Priority Items"
-                                        accent="text-rose-500" />
-                                </div>
-                            </>
-                        )}
+                        <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary bg-primary/5 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                            <StatCard
+                                title="Total Reports"
+                                value={reportsStats.total.toString()}
+                                sub="Available in Catalog"
+                                accent="text-primary" />
+                        </div>
+                        <div onClick={() => setActiveStatFilter("Recent")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Recent" ? "ring-2 ring-emerald-500 bg-emerald-50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                            <StatCard
+                                title="Generated Today"
+                                value={reportsStats.generatedToday.toString()}
+                                sub="Recent Site Logs"
+                                accent="text-emerald-500" />
+                        </div>
+                        <div onClick={() => setActiveStatFilter("Large")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Large" ? "ring-2 ring-amber-500 bg-amber-50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                            <StatCard
+                                title="Avg. Report Size"
+                                value={`${reportsStats.avgSize} MB`}
+                                sub="Inventory Volume"
+                                accent="text-amber-500" />
+                        </div>
+                        <div onClick={() => setActiveStatFilter("Issues")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Issues" ? "ring-2 ring-rose-500 bg-rose-50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                            <StatCard
+                                title="Open Issues"
+                                value={reportsStats.openIssues.toString()}
+                                sub="High Priority Items"
+                                accent="text-rose-500" />
+                        </div>
                     </div>
                 </div>
 
-                {/* â”€â”€ Filter Tabs + Report Cards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                {/* â”€â”€ Filter Bar (DSR Style) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                {/* ── Filter Tabs + Report Cards ───────────────────────────── */}
+                {/* ── Filter Bar (DSR Style) ───────────────────────────────────────────── */}
                 <div className="bg-white rounded-xl shadow-sm border border-slate-100 px-5 py-4 mb-8 flex flex-wrap items-center gap-4 font-inter">
 
                     {/* Left: Blue Icon + Title */}
@@ -788,33 +685,15 @@ const ReportsPage = () => {
                             </span>
                             <input
                                 type="text"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
                                 placeholder="Search reports..."
-                                className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
+                                className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:outline-none transition-all"
                             />
-                            {searchQuery && (
-                                <button
-                                    onClick={() => setSearchQuery("")}
-                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                                >
-                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-                            )}
                         </div>
                     </div>
 
                     {/* Date Picker */}
                     <div className="flex flex-col gap-0.5 min-w-[150px]">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                            Report Date &nbsp;<span className="text-primary font-bold">
-                                {selectedDate
-                                    ? (() => { const [y,m,d] = selectedDate.split("-"); return `${d}-${m}-${y}`; })()
-                                    : ""}
-                            </span>
-                        </label>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Report Date</label>
                         <div className="relative">
                             <input
                                 type="date"
@@ -877,7 +756,7 @@ const ReportsPage = () => {
                     </div>
                 </div>
 
-                {/* â”€â”€ Report Cards Grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                {/* ── Report Cards Grid ───────────────────────────── */}
                 <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 pr-2">
 
                     {/* Cards Grid */}
@@ -888,12 +767,12 @@ const ReportsPage = () => {
                                 className="relative bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hover:shadow-md hover:border-slate-200 transition-all flex flex-col gap-5 group"
                             >
                                 {/* Accent bar */}
-                                <div className={`absolute left-0 top-5 bottom-5 w-1 ${report.accentBar} rounded-r-full opacity-0 group-hover:opacity-100 transition-opacity z-10`} />
+                                <div className={`absolute left-0 top-5 bottom-5 w-1 ${report.accentBar} rounded-r-full opacity-0 group-hover:opacity-100 transition-opacity`} />
 
                                 {/* Card header */}
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="flex items-center gap-4">
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${report.badgeColor} shrink-0`}>
+                                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl ${report.badgeColor}`}>
                                             {report.icon}
                                         </div>
                                         <div>
@@ -905,7 +784,7 @@ const ReportsPage = () => {
                                             </h3>
                                         </div>
                                     </div>
-                                    <span className="text-[10px] font-bold text-slate-400 shrink-0 mt-1">{report.size}</span>
+                                    <span className="text-[10px] font-bold text-slate-400 shrink-0">{report.size}</span>
                                 </div>
 
                                 {/* Description */}
@@ -924,55 +803,37 @@ const ReportsPage = () => {
                                 </div>
 
                                 {/* Footer: last generated + buttons */}
-                                <div className="flex flex-col gap-3 mt-auto">
+                                <div className="flex items-center justify-between gap-3">
                                     <div className="flex items-center gap-1.5">
-                                        <span className="w-2 h-2 bg-emerald-500 rounded-full shrink-0" />
-                                        <span className="text-[10px] font-bold text-slate-400 truncate">{report.lastGenerated}</span>
+                                        <span className="w-2 h-2 bg-emerald-500 rounded-full" />
+                                        <span className="text-[10px] font-bold text-slate-400">{report.lastGenerated}</span>
                                     </div>
-                                    
-                                    <div className="flex items-center gap-2 mt-1">
+                                    <div className="flex gap-2">
                                         {/* View button */}
                                         <button
                                             title="View Report"
                                             onClick={() => setSelectedReport(report)}
-                                            className="p-2 text-slate-400 hover:text-primary hover:bg-blue-50 rounded-lg transition-all shrink-0 border border-transparent hover:border-blue-100"
+                                            className="p-2 text-slate-400 hover:text-primary hover:bg-blue-50 rounded-lg transition-all"
                                         >
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                             </svg>
                                         </button>
-                                        {/* Download PDF button */}
+                                        {/* Export button */}
                                         <button
-                                            onClick={() => handleExport(report, 'pdf')}
-                                            disabled={loadingId === `${report.id}-pdf`}
-                                            title="Download PDF"
-                                            className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-[11px] font-bold rounded-xl transition-all shadow-sm shadow-blue-200"
+                                            onClick={() => handleExport(report)}
+                                            disabled={loadingId === report.id}
+                                            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-xs font-bold rounded-xl transition-all shadow-sm shadow-blue-200"
                                         >
-                                            {loadingId === `${report.id}-pdf` ? (
-                                                <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            {loadingId === report.id ? (
+                                                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                             ) : (
                                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                                 </svg>
                                             )}
-                                            PDF
-                                        </button>
-                                        {/* Export Excel button */}
-                                        <button
-                                            onClick={() => handleExport(report, 'excel')}
-                                            disabled={loadingId === `${report.id}-excel`}
-                                            title="Export Excel"
-                                            className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-[11px] font-bold rounded-xl transition-all shadow-sm shadow-emerald-200"
-                                        >
-                                            {loadingId === `${report.id}-excel` ? (
-                                                <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                            ) : (
-                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                                </svg>
-                                            )}
-                                            Excel
+                                            Export
                                         </button>
                                     </div>
                                 </div>
@@ -988,10 +849,10 @@ const ReportsPage = () => {
                 </div>
             </PageTransition>
 
-            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+            {/* ═══════════════════════════════════════════════════════════════
                 REPORT DETAIL MODAL  (matches DSR / User Profile style)
-            â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
-            {/* â”€â”€ DETAIL MODAL (Insight View) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            ═══════════════════════════════════════════════════════════════ */}
+            {/* ── DETAIL MODAL (Insight View) ────────────────────────────────── */}
             <Modal
                 isOpen={!!selectedReport}
                 onClose={() => setSelectedReport(null)}
@@ -1000,7 +861,7 @@ const ReportsPage = () => {
             >
                 {selectedReport && (
                     <div className="bg-white p-6 text-inter">
-                        {/* â”€â”€ Blue Hero Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                        {/* ── Blue Hero Card ────────────────────────────────── */}
                         <div className="bg-blue-600 rounded-2xl p-8 text-white shadow-xl mb-8 relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl" />
 
@@ -1026,7 +887,7 @@ const ReportsPage = () => {
                             </div>
                         </div>
 
-                        {/* â”€â”€ Diagnostic Floor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                        {/* ── Diagnostic Floor ──────────────────────────────── */}
                         <div className="space-y-8 mb-10 px-1">
                             {/* Report Identity */}
                             <div>
@@ -1068,7 +929,7 @@ const ReportsPage = () => {
                             </div>
                         </div>
 
-                        {/* â”€â”€ Action Footer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                        {/* ── Action Footer ─────────────────────────────────── */}
                         <div className="flex items-center gap-4 pt-6 border-t border-slate-50">
                             <button
                                 onClick={() => setSelectedReport(null)}
