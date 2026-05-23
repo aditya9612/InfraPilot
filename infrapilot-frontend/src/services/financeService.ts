@@ -26,10 +26,13 @@ export const financeService = {
    * Fetch invoices by type
    * GET /api/v1/invoices/type/{type}
    */
-  async getInvoicesByType(type: string): Promise<Invoice[]> {
+  async getInvoicesByType(type: string, limit: number = 20, offset: number = 0): Promise<Invoice[]> {
     try {
-      const response = await api.get(`/invoices/type/${type}`);
-      return response.data || [];
+      const response = await api.get(`/invoices/type/${type}`, {
+        params: { limit, offset }
+      });
+      const data = response.data;
+      return Array.isArray(data) ? data : (data.items || data.data || []);
     } catch (error: any) {
       console.error(
         `Fetch Invoices By Type (${type}) Error:`,
