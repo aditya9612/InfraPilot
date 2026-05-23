@@ -103,25 +103,7 @@ const ClientProjectOverviewPage = () => {
             )}
           </div>
 
-          {/* Project Stakeholders */}
-          <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-            <h2 className="text-base font-black text-slate-800 uppercase tracking-widest text-[11px] mb-8">Key Personnel</h2>
-            <div className="space-y-6">
-              {[
-                { label: "Project Manager", value: "Mr. Rajesh Mehta", role: "Project Manager", avatar: "RM", color: "bg-blue-600" },
-                { label: "Site Engineer", value: "Ms. Anjali Desai", role: "Sr. Site Engineer", avatar: "AD", color: "bg-emerald-600" },
-                { label: "Contractor Name", value: "Vikram Buildcon Pvt. Ltd.", role: "Lead Contractor", avatar: "VB", color: "bg-purple-600" },
-              ].map((p, i) => (
-                <div key={i} className="flex items-center gap-4">
-                  <div className={`w-11 h-11 rounded-2xl ${p.color} flex items-center justify-center text-white font-black text-xs shrink-0 shadow-lg shadow-blue-500/10`}>{p.avatar}</div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{p.label}</p>
-                    <p className="text-sm font-bold text-slate-800 leading-tight">{p.value}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

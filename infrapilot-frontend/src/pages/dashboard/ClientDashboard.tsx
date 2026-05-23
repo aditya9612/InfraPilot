@@ -161,16 +161,16 @@ return (
                     <h2 className="text-2xl font-black text-slate-800 tracking-tight leading-tight">Structural Phase III: <br />Roof Slab & MEP Hookups</h2>
                     <p className="text-slate-400 text-sm font-medium mt-2 leading-relaxed">Today's Work focus: Finalizing rebar arrangement for the primary roof slab and ensuring plumbing sleeves are accurately placed.</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">Last Completed</p>
-                      <p className="text-xs font-black text-slate-700 uppercase tracking-tight">4th Floor Column Pour</p>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100" onClick={() => navigate('/last-completed') } style={{cursor: 'pointer'}}>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">Last Completed</p>
+                        <p className="text-xs font-black text-slate-700 uppercase tracking-tight">4th Floor Column Pour</p>
+                      </div>
+                      <div className="p-6 bg-blue-600 rounded-3xl shadow-xl shadow-blue-500/20" onClick={() => navigate('/upcoming-today') } style={{cursor: 'pointer'}}>
+                        <p className="text-[9px] font-black text-white/60 uppercase tracking-widest mb-1 italic">Upcoming Today</p>
+                        <p className="text-xs font-black text-white uppercase tracking-tight">Casting Prep Meeting</p>
+                      </div>
                     </div>
-                    <div className="p-6 bg-blue-600 rounded-3xl shadow-xl shadow-blue-500/20">
-                      <p className="text-[9px] font-black text-white/60 uppercase tracking-widest mb-1 italic">Upcoming Today</p>
-                      <p className="text-xs font-black text-white uppercase tracking-tight">Casting Prep Meeting</p>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
@@ -229,10 +229,10 @@ return (
             </div>
           </div>
           {/* Side Module: Alerts, Updates, and Actions */}
-          <div className="space-y-10">
+          <div className="space-y-6">
             {/* Timeline Stream */}
             <div className="bg-white rounded-[48px] p-10 shadow-sm border border-slate-100">
-              <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-10 border-b border-slate-50 pb-4">Live Execution Feed</h2>
+              <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-4 border-b border-slate-50 pb-4">Live Execution Feed</h2>
               <div className="space-y-10 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-px before:bg-slate-100">
                 {updates.map(update => (
                   <div key={update.id} className="relative pl-12">
@@ -241,48 +241,7 @@ return (
                     <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1 italic">{update.time}</p>
                   </div>
                 ))}
-              </div>
-            </div>
-            {/* Critical Alert */}
-            <div className="p-8 bg-red-50 border border-red-100 rounded-[40px] relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-red-100/50 rounded-full blur-2xl -mr-12 -mt-12 group-hover:scale-150 transition-transform duration-700" />
-              <div className="flex items-start gap-5 relative z-10">
-                <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-2xl shadow-xl shadow-red-200 shrink-0">⚠️</div>
-                <div className="flex-1">
-                  <p className="text-[11px] font-black text-red-600 uppercase tracking-widest italic">Variation Alert</p>
-                  <p className="text-sm text-red-500 font-bold mt-2 leading-relaxed">Phase 2 structural budget variation of ₹20L requires signature.</p>
-                  <button onClick={() => navigate("/client/approvals/pending")} className="mt-4 px-6 py-2.5 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-red-700 transition-colors shadow-lg shadow-red-500/20">Sign Now</button>
-                </div>
-              </div>
-            </div>
-            {/* Quick Portal Switcher */}
-            <div className="bg-slate-900 rounded-[48px] p-8 text-white relative overflow-hidden">
-              <div className="absolute bottom-0 right-0 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl" />
-              <div className="relative z-10">
-                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400 mb-6 italic">Support Access</p>
-                <div className="space-y-4">
-                  <button
-                    onClick={() => navigate("/client/communication/messages")}
-                    className="w-full flex items-center justify-between p-5 bg-white/5 border border-white/10 rounded-3xl hover:bg-white/10 transition-all group"
-                  >
-                    <div className="text-left">
-                      <p className="text-sm font-black tracking-tight">Site Engineer Chat</p>
-                      <p className="text-[9px] text-white/50 font-bold uppercase tracking-widest">Available Now</p>
-                    </div>
-                    <span className="text-xl group-hover:translate-x-1 transition-transform">→</span>
-                  </button>
-                  <button
-                    onClick={() => setIsBotOpen(true)}
-                    className="w-full flex items-center justify-between p-5 bg-primary rounded-3xl shadow-2xl shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all group"
-                  >
-                    <div className="text-left">
-                      <p className="text-sm font-black tracking-tight text-white">Instant Portal Bot</p>
-                      <p className="text-[9px] text-white/70 font-bold uppercase tracking-widest">AI Assistance</p>
-                    </div>
-                    <span className="text-xl group-hover:translate-x-1 transition-transform">⚡</span>
-                  </button>
-                </div>
-              </div>
+                      </div>
             </div>
           </div>
         </div>
