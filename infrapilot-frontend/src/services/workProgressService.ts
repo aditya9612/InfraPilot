@@ -9,8 +9,26 @@ import type {
 } from "../types/workProgress";
 
 let mockActivities: ActivityItem[] = [];
-
 let mockDailyEntries: DailyEntry[] = [];
+
+try {
+  const localActivities = localStorage.getItem("mock_activities");
+  if (localActivities) mockActivities = JSON.parse(localActivities);
+  
+  const localEntries = localStorage.getItem("mock_daily_entries");
+  if (localEntries) mockDailyEntries = JSON.parse(localEntries);
+} catch (e) {
+  console.warn("Failed to load mock data from localStorage", e);
+}
+
+const persistMockData = () => {
+  try {
+    localStorage.setItem("mock_activities", JSON.stringify(mockActivities));
+    localStorage.setItem("mock_daily_entries", JSON.stringify(mockDailyEntries));
+  } catch (e) {
+    console.warn("Failed to save mock data to localStorage", e);
+  }
+};
 
 if (typeof window !== "undefined") {
   (window as any).mockActivities = mockActivities;
@@ -79,6 +97,7 @@ export const workProgressService = {
         created_at: new Date().toISOString()
       };
       mockActivities.unshift(newAct);
+      persistMockData();
       return newAct;
     }
   },
@@ -102,6 +121,7 @@ export const workProgressService = {
         act.status = data.status;
         act.remaining_quantity = Math.max(0, data.planned_quantity - act.total_completed);
         act.completion_percentage = Math.min(100, (act.total_completed / data.planned_quantity) * 100);
+        persistMockData();
         return act;
       }
       throw new Error("Activity not found");
@@ -117,6 +137,7 @@ export const workProgressService = {
     } catch (error: any) {
       console.warn("deleteActivity API error, using virtual success fallback:", error.message);
       mockActivities = mockActivities.filter(a => a.id !== id);
+      persistMockData();
     }
   },
 
@@ -152,6 +173,8 @@ export const workProgressService = {
           act.status = "On Track";
         }
       }
+      
+      persistMockData();
 
       return {
         message: "Progress added successfully",
@@ -204,6 +227,7 @@ export const workProgressService = {
         }
         entry.today_progress = data.today_progress;
         entry.remarks = data.remarks;
+        persistMockData();
         return entry;
       }
       throw new Error("Daily entry not found");
@@ -229,6 +253,7 @@ export const workProgressService = {
         }
       }
       mockDailyEntries = mockDailyEntries.filter(e => e.id !== id);
+      persistMockData();
     }
   },
 
