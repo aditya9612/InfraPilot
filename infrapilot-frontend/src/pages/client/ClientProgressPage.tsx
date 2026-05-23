@@ -2,21 +2,7 @@ import { useState, useEffect } from "react";
 import Navbar from "../../components/common/Navbar";
 import { projectService } from "../../services/projectService";
 
-const phases = [
-  { name: "Civil & Structural", progress: 85, color: "bg-blue-500", sub: "Roof slab casting underway" },
-  { name: "Plumbing", progress: 60, color: "bg-emerald-500", sub: "3rd floor rough-in complete" },
-  { name: "Electrical", progress: 40, color: "bg-amber-500", sub: "Conduit laying in progress" },
-  { name: "Finishing Works", progress: 10, color: "bg-purple-500", sub: "Yet to commence" },
-  { name: "MEP Integration", progress: 20, color: "bg-rose-500", sub: "Design finalised" },
-];
 
-const weeklyLog = [
-  { date: "31 Mar 2026", task: "3rd floor column casting completed", crew: 24, status: "done" },
-  { date: "30 Mar 2026", task: "Roof slab reinforcement laid", crew: 18, status: "done" },
-  { date: "29 Mar 2026", task: "Plumbing rough-in — F3", crew: 12, status: "done" },
-  { date: "28 Mar 2026", task: "Electrical conduit laying — F2", crew: 9, status: "done" },
-  { date: "27 Mar 2026", task: "Safety audit & compliance check", crew: 6, status: "done" },
-];
 
 const ClientProgressPage = () => {
   const [activities, setActivities] = useState<any[]>([]);
@@ -25,8 +11,9 @@ const ClientProgressPage = () => {
   useEffect(() => {
     const fetchActivities = async () => {
       try {
-        const data = await projectService.getWorkProgressActivities(1, 1);
-        setActivities(Array.isArray(data) ? data : []);
+        const response = await projectService.getWorkProgressActivities(96);
+        const fetchedActivities = Array.isArray(response) ? response : (response.data || response.items || []);
+        setActivities(fetchedActivities);
       } catch (err) {
         console.error("Failed to fetch work progress activities:", err);
       } finally {
@@ -39,7 +26,7 @@ const ClientProgressPage = () => {
   // Compute overall progress from activities
   const overallProgress = activities.length > 0
     ? Math.round(activities.reduce((sum, a) => sum + (a.completion_percentage || 0), 0) / activities.length)
-    : 68;
+    : 0;
 
   return (
     <>
@@ -73,71 +60,7 @@ const ClientProgressPage = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {/* Progress Bars */}
-          <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-            <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-8">Work Category Progress</h2>
-            <div className="space-y-6">
-              {phases.map((p, i) => (
-                <div key={i}>
-                  <div className="flex justify-between items-center mb-2">
-                    <p className="text-sm font-bold text-slate-700">{p.name}</p>
-                    <p className="text-sm font-black text-slate-800">{p.progress}%</p>
-                  </div>
-                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                    <div className={`h-full ${p.color} rounded-full transition-all duration-700`} style={{ width: `${p.progress}%` }} />
-                  </div>
-                  <p className="text-[10px] text-slate-400 font-bold mt-1">{p.sub}</p>
-                </div>
-              ))}
-            </div>
-          </div>
 
-          {/* Daily Log */}
-          <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-            <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-8">Recent Daily Log</h2>
-            <div className="space-y-4">
-              {weeklyLog.map((log, i) => (
-                <div 
-                  key={i} 
-                  className="flex items-center gap-4 p-4 bg-slate-50 hover:bg-slate-100 transition-colors rounded-2xl group cursor-pointer"
-                  onClick={() => {
-                    import("jspdf").then(({ default: jsPDF }) => {
-                      const doc = new jsPDF();
-                      doc.setFontSize(16);
-                      doc.text("Daily Log Report", 14, 22);
-                      doc.setFontSize(11);
-                      doc.setTextColor(100);
-                      doc.text(`Date: ${log.date}`, 14, 30);
-                      doc.setTextColor(0);
-                      
-                      // Add content
-                      doc.text(`Task: ${log.task}`, 14, 42);
-                      doc.text(`Crew Size: ${log.crew} workers`, 14, 50);
-                      doc.text(`Status: ${log.status.toUpperCase()}`, 14, 58);
-                      
-                      doc.save(`Daily_Log_${log.date.replace(/ /g, '_')}.pdf`);
-                    });
-                  }}
-                >
-                  <span className="w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center text-white text-xs shrink-0 self-start">✓</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-slate-700 leading-snug">{log.task}</p>
-                    <p className="text-[10px] text-slate-400 font-bold mt-0.5">{log.date} · {log.crew} workers</p>
-                  </div>
-                  <button
-                    className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 transition-all hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 shrink-0 shadow-sm"
-                    title="Download Log Report PDF"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
 
         {/* Detailed Activity Progress — now from API */}
         <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">

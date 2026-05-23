@@ -266,36 +266,20 @@ export const projectService = {
    * Get work progress activities for a project and engineer
    * GET /api/v1/projects/work-progress/activities
    */
-  async getWorkProgressActivities(projectId: number, engineerId: number) {
+  async getWorkProgressActivities(projectId: number, engineerId?: number) {
     try {
-      const response = await api.get('/projects/work-progress/activities', {
-        params: { project_id: projectId, engineer_id: engineerId }
+      const params: any = {};
+      if (engineerId) {
+        params.engineer_id = engineerId;
+      }
+      
+      const response = await api.get(`/projects/${projectId}/work-progress/activities`, {
+        params: params
       });
       return response.data;
     } catch (err) {
       console.error('Failed to fetch work progress activities:', err);
-      // Fallback mock data
-      return [
-        {
-          project_id: projectId,
-          work_order_id: 1,
-          created_at: '2026-05-14T19:25:56',
-          id: 1,
-          total_completed: 0,
-          updated_at: '2026-05-14T19:25:56',
-          boq_code: 1,
-          remaining_quantity: 500,
-          activity_name: 'Foundation Excavation',
-          completion_percentage: 0,
-          planned_quantity: 500,
-          discipline: null,
-          unit: 'Cum',
-          status: 'NOT_STARTED',
-          engineer_id: engineerId,
-          start_date: '2026-05-14',
-          end_date: '2026-05-25'
-        }
-      ];
+      throw err;
     }
   }
 };

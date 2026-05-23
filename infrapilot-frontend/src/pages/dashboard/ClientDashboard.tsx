@@ -78,28 +78,28 @@ const ClientDashboard = () => {
   };
 
   if (loading) {
-  return (
-    <>
-      <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Dashboard"]} />
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
-        <div className="w-12 h-12 border-4 border-slate-200 border-t-primary rounded-full animate-spin" />
-      </div>
-    </>
-  );
-}
+    return (
+      <>
+        <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Dashboard"]} />
+        <div className="flex items-center justify-center min-h-screen bg-slate-50">
+          <div className="w-12 h-12 border-4 border-slate-200 border-t-primary rounded-full animate-spin" />
+        </div>
+      </>
+    );
+  }
 
-if (!dashboardData) {
-  return (
-    <>
-      <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Dashboard"]} />
-      <div className="p-6 bg-slate-50 min-h-screen font-inter">
-        <p className="text-slate-500">Failed to load dashboard data.</p>
-      </div>
-    </>
-  );
-}
+  if (!dashboardData) {
+    return (
+      <>
+        <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Dashboard"]} />
+        <div className="p-6 bg-slate-50 min-h-screen font-inter">
+          <p className="text-slate-500">Failed to load dashboard data.</p>
+        </div>
+      </>
+    );
+  }
 
-return (
+  return (
     <>
       <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Dashboard"]} />
       <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
@@ -161,16 +161,16 @@ return (
                     <h2 className="text-2xl font-black text-slate-800 tracking-tight leading-tight">Structural Phase III: <br />Roof Slab & MEP Hookups</h2>
                     <p className="text-slate-400 text-sm font-medium mt-2 leading-relaxed">Today's Work focus: Finalizing rebar arrangement for the primary roof slab and ensuring plumbing sleeves are accurately placed.</p>
                   </div>
-                    <div className="grid grid-cols-2 gap-6">
-                      <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100" onClick={() => navigate('/last-completed') } style={{cursor: 'pointer'}}>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">Last Completed</p>
-                        <p className="text-xs font-black text-slate-700 uppercase tracking-tight">4th Floor Column Pour</p>
-                      </div>
-                      <div className="p-6 bg-blue-600 rounded-3xl shadow-xl shadow-blue-500/20" onClick={() => navigate('/upcoming-today') } style={{cursor: 'pointer'}}>
-                        <p className="text-[9px] font-black text-white/60 uppercase tracking-widest mb-1 italic">Upcoming Today</p>
-                        <p className="text-xs font-black text-white uppercase tracking-tight">Casting Prep Meeting</p>
-                      </div>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100" onClick={() => navigate('/last-completed')} style={{ cursor: 'pointer' }}>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">Last Completed</p>
+                      <p className="text-xs font-black text-slate-700 uppercase tracking-tight">4th Floor Column Pour</p>
                     </div>
+                    <div className="p-6 bg-blue-600 rounded-3xl shadow-xl shadow-blue-500/20" onClick={() => navigate('/upcoming-today')} style={{ cursor: 'pointer' }}>
+                      <p className="text-[9px] font-black text-white/60 uppercase tracking-widest mb-1 italic">Upcoming Today</p>
+                      <p className="text-xs font-black text-white uppercase tracking-tight">Casting Prep Meeting</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -241,7 +241,7 @@ return (
                     <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1 italic">{update.time}</p>
                   </div>
                 ))}
-                      </div>
+              </div>
             </div>
           </div>
         </div>
