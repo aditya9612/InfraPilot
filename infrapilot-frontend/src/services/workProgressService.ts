@@ -41,9 +41,7 @@ export const workProgressService = {
    */
   async listActivities(project_id?: number, engineer_id?: number): Promise<ActivityItem[]> {
     try {
-      const response = await api.get("/projects/work-progress/activities", {
-        params: { project_id, engineer_id }
-      });
+      const response = await api.get("/projects/work-progress/activities");
       return response.data;
     } catch (error: any) {
       console.warn("listActivities API error, using virtual success fallback:", error.message);
@@ -283,9 +281,7 @@ export const workProgressService = {
    */
   async getTodayProgress(engineerId: number): Promise<ActivityItem[]> {
     try {
-      const response = await api.get("/projects/work-progress/site-engineer/today-progress", {
-        params: { engineer_id: engineerId }
-      });
+      const response = await api.get("/projects/work-progress/site-engineer/today-progress");
       return response.data;
     } catch (error: any) {
       console.warn("getTodayProgress API error, using virtual success fallback:", error.message);
