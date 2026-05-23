@@ -23,7 +23,9 @@ export const dashboardService = {
    * GET /api/v1/dashboard/client/{project_id}
    */
   async getClientDashboard(projectId: number): Promise<ClientDashboardData> {
-    const response = await api.get<ClientDashboardData>(`/dashboard/client/${projectId}`);
+    const response = await api.get<ClientDashboardData>('/dashboard/client', {
+      params: { project_id: projectId }
+    });
     return response.data;
   },
 

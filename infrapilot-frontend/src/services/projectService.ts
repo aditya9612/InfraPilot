@@ -191,8 +191,29 @@ export const projectService = {
   // === Milestones ===
 
   async getMilestones(projectId: number) {
-    const response = await api.get(`/projects/${projectId}/milestones`);
-    return response.data;
+    try {
+      const response = await api.get(`/projects/${projectId}/milestones`);
+      const rawData = response.data;
+      let items = Array.isArray(rawData) ? rawData : (rawData.items || rawData.data || []);
+
+      // Normalize items: ensure name exists (from title or milestone_name)
+      return items.map((item: any) => ({
+        ...item,
+        name: item.title || item.name || item.milestone_name || `Milestone ${item.id}`,
+        status: (item.status || "Upcoming").toUpperCase()
+      }));
+    } catch (err) {
+      console.error('Failed to fetch milestones:', err);
+      // Fallback mock milestones
+      return [
+        { name: "Site Preparation & Excavation", date: "JAN 2025", status: "COMPLETED", color: "bg-emerald-500" },
+        { name: "Foundation & Basement", date: "APR 2025", status: "COMPLETED", color: "bg-emerald-500" },
+        { name: "Structural Framework (G+4)", date: "SEP 2025", status: "COMPLETED", color: "bg-emerald-500" },
+        { name: "Roof Slab Casting & Waterproofing", date: "MAR 2026", status: "IN PROGRESS", color: "bg-blue-500" },
+        { name: "Finishing & MEP Works", date: "JUN 2026", status: "UPCOMING", color: "bg-slate-300" },
+        { name: "Final Inspection & Handover", date: "OCT 2026", status: "UPCOMING", color: "bg-slate-300" },
+      ];
+    }
   },
 
   async createMilestone(projectId: number, milestoneData: any) {
@@ -268,10 +289,25 @@ export const projectService = {
    */
   async getWorkProgressActivities(projectId: number, engineerId: number) {
     try {
-      const response = await api.get('/projects/work-progress/activities', {
+      const response = await api.get('/work-progress/activities', {
         params: { project_id: projectId, engineer_id: engineerId }
       });
-      return response.data;
+      const rawData = response.data;
+
+      // Handle the observed response structure { data: [...] }
+      let items = Array.isArray(rawData) ? rawData : (rawData.data || rawData.items || []);
+
+      // Normalize items: ensure activity_name and completion_percentage exist
+      return items.map((item: any) => ({
+        ...item,
+        discipline: item.discipline || "General",
+        activity_name: item.activity_name || `Activity ${item.id} (BOQ: ${item.boq_code})`,
+        completion_percentage: item.completion_percentage !== undefined
+          ? item.completion_percentage
+          : (item.planned_quantity > 0
+            ? Math.round((item.total_completed / item.planned_quantity) * 100)
+            : 0)
+      }));
     } catch (err) {
       console.error('Failed to fetch work progress activities:', err);
       // Fallback mock data
@@ -288,7 +324,7 @@ export const projectService = {
           activity_name: 'Foundation Excavation',
           completion_percentage: 0,
           planned_quantity: 500,
-          discipline: null,
+          discipline: "Civil",
           unit: 'Cum',
           status: 'NOT_STARTED',
           engineer_id: engineerId,

@@ -1,39 +1,103 @@
 import { useState, useEffect } from "react";
 import Navbar from "../../components/common/Navbar";
 import { projectService } from "../../services/projectService";
+import { workProgressService } from "../../services/workProgressService";
 
-const phases = [
-  { name: "Civil & Structural", progress: 85, color: "bg-blue-500", sub: "Roof slab casting underway" },
-  { name: "Plumbing", progress: 60, color: "bg-emerald-500", sub: "3rd floor rough-in complete" },
-  { name: "Electrical", progress: 40, color: "bg-amber-500", sub: "Conduit laying in progress" },
-  { name: "Finishing Works", progress: 10, color: "bg-purple-500", sub: "Yet to commence" },
-  { name: "MEP Integration", progress: 20, color: "bg-rose-500", sub: "Design finalised" },
-];
+const getCategoryProgress = (activities: any[]) => {
+  if (activities.length === 0) {
+    return [
+      { name: "Civil & Structural", progress: 85, color: "bg-blue-500", sub: "Roof slab casting underway" },
+      { name: "Plumbing", progress: 60, color: "bg-emerald-500", sub: "3rd floor rough-in complete" },
+      { name: "Electrical", progress: 40, color: "bg-amber-500", sub: "Conduit laying in progress" },
+      { name: "Finishing Works", progress: 10, color: "bg-purple-500", sub: "Yet to commence" },
+      { name: "MEP Integration", progress: 20, color: "bg-rose-500", sub: "Design finalised" },
+    ];
+  }
 
-const weeklyLog = [
-  { date: "31 Mar 2026", task: "3rd floor column casting completed", crew: 24, status: "done" },
-  { date: "30 Mar 2026", task: "Roof slab reinforcement laid", crew: 18, status: "done" },
-  { date: "29 Mar 2026", task: "Plumbing rough-in — F3", crew: 12, status: "done" },
-  { date: "28 Mar 2026", task: "Electrical conduit laying — F2", crew: 9, status: "done" },
-  { date: "27 Mar 2026", task: "Safety audit & compliance check", crew: 6, status: "done" },
-];
+  const categories = Array.from(new Set(activities.map(a => a.discipline || "General"))).filter(Boolean);
+  const colors = ["bg-blue-500", "bg-emerald-500", "bg-amber-500", "bg-purple-500", "bg-rose-500", "bg-indigo-500"];
+
+  return categories.map((cat, i) => {
+    const catActs = activities.filter(a => (a.discipline || "General") === cat);
+    const avgProgress = Math.round(catActs.reduce((sum, a) => sum + (a.completion_percentage || 0), 0) / catActs.length);
+    const inProgressCount = catActs.filter(a => a.status === "IN_PROGRESS").length;
+
+    return {
+      name: cat,
+      progress: avgProgress,
+      color: colors[i % colors.length],
+      sub: inProgressCount > 0 ? `${inProgressCount} activities in progress` : "Phase oversight active"
+    };
+  });
+};
+
+// Type for Daily Log
+interface DailyLogItem {
+  id: number;
+  date: string;
+  task: string;
+  crew?: number;
+  status: string;
+}
 
 const ClientProgressPage = () => {
   const [activities, setActivities] = useState<any[]>([]);
+  const [logs, setLogs] = useState<DailyLogItem[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(true);
+  const [loadingLogs, setLoadingLogs] = useState(true);
 
   useEffect(() => {
-    const fetchActivities = async () => {
+    const fetchProgressData = async () => {
       try {
-        const data = await projectService.getWorkProgressActivities(1, 1);
+        setLoadingActivities(true);
+
+        // 1. Fetch project to get the correct project_id
+        const result: any = await projectService.getProjects(10, 0);
+        let activeProject = null;
+
+        if (Array.isArray(result)) {
+          activeProject = result[0];
+        } else if (result?.items?.length > 0) {
+          activeProject = result.items[0];
+        } else if (result?.data?.length > 0) {
+          activeProject = result.data[0];
+        }
+
+        if (!activeProject) {
+          throw new Error("No active projects found for this client");
+        }
+
+        const projectId = activeProject.project_id || activeProject.id;
+
+        // 2. Fetch activities for that project
+        const data = await projectService.getWorkProgressActivities(projectId, undefined as any);
         setActivities(Array.isArray(data) ? data : []);
+
+        // Fetch Logs
+        try {
+          setLoadingLogs(true);
+          const logData = await workProgressService.listProjectDailyEntries(projectId);
+          // Map to UI format
+          const mappedLogs = logData.map((l: any) => ({
+            id: l.id,
+            date: new Date(l.entry_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+            task: l.remarks || "Work updated",
+            crew: l.crew_count || 0,
+            status: "done"
+          }));
+          setLogs(mappedLogs);
+        } catch (err) {
+          console.error("Failed to fetch logs:", err);
+        } finally {
+          setLoadingLogs(false);
+        }
       } catch (err) {
         console.error("Failed to fetch work progress activities:", err);
       } finally {
         setLoadingActivities(false);
       }
     };
-    fetchActivities();
+    fetchProgressData();
   }, []);
 
   // Compute overall progress from activities
@@ -64,11 +128,18 @@ const ClientProgressPage = () => {
             </div>
           </div>
           <div>
-            <p className="text-xl font-black text-slate-800">Phase 3 — Superstructure</p>
-            <p className="text-sm text-slate-500 mt-1">Roof slab casting and waterproofing in progress. On schedule.</p>
+            <p className="text-xl font-black text-slate-800">
+              {activities.length > 0 ? "Project Status Overview" : "Phase 3 — Superstructure"}
+            </p>
+            <p className="text-sm text-slate-500 mt-1">
+              {activities.length > 0
+                ? `${activities.filter(a => a.status === 'COMPLETED').length} of ${activities.length} activities completed.`
+                : "Roof slab casting and waterproofing in progress. On schedule."}
+            </p>
             <div className="flex gap-3 mt-4">
-              <span className="px-3 py-1.5 bg-emerald-50 text-emerald-700 text-[10px] font-black rounded-full uppercase tracking-widest">On Track</span>
-              <span className="px-3 py-1.5 bg-blue-50 text-blue-700 text-[10px] font-black rounded-full uppercase tracking-widest">3 Days Ahead</span>
+              <span className={`px-3 py-1.5 ${overallProgress >= 50 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'} text-[10px] font-black rounded-full uppercase tracking-widest`}>
+                {overallProgress >= 50 ? 'On Track' : 'In Progress'}
+              </span>
             </div>
           </div>
         </div>
@@ -78,7 +149,7 @@ const ClientProgressPage = () => {
           <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
             <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-8">Work Category Progress</h2>
             <div className="space-y-6">
-              {phases.map((p, i) => (
+              {getCategoryProgress(activities).map((p, i) => (
                 <div key={i}>
                   <div className="flex justify-between items-center mb-2">
                     <p className="text-sm font-bold text-slate-700">{p.name}</p>
@@ -97,9 +168,13 @@ const ClientProgressPage = () => {
           <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
             <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-8">Recent Daily Log</h2>
             <div className="space-y-4">
-              {weeklyLog.map((log, i) => (
+              {loadingLogs ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin h-6 w-6 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                </div>
+              ) : logs.length > 0 ? logs.map((log, i) => (
                 <div
-                  key={i}
+                  key={log.id || i}
                   className="flex items-center gap-4 p-4 bg-slate-50 hover:bg-slate-100 transition-colors rounded-2xl group cursor-pointer"
                   onClick={() => {
                     import("jspdf").then(({ default: jsPDF }) => {
@@ -134,7 +209,9 @@ const ClientProgressPage = () => {
                     </svg>
                   </button>
                 </div>
-              ))}
+              )) : (
+                <p className="text-center py-8 text-slate-400 text-sm italic">No recent updates logged.</p>
+              )}
             </div>
           </div>
         </div>

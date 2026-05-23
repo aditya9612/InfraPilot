@@ -5,7 +5,9 @@ import { projectService } from "../../services/projectService";
 const ClientOverviewPage = () => {
   const [projectData, setProjectData] = useState<any>(null);
   const [members, setMembers] = useState<any[]>([]);
+  const [milestones, setMilestones] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMilestones, setLoadingMilestones] = useState(true);
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -26,7 +28,10 @@ const ClientOverviewPage = () => {
         setProjectData(fetchedProj);
 
         if (fetchedProj) {
-          const mData = await projectService.getProjectMembers(fetchedProj.id || fetchedProj.project_id);
+          const projectId = fetchedProj.id || fetchedProj.project_id;
+
+          // Fetch members
+          const mData = await projectService.getProjectMembers(projectId);
           const rawMembers = Array.isArray(mData) ? mData : mData.items || mData.data || [];
           const mappedMembers = rawMembers.map((m: any) => ({
             id: m.user_id || m.user?.id || m.user?.user_id || m.id,
@@ -35,6 +40,17 @@ const ClientOverviewPage = () => {
             initials: (m.full_name || m.user?.full_name || m.user?.name || "U").split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
           }));
           setMembers(mappedMembers);
+
+          // Fetch milestones
+          try {
+            setLoadingMilestones(true);
+            const msData = await projectService.getMilestones(projectId);
+            setMilestones(msData);
+          } catch (msErr) {
+            console.error("Failed to fetch milestones:", msErr);
+          } finally {
+            setLoadingMilestones(false);
+          }
         }
       } catch (err) {
         console.error("Failed to fetch project for overview:", err);
@@ -188,32 +204,47 @@ const ClientOverviewPage = () => {
           <div className="lg:col-span-2 bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
             <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.2em] mb-8">Project Milestones</h2>
             <div className="space-y-6">
-              {[
-                { name: "Site Preparation & Excavation", date: "JAN 2025", status: "COMPLETED", color: "bg-emerald-500" },
-                { name: "Foundation & Basement", date: "APR 2025", status: "COMPLETED", color: "bg-emerald-500" },
-                { name: "Structural Framework (G+4)", date: "SEP 2025", status: "COMPLETED", color: "bg-emerald-500" },
-                { name: "Roof Slab Casting & Waterproofing", date: "MAR 2026", status: "IN PROGRESS", color: "bg-blue-500" },
-                { name: "Finishing & MEP Works", date: "JUN 2026", status: "UPCOMING", color: "bg-slate-300" },
-                { name: "Final Inspection & Handover", date: "OCT 2026", status: "UPCOMING", color: "bg-slate-300" },
-              ].map((milestone, i) => (
-                <div key={i} className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-8 h-8 rounded-full ${milestone.color} flex items-center justify-center text-white text-xs font-bold`}>
-                      {milestone.status === "COMPLETED" ? "✓" : milestone.status === "IN PROGRESS" ? "●" : "○"}
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-slate-800">{milestone.name}</p>
-                      <p className="text-[10px] text-slate-400 uppercase tracking-widest">{milestone.date}</p>
-                    </div>
-                  </div>
-                  <span className={`text-[10px] font-black uppercase tracking-widest ${milestone.status === "COMPLETED" ? "text-emerald-500" :
-                    milestone.status === "IN PROGRESS" ? "text-blue-500" :
-                      "text-slate-400"
-                    }`}>
-                    {milestone.status}
-                  </span>
+              {loadingMilestones ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin h-6 w-6 border-2 border-blue-500 border-t-transparent rounded-full"></div>
                 </div>
-              ))}
+              ) : milestones.length > 0 ? milestones.map((milestone, i) => {
+                const status = (milestone.status || "UPCOMING").toUpperCase();
+                const color = status === "COMPLETED" ? "bg-emerald-500" : status === "IN_PROGRESS" || status === "IN PROGRESS" ? "bg-blue-500" : "bg-slate-300";
+
+                // Date formatting
+                let dateStr = "TBD";
+                if (milestone.date) {
+                  dateStr = milestone.date;
+                } else if (milestone.start_date || milestone.end_date) {
+                  const start = milestone.start_date ? new Date(milestone.start_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : "";
+                  const end = milestone.end_date ? new Date(milestone.end_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : "";
+                  dateStr = start && end ? `${start} - ${end}` : (start || end);
+                  dateStr = dateStr.toUpperCase();
+                }
+
+                return (
+                  <div key={i} className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-8 h-8 rounded-full ${color} flex items-center justify-center text-white text-xs font-bold`}>
+                        {status === "COMPLETED" ? "✓" : (status === "IN_PROGRESS" || status === "IN PROGRESS") ? "●" : "○"}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-800">{milestone.name}</p>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-widest">{dateStr}</p>
+                      </div>
+                    </div>
+                    <span className={`text-[10px] font-black uppercase tracking-widest ${status === "COMPLETED" ? "text-emerald-500" :
+                      (status === "IN_PROGRESS" || status === "IN PROGRESS") ? "text-blue-500" :
+                        "text-slate-400"
+                      }`}>
+                      {status.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+                );
+              }) : (
+                <p className="text-center py-8 text-slate-400 text-sm italic">No milestones defined for this project.</p>
+              )}
             </div>
           </div>
 
@@ -245,8 +276,8 @@ const ClientOverviewPage = () => {
               <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.2em] mb-6">Key Dates</h2>
               <div className="space-y-4">
                 {[
-                  { label: "Project Start", value: "2026-04-02" },
-                  { label: "Expected Handover", value: "2026-04-02" },
+                  { label: "Project Start", value: projectData?.start_date || "2026-04-02" },
+                  { label: "Expected Handover", value: projectData?.end_date || "2026-04-02" },
                   { label: "Contract Value", value: "₹22.2 Crore" },
                   { label: "Paid to Date", value: "₹15.1 Crore" },
                 ].map((item, i) => (

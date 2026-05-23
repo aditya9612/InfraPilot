@@ -23,7 +23,7 @@ export const workProgressService = {
    */
   async listActivities(project_id?: number, engineer_id?: number): Promise<ActivityItem[]> {
     try {
-      const response = await api.get("/projects/work-progress/activities", {
+      const response = await api.get("/work-progress/activities", {
         params: { project_id, engineer_id }
       });
       return response.data;
@@ -125,7 +125,7 @@ export const workProgressService = {
    */
   async addDailyProgress(data: DailyProgressRequest): Promise<any> {
     try {
-      const response = await api.post("/projects/work-progress/daily-entry", data);
+      const response = await api.post("/work-progress/daily-entry", data);
       return response.data;
     } catch (error: any) {
       console.warn("addDailyProgress API error, using virtual success fallback:", error.message);
@@ -166,7 +166,7 @@ export const workProgressService = {
    */
   async listDailyEntries(activityId?: number, entryDate?: string): Promise<DailyEntry[]> {
     try {
-      const response = await api.get("/projects/work-progress/daily-entry", {
+      const response = await api.get("/work-progress/daily-entry", {
         params: { activity_id: activityId, entry_date: entryDate }
       });
       return Array.isArray(response.data) ? response.data : (response.data?.data || []);
@@ -184,11 +184,26 @@ export const workProgressService = {
   },
 
   /**
+   * List daily progress entries for a project
+   */
+  async listProjectDailyEntries(projectId: number): Promise<DailyEntry[]> {
+    try {
+      const response = await api.get("/work-progress/daily-entry", {
+        params: { project_id: projectId }
+      });
+      return Array.isArray(response.data) ? response.data : (response.data?.data || []);
+    } catch (error: any) {
+      console.warn("listProjectDailyEntries API error:", error.message);
+      return [];
+    }
+  },
+
+  /**
    * Update a daily progress entry
    */
   async updateDailyEntry(id: number, data: { today_progress: number; remarks: string }): Promise<any> {
     try {
-      const response = await api.put(`/projects/work-progress/daily-entry/${id}`, data);
+      const response = await api.put(`/work-progress/daily-entry/${id}`, data);
       return response.data;
     } catch (error: any) {
       console.warn("updateDailyEntry API error, using virtual success fallback:", error.message);
@@ -215,7 +230,7 @@ export const workProgressService = {
    */
   async deleteDailyEntry(id: number): Promise<void> {
     try {
-      await api.delete(`/projects/work-progress/daily-entry/${id}`);
+      await api.delete(`/work-progress/daily-entry/${id}`);
     } catch (error: any) {
       console.warn("deleteDailyEntry API error, using virtual success fallback:", error.message);
       const entry = mockDailyEntries.find(e => e.id === id);
