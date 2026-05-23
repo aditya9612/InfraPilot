@@ -280,7 +280,7 @@ const DSRPage = () => {
         <>
             <Navbar title="Daily Site Reports" breadcrumb={["Engineer", "Site Records", "DSR Vault"]} />
 
-            <PageTransition className="p-4 md:p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter flex flex-col">
+            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter flex flex-col">
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
                     <div>
@@ -470,16 +470,17 @@ const DSRPage = () => {
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
                                                     <div className="flex items-center justify-end gap-2 font-inter">
-                                                        <div className="flex items-center gap-1.5 mr-2">
-
-                                                            <button
-                                                                onClick={() => handleSubmitDsr(dsr.id)}
-                                                                className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all border border-blue-100 active:scale-95 flex items-center justify-center font-inter"
-                                                                title="Submit DSR"
-                                                            >
-                                                                <Send className="w-4 h-4" />
-                                                            </button>
-                                                        </div>
+                                                        {dsr.status === 'Draft' && (
+                                                            <div className="flex items-center gap-1.5 mr-2">
+                                                                <button
+                                                                    onClick={() => handleSubmitDsr(dsr.id)}
+                                                                    className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all border border-blue-100 active:scale-95 flex items-center justify-center font-inter"
+                                                                    title="Submit DSR"
+                                                                >
+                                                                    <Send className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
+                                                        )}
                                                         <button
                                                             onClick={() => handleView(dsr.id)}
                                                             className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 flex items-center justify-center font-inter"

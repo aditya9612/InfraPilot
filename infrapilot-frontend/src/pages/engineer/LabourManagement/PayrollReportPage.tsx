@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import Navbar from '../../../components/common/Navbar';
 import PageTransition from '../../../components/common/PageTransition';
 import StatCard from '../../../components/common/StatCard';
@@ -21,7 +21,8 @@ import {
 
 const PayrollReportPage: React.FC = () => {
     const [reports, setReports] = useState<any[]>([]);
-    const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
+    const [chartData, setChartData] = useState<any[]>([]);
+    const [activeTab, setActiveTab] = useState<string>('daily');
     const [isLoading, setIsLoading] = useState(true);
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "High" | "OT" | "Summary">("All");
     const [isExportingExcel, setIsExportingExcel] = useState(false);
@@ -84,13 +85,40 @@ const PayrollReportPage: React.FC = () => {
 
             setReports(enrichedLabours);
 
-            // Summary Stats
-            const totalPayout = history.reduce((acc: number, curr: any) => acc + (curr.amount || 0), 0);
-            const highPayouts = history.filter((h: any) => h.amount > 5000).length;
-            const otIntensive = attendances.filter((a: any) => a.overtime_hours > 0).length;
+            // Summary Stats derived directly from the loaded list (reports)
+            const totalPayout = enrichedLabours.reduce((acc: number, curr: any) => acc + (curr.total_wage || (Number(curr.daily_wage_rate || 0) * (curr.present_days || 0))), 0);
+            const highPayouts = enrichedLabours.filter((r: any) => (r.total_wage || (Number(r.daily_wage_rate || 0) * (r.present_days || 0))) > 5000).length;
+            const otIntensive = enrichedLabours.filter((r: any) => (r.overtime_hours || 0) > 0).length;
             const advanceAdjusted = history.filter((h: any) => h.payment_type?.toLowerCase() === 'advance').reduce((acc: number, curr: any) => acc + (curr.amount || 0), 0);
 
             setStats({ totalPayout, highPayouts, otIntensive, advanceAdjusted });
+
+            // Build dynamic chart data from history
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const monthMap: Record<string, number> = {};
+            
+            history.forEach((h: any) => {
+                const date = new Date(h.payment_date || new Date());
+                const monthName = months[date.getMonth()];
+                monthMap[monthName] = (monthMap[monthName] || 0) + (h.amount || 0);
+            });
+
+            const currentMonthIndex = new Date().getMonth();
+            const newChartData = [];
+            for (let i = 3; i >= 0; i--) {
+                let mIndex = currentMonthIndex - i;
+                if (mIndex < 0) mIndex += 12;
+                const mName = months[mIndex];
+                newChartData.push({
+                    name: mName,
+                    amount: monthMap[mName] || 0
+                });
+            }
+            // If completely empty, provide an empty state to avoid broken chart
+            if (newChartData.every(d => d.amount === 0)) {
+                newChartData.forEach(d => d.amount = 0);
+            }
+            setChartData(newChartData);
 
             console.log("Reports Sync Success (200 OK)");
         } catch (error) {
@@ -155,18 +183,13 @@ const PayrollReportPage: React.FC = () => {
     };
 
 
-    const chartData = useMemo(() => [
-        { name: 'Jan', amount: 180000 },
-        { name: 'Feb', amount: 210000 },
-        { name: 'Mar', amount: 195000 },
-        { name: 'Apr', amount: 245000 },
-    ], []);
+
 
     return (
         <>
             <Navbar title="Financial Intelligence" breadcrumb={["Engineer", "Human Resources", "Payroll Reports"]} />
             
-            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
+            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter flex flex-col">
                 {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
                     <div>
@@ -174,34 +197,6 @@ const PayrollReportPage: React.FC = () => {
                         <p className="text-slate-500 text-sm">Historical man-power costing and wage distribution trends.</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
-                        {/* Month & Year Selectors */}
-                        <select
-                            value={selectedMonth}
-                            onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                            className="bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-[10px] font-bold text-slate-600 outline-none cursor-pointer uppercase tracking-widest"
-                        >
-                            {['January','February','March','April','May','June','July','August','September','October','November','December'].map((m, i) => (
-                                <option key={i+1} value={i+1}>{m}</option>
-                            ))}
-                        </select>
-                        <select
-                            value={selectedYear}
-                            onChange={(e) => setSelectedYear(Number(e.target.value))}
-                            className="bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-[10px] font-bold text-slate-600 outline-none cursor-pointer uppercase tracking-widest"
-                        >
-                            {[2024, 2025, 2026, 2027].map(y => (
-                                <option key={y} value={y}>{y}</option>
-                            ))}
-                        </select>
-
-                        <button 
-                            onClick={handleExportExcel}
-                            disabled={isExportingExcel}
-                            className="flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm hover:bg-emerald-700 active:scale-95 disabled:opacity-50"
-                        >
-                            <Download className="w-4 h-4" />
-                            {isExportingExcel ? 'Generating...' : 'Export Excel'}
-                        </button>
                     </div>
                 </div>
 
@@ -237,71 +232,74 @@ const PayrollReportPage: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
-                    {/* Chart Card */}
-                    <div className="lg:col-span-3 bg-primary rounded-2xl p-8 shadow-xl relative overflow-hidden">
-                        <div className="relative z-10 h-full flex flex-col">
-                            <div className="flex justify-between items-start mb-8">
-                                <div>
-                                    <h3 className="text-lg font-bold text-white uppercase tracking-tight">Payroll Momentum</h3>
-                                    <p className="text-white/70 text-xs font-bold">Monthly wage expenditure trend analysis.</p>
-                                </div>
-                                <span className="px-3 py-1 bg-white/20 text-white text-[10px] font-bold uppercase tracking-widest rounded-lg">
-                                    +12.4% vs Mar
-                                </span>
-                            </div>
-                            <div className="flex-1 min-h-[250px]">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={chartData}>
-                                        <defs>
-                                            <linearGradient id="colorAmt" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                                                <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                                            </linearGradient>
-                                        </defs>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
-                                        <XAxis dataKey="name" stroke="#ffffff40" fontSize={10} axisLine={false} tickLine={false} />
-                                        <Tooltip 
-                                            contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', fontSize: '10px' }}
-                                            itemStyle={{ color: '#fff', fontWeight: 'bold' }}
-                                        />
-                                        <Area type="monotone" dataKey="amount" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorAmt)" />
-                                    </AreaChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                {/* Chart has been moved to the bottom */}
 
                 {/* â”€â”€ Report Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex flex-col">
-                    <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row md:items-center flex-wrap gap-4 bg-white">
-                        <div className="flex gap-2">
-                            {[
-                                { id: 'daily', label: 'Daily Analysis' },
-                                { id: 'weekly', label: 'Weekly Summary' },
-                                { id: 'monthly', label: 'Monthly Report' }
-                            ].map((tab) => (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setActiveTab(tab.id as any)}
-                                    className={`px-6 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === tab.id ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-slate-50 text-slate-400 border border-slate-200 hover:bg-slate-100'}`}
+                    <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between flex-wrap gap-4 bg-white">
+                        <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Filter</span>
+                                <select
+                                    value={activeTab}
+                                    onChange={(e) => setActiveTab(e.target.value)}
+                                    className="px-6 py-2 rounded-xl text-xs font-bold transition-all bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary cursor-pointer"
                                 >
-                                    {tab.label}
+                                    <option value="daily">Daily Analysis</option>
+                                    <option value="weekly">Weekly Summary</option>
+                                    <option value="monthly">Monthly Report</option>
+                                    <option value="3_months">3 Months</option>
+                                    <option value="6_months">6 Months</option>
+                                    <option value="1_year">1 Year</option>
+                                </select>
+                            </div>
+                            <div className="flex gap-3">
+                                <button className="p-2 bg-slate-50 text-slate-400 rounded-xl hover:bg-slate-100 transition-all border border-slate-100">
+                                    <Filter className="w-4 h-4" />
                                 </button>
-                            ))}
+                            </div>
+                            {activeStatFilter !== "All" && (
+                                <button onClick={() => setActiveStatFilter("All")} className="px-4 py-2 text-slate-400 hover:text-rose-500 transition-colors flex items-center gap-2">
+                                    <RotateCcw className="w-4 h-4" />
+                                    <span className="text-[10px] font-bold uppercase tracking-widest">Clear Stat Filter</span>
+                                </button>
+                            )}
                         </div>
-                        <div className="flex gap-3">
-                            <button className="p-2 bg-slate-50 text-slate-400 rounded-xl hover:bg-slate-100 transition-all border border-slate-100">
-                                <Filter className="w-4 h-4" />
+                        <div className="flex items-center gap-2">
+                            <select
+                                value={selectedMonth}
+                                onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                                className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer uppercase tracking-widest"
+                            >
+                                {['January','February','March','April','May','June','July','August','September','October','November','December'].map((m, i) => (
+                                    <option key={i+1} value={i+1}>{m}</option>
+                                ))}
+                            </select>
+                            <select
+                                value={selectedYear}
+                                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                                className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer uppercase tracking-widest"
+                            >
+                                {[2024, 2025, 2026, 2027].map(y => (
+                                    <option key={y} value={y}>{y}</option>
+                                ))}
+                            </select>
+                            <button 
+                                onClick={handleExportExcel}
+                                disabled={isExportingExcel}
+                                className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm hover:bg-emerald-100 active:scale-95 disabled:opacity-50"
+                            >
+                                <Download className="w-4 h-4" />
+                                {isExportingExcel ? 'Generating...' : 'Export Excel'}
+                            </button>
+                            <button 
+                                onClick={() => toast.success("PDF Export coming soon!")}
+                                className="flex items-center justify-center gap-2 px-4 py-2 bg-rose-50 text-rose-600 border border-rose-200 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm hover:bg-rose-100 active:scale-95"
+                            >
+                                <Download className="w-4 h-4" />
+                                Export PDF
                             </button>
                         </div>
-                        {activeStatFilter !== "All" && (
-                            <button onClick={() => setActiveStatFilter("All")} className="px-4 py-2 text-slate-400 hover:text-rose-500 transition-colors flex items-center gap-2">
-                                <RotateCcw className="w-4 h-4" />
-                                <span className="text-[10px] font-bold uppercase tracking-widest">Clear Stat Filter</span>
-                            </button>
-                        )}
                     </div>
 
                     <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
@@ -374,6 +372,42 @@ const PayrollReportPage: React.FC = () => {
                                 </tbody>
                             </table>
                         )}
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
+                    {/* Chart Card */}
+                    <div className="lg:col-span-3 bg-primary rounded-2xl p-8 shadow-xl relative overflow-hidden">
+                        <div className="relative z-10 h-full flex flex-col">
+                            <div className="flex justify-between items-start mb-8">
+                                <div>
+                                    <h3 className="text-lg font-bold text-white uppercase tracking-tight">Payroll Momentum</h3>
+                                    <p className="text-white/70 text-xs font-bold">Monthly wage expenditure trend analysis.</p>
+                                </div>
+                                <span className="px-3 py-1 bg-white/20 text-white text-[10px] font-bold uppercase tracking-widest rounded-lg">
+                                    +12.4% vs Mar
+                                </span>
+                            </div>
+                            <div className="flex-1 min-h-[250px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={chartData}>
+                                        <defs>
+                                            <linearGradient id="colorAmt" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                                                <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
+                                        <XAxis dataKey="name" stroke="#ffffff40" fontSize={10} axisLine={false} tickLine={false} />
+                                        <Tooltip 
+                                            contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', fontSize: '10px' }}
+                                            itemStyle={{ color: '#fff', fontWeight: 'bold' }}
+                                        />
+                                        <Area type="monotone" dataKey="amount" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorAmt)" />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </PageTransition>

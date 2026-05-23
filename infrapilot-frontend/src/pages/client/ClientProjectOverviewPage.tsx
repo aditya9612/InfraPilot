@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import Navbar from "../../components/common/Navbar";
 import { projectService } from "../../services/projectService";
-import toast from "react-hot-toast";
 
 const milestones = [
   { name: "Site Preparation & Excavation", status: "done", date: "Jan 2025" },
@@ -12,19 +11,12 @@ const milestones = [
   { name: "Final Inspection & Handover", status: "upcoming", date: "Oct 2026" },
 ];
 
-const team = [
-  { name: "Rajesh Mehta", role: "Project Manager", avatar: "R", color: "bg-blue-500" },
-  { name: "Anjali Desai", role: "Site Engineer", avatar: "A", color: "bg-emerald-500" },
-  { name: "Vikram Build Co.", role: "Main Contractor", avatar: "V", color: "bg-purple-500" },
-  { name: "Priya Sharma", role: "Architect", avatar: "P", color: "bg-amber-500" },
-];
-
 const ClientProjectOverviewPage = () => {
   const [projectData, setProjectData] = useState<any>(null);
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingProjects, setLoadingProjects] = useState(true);
-  
+
   const formatDate = (d: string | undefined) => {
     if (!d) return "—";
     const date = new Date(d);
@@ -38,10 +30,10 @@ const ClientProjectOverviewPage = () => {
         setLoadingProjects(true);
         // Fetch projects without strict filters to avoid 422 validation errors if enum mismatch
         const result: any = await projectService.getProjects(20, 0);
-        
+
         const list = Array.isArray(result) ? result : result.items || result.data || [];
         setProjects(list);
-        
+
         if (list.length > 0) {
           setProjectData(list[0]);
         }
@@ -80,33 +72,32 @@ const ClientProjectOverviewPage = () => {
         <div className="mb-12">
           <h2 className="text-base font-black text-slate-800 uppercase tracking-widest text-[11px] mb-6">Your Projects</h2>
           {loadingProjects ? (
-             <div className="flex items-center justify-center py-8">
-               <div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin" />
-             </div>
+            <div className="flex items-center justify-center py-8">
+              <div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin" />
+            </div>
           ) : projects.length === 0 ? (
-             <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 text-center">
-               <p className="text-slate-500 font-bold mb-2">No projects found</p>
-               <p className="text-sm text-slate-400">You don't have any matching projects assigned yet.</p>
-             </div>
+            <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 text-center">
+              <p className="text-slate-500 font-bold mb-2">No projects found</p>
+              <p className="text-sm text-slate-400">You don't have any matching projects assigned yet.</p>
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {projects.map((p, i) => (
-                <div 
-                  key={i} 
+                <div
+                  key={i}
                   onClick={() => setProjectData(p)}
                   className={`bg-white rounded-3xl p-6 border ${projectData?.id === p.id ? 'border-primary ring-2 ring-primary ring-opacity-20' : 'border-slate-100'} shadow-sm hover:shadow-md transition-all cursor-pointer group`}
                 >
                   <div className="flex justify-between items-start mb-4">
                     <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-lg shadow-sm">🏢</div>
-                    <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${
-                      ['planned', 'active'].includes(p.status?.toLowerCase()) ? "bg-emerald-50 text-emerald-600" : "bg-slate-50 text-slate-500"
-                    }`}>
+                    <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${['planned', 'active'].includes(p.status?.toLowerCase()) ? "bg-emerald-50 text-emerald-600" : "bg-slate-50 text-slate-500"
+                      }`}>
                       {p.status || "Unknown"}
                     </span>
                   </div>
                   <h3 className="font-bold text-slate-800 group-hover:text-primary transition-colors text-lg mb-1 truncate">{p.project_name}</h3>
                   <p className="text-xs text-slate-400 font-medium mb-4 line-clamp-2">{p.description || "No description provided"}</p>
-                  
+
                   <div className="flex flex-col gap-2 pt-4 border-t border-slate-50">
                     <div className="flex justify-between items-center">
                       <span className="text-[10px] uppercase font-bold tracking-widest text-slate-400">Start Date</span>
@@ -155,22 +146,20 @@ const ClientProjectOverviewPage = () => {
                   <div className="space-y-6">
                     {milestones.map((m, i) => (
                       <div key={i} className="relative pl-12 flex items-start gap-4">
-                        <div className={`absolute left-0 w-9 h-9 rounded-full flex items-center justify-center border-2 z-10 ${
-                          m.status === "done" ? "bg-emerald-500 border-emerald-500 text-white" :
-                          m.status === "active" ? "bg-blue-600 border-blue-600 text-white animate-pulse" :
-                          "bg-white border-slate-200 text-slate-300"
-                        }`}>
+                        <div className={`absolute left-0 w-9 h-9 rounded-full flex items-center justify-center border-2 z-10 ${m.status === "done" ? "bg-emerald-500 border-emerald-500 text-white" :
+                            m.status === "active" ? "bg-blue-600 border-blue-600 text-white animate-pulse" :
+                              "bg-white border-slate-200 text-slate-300"
+                          }`}>
                           {m.status === "done" ? "✓" : m.status === "active" ? "●" : "○"}
                         </div>
                         <div className="flex-1 pb-2">
                           <p className={`text-sm font-bold ${m.status === "upcoming" ? "text-slate-400" : "text-slate-700"}`}>{m.name}</p>
                           <p className="text-[10px] font-bold text-slate-400 mt-0.5 uppercase tracking-widest">{m.date}</p>
                         </div>
-                        <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${
-                          m.status === "done" ? "bg-emerald-50 text-emerald-600" :
-                          m.status === "active" ? "bg-blue-50 text-blue-600" :
-                          "bg-slate-50 text-slate-400"
-                        }`}>
+                        <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${m.status === "done" ? "bg-emerald-50 text-emerald-600" :
+                            m.status === "active" ? "bg-blue-50 text-blue-600" :
+                              "bg-slate-50 text-slate-400"
+                          }`}>
                           {m.status === "done" ? "Completed" : m.status === "active" ? "In Progress" : "Upcoming"}
                         </span>
                       </div>

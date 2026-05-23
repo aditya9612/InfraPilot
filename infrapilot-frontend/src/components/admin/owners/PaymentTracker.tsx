@@ -1,16 +1,98 @@
-import { useState, useMemo } from "react";
-import { mockPayments, type PaymentTransaction } from "./mockData";
+import { useState, useMemo, useEffect } from "react";
+import { ownerService } from "../../../services/ownerService";
+import type { Owner } from "../../../types/owner";
+import toast from "react-hot-toast";
+
+// Re-defining PaymentTransaction interface to match our mapped data
+export interface PaymentTransaction {
+  id: string;
+  ownerId: string;
+  ownerName: string;
+  date: string;
+  amount: number;
+  status: "Paid" | "Unpaid" | "Pending";
+  reference: string;
+  type: "Credit" | "Debit";
+  description: string;
+}
 
 export default function PaymentTracker() {
+  const [owners, setOwners] = useState<Owner[]>([]);
+  const [selectedOwnerId, setSelectedOwnerId] = useState<string>("");
+  const [payments, setPayments] = useState<PaymentTransaction[]>([]);
+  const [loading, setLoading] = useState(false);
+
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTxn, setSelectedTxn] = useState<PaymentTransaction | null>(
-    null,
-  );
+  const [selectedTxn, setSelectedTxn] = useState<PaymentTransaction | null>(null);
+
+  const [currentPage, setCurrentPage] = useState(0);
+  const PAGE_SIZE = 8;
+
+
+  // Fetch owners to populate dropdown
+  useEffect(() => {
+    const fetchOwners = async () => {
+      try {
+        const data = await ownerService.getOwners();
+        setOwners(data);
+
+        // Support direct navigation via query param
+        const urlParams = new URLSearchParams(window.location.search);
+        const ownerIdParam = urlParams.get("owner_id");
+
+        if (ownerIdParam && data.find(o => o.id === ownerIdParam)) {
+          setSelectedOwnerId(ownerIdParam);
+        } else if (data.length > 0) {
+          setSelectedOwnerId(data[0].id);
+        }
+      } catch (error) {
+        console.error("Failed to fetch owners", error);
+        toast.error("Failed to load owners list");
+      }
+    };
+    fetchOwners();
+  }, []);
+
+  // Fetch payments when selected owner changes
+  useEffect(() => {
+    if (!selectedOwnerId) return;
+
+    const fetchPayments = async () => {
+      setLoading(true);
+      try {
+        const data = await ownerService.getOwnerPayments(selectedOwnerId);
+
+        const ownerObj = owners.find(o => o.id === selectedOwnerId);
+        const ownerName = ownerObj ? ownerObj.name : "Unknown";
+
+        // Map API response to Component format
+        const mappedData: PaymentTransaction[] = (data || []).map((txn: any) => ({
+          id: String(txn.id),
+          ownerId: String(txn.owner_id),
+          ownerName: ownerName,
+          date: txn.payment_date || txn.created_at || new Date().toISOString().split("T")[0],
+          amount: parseFloat(txn.amount) || 0,
+          status: txn.status || "Paid", // Defaulting to Paid if API doesn't return
+          reference: txn.reference_id ? `${txn.reference_type}-${txn.reference_id}` : "-",
+          type: String(txn.type || "").toLowerCase() === "credit" ? "Credit" : "Debit",
+          description: txn.description || "N/A"
+        }));
+
+        setPayments(mappedData);
+      } catch (error) {
+        console.error("Failed to fetch payments", error);
+        toast.error("Failed to load payment data");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPayments();
+  }, [selectedOwnerId, owners]);
 
   const filteredPayments = useMemo(() => {
-    return mockPayments.filter((txn) => {
+    return payments.filter((txn) => {
       // Date filter
       if (fromDate && new Date(txn.date) < new Date(fromDate)) return false;
       if (toDate && new Date(txn.date) > new Date(toDate)) return false;
@@ -27,20 +109,49 @@ export default function PaymentTracker() {
       }
       return true;
     });
-  }, [fromDate, toDate, searchQuery]);
+  }, [payments, fromDate, toDate, searchQuery]);
+
+  // Reset to page 0 on search/filter changes
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [searchQuery, fromDate, toDate, selectedOwnerId]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredPayments.length / PAGE_SIZE));
+  const pagedData = filteredPayments.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-100 flex flex-col h-full overflow-hidden">
-      <div className="p-6 border-b border-slate-100 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h3 className="text-lg font-semibold text-slate-800">
-          Track Owner Payments
-        </h3>
+    <div className="bg-white rounded-xl shadow-sm flex flex-col h-full overflow-hidden">
+      <div className="p-6 border-b border-slate-100 flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-800">
+              Track Owner Payments
+            </h3>
+            <p className="text-xs text-slate-400 font-medium">
+              Live transaction records
+            </p>
+          </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200">
+            <label htmlFor="ownerSelect" className="text-[10px] font-black text-slate-400 uppercase tracking-tighter ml-2">Select Account:</label>
+            <select
+              id="ownerSelect"
+              value={selectedOwnerId}
+              onChange={(e) => setSelectedOwnerId(e.target.value)}
+              className="bg-transparent text-sm font-bold text-slate-700 focus:outline-none pr-4 min-w-[160px] cursor-pointer"
+            >
+              {owners.map(o => (
+                <option key={o.id} value={o.id}>{o.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 justify-end">
           <div className="relative">
             <input
               type="text"
-              placeholder="Search Owner ID, Name..."
+              placeholder="Search by details..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-shadow text-sm w-full sm:w-64"
@@ -92,50 +203,59 @@ export default function PaymentTracker() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {filteredPayments.map((txn) => (
-              <tr key={txn.id} className="hover:bg-slate-50 transition-colors">
-                <td className="p-4">
-                  <p className="text-sm font-semibold text-slate-800">
-                    {txn.ownerName}
-                  </p>
-                  <p className="text-xs text-slate-500">{txn.ownerId}</p>
-                </td>
-                <td className="p-4 text-sm text-slate-600">
-                  {new Date(txn.date).toLocaleDateString()}
-                </td>
-                <td className="p-4 text-sm text-slate-600">
-                  {txn.description}
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Ref: {txn.reference}
-                  </p>
-                </td>
-                <td className="p-4 text-sm font-semibold text-slate-800 text-right">
-                  {txn.amount.toLocaleString()}
-                </td>
-                <td className="p-4">
-                  <span
-                    className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border ${
-                      txn.status === "Paid"
-                        ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-                        : txn.status === "Unpaid"
-                          ? "bg-red-50 text-red-700 border-red-100"
-                          : "bg-yellow-50 text-yellow-700 border-yellow-100"
-                    }`}
-                  >
-                    {txn.status}
-                  </span>
-                </td>
-                <td className="p-4 text-center">
-                  <button
-                    onClick={() => setSelectedTxn(txn)}
-                    className="text-primary text-sm font-semibold hover:underline"
-                  >
-                    View
-                  </button>
+            {loading ? (
+              <tr>
+                <td colSpan={6} className="p-16 text-center">
+                  <div className="flex flex-col items-center justify-center gap-4">
+                    <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                    <p className="text-slate-400 text-xs font-black uppercase tracking-widest">Fetching Payments...</p>
+                  </div>
                 </td>
               </tr>
-            ))}
-            {filteredPayments.length === 0 && (
+            ) : pagedData.length > 0 ? (
+              pagedData.map((txn) => (
+                <tr key={txn.id} className="hover:bg-slate-50 transition-colors">
+                  <td className="p-4">
+                    <p className="text-sm font-semibold text-slate-800">
+                      {txn.ownerName}
+                    </p>
+                    <p className="text-xs text-slate-500">{txn.ownerId}</p>
+                  </td>
+                  <td className="p-4 text-sm text-slate-600">
+                    {new Date(txn.date).toLocaleDateString()}
+                  </td>
+                  <td className="p-4 text-sm text-slate-600">
+                    {txn.description}
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Ref: {txn.reference}
+                    </p>
+                  </td>
+                  <td className="p-4 text-sm font-semibold text-slate-800 text-right">
+                    {txn.type === "Credit" ? "▲" : "▼"} {txn.amount.toLocaleString()}
+                  </td>
+                  <td className="p-4">
+                    <span
+                      className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border ${String(txn.status).toLowerCase() === "paid"
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                        : String(txn.status).toLowerCase() === "unpaid"
+                          ? "bg-red-50 text-red-700 border-red-100"
+                          : "bg-yellow-50 text-yellow-700 border-yellow-100"
+                        }`}
+                    >
+                      {txn.status || "Paid"}
+                    </span>
+                  </td>
+                  <td className="p-4 text-center">
+                    <button
+                      onClick={() => setSelectedTxn(txn)}
+                      className="text-primary text-sm font-semibold hover:underline"
+                    >
+                      View
+                    </button>
+                  </td>
+                </tr>
+              ))
+            ) : (
               <tr>
                 <td
                   colSpan={6}
@@ -148,6 +268,34 @@ export default function PaymentTracker() {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Component */}
+      {totalPages > 1 && (
+        <div className="p-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+            Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, filteredPayments.length)} of {filteredPayments.length} records
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+              disabled={currentPage === 0}
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+            </button>
+            <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700">
+              {currentPage + 1}
+            </div>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={currentPage >= totalPages - 1}
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Detail View Modal Mock (Inline for simplicity) */}
       {selectedTxn && (
@@ -174,6 +322,12 @@ export default function PaymentTracker() {
                 </span>
               </div>
               <div className="flex justify-between pb-3 border-b border-slate-100">
+                <span className="text-slate-500 text-sm">Type</span>
+                <span className={`text-sm font-bold ${selectedTxn.type === "Credit" ? "text-emerald-600" : "text-rose-600"}`}>
+                  {selectedTxn.type}
+                </span>
+              </div>
+              <div className="flex justify-between pb-3 border-b border-slate-100">
                 <span className="text-slate-500 text-sm">Status</span>
                 <span className="text-sm font-medium">
                   {selectedTxn.status}
@@ -193,3 +347,4 @@ export default function PaymentTracker() {
     </div>
   );
 }
+

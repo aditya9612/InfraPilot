@@ -8,8 +8,9 @@ interface Props {
     name: string;
     category: string;
     description: string;
-    icon: string;
+    icon: any;
     color: string;
+    bgColor?: string;
   } | null;
 }
 
@@ -100,8 +101,8 @@ const IntegrationDocsModal = ({ isOpen, onClose, integration }: Props) => {
         {/* Header */}
         <div className="flex items-start justify-between p-10 pb-6 shrink-0">
           <div className="flex items-center gap-5">
-            <div className={`w-16 h-16 ${integration.color} text-white rounded-2xl flex items-center justify-center text-3xl shadow-xl shrink-0`}>
-              {integration.icon}
+            <div className={`w-16 h-16 ${integration.bgColor || 'bg-slate-100'} ${integration.color} rounded-2xl flex items-center justify-center text-3xl shadow-xl shrink-0 p-3`}>
+              <integration.icon className="w-full h-full" />
             </div>
             <div>
               <h3 className="text-3xl font-black text-slate-800 tracking-tight leading-none mb-2">
@@ -173,8 +174,8 @@ const IntegrationDocsModal = ({ isOpen, onClose, integration }: Props) => {
           {/* Important Note */}
           <div className="bg-amber-50 border border-amber-100 rounded-2xl p-5">
             <div className="flex items-center gap-2 mb-2">
-               <svg className="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
-               <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Requirement Note</span>
+              <svg className="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
+              <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Requirement Note</span>
             </div>
             <p className="text-[11px] text-amber-700 font-bold leading-relaxed italic">
               "{docs.note}"

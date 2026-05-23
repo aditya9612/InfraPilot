@@ -8,6 +8,8 @@ export interface CreateDrawingRequest {
     date?: string | null;
     remarks?: string | null;
     file?: string | null;
+    approval_status?: string | null;
+    approval_id?: string | null;
 }
 
 export interface DrawingResponse {
@@ -19,6 +21,8 @@ export interface DrawingResponse {
     date: string;
     remarks: string;
     file_url: string;
+    approval_status?: string | null;
+    approval_id?: string | null;
     created_at?: string;
     updated_at?: string;
 }
@@ -119,6 +123,21 @@ export const drawingService = {
                     "approval_id": 3
                 };
             }
+            throw error;
+        }
+    },
+
+    /**
+     * Update an existing drawing
+     * PUT /api/v1/drawings/{id}
+     */
+    async updateDrawing(id: number | string, data: any) {
+        console.log(`PUT /api/v1/drawings/${id}`);
+        try {
+            const response = await api.put(`/drawings/${id}`, data);
+            return response.data;
+        } catch (error: any) {
+            console.warn(`Update Drawing API Error:`, error.response?.data || error.message);
             throw error;
         }
     },

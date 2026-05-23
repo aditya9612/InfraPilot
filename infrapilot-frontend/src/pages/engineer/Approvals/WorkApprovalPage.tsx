@@ -231,7 +231,7 @@ const WorkApprovalPage = () => {
         <>
             <Navbar title="Work Approvals" breadcrumb={["Engineer", "Approvals", "Technical Clearance"]} />
 
-            <PageTransition className="p-4 md:p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter flex flex-col">
+            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter flex flex-col">
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
                     <div>

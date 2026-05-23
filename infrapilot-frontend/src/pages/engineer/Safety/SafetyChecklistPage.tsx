@@ -321,13 +321,13 @@ const SafetyChecklistPage = () => {
     // â”€â”€â”€ RENDER HELPERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
-    const inputClasses = "w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter";
+    const inputClasses = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-300 font-inter";
 
     return (
         <>
             <Navbar title="Safety Management" breadcrumb={["Engineer", "Safety", "Checklist Vault"]} />
 
-            <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
+            <PageTransition className="p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter flex flex-col pb-8">
                 {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
                     <div className="font-inter">
@@ -570,134 +570,149 @@ const SafetyChecklistPage = () => {
                             type="button"
                             onClick={isEditModalOpen ? handleUpdateSubmit : handleCreateSubmit}
                             disabled={isSubmitting}
-                            className="flex-[2] py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
+                            className={`flex-[2] py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all ${isSubmitting ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'} font-inter`}
                         >
-                            {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Push Changes" : "Commit Entry")}
+                            {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Push Changes" : "Create Audit Entry")}
                         </button>
                     </div>
                 }
             >
-                <div className="p-6 space-y-6 font-inter">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
-                        {/* project_id */}
-                        <div className="md:col-span-2 font-inter">
-                            <label className={labelClasses}>Project <span className="text-rose-500">*</span></label>
-                            <select
-                                name="project_id"
-                                value={formData.project_id}
-                                onChange={(e) => setFormData((prev: CreateSafetyRequest) => ({ ...prev, project_id: Number(e.target.value) }))}
-                                className={inputClasses}
-                            >
-                                <option value="">-- Select Project --</option>
-                                {projects.map((p: any) => (
-                                    <option key={p.id || p.project_id} value={p.id || p.project_id}>
-                                        {p.name || p.project_name || `Project #${p.id || p.project_id}`}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        {/* date */}
-                        <div className="font-inter">
-                            <label className={labelClasses}>Date <span className="text-rose-500">*</span></label>
-                            <input
-                                name="date"
-                                type="date"
-                                value={formData.date}
-                                onChange={handleInputChange}
-                                className={inputClasses}
-                            />
-                        </div>
-                        {/* safety_checklist_status */}
-                        <div className="font-inter">
-                            <label className={labelClasses}>Safety Checklist Status <span className="text-rose-500">*</span></label>
-                            <select
-                                name="safety_checklist_status"
-                                value={formData.safety_checklist_status}
-                                onChange={handleInputChange}
-                                className={inputClasses}
-                            >
-                                <option value="pending">Pending</option>
-                                <option value="completed">Completed</option>
-                                <option value="failed">Failed</option>
-                            </select>
-                        </div>
-                        {/* ppe_compliance */}
-                        <div className="flex items-center gap-3 pt-2 font-inter">
-                            <input
-                                name="ppe_compliance"
-                                type="checkbox"
-                                checked={formData.ppe_compliance}
-                                onChange={handleInputChange}
-                                className="w-5 h-5 rounded-lg border-slate-300 text-primary focus:ring-primary/20 transition-all cursor-pointer font-inter"
-                            />
-                            <label className="text-[11px] font-bold uppercase tracking-widest text-slate-700 cursor-pointer font-inter">PPE Compliance Verified</label>
-                        </div>
-                        {/* violation_type */}
-                        <div className="font-inter">
-                            <label className={labelClasses}>Violation Type <span className="text-rose-500">*</span></label>
-                            <select
-                                name="violation_type"
-                                value={formData.violation_type}
-                                onChange={handleInputChange}
-                                className={inputClasses}
-                            >
-                                {VIOLATION_TYPES.map(vt => (
-                                    <option key={vt} value={vt}>{vt}</option>
-                                ))}
-                            </select>
-                        </div>
-                        {/* description */}
-                        <div className="md:col-span-2 font-inter">
-                            <label className={labelClasses}>Description <span className="text-rose-500">*</span></label>
-                            <textarea
-                                name="description"
-                                rows={3}
-                                value={formData.description}
-                                onChange={handleInputChange}
-                                placeholder="Describe the safety observation or incident..."
-                                className={`${inputClasses} resize-none font-bold`}
-                            />
-                        </div>
-                        {/* injury_details */}
-                        <div className="md:col-span-2 font-inter">
-                            <label className={labelClasses}>Injury Details (Optional)</label>
-                            <textarea
-                                name="injury_details"
-                                rows={2}
-                                value={formData.injury_details || ""}
-                                onChange={handleInputChange}
-                                placeholder="Describe any physical injuries..."
-                                className={`${inputClasses} resize-none font-bold`}
-                            />
-                        </div>
-                        {/* action_taken */}
-                        <div className="md:col-span-2 font-inter">
-                            <label className={labelClasses}>Action Taken <span className="text-rose-500">*</span></label>
-                            <textarea
-                                name="action_taken"
-                                rows={2}
-                                value={formData.action_taken}
-                                onChange={handleInputChange}
-                                placeholder="What corrective actions were taken?"
-                                className={`${inputClasses} resize-none font-bold`}
-                            />
-                        </div>
-                        {/* responsible_person */}
-                        <div className="md:col-span-2 font-inter">
-                            <label className={labelClasses}>Responsible Person <span className="text-rose-500">*</span></label>
-                            <input
-                                name="responsible_person"
-                                value={formData.responsible_person}
-                                onChange={handlePersonNameChange}
-                                placeholder="Enter responsible officer name"
-                                className={`${inputClasses}${/\d/.test(formData.responsible_person) ? " border-rose-400 focus:border-rose-400 focus:ring-rose-400/20" : ""}`}
-                            />
-                            {/\d/.test(formData.responsible_person) && (
-                                <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">⚠ Only alphabetic characters allowed — no numbers.</p>
-                            )}
+                <form id="audit-form" className="space-y-6 p-2 font-inter" onSubmit={isEditModalOpen ? handleUpdateSubmit : handleCreateSubmit}>
+                    {/* Basic Info */}
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
+                            Basic Information
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="md:col-span-2 font-inter">
+                                <label className={labelClasses}>Project <span className="text-rose-500">*</span></label>
+                                <select
+                                    name="project_id"
+                                    value={formData.project_id}
+                                    onChange={(e) => setFormData((prev: CreateSafetyRequest) => ({ ...prev, project_id: Number(e.target.value) }))}
+                                    className={inputClasses}
+                                >
+                                    <option value="">-- Select Project --</option>
+                                    {projects.map((p: any) => (
+                                        <option key={p.id || p.project_id} value={p.id || p.project_id}>
+                                            {p.name || p.project_name || `Project #${p.id || p.project_id}`}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="font-inter">
+                                <label className={labelClasses}>Date <span className="text-rose-500">*</span></label>
+                                <input
+                                    name="date"
+                                    type="date"
+                                    value={formData.date}
+                                    onChange={handleInputChange}
+                                    className={inputClasses}
+                                />
+                            </div>
+                            <div className="font-inter">
+                                <label className={labelClasses}>Responsible Person <span className="text-rose-500">*</span></label>
+                                <input
+                                    name="responsible_person"
+                                    value={formData.responsible_person}
+                                    onChange={handlePersonNameChange}
+                                    placeholder="Enter responsible officer name"
+                                    className={`${inputClasses}${/\d/.test(formData.responsible_person) ? " border-rose-400 focus:ring-rose-200" : ""}`}
+                                />
+                                {/\d/.test(formData.responsible_person) && (
+                                    <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">⚠ Only alphabetic characters allowed.</p>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
+
+                    {/* Observation Details */}
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
+                            Observation Details
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="font-inter">
+                                <label className={labelClasses}>Safety Checklist Status <span className="text-rose-500">*</span></label>
+                                <select
+                                    name="safety_checklist_status"
+                                    value={formData.safety_checklist_status}
+                                    onChange={handleInputChange}
+                                    className={inputClasses}
+                                >
+                                    <option value="pending">Pending</option>
+                                    <option value="completed">Completed</option>
+                                    <option value="failed">Failed</option>
+                                </select>
+                            </div>
+                            <div className="font-inter">
+                                <label className={labelClasses}>Violation Type <span className="text-rose-500">*</span></label>
+                                <select
+                                    name="violation_type"
+                                    value={formData.violation_type}
+                                    onChange={handleInputChange}
+                                    className={inputClasses}
+                                >
+                                    {VIOLATION_TYPES.map(vt => (
+                                        <option key={vt} value={vt}>{vt}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="md:col-span-2 flex items-center gap-3 pt-2 pb-2 font-inter">
+                                <input
+                                    name="ppe_compliance"
+                                    type="checkbox"
+                                    checked={formData.ppe_compliance}
+                                    onChange={handleInputChange}
+                                    className="w-5 h-5 rounded-lg border-slate-300 text-primary focus:ring-primary/20 transition-all cursor-pointer font-inter"
+                                />
+                                <label className="text-sm font-bold text-slate-700 cursor-pointer font-inter">PPE Compliance Verified</label>
+                            </div>
+                            <div className="md:col-span-2 font-inter">
+                                <label className={labelClasses}>Description <span className="text-rose-500">*</span></label>
+                                <textarea
+                                    name="description"
+                                    rows={3}
+                                    value={formData.description}
+                                    onChange={handleInputChange}
+                                    placeholder="Describe the safety observation or incident..."
+                                    className={`${inputClasses} resize-none`}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Resolution & Impact */}
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
+                            Resolution & Impact
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="md:col-span-2 font-inter">
+                                <label className={labelClasses}>Injury Details (Optional)</label>
+                                <textarea
+                                    name="injury_details"
+                                    rows={2}
+                                    value={formData.injury_details || ""}
+                                    onChange={handleInputChange}
+                                    placeholder="Describe any physical injuries..."
+                                    className={`${inputClasses} resize-none`}
+                                />
+                            </div>
+                            <div className="md:col-span-2 font-inter">
+                                <label className={labelClasses}>Action Taken <span className="text-rose-500">*</span></label>
+                                <textarea
+                                    name="action_taken"
+                                    rows={2}
+                                    value={formData.action_taken}
+                                    onChange={handleInputChange}
+                                    placeholder="What corrective actions were taken?"
+                                    className={`${inputClasses} resize-none`}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </form>
             </Modal>
 
             {/* â”€â”€ View Detail Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}

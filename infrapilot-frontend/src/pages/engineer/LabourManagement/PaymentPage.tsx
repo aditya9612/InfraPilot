@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Navbar from '../../../components/common/Navbar';
 import PageTransition from '../../../components/common/PageTransition';
 import StatCard from '../../../components/common/StatCard';
@@ -148,7 +148,7 @@ const PaymentPage: React.FC = () => {
         <>
             <Navbar title="Financial Operations" breadcrumb={["Engineer", "Human Resources", "Payroll Management"]} />
             
-            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
+            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter flex flex-col">
                 {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 font-inter">
                     <div className="font-inter">
@@ -163,8 +163,8 @@ const PaymentPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* â”€â”€ Interactive Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
+                {/* ── Interactive Stats ───────────────────────── */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
                     <div onClick={() => setActiveStatFilter("Paid")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Paid" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                       <StatCard
                           title="Paid This Month"
@@ -195,7 +195,7 @@ const PaymentPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* â”€â”€ Navigation Tabs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                {/* ───────────────────────────────────────────────────────────── */}
                 <div className="flex flex-wrap gap-2 mb-8 font-inter">
                     {[
                         { id: 'payroll', label: 'Active Payroll' },
@@ -214,7 +214,7 @@ const PaymentPage: React.FC = () => {
                     ))}
                 </div>
 
-                {/* â”€â”€ Registry Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                {/* ───────────────────────────────────────────────────────────── */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex flex-col">
                     {/* Integrated Filter Bar */}
                     <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row md:items-center flex-wrap gap-4 bg-white font-inter">
@@ -381,7 +381,7 @@ const PaymentPage: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-4 text-right font-inter">
                                                 <div className="flex items-center justify-end gap-2 text-emerald-500 font-inter">
-                                                  <span className="text-[10px] font-bold uppercase tracking-widest font-inter">Confirmed Audit âœ“</span>
+                                                  <span className="text-[10px] font-bold uppercase tracking-widest font-inter">Confirmed Audit ✓</span>
                                                 </div>
                                             </td>
                                         </tr>
@@ -470,7 +470,9 @@ const PaymentPage: React.FC = () => {
                         )}
                     </div>
                 </div>
-                {/* â”€â”€ Modals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+
+
+                {/* ── Modals ────────────────────────────────────── */}
                 <PaySalaryModal 
                     isOpen={!!payTarget} 
                     onClose={() => setPayTarget(null)} 

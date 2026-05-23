@@ -1,15 +1,17 @@
 import { useState, useEffect } from "react";
 import Navbar from "../../components/common/Navbar";
 import { projectService } from "../../services/projectService";
-
+import { workProgressService } from "../../services/workProgressService";
 
 
 const ClientProgressPage = () => {
   const [activities, setActivities] = useState<any[]>([]);
+  const [logs, setLogs] = useState<DailyLogItem[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(true);
+  const [loadingLogs, setLoadingLogs] = useState(true);
 
   useEffect(() => {
-    const fetchActivities = async () => {
+    const fetchProgressData = async () => {
       try {
         const response = await projectService.getWorkProgressActivities(96);
         const fetchedActivities = Array.isArray(response) ? response : (response.data || response.items || []);
@@ -20,7 +22,7 @@ const ClientProgressPage = () => {
         setLoadingActivities(false);
       }
     };
-    fetchActivities();
+    fetchProgressData();
   }, []);
 
   // Compute overall progress from activities
@@ -51,15 +53,21 @@ const ClientProgressPage = () => {
             </div>
           </div>
           <div>
-            <p className="text-xl font-black text-slate-800">Phase 3 — Superstructure</p>
-            <p className="text-sm text-slate-500 mt-1">Roof slab casting and waterproofing in progress. On schedule.</p>
+            <p className="text-xl font-black text-slate-800">
+              {activities.length > 0 ? "Project Status Overview" : "Phase 3 — Superstructure"}
+            </p>
+            <p className="text-sm text-slate-500 mt-1">
+              {activities.length > 0
+                ? `${activities.filter(a => a.status === 'COMPLETED').length} of ${activities.length} activities completed.`
+                : "Roof slab casting and waterproofing in progress. On schedule."}
+            </p>
             <div className="flex gap-3 mt-4">
-              <span className="px-3 py-1.5 bg-emerald-50 text-emerald-700 text-[10px] font-black rounded-full uppercase tracking-widest">On Track</span>
-              <span className="px-3 py-1.5 bg-blue-50 text-blue-700 text-[10px] font-black rounded-full uppercase tracking-widest">3 Days Ahead</span>
+              <span className={`px-3 py-1.5 ${overallProgress >= 50 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'} text-[10px] font-black rounded-full uppercase tracking-widest`}>
+                {overallProgress >= 50 ? 'On Track' : 'In Progress'}
+              </span>
             </div>
           </div>
         </div>
-
 
 
         {/* Detailed Activity Progress — now from API */}
@@ -101,19 +109,19 @@ const ClientProgressPage = () => {
                   activities.map((act, i) => {
                     const statusColor =
                       act.status === "COMPLETED" || act.status === "Completed" ? "bg-emerald-500" :
-                      act.status === "IN_PROGRESS" || act.status === "In Progress" ? "bg-blue-500" :
-                      act.status === "DELAYED" || act.status === "Delayed" ? "bg-red-500" :
-                      "bg-slate-300";
+                        act.status === "IN_PROGRESS" || act.status === "In Progress" ? "bg-blue-500" :
+                          act.status === "DELAYED" || act.status === "Delayed" ? "bg-red-500" :
+                            "bg-slate-300";
                     const statusBg =
                       act.status === "DELAYED" || act.status === "Delayed" ? "bg-red-50 text-red-600" :
-                      act.status === "IN_PROGRESS" || act.status === "In Progress" ? "bg-blue-50 text-blue-600" :
-                      act.status === "COMPLETED" || act.status === "Completed" ? "bg-emerald-50 text-emerald-600" :
-                      "bg-slate-50 text-slate-500";
+                        act.status === "IN_PROGRESS" || act.status === "In Progress" ? "bg-blue-50 text-blue-600" :
+                          act.status === "COMPLETED" || act.status === "Completed" ? "bg-emerald-50 text-emerald-600" :
+                            "bg-slate-50 text-slate-500";
                     const barColor =
                       act.status === "COMPLETED" || act.status === "Completed" ? "bg-emerald-500" :
-                      act.status === "IN_PROGRESS" || act.status === "In Progress" ? "bg-blue-500" :
-                      act.status === "DELAYED" || act.status === "Delayed" ? "bg-amber-500" :
-                      "bg-slate-300";
+                        act.status === "IN_PROGRESS" || act.status === "In Progress" ? "bg-blue-500" :
+                          act.status === "DELAYED" || act.status === "Delayed" ? "bg-amber-500" :
+                            "bg-slate-300";
 
                     return (
                       <tr key={act.id || i} className="hover:bg-slate-50/50 transition-colors group">
