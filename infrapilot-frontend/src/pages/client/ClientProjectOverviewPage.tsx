@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import Navbar from "../../components/common/Navbar";
 import { projectService } from "../../services/projectService";
-import toast from "react-hot-toast";
 
 const milestones = [
   { name: "Site Preparation & Excavation", status: "done", date: "Jan 2025" },
@@ -12,17 +11,11 @@ const milestones = [
   { name: "Final Inspection & Handover", status: "upcoming", date: "Oct 2026" },
 ];
 
-const team = [
-  { name: "Rajesh Mehta", role: "Project Manager", avatar: "R", color: "bg-blue-500" },
-  { name: "Anjali Desai", role: "Site Engineer", avatar: "A", color: "bg-emerald-500" },
-  { name: "Vikram Build Co.", role: "Main Contractor", avatar: "V", color: "bg-purple-500" },
-  { name: "Priya Sharma", role: "Architect", avatar: "P", color: "bg-amber-500" },
-];
-
 const ClientProjectOverviewPage = () => {
   const [projectData, setProjectData] = useState<any>(null);
+  const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   const formatDate = (d: string | undefined) => {
     if (!d) return "—";
     const date = new Date(d);
@@ -33,9 +26,9 @@ const ClientProjectOverviewPage = () => {
     const fetchProject = async () => {
       try {
         setLoading(true);
-        // Fetch projects without strict filters to avoid 422 validation errors if enum mismatch
-        const result: any = await projectService.getProjects(20, 0, "sara", "planned");
-        
+        // Fetch projects for the client
+        const result: any = await projectService.getProjects(100, 0);
+
         let fetchedProj = null;
         if (Array.isArray(result)) {
           fetchedProj = result[0];
@@ -44,8 +37,20 @@ const ClientProjectOverviewPage = () => {
         } else if (result && result.data && result.data.length > 0) {
           fetchedProj = result.data[0];
         }
-        
+
         setProjectData(fetchedProj);
+
+        if (fetchedProj) {
+          const mData = await projectService.getProjectMembers(fetchedProj.id || fetchedProj.project_id);
+          const rawMembers = Array.isArray(mData) ? mData : mData.items || mData.data || [];
+          const mappedMembers = rawMembers.map((m: any) => ({
+            id: m.user_id || m.user?.id || m.user?.user_id || m.id,
+            name: m.full_name || m.user?.full_name || m.user?.name || `User ${m.user_id || m.id || "Unknown"}`,
+            role: m.role || m.user?.role || "Member",
+            initials: (m.full_name || m.user?.full_name || m.user?.name || "U").split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+          }));
+          setMembers(mappedMembers);
+        }
       } catch (err) {
         console.error("Failed to fetch project for overview:", err);
       } finally {
@@ -108,9 +113,9 @@ const ClientProjectOverviewPage = () => {
             <h2 className="text-base font-black text-slate-800 uppercase tracking-widest text-[11px] mb-8">Key Personnel</h2>
             <div className="space-y-6">
               {[
-                { label: "Project Manager", value: "Mr. Rajesh Mehta", role: "Project Manager", avatar: "RM", color: "bg-blue-600" },
-                { label: "Site Engineer", value: "Ms. Anjali Desai", role: "Sr. Site Engineer", avatar: "AD", color: "bg-emerald-600" },
-                { label: "Contractor Name", value: "Vikram Buildcon Pvt. Ltd.", role: "Lead Contractor", avatar: "VB", color: "bg-purple-600" },
+                { label: "Project Manager", value: members.find(m => m.role.toLowerCase().includes("manager"))?.name || "Not Assigned", avatar: members.find(m => m.role.toLowerCase().includes("manager"))?.initials || "PM", color: "bg-blue-600" },
+                { label: "Site Engineer", value: members.find(m => m.role.toLowerCase().includes("engineer"))?.name || "Not Assigned", avatar: members.find(m => m.role.toLowerCase().includes("engineer"))?.initials || "SE", color: "bg-emerald-600" },
+                { label: "Contractor Name", value: members.find(m => m.role.toLowerCase().includes("contractor"))?.name || "Precision Buildcon", avatar: members.find(m => m.role.toLowerCase().includes("contractor"))?.initials || "PB", color: "bg-purple-600" },
               ].map((p, i) => (
                 <div key={i} className="flex items-center gap-4">
                   <div className={`w-11 h-11 rounded-2xl ${p.color} flex items-center justify-center text-white font-black text-xs shrink-0 shadow-lg shadow-blue-500/10`}>{p.avatar}</div>
@@ -133,22 +138,20 @@ const ClientProjectOverviewPage = () => {
               <div className="space-y-6">
                 {milestones.map((m, i) => (
                   <div key={i} className="relative pl-12 flex items-start gap-4">
-                    <div className={`absolute left-0 w-9 h-9 rounded-full flex items-center justify-center border-2 z-10 ${
-                      m.status === "done" ? "bg-emerald-500 border-emerald-500 text-white" :
+                    <div className={`absolute left-0 w-9 h-9 rounded-full flex items-center justify-center border-2 z-10 ${m.status === "done" ? "bg-emerald-500 border-emerald-500 text-white" :
                       m.status === "active" ? "bg-blue-600 border-blue-600 text-white animate-pulse" :
-                      "bg-white border-slate-200 text-slate-300"
-                    }`}>
+                        "bg-white border-slate-200 text-slate-300"
+                      }`}>
                       {m.status === "done" ? "✓" : m.status === "active" ? "●" : "○"}
                     </div>
                     <div className="flex-1 pb-2">
                       <p className={`text-sm font-bold ${m.status === "upcoming" ? "text-slate-400" : "text-slate-700"}`}>{m.name}</p>
                       <p className="text-[10px] font-bold text-slate-400 mt-0.5 uppercase tracking-widest">{m.date}</p>
                     </div>
-                    <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${
-                      m.status === "done" ? "bg-emerald-50 text-emerald-600" :
+                    <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${m.status === "done" ? "bg-emerald-50 text-emerald-600" :
                       m.status === "active" ? "bg-blue-50 text-blue-600" :
-                      "bg-slate-50 text-slate-400"
-                    }`}>
+                        "bg-slate-50 text-slate-400"
+                      }`}>
                       {m.status === "done" ? "Completed" : m.status === "active" ? "In Progress" : "Upcoming"}
                     </span>
                   </div>
@@ -162,15 +165,19 @@ const ClientProjectOverviewPage = () => {
             <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
               <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-6">Project Team</h2>
               <div className="space-y-4">
-                {team.map((t, i) => (
+                {members.length > 0 ? members.slice(0, 5).map((member, i) => (
                   <div key={i} className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-2xl ${t.color} flex items-center justify-center text-white font-black text-sm shrink-0`}>{t.avatar}</div>
+                    <div className={`w-10 h-10 rounded-2xl ${i % 2 === 0 ? "bg-blue-600" : "bg-emerald-500"} flex items-center justify-center text-white font-black text-sm shrink-0`}>
+                      {member.initials}
+                    </div>
                     <div>
-                      <p className="text-sm font-bold text-slate-700">{t.name}</p>
-                      <p className="text-[10px] text-slate-400 font-bold">{t.role}</p>
+                      <p className="text-sm font-bold text-slate-700">{member.name}</p>
+                      <p className="text-[10px] text-slate-400 font-bold">{member.role}</p>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <p className="text-xs text-slate-400 italic">No team members assigned</p>
+                )}
               </div>
             </div>
 

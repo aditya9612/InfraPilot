@@ -98,8 +98,8 @@ const ClientProgressPage = () => {
             <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-8">Recent Daily Log</h2>
             <div className="space-y-4">
               {weeklyLog.map((log, i) => (
-                <div 
-                  key={i} 
+                <div
+                  key={i}
                   className="flex items-center gap-4 p-4 bg-slate-50 hover:bg-slate-100 transition-colors rounded-2xl group cursor-pointer"
                   onClick={() => {
                     import("jspdf").then(({ default: jsPDF }) => {
@@ -110,12 +110,12 @@ const ClientProgressPage = () => {
                       doc.setTextColor(100);
                       doc.text(`Date: ${log.date}`, 14, 30);
                       doc.setTextColor(0);
-                      
+
                       // Add content
                       doc.text(`Task: ${log.task}`, 14, 42);
                       doc.text(`Crew Size: ${log.crew} workers`, 14, 50);
                       doc.text(`Status: ${log.status.toUpperCase()}`, 14, 58);
-                      
+
                       doc.save(`Daily_Log_${log.date.replace(/ /g, '_')}.pdf`);
                     });
                   }}
@@ -178,19 +178,19 @@ const ClientProgressPage = () => {
                   activities.map((act, i) => {
                     const statusColor =
                       act.status === "COMPLETED" || act.status === "Completed" ? "bg-emerald-500" :
-                      act.status === "IN_PROGRESS" || act.status === "In Progress" ? "bg-blue-500" :
-                      act.status === "DELAYED" || act.status === "Delayed" ? "bg-red-500" :
-                      "bg-slate-300";
+                        act.status === "IN_PROGRESS" || act.status === "In Progress" ? "bg-blue-500" :
+                          act.status === "DELAYED" || act.status === "Delayed" ? "bg-red-500" :
+                            "bg-slate-300";
                     const statusBg =
                       act.status === "DELAYED" || act.status === "Delayed" ? "bg-red-50 text-red-600" :
-                      act.status === "IN_PROGRESS" || act.status === "In Progress" ? "bg-blue-50 text-blue-600" :
-                      act.status === "COMPLETED" || act.status === "Completed" ? "bg-emerald-50 text-emerald-600" :
-                      "bg-slate-50 text-slate-500";
+                        act.status === "IN_PROGRESS" || act.status === "In Progress" ? "bg-blue-50 text-blue-600" :
+                          act.status === "COMPLETED" || act.status === "Completed" ? "bg-emerald-50 text-emerald-600" :
+                            "bg-slate-50 text-slate-500";
                     const barColor =
                       act.status === "COMPLETED" || act.status === "Completed" ? "bg-emerald-500" :
-                      act.status === "IN_PROGRESS" || act.status === "In Progress" ? "bg-blue-500" :
-                      act.status === "DELAYED" || act.status === "Delayed" ? "bg-amber-500" :
-                      "bg-slate-300";
+                        act.status === "IN_PROGRESS" || act.status === "In Progress" ? "bg-blue-500" :
+                          act.status === "DELAYED" || act.status === "Delayed" ? "bg-amber-500" :
+                            "bg-slate-300";
 
                     return (
                       <tr key={act.id || i} className="hover:bg-slate-50/50 transition-colors group">
