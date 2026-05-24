@@ -352,7 +352,7 @@ const WorkApprovalPage = () => {
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col font-inter">
                                                     <span className="text-sm font-bold text-slate-800 uppercase font-inter">{approval.entity_type}</span>
-                                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">REF-{approval.id}</span>
+                                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">Auth Log</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
@@ -361,7 +361,7 @@ const WorkApprovalPage = () => {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className="text-sm font-bold text-blue-600 font-inter">ID: {approval.entity_id}</span>
+                                                <span className="text-sm font-bold text-blue-600 font-inter">Entry Data</span>
                                             </td>
                                             <td className="px-6 py-4 font-inter">
                                                 <div className="flex items-center gap-2">
@@ -417,38 +417,29 @@ const WorkApprovalPage = () => {
 
                     {/* ── Pagination Controls ──────────────────────────── */}
                     {!loading && filteredApprovals.length > 0 && (
-                        <div className="px-4 md:px-6 py-4 border-t border-slate-50 flex flex-col sm:flex-row items-center justify-between sm:justify-end gap-4 bg-white sticky left-0 font-inter">
-                            <div className="flex items-center flex-wrap gap-2 font-inter justify-center">
+                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                                PAGE {currentPage} OF {Math.max(1, Math.ceil(filteredApprovals.length / itemsPerPage))}
+                            </div>
+                            <div className="flex items-center gap-2">
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                     disabled={currentPage === 1}
-                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
                                     title="Previous Page"
                                 >
-                                    <ChevronLeft className="w-4 h-4" />
+                                    <ChevronLeft className="w-5 h-5" />
                                 </button>
-                                
-                                {Array.from({ length: Math.min(totalPages, 20) }, (_, i) => i + 1).map(page => (
-                                    <button
-                                        key={page}
-                                        onClick={() => setCurrentPage(page)}
-                                        className={`w-10 h-10 rounded-xl text-sm font-bold transition-all shadow-sm flex items-center justify-center font-inter ${
-                                            currentPage === page 
-                                                ? 'bg-primary text-white border-transparent' 
-                                                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-primary'
-                                        }`}
-                                    >
-                                        {page}
-                                    </button>
-                                ))}
-
+                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
+                                    {currentPage}
+                                </div>
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                                    disabled={currentPage >= totalPages || totalPages === 0}
-                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    onClick={() => setCurrentPage(prev => Math.min(Math.max(1, Math.ceil(filteredApprovals.length / itemsPerPage)), prev + 1))}
+                                    disabled={currentPage === Math.max(1, Math.ceil(filteredApprovals.length / itemsPerPage))}
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
                                     title="Next Page"
                                 >
-                                    <ChevronRight className="w-4 h-4" />
+                                    <ChevronRight className="w-5 h-5" />
                                 </button>
                             </div>
                         </div>
@@ -610,7 +601,7 @@ const WorkApprovalPage = () => {
                             </div>
                             <div>
                                 <label className={labelClasses}>Entity ID <span className="text-rose-500">*</span></label>
-                                <input name="entity_id" type="number" value={formData.entity_id} onChange={handleInputChange} placeholder="e.g. 1" className={inputClasses(errors.entity_id)} />
+                                <input name="entity_id" type="number" min="0" value={formData.entity_id} onChange={handleInputChange} placeholder="e.g. 1" className={inputClasses(errors.entity_id)} />
                                 {errors.entity_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.entity_id}</p>}
                             </div>
                         </div>

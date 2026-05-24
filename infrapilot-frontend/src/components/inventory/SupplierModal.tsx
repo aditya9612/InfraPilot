@@ -83,6 +83,8 @@ export default function SupplierModal({
     if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Invalid email format.";
     }
+    if (!formData.gst.trim()) newErrors.gst = "GST Number is required.";
+    else if (formData.gst.length !== 15) newErrors.gst = "GST Number must be 15 characters.";
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -213,7 +215,7 @@ export default function SupplierModal({
 
               <div className="md:col-span-2 space-y-1">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
-                  GST Number
+                  GST Number <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -225,7 +227,7 @@ export default function SupplierModal({
                     : "border-gray-200 focus:ring-primary/10 focus:border-primary"
                     }`}
                   maxLength={15}
-                  placeholder="e.g. 24ABCDE5678K1Z6"
+                  placeholder="e.g. 27AAAAA0000A1Z5"
                 />
                 {!errors.gst && (
                   <p className="text-[10px] text-gray-400 font-medium ml-1 mt-1">

@@ -288,7 +288,6 @@ const MaterialConsumptionPage = () => {
                       <td className="px-6 py-4 font-inter">
                         <div className="flex flex-col font-inter">
                           <span className="text-sm font-bold text-slate-800 font-inter">{inv.material_name}</span>
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">MID-#{inv.material_id}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-center font-inter">
@@ -329,29 +328,32 @@ const MaterialConsumptionPage = () => {
           </div>
 
           {/* Inventory Pagination */}
-          <div className="px-6 py-4 bg-slate-50/30 border-t border-slate-50 flex items-center justify-end font-inter">
-            <div className="flex items-center gap-2 font-inter">
-              <button
-                onClick={() => setCurrentPageInv(prev => Math.max(prev - 1, 1))}
-                disabled={currentPageInv === 1}
-                className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
-                title="Previous Page"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                Page {currentPageInv} of 20
-              </div>
-              <button
-                onClick={() => setCurrentPageInv(prev => Math.min(prev + 1, 20))}
-                disabled={currentPageInv === 20}
-                className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
-                title="Next Page"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+          <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                                PAGE {currentPageInv} OF {Math.max(1, Math.ceil(filteredInventory.length / itemsPerPageInv))}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setCurrentPageInv(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPageInv === 1}
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
+                                    title="Previous Page"
+                                >
+                                    <ChevronLeft className="w-5 h-5" />
+                                </button>
+                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
+                                    {currentPageInv}
+                                </div>
+                                <button
+                                    onClick={() => setCurrentPageInv(prev => Math.min(Math.max(1, Math.ceil(filteredInventory.length / itemsPerPageInv)), prev + 1))}
+                                    disabled={currentPageInv === Math.max(1, Math.ceil(filteredInventory.length / itemsPerPageInv))}
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
+                                    title="Next Page"
+                                >
+                                    <ChevronRight className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
         </div>
 
         {/* Usage Logs Container */}
@@ -377,7 +379,7 @@ const MaterialConsumptionPage = () => {
                       <td className="px-6 py-4 text-xs font-bold text-slate-500 font-inter uppercase tracking-widest">{new Date(log.created_at).toLocaleDateString()}</td>
                       <td className="px-6 py-4 font-inter">
                         <span className="font-bold text-slate-700 text-sm font-inter uppercase">
-                          {inventory.find(inv => inv.material_id === log.material_id)?.material_name || `MID: ${log.material_id}`}
+                          {inventory.find(inv => inv.material_id === log.material_id)?.material_name || `Unknown Material`}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-center font-bold text-rose-500 text-sm font-inter">-{log.quantity}</td>
@@ -397,29 +399,32 @@ const MaterialConsumptionPage = () => {
           </div>
 
           {/* Logs Pagination */}
-          <div className="px-6 py-4 bg-slate-50/30 border-t border-slate-50 flex items-center justify-end font-inter">
-            <div className="flex items-center gap-2 font-inter">
-              <button
-                onClick={() => setCurrentPageLogs(prev => Math.max(prev - 1, 1))}
-                disabled={currentPageLogs === 1}
-                className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
-                title="Previous Page"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                Page {currentPageLogs} of 20
-              </div>
-              <button
-                onClick={() => setCurrentPageLogs(prev => Math.min(prev + 1, 20))}
-                disabled={currentPageLogs === 20}
-                className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
-                title="Next Page"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+          <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                                PAGE {currentPageLogs} OF {Math.max(1, Math.ceil(logs.length / itemsPerPageLogs))}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setCurrentPageLogs(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPageLogs === 1}
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
+                                    title="Previous Page"
+                                >
+                                    <ChevronLeft className="w-5 h-5" />
+                                </button>
+                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
+                                    {currentPageLogs}
+                                </div>
+                                <button
+                                    onClick={() => setCurrentPageLogs(prev => Math.min(Math.max(1, Math.ceil(logs.length / itemsPerPageLogs)), prev + 1))}
+                                    disabled={currentPageLogs === Math.max(1, Math.ceil(logs.length / itemsPerPageLogs))}
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
+                                    title="Next Page"
+                                >
+                                    <ChevronRight className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
         </div>
       </PageTransition>
 
@@ -504,7 +509,7 @@ const MaterialConsumptionPage = () => {
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Quantity <span className="text-rose-500">*</span></label>
                 <input
                   required
-                  type="number"
+                  type="number" min="0" onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }}
                   value={usageData.quantity}
                   onChange={(e) => setUsageData({ ...usageData, quantity: e.target.value === "" ? "" : Number(e.target.value) })}
                   className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:ring-primary/20 focus:border-primary font-inter"

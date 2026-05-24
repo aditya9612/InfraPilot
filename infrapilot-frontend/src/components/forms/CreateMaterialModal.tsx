@@ -189,15 +189,15 @@ const CreateMaterialModal: React.FC<CreateMaterialModalProps> = ({
             </div>
             <div>
               <label className={labelClasses}>Purchase Rate (₹) <span className="text-rose-500">*</span></label>
-              <input type="number" name="purchase_rate" value={formData.purchase_rate} onChange={handleChange} className={inputClasses(errors.purchase_rate)} />
+              <input type="number" min="0" onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }} name="purchase_rate" value={formData.purchase_rate} onChange={handleChange} className={inputClasses(errors.purchase_rate)} />
             </div>
             <div>
               <label className={labelClasses}>Initial Quantity</label>
-              <input type="number" name="quantity_purchased" value={formData.quantity_purchased} onChange={handleChange} className={inputClasses()} />
+              <input type="number" min="0" onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }} name="quantity_purchased" value={formData.quantity_purchased} onChange={handleChange} className={inputClasses()} />
             </div>
             <div>
               <label className={labelClasses}>Min Stock Level</label>
-              <input type="number" name="minimum_stock_level" value={formData.minimum_stock_level} onChange={handleChange} className={inputClasses()} />
+              <input type="number" min="0" onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }} name="minimum_stock_level" value={formData.minimum_stock_level} onChange={handleChange} className={inputClasses()} />
             </div>
           </div>
         </div>

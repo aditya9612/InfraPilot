@@ -65,6 +65,8 @@ const RolesPage = () => {
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [roleToDelete, setRoleToDelete] = useState<{ id: string, name: string } | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   const handleCreateOrUpdateRole = (roleData: any) => {
     if (editingRole) {
@@ -106,6 +108,9 @@ const RolesPage = () => {
     return matchesSearch && matchesStatus;
   });
 
+  const totalPages = Math.ceil(filteredRoles.length / itemsPerPage);
+  const paginatedRoles = filteredRoles.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
   return (
     <>
       <Navbar
@@ -146,14 +151,20 @@ const RolesPage = () => {
                 type="text"
                 placeholder="Search by role name or description..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
               />
             </div>
             <div className="flex items-center gap-2">
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as "all" | "active" | "inactive")}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value as "all" | "active" | "inactive");
+                  setCurrentPage(1);
+                }}
                 className="bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 px-3 py-2 outline-none"
               >
                 <option value="all">All Status</option>
@@ -176,7 +187,7 @@ const RolesPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {filteredRoles.map((role) => (
+                {paginatedRoles.map((role) => (
                   <tr
                     key={role.id}
                     className="hover:bg-slate-50/30 transition-colors group"
@@ -245,10 +256,21 @@ const RolesPage = () => {
           {/* Internal Footer Statistics */}
           <div className="p-8 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-              Showing {filteredRoles.length} of {roles.length} System Roles
+              Showing {Math.min(currentPage * itemsPerPage, filteredRoles.length)} of {filteredRoles.length} System Roles
             </p>
             <div className="flex gap-2">
-              <button className="px-4 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-500 hover:bg-slate-50 transition-all">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-4 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-500 hover:bg-slate-50 transition-all disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages || totalPages === 0}
+                className="px-4 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-500 hover:bg-slate-50 transition-all disabled:opacity-50"
+              >
                 Next
               </button>
             </div>

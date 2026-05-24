@@ -9,7 +9,7 @@ const ClientProgressPage = () => {
   const [activities, setActivities] = useState<any[]>([]);
   const [logs, setLogs] = useState<DailyEntry[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(true);
-  const [loadingLogs, setLoadingLogs] = useState(true);
+  const [_loadingLogs, _setLoadingLogs] = useState(true);
 
   useEffect(() => {
     const fetchProgressData = async () => {

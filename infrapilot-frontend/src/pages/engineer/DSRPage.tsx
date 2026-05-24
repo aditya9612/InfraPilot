@@ -101,14 +101,19 @@ const DSRPage = () => {
                     url: p.url || p.file_url
                 })) || [];
 
-                if (photos.length === 0) {
-                    try {
-                        const extraPhotos = await dsrService.getDsrPhotos(item.id);
-                        if (extraPhotos && extraPhotos.length > 0) {
-                            photos = extraPhotos;
-                        }
-                    } catch (e) { }
+                // Always fetch the latest photos from the dedicated API to guarantee synchronization
+                try {
+                    const extraPhotos = await dsrService.getDsrPhotos(item.id);
+                    if (extraPhotos && Array.isArray(extraPhotos) && extraPhotos.length > 0) {
+                        photos = extraPhotos.map((p: any) => ({
+                            id: p.id,
+                            url: p.url || p.file_url
+                        }));
+                    }
+                } catch (e) { 
+                    console.warn(`Could not fetch photos for DSR ${item.id}`, e);
                 }
+                
                 return { ...item, photos };
             }));
 
@@ -134,13 +139,16 @@ const DSRPage = () => {
                 url: p.url || p.file_url
             })) || [];
 
-            if (photos.length === 0) {
-                try {
-                    const extraPhotos = await dsrService.getDsrPhotos(data.id);
-                    if (extraPhotos && extraPhotos.length > 0) {
-                        photos = extraPhotos;
-                    }
-                } catch (e) { }
+            try {
+                const extraPhotos = await dsrService.getDsrPhotos(data.id);
+                if (extraPhotos && Array.isArray(extraPhotos) && extraPhotos.length > 0) {
+                    photos = extraPhotos.map((p: any) => ({
+                        id: p.id,
+                        url: p.url || p.file_url
+                    }));
+                }
+            } catch (e) { 
+                console.warn(`Could not fetch photos for DSR ${data.id}`, e);
             }
 
             setSelectedDsr({ ...data, photos });
@@ -167,13 +175,16 @@ const DSRPage = () => {
                 url: p.url || p.file_url
             })) || [];
 
-            if (photos.length === 0) {
-                try {
-                    const extraPhotos = await dsrService.getDsrPhotos(data.id);
-                    if (extraPhotos && extraPhotos.length > 0) {
-                        photos = extraPhotos;
-                    }
-                } catch (e) { }
+            try {
+                const extraPhotos = await dsrService.getDsrPhotos(data.id);
+                if (extraPhotos && Array.isArray(extraPhotos) && extraPhotos.length > 0) {
+                    photos = extraPhotos.map((p: any) => ({
+                        id: p.id,
+                        url: p.url || p.file_url
+                    }));
+                }
+            } catch (e) { 
+                console.warn(`Could not fetch photos for DSR ${data.id}`, e);
             }
 
             setSelectedDsr({ ...data, photos });
@@ -416,7 +427,7 @@ const DSRPage = () => {
                                                 <td className="px-6 py-4">
                                                     <div className="flex flex-col font-inter">
                                                         <span className="text-sm font-bold text-slate-800 font-inter">{dsr.report_date}</span>
-                                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-inter">{dsr.business_id || `DSR-${dsr.id}`} • {dsr.report_type}</span>
+                                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-inter">{dsr.report_type || "Daily Ledger"}</span>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
@@ -518,26 +529,29 @@ const DSRPage = () => {
 
                     {/* ── Pagination Controls ──────────────────────────── */}
                     {!isLoading && dsrList.length > 0 && (
-                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-end bg-white sticky left-0 font-inter">
-                            <div className="flex gap-2 font-inter">
+                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                                PAGE {currentPage} OF {Math.max(1, Math.ceil(totalItems / itemsPerPage))}
+                            </div>
+                            <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                     disabled={currentPage === 1}
-                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
                                     title="Previous Page"
                                 >
-                                    <ChevronLeft className="w-4 h-4" />
+                                    <ChevronLeft className="w-5 h-5" />
                                 </button>
-                                <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                                    Page {currentPage} of 20
+                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
+                                    {currentPage}
                                 </div>
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.min(20, prev + 1))}
-                                    disabled={currentPage === 20}
-                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    onClick={() => setCurrentPage(prev => Math.min(Math.max(1, Math.ceil(totalItems / itemsPerPage)), prev + 1))}
+                                    disabled={currentPage === Math.max(1, Math.ceil(totalItems / itemsPerPage))}
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
                                     title="Next Page"
                                 >
-                                    <ChevronRight className="w-4 h-4" />
+                                    <ChevronRight className="w-5 h-5" />
                                 </button>
                             </div>
                         </div>

@@ -6,6 +6,7 @@ import { reportService } from "../../services/reportService";
 import { projectService } from "../../services/projectService";
 import { documentService } from "../../services/documentService";
 import ReportPreviewModal from "../../components/dashboard/ReportPreviewModal";
+import ShareReportModal from "../../components/dashboard/ShareReportModal";
 import toast from "react-hot-toast";
 import {
   FileText,
@@ -84,7 +85,9 @@ const ReportsPage = () => {
 
   // Preview modal state
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [viewingReport, setViewingReport] = useState<{ name: string; data: any; id: string } | null>(null);
+  const [viewingReport, setViewingReport] = useState<{ id: string, name: string, data: any } | null>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [reportToShare, setReportToShare] = useState<{ id: string, name: string } | null>(null);
 
   const [stats, setStats] = useState({
     totalExpense: 0,
@@ -93,7 +96,6 @@ const ReportsPage = () => {
     avgEfficiency: 0
   });
 
-  const categories: ReportCategory[] = ["Operations", "Resources", "Financials", "Performance"];
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -108,14 +110,14 @@ const ReportsPage = () => {
         setProjects(pList);
         if (pList.length > 0) setSelectedProjectId(pList[0].id.toString());
 
-        // Calculate avg efficiency from projects
-        const totalProgress = pList.reduce((acc: number, curr: any) => acc + (curr.progress || 0), 0);
+        // Calculate avg efficiency from projects using completion_percentage
+        const totalProgress = pList.reduce((acc: number, curr: any) => acc + (curr.completion_percentage || 0), 0);
         const avgEff = pList.length > 0 ? (totalProgress / pList.length).toFixed(1) : 0;
 
         setStats(prev => ({
           ...prev,
-          totalExpense: financialSummary?.expense || 0,
-          totalProfit: financialSummary?.profit || 0,
+          totalExpense: financialSummary?.total_expense || 0,
+          totalProfit: (financialSummary?.total_invoice || financialSummary?.total_revenue || 0) - (financialSummary?.total_expense || 0),
           generatedReports: docStats?.total_documents || 0,
           avgEfficiency: Number(avgEff)
         }));
@@ -125,6 +127,32 @@ const ReportsPage = () => {
     };
     fetchInitialData();
   }, []);
+
+  useEffect(() => {
+    const updateStatsForProject = async () => {
+      if (!selectedProjectId || selectedProjectId === "all") return;
+
+      try {
+        const pid = parseInt(selectedProjectId);
+        const [projectProfitLoss, projectSummary] = await Promise.all([
+          projectService.getProjectProfitLoss(pid).catch(() => null),
+          reportService.getFinancialSummary(pid).catch(() => null)
+        ]);
+
+        if (projectProfitLoss || projectSummary) {
+          setStats(prev => ({
+            ...prev,
+            totalExpense: projectProfitLoss?.total_expense || projectSummary?.total_expense || prev.totalExpense,
+            totalProfit: (projectProfitLoss?.total_invoice || projectSummary?.total_billing || 0) - (projectProfitLoss?.total_expense || projectSummary?.total_expense || 0),
+          }));
+        }
+      } catch (error) {
+        console.error("Failed to update stats for project", error);
+      }
+    };
+
+    updateStatsForProject();
+  }, [selectedProjectId]);
 
   const handleExport = async (reportId: string, format: "PDF" | "Excel") => {
     const toastId = toast.loading(`Generating ${format} report...`);
@@ -168,6 +196,32 @@ const ReportsPage = () => {
     }
   };
 
+  const handleShareCombined = async (type: "email" | "whatsapp", target: string) => {
+    const toastId = toast.loading(`Sharing combined report via ${type}...`);
+    try {
+      const pid = parseInt(selectedProjectId);
+      if (isNaN(pid)) throw new Error("Please select a project first");
+
+      const today = new Date().toISOString().split('T')[0];
+      const data = {
+        project_id: pid,
+        target: target,
+        start_date: "2026-01-01",
+        end_date: today
+      };
+
+      if (type === "email") {
+        await reportService.shareCombinedEmail(data);
+      } else {
+        await reportService.shareCombinedWhatsapp(data);
+      }
+
+      toast.success("Combined report shared successfully!", { id: toastId });
+    } catch (error: any) {
+      toast.error(error.message || "Failed to share combined report", { id: toastId });
+      throw error;
+    }
+  };
   const handleViewSummary = async (report: ReportType) => {
     const toastId = toast.loading(`Fetching ${report.name} data...`);
     try {
@@ -222,7 +276,17 @@ const ReportsPage = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all active:scale-95">
+            <button
+              onClick={() => {
+                if (!selectedProjectId || selectedProjectId === "all") {
+                  toast.error("Please select a specific project to share combined intelligence.");
+                  return;
+                }
+                setReportToShare({ id: "combined", name: "Combined Project Intelligence" });
+                setIsShareModalOpen(true);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all active:scale-95"
+            >
               <Share2 size={18} strokeWidth={2.5} />
               Share Combined
             </button>
@@ -238,7 +302,7 @@ const ReportsPage = () => {
               </div>
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Revenue Focus</span>
             </div>
-            <h3 className="text-2xl font-black text-slate-800">₹{(stats.totalProfit / 100000).toFixed(1)}L</h3>
+            <h3 className="text-2xl font-black text-slate-800">₹{(stats.totalProfit / 100000).toFixed(2)}L</h3>
             <p className="text-[11px] font-bold text-emerald-500 mt-1 flex items-center gap-1">
               <CheckCircle2 size={12} /> Net project profit
             </p>
@@ -251,7 +315,7 @@ const ReportsPage = () => {
               </div>
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Expenditure</span>
             </div>
-            <h3 className="text-2xl font-black text-slate-800">₹{(stats.totalExpense / 1000).toFixed(1)}K</h3>
+            <h3 className="text-2xl font-black text-slate-800">₹{(stats.totalExpense / 100000).toFixed(2)}L</h3>
             <p className="text-[11px] font-bold text-rose-500 mt-1 flex items-center gap-1">
               <AlertCircle size={12} /> Combined site costs
             </p>
@@ -389,6 +453,13 @@ const ReportsPage = () => {
         reportName={viewingReport?.name || ""}
         data={viewingReport?.data}
         onExport={(format: "PDF" | "Excel") => viewingReport && handleExport(viewingReport.id, format)}
+      />
+
+      <ShareReportModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        reportName={reportToShare?.name || ""}
+        onShare={handleShareCombined}
       />
     </>
   );
