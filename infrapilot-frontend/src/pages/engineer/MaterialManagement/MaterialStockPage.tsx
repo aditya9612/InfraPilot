@@ -141,21 +141,8 @@ const MaterialStockPage = () => {
       setInventory(mergedInv);
       setReport(mergedRep);
 
-      // 6. Fetch transaction history logs for the first valid inventory item
-      let transList: any[] = [];
-      const targetId = mergedInv.length > 0 ? mergedInv[0].material_id : 1;
-      try {
-        transList = await materialService.getTransactions(targetId);
-      } catch (e) {
-        console.warn("Failed to fetch transactions for target material", e);
-        // Fallback to recent logs using active project logs
-        try {
-          transList = await materialService.getLogs({ project_id: projectId, type: "USAGE" });
-        } catch (e2) {
-          console.warn("Failed to fetch general logs", e2);
-        }
-      }
-      setLogs(transList || []);
+      // 6. Use the project-wide logs we already fetched instead of trying to fetch for a specific material
+      setLogs(allLogs || []);
 
     } catch (error) {
       console.error("Failed to load stock data", error);
@@ -213,11 +200,14 @@ const MaterialStockPage = () => {
     );
   }, [inventory, searchTerm, activeStatFilter]);
 
+  const filteredLogs = useMemo(() => {
+    return logs.filter(l => logFilter === "All" || l.type === logFilter);
+  }, [logs, logFilter]);
+
   const paginatedLogs = useMemo(() => {
-    const data = logs.filter(l => logFilter === "All" || l.type === logFilter);
     const startIndex = (currentPageLogs - 1) * itemsPerPageLogs;
-    return data.slice(startIndex, startIndex + itemsPerPageLogs);
-  }, [logs, logFilter, currentPageLogs]);
+    return filteredLogs.slice(startIndex, startIndex + itemsPerPageLogs);
+  }, [filteredLogs, currentPageLogs]);
 
   useEffect(() => {
     setCurrentPageLogs(1);
@@ -538,7 +528,7 @@ const MaterialStockPage = () => {
           {/* Logs Pagination */}
           <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
                             <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                                PAGE {currentPageLogs} OF {Math.max(1, Math.ceil(filteredLogs.length / itemsPerPage))}
+                                PAGE {currentPageLogs} OF {Math.max(1, Math.ceil(filteredLogs.length / itemsPerPageLogs))}
                             </div>
                             <div className="flex items-center gap-2">
                                 <button
@@ -553,8 +543,8 @@ const MaterialStockPage = () => {
                                     {currentPageLogs}
                                 </div>
                                 <button
-                                    onClick={() => setCurrentPageLogs(prev => Math.min(Math.max(1, Math.ceil(filteredLogs.length / itemsPerPage)), prev + 1))}
-                                    disabled={currentPageLogs === Math.max(1, Math.ceil(filteredLogs.length / itemsPerPage))}
+                                    onClick={() => setCurrentPageLogs(prev => Math.min(Math.max(1, Math.ceil(filteredLogs.length / itemsPerPageLogs)), prev + 1))}
+                                    disabled={currentPageLogs === Math.max(1, Math.ceil(filteredLogs.length / itemsPerPageLogs))}
                                     className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
                                     title="Next Page"
                                 >

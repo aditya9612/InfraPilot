@@ -101,14 +101,19 @@ const DSRPage = () => {
                     url: p.url || p.file_url
                 })) || [];
 
-                if (photos.length === 0) {
-                    try {
-                        const extraPhotos = await dsrService.getDsrPhotos(item.id);
-                        if (extraPhotos && extraPhotos.length > 0) {
-                            photos = extraPhotos;
-                        }
-                    } catch (e) { }
+                // Always fetch the latest photos from the dedicated API to guarantee synchronization
+                try {
+                    const extraPhotos = await dsrService.getDsrPhotos(item.id);
+                    if (extraPhotos && Array.isArray(extraPhotos) && extraPhotos.length > 0) {
+                        photos = extraPhotos.map((p: any) => ({
+                            id: p.id,
+                            url: p.url || p.file_url
+                        }));
+                    }
+                } catch (e) { 
+                    console.warn(`Could not fetch photos for DSR ${item.id}`, e);
                 }
+                
                 return { ...item, photos };
             }));
 
@@ -134,13 +139,16 @@ const DSRPage = () => {
                 url: p.url || p.file_url
             })) || [];
 
-            if (photos.length === 0) {
-                try {
-                    const extraPhotos = await dsrService.getDsrPhotos(data.id);
-                    if (extraPhotos && extraPhotos.length > 0) {
-                        photos = extraPhotos;
-                    }
-                } catch (e) { }
+            try {
+                const extraPhotos = await dsrService.getDsrPhotos(data.id);
+                if (extraPhotos && Array.isArray(extraPhotos) && extraPhotos.length > 0) {
+                    photos = extraPhotos.map((p: any) => ({
+                        id: p.id,
+                        url: p.url || p.file_url
+                    }));
+                }
+            } catch (e) { 
+                console.warn(`Could not fetch photos for DSR ${data.id}`, e);
             }
 
             setSelectedDsr({ ...data, photos });
@@ -167,13 +175,16 @@ const DSRPage = () => {
                 url: p.url || p.file_url
             })) || [];
 
-            if (photos.length === 0) {
-                try {
-                    const extraPhotos = await dsrService.getDsrPhotos(data.id);
-                    if (extraPhotos && extraPhotos.length > 0) {
-                        photos = extraPhotos;
-                    }
-                } catch (e) { }
+            try {
+                const extraPhotos = await dsrService.getDsrPhotos(data.id);
+                if (extraPhotos && Array.isArray(extraPhotos) && extraPhotos.length > 0) {
+                    photos = extraPhotos.map((p: any) => ({
+                        id: p.id,
+                        url: p.url || p.file_url
+                    }));
+                }
+            } catch (e) { 
+                console.warn(`Could not fetch photos for DSR ${data.id}`, e);
             }
 
             setSelectedDsr({ ...data, photos });

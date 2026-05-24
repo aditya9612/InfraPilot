@@ -6,24 +6,25 @@ import Modal from "../../../components/common/Modal";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import StatCard from "../../../components/common/StatCard";
 import toast from "react-hot-toast";
-import { 
-  Plus, 
-  Search,
-  Eye,
-  Edit2,
-  Trash2,
-  Activity,
-  User,
-  ShieldAlert,
-  Briefcase,
-  Mail,
-  RotateCcw,
-  CheckCircle2,
-  Image as ImageIcon,
-  Camera
-,
+import {
+    Plus,
+    Search,
+    Eye,
+    Edit2,
+    Trash2,
+    Activity,
+    User,
+    ShieldAlert,
+    Briefcase,
+    Mail,
+    RotateCcw,
+    CheckCircle2,
+    Image as ImageIcon,
+    Camera
+    ,
     ChevronLeft,
-    ChevronRight} from "lucide-react";
+    ChevronRight
+} from "lucide-react";
 
 import { qcService } from "../../../services/qcService";
 import { projectService } from "../../../services/projectService";
@@ -34,12 +35,12 @@ const TEST_TYPES = ["Visual Check", "Cube Test", "Slump Test", "Load Test", "Com
 
 const QCInspectionPage = () => {
     const navigate = useNavigate();
-    
+
     // Core Data States
     const [qcList, setQcList] = useState<QcItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    
+
     // UI States
     const [activeTab] = useState<"Inspection" | "Test Reports">("Inspection");
     const [filterStatus, setFilterStatus] = useState("All");
@@ -50,20 +51,20 @@ const QCInspectionPage = () => {
 
     // Interactive StatCard Filter
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Compliance" | "Failed" | "Momentum">("All");
-    
+
     // Modal States
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [viewLoadingId, setViewLoadingId] = useState<number | null>(null);
-    
+
     // Selection States
     const [selectedQc, setSelectedQc] = useState<QcItem | null>(null);
     const [deleteId, setDeleteId] = useState<number | null>(null);
     const [projectId, setProjectId] = useState<number | null>(null);
     const [projects, setProjects] = useState<any[]>([]);
-    
+
     interface QcFormData {
         project_id: number | "";
         task_id: number | null;
@@ -182,7 +183,7 @@ const QCInspectionPage = () => {
 
     const handleCreateSubmit = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
-        
+
         if (!formData.engineer_name.trim()) {
             toast.error("Please enter the Engineer In-Charge name");
             return;
@@ -254,8 +255,10 @@ const QCInspectionPage = () => {
         try {
             await qcService.deleteQc(deleteId);
             toast.success("QC entry deleted successfully!");
+            setQcList(prev => prev.filter(q => q.id !== deleteId));
             setIsDeleteModalOpen(false);
-            fetchData();
+            setDeleteId(null);
+            // Intentionally not calling fetchData() here to prevent stale backend data from causing the item to reappear
         } catch (err) {
             toast.error("Failed to delete QC entry");
         } finally {
@@ -326,13 +329,13 @@ const QCInspectionPage = () => {
 
         return data.filter(q => {
             const term = searchTerm.toLowerCase();
-            const matchesSearch = searchTerm === "" || 
-                                q.engineer_name.toLowerCase().includes(term) || 
-                                q.test_type.toLowerCase().includes(term) ||
-                                q.inspection_type.toLowerCase().includes(term) ||
-                                q.status.toLowerCase().includes(term) ||
-                                (q.remarks || "").toLowerCase().includes(term) ||
-                                String(q.id).includes(term);
+            const matchesSearch = searchTerm === "" ||
+                q.engineer_name.toLowerCase().includes(term) ||
+                q.test_type.toLowerCase().includes(term) ||
+                q.inspection_type.toLowerCase().includes(term) ||
+                q.status.toLowerCase().includes(term) ||
+                (q.remarks || "").toLowerCase().includes(term) ||
+                String(q.id).includes(term);
             const matchesType = filterType === "All" || (q.inspection_type || "").toLowerCase().trim() === filterType.toLowerCase().trim();
             const matchesStatus = filterStatus === "All" || (q.status || "").toLowerCase().trim() === filterStatus.toLowerCase().trim();
             return matchesSearch && matchesType && matchesStatus;
@@ -391,7 +394,7 @@ const QCInspectionPage = () => {
         <>
             <Navbar title="QC Inspection" breadcrumb={["Engineer", "Quality Control", "Inspection Vault"]} />
 
-            <PageTransition className="p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter flex flex-col pb-8">
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Quality Control Ledger</h1>
@@ -422,13 +425,13 @@ const QCInspectionPage = () => {
                 </div>
 
                 <div className="flex items-center gap-8 border-b border-slate-200 mb-8 font-inter">
-                    <button 
+                    <button
                         onClick={() => navigate("/engineer/qc/inspection")}
                         className={`pb-4 text-sm font-bold transition-all relative ${activeTab === "Inspection" ? "text-primary border-b-2 border-primary" : "text-slate-500 hover:text-slate-700"}`}
                     >
                         QC Inspection
                     </button>
-                    <button 
+                    <button
                         onClick={() => navigate("/engineer/qc/reports")}
                         className={`pb-4 text-sm font-bold transition-all relative ${activeTab === "Test Reports" ? "text-primary border-b-2 border-primary" : "text-slate-500 hover:text-slate-700"}`}
                     >
@@ -501,7 +504,8 @@ const QCInspectionPage = () => {
                                             <tr key={qc.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                                 <td className="px-6 py-4">
                                                     <div className="flex flex-col font-inter">
-                                                         <span className="text-sm font-bold text-slate-800 font-inter">{qc.inspection_type}</span>
+                                                        <span className="text-sm font-bold text-slate-800 font-inter">{qc.inspection_type}</span>
+                                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-inter">AUDIT-#{qc.id}</span>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
@@ -526,8 +530,8 @@ const QCInspectionPage = () => {
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-2 font-inter">
-                                                         <User className="w-3.5 h-3.5 text-slate-400" />
-                                                         <p className="text-[10px] font-bold text-slate-800 font-inter uppercase tracking-widest">{qc.engineer_name}</p>
+                                                        <User className="w-3.5 h-3.5 text-slate-400" />
+                                                        <p className="text-[10px] font-bold text-slate-800 font-inter uppercase tracking-widest">{qc.engineer_name}</p>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
@@ -570,9 +574,9 @@ const QCInspectionPage = () => {
                             </table>
                         )}
                     </div>
-                    
-                    {/* â”€â”€ Pagination â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                    {filteredList.length > 0 && (
+
+                    {/* ─── Pagination ─────────────────────────────────── */}
+                    {!isLoading && filteredList.length > 0 && (
                         <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
                             <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
                                 PAGE {currentPage} OF {Math.max(1, Math.ceil(filteredList.length / itemsPerPage))}
@@ -636,15 +640,15 @@ const QCInspectionPage = () => {
                         </h3>
                         <div className="space-y-4 font-inter">
                             <div className="group relative border-2 border-dashed border-slate-200 hover:border-primary/50 rounded-2xl p-8 transition-all bg-slate-50/50 hover:bg-blue-50/30 flex flex-col items-center justify-center cursor-pointer overflow-hidden font-inter">
-                                <input 
-                                    type="file" 
+                                <input
+                                    type="file"
                                     accept="image/*"
                                     className="absolute inset-0 opacity-0 cursor-pointer z-10"
                                     onChange={(e) => {
                                         const file = e.target.files?.[0];
                                         if (file) {
                                             toast.success(`Selected: ${file.name}`);
-                                            setFormData({...formData, report_file: file.name});
+                                            setFormData({ ...formData, report_file: file.name });
                                         }
                                     }}
                                 />
@@ -667,9 +671,9 @@ const QCInspectionPage = () => {
                                             <p className="text-[11px] font-bold text-slate-600 truncate max-w-[200px] font-inter">{formData.report_file}</p>
                                         </div>
                                     </div>
-                                    <button 
+                                    <button
                                         type="button"
-                                        onClick={() => setFormData({...formData, report_file: ""})}
+                                        onClick={() => setFormData({ ...formData, report_file: "" })}
                                         className="p-2 hover:bg-emerald-100 rounded-lg transition-colors text-emerald-600 font-inter"
                                     >
                                         <Trash2 className="w-4 h-4" />
@@ -687,9 +691,9 @@ const QCInspectionPage = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">project_id *</label>
-                                <select 
-                                    value={formData.project_id} 
-                                    onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) })} 
+                                <select
+                                    value={formData.project_id}
+                                    onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) })}
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
                                     required
                                 >
@@ -705,7 +709,7 @@ const QCInspectionPage = () => {
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">inspection_type *</label>
                                 <select
                                     value={formData.inspection_type}
-                                    onChange={(e) => setFormData({...formData, inspection_type: e.target.value})}
+                                    onChange={(e) => setFormData({ ...formData, inspection_type: e.target.value })}
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
                                 >
                                     {INSPECTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
@@ -715,7 +719,7 @@ const QCInspectionPage = () => {
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">test_type *</label>
                                 <select
                                     value={formData.test_type}
-                                    onChange={(e) => setFormData({...formData, test_type: e.target.value})}
+                                    onChange={(e) => setFormData({ ...formData, test_type: e.target.value })}
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
                                 >
                                     {TEST_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
@@ -729,7 +733,7 @@ const QCInspectionPage = () => {
                                     value={formData.engineer_name}
                                     onChange={(e) => {
                                         const val = e.target.value.replace(/[^a-zA-Z\s]/g, "");
-                                        setFormData({...formData, engineer_name: val});
+                                        setFormData({ ...formData, engineer_name: val });
                                     }}
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
                                 />
@@ -748,12 +752,11 @@ const QCInspectionPage = () => {
                                 <input
                                     type="number"
                                     min="0"
-                                    onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }}
                                     placeholder="0"
                                     value={formData.result}
                                     onChange={(e) => {
                                         const val = e.target.value;
-                                        setFormData({...formData, result: val === "" ? "" : Number(val)});
+                                        setFormData({ ...formData, result: val === "" ? "" : Number(val) });
                                     }}
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
                                 />
@@ -763,12 +766,11 @@ const QCInspectionPage = () => {
                                 <input
                                     type="number"
                                     min="0"
-                                    onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }}
                                     placeholder="0"
                                     value={formData.standard_value}
                                     onChange={(e) => {
                                         const val = e.target.value;
-                                        setFormData({...formData, standard_value: val === "" ? "" : Number(val)});
+                                        setFormData({ ...formData, standard_value: val === "" ? "" : Number(val) });
                                     }}
                                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
                                 />
@@ -777,7 +779,7 @@ const QCInspectionPage = () => {
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">status *</label>
                                 <select
                                     value={formData.status}
-                                    onChange={(e) => setFormData({...formData, status: e.target.value})}
+                                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                                     className={`w-full px-4 py-2.5 border rounded-xl text-sm font-bold outline-none transition-all font-inter cursor-pointer ${formData.status === 'Pass' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-rose-50 border-rose-100 text-rose-700'}`}
                                 >
                                     <option value="Pass">Pass</option>
@@ -800,7 +802,7 @@ const QCInspectionPage = () => {
                                 rows={3}
                                 placeholder="Describe observations, deviations or site notes for the ledger..."
                                 value={formData.remarks || ""}
-                                onChange={(e) => setFormData({...formData, remarks: e.target.value})}
+                                onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none font-inter placeholder:text-slate-300"
                             />
                         </div>
@@ -831,9 +833,9 @@ const QCInspectionPage = () => {
                                         <Mail className="w-3 h-3" />
                                         <span className="text-[11px] font-bold font-inter">qc.audit-#{selectedQc.id}@infrapilot.com</span>
                                     </div>
-                                     <div className="px-3 py-1 bg-white/20 rounded-full inline-block font-inter">
-                                         <span className="text-[10px] font-bold uppercase tracking-widest font-inter">LOGGED BY: {selectedQc.engineer_name}</span>
-                                     </div>
+                                    <div className="px-3 py-1 bg-white/20 rounded-full inline-block font-inter">
+                                        <span className="text-[10px] font-bold uppercase tracking-widest font-inter">LOGGED BY: {selectedQc.engineer_name}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>

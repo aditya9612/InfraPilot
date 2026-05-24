@@ -330,7 +330,7 @@ const MaterialConsumptionPage = () => {
           {/* Inventory Pagination */}
           <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
                             <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                                PAGE {currentPageInv} OF {Math.max(1, Math.ceil(filteredInventory.length / itemsPerPage))}
+                                PAGE {currentPageInv} OF {Math.max(1, Math.ceil(filteredInventory.length / itemsPerPageInv))}
                             </div>
                             <div className="flex items-center gap-2">
                                 <button
@@ -345,8 +345,8 @@ const MaterialConsumptionPage = () => {
                                     {currentPageInv}
                                 </div>
                                 <button
-                                    onClick={() => setCurrentPageInv(prev => Math.min(Math.max(1, Math.ceil(filteredLogs.length / itemsPerPage)), prev + 1))}
-                                    disabled={currentPageInv === Math.max(1, Math.ceil(filteredLogs.length / itemsPerPage))}
+                                    onClick={() => setCurrentPageInv(prev => Math.min(Math.max(1, Math.ceil(filteredInventory.length / itemsPerPageInv)), prev + 1))}
+                                    disabled={currentPageInv === Math.max(1, Math.ceil(filteredInventory.length / itemsPerPageInv))}
                                     className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
                                     title="Next Page"
                                 >
@@ -401,7 +401,7 @@ const MaterialConsumptionPage = () => {
           {/* Logs Pagination */}
           <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
                             <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                                PAGE {currentPageLogs} OF {Math.max(1, Math.ceil(filteredLogs.length / itemsPerPage))}
+                                PAGE {currentPageLogs} OF {Math.max(1, Math.ceil(logs.length / itemsPerPageLogs))}
                             </div>
                             <div className="flex items-center gap-2">
                                 <button
@@ -416,8 +416,8 @@ const MaterialConsumptionPage = () => {
                                     {currentPageLogs}
                                 </div>
                                 <button
-                                    onClick={() => setCurrentPageLogs(prev => Math.min(Math.max(1, Math.ceil(filteredLogs.length / itemsPerPage)), prev + 1))}
-                                    disabled={currentPageLogs === Math.max(1, Math.ceil(filteredLogs.length / itemsPerPage))}
+                                    onClick={() => setCurrentPageLogs(prev => Math.min(Math.max(1, Math.ceil(logs.length / itemsPerPageLogs)), prev + 1))}
+                                    disabled={currentPageLogs === Math.max(1, Math.ceil(logs.length / itemsPerPageLogs))}
                                     className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
                                     title="Next Page"
                                 >

@@ -134,6 +134,7 @@ const ReportsPage = () => {
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Recent" | "Large" | "Issues">("All");
     const [isInitialLoading, setIsInitialLoading] = useState(true);
     const [dynamicReports, setDynamicReports] = useState<ReportType[]>(reportTypes);
+    const [searchTerm, setSearchTerm] = useState("");
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
     const [projectId, setProjectId] = useState<number | null>(null);
 
@@ -174,11 +175,11 @@ const ReportsPage = () => {
         setIsInitialLoading(true);
         try {
             const [dailyRes, weeklyRes, labourRes, materialRes, issuesRes] = await Promise.all([
-                dsrService.getDsrByProject(projectId).catch(() => null),
-                workProgressService.listActivities(projectId).catch(() => null),
-                labourService.getLabours(projectId).catch(() => null),
-                materialService.listMaterials(projectId).catch(() => null),
-                issueService.listIssuesByProject(projectId).catch(() => null)
+                dsrService.getDsrByProject(projectId, { start_date: selectedDate, end_date: selectedDate }).catch(() => null),
+                workProgressService.listActivities(projectId, { start_date: selectedDate, end_date: selectedDate } as any).catch(() => null),
+                labourService.getLabours(projectId, { start_date: selectedDate, end_date: selectedDate } as any).catch(() => null),
+                materialService.listMaterials(projectId, { start_date: selectedDate, end_date: selectedDate } as any).catch(() => null),
+                issueService.listIssuesByProject(projectId, { start_date: selectedDate, end_date: selectedDate } as any).catch(() => null)
             ]);
 
             const updatedReports = [...reportTypes];
@@ -600,8 +601,17 @@ const ReportsPage = () => {
             data = data.filter(r => r.id === "issue");
         }
 
+        if (searchTerm.trim()) {
+            const term = searchTerm.toLowerCase();
+            data = data.filter(r => 
+                r.name.toLowerCase().includes(term) || 
+                r.description.toLowerCase().includes(term) ||
+                r.frequency.toLowerCase().includes(term)
+            );
+        }
+
         return data;
-    }, [activeFilter, activeStatFilter, dynamicReports]);
+    }, [activeFilter, activeStatFilter, dynamicReports, searchTerm]);
 
     const reportsStats = useMemo(() => {
         const total = dynamicReports.length;
@@ -724,6 +734,8 @@ const ReportsPage = () => {
                             <input
                                 type="text"
                                 placeholder="Search reports..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
                                 className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:outline-none transition-all"
                             />
                         </div>

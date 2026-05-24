@@ -119,7 +119,8 @@ const IssueTrackerPage = () => {
                 project_id: projectId,
                 status: statusFilter,
                 priority: priorityFilter,
-                search: searchTerm
+                search: searchTerm,
+                limit: 1000
             });
             setIssueData(response.items || []);
         } catch (error) {

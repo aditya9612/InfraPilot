@@ -11,6 +11,7 @@ export const issueService = {
             const queryParams: any = {};
 
             // Omit empty fields to prevent 422 errors
+            if (params?.project_id) queryParams.project_id = params.project_id;
             if (params?.status && params.status !== "All") queryParams.status = params.status;
             if (params?.priority && params.priority !== "All") queryParams.priority = params.priority;
             if (params?.category) queryParams.category = params.category;
@@ -18,6 +19,8 @@ export const issueService = {
             if (params?.search) queryParams.search = params.search;
             if (params?.sort_by) queryParams.sort_by = params.sort_by;
             if (params?.order) queryParams.order = params.order;
+            if (params?.limit) queryParams.limit = params.limit;
+            if (params?.offset !== undefined) queryParams.offset = params.offset;
 
             console.log("GET /api/v1/issues - Params:", queryParams);
             const response = await api.get("/issues", { params: queryParams });
