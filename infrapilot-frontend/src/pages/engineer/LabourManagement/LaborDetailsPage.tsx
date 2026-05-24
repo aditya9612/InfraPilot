@@ -356,7 +356,7 @@ const LaborDetailsPage = () => {
         <>
             <Navbar title="Personnel Registry" breadcrumb={["Engineer", "Workforce", "Detail Directory"]} />
 
-            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-screen overflow-hidden font-inter flex flex-col">
+            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter flex flex-col">
                 {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
                     <div>
@@ -486,29 +486,32 @@ const LaborDetailsPage = () => {
                         
                         {/* â”€â”€ Pagination Controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                         {!isLoading && filteredLaborers.length > 0 && (
-                            <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-end bg-white sticky left-0 font-inter">
-                                <div className="flex items-center gap-2">
-                                    <button 
-                                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                        disabled={currentPage === 1}
-                                        className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center"
-                                        title="Previous Page"
-                                    >
-                                        <ChevronLeft className="w-4 h-4" />
-                                    </button>
-                                    <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                                        Page {currentPage} of 20
-                                    </div>
-                                    <button 
-                                        onClick={() => setCurrentPage(prev => Math.min(20, prev + 1))}
-                                        disabled={currentPage === 20}
-                                        className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center"
-                                        title="Next Page"
-                                    >
-                                        <ChevronRight className="w-4 h-4" />
-                                    </button>
-                                </div>
+                            <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                                PAGE {currentPage} OF {Math.max(1, Math.ceil(filteredLaborers.length / itemsPerPage))}
                             </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
+                                    title="Previous Page"
+                                >
+                                    <ChevronLeft className="w-5 h-5" />
+                                </button>
+                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
+                                    {currentPage}
+                                </div>
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(Math.max(1, Math.ceil(filteredLaborers.length / itemsPerPage)), prev + 1))}
+                                    disabled={currentPage === Math.max(1, Math.ceil(filteredLaborers.length / itemsPerPage))}
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
+                                    title="Next Page"
+                                >
+                                    <ChevronRight className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
                         )}
 
                     </div>

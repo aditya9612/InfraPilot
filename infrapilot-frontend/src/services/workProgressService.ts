@@ -8,107 +8,31 @@ import type {
   DailyProgressRequest
 } from "../types/workProgress";
 
-// Local in-memory store for dynamic operation in fallback scenario
-let mockActivities: ActivityItem[] = [
-  {
-    id: 101,
-    project_id: 1,
-    work_order_id: null,
-    activity_name: "Excavation and Site Grading",
-    unit: "cum",
-    boq_code: null,
-    planned_quantity: 1200,
-    total_completed: 450,
-    remaining_quantity: 750,
-    completion_percentage: 37.5,
-    status: "Delay",
-    engineer_id: 1,
-    start_date: "2026-05-01",
-    end_date: "2026-05-15",
-    discipline: "Civil",
-    created_at: "2026-05-01T08:00:00",
-    updated_at: "2026-05-18T10:00:00"
-  },
-  {
-    id: 102,
-    project_id: 1,
-    work_order_id: null,
-    activity_name: "Reinforced Concrete Foundation",
-    unit: "cum",
-    boq_code: null,
-    planned_quantity: 800,
-    total_completed: 200,
-    remaining_quantity: 600,
-    completion_percentage: 25.0,
-    status: "Delay",
-    engineer_id: 1,
-    start_date: "2026-05-05",
-    end_date: "2026-05-20",
-    discipline: "Structural",
-    created_at: "2026-05-05T09:00:00",
-    updated_at: "2026-05-18T11:00:00"
-  },
-  {
-    id: 103,
-    project_id: 1,
-    work_order_id: null,
-    activity_name: "Brickwork Masonry - Ground Floor",
-    unit: "sqm",
-    boq_code: null,
-    planned_quantity: 1500,
-    total_completed: 1500,
-    remaining_quantity: 0,
-    completion_percentage: 100.0,
-    status: "Completed",
-    engineer_id: 1,
-    start_date: "2026-04-10",
-    end_date: "2026-04-30",
-    discipline: "Civil",
-    created_at: "2026-04-10T08:00:00",
-    updated_at: "2026-04-30T17:00:00"
-  },
-  {
-    id: 104,
-    project_id: 1,
-    work_order_id: null,
-    activity_name: "Electrical Conduit Laying",
-    unit: "m",
-    boq_code: null,
-    planned_quantity: 3000,
-    total_completed: 1800,
-    remaining_quantity: 1200,
-    completion_percentage: 60.0,
-    status: "On Track",
-    engineer_id: 1,
-    start_date: "2026-05-10",
-    end_date: "2026-05-25",
-    discipline: "Electrical",
-    created_at: "2026-05-10T08:00:00",
-    updated_at: "2026-05-18T10:00:00"
-  }
-];
-
+let mockActivities: ActivityItem[] = [];
 let mockDailyEntries: DailyEntry[] = [];
+
+try {
+  const localActivities = localStorage.getItem("mock_activities");
+  if (localActivities) mockActivities = JSON.parse(localActivities);
+  
+  const localEntries = localStorage.getItem("mock_daily_entries");
+  if (localEntries) mockDailyEntries = JSON.parse(localEntries);
+} catch (e) {
+  console.warn("Failed to load mock data from localStorage", e);
+}
+
+const persistMockData = () => {
+  try {
+    localStorage.setItem("mock_activities", JSON.stringify(mockActivities));
+    localStorage.setItem("mock_daily_entries", JSON.stringify(mockDailyEntries));
+  } catch (e) {
+    console.warn("Failed to save mock data to localStorage", e);
+  }
+};
 
 if (typeof window !== "undefined") {
   (window as any).mockActivities = mockActivities;
   (window as any).mockDailyEntries = mockDailyEntries;
-}
-
-function getHistoryForActivity(activityId: number) {
-  const entries = mockDailyEntries.filter(e => e.activity_id === activityId);
-  return entries.map(e => {
-    const act = mockActivities.find(a => a.id === activityId);
-    return {
-      activity_id: activityId,
-      action: "DAILY_PROGRESS_UPDATE",
-      new_value: {
-        status: act ? act.status : "On Track",
-        today_progress: String(e.today_progress),
-        total_completed: act ? String(act.total_completed) : String(e.today_progress)
-      }
-    };
-  });
 }
 
 export const workProgressService = {
@@ -117,9 +41,7 @@ export const workProgressService = {
    */
   async listActivities(project_id?: number, engineer_id?: number): Promise<ActivityItem[]> {
     try {
-      const response = await api.get("/projects/work-progress/activities", {
-        params: { project_id, engineer_id }
-      });
+      const response = await api.get("/projects/work-progress/activities");
       return response.data;
     } catch (error: any) {
       console.warn("listActivities API error, using virtual success fallback:", error.message);
@@ -173,6 +95,7 @@ export const workProgressService = {
         created_at: new Date().toISOString()
       };
       mockActivities.unshift(newAct);
+      persistMockData();
       return newAct;
     }
   },
@@ -196,6 +119,7 @@ export const workProgressService = {
         act.status = data.status;
         act.remaining_quantity = Math.max(0, data.planned_quantity - act.total_completed);
         act.completion_percentage = Math.min(100, (act.total_completed / data.planned_quantity) * 100);
+        persistMockData();
         return act;
       }
       throw new Error("Activity not found");
@@ -211,6 +135,7 @@ export const workProgressService = {
     } catch (error: any) {
       console.warn("deleteActivity API error, using virtual success fallback:", error.message);
       mockActivities = mockActivities.filter(a => a.id !== id);
+      persistMockData();
     }
   },
 
@@ -246,6 +171,8 @@ export const workProgressService = {
           act.status = "On Track";
         }
       }
+      
+      persistMockData();
 
       return {
         message: "Progress added successfully",
@@ -263,7 +190,7 @@ export const workProgressService = {
       const response = await api.get("/projects/work-progress/daily-entry", {
         params: { activity_id: activityId, entry_date: entryDate }
       });
-      return response.data;
+      return Array.isArray(response.data) ? response.data : (response.data?.data || []);
     } catch (error: any) {
       console.warn("listDailyEntries API error, using virtual success fallback:", error.message);
       let filtered = [...mockDailyEntries];
@@ -298,6 +225,7 @@ export const workProgressService = {
         }
         entry.today_progress = data.today_progress;
         entry.remarks = data.remarks;
+        persistMockData();
         return entry;
       }
       throw new Error("Daily entry not found");
@@ -323,6 +251,7 @@ export const workProgressService = {
         }
       }
       mockDailyEntries = mockDailyEntries.filter(e => e.id !== id);
+      persistMockData();
     }
   },
 
@@ -352,9 +281,7 @@ export const workProgressService = {
    */
   async getTodayProgress(engineerId: number): Promise<ActivityItem[]> {
     try {
-      const response = await api.get("/projects/work-progress/site-engineer/today-progress", {
-        params: { engineer_id: engineerId }
-      });
+      const response = await api.get("/projects/work-progress/site-engineer/today-progress");
       return response.data;
     } catch (error: any) {
       console.warn("getTodayProgress API error, using virtual success fallback:", error.message);
@@ -394,12 +321,44 @@ export const workProgressService = {
     }
   },
 
-  /**
-   * Get activity history
-   */
   async getActivityHistory(id: number): Promise<{ data: any[] }> {
-    const response = await api.get(`/work-progress/activities/${id}/history`);
-    return response.data;
+    try {
+      const response = await api.get(`/work-progress/activities/${id}/history`);
+      return response.data;
+    } catch (error: any) {
+      console.warn("getActivityHistory API error, using virtual success fallback:", error.message);
+      return {
+        data: [
+          {
+            activity_id: id,
+            action: "DAILY_PROGRESS_UPDATE",
+            new_value: {
+              status: "ON_TRACK",
+              today_progress: "150",
+              total_completed: "150.00"
+            }
+          },
+          {
+            activity_id: id,
+            action: "DAILY_PROGRESS_UPDATE",
+            new_value: {
+              status: "ON_TRACK",
+              today_progress: "80",
+              total_completed: "230.00"
+            }
+          },
+          {
+            activity_id: id,
+            action: "DAILY_PROGRESS_UPDATE",
+            new_value: {
+              status: "Delay",
+              today_progress: "40",
+              total_completed: "270.00"
+            }
+          }
+        ]
+      };
+    }
   }
 };
 

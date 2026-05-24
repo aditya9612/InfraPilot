@@ -16,7 +16,7 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
   const [formData, setFormData] = useState({
     activity_id: "",
     entry_date: new Date().toISOString().split("T")[0],
-    today_progress: 0,
+    today_progress: "" as any,
     remarks: ""
   });
 
@@ -27,7 +27,7 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
       setFormData({
         activity_id: activity ? String(activity.id) : "",
         entry_date: new Date().toISOString().split("T")[0],
-        today_progress: 0,
+        today_progress: "" as any,
         remarks: ""
       });
     }
@@ -106,20 +106,20 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
         form="log-progress-form"
         type="submit"
         disabled={isSubmitting || !formData.activity_id}
-        className={`px-8 py-2.5 bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all flex items-center gap-2 ${isSubmitting ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}
+        className={`px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 ${isSubmitting ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}
       >
-        {isSubmitting ? "Syncing..." : "Commit Field Progress"}
+        {isSubmitting ? "Syncing..." : "Add Daily Progress"}
       </button>
     </>
   );
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Manual Field Provisioning" footer={modalFooter} maxWidth="max-w-lg">
-      <form id="log-progress-form" onSubmit={handleSubmit} className="space-y-6">
+    <Modal isOpen={isOpen} onClose={onClose} title="Add Daily Progress" footer={modalFooter} maxWidth="max-w-2xl">
+      <form id="log-progress-form" onSubmit={handleSubmit} className="space-y-6 p-2 font-inter">
         {/* Context Section */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
           <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
-            Operational Context
+            Basic Information
           </h3>
           {activity ? (
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
@@ -153,11 +153,11 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
         {/* Execution Metrics */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
           <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
-            Execution Metrics
+            Execution Details
           </h3>
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className={labelClasses}>Field Log Date*</label>
+              <label className={labelClasses}>Entry Date <span className="text-rose-500">*</span></label>
               <input
                 required type="date" name="entry_date" className={inputClasses(errors.entry_date)}
                 value={formData.entry_date} onChange={handleChange}
@@ -165,9 +165,9 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
               {errors.entry_date && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.entry_date}</p>}
             </div>
             <div>
-              <label className={labelClasses}>Quantity Executed {selectedActivity ? `(${selectedActivity.unit})` : ""}*</label>
+              <label className={labelClasses}>Today Progress {selectedActivity ? `(${selectedActivity.unit})` : ""} <span className="text-rose-500">*</span></label>
               <input
-                required type="number" name="today_progress" min="0" step="any" placeholder="Enter field volume"
+                required type="number" name="today_progress" min="0" step="any" placeholder="Enter quantity"
                 className={inputClasses(errors.today_progress)}
                 value={formData.today_progress} onChange={handleChange}
               />
@@ -179,10 +179,11 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
         {/* Narrative Section */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
           <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
-            Field Narrative
+            Additional Information
           </h3>
+          <label className={labelClasses}>Remarks <span className="text-rose-500">*</span></label>
           <textarea
-            name="remarks" rows={3} placeholder="Describe site conditions or obstacles (required)..."
+            name="remarks" rows={3} placeholder="Describe site conditions or progress..."
             className={`${inputClasses(errors.remarks)} resize-none font-inter`}
             value={formData.remarks} onChange={handleChange}
           />

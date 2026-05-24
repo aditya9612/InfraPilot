@@ -19,6 +19,7 @@ import {
   ChevronRight
 } from "lucide-react";
 import { materialService, type MaterialItem, type MaterialLog, type CreateMaterialRequest, type IssueType, type RateType, type Supplier } from "../../../services/materialService";
+import { projectService } from "../../../services/projectService";
 
 const CATEGORIES = ["Construction", "Electrical", "Plumbing", "Finishing", "Other"];
 const UNITS = ["Bags", "Kg", "Ton", "Litre", "Nos", "Sqft", "Rft", "Cum"];
@@ -32,6 +33,7 @@ const MaterialReceiptPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [projectId, setProjectId] = useState<number | null>(null);
+  const [projectsList, setProjectsList] = useState<any[]>([]);
   // Pagination States
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -138,6 +140,19 @@ const MaterialReceiptPage = () => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const res = await projectService.getProjects(100, 0);
+        const list = Array.isArray(res) ? res : (res.items || res.data || []);
+        setProjectsList(list);
+      } catch (err) {
+        console.error("Failed to fetch projects", err);
+      }
+    };
+    fetchProjects();
+  }, []);
 
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -265,7 +280,7 @@ const MaterialReceiptPage = () => {
   return (
     <>
       <Navbar title="Material Receipt" breadcrumb={["Engineer", "Logistics", "Material Receipt"]} />
-      <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
+      <PageTransition className="p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter flex flex-col pb-8">
         {/* Header Row */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
           <div className="font-inter">
@@ -283,7 +298,7 @@ const MaterialReceiptPage = () => {
             <button
               onClick={() => {
                 setFormData({
-                  project_id: projectId || 0,
+                  project_id: "" as any,
                   material_name: "",
                   category: "Construction",
                   unit: "Bags",
@@ -304,8 +319,8 @@ const MaterialReceiptPage = () => {
             <button
               onClick={() => {
                 if (materials.length > 0) {
-                  setSelectedMaterial(materials[0]);
-                  setPurchaseData({ quantity: 0, rate: materials[0].purchase_rate || 0, amount_paid: 0, project_id: projectId || 1, issue_type: "SYSTEM" });
+                  setSelectedMaterial(null);
+                  setPurchaseData({ quantity: 0, rate: materials[0].purchase_rate || 0, amount_paid: 0, project_id: "" as any, issue_type: "SYSTEM" });
                   setIsPurchaseModalOpen(true);
                 } else {
                   toast.error("Please add a material first");
@@ -475,7 +490,7 @@ const MaterialReceiptPage = () => {
                           <button
                             onClick={() => {
                               setSelectedMaterial(m);
-                              setPurchaseData({ quantity: 0, rate: m.purchase_rate || 0, amount_paid: 0, project_id: projectId || 1, issue_type: "SYSTEM" });
+                              setPurchaseData({ quantity: 0, rate: m.purchase_rate || 0, amount_paid: 0, project_id: "" as any, issue_type: "SYSTEM" });
                               setIsPurchaseModalOpen(true);
                             }}
                             className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all font-inter"
@@ -504,29 +519,32 @@ const MaterialReceiptPage = () => {
           </div>
 
           {/* Pagination Controls */}
-          <div className="px-6 py-4 bg-slate-50/30 border-t border-slate-50 flex items-center justify-end font-inter">
-            <div className="flex items-center gap-2 font-inter">
-              <button
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-                className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
-                title="Previous Page"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                Page {currentPage} of 20
-              </div>
-              <button
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, 20))}
-                disabled={currentPage === 20}
-                className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
-                title="Next Page"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+          <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                                PAGE {currentPage} OF {Math.max(1, Math.ceil(filteredMaterials.length / itemsPerPage))}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
+                                    title="Previous Page"
+                                >
+                                    <ChevronLeft className="w-5 h-5" />
+                                </button>
+                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
+                                    {currentPage}
+                                </div>
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(Math.max(1, Math.ceil(filteredMaterials.length / itemsPerPage)), prev + 1))}
+                                    disabled={currentPage === Math.max(1, Math.ceil(filteredMaterials.length / itemsPerPage))}
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
+                                    title="Next Page"
+                                >
+                                    <ChevronRight className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
         </div>
 
         {/* Purchase Logs Container */}
@@ -554,7 +572,7 @@ const MaterialReceiptPage = () => {
                       <td className="px-6 py-4 font-inter">
                         <div className="flex flex-col font-inter">
                           <span className="font-bold text-slate-800 text-sm font-inter">
-                            {materials.find(m => m.id === log.material_id)?.material_name || `MID-#{log.material_id}`}
+                            {materials.find(m => m.id === log.material_id)?.material_name || `Unknown Material`}
                           </span>
                           <span className="text-[10px] font-bold text-slate-400 font-inter tracking-widest uppercase">
                             {materials.find(m => m.id === log.material_id)?.material_code || "Unknown Code"}
@@ -610,125 +628,154 @@ const MaterialReceiptPage = () => {
           </>
         }
       >
-        <div className="p-6 space-y-5 font-inter">
-          <div className="font-inter">
-            <label className={labelClasses}>project_id <span className="text-rose-500">*</span></label>
-            <input
-              required
-              type="number"
-              value={formData.project_id || ""}
-              onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) })}
-              className={inputClasses}
-              placeholder="1"
-            />
+        <form id="add-material-form" onSubmit={handleAddSubmit} className="space-y-6">
+          {/* Basic Information */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+            <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
+              Basic Information
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="font-inter">
+                <label className={labelClasses}>Project <span className="text-rose-500">*</span></label>
+                <select
+                  required
+                  value={formData.project_id || ""}
+                  onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) })}
+                  className={inputClasses}
+                >
+                  <option value="">Select Project</option>
+                  {projectsList.map(p => (
+                    <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="font-inter">
+                <label className={labelClasses}>Material Name <span className="text-rose-500">*</span></label>
+                <input
+                  required
+                  type="text"
+                  value={formData.material_name}
+                  onChange={(e) => setFormData({ ...formData, material_name: e.target.value })}
+                  className={inputClasses}
+                  placeholder="e.g. Cement"
+                />
+              </div>
+              <div className="font-inter">
+                <label className={labelClasses}>Category <span className="text-rose-500">*</span></label>
+                <select
+                  required
+                  value={formData.category || ""}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  className={inputClasses}
+                >
+                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div className="font-inter">
+                <label className={labelClasses}>Unit <span className="text-rose-500">*</span></label>
+                <select
+                  required
+                  value={formData.unit || ""}
+                  onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                  className={inputClasses}
+                >
+                  {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </div>
+            </div>
           </div>
-          <div className="font-inter">
-            <label className={labelClasses}>material_name <span className="text-rose-500">*</span></label>
-            <input
-              required
-              type="text"
-              value={formData.material_name}
-              onChange={(e) => setFormData({ ...formData, material_name: e.target.value })}
-              className={inputClasses}
-              placeholder="e.g. Cement"
-            />
+
+          {/* Procurement Details */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+            <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
+              Procurement Details
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="font-inter md:col-span-2">
+                <label className={labelClasses}>Supplier <span className="text-rose-500">*</span></label>
+                <select
+                  required
+                  value={formData.supplier_id || ""}
+                  onChange={(e) => setFormData({ ...formData, supplier_id: Number(e.target.value) })}
+                  className={inputClasses}
+                >
+                  <option value="">Select Supplier</option>
+                  {suppliers.map(s => {
+                    const supId = s.id ?? (s as any).supplier_id;
+                    const supName = typeof s === "string" ? s : (s.name || (s as any).supplier_name || `Supplier #${supId}`);
+                    return (
+                      <option key={supId} value={supId}>{supName}</option>
+                    );
+                  })}
+                </select>
+              </div>
+              <div className="font-inter">
+                <label className={labelClasses}>Purchase Rate <span className="text-rose-500">*</span></label>
+                <input
+                  required
+                  type="number" min="0" onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }}
+                  value={formData.purchase_rate || ""}
+                  onChange={(e) => setFormData({ ...formData, purchase_rate: Number(e.target.value) })}
+                  className={inputClasses}
+                  placeholder="355"
+                />
+              </div>
+              <div className="font-inter">
+                <label className={labelClasses}>Rate Type <span className="text-rose-500">*</span></label>
+                <select
+                  required
+                  value={formData.rate_type || ""}
+                  onChange={(e) => setFormData({ ...formData, rate_type: e.target.value as RateType })}
+                  className={inputClasses}
+                >
+                  {RATE_TYPES.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
+              <div className="font-inter md:col-span-2">
+                <label className={labelClasses}>Quantity Purchased <span className="text-rose-500">*</span></label>
+                <input
+                  required
+                  type="number" min="0" onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }}
+                  value={formData.quantity_purchased || ""}
+                  onChange={(e) => setFormData({ ...formData, quantity_purchased: Number(e.target.value) })}
+                  className={inputClasses}
+                  placeholder="200"
+                />
+              </div>
+            </div>
           </div>
-          <div className="font-inter">
-            <label className={labelClasses}>category <span className="text-rose-500">*</span></label>
-            <select
-              required
-              value={formData.category || ""}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-              className={inputClasses}
-            >
-              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
+
+          {/* Financial & Stock Config */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+            <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
+              Financial & Stock Config
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="font-inter">
+                <label className={labelClasses}>Payment Given <span className="text-rose-500">*</span></label>
+                <input
+                  required
+                  type="number" min="0" onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }}
+                  value={formData.payment_given || ""}
+                  onChange={(e) => setFormData({ ...formData, payment_given: Number(e.target.value) })}
+                  className={inputClasses}
+                  placeholder="71000"
+                />
+              </div>
+              <div className="font-inter">
+                <label className={labelClasses}>Minimum Stock Level <span className="text-rose-500">*</span></label>
+                <input
+                  required
+                  type="number" min="0" onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }}
+                  value={formData.minimum_stock_level || ""}
+                  onChange={(e) => setFormData({ ...formData, minimum_stock_level: Number(e.target.value) })}
+                  className={inputClasses}
+                  placeholder="200"
+                />
+              </div>
+            </div>
           </div>
-          <div className="font-inter">
-            <label className={labelClasses}>unit <span className="text-rose-500">*</span></label>
-            <select
-              required
-              value={formData.unit || ""}
-              onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-              className={inputClasses}
-            >
-              {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-            </select>
-          </div>
-          <div className="font-inter">
-            <label className={labelClasses}>supplier_id <span className="text-rose-500">*</span></label>
-            <select
-              required
-              value={formData.supplier_id || ""}
-              onChange={(e) => setFormData({ ...formData, supplier_id: Number(e.target.value) })}
-              className={inputClasses}
-            >
-              <option value="">Select Supplier</option>
-              {suppliers.map(s => {
-                const supId = s.id ?? (s as any).supplier_id;
-                const supName = typeof s === "string" ? s : (s.name || (s as any).supplier_name || `Supplier #${supId}`);
-                return (
-                  <option key={supId} value={supId}>{supName} (ID: {supId})</option>
-                );
-              })}
-            </select>
-          </div>
-          <div className="font-inter">
-            <label className={labelClasses}>purchase_rate <span className="text-rose-500">*</span></label>
-            <input
-              required
-              type="number"
-              value={formData.purchase_rate || ""}
-              onChange={(e) => setFormData({ ...formData, purchase_rate: Number(e.target.value) })}
-              className={inputClasses}
-              placeholder="355"
-            />
-          </div>
-          <div className="font-inter">
-            <label className={labelClasses}>rate_type <span className="text-rose-500">*</span></label>
-            <select
-              required
-              value={formData.rate_type || ""}
-              onChange={(e) => setFormData({ ...formData, rate_type: e.target.value as RateType })}
-              className={inputClasses}
-            >
-              {RATE_TYPES.map(r => <option key={r} value={r}>{r}</option>)}
-            </select>
-          </div>
-          <div className="font-inter">
-            <label className={labelClasses}>quantity_purchased <span className="text-rose-500">*</span></label>
-            <input
-              required
-              type="number"
-              value={formData.quantity_purchased || ""}
-              onChange={(e) => setFormData({ ...formData, quantity_purchased: Number(e.target.value) })}
-              className={inputClasses}
-              placeholder="200"
-            />
-          </div>
-          <div className="font-inter">
-            <label className={labelClasses}>payment_given <span className="text-rose-500">*</span></label>
-            <input
-              required
-              type="number"
-              value={formData.payment_given || ""}
-              onChange={(e) => setFormData({ ...formData, payment_given: Number(e.target.value) })}
-              className={inputClasses}
-              placeholder="71000"
-            />
-          </div>
-          <div className="font-inter">
-            <label className={labelClasses}>minimum_stock_level <span className="text-rose-500">*</span></label>
-            <input
-              required
-              type="number"
-              value={formData.minimum_stock_level || ""}
-              onChange={(e) => setFormData({ ...formData, minimum_stock_level: Number(e.target.value) })}
-              className={inputClasses}
-              placeholder="200"
-            />
-          </div>
-        </div>
+        </form>
       </Modal>
 
       {/* Edit Modal */}
@@ -803,7 +850,7 @@ const MaterialReceiptPage = () => {
                 const supId = s.id ?? (s as any).supplier_id;
                 const supName = typeof s === "string" ? s : (s.name || (s as any).supplier_name || `Supplier #${supId}`);
                 return (
-                  <option key={supId} value={supId}>{supName} (ID: {supId})</option>
+                  <option key={supId} value={supId}>{supName}</option>
                 );
               })}
             </select>
@@ -812,7 +859,7 @@ const MaterialReceiptPage = () => {
             <label className={labelClasses}>purchase_rate <span className="text-rose-500">*</span></label>
             <input
               required
-              type="number"
+              type="number" min="0" onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }}
               value={formData.purchase_rate || ""}
               onChange={(e) => setFormData({ ...formData, purchase_rate: Number(e.target.value) })}
               className={inputClasses}
@@ -834,7 +881,7 @@ const MaterialReceiptPage = () => {
             <label className={labelClasses}>minimum_stock_level <span className="text-rose-500">*</span></label>
             <input
               required
-              type="number"
+              type="number" min="0" onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }}
               value={formData.minimum_stock_level || ""}
               onChange={(e) => setFormData({ ...formData, minimum_stock_level: Number(e.target.value) })}
               className={inputClasses}
@@ -869,85 +916,95 @@ const MaterialReceiptPage = () => {
           </>
         }
       >
-        <div className="p-6 space-y-5 font-inter">
-          <div className="font-inter">
-            <label className={labelClasses}>Material <span className="text-rose-500">*</span></label>
-            <select
-              required
-              value={selectedMaterial?.id || ""}
-              onChange={(e) => {
-                const newMaterial = materials.find(m => m.id === Number(e.target.value)) || null;
-                setSelectedMaterial(newMaterial);
-                if (newMaterial) {
-                  setPurchaseData(prev => ({ ...prev, rate: newMaterial.purchase_rate || 0 }));
-                }
-              }}
-              className={inputClasses}
-            >
-              <option value="">Select Material</option>
-              {materials.map(m => (
-                <option key={m.id} value={m.id}>
-                  {m.material_name} (ID: {m.id})
-                </option>
-              ))}
-            </select>
+        <form id="purchase-material-form" onSubmit={handlePurchaseSubmit} className="space-y-6">
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+            <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
+              Purchase Details
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="font-inter md:col-span-2">
+                <label className={labelClasses}>Project <span className="text-rose-500">*</span></label>
+                <select
+                  required
+                  value={purchaseData.project_id || ""}
+                  onChange={(e) => setPurchaseData({ ...purchaseData, project_id: Number(e.target.value) })}
+                  className={inputClasses}
+                >
+                  <option value="">Select Project</option>
+                  {projectsList.map(p => (
+                    <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="font-inter md:col-span-2">
+                <label className={labelClasses}>Material <span className="text-rose-500">*</span></label>
+                <select
+                  required
+                  value={selectedMaterial?.id || ""}
+                  onChange={(e) => {
+                    const newMaterial = materials.find(m => m.id === Number(e.target.value)) || null;
+                    setSelectedMaterial(newMaterial);
+                    if (newMaterial) {
+                      setPurchaseData(prev => ({ ...prev, rate: newMaterial.purchase_rate || 0 }));
+                    }
+                  }}
+                  className={inputClasses}
+                >
+                  <option value="">Select Material</option>
+                  {materials.map(m => (
+                    <option key={m.id} value={m.id}>
+                      {m.material_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="font-inter">
+                <label className={labelClasses}>Quantity <span className="text-rose-500">*</span></label>
+                <input
+                  required
+                  type="number" min="0" onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }}
+                  value={purchaseData.quantity || ""}
+                  onChange={(e) => setPurchaseData({ ...purchaseData, quantity: Number(e.target.value) })}
+                  className={inputClasses}
+                  placeholder="70"
+                />
+              </div>
+              <div className="font-inter">
+                <label className={labelClasses}>Rate <span className="text-rose-500">*</span></label>
+                <input
+                  required
+                  type="number" min="0" onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }}
+                  value={purchaseData.rate || ""}
+                  onChange={(e) => setPurchaseData({ ...purchaseData, rate: Number(e.target.value) })}
+                  className={inputClasses}
+                  placeholder="355"
+                />
+              </div>
+              <div className="font-inter">
+                <label className={labelClasses}>Amount Paid <span className="text-rose-500">*</span></label>
+                <input
+                  required
+                  type="number" min="0" onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }}
+                  value={purchaseData.amount_paid || ""}
+                  onChange={(e) => setPurchaseData({ ...purchaseData, amount_paid: Number(e.target.value) })}
+                  className={inputClasses}
+                  placeholder="21000"
+                />
+              </div>
+              <div className="font-inter">
+                <label className={labelClasses}>Issue Type <span className="text-rose-500">*</span></label>
+                <select
+                  required
+                  value={purchaseData.issue_type}
+                  onChange={(e) => setPurchaseData({ ...purchaseData, issue_type: e.target.value as IssueType })}
+                  className={inputClasses}
+                >
+                  {ISSUE_TYPES.map(i => <option key={i} value={i}>{i}</option>)}
+                </select>
+              </div>
+            </div>
           </div>
-          <div className="font-inter">
-            <label className={labelClasses}>quantity <span className="text-rose-500">*</span></label>
-            <input
-              required
-              type="number"
-              value={purchaseData.quantity || ""}
-              onChange={(e) => setPurchaseData({ ...purchaseData, quantity: Number(e.target.value) })}
-              className={inputClasses}
-              placeholder="70"
-            />
-          </div>
-          <div className="font-inter">
-            <label className={labelClasses}>rate <span className="text-rose-500">*</span></label>
-            <input
-              required
-              type="number"
-              value={purchaseData.rate || ""}
-              onChange={(e) => setPurchaseData({ ...purchaseData, rate: Number(e.target.value) })}
-              className={inputClasses}
-              placeholder="355"
-            />
-          </div>
-          <div className="font-inter">
-            <label className={labelClasses}>amount_paid <span className="text-rose-500">*</span></label>
-            <input
-              required
-              type="number"
-              value={purchaseData.amount_paid || ""}
-              onChange={(e) => setPurchaseData({ ...purchaseData, amount_paid: Number(e.target.value) })}
-              className={inputClasses}
-              placeholder="21000"
-            />
-          </div>
-          <div className="font-inter">
-            <label className={labelClasses}>project_id <span className="text-rose-500">*</span></label>
-            <input
-              required
-              type="number"
-              value={purchaseData.project_id || ""}
-              onChange={(e) => setPurchaseData({ ...purchaseData, project_id: Number(e.target.value) })}
-              className={inputClasses}
-              placeholder="1"
-            />
-          </div>
-          <div className="font-inter">
-            <label className={labelClasses}>issue_type <span className="text-rose-500">*</span></label>
-            <select
-              required
-              value={purchaseData.issue_type}
-              onChange={(e) => setPurchaseData({ ...purchaseData, issue_type: e.target.value })}
-              className={inputClasses}
-            >
-              {ISSUE_TYPES.map(i => <option key={i} value={i}>{i}</option>)}
-            </select>
-          </div>
-        </div>
+        </form>
       </Modal>
 
       {/* Detail Modal */}

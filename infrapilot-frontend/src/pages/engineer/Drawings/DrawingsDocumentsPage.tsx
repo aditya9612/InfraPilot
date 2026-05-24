@@ -21,7 +21,9 @@ import {
     CheckCircle,
     XCircle,
     Download,
-    History
+    History,
+    ChevronLeft,
+    ChevronRight
 } from "lucide-react";
 import { drawingService } from "../../../services/drawingService";
 import { projectService } from "../../../services/projectService";
@@ -36,6 +38,9 @@ interface DrawingRecord {
     approved_by?: string | null;
     date?: string | null;
     remarks?: string | null;
+    approval_status?: string | null;
+    approval_id?: string | null;
+    project_id?: string | number;
 }
 
 // â”€â”€â”€ Initial State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -72,7 +77,10 @@ const DrawingsDocumentsPage = () => {
     const [projectId, setProjectId] = useState<number>(92);
 
     // Interactive StatCard Filter
-    const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Structural" | "Recent">("All");
+    const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Recent">("All");
+    
+    // Project Filter State
+    const [selectedFilterProject, setSelectedFilterProject] = useState<string>("");
 
     // Resolve Project ID and fetch projects list
     useEffect(() => {
@@ -105,26 +113,35 @@ const DrawingsDocumentsPage = () => {
     const fetchDrawings = useCallback(async () => {
         setIsLoading(true);
         try {
-            try {
-                const serverData = await drawingService.getVersions(projectId);
-                setDrawingData(serverData || []);
-            } catch (vErr) {
-                console.warn("Versions Sync Issue:", vErr);
-                setDrawingData([]);
-            }
+            let activeProjectIds = selectedFilterProject 
+                ? [Number(selectedFilterProject)] 
+                : projects.map((p: any) => p.id || p.project_id);
+                
+            if (activeProjectIds.length === 0) activeProjectIds = [92]; // fallback default
 
-            try {
-                const latest = await drawingService.getLatest(projectId);
-                if (latest) setLatestDrawing(latest);
-            } catch (lErr) {
-                console.warn("Latest Sync Issue:", lErr);
+            // Fetch versions for all active projects
+            const versionsPromises = activeProjectIds.map(id => drawingService.getVersions(id).catch(() => []));
+            const versionsResults = await Promise.all(versionsPromises);
+            
+            // Combine all arrays into one flat array
+            const combinedData = versionsResults.flat();
+            setDrawingData(combinedData);
+
+            // Fetch latest for the first project as fallback if needed, or if one project selected
+            if (activeProjectIds.length > 0) {
+                try {
+                    const latest = await drawingService.getLatest(activeProjectIds[0]);
+                    if (latest) setLatestDrawing(latest);
+                } catch (e) {
+                    // Ignore latest error
+                }
             }
         } catch (error) {
             toast.error("Vault Sync Interrupted");
         } finally {
             setIsLoading(false);
         }
-    }, [projectId]);
+    }, [selectedFilterProject, projects]);
 
     useEffect(() => {
         fetchDrawings();
@@ -133,7 +150,7 @@ const DrawingsDocumentsPage = () => {
     // Reset pagination on filter change
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, activeStatFilter]);
+    }, [searchTerm, activeStatFilter, selectedFilterProject]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -180,7 +197,26 @@ const DrawingsDocumentsPage = () => {
 
             let newRecord: any = null;
             if (isEditMode) {
-                toast.error("Update not implemented in service", { id: toastId });
+                try {
+                    const updatePayload = {
+                        project_id: Number(formData.project_id),
+                        drawing_name: formData.drawing_name,
+                        version: formData.version,
+                        date: formData.date || new Date().toISOString().split('T')[0],
+                        remarks: formData.remarks || "Uploaded from dashboard",
+                        id: formData.id,
+                        file_url: formData.file_url || null,
+                        approval_status: formData.approval_status || null,
+                        approval_id: formData.approval_id || null
+                    };
+                    const response = await drawingService.updateDrawing(formData.id, updatePayload);
+                    toast.success("Asset updated successfully", { id: toastId, duration: 3000 });
+                    setDrawingData(prev => prev.map(item => item.id === response.id ? response : item));
+                    setIsFormModalOpen(false);
+                    setFormData(initialFormData);
+                } catch (error) {
+                    toast.error("Update Failed", { id: toastId });
+                }
                 setIsSubmitting(false);
                 return;
             } else {
@@ -238,17 +274,36 @@ const DrawingsDocumentsPage = () => {
         }
     };
 
+    const handleEditClick = (drawing: DrawingRecord) => {
+        setFormData({
+            project_id: (drawing as any).project_id || "",
+            id: drawing.id,
+            drawing_name: drawing.drawing_name,
+            version: drawing.version,
+            approved_by: drawing.approved_by || "Site Engineer",
+            date: drawing.date || new Date().toISOString().split("T")[0],
+            remarks: drawing.remarks || "",
+            file_url: drawing.file_url || drawing.upload_file || "",
+            approval_status: drawing.approval_status,
+            approval_id: drawing.approval_id
+        });
+        setIsEditMode(true);
+        setIsFormModalOpen(true);
+    };
+
     const filteredDrawings = useMemo(() => {
         let data = drawingData;
 
         // Apply StatCard Filter
-        if (activeStatFilter === "Structural") {
-            data = data.filter(d => (d.drawing_name || "").toLowerCase().includes("structural"));
-        } else if (activeStatFilter === "Recent") {
+        if (activeStatFilter === "Recent") {
             // Filter from last 30 days
             const thirtyDaysAgo = new Date();
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
             data = data.filter(d => d.date && new Date(d.date as string) >= thirtyDaysAgo);
+        }
+
+        if (selectedFilterProject) {
+            data = data.filter(d => String(d.project_id || d.id) === selectedFilterProject);
         }
 
         return data.filter(d =>
@@ -262,11 +317,9 @@ const DrawingsDocumentsPage = () => {
         return filteredDrawings.slice(startIndex, startIndex + itemsPerPage);
     }, [filteredDrawings, currentPage]);
 
-    const totalPages = Math.ceil(filteredDrawings.length / itemsPerPage);
 
     const stats = {
         total: drawingData.length,
-        structural: drawingData.filter(d => (d.drawing_name || "").toLowerCase().includes("structural")).length,
         verified: drawingData.length,
         latestVersion: latestDrawing?.version || drawingData[0]?.version || "V1.0"
     };
@@ -282,7 +335,7 @@ const DrawingsDocumentsPage = () => {
         <>
             <Navbar title="Drawings & Documents" breadcrumb={["Engineer", "Document Vault", "Blueprints"]} />
 
-            <PageTransition className="p-4 md:p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
+            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter flex flex-col pb-8">
                 {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 font-inter">
                     <div className="font-inter">
@@ -309,12 +362,9 @@ const DrawingsDocumentsPage = () => {
                 </div>
 
                 {/* â”€â”€ Interactive Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard title="Total Vault" value={stats.total.toString()} sub="Engineering Assets" accent="text-slate-800" />
-                    </div>
-                    <div onClick={() => setActiveStatFilter("Structural")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Structural" ? "ring-2 ring-blue-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard title="Structural" value={stats.structural.toString()} sub="Core Blueprints" accent="text-blue-500" />
                     </div>
                     <div onClick={() => setActiveStatFilter("Recent")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Recent" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard title="Verified Assets" value={stats.verified.toString()} sub="Execution Ready" accent="text-emerald-500" />
@@ -339,11 +389,26 @@ const DrawingsDocumentsPage = () => {
                                 className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
                             />
                         </div>
-                        {activeStatFilter !== "All" && (
-                            <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter">
-                                <RotateCcw className="w-4 h-4" />
-                            </button>
-                        )}
+                        <div className="flex flex-wrap items-center gap-3 font-inter">
+                            <select
+                                value={selectedFilterProject}
+                                onChange={(e) => setSelectedFilterProject(e.target.value)}
+                                className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-inter"
+                            >
+                                <option value="">Select Project</option>
+                                {projects.map((p: any) => (
+                                    <option key={p.id || p.project_id} value={p.id || p.project_id}>
+                                        {p.name || p.project_name || `Project #${p.id || p.project_id}`}
+                                    </option>
+                                ))}
+                            </select>
+
+                            {activeStatFilter !== "All" && (
+                                <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter">
+                                    <RotateCcw className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
@@ -387,7 +452,7 @@ const DrawingsDocumentsPage = () => {
                                                 <div className="flex flex-col font-inter">
                                                     <span className="text-sm font-bold text-slate-800 font-inter">{drawing.drawing_name}</span>
                                                     <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">
-                                                        #{drawing.id} â€¢ {drawing.file_url || drawing.upload_file || "Cloud Sync"}
+                                                        {drawing.file_url || drawing.upload_file || "Cloud Sync"}
                                                     </span>
                                                 </div>
                                             </td>
@@ -404,24 +469,26 @@ const DrawingsDocumentsPage = () => {
                                             </td>
                                             <td className="px-6 py-4 text-right font-inter">
                                                 <div className="flex items-center justify-end gap-1.5 font-inter">
-                                                    <button onClick={() => handleViewDocument(drawing)} className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 flex items-center justify-center font-inter" title="View Intelligence">
+                                                    <button onClick={() => handleViewDocument(drawing)} className="p-2 text-white bg-primary rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-95 font-inter" title="View Intelligence">
                                                         <Eye className="w-4 h-4" />
                                                     </button>
-                                                    <button onClick={() => toast.success("Edit feature triggered")} className="p-1.5 text-amber-500 bg-amber-50 rounded-lg hover:bg-amber-100 transition-all font-inter" title="Edit Asset">
+                                                    <button onClick={() => handleEditClick(drawing)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter" title="Edit Asset">
                                                         <Edit2 className="w-4 h-4" />
                                                     </button>
-                                                    <button onClick={() => toast.success("Approved successfully")} className="p-1.5 text-emerald-500 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-all font-inter" title="Approve">
-                                                        <CheckCircle className="w-4 h-4" />
-                                                    </button>
-                                                    <button onClick={() => toast.success("Rejected successfully")} className="p-1.5 text-rose-500 bg-rose-50 rounded-lg hover:bg-rose-100 transition-all font-inter" title="Reject">
-                                                        <XCircle className="w-4 h-4" />
-                                                    </button>
-                                                    <button onClick={() => toast.success("Download initiated")} className="p-1.5 text-slate-500 bg-slate-100 rounded-lg hover:bg-slate-200 transition-all font-inter" title="Download File">
+                                                    <button onClick={() => toast.success("Download initiated")} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all font-inter" title="Download File">
                                                         <Download className="w-4 h-4" />
                                                     </button>
-                                                    <button onClick={() => toast.success("History fetched")} className="p-1.5 text-indigo-500 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-all font-inter" title="View Approval History">
-                                                        <History className="w-4 h-4" />
-                                                    </button>
+                                                    <div className="flex items-center gap-1 border-l border-slate-100 pl-2 ml-1">
+                                                        <button onClick={() => toast.success("Approved successfully")} className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all" title="Approve document">
+                                                            <CheckCircle className="w-4 h-4" />
+                                                        </button>
+                                                        <button onClick={() => toast.success("Rejected successfully")} className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-all" title="Reject document">
+                                                            <XCircle className="w-4 h-4" />
+                                                        </button>
+                                                        <button onClick={() => toast.success("History fetched")} className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all font-inter" title="View approval history">
+                                                            <History className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </td>
                                         </tr>
@@ -437,37 +504,31 @@ const DrawingsDocumentsPage = () => {
                         </table>
                     </div>
 
-                    {/* â”€â”€ Pagination â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                    {totalPages > 1 && (
-                        <div className="p-4 border-t border-slate-50 flex items-center justify-between bg-white font-inter">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredDrawings.length)} of {filteredDrawings.length} entries
-                            </p>
+                    {/* â”€â”€ Pagination â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â”” */}
+                    {!isLoading && filteredDrawings.length > 0 && (
+                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                                PAGE {currentPage} OF {Math.max(1, Math.ceil(filteredDrawings.length / itemsPerPage))}
+                            </div>
                             <div className="flex items-center gap-2">
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                     disabled={currentPage === 1}
-                                    className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-primary disabled:opacity-30 disabled:hover:text-slate-500 transition-all border border-slate-100 rounded-lg"
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
+                                    title="Previous Page"
                                 >
-                                    Previous
+                                    <ChevronLeft className="w-5 h-5" />
                                 </button>
-                                <div className="flex items-center gap-1">
-                                    {[...Array(totalPages)].map((_, i) => (
-                                        <button
-                                            key={i + 1}
-                                            onClick={() => setCurrentPage(i + 1)}
-                                            className={`w-8 h-8 rounded-lg text-[10px] font-bold transition-all ${currentPage === i + 1 ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-slate-400 hover:bg-slate-50"}`}
-                                        >
-                                            {i + 1}
-                                        </button>
-                                    ))}
+                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
+                                    {currentPage}
                                 </div>
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                                    disabled={currentPage === totalPages}
-                                    className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-primary disabled:opacity-30 disabled:hover:text-slate-500 transition-all border border-slate-100 rounded-lg"
+                                    onClick={() => setCurrentPage(prev => Math.min(Math.max(1, Math.ceil(filteredDrawings.length / itemsPerPage)), prev + 1))}
+                                    disabled={currentPage === Math.max(1, Math.ceil(filteredDrawings.length / itemsPerPage))}
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
+                                    title="Next Page"
                                 >
-                                    Next
+                                    <ChevronRight className="w-5 h-5" />
                                 </button>
                             </div>
                         </div>
@@ -657,6 +718,7 @@ const DrawingsDocumentsPage = () => {
                     </div>
 
                     {/* Site Documentation (DSR Style) */}
+                    {!isEditMode && (
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm overflow-hidden font-inter">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 flex items-center justify-between font-inter">
                             Site Documentation
@@ -723,6 +785,7 @@ const DrawingsDocumentsPage = () => {
                             )}
                         </div>
                     </div>
+                    )}
                 </form>
             </Modal>
 

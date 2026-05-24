@@ -16,7 +16,9 @@ import {
     Calendar,
     RotateCcw,
     LayoutGrid,
-    List as ListIcon
+    List as ListIcon,
+    ChevronLeft,
+    ChevronRight
 } from "lucide-react";
 
 import { sitePhotoService } from "../../services/sitePhotoService";
@@ -177,7 +179,6 @@ const SitePhotosPage = () => {
         return filteredPhotos.slice(startIndex, startIndex + itemsPerPage);
     }, [filteredPhotos, currentPage]);
 
-    const totalPages = Math.ceil(filteredPhotos.length / itemsPerPage);
 
     const stats = useMemo(() => {
         return {
@@ -198,7 +199,7 @@ const SitePhotosPage = () => {
         <>
             <Navbar title="Site Evidence" breadcrumb={["Engineer", "Site Photos", "Gallery"]} />
 
-            <PageTransition className="p-4 md:p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
+            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter flex flex-col pb-8">
                 {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 font-inter">
                     <div className="font-inter">
@@ -451,36 +452,30 @@ const SitePhotosPage = () => {
                     </div>
 
                     {/* â”€â”€ Pagination â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                    {totalPages > 1 && (
-                        <div className="p-4 border-t border-slate-50 flex items-center justify-between bg-white font-inter">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredPhotos.length)} of {filteredPhotos.length} entries
-                            </p>
+                    {!isLoading && filteredPhotos.length > 0 && (
+                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                                PAGE {currentPage} OF {Math.max(1, Math.ceil(filteredPhotos.length / itemsPerPage))}
+                            </div>
                             <div className="flex items-center gap-2">
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                     disabled={currentPage === 1}
-                                    className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-primary disabled:opacity-30 disabled:hover:text-slate-500 transition-all border border-slate-100 rounded-lg"
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
+                                    title="Previous Page"
                                 >
-                                    Previous
+                                    <ChevronLeft className="w-5 h-5" />
                                 </button>
-                                <div className="flex items-center gap-1">
-                                    {[...Array(totalPages)].map((_, i) => (
-                                        <button
-                                            key={i + 1}
-                                            onClick={() => setCurrentPage(i + 1)}
-                                            className={`w-8 h-8 rounded-lg text-[10px] font-bold transition-all ${currentPage === i + 1 ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-slate-400 hover:bg-slate-50"}`}
-                                        >
-                                            {i + 1}
-                                        </button>
-                                    ))}
+                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
+                                    {currentPage}
                                 </div>
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                                    disabled={currentPage === totalPages}
-                                    className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-primary disabled:opacity-30 disabled:hover:text-slate-500 transition-all border border-slate-100 rounded-lg"
+                                    onClick={() => setCurrentPage(prev => Math.min(Math.max(1, Math.ceil(filteredPhotos.length / itemsPerPage)), prev + 1))}
+                                    disabled={currentPage === Math.max(1, Math.ceil(filteredPhotos.length / itemsPerPage))}
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
+                                    title="Next Page"
                                 >
-                                    Next
+                                    <ChevronRight className="w-5 h-5" />
                                 </button>
                             </div>
                         </div>

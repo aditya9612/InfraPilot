@@ -7,9 +7,18 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
+
+# Build Output
 dist
 dist-ssr
+
+# Vite & Build Cache
+.vite
+.turbo
+
+# Local Files
 *.local
 
 # Editor directories and files
@@ -23,10 +32,8 @@ dist-ssr
 *.sln
 *.sw?
 
-# Vite & Build
-.vite
-.turbo
-node_modules
-dist
-dist-ssr
-*.local
+# Environment Variables (never commit these)
+.env
+.env.local
+.env.development
+.env.production

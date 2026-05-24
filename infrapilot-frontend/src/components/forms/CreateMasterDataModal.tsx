@@ -20,32 +20,24 @@ const CreateMasterDataModal: React.FC<CreateMasterDataModalProps> = ({
     unique_code: "",
     category: "",
     type: "Material",
+    unit: "",
   });
-
-  useEffect(() => {
-    if (initialData) {
-      setFormData(initialData);
-    } else {
-      setFormData({
-        name: "",
-        unique_code: "",
-        category: "",
-        type: "Material",
-      });
-    }
-  }, [initialData, isOpen]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (initialData) {
-      setFormData(initialData);
+      setFormData({
+        ...initialData,
+        unit: initialData.unit || "",
+      });
     } else {
       setFormData({
         name: "",
         unique_code: "",
         category: "",
         type: "Material",
+        unit: "",
       });
     }
     setErrors({});
@@ -58,6 +50,7 @@ const CreateMasterDataModal: React.FC<CreateMasterDataModalProps> = ({
     if (!formData.name.trim()) newErrors.name = "Entity name is required.";
     if (!formData.unique_code.trim()) newErrors.unique_code = "Unique code is required.";
     if (!formData.category.trim()) newErrors.category = "Category group is required.";
+    if (!formData.unit.trim()) newErrors.unit = "Unit is required.";
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -178,6 +171,26 @@ const CreateMasterDataModal: React.FC<CreateMasterDataModalProps> = ({
                 }}
               />
               {errors.category && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.category}</p>}
+            </div>
+
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Unit (Metric) <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Kg, Meter, Nos, Bag"
+                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-medium ${errors.unit
+                  ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                  : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                  }`}
+                value={formData.unit}
+                onChange={(e) => {
+                  setFormData({ ...formData, unit: e.target.value });
+                  if (errors.unit) setErrors({ ...errors, unit: "" });
+                }}
+              />
+              {errors.unit && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.unit}</p>}
             </div>
           </div>
         </div>

@@ -36,9 +36,9 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Ignore 401s from known buggy endpoints to prevent aggressive logouts
-      if (error.config?.url && error.config.url.includes('/invoices')) {
-        console.warn("Auth Interceptor: Ignoring 401 from /invoices endpoint (backend bug)");
+      // Ignore 401s from known buggy or sensitive endpoints to prevent aggressive logouts
+      if (error.config?.url && (error.config.url.includes('/invoices') || error.config.url.includes('/reports'))) {
+        console.warn("Auth Interceptor: Ignoring 401 from endpoint to prevent logout:", error.config.url);
       } else {
         const path = window.location.pathname;
         // Don't redirect if we're already on the login page or root (which shows login)

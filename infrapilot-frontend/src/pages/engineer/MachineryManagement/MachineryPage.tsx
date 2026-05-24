@@ -190,7 +190,7 @@ const MachineryPage = () => {
         <>
             <Navbar title="Machinery & Equipment" breadcrumb={["Engineer", "Machinery", "Asset List"]} />
 
-            <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
+            <PageTransition className="p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter flex flex-col pb-8">
                 {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
@@ -218,7 +218,7 @@ const MachineryPage = () => {
                 </div>
 
                 {/* â”€â”€ Summary Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Total Assets"
@@ -247,13 +247,7 @@ const MachineryPage = () => {
                             sub="Critical Failure"
                             accent="text-red-500" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("MAINTENANCE")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "MAINTENANCE" ? "ring-2 ring-blue-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard
-                            title="Maintenance"
-                            value={stats.maintenance.toString()}
-                            sub="Under Service"
-                            accent="text-blue-500" />
-                    </div>
+
                 </div>
 
                 {/* â”€â”€ Filter Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
@@ -265,7 +259,7 @@ const MachineryPage = () => {
                             </span>
                             <input
                                 type="text"
-                                placeholder="Search by name, ID, or operator..."
+                                placeholder="Search by name or operator..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
@@ -281,7 +275,6 @@ const MachineryPage = () => {
                             <option value="GOOD">Good</option>
                             <option value="REPAIR">Repair</option>
                             <option value="DAMAGED">Damaged</option>
-                            <option value="MAINTENANCE">Maintenance</option>
                         </select>
 
                         <div className="flex items-center gap-2 lg:ml-2">
@@ -326,7 +319,6 @@ const MachineryPage = () => {
                                                 <td className="px-6 py-4">
                                                     <div className="flex flex-col">
                                                         <span className="text-sm font-bold text-slate-800">{item.equipment_name}</span>
-                                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{item.equipment_code}</span>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
@@ -389,26 +381,29 @@ const MachineryPage = () => {
                     
                     {/* â”€â”€ Pagination Controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                     {!isLoading && filteredList.length > 0 && (
-                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-end bg-white sticky left-0 font-inter">
+                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                                PAGE {currentPage} OF {Math.max(1, Math.ceil(filteredList.length / itemsPerPage))}
+                            </div>
                             <div className="flex items-center gap-2">
-                                <button 
+                                <button
                                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                     disabled={currentPage === 1}
-                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center"
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
                                     title="Previous Page"
                                 >
-                                    <ChevronLeft className="w-4 h-4" />
+                                    <ChevronLeft className="w-5 h-5" />
                                 </button>
-                                <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                                    Page {currentPage} of 20
+                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
+                                    {currentPage}
                                 </div>
-                                <button 
-                                    onClick={() => setCurrentPage(prev => Math.min(20, prev + 1))}
-                                    disabled={currentPage === 20}
-                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center"
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(Math.max(1, Math.ceil(filteredList.length / itemsPerPage)), prev + 1))}
+                                    disabled={currentPage === Math.max(1, Math.ceil(filteredList.length / itemsPerPage))}
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
                                     title="Next Page"
                                 >
-                                    <ChevronRight className="w-4 h-4" />
+                                    <ChevronRight className="w-5 h-5" />
                                 </button>
                             </div>
                         </div>

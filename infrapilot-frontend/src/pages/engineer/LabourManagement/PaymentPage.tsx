@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Navbar from '../../../components/common/Navbar';
 import PageTransition from '../../../components/common/PageTransition';
 import StatCard from '../../../components/common/StatCard';
@@ -9,7 +9,9 @@ import {
     Calendar, 
     IndianRupee,
     ArrowDownRight,
-    Briefcase
+    Briefcase,
+    ChevronLeft,
+    ChevronRight
 } from "lucide-react";
 import { paymentService } from '../../../services/paymentService';
 import { labourService } from '../../../services/labourService';
@@ -47,6 +49,13 @@ const PaymentPage: React.FC = () => {
     // Modal States
     const [payTarget, setPayTarget] = useState<any | null>(null);
     const [advanceTarget, setAdvanceTarget] = useState<any | null>(null);
+
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 20;
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [activeTab, searchTerm, contractorFilter, activeStatFilter]);
 
     const fetchData = useCallback(async () => {
         setIsLoading(true);
@@ -143,12 +152,20 @@ const PaymentPage: React.FC = () => {
         );
     }, [history, searchTerm]);
 
+    const currentDataLength = useMemo(() => {
+        if (activeTab === 'payroll') return filteredLabours.length;
+        if (activeTab === 'history') return filteredHistory.length;
+        if (activeTab === 'dues') return pendingDues.length;
+        if (activeTab === 'weekly') return weeklyReports.length;
+        if (activeTab === 'monthly') return monthlyReports.length;
+        return 0;
+    }, [activeTab, filteredLabours, filteredHistory, pendingDues, weeklyReports, monthlyReports]);
 
     return (
         <>
             <Navbar title="Financial Operations" breadcrumb={["Engineer", "Human Resources", "Payroll Management"]} />
             
-            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
+            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter flex flex-col">
                 {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 font-inter">
                     <div className="font-inter">
@@ -163,8 +180,8 @@ const PaymentPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* â”€â”€ Interactive Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
+                {/* ── Interactive Stats ───────────────────────── */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
                     <div onClick={() => setActiveStatFilter("Paid")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Paid" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                       <StatCard
                           title="Paid This Month"
@@ -195,12 +212,12 @@ const PaymentPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* â”€â”€ Navigation Tabs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                {/* ───────────────────────────────────────────────────────────── */}
                 <div className="flex flex-wrap gap-2 mb-8 font-inter">
                     {[
                         { id: 'payroll', label: 'Active Payroll' },
-                        { id: 'history', label: 'Disbursement History' },
-                        { id: 'dues', label: 'Contractor Liability' },
+                        { id: 'history', label: 'Payment History' },
+                        { id: 'dues', label: 'Contractor Payment Pending' },
                         { id: 'weekly', label: 'Weekly Velocity' },
                         { id: 'monthly', label: 'Monthly Report' }
                     ].map((tab) => (
@@ -214,7 +231,7 @@ const PaymentPage: React.FC = () => {
                     ))}
                 </div>
 
-                {/* â”€â”€ Registry Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                {/* ───────────────────────────────────────────────────────────── */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex flex-col">
                     {/* Integrated Filter Bar */}
                     <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row md:items-center flex-wrap gap-4 bg-white font-inter">
@@ -304,7 +321,7 @@ const PaymentPage: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50 font-inter">
-                                    {activeTab === 'payroll' && filteredLabours.map((labour) => (
+                                    {activeTab === 'payroll' && filteredLabours.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((labour) => (
                                         <tr key={labour.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                             <td className="px-6 py-4 font-inter">
                                                 <div className="flex items-center gap-4 font-inter">
@@ -357,7 +374,7 @@ const PaymentPage: React.FC = () => {
                                         </tr>
                                     ))}
 
-                                    {activeTab === 'history' && filteredHistory.map((h) => (
+                                    {activeTab === 'history' && filteredHistory.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((h) => (
                                         <tr key={h.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                             <td className="px-6 py-4 font-inter">
                                                 <div className="flex flex-col font-inter">
@@ -381,13 +398,13 @@ const PaymentPage: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-4 text-right font-inter">
                                                 <div className="flex items-center justify-end gap-2 text-emerald-500 font-inter">
-                                                  <span className="text-[10px] font-bold uppercase tracking-widest font-inter">Confirmed Audit âœ“</span>
+                                                  <span className="text-[10px] font-bold uppercase tracking-widest font-inter">Confirmed Audit ✓</span>
                                                 </div>
                                             </td>
                                         </tr>
                                     ))}
 
-                                    {activeTab === 'dues' && pendingDues.map((d, idx) => (
+                                    {activeTab === 'dues' && pendingDues.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((d, idx) => (
                                         <tr key={idx} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                             <td className="px-6 py-4 font-inter">
                                                 <span className="text-sm font-bold text-slate-800 font-inter">{d.contractor_name}</span>
@@ -410,7 +427,7 @@ const PaymentPage: React.FC = () => {
                                         </tr>
                                     ))}
 
-                                    {activeTab === 'weekly' && weeklyReports.map((r, i) => (
+                                    {activeTab === 'weekly' && weeklyReports.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((r, i) => (
                                         <tr key={i} className="hover:bg-slate-50/50 transition-colors font-inter">
                                             <td className="px-6 py-4 font-inter">
                                               <div className="flex items-center gap-3 font-inter">
@@ -438,7 +455,7 @@ const PaymentPage: React.FC = () => {
                                         </tr>
                                     ))}
 
-                                    {activeTab === 'monthly' && monthlyReports.map((r, i) => (
+                                    {activeTab === 'monthly' && monthlyReports.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((r, i) => (
                                         <tr key={i} className="hover:bg-slate-50/50 transition-colors font-inter">
                                             <td className="px-6 py-4 font-inter">
                                               <div className="flex items-center gap-3 font-inter">
@@ -468,9 +485,41 @@ const PaymentPage: React.FC = () => {
                                 </tbody>
                             </table>
                         )}
+                        
+                        {/* ── Pagination Controls ───────────────────────── */}
+                        {!isLoading && currentDataLength > 0 && (
+                            <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+                                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                                    PAGE {currentPage} OF {Math.max(1, Math.ceil(currentDataLength / itemsPerPage))}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                        disabled={currentPage === 1}
+                                        className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
+                                        title="Previous Page"
+                                    >
+                                        <ChevronLeft className="w-5 h-5" />
+                                    </button>
+                                    <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
+                                        {currentPage}
+                                    </div>
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.min(Math.max(1, Math.ceil(currentDataLength / itemsPerPage)), prev + 1))}
+                                        disabled={currentPage === Math.max(1, Math.ceil(currentDataLength / itemsPerPage))}
+                                        className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
+                                        title="Next Page"
+                                    >
+                                        <ChevronRight className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
-                {/* â”€â”€ Modals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+
+
+                {/* ── Modals ────────────────────────────────────── */}
                 <PaySalaryModal 
                     isOpen={!!payTarget} 
                     onClose={() => setPayTarget(null)} 

@@ -13,6 +13,7 @@ import {
   ChevronRight
 } from "lucide-react";
 import { materialService, type InventoryItem, type MaterialLog, type IssueType } from "../../../services/materialService";
+import { projectService } from "../../../services/projectService";
 
 const ISSUE_TYPES = [
   "SYSTEM",
@@ -31,6 +32,7 @@ const MaterialConsumptionPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [projectId, setProjectId] = useState<number | null>(null);
+  const [projectsList, setProjectsList] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
 
   // Pagination States
@@ -106,6 +108,19 @@ const MaterialConsumptionPage = () => {
     fetchData();
   }, [fetchData]);
 
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const res = await projectService.getProjects(100, 0);
+        const list = Array.isArray(res) ? res : (res.items || res.data || []);
+        setProjectsList(list);
+      } catch (err) {
+        console.error("Failed to fetch projects", err);
+      }
+    };
+    fetchProjects();
+  }, []);
+
   const handleUsageSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedInventory) return;
@@ -167,7 +182,7 @@ const MaterialConsumptionPage = () => {
   return (
     <>
       <Navbar title="Material Consumption" breadcrumb={["Engineer", "Logistics", "Material Consumption"]} />
-      <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
+      <PageTransition className="p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter flex flex-col pb-8">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
           <div className="font-inter">
@@ -186,7 +201,7 @@ const MaterialConsumptionPage = () => {
               onClick={() => {
                 if (inventory.length > 0) {
                   setSelectedInventory(inventory[0]);
-                  setUsageData({ quantity: "", project_id: projectId || 1, issue_type: "SITE" });
+                  setUsageData({ quantity: "", project_id: "" as any, issue_type: "SITE" });
                   setIsUsageModalOpen(true);
                 } else {
                   toast.error("No materials available for usage");
@@ -273,7 +288,6 @@ const MaterialConsumptionPage = () => {
                       <td className="px-6 py-4 font-inter">
                         <div className="flex flex-col font-inter">
                           <span className="text-sm font-bold text-slate-800 font-inter">{inv.material_name}</span>
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">MID-#{inv.material_id}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-center font-inter">
@@ -292,7 +306,7 @@ const MaterialConsumptionPage = () => {
                         <button
                           onClick={() => {
                             setSelectedInventory(inv);
-                            setUsageData({ quantity: "", project_id: projectId || 1, issue_type: "SITE" });
+                            setUsageData({ quantity: "", project_id: "" as any, issue_type: "SITE" });
                             setIsUsageModalOpen(true);
                           }}
                           className="px-4 py-2 bg-slate-50 text-slate-600 hover:text-white hover:bg-rose-500 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border border-slate-200 hover:border-rose-500 font-inter active:scale-95"
@@ -314,29 +328,32 @@ const MaterialConsumptionPage = () => {
           </div>
 
           {/* Inventory Pagination */}
-          <div className="px-6 py-4 bg-slate-50/30 border-t border-slate-50 flex items-center justify-end font-inter">
-            <div className="flex items-center gap-2 font-inter">
-              <button
-                onClick={() => setCurrentPageInv(prev => Math.max(prev - 1, 1))}
-                disabled={currentPageInv === 1}
-                className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
-                title="Previous Page"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                Page {currentPageInv} of 20
-              </div>
-              <button
-                onClick={() => setCurrentPageInv(prev => Math.min(prev + 1, 20))}
-                disabled={currentPageInv === 20}
-                className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
-                title="Next Page"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+          <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                                PAGE {currentPageInv} OF {Math.max(1, Math.ceil(filteredInventory.length / itemsPerPage))}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setCurrentPageInv(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPageInv === 1}
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
+                                    title="Previous Page"
+                                >
+                                    <ChevronLeft className="w-5 h-5" />
+                                </button>
+                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
+                                    {currentPageInv}
+                                </div>
+                                <button
+                                    onClick={() => setCurrentPageInv(prev => Math.min(Math.max(1, Math.ceil(filteredLogs.length / itemsPerPage)), prev + 1))}
+                                    disabled={currentPageInv === Math.max(1, Math.ceil(filteredLogs.length / itemsPerPage))}
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
+                                    title="Next Page"
+                                >
+                                    <ChevronRight className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
         </div>
 
         {/* Usage Logs Container */}
@@ -362,7 +379,7 @@ const MaterialConsumptionPage = () => {
                       <td className="px-6 py-4 text-xs font-bold text-slate-500 font-inter uppercase tracking-widest">{new Date(log.created_at).toLocaleDateString()}</td>
                       <td className="px-6 py-4 font-inter">
                         <span className="font-bold text-slate-700 text-sm font-inter uppercase">
-                          {inventory.find(inv => inv.material_id === log.material_id)?.material_name || `MID: ${log.material_id}`}
+                          {inventory.find(inv => inv.material_id === log.material_id)?.material_name || `Unknown Material`}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-center font-bold text-rose-500 text-sm font-inter">-{log.quantity}</td>
@@ -382,29 +399,32 @@ const MaterialConsumptionPage = () => {
           </div>
 
           {/* Logs Pagination */}
-          <div className="px-6 py-4 bg-slate-50/30 border-t border-slate-50 flex items-center justify-end font-inter">
-            <div className="flex items-center gap-2 font-inter">
-              <button
-                onClick={() => setCurrentPageLogs(prev => Math.max(prev - 1, 1))}
-                disabled={currentPageLogs === 1}
-                className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
-                title="Previous Page"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                Page {currentPageLogs} of 20
-              </div>
-              <button
-                onClick={() => setCurrentPageLogs(prev => Math.min(prev + 1, 20))}
-                disabled={currentPageLogs === 20}
-                className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
-                title="Next Page"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+          <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                                PAGE {currentPageLogs} OF {Math.max(1, Math.ceil(filteredLogs.length / itemsPerPage))}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setCurrentPageLogs(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPageLogs === 1}
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
+                                    title="Previous Page"
+                                >
+                                    <ChevronLeft className="w-5 h-5" />
+                                </button>
+                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
+                                    {currentPageLogs}
+                                </div>
+                                <button
+                                    onClick={() => setCurrentPageLogs(prev => Math.min(Math.max(1, Math.ceil(filteredLogs.length / itemsPerPage)), prev + 1))}
+                                    disabled={currentPageLogs === Math.max(1, Math.ceil(filteredLogs.length / itemsPerPage))}
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
+                                    title="Next Page"
+                                >
+                                    <ChevronRight className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
         </div>
       </PageTransition>
 
@@ -432,74 +452,84 @@ const MaterialConsumptionPage = () => {
           </div>
         }
       >
-        <div className="p-6 space-y-5 font-inter">
-          <div className="font-inter">
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Material <span className="text-rose-500">*</span></label>
-            <select
-              required
-              value={selectedInventory?.material_id || ""}
-              onChange={(e) => {
-                const targetId = Number(e.target.value);
-                const matchedInv = inventory.find(inv => inv.material_id === targetId || inv.id === targetId);
-                if (matchedInv) {
-                  setSelectedInventory(matchedInv);
-                } else {
-                  const matchedMat = materialsList.find(m => m.id === targetId);
-                  setSelectedInventory({
-                    id: targetId,
-                    material_id: targetId,
-                    material_name: matchedMat?.material_name || "",
-                    remaining_stock: 0,
-                    unit: matchedMat?.unit || "Bags",
-                    avg_rate: matchedMat?.purchase_rate || 0,
-                    total_value: 0
-                  } as InventoryItem);
-                }
-              }}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-inter"
-            >
-              <option value="">Select Material</option>
-              {materialsList.map(mat => (
-                <option key={mat.id} value={mat.id}>
-                  {mat.material_name} (ID: {mat.id})
-                </option>
-              ))}
-            </select>
+        <form id="usage-material-form" onSubmit={handleUsageSubmit} className="space-y-6">
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+            <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
+              Disbursement Details
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="font-inter md:col-span-2">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Project <span className="text-rose-500">*</span></label>
+                <select
+                  required
+                  value={usageData.project_id}
+                  onChange={(e) => setUsageData({ ...usageData, project_id: Number(e.target.value) })}
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:ring-primary/20 focus:border-primary font-inter"
+                >
+                  <option value="">Select Project</option>
+                  {projectsList.map(p => (
+                    <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="font-inter md:col-span-2">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Material <span className="text-rose-500">*</span></label>
+                <select
+                  required
+                  value={selectedInventory?.material_id || ""}
+                  onChange={(e) => {
+                    const targetId = Number(e.target.value);
+                    const matchedInv = inventory.find(inv => inv.material_id === targetId || inv.id === targetId);
+                    if (matchedInv) {
+                      setSelectedInventory(matchedInv);
+                    } else {
+                      const matchedMat = materialsList.find(m => m.id === targetId);
+                      setSelectedInventory({
+                        id: targetId,
+                        material_id: targetId,
+                        material_name: matchedMat?.material_name || "",
+                        remaining_stock: 0,
+                        unit: matchedMat?.unit || "Bags",
+                        avg_rate: matchedMat?.purchase_rate || 0,
+                        total_value: 0
+                      } as InventoryItem);
+                    }
+                  }}
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:ring-primary/20 focus:border-primary font-inter"
+                >
+                  <option value="">Select Material</option>
+                  {materialsList.map(mat => (
+                    <option key={mat.id} value={mat.id}>
+                      {mat.material_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="font-inter">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Quantity <span className="text-rose-500">*</span></label>
+                <input
+                  required
+                  type="number" min="0" onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }}
+                  value={usageData.quantity}
+                  onChange={(e) => setUsageData({ ...usageData, quantity: e.target.value === "" ? "" : Number(e.target.value) })}
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:ring-primary/20 focus:border-primary font-inter"
+                  placeholder="30"
+                />
+              </div>
+              <div className="font-inter">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Issue Type <span className="text-rose-500">*</span></label>
+                <select
+                  required
+                  value={usageData.issue_type}
+                  onChange={(e) => setUsageData({ ...usageData, issue_type: e.target.value })}
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:ring-primary/20 focus:border-primary font-inter"
+                >
+                  {ISSUE_TYPES.map(i => <option key={i} value={i}>{i}</option>)}
+                </select>
+              </div>
+            </div>
           </div>
-          <div className="font-inter">
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">quantity <span className="text-rose-500">*</span></label>
-            <input
-              required
-              type="number"
-              value={usageData.quantity}
-              onChange={(e) => setUsageData({ ...usageData, quantity: e.target.value === "" ? "" : Number(e.target.value) })}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-inter"
-              placeholder="30"
-            />
-          </div>
-          <div className="font-inter">
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">project_id <span className="text-rose-500">*</span></label>
-            <input
-              required
-              type="number"
-              value={usageData.project_id}
-              onChange={(e) => setUsageData({ ...usageData, project_id: Number(e.target.value) })}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-inter"
-              placeholder="1"
-            />
-          </div>
-          <div className="font-inter">
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">issue_type <span className="text-rose-500">*</span></label>
-            <select
-              required
-              value={usageData.issue_type}
-              onChange={(e) => setUsageData({ ...usageData, issue_type: e.target.value })}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-inter"
-            >
-              {ISSUE_TYPES.map(i => <option key={i} value={i}>{i}</option>)}
-            </select>
-          </div>
-        </div>
+        </form>
       </Modal>
     </>
   );

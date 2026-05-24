@@ -39,16 +39,13 @@ export const siteRequestService = {
     },
 
     /**
-     * Get all site requests
-     * GET /api/v1/site-requests
+     * Get all site requests for a project
+     * GET /api/v1/site-requests?project_id={projectId}
      */
-    async getRequests(projectId: number | "All" = "All") {
+    async getRequests(projectId: number) {
         try {
-            const params: any = {};
-            if (projectId !== "All") {
-                params.project_id = projectId;
-            }
-            const response = await api.get("/site-requests", { params });
+            // Must pass project_id in params as backend strictly validates the query string
+            const response = await api.get("/site-requests", { params: { project_id: projectId } });
             if (response.data && (Array.isArray(response.data) || response.data.items)) {
                 return Array.isArray(response.data) ? response.data : response.data.items;
             }
@@ -58,7 +55,7 @@ export const siteRequestService = {
             const mockData = [
                 {
                     id: 1,
-                    project_id: 1,
+                    project_id: projectId,
                     request_type: "Material",
                     description: "OPC Cement 53 Grade for slab casting",
                     quantity: 150,
@@ -68,28 +65,15 @@ export const siteRequestService = {
                 },
                 {
                     id: 2,
-                    project_id: 2,
+                    project_id: projectId,
                     request_type: "Labour",
                     description: "Need 5 electricians for wiring work",
                     quantity: 5,
                     requested_by: 1,
                     approved_by: null,
                     status: "Pending"
-                },
-                {
-                    id: 3,
-                    project_id: 1,
-                    request_type: "Equipment",
-                    description: "Need 1 tower crane for material lifting",
-                    quantity: 1,
-                    requested_by: 1,
-                    approved_by: null,
-                    status: "Pending"
                 }
             ];
-            if (projectId !== "All") {
-                return mockData.filter(d => d.project_id === projectId);
-            }
             return mockData;
         }
     },

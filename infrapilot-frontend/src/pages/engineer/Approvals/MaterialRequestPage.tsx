@@ -88,14 +88,23 @@ const MaterialRequestPage = () => {
     const fetchRequests = useCallback(async () => {
         setIsLoading(true);
         try {
-            const serverData = await siteRequestService.getRequests(selectedProjectFilter);
-            setRequestData(serverData);
+            let activeProjectIds = selectedProjectFilter !== "All" 
+                ? [selectedProjectFilter] 
+                : projects.map((p: any) => p.id || p.project_id);
+                
+            if (activeProjectIds.length === 0) activeProjectIds = [projectId || 92];
+
+            const promises = activeProjectIds.map(id => siteRequestService.getRequests(id as number).catch(() => []));
+            const results = await Promise.all(promises);
+            const combinedData = results.flat();
+
+            setRequestData(combinedData);
         } catch (error) {
             toast.error("Failed to fetch requisition list.");
         } finally {
             setIsLoading(false);
         }
-    }, [selectedProjectFilter]);
+    }, [selectedProjectFilter, projects, projectId]);
 
     useEffect(() => {
         fetchRequests();
@@ -160,9 +169,6 @@ const MaterialRequestPage = () => {
             setRequestData(prev => prev.map(req =>
                 req.id === id ? { ...req, status: "Approved" as const } : req
             ));
-
-            // Refetch the list from GET API
-            await fetchRequests();
         } catch (error) {
             toast.error("Failed to approve requisition", { id: toastId });
         }
@@ -178,9 +184,6 @@ const MaterialRequestPage = () => {
             setRequestData(prev => prev.map(req =>
                 req.id === id ? { ...req, status: "Rejected" as const } : req
             ));
-
-            // Refetch the list from GET API
-            await fetchRequests();
         } catch (error) {
             toast.error("Failed to reject requisition", { id: toastId });
         }
@@ -246,7 +249,7 @@ const MaterialRequestPage = () => {
         <>
             <Navbar title="Material Requests" breadcrumb={["Engineer", "Approvals", "Material Requisition"]} />
 
-            <PageTransition className="p-4 md:p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
+            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter flex flex-col">
                 {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 font-inter">
                     <div className="font-inter">
@@ -375,7 +378,7 @@ const MaterialRequestPage = () => {
                                         <tr key={request.id} className="hover:bg-slate-50/50 transition-colors group font-inter border-b border-slate-50/50">
                                             <td className="px-6 py-4 font-inter">
                                                 <div className="flex flex-col font-inter">
-                                                    <span className="text-sm font-bold text-slate-800 font-inter">REQ-#{request.id}</span>
+                                                    <span className="text-sm font-bold text-slate-800 font-inter">Requisition</span>
                                                     <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter mt-0.5">Procurement Log</span>
                                                 </div>
                                             </td>
@@ -449,28 +452,28 @@ const MaterialRequestPage = () => {
                     {/* â”€â”€ Pagination Controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                     {!isLoading && filteredRequests.length > 0 && (
                         <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">
-                                Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredRequests.length)} of {filteredRequests.length} entries
-                            </span>
-                            <div className="flex items-center gap-2 font-inter">
+                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                                PAGE {currentPage} OF {Math.max(1, Math.ceil(filteredRequests.length / itemsPerPage))}
+                            </div>
+                            <div className="flex items-center gap-2">
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                     disabled={currentPage === 1}
-                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
                                     title="Previous Page"
                                 >
-                                    <ChevronLeft className="w-4 h-4" />
+                                    <ChevronLeft className="w-5 h-5" />
                                 </button>
-                                <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                                    Page {currentPage} of {totalPages}
+                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
+                                    {currentPage}
                                 </div>
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                                    disabled={currentPage >= totalPages}
-                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    onClick={() => setCurrentPage(prev => Math.min(Math.max(1, Math.ceil(filteredRequests.length / itemsPerPage)), prev + 1))}
+                                    disabled={currentPage === Math.max(1, Math.ceil(filteredRequests.length / itemsPerPage))}
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
                                     title="Next Page"
                                 >
-                                    <ChevronRight className="w-4 h-4" />
+                                    <ChevronRight className="w-5 h-5" />
                                 </button>
                             </div>
                         </div>
@@ -620,6 +623,7 @@ const MaterialRequestPage = () => {
                                 <input
                                     name="quantity"
                                     type="number"
+                                    min="0"
                                     value={formData.quantity}
                                     onChange={handleInputChange}
                                     placeholder="e.g. 150"

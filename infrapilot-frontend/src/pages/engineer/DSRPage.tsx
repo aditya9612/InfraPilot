@@ -280,7 +280,7 @@ const DSRPage = () => {
         <>
             <Navbar title="Daily Site Reports" breadcrumb={["Engineer", "Site Records", "DSR Vault"]} />
 
-            <PageTransition className="p-4 md:p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter flex flex-col">
+            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter flex flex-col">
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
                     <div>
@@ -416,7 +416,7 @@ const DSRPage = () => {
                                                 <td className="px-6 py-4">
                                                     <div className="flex flex-col font-inter">
                                                         <span className="text-sm font-bold text-slate-800 font-inter">{dsr.report_date}</span>
-                                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-inter">{dsr.business_id || `DSR-${dsr.id}`} • {dsr.report_type}</span>
+                                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-inter">{dsr.report_type || "Daily Ledger"}</span>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
@@ -470,16 +470,17 @@ const DSRPage = () => {
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
                                                     <div className="flex items-center justify-end gap-2 font-inter">
-                                                        <div className="flex items-center gap-1.5 mr-2">
-
-                                                            <button
-                                                                onClick={() => handleSubmitDsr(dsr.id)}
-                                                                className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all border border-blue-100 active:scale-95 flex items-center justify-center font-inter"
-                                                                title="Submit DSR"
-                                                            >
-                                                                <Send className="w-4 h-4" />
-                                                            </button>
-                                                        </div>
+                                                        {dsr.status === 'Draft' && (
+                                                            <div className="flex items-center gap-1.5 mr-2">
+                                                                <button
+                                                                    onClick={() => handleSubmitDsr(dsr.id)}
+                                                                    className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all border border-blue-100 active:scale-95 flex items-center justify-center font-inter"
+                                                                    title="Submit DSR"
+                                                                >
+                                                                    <Send className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
+                                                        )}
                                                         <button
                                                             onClick={() => handleView(dsr.id)}
                                                             className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 flex items-center justify-center font-inter"
@@ -517,26 +518,29 @@ const DSRPage = () => {
 
                     {/* ── Pagination Controls ──────────────────────────── */}
                     {!isLoading && dsrList.length > 0 && (
-                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-end bg-white sticky left-0 font-inter">
-                            <div className="flex gap-2 font-inter">
+                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                                PAGE {currentPage} OF {Math.max(1, Math.ceil(totalItems / itemsPerPage))}
+                            </div>
+                            <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                     disabled={currentPage === 1}
-                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
                                     title="Previous Page"
                                 >
-                                    <ChevronLeft className="w-4 h-4" />
+                                    <ChevronLeft className="w-5 h-5" />
                                 </button>
-                                <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                                    Page {currentPage} of 20
+                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
+                                    {currentPage}
                                 </div>
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.min(20, prev + 1))}
-                                    disabled={currentPage === 20}
-                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    onClick={() => setCurrentPage(prev => Math.min(Math.max(1, Math.ceil(totalItems / itemsPerPage)), prev + 1))}
+                                    disabled={currentPage === Math.max(1, Math.ceil(totalItems / itemsPerPage))}
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
                                     title="Next Page"
                                 >
-                                    <ChevronRight className="w-4 h-4" />
+                                    <ChevronRight className="w-5 h-5" />
                                 </button>
                             </div>
                         </div>

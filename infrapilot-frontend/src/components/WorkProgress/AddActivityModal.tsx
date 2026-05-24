@@ -11,6 +11,9 @@ interface AddActivityModalProps {
   engineerId: number;
 }
 
+import { boqService } from "../../services/boqService";
+import api from "../../services/api";
+
 const UNITS = ["Cum", "Sqm", "Rft", "Nos", "Kg", "Ton", "Bag"];
 const STATUSES = ["Not Started", "On Track", "Delay"];
 
@@ -18,7 +21,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [projects, setProjects] = useState<any[]>([]);
   const [formData, setFormData] = useState({
-    project_id: projectId || "",
+    project_id: "",
     activity_name: "",
     boq_code: "" as any,
     planned_quantity: "" as any,
@@ -29,24 +32,46 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
     work_order_id: "" as any
   });
 
+  const [allBoqs, setAllBoqs] = useState<any[]>([]);
+  const [allWorkOrders, setAllWorkOrders] = useState<any[]>([]);
+
   useEffect(() => {
     if (isOpen) {
-      setFormData(prev => ({ ...prev, project_id: projectId || "" }));
-      const fetchProjects = async () => {
+      setFormData(prev => ({ ...prev, project_id: "" }));
+      
+      const fetchAllData = async () => {
         try {
           const res = await projectService.getProjects(100, 0);
           const projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
           setProjects(projectsList);
-          if (projectsList.length > 0 && !projectId) {
-            setFormData(prev => ({ ...prev, project_id: projectsList[0].id }));
-          }
         } catch (err) {
           console.error("Failed to fetch projects", err);
         }
+
+        try {
+          const boqs = await boqService.getBoqs({ limit: 100 });
+          setAllBoqs(Array.isArray(boqs.items) ? boqs.items : []);
+        } catch (err) {
+          console.error("Failed to fetch all BOQs", err);
+          setAllBoqs([]);
+        }
+
+
+        try {
+          const woRes = await api.get(`/work-orders`).catch(() => ({ data: [] }));
+          setAllWorkOrders(Array.isArray(woRes.data) ? woRes.data : (woRes.data.items || []));
+        } catch (err) {
+          console.error("Failed to fetch all Work Orders", err);
+          setAllWorkOrders([]);
+        }
       };
-      fetchProjects();
+      
+      fetchAllData();
     }
-  }, [isOpen, projectId]);
+  }, [isOpen]);
+
+  const displayedBoqs = allBoqs;
+  const displayedWorkOrders = allWorkOrders;
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -97,7 +122,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
         work_order_id: formData.work_order_id ? Number(formData.work_order_id) : null
       });
       setFormData({
-        project_id: projectId || "",
+        project_id: "",
         activity_name: "",
         boq_code: "",
         planned_quantity: "",
@@ -196,20 +221,36 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
             </div>
             <div>
               <label className={labelClasses}>BOQ Reference Code</label>
-              <input 
-                type="number" name="boq_code" placeholder="Enter numeric code"
-                className={inputClasses()}
-                value={formData.boq_code} onChange={handleChange}
-              />
+              <select 
+                name="boq_code"
+                className={inputClasses(errors.boq_code)}
+                value={formData.boq_code}
+                onChange={handleChange}
+              >
+                <option value="">Select BOQ Code</option>
+                {displayedBoqs.map(b => (
+                  <option key={b.id || b.boq_id} value={b.id || b.boq_id}>
+                    {b.item_name ? `${b.item_name} (${b.id})` : `BOQ #${b.id}`}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className={labelClasses}>Work Order ID*</label>
-              <input 
+              <select 
                 required
-                type="number" name="work_order_id" placeholder="Enter Work Order ID"
+                name="work_order_id"
                 className={inputClasses(errors.work_order_id)}
-                value={formData.work_order_id} onChange={handleChange}
-              />
+                value={formData.work_order_id}
+                onChange={handleChange}
+              >
+                <option value="">Select Work Order</option>
+                {displayedWorkOrders.map(w => (
+                  <option key={w.id} value={w.id}>
+                    {w.title || w.work_order_no || `Work Order #${w.id}`}
+                  </option>
+                ))}
+              </select>
               {errors.work_order_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.work_order_id}</p>}
             </div>
             <div className="md:col-span-2">
