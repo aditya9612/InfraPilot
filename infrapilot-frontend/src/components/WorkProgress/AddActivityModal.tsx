@@ -70,18 +70,8 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
     }
   }, [isOpen]);
 
-  const displayedBoqs = formData.project_id 
-    ? allBoqs.filter(b => String(b.project_id) === String(formData.project_id))
-    : allBoqs;
-
-  const displayedWorkOrders = formData.project_id
-    ? allWorkOrders.filter(w => String(w.project_id) === String(formData.project_id) || !w.project_id)
-    : allWorkOrders;
-
-  // Reset selections when project changes
-  useEffect(() => {
-    setFormData(prev => ({ ...prev, boq_code: "", work_order_id: "" }));
-  }, [formData.project_id]);
+  const displayedBoqs = allBoqs;
+  const displayedWorkOrders = allWorkOrders;
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 

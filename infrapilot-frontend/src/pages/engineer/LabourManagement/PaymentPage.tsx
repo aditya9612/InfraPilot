@@ -9,7 +9,9 @@ import {
     Calendar, 
     IndianRupee,
     ArrowDownRight,
-    Briefcase
+    Briefcase,
+    ChevronLeft,
+    ChevronRight
 } from "lucide-react";
 import { paymentService } from '../../../services/paymentService';
 import { labourService } from '../../../services/labourService';
@@ -47,6 +49,13 @@ const PaymentPage: React.FC = () => {
     // Modal States
     const [payTarget, setPayTarget] = useState<any | null>(null);
     const [advanceTarget, setAdvanceTarget] = useState<any | null>(null);
+
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 20;
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [activeTab, searchTerm, contractorFilter, activeStatFilter]);
 
     const fetchData = useCallback(async () => {
         setIsLoading(true);
@@ -143,6 +152,14 @@ const PaymentPage: React.FC = () => {
         );
     }, [history, searchTerm]);
 
+    const currentDataLength = useMemo(() => {
+        if (activeTab === 'payroll') return filteredLabours.length;
+        if (activeTab === 'history') return filteredHistory.length;
+        if (activeTab === 'dues') return pendingDues.length;
+        if (activeTab === 'weekly') return weeklyReports.length;
+        if (activeTab === 'monthly') return monthlyReports.length;
+        return 0;
+    }, [activeTab, filteredLabours, filteredHistory, pendingDues, weeklyReports, monthlyReports]);
 
     return (
         <>
@@ -199,8 +216,8 @@ const PaymentPage: React.FC = () => {
                 <div className="flex flex-wrap gap-2 mb-8 font-inter">
                     {[
                         { id: 'payroll', label: 'Active Payroll' },
-                        { id: 'history', label: 'Disbursement History' },
-                        { id: 'dues', label: 'Contractor Liability' },
+                        { id: 'history', label: 'Payment History' },
+                        { id: 'dues', label: 'Contractor Payment Pending' },
                         { id: 'weekly', label: 'Weekly Velocity' },
                         { id: 'monthly', label: 'Monthly Report' }
                     ].map((tab) => (
@@ -304,7 +321,7 @@ const PaymentPage: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50 font-inter">
-                                    {activeTab === 'payroll' && filteredLabours.map((labour) => (
+                                    {activeTab === 'payroll' && filteredLabours.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((labour) => (
                                         <tr key={labour.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                             <td className="px-6 py-4 font-inter">
                                                 <div className="flex items-center gap-4 font-inter">
@@ -357,7 +374,7 @@ const PaymentPage: React.FC = () => {
                                         </tr>
                                     ))}
 
-                                    {activeTab === 'history' && filteredHistory.map((h) => (
+                                    {activeTab === 'history' && filteredHistory.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((h) => (
                                         <tr key={h.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                             <td className="px-6 py-4 font-inter">
                                                 <div className="flex flex-col font-inter">
@@ -387,7 +404,7 @@ const PaymentPage: React.FC = () => {
                                         </tr>
                                     ))}
 
-                                    {activeTab === 'dues' && pendingDues.map((d, idx) => (
+                                    {activeTab === 'dues' && pendingDues.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((d, idx) => (
                                         <tr key={idx} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                             <td className="px-6 py-4 font-inter">
                                                 <span className="text-sm font-bold text-slate-800 font-inter">{d.contractor_name}</span>
@@ -410,7 +427,7 @@ const PaymentPage: React.FC = () => {
                                         </tr>
                                     ))}
 
-                                    {activeTab === 'weekly' && weeklyReports.map((r, i) => (
+                                    {activeTab === 'weekly' && weeklyReports.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((r, i) => (
                                         <tr key={i} className="hover:bg-slate-50/50 transition-colors font-inter">
                                             <td className="px-6 py-4 font-inter">
                                               <div className="flex items-center gap-3 font-inter">
@@ -438,7 +455,7 @@ const PaymentPage: React.FC = () => {
                                         </tr>
                                     ))}
 
-                                    {activeTab === 'monthly' && monthlyReports.map((r, i) => (
+                                    {activeTab === 'monthly' && monthlyReports.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((r, i) => (
                                         <tr key={i} className="hover:bg-slate-50/50 transition-colors font-inter">
                                             <td className="px-6 py-4 font-inter">
                                               <div className="flex items-center gap-3 font-inter">
@@ -467,6 +484,36 @@ const PaymentPage: React.FC = () => {
                                     ))}
                                 </tbody>
                             </table>
+                        )}
+                        
+                        {/* ── Pagination Controls ───────────────────────── */}
+                        {!isLoading && currentDataLength > 0 && (
+                            <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+                                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                                    PAGE {currentPage} OF {Math.max(1, Math.ceil(currentDataLength / itemsPerPage))}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                        disabled={currentPage === 1}
+                                        className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
+                                        title="Previous Page"
+                                    >
+                                        <ChevronLeft className="w-5 h-5" />
+                                    </button>
+                                    <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
+                                        {currentPage}
+                                    </div>
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.min(Math.max(1, Math.ceil(currentDataLength / itemsPerPage)), prev + 1))}
+                                        disabled={currentPage === Math.max(1, Math.ceil(currentDataLength / itemsPerPage))}
+                                        className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
+                                        title="Next Page"
+                                    >
+                                        <ChevronRight className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            </div>
                         )}
                     </div>
                 </div>

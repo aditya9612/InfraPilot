@@ -519,29 +519,32 @@ const MaterialReceiptPage = () => {
           </div>
 
           {/* Pagination Controls */}
-          <div className="px-6 py-4 bg-slate-50/30 border-t border-slate-50 flex items-center justify-end font-inter">
-            <div className="flex items-center gap-2 font-inter">
-              <button
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-                className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
-                title="Previous Page"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                Page {currentPage} of 20
-              </div>
-              <button
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, 20))}
-                disabled={currentPage === 20}
-                className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
-                title="Next Page"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+          <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                                PAGE {currentPage} OF {Math.max(1, Math.ceil(filteredMaterials.length / itemsPerPage))}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
+                                    title="Previous Page"
+                                >
+                                    <ChevronLeft className="w-5 h-5" />
+                                </button>
+                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
+                                    {currentPage}
+                                </div>
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(Math.max(1, Math.ceil(filteredMaterials.length / itemsPerPage)), prev + 1))}
+                                    disabled={currentPage === Math.max(1, Math.ceil(filteredMaterials.length / itemsPerPage))}
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
+                                    title="Next Page"
+                                >
+                                    <ChevronRight className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
         </div>
 
         {/* Purchase Logs Container */}
@@ -569,7 +572,7 @@ const MaterialReceiptPage = () => {
                       <td className="px-6 py-4 font-inter">
                         <div className="flex flex-col font-inter">
                           <span className="font-bold text-slate-800 text-sm font-inter">
-                            {materials.find(m => m.id === log.material_id)?.material_name || `MID-#{log.material_id}`}
+                            {materials.find(m => m.id === log.material_id)?.material_name || `Unknown Material`}
                           </span>
                           <span className="text-[10px] font-bold text-slate-400 font-inter tracking-widest uppercase">
                             {materials.find(m => m.id === log.material_id)?.material_code || "Unknown Code"}
@@ -710,7 +713,7 @@ const MaterialReceiptPage = () => {
                 <label className={labelClasses}>Purchase Rate <span className="text-rose-500">*</span></label>
                 <input
                   required
-                  type="number"
+                  type="number" min="0" onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }}
                   value={formData.purchase_rate || ""}
                   onChange={(e) => setFormData({ ...formData, purchase_rate: Number(e.target.value) })}
                   className={inputClasses}
@@ -732,7 +735,7 @@ const MaterialReceiptPage = () => {
                 <label className={labelClasses}>Quantity Purchased <span className="text-rose-500">*</span></label>
                 <input
                   required
-                  type="number"
+                  type="number" min="0" onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }}
                   value={formData.quantity_purchased || ""}
                   onChange={(e) => setFormData({ ...formData, quantity_purchased: Number(e.target.value) })}
                   className={inputClasses}
@@ -752,7 +755,7 @@ const MaterialReceiptPage = () => {
                 <label className={labelClasses}>Payment Given <span className="text-rose-500">*</span></label>
                 <input
                   required
-                  type="number"
+                  type="number" min="0" onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }}
                   value={formData.payment_given || ""}
                   onChange={(e) => setFormData({ ...formData, payment_given: Number(e.target.value) })}
                   className={inputClasses}
@@ -763,7 +766,7 @@ const MaterialReceiptPage = () => {
                 <label className={labelClasses}>Minimum Stock Level <span className="text-rose-500">*</span></label>
                 <input
                   required
-                  type="number"
+                  type="number" min="0" onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }}
                   value={formData.minimum_stock_level || ""}
                   onChange={(e) => setFormData({ ...formData, minimum_stock_level: Number(e.target.value) })}
                   className={inputClasses}
@@ -856,7 +859,7 @@ const MaterialReceiptPage = () => {
             <label className={labelClasses}>purchase_rate <span className="text-rose-500">*</span></label>
             <input
               required
-              type="number"
+              type="number" min="0" onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }}
               value={formData.purchase_rate || ""}
               onChange={(e) => setFormData({ ...formData, purchase_rate: Number(e.target.value) })}
               className={inputClasses}
@@ -878,7 +881,7 @@ const MaterialReceiptPage = () => {
             <label className={labelClasses}>minimum_stock_level <span className="text-rose-500">*</span></label>
             <input
               required
-              type="number"
+              type="number" min="0" onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }}
               value={formData.minimum_stock_level || ""}
               onChange={(e) => setFormData({ ...formData, minimum_stock_level: Number(e.target.value) })}
               className={inputClasses}
@@ -959,7 +962,7 @@ const MaterialReceiptPage = () => {
                 <label className={labelClasses}>Quantity <span className="text-rose-500">*</span></label>
                 <input
                   required
-                  type="number"
+                  type="number" min="0" onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }}
                   value={purchaseData.quantity || ""}
                   onChange={(e) => setPurchaseData({ ...purchaseData, quantity: Number(e.target.value) })}
                   className={inputClasses}
@@ -970,7 +973,7 @@ const MaterialReceiptPage = () => {
                 <label className={labelClasses}>Rate <span className="text-rose-500">*</span></label>
                 <input
                   required
-                  type="number"
+                  type="number" min="0" onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }}
                   value={purchaseData.rate || ""}
                   onChange={(e) => setPurchaseData({ ...purchaseData, rate: Number(e.target.value) })}
                   className={inputClasses}
@@ -981,7 +984,7 @@ const MaterialReceiptPage = () => {
                 <label className={labelClasses}>Amount Paid <span className="text-rose-500">*</span></label>
                 <input
                   required
-                  type="number"
+                  type="number" min="0" onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }}
                   value={purchaseData.amount_paid || ""}
                   onChange={(e) => setPurchaseData({ ...purchaseData, amount_paid: Number(e.target.value) })}
                   className={inputClasses}

@@ -8,6 +8,11 @@ import {
 } from "lucide-react";
 import StatCard from "../../components/common/StatCard";
 import { reportService } from "../../services/reportService";
+import { dsrService } from "../../services/dsrService";
+import { workProgressService } from "../../services/workProgressService";
+import { labourService } from "../../services/labourService";
+import { materialService } from "../../services/materialService";
+import { issueService } from "../../services/issueService";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -132,77 +137,98 @@ const ReportsPage = () => {
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
     const [projectId, setProjectId] = useState<number | null>(null);
 
-    // Resolve Project ID from session
+    // Resolve Project ID from session & listen for changes
     useEffect(() => {
-        const userStr = localStorage.getItem("infrapilot_user");
-        if (userStr) {
-            try {
-                const user = JSON.parse(userStr);
-                const pId = user?.project_id || user?.user?.project_id;
-                if (pId) {
-                    setProjectId(Number(pId));
-                } else {
-                    setProjectId(36);
+        const checkProject = () => {
+            const userStr = localStorage.getItem("infrapilot_user");
+            if (userStr) {
+                try {
+                    const user = JSON.parse(userStr);
+                    const pId = user?.project_id || user?.user?.project_id;
+                    if (pId && pId !== projectId) {
+                        setProjectId(Number(pId));
+                    } else if (!pId && projectId !== 92) {
+                        setProjectId(92);
+                    }
+                } catch (e) {
+                    console.error("Failed to resolve project ID", e);
                 }
-            } catch (e) {
-                console.error("Failed to resolve project ID", e);
-                setProjectId(36);
             }
-        }
-    }, []);
+        };
+
+        checkProject();
+
+        // Listen for tab focus to catch project changes from settings
+        window.addEventListener('focus', checkProject);
+        // Interval to catch same-tab changes quickly
+        const interval = setInterval(checkProject, 2000);
+
+        return () => {
+            window.removeEventListener('focus', checkProject);
+            clearInterval(interval);
+        };
+    }, [projectId]);
 
     const fetchReports = useCallback(async () => {
         if (!projectId) return;
         setIsInitialLoading(true);
         try {
-            const [daily, weekly, labour, material, issues] = await Promise.all([
-                reportService.getDailyReport(projectId, selectedDate).catch(() => null),
-                reportService.getWeeklyProgress(projectId).catch(() => null),
-                reportService.getLabourReport(projectId).catch(() => null),
-                reportService.getMaterialReport(projectId).catch(() => null),
-                reportService.getIssueReport(projectId).catch(() => null)
+            const [dailyRes, weeklyRes, labourRes, materialRes, issuesRes] = await Promise.all([
+                dsrService.getDsrByProject(projectId).catch(() => null),
+                workProgressService.listActivities(projectId).catch(() => null),
+                labourService.getLabours(projectId).catch(() => null),
+                materialService.listMaterials(projectId).catch(() => null),
+                issueService.listIssuesByProject(projectId).catch(() => null)
             ]);
 
             const updatedReports = [...reportTypes];
 
-            // 1. Daily Report Mapping
+            // 1. Daily Report Mapping (DSR)
             const dailyIdx = updatedReports.findIndex(r => r.id === "daily");
-            if (dailyIdx !== -1 && daily && daily.dsr) {
-                const dsr = daily.dsr;
+            if (dailyIdx !== -1 && dailyRes && dailyRes.items && dailyRes.items.length > 0) {
+                // Get the most recent DSR
+                const latestDsr = dailyRes.items.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
                 updatedReports[dailyIdx] = {
                     ...updatedReports[dailyIdx],
                     metrics: [
-                        { label: "Total Labour", value: `${dsr.total_labour || 0} Workers`, accent: "text-blue-600" },
-                        { label: "Skilled", value: dsr.skilled_labour?.toString() || "0" },
-                        { label: "Weather", value: dsr.weather || "Clear" },
-                        { label: "Location", value: dsr.site_location || "Site" },
+                        { label: "Total Labour", value: `${latestDsr.total_labour || 0} Workers`, accent: "text-blue-600" },
+                        { label: "Skilled", value: latestDsr.skilled_labour?.toString() || "0" },
+                        { label: "Weather", value: latestDsr.weather || "Clear" },
+                        { label: "Location", value: latestDsr.site_location || "Site" },
                     ]
                 };
             }
 
-            // 2. Weekly Progress Mapping
+            // 2. Weekly Progress Mapping (Activities)
             const weeklyIdx = updatedReports.findIndex(r => r.id === "weekly");
-            if (weeklyIdx !== -1 && weekly) {
+            if (weeklyIdx !== -1 && weeklyRes && weeklyRes.length > 0) {
+                const completedActivities = weeklyRes.filter((a: any) => a.completion_percentage === 100).length;
+                const totalActivities = weeklyRes.length;
+                const overallCompletion = totalActivities > 0 
+                    ? Math.round((weeklyRes.reduce((acc: number, val: any) => acc + (Number(val.completion_percentage) || 0), 0)) / totalActivities)
+                    : 0;
+                    
                 updatedReports[weeklyIdx] = {
                     ...updatedReports[weeklyIdx],
                     metrics: [
-                        { label: "Completion", value: `${weekly.completion_percentage || 0}%`, accent: "text-emerald-600" },
-                        { label: "Status", value: weekly.status || "In Progress" },
-                        { label: "Issues", value: weekly.total_issues?.toString() || "0" },
-                        { label: "Project", value: weekly.project_name || "Project" },
+                        { label: "Overall Completion", value: `${overallCompletion}%`, accent: "text-emerald-600" },
+                        { label: "Completed Activities", value: completedActivities.toString() },
+                        { label: "Total Activities", value: totalActivities.toString() },
+                        { label: "Status", value: overallCompletion >= 100 ? "Completed" : "In Progress" },
                     ]
                 };
             }
 
             // 3. Labour Mapping
             const laborIdx = updatedReports.findIndex(r => r.id === "labour");
-            if (laborIdx !== -1 && labour) {
+            if (laborIdx !== -1 && labourRes && labourRes.items) {
+                const totalPresent = labourRes.items.filter((l: any) => l.status?.toLowerCase() === 'active').length;
                 updatedReports[laborIdx] = {
                     ...updatedReports[laborIdx],
                     metrics: [
-                        { label: "Total Present", value: labour.total_present?.toString() || "0", accent: "text-blue-600" },
-                        { label: "Contractors", value: labour.contractors_count?.toString() || "0" },
-                        { label: "Absent", value: labour.total_absent?.toString() || "0" },
+                        { label: "Total Workers", value: labourRes.items.length.toString(), accent: "text-blue-600" },
+                        { label: "Active", value: totalPresent.toString() },
+                        { label: "Inactive", value: (labourRes.items.length - totalPresent).toString() },
                         { label: "Shift", value: "Day" },
                     ]
                 };
@@ -210,28 +236,40 @@ const ReportsPage = () => {
 
             // 4. Material Mapping
             const materialIdx = updatedReports.findIndex(r => r.id === "material");
-            if (materialIdx !== -1 && material) {
+            if (materialIdx !== -1 && materialRes && materialRes.length > 0) {
+                let totalStock = 0;
+                let totalValue = 0;
+                materialRes.forEach((m: any) => {
+                    totalStock += Number(m.remaining_stock || 0);
+                    totalValue += Number(m.total_amount || m.total_value || 0);
+                });
+                
                 updatedReports[materialIdx] = {
                     ...updatedReports[materialIdx],
                     metrics: [
-                        { label: "Received Today", value: material.received_today?.toString() || "0", accent: "text-rose-500" },
-                        { label: "Consumption", value: material.consumed_today?.toString() || "0" },
-                        { label: "Stock Bal", value: "Checked" },
-                        { label: "Unit", value: "Various" },
+                        { label: "Total Stock Items", value: materialRes.length.toString(), accent: "text-rose-500" },
+                        { label: "Stock Qty", value: totalStock.toFixed(1) },
+                        { label: "Stock Value", value: `₹${(totalValue/1000).toFixed(1)}k` },
+                        { label: "Status", value: "Updated" },
                     ]
                 };
             }
 
             // 5. Issues Mapping
             const issueIdx = updatedReports.findIndex(r => r.id === "issue");
-            if (issueIdx !== -1 && issues) {
+            if (issueIdx !== -1 && issuesRes && issuesRes.items) {
+                const allIssues = issuesRes.items;
+                const openIssues = allIssues.filter((i: any) => i.status !== 'Resolved' && i.status !== 'Closed').length;
+                const criticalIssues = allIssues.filter((i: any) => i.priority === 'High' || i.priority === 'Critical').length;
+                const resolvedIssues = allIssues.filter((i: any) => i.status === 'Resolved' || i.status === 'Closed').length;
+                
                 updatedReports[issueIdx] = {
                     ...updatedReports[issueIdx],
                     metrics: [
-                        { label: "Open Issues", value: issues.open_issues?.toString() || "0", accent: "text-rose-500" },
-                        { label: "Critical", value: issues.critical_issues?.toString() || "0" },
-                        { label: "Resolved", value: issues.resolved_today?.toString() || "0" },
-                        { label: "Pending", value: issues.pending_review?.toString() || "0" },
+                        { label: "Open Issues", value: openIssues.toString(), accent: "text-rose-500" },
+                        { label: "Critical", value: criticalIssues.toString() },
+                        { label: "Resolved", value: resolvedIssues.toString() },
+                        { label: "Total", value: allIssues.length.toString() },
                     ]
                 };
             }
@@ -819,6 +857,16 @@ const ReportsPage = () => {
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                             </svg>
+                                        </button>
+                                        {/* PDF button */}
+                                        <button
+                                            onClick={() => handleExportPDF()}
+                                            className="flex items-center gap-1.5 px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold rounded-xl transition-all shadow-sm"
+                                        >
+                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                            </svg>
+                                            PDF
                                         </button>
                                         {/* Export button */}
                                         <button

@@ -16,7 +16,9 @@ import {
     LogOut,
     CheckCircle2,
     Eye,
-    ArrowRight
+    ArrowRight,
+    ChevronLeft,
+    ChevronRight
 } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -39,11 +41,17 @@ const AttendancePage: React.FC = () => {
     const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
     const [isCheckOutModalOpen, setIsCheckOutModalOpen] = useState(false);
     
-    // Camera State
+    // Camera State - Check In
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [stream, setStream] = useState<MediaStream | null>(null);
     const [capturedImage, setCapturedImage] = useState<string | null>(null);
+
+    // Camera State - Check Out
+    const checkoutVideoRef = useRef<HTMLVideoElement>(null);
+    const checkoutCanvasRef = useRef<HTMLCanvasElement>(null);
+    const [checkoutStream, setCheckoutStream] = useState<MediaStream | null>(null);
+    const [checkoutCapturedImage, setCheckoutCapturedImage] = useState<string | null>(null);
     
     // View Modal State
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -54,6 +62,41 @@ const AttendancePage: React.FC = () => {
     const [empSearch, setEmpSearch] = useState("");
     const [empStatusFilter, setEmpStatusFilter] = useState("All Status");
     const [empDurationFilter, setEmpDurationFilter] = useState("Today");
+
+    // History Quick Filter & Pagination
+    const [historyFilter, setHistoryFilter] = useState<"Today" | "Yesterday" | "All" | "Date">("Today");
+    const [historyPage, setHistoryPage] = useState(1);
+    const [historyDateInput, setHistoryDateInput] = useState("");
+    const HISTORY_PER_PAGE = 10;
+
+    // Mock history records for Yesterday / All / Date views
+    const mockHistoryRecords = Array.from({ length: 25 }, (_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - (i + 1));
+        return {
+            date: d.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long' }) + ' 2026',
+            project: 'InfraPilot',
+            location: 'Work from Office',
+            onlineStatus: 'Checked Out',
+            checkIn: '09:' + String(10 + (i % 10)).padStart(2, '0') + ' AM',
+            checkOut: '06:' + String(i % 60).padStart(2, '0') + ' PM',
+            hours: '08:' + String(i % 60).padStart(2, '0'),
+            status: i % 3 === 0 ? 'Late' : 'On Time',
+        };
+    });
+
+    const getFilteredHistory = () => {
+        if (historyFilter === 'Yesterday') return mockHistoryRecords.slice(0, 1);
+        if (historyFilter === 'All') return mockHistoryRecords;
+        if (historyFilter === 'Date' && historyDateInput) {
+            return mockHistoryRecords.slice(0, 5);
+        }
+        return [];
+    };
+
+    const filteredHistory = getFilteredHistory();
+    const totalHistoryPages = Math.max(1, Math.ceil(filteredHistory.length / HISTORY_PER_PAGE));
+    const paginatedHistory = filteredHistory.slice((historyPage - 1) * HISTORY_PER_PAGE, historyPage * HISTORY_PER_PAGE);
 
     useEffect(() => {
         const timer = setInterval(() => setCurrentDateTime(new Date()), 60000);
@@ -100,7 +143,7 @@ const AttendancePage: React.FC = () => {
         return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
     };
 
-    // Camera Logic
+    // Camera Logic - Check In
     const startCamera = async () => {
         setCapturedImage(null);
         try {
@@ -131,6 +174,37 @@ const AttendancePage: React.FC = () => {
         return () => stopCamera();
     }, [isCheckInModalOpen, capturedImage]);
 
+    // Camera Logic - Check Out
+    const startCheckoutCamera = async () => {
+        setCheckoutCapturedImage(null);
+        try {
+            const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            setCheckoutStream(mediaStream);
+            if (checkoutVideoRef.current) {
+                checkoutVideoRef.current.srcObject = mediaStream;
+            }
+        } catch (err) {
+            console.error("Error accessing camera", err);
+            toast.error("Could not access camera. Please allow permissions.");
+        }
+    };
+
+    const stopCheckoutCamera = useCallback(() => {
+        if (checkoutStream) {
+            checkoutStream.getTracks().forEach(track => track.stop());
+            setCheckoutStream(null);
+        }
+    }, [checkoutStream]);
+
+    useEffect(() => {
+        if (isCheckOutModalOpen && !checkoutCapturedImage) {
+            startCheckoutCamera();
+        } else {
+            stopCheckoutCamera();
+        }
+        return () => stopCheckoutCamera();
+    }, [isCheckOutModalOpen, checkoutCapturedImage]);
+
     const takePhoto = () => {
         if (videoRef.current && canvasRef.current) {
             const video = videoRef.current;
@@ -147,6 +221,22 @@ const AttendancePage: React.FC = () => {
         }
     };
 
+    const takeCheckoutPhoto = () => {
+        if (checkoutVideoRef.current && checkoutCanvasRef.current) {
+            const video = checkoutVideoRef.current;
+            const canvas = checkoutCanvasRef.current;
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const context = canvas.getContext('2d');
+            if (context) {
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageUrl = canvas.toDataURL('image/jpeg');
+                setCheckoutCapturedImage(imageUrl);
+                stopCheckoutCamera();
+            }
+        }
+    };
+
     const handleUsePhoto = () => {
         setCheckInTime(new Date());
         setAttendanceState("CHECKED_IN");
@@ -154,12 +244,13 @@ const AttendancePage: React.FC = () => {
         toast.success("Successfully Checked In!");
     };
 
-    const handleConfirmCheckOut = () => {
+    const handleUseCheckoutPhoto = () => {
         setCheckOutTime(new Date());
         setAttendanceState("CHECKED_OUT");
         setIsCheckOutModalOpen(false);
         toast.success("Successfully Checked Out!");
     };
+
 
     // Calculate hours diff
     const calculateHours = () => {
@@ -318,14 +409,31 @@ const AttendancePage: React.FC = () => {
                                     
                                     <div className="flex items-center gap-2 flex-wrap">
                                         <span className="text-[10px] font-bold text-slate-800 mr-2">Quick Filters</span>
-                                        <button className="px-4 py-1.5 bg-blue-500 text-white rounded-lg text-xs font-medium shadow-sm">Today</button>
-                                        <button className="px-4 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50 transition-colors">Yesterday</button>
-                                        <button className="px-4 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50 transition-colors">All</button>
-                                        <button className="px-4 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-50 transition-colors flex items-center gap-2">Date</button>
+                                        {(["Today", "Yesterday", "All", "Date"] as const).map(f => (
+                                            <button
+                                                key={f}
+                                                onClick={() => { setHistoryFilter(f); setHistoryPage(1); }}
+                                                className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                                                    historyFilter === f
+                                                        ? 'bg-blue-500 text-white shadow-sm'
+                                                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                                                }`}
+                                            >
+                                                {f === 'Date' && <Calendar className="w-3 h-3" />} {f}
+                                            </button>
+                                        ))}
+                                        {historyFilter === 'Date' && (
+                                            <input
+                                                type="date"
+                                                value={historyDateInput}
+                                                onChange={e => { setHistoryDateInput(e.target.value); setHistoryPage(1); }}
+                                                className="border border-slate-200 rounded-lg px-3 py-1 text-xs text-slate-600 outline-none focus:ring-2 focus:ring-blue-200"
+                                            />
+                                        )}
                                     </div>
                                 </div>
                                 <div className="px-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600">
-                                    Showing {attendanceState !== "NOT_CHECKED_IN" ? "1" : "0"} records
+                                    Showing {historyFilter === 'Today' ? (attendanceState !== 'NOT_CHECKED_IN' ? '1' : '0') : filteredHistory.length} records
                                 </div>
                             </div>
 
@@ -334,7 +442,7 @@ const AttendancePage: React.FC = () => {
                                     <thead>
                                         <tr className="bg-slate-50/50 text-slate-800 text-[10px] font-bold uppercase tracking-widest border-b border-slate-100">
                                             <th className="px-6 py-4">Date</th>
-                                            <th className="px-6 py-4">Department</th>
+                                            <th className="px-6 py-4">Project</th>
                                             <th className="px-6 py-4">Work Location</th>
                                             <th className="px-6 py-4">Online Status</th>
                                             <th className="px-6 py-4">Check In</th>
@@ -344,103 +452,109 @@ const AttendancePage: React.FC = () => {
                                             <th className="px-6 py-4">Selfie</th>
                                             <th className="px-6 py-4">Status</th>
                                             <th className="px-6 py-4">Work Summary</th>
-                                            <th className="px-6 py-4">Work Report</th>
                                             <th className="px-6 py-4">Overdue</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
-                                        {attendanceState === "NOT_CHECKED_IN" ? (
-                                            <tr>
-                                                <td colSpan={13} className="px-6 py-12 text-center">
-                                                    <p className="text-xs text-slate-500 font-medium">No records found</p>
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            <tr className="hover:bg-slate-50/50 transition-colors">
-                                                <td className="px-6 py-4">
-                                                    <span className="text-xs font-bold text-slate-800">{formatDate(currentDateTime).replace(/, \d{4}/, ' 2026')}</span>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <span className="px-3 py-1 border border-slate-200 rounded-full text-[10px] font-bold text-slate-600">Engineering</span>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <span className="px-3 py-1 bg-blue-50 border border-blue-200 rounded-full text-[10px] font-bold text-blue-600 flex items-center gap-1 w-max">
-                                                        <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div> Work from Office
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 text-center">
-                                                    <div className="flex flex-col items-center">
-                                                        {attendanceState === "CHECKED_IN" ? (
-                                                            <span className="text-[10px] font-bold text-slate-800 flex items-center gap-1 mb-1">
-                                                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div> Online
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-[10px] font-bold text-slate-600 mb-1">
-                                                                Checked Out
-                                                            </span>
-                                                        )}
-                                                        <span className="text-[9px] font-bold text-rose-500">IN: LATE</span>
-                                                        <span className={`text-[9px] font-bold ${attendanceState === "CHECKED_OUT" ? 'text-orange-500' : 'text-slate-400'}`}>OUT: {attendanceState === "CHECKED_OUT" ? 'EARLY' : 'PENDING'}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1">
-                                                        <CheckCircle2 className="w-3 h-3" /> {checkInTime ? formatTime(checkInTime) : "-"}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    {attendanceState === "CHECKED_OUT" ? (
-                                                        <span className="text-[10px] font-bold text-rose-600 flex items-center gap-1">
-                                                            <LogOut className="w-3 h-3 rotate-180" /> {checkOutTime ? formatTime(checkOutTime) : "-"}
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-[10px] font-bold text-rose-500 flex items-center gap-1">
-                                                            <LogOut className="w-3 h-3 rotate-180" /> -
-                                                        </span>
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-4 text-center">
-                                                    <span className="text-xs font-bold text-slate-800">{attendanceState === "CHECKED_OUT" ? calculateHours() : "-"}</span>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <span className="text-[10px] font-bold text-blue-500 flex items-center gap-1 cursor-pointer">
-                                                        <MapPin className="w-3 h-3" /> View
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    {capturedImage ? (
-                                                        <div className="w-8 h-8 rounded-full bg-slate-200 overflow-hidden border border-slate-200">
-                                                            <img src={capturedImage} alt="Selfie" className="w-full h-full object-cover" />
+                                        {historyFilter === 'Today' ? (
+                                            // Today: show today's checkin row (existing logic)
+                                            attendanceState === 'NOT_CHECKED_IN' ? (
+                                                <tr><td colSpan={12} className="px-6 py-12 text-center"><p className="text-xs text-slate-500 font-medium">No records found</p></td></tr>
+                                            ) : (
+                                                <tr className="hover:bg-slate-50/50 transition-colors">
+                                                    <td className="px-6 py-4"><span className="text-xs font-bold text-slate-800">{formatDate(currentDateTime).replace(/, \d{4}/, ' 2026')}</span></td>
+                                                    <td className="px-6 py-4"><span className="px-3 py-1 border border-slate-200 rounded-full text-[10px] font-bold text-slate-600">InfraPilot</span></td>
+                                                    <td className="px-6 py-4"><span className="px-3 py-1 bg-blue-50 border border-blue-200 rounded-full text-[10px] font-bold text-blue-600 flex items-center gap-1 w-max"><div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div> Work from Office</span></td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <div className="flex flex-col items-center">
+                                                            {attendanceState === 'CHECKED_IN' ? (<span className="text-[10px] font-bold text-slate-800 flex items-center gap-1 mb-1"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div> Online</span>) : (<span className="text-[10px] font-bold text-slate-600 mb-1">Checked Out</span>)}
+                                                            <span className="text-[9px] font-bold text-rose-500">IN: LATE</span>
+                                                            <span className={`text-[9px] font-bold ${attendanceState === 'CHECKED_OUT' ? 'text-orange-500' : 'text-slate-400'}`}>OUT: {attendanceState === 'CHECKED_OUT' ? 'EARLY' : 'PENDING'}</span>
                                                         </div>
-                                                    ) : (
-                                                        <div className="w-8 h-8 rounded-full bg-slate-200"></div>
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-4 text-center">
-                                                    <div className="flex flex-col items-center">
-                                                        <span className="px-2 py-0.5 bg-rose-500 text-white rounded-full text-[9px] font-bold mb-1">Late</span>
-                                                        <span className="text-[9px] font-bold text-rose-500">IN: LATE</span>
-                                                        <span className={`text-[9px] font-bold ${attendanceState === "CHECKED_OUT" ? 'text-orange-500' : 'text-slate-400'}`}>OUT: {attendanceState === "CHECKED_OUT" ? 'EARLY' : 'PENDING'}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 text-center text-xs text-slate-400 font-bold">-</td>
-                                                <td className="px-6 py-4 text-center text-xs text-slate-400 font-bold">-</td>
-                                                <td className="px-6 py-4 text-center text-xs text-slate-400 font-bold">-</td>
-                                            </tr>
+                                                    </td>
+                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> {checkInTime ? formatTime(checkInTime) : '-'}</span></td>
+                                                    <td className="px-6 py-4">{attendanceState === 'CHECKED_OUT' ? (<span className="text-[10px] font-bold text-rose-600 flex items-center gap-1"><LogOut className="w-3 h-3 rotate-180" /> {checkOutTime ? formatTime(checkOutTime) : '-'}</span>) : (<span className="text-[10px] font-bold text-rose-500 flex items-center gap-1"><LogOut className="w-3 h-3 rotate-180" /> -</span>)}</td>
+                                                    <td className="px-6 py-4 text-center"><span className="text-xs font-bold text-slate-800">{attendanceState === 'CHECKED_OUT' ? calculateHours() : '-'}</span></td>
+                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-blue-500 flex items-center gap-1 cursor-pointer"><MapPin className="w-3 h-3" /> View</span></td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="flex flex-col items-center gap-1">
+                                                                <span className="text-[8px] font-bold text-emerald-600 uppercase tracking-wide">In</span>
+                                                                {capturedImage ? (<div className="w-8 h-8 rounded-full overflow-hidden border-2 border-emerald-400"><img src={capturedImage} alt="CheckIn Selfie" className="w-full h-full object-cover" /></div>) : (<div className="w-8 h-8 rounded-full bg-slate-200 border-2 border-slate-300" />)}
+                                                            </div>
+                                                            <div className="flex flex-col items-center gap-1">
+                                                                <span className="text-[8px] font-bold text-rose-500 uppercase tracking-wide">Out</span>
+                                                                {checkoutCapturedImage ? (<div className="w-8 h-8 rounded-full overflow-hidden border-2 border-rose-400"><img src={checkoutCapturedImage} alt="CheckOut Selfie" className="w-full h-full object-cover" /></div>) : (<div className="w-8 h-8 rounded-full bg-slate-200 border-2 border-slate-300" />)}
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <div className="flex flex-col items-center">
+                                                            <span className="px-2 py-0.5 bg-rose-500 text-white rounded-full text-[9px] font-bold mb-1">Late</span>
+                                                            <span className="text-[9px] font-bold text-rose-500">IN: LATE</span>
+                                                            <span className={`text-[9px] font-bold ${attendanceState === 'CHECKED_OUT' ? 'text-orange-500' : 'text-slate-400'}`}>OUT: {attendanceState === 'CHECKED_OUT' ? 'EARLY' : 'PENDING'}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center text-xs text-slate-400 font-bold">-</td>
+                                                    <td className="px-6 py-4 text-center text-xs text-slate-400 font-bold">-</td>
+                                                </tr>
+                                            )
+                                        ) : paginatedHistory.length === 0 ? (
+                                            <tr><td colSpan={12} className="px-6 py-12 text-center"><p className="text-xs text-slate-500 font-medium">{historyFilter === 'Date' && !historyDateInput ? 'Select a date to view records' : 'No records found'}</p></td></tr>
+                                        ) : (
+                                            paginatedHistory.map((rec, idx) => (
+                                                <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                                                    <td className="px-6 py-4"><span className="text-xs font-bold text-slate-800">{rec.date}</span></td>
+                                                    <td className="px-6 py-4"><span className="px-3 py-1 border border-slate-200 rounded-full text-[10px] font-bold text-slate-600">{rec.project}</span></td>
+                                                    <td className="px-6 py-4"><span className="px-3 py-1 bg-blue-50 border border-blue-200 rounded-full text-[10px] font-bold text-blue-600 flex items-center gap-1 w-max"><div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div> {rec.location}</span></td>
+                                                    <td className="px-6 py-4 text-center"><span className="text-[10px] font-bold text-slate-600">{rec.onlineStatus}</span></td>
+                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> {rec.checkIn}</span></td>
+                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-rose-600 flex items-center gap-1"><LogOut className="w-3 h-3 rotate-180" /> {rec.checkOut}</span></td>
+                                                    <td className="px-6 py-4 text-center"><span className="text-xs font-bold text-slate-800">{rec.hours}</span></td>
+                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-blue-500 flex items-center gap-1 cursor-pointer"><MapPin className="w-3 h-3" /> View</span></td>
+                                                    <td className="px-6 py-4"><div className="w-8 h-8 rounded-full bg-slate-200 border-2 border-slate-300" /></td>
+                                                    <td className="px-6 py-4 text-center"><span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${rec.status === 'Late' ? 'bg-rose-500 text-white' : 'bg-emerald-50 text-emerald-600 border border-emerald-200'}`}>{rec.status}</span></td>
+                                                    <td className="px-6 py-4 text-center text-xs text-slate-400 font-bold">-</td>
+                                                    <td className="px-6 py-4 text-center text-xs text-slate-400 font-bold">-</td>
+                                                </tr>
+                                            ))
                                         )}
                                     </tbody>
                                 </table>
                             </div>
                             
-                            {attendanceState !== "NOT_CHECKED_IN" && (
+                            {/* Pagination footer - only for Yesterday / All / Date */}
+                            {historyFilter !== 'Today' && filteredHistory.length > 0 && (
+                                <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between">
+                                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                                        PAGE {historyPage} OF {Math.max(10, totalHistoryPages)}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                                            disabled={historyPage === 1}
+                                            className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
+                                            title="Previous Page"
+                                        >
+                                            <ChevronLeft className="w-5 h-5" />
+                                        </button>
+                                        <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
+                                            {historyPage}
+                                        </div>
+                                        <button
+                                            onClick={() => setHistoryPage(p => Math.min(Math.max(10, totalHistoryPages), p + 1))}
+                                            disabled={historyPage === Math.max(10, totalHistoryPages)}
+                                            className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
+                                            title="Next Page"
+                                        >
+                                            <ChevronRight className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                            {historyFilter === 'Today' && attendanceState !== 'NOT_CHECKED_IN' && (
                                 <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between">
                                     <span className="text-[10px] font-bold text-slate-500">Showing 1 to 1 of 1 entries</span>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-[10px] font-bold text-slate-800">Show:</span>
-                                        <select className="border border-slate-200 rounded-lg px-2 py-1 text-[10px] font-bold bg-white text-slate-600 outline-none">
-                                            <option>10</option>
-                                        </select>
-                                    </div>
                                 </div>
                             )}
                         </div>
@@ -544,7 +658,18 @@ const AttendancePage: React.FC = () => {
                                         <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-400 flex items-center gap-1"><LogOut className="w-3 h-3 rotate-180" /> -</span></td>
                                         <td className="px-6 py-4 text-center"><span className="text-xs font-bold text-slate-800">-</span></td>
                                         <td className="px-6 py-4"><span className="text-[10px] font-bold text-blue-500 flex items-center gap-1 cursor-pointer"><MapPin className="w-3 h-3" /> View</span></td>
-                                        <td className="px-6 py-4"><div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500">RS</div></td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <span className="text-[8px] font-bold text-emerald-600 uppercase tracking-wide">In</span>
+                                                    <div className="w-8 h-8 rounded-full bg-emerald-100 border-2 border-emerald-400 flex items-center justify-center text-[10px] font-bold text-emerald-700">RS</div>
+                                                </div>
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <span className="text-[8px] font-bold text-rose-500 uppercase tracking-wide">Out</span>
+                                                    <div className="w-8 h-8 rounded-full bg-slate-200 border-2 border-slate-300" />
+                                                </div>
+                                            </div>
+                                        </td>
                                         <td className="px-6 py-4 text-center"><span className="px-2 py-0.5 bg-emerald-50 text-emerald-500 border border-emerald-200 rounded-full text-[9px] font-bold">On Time</span></td>
                                         <td className="px-6 py-4 text-center text-xs text-slate-400 font-bold">-</td>
                                         <td className="px-6 py-4 text-center text-xs text-slate-400 font-bold">-</td>
@@ -589,7 +714,18 @@ const AttendancePage: React.FC = () => {
                                         <td className="px-6 py-4"><span className="text-[10px] font-bold text-rose-600 flex items-center gap-1"><LogOut className="w-3 h-3 rotate-180" /> 07:00 PM</span></td>
                                         <td className="px-6 py-4 text-center"><span className="text-xs font-bold text-slate-800">08:45</span></td>
                                         <td className="px-6 py-4"><span className="text-[10px] font-bold text-blue-500 flex items-center gap-1 cursor-pointer"><MapPin className="w-3 h-3" /> View</span></td>
-                                        <td className="px-6 py-4"><div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500">PS</div></td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <span className="text-[8px] font-bold text-emerald-600 uppercase tracking-wide">In</span>
+                                                    <div className="w-8 h-8 rounded-full bg-emerald-100 border-2 border-emerald-400 flex items-center justify-center text-[10px] font-bold text-emerald-700">PS</div>
+                                                </div>
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <span className="text-[8px] font-bold text-rose-500 uppercase tracking-wide">Out</span>
+                                                    <div className="w-8 h-8 rounded-full bg-rose-100 border-2 border-rose-400 flex items-center justify-center text-[10px] font-bold text-rose-700">PS</div>
+                                                </div>
+                                            </div>
+                                        </td>
                                         <td className="px-6 py-4 text-center"><span className="px-2 py-0.5 bg-rose-50 text-rose-500 border border-rose-200 rounded-full text-[9px] font-bold">Late</span></td>
                                         <td className="px-6 py-4 text-center text-xs text-slate-400 font-bold">-</td>
                                         <td className="px-6 py-4 text-center text-xs text-slate-400 font-bold">-</td>
@@ -630,25 +766,34 @@ const AttendancePage: React.FC = () => {
                 maxWidth="max-w-xl"
             >
                 <div className="p-2">
-                    <h2 className="text-center text-sm font-black text-slate-800 mb-4 uppercase tracking-widest mt-2">Capture Photo</h2>
-                    
+                    <h2 className="text-center text-sm font-black text-slate-800 mb-4 uppercase tracking-widest mt-2">Capture Check-In Photo</h2>
+
                     <div className="bg-black rounded-xl overflow-hidden aspect-video relative flex items-center justify-center">
                         {!capturedImage ? (
-                            <video 
-                                ref={videoRef} 
-                                autoPlay 
-                                playsInline 
-                                muted 
+                            <video
+                                ref={videoRef}
+                                autoPlay
+                                playsInline
+                                muted
                                 className="w-full h-full object-cover"
                             />
                         ) : (
-                            <img 
-                                src={capturedImage} 
-                                alt="Captured" 
+                            <img
+                                src={capturedImage}
+                                alt="Captured"
                                 className="w-full h-full object-cover"
                             />
                         )}
                         <canvas ref={canvasRef} className="hidden" />
+                        {!capturedImage && (
+                            <div className="absolute inset-0 pointer-events-none">
+                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-40 border-2 border-blue-400/70 rounded-full opacity-60" />
+                                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                                    <span className="text-white text-[10px] font-bold uppercase tracking-widest">Live</span>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex items-center justify-center gap-4 mt-6 mb-2">
@@ -687,37 +832,76 @@ const AttendancePage: React.FC = () => {
                 </div>
             </Modal>
 
-            {/* Check-Out Security Modal */}
+            {/* Check-Out Camera Modal */}
             <Modal
                 isOpen={isCheckOutModalOpen}
-                onClose={() => setIsCheckOutModalOpen(false)}
+                onClose={() => { setIsCheckOutModalOpen(false); setCheckoutCapturedImage(null); }}
                 title=""
-                maxWidth="max-w-md"
+                maxWidth="max-w-xl"
             >
-                <div className="p-2 font-inter">
-                    <p className="text-xs font-black text-slate-700 uppercase tracking-widest mb-4">Security Verification</p>
+                <div className="p-2">
+                    <h2 className="text-center text-sm font-black text-slate-800 mb-4 uppercase tracking-widest mt-2">Capture Checkout Photo</h2>
                     
-                    <div className="border border-dashed border-rose-200 bg-rose-50/30 rounded-2xl p-8 flex flex-col items-center justify-center text-center">
-                        <div className="w-14 h-14 bg-rose-100 rounded-full flex items-center justify-center mb-4">
-                            <Camera className="w-6 h-6 text-rose-500" />
-                        </div>
-                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-1.5">Capture Mandatory Selfie *</h3>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Verification required as per SRS v3.0</p>
+                    <div className="bg-black rounded-xl overflow-hidden aspect-video relative flex items-center justify-center">
+                        {!checkoutCapturedImage ? (
+                            <video 
+                                ref={checkoutVideoRef} 
+                                autoPlay 
+                                playsInline 
+                                muted 
+                                className="w-full h-full object-cover"
+                            />
+                        ) : (
+                            <img 
+                                src={checkoutCapturedImage} 
+                                alt="Captured" 
+                                className="w-full h-full object-cover"
+                            />
+                        )}
+                        <canvas ref={checkoutCanvasRef} className="hidden" />
+                        {!checkoutCapturedImage && (
+                            <div className="absolute inset-0 pointer-events-none">
+                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-40 border-2 border-rose-400/70 rounded-full opacity-60" />
+                                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                                    <span className="text-white text-[10px] font-bold uppercase tracking-widest">Live</span>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
-                    <div className="flex items-center justify-between mt-8 mb-2">
-                        <button
-                            onClick={() => setIsCheckOutModalOpen(false)}
-                            className="px-6 py-3 text-slate-500 text-xs font-bold hover:text-slate-700 transition-colors"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={handleConfirmCheckOut}
-                            className="px-8 py-3 bg-rose-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all active:scale-95"
-                        >
-                            Confirm Check-Out
-                        </button>
+                    <div className="flex items-center justify-center gap-4 mt-6 mb-2">
+                        {!checkoutCapturedImage ? (
+                            <>
+                                <button
+                                    onClick={() => takeCheckoutPhoto()}
+                                    className="flex-1 py-3 bg-rose-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                >
+                                    <Camera className="w-4 h-4" /> Capture Photo
+                                </button>
+                                <button
+                                    onClick={() => { setIsCheckOutModalOpen(false); setCheckoutCapturedImage(null); }}
+                                    className="flex-1 py-3 bg-white text-slate-800 border border-slate-200 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                >
+                                    <X className="w-4 h-4" /> Cancel
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <button
+                                    onClick={() => { setCheckoutCapturedImage(null); }}
+                                    className="flex-1 py-3 bg-white text-slate-800 border border-slate-200 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                >
+                                    <RefreshCw className="w-4 h-4" /> Retake
+                                </button>
+                                <button
+                                    onClick={handleUseCheckoutPhoto}
+                                    className="flex-1 py-3 bg-rose-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                >
+                                    <Check className="w-4 h-4" /> Use Photo
+                                </button>
+                            </>
+                        )}
                     </div>
                 </div>
             </Modal>
@@ -726,68 +910,123 @@ const AttendancePage: React.FC = () => {
             <Modal
                 isOpen={isViewModalOpen}
                 onClose={() => setIsViewModalOpen(false)}
-                title="Labour Attendance Insight"
-                maxWidth="max-w-xl"
+                title=""
+                maxWidth="max-w-lg"
             >
                 {selectedLabour && (
-                    <div className="p-6 font-inter text-inter italic-none">
-                        <div className="bg-primary rounded-2xl p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter">
+                    <div className="font-inter">
+                        {/* Header Banner */}
+                        <div className="bg-primary rounded-2xl p-6 mb-0 text-white shadow-xl relative overflow-hidden">
                             <div className="absolute top-[-20px] right-[-20px] w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none" />
                             <div className="absolute bottom-[-40px] left-[-40px] w-40 h-40 bg-white/5 rounded-full blur-xl pointer-events-none" />
-
-                            <div className="relative z-10 flex items-center gap-6 font-inter">
-                                <div className="w-20 h-20 bg-blue-400/30 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 relative font-inter shadow-inner">
-                                    <span className="text-3xl font-bold font-inter font-black text-white">{selectedLabour.img}</span>
-                                    <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center border-4 border-primary text-[8px] font-black z-20 ${selectedLabour.status === 'Online' ? 'bg-emerald-500' : 'bg-slate-500'} animate-pulse`} />
+                            <div className="relative z-10 flex items-center gap-5">
+                                <div className="w-16 h-16 bg-blue-400/30 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 relative shadow-inner flex-shrink-0">
+                                    <span className="text-2xl font-black text-white">{selectedLabour.img}</span>
+                                    <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-4 border-primary z-20 ${selectedLabour.status === 'Online' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
                                 </div>
-                                <div className="flex-1 font-inter">
-                                    <div className="flex flex-wrap items-center gap-3 mb-2 font-inter">
-                                        <h3 className="text-2xl font-bold tracking-tight font-inter">{selectedLabour.name}</h3>
-                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest font-inter">
-                                            {selectedLabour.id}
-                                        </span>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                                        <h3 className="text-xl font-black tracking-tight truncate">{selectedLabour.name}</h3>
+                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest">{selectedLabour.id}</span>
                                     </div>
-                                    <div className="flex flex-wrap items-center gap-4 text-white/60 mb-4 font-inter text-xs font-medium">
-                                        <span className="flex items-center gap-1.5">
-                                            <Calendar className="w-3.5 h-3.5 text-white/80" />
-                                            {formatDate(currentDateTime).replace(/, \d{4}/, ' 2026')}
-                                        </span>
-                                        <span className="flex items-center gap-1.5">
-                                            <MapPin className="w-3.5 h-3.5 text-white/80" />
-                                            {selectedLabour.location}
+                                    <div className="flex flex-wrap items-center gap-3 text-white/70 text-xs font-medium">
+                                        <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-white/80" /> {selectedLabour.location}</span>
+                                        <span className="flex items-center gap-1"><Calendar className="w-3 h-3 text-white/80" /> {formatDate(currentDateTime).replace(/, \d{4}/, ' 2026')}</span>
+                                    </div>
+                                    <div className="mt-2">
+                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${selectedLabour.status === 'Online' ? 'bg-emerald-400/30 text-emerald-200' : 'bg-white/10 text-white/70'}`}>
+                                            {selectedLabour.status}
                                         </span>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="space-y-8 mb-10">
+                        {/* Selfie Section */}
+                        <div className="px-6 py-5 border-b border-slate-100">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Attendance Selfies</p>
+                            <div className="flex items-center gap-6">
+                                {/* Check-In Selfie */}
+                                <div className="flex flex-col items-center gap-2">
+                                    <div className="w-16 h-16 rounded-2xl bg-emerald-100 border-2 border-emerald-400 flex items-center justify-center text-xl font-black text-emerald-700 overflow-hidden">
+                                        {selectedLabour.img}
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-[9px] font-bold text-emerald-600 uppercase tracking-wide">Check-In</p>
+                                        <p className="text-[10px] font-bold text-slate-800">{selectedLabour.checkIn}</p>
+                                    </div>
+                                </div>
+                                {/* Arrow */}
+                                <div className="flex-1 flex flex-col items-center gap-1">
+                                    <div className="w-full h-px bg-slate-200 relative">
+                                        <ArrowRight className="w-4 h-4 text-slate-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white" />
+                                    </div>
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">
+                                        {selectedLabour.checkOut !== '-' ? selectedLabour.hours || '-' : 'In Progress'}
+                                    </span>
+                                </div>
+                                {/* Check-Out Selfie */}
+                                <div className="flex flex-col items-center gap-2">
+                                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-black overflow-hidden ${selectedLabour.checkOut !== '-' ? 'bg-rose-100 border-2 border-rose-400 text-rose-700' : 'bg-slate-100 border-2 border-dashed border-slate-300 text-slate-400'}`}>
+                                        {selectedLabour.checkOut !== '-' ? selectedLabour.img : '?'}
+                                    </div>
+                                    <div className="text-center">
+                                        <p className={`text-[9px] font-bold uppercase tracking-wide ${selectedLabour.checkOut !== '-' ? 'text-rose-500' : 'text-slate-400'}`}>Check-Out</p>
+                                        <p className="text-[10px] font-bold text-slate-800">{selectedLabour.checkOut}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Details Grid */}
+                        <div className="px-6 py-5 grid grid-cols-2 gap-x-6 gap-y-4 border-b border-slate-100">
                             <div>
-                                <div className="flex items-center gap-2 mb-6">
-                                    <div className="p-2 bg-blue-50 rounded-lg text-primary">
-                                        <Clock className="w-4 h-4" />
-                                    </div>
-                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Attendance Time</p>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 sm:gap-x-12 gap-y-6">
-                                    <div>
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Check In</p>
-                                        <p className="text-sm font-bold text-slate-800">{selectedLabour.checkIn}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Check Out</p>
-                                        <p className="text-sm font-bold text-slate-800 mb-1">{selectedLabour.checkOut}</p>
-                                    </div>
-                                </div>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Labour ID</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.id}</p>
+                            </div>
+                            <div>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Department</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.department || 'Engineering'}</p>
+                            </div>
+                            <div>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Work Location</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.location}</p>
+                            </div>
+                            <div>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Online Status</p>
+                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${selectedLabour.status === 'Online' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-slate-100 text-slate-600 border border-slate-200'}`}>
+                                    {selectedLabour.status}
+                                </span>
+                            </div>
+                            <div>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Check-In Time</p>
+                                <p className="text-xs font-bold text-emerald-600">{selectedLabour.checkIn}</p>
+                            </div>
+                            <div>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Check-Out Time</p>
+                                <p className={`text-xs font-bold ${selectedLabour.checkOut !== '-' ? 'text-rose-600' : 'text-slate-400'}`}>{selectedLabour.checkOut}</p>
+                            </div>
+                            <div>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Hours</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.hours || '-'}</p>
+                            </div>
+                            <div>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Attendance Status</p>
+                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${selectedLabour.attendanceStatus === 'Late' ? 'bg-rose-50 text-rose-500 border border-rose-200' : 'bg-emerald-50 text-emerald-600 border border-emerald-200'}`}>
+                                    {selectedLabour.attendanceStatus || 'On Time'}
+                                </span>
                             </div>
                         </div>
 
-                        <button
-                            onClick={() => setIsViewModalOpen(false)}
-                            className="w-full py-4 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
-                        >
-                            Dismiss Insight
-                        </button>
+                        {/* Footer Button */}
+                        <div className="px-6 py-5">
+                            <button
+                                onClick={() => setIsViewModalOpen(false)}
+                                className="w-full py-3 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+                            >
+                                Close
+                            </button>
+                        </div>
                     </div>
                 )}
             </Modal>

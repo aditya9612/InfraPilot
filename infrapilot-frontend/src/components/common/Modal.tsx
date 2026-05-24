@@ -9,9 +9,10 @@ interface ModalProps {
   children: React.ReactNode;
   footer?: React.ReactNode;
   maxWidth?: string;
+  hideHeader?: boolean;
 }
 
-const Modal = ({ isOpen, onClose, title, children, footer, maxWidth = "max-w-3xl" }: ModalProps) => {
+const Modal = ({ isOpen, onClose, title, children, footer, maxWidth = "max-w-3xl", hideHeader = false }: ModalProps) => {
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -45,30 +46,32 @@ const Modal = ({ isOpen, onClose, title, children, footer, maxWidth = "max-w-3xl
             className={`relative w-full ${maxWidth} max-h-[90vh] bg-white shadow-2xl rounded-3xl flex flex-col overflow-hidden`}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-white shrink-0">
-              <div>
-                <h2 className="text-xl font-bold text-slate-800">{title}</h2>
-              </div>
-              <button
-                onClick={onClose}
-                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
-                aria-label="Close modal"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+            {!hideHeader && (
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-white shrink-0">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-800">{title}</h2>
+                </div>
+                <button
+                  onClick={onClose}
+                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                  aria-label="Close modal"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+            )}
 
             {/* Body */}
             <div className="p-6 overflow-y-auto bg-slate-50/30 flex-1 custom-scrollbar">

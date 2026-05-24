@@ -9,8 +9,26 @@ import type {
 } from "../types/workProgress";
 
 let mockActivities: ActivityItem[] = [];
-
 let mockDailyEntries: DailyEntry[] = [];
+
+try {
+  const localActivities = localStorage.getItem("mock_activities");
+  if (localActivities) mockActivities = JSON.parse(localActivities);
+  
+  const localEntries = localStorage.getItem("mock_daily_entries");
+  if (localEntries) mockDailyEntries = JSON.parse(localEntries);
+} catch (e) {
+  console.warn("Failed to load mock data from localStorage", e);
+}
+
+const persistMockData = () => {
+  try {
+    localStorage.setItem("mock_activities", JSON.stringify(mockActivities));
+    localStorage.setItem("mock_daily_entries", JSON.stringify(mockDailyEntries));
+  } catch (e) {
+    console.warn("Failed to save mock data to localStorage", e);
+  }
+};
 
 if (typeof window !== "undefined") {
   (window as any).mockActivities = mockActivities;
@@ -23,9 +41,7 @@ export const workProgressService = {
    */
   async listActivities(project_id?: number, engineer_id?: number): Promise<ActivityItem[]> {
     try {
-      const response = await api.get("/work-progress/activities", {
-        params: { project_id, engineer_id }
-      });
+      const response = await api.get("/projects/work-progress/activities");
       return response.data;
     } catch (error: any) {
       console.warn("listActivities API error, using virtual success fallback:", error.message);
@@ -79,6 +95,7 @@ export const workProgressService = {
         created_at: new Date().toISOString()
       };
       mockActivities.unshift(newAct);
+      persistMockData();
       return newAct;
     }
   },
@@ -102,6 +119,7 @@ export const workProgressService = {
         act.status = data.status;
         act.remaining_quantity = Math.max(0, data.planned_quantity - act.total_completed);
         act.completion_percentage = Math.min(100, (act.total_completed / data.planned_quantity) * 100);
+        persistMockData();
         return act;
       }
       throw new Error("Activity not found");
@@ -117,6 +135,7 @@ export const workProgressService = {
     } catch (error: any) {
       console.warn("deleteActivity API error, using virtual success fallback:", error.message);
       mockActivities = mockActivities.filter(a => a.id !== id);
+      persistMockData();
     }
   },
 
@@ -125,7 +144,7 @@ export const workProgressService = {
    */
   async addDailyProgress(data: DailyProgressRequest): Promise<any> {
     try {
-      const response = await api.post("/work-progress/daily-entry", data);
+      const response = await api.post("/projects/work-progress/daily-entry", data);
       return response.data;
     } catch (error: any) {
       console.warn("addDailyProgress API error, using virtual success fallback:", error.message);
@@ -152,6 +171,8 @@ export const workProgressService = {
           act.status = "On Track";
         }
       }
+      
+      persistMockData();
 
       return {
         message: "Progress added successfully",
@@ -166,7 +187,7 @@ export const workProgressService = {
    */
   async listDailyEntries(activityId?: number, entryDate?: string): Promise<DailyEntry[]> {
     try {
-      const response = await api.get("/work-progress/daily-entry", {
+      const response = await api.get("/projects/work-progress/daily-entry", {
         params: { activity_id: activityId, entry_date: entryDate }
       });
       return Array.isArray(response.data) ? response.data : (response.data?.data || []);
@@ -184,26 +205,11 @@ export const workProgressService = {
   },
 
   /**
-   * List daily progress entries for a project
-   */
-  async listProjectDailyEntries(projectId: number): Promise<DailyEntry[]> {
-    try {
-      const response = await api.get("/work-progress/daily-entry", {
-        params: { project_id: projectId }
-      });
-      return Array.isArray(response.data) ? response.data : (response.data?.data || []);
-    } catch (error: any) {
-      console.warn("listProjectDailyEntries API error:", error.message);
-      return [];
-    }
-  },
-
-  /**
    * Update a daily progress entry
    */
   async updateDailyEntry(id: number, data: { today_progress: number; remarks: string }): Promise<any> {
     try {
-      const response = await api.put(`/work-progress/daily-entry/${id}`, data);
+      const response = await api.put(`/projects/work-progress/daily-entry/${id}`, data);
       return response.data;
     } catch (error: any) {
       console.warn("updateDailyEntry API error, using virtual success fallback:", error.message);
@@ -219,6 +225,7 @@ export const workProgressService = {
         }
         entry.today_progress = data.today_progress;
         entry.remarks = data.remarks;
+        persistMockData();
         return entry;
       }
       throw new Error("Daily entry not found");
@@ -230,7 +237,7 @@ export const workProgressService = {
    */
   async deleteDailyEntry(id: number): Promise<void> {
     try {
-      await api.delete(`/work-progress/daily-entry/${id}`);
+      await api.delete(`/projects/work-progress/daily-entry/${id}`);
     } catch (error: any) {
       console.warn("deleteDailyEntry API error, using virtual success fallback:", error.message);
       const entry = mockDailyEntries.find(e => e.id === id);
@@ -244,6 +251,7 @@ export const workProgressService = {
         }
       }
       mockDailyEntries = mockDailyEntries.filter(e => e.id !== id);
+      persistMockData();
     }
   },
 
@@ -273,9 +281,7 @@ export const workProgressService = {
    */
   async getTodayProgress(engineerId: number): Promise<ActivityItem[]> {
     try {
-      const response = await api.get("/projects/work-progress/site-engineer/today-progress", {
-        params: { engineer_id: engineerId }
-      });
+      const response = await api.get("/projects/work-progress/site-engineer/today-progress");
       return response.data;
     } catch (error: any) {
       console.warn("getTodayProgress API error, using virtual success fallback:", error.message);
