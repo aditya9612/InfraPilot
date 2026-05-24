@@ -42,6 +42,8 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
     owner_id: "",
     reference_id: "",
     tax_percent: 5,
+    start_date: "",
+    end_date: "",
   });
 
   const [calculated, setCalculated] = useState({
@@ -89,6 +91,8 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
         owner_id: initialData.owner_id ? String(initialData.owner_id) : "",
         reference_id: initialData.reference_id ? String(initialData.reference_id) : "",
         tax_percent: initialData.tax_percent || 5,
+        start_date: initialData.start_date || "",
+        end_date: initialData.end_date || "",
       });
     }
   }, [initialData, isOpen]);
@@ -138,6 +142,8 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
         tax_amount: calculated.tax_amount,
         total_amount: calculated.total_with_gst,
         description: formData.work_description,
+        start_date: formData.start_date,
+        end_date: formData.end_date,
       };
       onSubmit(submissionData);
     } else {
@@ -243,6 +249,28 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                     value={formData.reference_id}
                     onChange={e => setFormData({ ...formData, reference_id: e.target.value })}
                   />
+                </div>
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Start Date</label>
+                    <input
+                      type="date"
+                      required
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                      value={formData.start_date}
+                      onChange={e => setFormData({ ...formData, start_date: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">End Date</label>
+                    <input
+                      type="date"
+                      required
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                      value={formData.end_date}
+                      onChange={e => setFormData({ ...formData, end_date: e.target.value })}
+                    />
+                  </div>
                 </div>
               </>
             )}
@@ -369,11 +397,11 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Attachment (BOQ/PDF)</label>
                 <div className="flex items-center justify-center w-full">
                   <label className="flex flex-col items-center justify-center w-full h-20 border-2 border-slate-200 border-dashed rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100 transition-all">
-                      <div className="flex flex-col items-center justify-center pt-2 pb-2">
-                          <svg className="w-6 h-6 mb-2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
-                          <p className="text-xs text-slate-500 font-bold">Click to upload file</p>
-                      </div>
-                      <input type="file" className="hidden" onChange={e => setFormData({ ...formData, attachment: e.target.files ? e.target.files[0] : null })} />
+                    <div className="flex flex-col items-center justify-center pt-2 pb-2">
+                      <svg className="w-6 h-6 mb-2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                      <p className="text-xs text-slate-500 font-bold">Click to upload file</p>
+                    </div>
+                    <input type="file" className="hidden" onChange={e => setFormData({ ...formData, attachment: e.target.files ? e.target.files[0] : null })} />
                   </label>
                 </div>
                 {formData.attachment && <p className="text-[10px] text-primary font-bold mt-1">Attached: {formData.attachment.name}</p>}
@@ -384,23 +412,23 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
 
         {/* Calculation Summary Card */}
         <div className="bg-slate-900 rounded-[28px] p-8 mt-6 relative overflow-hidden">
-            <div className="absolute top-0 right-0 -mr-10 -mt-10 w-40 h-40 bg-primary/10 rounded-full blur-3xl"></div>
-            <div className="grid grid-cols-3 gap-8">
-                <div className="space-y-1">
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Base Amount</p>
-                    <p className="text-xl font-bold text-white">₹{calculated.base_total.toLocaleString()}</p>
-                </div>
-                <div className="space-y-1 border-x border-white/5 px-8">
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">GST ({formData.gst_percent}%)</p>
-                    <p className="text-xl font-bold text-emerald-400">+ ₹{calculated.gst_amount.toLocaleString()}</p>
-                </div>
-                <div className="space-y-1 text-right">
-                    <p className="text-[10px] font-black text-primary uppercase tracking-widest">
-                      {isLabour ? "Total w/ Tax&GST" : "Total with GST"}
-                    </p>
-                    <p className="text-3xl font-black text-primary">₹{calculated.total_with_gst.toLocaleString()}</p>
-                </div>
+          <div className="absolute top-0 right-0 -mr-10 -mt-10 w-40 h-40 bg-primary/10 rounded-full blur-3xl"></div>
+          <div className="grid grid-cols-3 gap-8">
+            <div className="space-y-1">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Base Amount</p>
+              <p className="text-xl font-bold text-white">₹{calculated.base_total.toLocaleString()}</p>
             </div>
+            <div className="space-y-1 border-x border-white/5 px-8">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">GST ({formData.gst_percent}%)</p>
+              <p className="text-xl font-bold text-emerald-400">+ ₹{calculated.gst_amount.toLocaleString()}</p>
+            </div>
+            <div className="space-y-1 text-right">
+              <p className="text-[10px] font-black text-primary uppercase tracking-widest">
+                {isLabour ? "Total w/ Tax&GST" : "Total with GST"}
+              </p>
+              <p className="text-3xl font-black text-primary">₹{calculated.total_with_gst.toLocaleString()}</p>
+            </div>
+          </div>
         </div>
 
         <div className="flex justify-end gap-3 pt-6">
@@ -419,7 +447,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
           </button>
         </div>
       </form>
-    </Modal>
+    </Modal >
   );
 };
 

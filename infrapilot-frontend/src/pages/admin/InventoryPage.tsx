@@ -79,7 +79,8 @@ const InventoryPage = () => {
   const [supplierApiErrors, setSupplierApiErrors] = useState<Record<string, string>>({});
   const [supplierPage, setSupplierPage] = useState(1);
   const [logsPage, setLogsPage] = useState(1);
-  const PAGE_SIZE = 10;;
+  const [materialPage, setMaterialPage] = useState(1);
+  const PAGE_SIZE = 10;
   const [isTransferModalOpen, setTransferModalOpen] = useState(false);
   const [isMaterialFormOpen, setMaterialFormOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -418,7 +419,12 @@ const InventoryPage = () => {
                 .map((tab) => (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
+                    onClick={() => {
+                      setActiveTab(tab.id as any);
+                      setMaterialPage(1);
+                      setSupplierPage(1);
+                      setLogsPage(1);
+                    }}
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === tab.id
                       ? "bg-primary text-white shadow-md shadow-primary/20"
                       : "text-slate-500 hover:bg-slate-50"
@@ -558,7 +564,12 @@ const InventoryPage = () => {
                 type="text"
                 placeholder={`Search ${activeTab}...`}
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setMaterialPage(1);
+                  setSupplierPage(1);
+                  setLogsPage(1);
+                }}
                 className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
               />
             </div>
@@ -574,31 +585,60 @@ const InventoryPage = () => {
               </div>
             ) : (
               <>
-                {(activeTab === "inventory" || activeTab === "overview") && (
-                  <InventoryTable
-                    materials={filteredInventory}
-                    projects={projects}
-                    onEdit={(m) => {
-                      setSelectedMaterial(m);
-                      setMaterialFormOpen(true);
-                    }}
-                    onPurchase={(m) =>
-                      setPurchaseActionConfig({
-                        isOpen: true,
-                        type: "purchase",
-                        material: m,
-                      })
-                    }
-                    onUsage={(m) =>
-                      setPurchaseActionConfig({
-                        isOpen: true,
-                        type: "usage",
-                        material: m,
-                      })
-                    }
-                    onDelete={(id) => handleDeleteClick(id, "material")}
-                  />
-                )}
+                {(activeTab === "inventory" || activeTab === "overview") && (() => {
+                  const totalPages = Math.max(1, Math.ceil(filteredInventory.length / PAGE_SIZE));
+                  const paged = filteredInventory.slice((materialPage - 1) * PAGE_SIZE, materialPage * PAGE_SIZE);
+                  return (
+                    <>
+                      <InventoryTable
+                        materials={paged}
+                        projects={projects}
+                        onEdit={(m) => {
+                          setSelectedMaterial(m);
+                          setMaterialFormOpen(true);
+                        }}
+                        onPurchase={(m) =>
+                          setPurchaseActionConfig({
+                            isOpen: true,
+                            type: "purchase",
+                            material: m,
+                          })
+                        }
+                        onUsage={(m) =>
+                          setPurchaseActionConfig({
+                            isOpen: true,
+                            type: "usage",
+                            material: m,
+                          })
+                        }
+                        onDelete={(id) => handleDeleteClick(id, "material")}
+                      />
+                      {totalPages > 1 && (
+                        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100">
+                          <span className="text-xs text-slate-400 font-medium">
+                            Showing {(materialPage - 1) * PAGE_SIZE + 1}–{Math.min(materialPage * PAGE_SIZE, filteredInventory.length)} of {filteredInventory.length}
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => setMaterialPage(p => Math.max(1, p - 1))} disabled={materialPage === 1}
+                              className="px-3 py-1 text-xs font-bold rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 transition">
+                              ← Prev
+                            </button>
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
+                              <button key={n} onClick={() => setMaterialPage(n)}
+                                className={`px-3 py-1 text-xs font-bold rounded-lg border transition ${n === materialPage ? 'bg-primary text-white border-primary' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                                  }`}>{n}
+                              </button>
+                            ))}
+                            <button onClick={() => setMaterialPage(p => Math.min(totalPages, p + 1))} disabled={materialPage === totalPages}
+                              className="px-3 py-1 text-xs font-bold rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 transition">
+                              Next →
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
                 {activeTab === "suppliers" && (() => {
                   const totalPages = Math.max(1, Math.ceil(filteredSuppliers.length / PAGE_SIZE));
                   const paged = filteredSuppliers.slice((supplierPage - 1) * PAGE_SIZE, supplierPage * PAGE_SIZE);

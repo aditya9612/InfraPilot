@@ -57,7 +57,7 @@ export const reportService = {
     },
 
     getFinancialSummary: async (projectId: number) => {
-        const response = await api.get(`/reports/financial-summary`, { params: { project_id: projectId } });
+        const response = await api.get(`/invoices/project/${projectId}/summary`);
         return response.data;
     },
 
@@ -82,7 +82,9 @@ export const reportService = {
     },
 
     exportDailyPDF: async (projectId: number, reportDate: string) => {
-        const response = await api.get(`/reports/export/daily-pdf`, {
+        const url = `/reports/daily/export/pdf`;
+        console.log(`Calling Report Export: GET ${url} with project_id=${projectId}, report_date=${reportDate}`);
+        const response = await api.get(url, {
             params: { project_id: projectId, report_date: reportDate },
             responseType: 'blob'
         });
@@ -90,7 +92,7 @@ export const reportService = {
     },
 
     exportWeeklyPDF: async (projectId: number) => {
-        const response = await api.get(`/reports/export/weekly-pdf`, {
+        const response = await api.get(`/reports/weekly/export/pdf`, {
             params: { project_id: projectId },
             responseType: 'blob'
         });
@@ -98,21 +100,21 @@ export const reportService = {
     },
 
     exportProfitLossPDF: async () => {
-        const response = await api.get(`/reports/export/profit-loss-pdf`, {
+        const response = await api.get(`/reports/profit-loss/export/pdf`, {
             responseType: 'blob'
         });
         return response.data;
     },
 
     exportCashflowPDF: async () => {
-        const response = await api.get(`/reports/export/cashflow-pdf`, {
+        const response = await api.get(`/reports/cashflow/export/pdf`, {
             responseType: 'blob'
         });
         return response.data;
     },
 
     exportLabourExcel: async (projectId: number) => {
-        const response = await api.get(`/reports/export/labour-excel`, {
+        const response = await api.get(`/reports/labour/export/excel`, {
             params: { project_id: projectId },
             responseType: 'blob'
         });
@@ -120,7 +122,7 @@ export const reportService = {
     },
 
     exportMaterialExcel: async (projectId: number) => {
-        const response = await api.get(`/reports/export/material-excel`, {
+        const response = await api.get(`/reports/material/export/excel`, {
             params: { project_id: projectId },
             responseType: 'blob'
         });
@@ -128,7 +130,7 @@ export const reportService = {
     },
 
     exportIssueExcel: async (projectId: number) => {
-        const response = await api.get(`/reports/export/issues-excel`, {
+        const response = await api.get(`/reports/issues/export/excel`, {
             params: { project_id: projectId },
             responseType: 'blob'
         });
@@ -136,7 +138,7 @@ export const reportService = {
     },
 
     exportAuditPDF: async (projectId: number) => {
-        const response = await api.get(`/reports/export/audit-pdf`, {
+        const response = await api.get(`/reports/audit/export/pdf`, {
             params: { project_id: projectId },
             responseType: 'blob'
         });
@@ -144,7 +146,7 @@ export const reportService = {
     },
 
     exportWorkSummaryPDF: async (projectId: number) => {
-        const response = await api.get(`/reports/export/work-summary-pdf`, {
+        const response = await api.get(`/reports/work-summary/export/pdf`, {
             params: { project_id: projectId },
             responseType: 'blob'
         });
@@ -152,7 +154,7 @@ export const reportService = {
     },
 
     exportContractorPerformancePDF: async (projectId: number) => {
-        const response = await api.get(`/reports/export/contractor-performance-pdf`, {
+        const response = await api.get(`/reports/contractor-performance/export/pdf`, {
             params: { project_id: projectId },
             responseType: 'blob'
         });

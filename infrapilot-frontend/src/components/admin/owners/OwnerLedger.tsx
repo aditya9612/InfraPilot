@@ -8,6 +8,8 @@ export default function OwnerLedger() {
   const [selectedOwnerId, setSelectedOwnerId] = useState<string>("");
   const [ledgerData, setLedgerData] = useState<OwnerLedgerResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Fetch owners to populate dropdown
   useEffect(() => {
@@ -42,6 +44,7 @@ export default function OwnerLedger() {
       try {
         const data = await ownerService.getOwnerLedger(selectedOwnerId);
         setLedgerData(data);
+        setCurrentPage(1);
       } catch (error) {
         console.error("Failed to fetch ledger", error);
         toast.error("Failed to load ledger data");
@@ -162,7 +165,7 @@ export default function OwnerLedger() {
                 </td>
               </tr>
             ) : (
-              ledgerData.transactions.map((txn) => (
+              ledgerData.transactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((txn) => (
                 <tr key={txn.id} className="hover:bg-slate-50/50 transition-all group cursor-default">
                   <td className="p-4 pl-6 text-sm font-bold text-slate-700">
                     {txn.description}
@@ -175,8 +178,8 @@ export default function OwnerLedger() {
                   <td className="p-4">
                     <span
                       className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${txn.type.toLowerCase() === "credit"
-                          ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-                          : "bg-rose-50 text-rose-700 border-rose-100"
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                        : "bg-rose-50 text-rose-700 border-rose-100"
                         }`}
                     >
                       {txn.type}
@@ -193,6 +196,30 @@ export default function OwnerLedger() {
           </tbody>
         </table>
       </div>
+
+      {ledgerData && ledgerData.transactions.length > itemsPerPage && (
+        <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between mt-auto">
+          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+            Showing {(currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, ledgerData.transactions.length)} of {ledgerData.transactions.length}
+          </span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-4 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-500 hover:bg-slate-50 transition-all disabled:opacity-50"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(Math.ceil(ledgerData.transactions.length / itemsPerPage), p + 1))}
+              disabled={currentPage === Math.ceil(ledgerData.transactions.length / itemsPerPage)}
+              className="px-4 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-500 hover:bg-slate-50 transition-all disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

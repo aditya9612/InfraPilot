@@ -172,6 +172,8 @@ const BOQPage = () => {
       }
     } catch (error) {
       console.error("Failed to refresh BOQs", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
