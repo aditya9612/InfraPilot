@@ -47,7 +47,7 @@ export const documentService = {
         if (params.remarks) formData.append("remarks", params.remarks);
         formData.append("file", params.file);
 
-        const response = await api.post("/documents/upload", formData, {
+        const response = await api.post("/documents", formData, {
             headers: {
                 "Content-Type": "multipart/form-data",
             },

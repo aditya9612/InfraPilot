@@ -1,5 +1,5 @@
 import api from "./api";
-import type { Invoice, InvoiceCreateData } from "../types/invoice";
+import type { Invoice, InvoiceCreateData, InvoiceSummary } from "../types/invoice";
 
 export const financeService = {
   /**
@@ -236,6 +236,26 @@ export const financeService = {
         `Delete Invoice ${id} Error:`,
         error.response?.data || error.message,
       );
+      throw error;
+    }
+  },
+
+  /**
+   * Get invoice summary for a project
+   * GET /api/v1/invoices/project/{project_id}/summary
+   */
+  async getProjectInvoiceSummary(projectId: number): Promise<InvoiceSummary> {
+    try {
+      const response = await api.get(`/invoices/project/${projectId}/summary`);
+      const data = response.data;
+      return {
+        project_id: projectId,
+        total_billing: (Number(data.paid) || 0) + (Number(data.pending) || 0),
+        pending_collections: Number(data.pending) || 0,
+        total_gst: Number(data.gst || data.total_gst) || 0,
+      };
+    } catch (error: any) {
+      console.error(`Get Invoice Summary for Project ${projectId} Error:`, error.response?.data || error.message);
       throw error;
     }
   },

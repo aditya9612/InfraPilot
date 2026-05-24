@@ -112,20 +112,37 @@ const DocumentsPage = () => {
     }
   };
 
+  const buildFileUrl = (file_url: string) => {
+    if (!file_url) return "";
+    if (file_url.startsWith('http')) return file_url;
+    // Prepend /api/v1 so the request goes via the /api proxy to https://infrapilot.in/api/v1/uploads/...
+    return `${import.meta.env.VITE_API_URL}${file_url}`;
+  };
+
   const handleDownload = async (doc: Document) => {
     const toastId = toast.loading(`Preparing ${doc.title}...`);
     try {
       const { file_url } = await documentService.getDownloadUrl(doc.id);
+      const fullUrl = buildFileUrl(file_url);
+      const userString = localStorage.getItem("infrapilot_user");
+      const token = userString ? JSON.parse(userString)?.token?.access_token || JSON.parse(userString)?.token : null;
+      const response = await fetch(fullUrl, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.href = file_url.startsWith('http') ? file_url : `${import.meta.env.VITE_API_URL}${file_url}`;
+      link.href = objectUrl;
       link.download = doc.title;
-      link.target = "_blank";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(objectUrl);
       toast.success("Download started", { id: toastId });
-    } catch (err) {
-      toast.error("Failed to prepare download", { id: toastId });
+    } catch (err: any) {
+      console.error("Download failed:", err);
+      toast.error(`Download failed: ${err.message}`, { id: toastId });
     }
   };
 
@@ -352,7 +369,12 @@ const DocumentsPage = () => {
           project: viewingDoc.project_name || "General",
           date: new Date(viewingDoc.uploaded_at).toLocaleDateString(),
           isFolder: viewingDoc.is_folder,
-          file_url: viewingDoc.file_url?.startsWith('http') ? viewingDoc.file_url : `${import.meta.env.VITE_API_URL}${viewingDoc.file_url}`
+          // /uploads paths are proxied directly by vite — no API prefix needed
+          file_url: viewingDoc.file_url
+            ? (viewingDoc.file_url.startsWith('http') || viewingDoc.file_url.startsWith('/uploads')
+              ? viewingDoc.file_url
+              : `${import.meta.env.VITE_API_URL}${viewingDoc.file_url}`)
+            : ""
         } : null}
         onDownload={handleDownload}
       />
