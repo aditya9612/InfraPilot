@@ -7,7 +7,6 @@ const ClientOverviewPage = () => {
   const [members, setMembers] = useState<any[]>([]);
   const [milestones, setMilestones] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [milestones, setMilestones] = useState<any[]>([]);
   const [loadingMilestones, setLoadingMilestones] = useState(true);
   const [team, setTeam] = useState<any[]>([]);
   const [loadingTeam, setLoadingTeam] = useState(true);
@@ -233,43 +232,7 @@ const ClientOverviewPage = () => {
                     {getStatusText(milestone.status)}
                   </span>
                 </div>
-              ) : milestones.length > 0 ? milestones.map((milestone, i) => {
-                const status = (milestone.status || "UPCOMING").toUpperCase();
-              const color = status === "COMPLETED" ? "bg-emerald-500" : status === "IN_PROGRESS" || status === "IN PROGRESS" ? "bg-blue-500" : "bg-slate-300";
-
-              // Date formatting
-              let dateStr = "TBD";
-              if (milestone.date) {
-                dateStr = milestone.date;
-                } else if (milestone.start_date || milestone.end_date) {
-                  const start = milestone.start_date ? new Date(milestone.start_date).toLocaleDateString('en-US', {month: 'short', year: 'numeric' }) : "";
-              const end = milestone.end_date ? new Date(milestone.end_date).toLocaleDateString('en-US', {month: 'short', year: 'numeric' }) : "";
-              dateStr = start && end ? `${start} - ${end}` : (start || end);
-              dateStr = dateStr.toUpperCase();
-                }
-
-              return (
-              <div key={i} className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className={`w-8 h-8 rounded-full ${color} flex items-center justify-center text-white text-xs font-bold`}>
-                    {status === "COMPLETED" ? "✓" : (status === "IN_PROGRESS" || status === "IN PROGRESS") ? "●" : "○"}
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-slate-800">{milestone.name}</p>
-                    <p className="text-[10px] text-slate-400 uppercase tracking-widest">{dateStr}</p>
-                  </div>
-                </div>
-                <span className={`text-[10px] font-black uppercase tracking-widest ${status === "COMPLETED" ? "text-emerald-500" :
-                  (status === "IN_PROGRESS" || status === "IN PROGRESS") ? "text-blue-500" :
-                    "text-slate-400"
-                  }`}>
-                  {status.replace(/_/g, ' ')}
-                </span>
-              </div>
-              );
-              }) : (
-              <p className="text-center py-8 text-slate-400 text-sm italic">No milestones defined for this project.</p>
-              )}
+              ))}
             </div>
           )}
         </div>

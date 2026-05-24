@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Navbar from "../../components/common/Navbar";
 import { projectService } from "../../services/projectService";
+import { toast } from "react-hot-toast";
 
 const milestones = [
   { name: "Site Preparation & Excavation", status: "done", date: "Jan 2025" },
@@ -9,6 +10,13 @@ const milestones = [
   { name: "Roof Slab Casting & Waterproofing", status: "active", date: "Mar 2026" },
   { name: "Finishing & MEP Works", status: "upcoming", date: "Jun 2026" },
   { name: "Final Inspection & Handover", status: "upcoming", date: "Oct 2026" },
+];
+
+const team = [
+  { name: "Rajesh Malhotra", role: "Project Director", avatar: "RM", color: "bg-indigo-600" },
+  { name: "Sneha Patil", role: "Lead Architect", avatar: "SP", color: "bg-purple-500" },
+  { name: "Vikram Singh", role: "Site Engineer", avatar: "VS", color: "bg-blue-600" },
+  { name: "Anita Desai", role: "Structural Consultant", avatar: "AD", color: "bg-teal-500" },
 ];
 
 const ClientProjectOverviewPage = () => {
