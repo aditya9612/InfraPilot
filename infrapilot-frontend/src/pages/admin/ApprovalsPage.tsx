@@ -20,6 +20,8 @@ const ApprovalsPage = () => {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [viewingApproval, setViewingApproval] = useState<any>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const PAGE_SIZE = 8;
 
   const fetchApprovals = async () => {
     setIsLoading(true);
@@ -38,26 +40,35 @@ const ApprovalsPage = () => {
     // Reset local view state when switching categories
     setSearchTerm("");
     setSelectedIds([]);
+    setCurrentPage(0);
   }, [location.pathname]);
+
+  // Reset to page 0 on search changes
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [searchTerm]);
 
   const filteredApprovals = Array.isArray(approvals) ? approvals.filter(a => {
     // 1. Route-based Category Filtering
     const type = (a.entity_type || "").toUpperCase();
     let matchesCategory = false;
 
-    const materialTypes = ["MATERIAL", "EQUIPMENT", "STOCK", "INVENTORY"];
-    const billingTypes = ["BILL", "BILLS", "INVOICE", "QUOTATION", "MEASUREMENT"];
-    const expenseTypes = ["EXPENSE", "LEAVE", "LABOUR", "SALARY", "ADVANCE"];
+    const materialTypes = ["MATERIAL", "EQUIPMENT", "STOCK", "INVENTORY", "ASSET", "MACHINERY", "TOOL", "DESIGN"];
+    const billingTypes = ["BILL", "INVOICE", "QUOTATION", "MEASUREMENT", "PAYMENT", "VOUCHER", "TAX", "ESTIMATE", "VARIATION"];
+    const expenseTypes = ["EXPENSE", "PETTY", "CASH", "LABOUR", "SALARY", "ADVANCE", "TRAVEL", "REIMBURSEMENT", "SITE_EXPENSE", "WORK"];
 
-    if (subPage === "material") {
-      matchesCategory = materialTypes.some(t => type.includes(t));
-    } else if (subPage === "billing") {
-      matchesCategory = billingTypes.some(t => type.includes(t));
-    } else if (subPage === "expense") {
-      matchesCategory = expenseTypes.some(t => type.includes(t));
+    const isMaterial = materialTypes.some(t => type.includes(t));
+    const isBilling = billingTypes.some(t => type.includes(t));
+
+    if (subPage.includes("material")) {
+      matchesCategory = isMaterial;
+    } else if (subPage.includes("billing") || subPage.includes("bill")) {
+      matchesCategory = isBilling;
+    } else if (subPage.includes("expense")) {
+      // Catch-all: If it's not material or billing, it's an expense (or if it's explicitly an expense type)
+      matchesCategory = (!isMaterial && !isBilling) || expenseTypes.some(t => type.includes(t));
     } else {
-      // Default /admin/approvals to material
-      matchesCategory = materialTypes.some(t => type.includes(t));
+      matchesCategory = true;
     }
 
     if (!matchesCategory) return false;
@@ -70,6 +81,9 @@ const ApprovalsPage = () => {
       a.entity_id?.toString().includes(searchStr)
     );
   }) : [];
+
+  const totalPages = Math.max(1, Math.ceil(filteredApprovals.length / PAGE_SIZE));
+  const pagedApprovals = filteredApprovals.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 
   const handleApprove = async (id: number) => {
     try {
@@ -179,9 +193,24 @@ const ApprovalsPage = () => {
 
         {/* Approval Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <StatCard title="Pending Requests" value={approvals.filter(a => a.status === "Pending").length.toString()} sub="Action Required" accent="text-amber-500" />
-          <StatCard title="Approved Total" value={approvals.filter(a => a.status === "Approved").length.toString()} sub="Successfully processed" accent="text-emerald-500" />
-          <StatCard title="Total Rejected" value={approvals.filter(a => a.status === "Rejected").length.toString()} sub="Denied requests" accent="text-rose-500" />
+          <StatCard
+            title="Pending Requests"
+            value={filteredApprovals.filter(a => a.status?.toLowerCase() === "pending").length.toString()}
+            sub="Action Required"
+            accent="text-amber-500"
+          />
+          <StatCard
+            title="Approved Total"
+            value={filteredApprovals.filter(a => a.status?.toLowerCase() === "approved").length.toString()}
+            sub="Successfully processed"
+            accent="text-emerald-500"
+          />
+          <StatCard
+            title="Total Rejected"
+            value={filteredApprovals.filter(a => a.status?.toLowerCase() === "rejected").length.toString()}
+            sub="Denied requests"
+            accent="text-rose-500"
+          />
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
@@ -228,7 +257,7 @@ const ApprovalsPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {filteredApprovals.map((item) => (
+                {pagedApprovals.map((item) => (
                   <tr key={item.id} className={`hover:bg-slate-50/50 transition-colors group ${selectedIds.includes(item.id) ? "bg-primary/[0.02]" : ""}`}>
                     <td className="px-6 py-4">
                       <input
@@ -248,8 +277,8 @@ const ApprovalsPage = () => {
                     <td className="px-6 py-4 text-xs font-medium text-slate-500 max-w-xs truncate">{item.remarks || "No remarks provided"}</td>
                     <td className="px-6 py-4">
                       <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${item.status?.toLowerCase() === "approved" ? "bg-emerald-100 text-emerald-600" :
-                          item.status?.toLowerCase() === "pending" ? "bg-amber-100 text-amber-600" :
-                            "bg-rose-100 text-rose-600"
+                        item.status?.toLowerCase() === "pending" ? "bg-amber-100 text-amber-600" :
+                          "bg-rose-100 text-rose-600"
                         }`}>
                         {item.status}
                       </span>
@@ -293,6 +322,32 @@ const ApprovalsPage = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Pagination */}
+          <div className="p-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+              Showing {filteredApprovals.length > 0 ? currentPage * PAGE_SIZE + 1 : 0}–{Math.min((currentPage + 1) * PAGE_SIZE, filteredApprovals.length)} of {filteredApprovals.length} Requests
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                disabled={currentPage === 0}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+              </button>
+              <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700 font-inter">
+                {currentPage + 1}
+              </div>
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={currentPage >= totalPages - 1}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+              </button>
+            </div>
           </div>
         </div>
       </PageTransition>

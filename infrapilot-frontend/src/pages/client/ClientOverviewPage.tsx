@@ -4,15 +4,18 @@ import { projectService } from "../../services/projectService";
 
 const ClientOverviewPage = () => {
   const [projectData, setProjectData] = useState<any>(null);
+  const [members, setMembers] = useState<any[]>([]);
+  const [milestones, setMilestones] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMilestones, setLoadingMilestones] = useState(true);
 
   useEffect(() => {
     const fetchProject = async () => {
       try {
         setLoading(true);
-        // limit = 20, offset = 0, search = "sara", status = "planned"
-        const result: any = await projectService.getProjects(20, 0, "sara", "planned");
-        
+        // Fetch all projects for the client
+        const result: any = await projectService.getProjects(100, 0);
+
         let fetchedProj = null;
         if (Array.isArray(result)) {
           fetchedProj = result[0];
@@ -21,8 +24,34 @@ const ClientOverviewPage = () => {
         } else if (result && result.data && result.data.length > 0) {
           fetchedProj = result.data[0];
         }
-        
+
         setProjectData(fetchedProj);
+
+        if (fetchedProj) {
+          const projectId = fetchedProj.id || fetchedProj.project_id;
+
+          // Fetch members
+          const mData = await projectService.getProjectMembers(projectId);
+          const rawMembers = Array.isArray(mData) ? mData : mData.items || mData.data || [];
+          const mappedMembers = rawMembers.map((m: any) => ({
+            id: m.user_id || m.user?.id || m.user?.user_id || m.id,
+            name: m.full_name || m.user?.full_name || m.user?.name || `User ${m.user_id || m.id || "Unknown"}`,
+            role: m.role || m.user?.role || "Member",
+            initials: (m.full_name || m.user?.full_name || m.user?.name || "U").split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+          }));
+          setMembers(mappedMembers);
+
+          // Fetch milestones
+          try {
+            setLoadingMilestones(true);
+            const msData = await projectService.getMilestones(projectId);
+            setMilestones(msData);
+          } catch (msErr) {
+            console.error("Failed to fetch milestones:", msErr);
+          } finally {
+            setLoadingMilestones(false);
+          }
+        }
       } catch (err) {
         console.error("Failed to fetch project for overview:", err);
         // Fallback for UI if it fails
@@ -127,28 +156,40 @@ const ClientOverviewPage = () => {
             <div className="space-y-6">
               {/* Project Manager */}
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-black">RK</div>
+                <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-black">
+                  {members.find(m => m.role.includes("Manager"))?.initials || "PM"}
+                </div>
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project Manager</p>
-                  <p className="text-sm font-bold text-slate-800">Rajesh Kumar</p>
+                  <p className="text-sm font-bold text-slate-800">
+                    {members.find(m => m.role.includes("Manager"))?.name || "Not Assigned"}
+                  </p>
                   <p className="text-[9px] text-slate-400 uppercase tracking-wider">INFRA CERTIFIED</p>
                 </div>
               </div>
               {/* Site Engineer */}
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-teal-500 text-white flex items-center justify-center text-xs font-black">AS</div>
+                <div className="w-10 h-10 rounded-full bg-teal-500 text-white flex items-center justify-center text-xs font-black">
+                  {members.find(m => m.role.includes("Engineer"))?.initials || "SE"}
+                </div>
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Site Engineer</p>
-                  <p className="text-sm font-bold text-slate-800">Amit Sharma</p>
+                  <p className="text-sm font-bold text-slate-800">
+                    {members.find(m => m.role.includes("Engineer"))?.name || "Not Assigned"}
+                  </p>
                   <p className="text-[9px] text-slate-400 uppercase tracking-wider">M.TECH STRUCTURAL</p>
                 </div>
               </div>
               {/* Contractor Name */}
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-black">PB</div>
+                <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-black">
+                  {members.find(m => m.role.toLowerCase().includes("contractor") || m.role.toLowerCase().includes("builder"))?.initials || "PB"}
+                </div>
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contractor Name</p>
-                  <p className="text-sm font-bold text-slate-800">Precision Buildcon Pvt Ltd</p>
+                  <p className="text-sm font-bold text-slate-800">
+                    {members.find(m => m.role.toLowerCase().includes("contractor") || m.role.toLowerCase().includes("builder"))?.name || "Precision Buildcon Pvt Ltd"}
+                  </p>
                   <p className="text-[9px] text-slate-400 uppercase tracking-wider">LEAD CONTRACTOR</p>
                 </div>
               </div>
@@ -163,33 +204,47 @@ const ClientOverviewPage = () => {
           <div className="lg:col-span-2 bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
             <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.2em] mb-8">Project Milestones</h2>
             <div className="space-y-6">
-              {[
-                { name: "Site Preparation & Excavation", date: "JAN 2025", status: "COMPLETED", color: "bg-emerald-500" },
-                { name: "Foundation & Basement", date: "APR 2025", status: "COMPLETED", color: "bg-emerald-500" },
-                { name: "Structural Framework (G+4)", date: "SEP 2025", status: "COMPLETED", color: "bg-emerald-500" },
-                { name: "Roof Slab Casting & Waterproofing", date: "MAR 2026", status: "IN PROGRESS", color: "bg-blue-500" },
-                { name: "Finishing & MEP Works", date: "JUN 2026", status: "UPCOMING", color: "bg-slate-300" },
-                { name: "Final Inspection & Handover", date: "OCT 2026", status: "UPCOMING", color: "bg-slate-300" },
-              ].map((milestone, i) => (
-                <div key={i} className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-8 h-8 rounded-full ${milestone.color} flex items-center justify-center text-white text-xs font-bold`}>
-                      {milestone.status === "COMPLETED" ? "✓" : milestone.status === "IN PROGRESS" ? "●" : "○"}
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-slate-800">{milestone.name}</p>
-                      <p className="text-[10px] text-slate-400 uppercase tracking-widest">{milestone.date}</p>
-                    </div>
-                  </div>
-                  <span className={`text-[10px] font-black uppercase tracking-widest ${
-                    milestone.status === "COMPLETED" ? "text-emerald-500" :
-                    milestone.status === "IN PROGRESS" ? "text-blue-500" :
-                    "text-slate-400"
-                  }`}>
-                    {milestone.status}
-                  </span>
+              {loadingMilestones ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin h-6 w-6 border-2 border-blue-500 border-t-transparent rounded-full"></div>
                 </div>
-              ))}
+              ) : milestones.length > 0 ? milestones.map((milestone, i) => {
+                const status = (milestone.status || "UPCOMING").toUpperCase();
+                const color = status === "COMPLETED" ? "bg-emerald-500" : status === "IN_PROGRESS" || status === "IN PROGRESS" ? "bg-blue-500" : "bg-slate-300";
+
+                // Date formatting
+                let dateStr = "TBD";
+                if (milestone.date) {
+                  dateStr = milestone.date;
+                } else if (milestone.start_date || milestone.end_date) {
+                  const start = milestone.start_date ? new Date(milestone.start_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : "";
+                  const end = milestone.end_date ? new Date(milestone.end_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : "";
+                  dateStr = start && end ? `${start} - ${end}` : (start || end);
+                  dateStr = dateStr.toUpperCase();
+                }
+
+                return (
+                  <div key={i} className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-8 h-8 rounded-full ${color} flex items-center justify-center text-white text-xs font-bold`}>
+                        {status === "COMPLETED" ? "✓" : (status === "IN_PROGRESS" || status === "IN PROGRESS") ? "●" : "○"}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-800">{milestone.name}</p>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-widest">{dateStr}</p>
+                      </div>
+                    </div>
+                    <span className={`text-[10px] font-black uppercase tracking-widest ${status === "COMPLETED" ? "text-emerald-500" :
+                      (status === "IN_PROGRESS" || status === "IN PROGRESS") ? "text-blue-500" :
+                        "text-slate-400"
+                      }`}>
+                      {status.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+                );
+              }) : (
+                <p className="text-center py-8 text-slate-400 text-sm italic">No milestones defined for this project.</p>
+              )}
             </div>
           </div>
 
@@ -200,14 +255,9 @@ const ClientOverviewPage = () => {
             <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
               <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.2em] mb-8">Project Team</h2>
               <div className="space-y-5">
-                {[
-                  { initials: "R", name: "Rajesh Mehta", role: "Project Manager", color: "bg-blue-600" },
-                  { initials: "A", name: "Anjali Desai", role: "Site Engineer", color: "bg-teal-500" },
-                  { initials: "V", name: "Vikram Build Co.", role: "Main Contractor", color: "bg-amber-500" },
-                  { initials: "P", name: "Priya Sharma", role: "Architect", color: "bg-purple-500" },
-                ].map((member, i) => (
+                {members.length > 0 ? members.slice(0, 5).map((member, i) => (
                   <div key={i} className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-full ${member.color} text-white flex items-center justify-center text-xs font-black`}>
+                    <div className={`w-10 h-10 rounded-full ${i % 2 === 0 ? "bg-blue-600" : "bg-teal-500"} text-white flex items-center justify-center text-xs font-black`}>
                       {member.initials}
                     </div>
                     <div>
@@ -215,7 +265,9 @@ const ClientOverviewPage = () => {
                       <p className="text-[10px] text-slate-400">{member.role}</p>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <p className="text-xs text-slate-400 italic">No team members assigned</p>
+                )}
               </div>
             </div>
 
@@ -224,8 +276,8 @@ const ClientOverviewPage = () => {
               <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.2em] mb-6">Key Dates</h2>
               <div className="space-y-4">
                 {[
-                  { label: "Project Start", value: "2026-04-02" },
-                  { label: "Expected Handover", value: "2026-04-02" },
+                  { label: "Project Start", value: projectData?.start_date || "2026-04-02" },
+                  { label: "Expected Handover", value: projectData?.end_date || "2026-04-02" },
                   { label: "Contract Value", value: "₹22.2 Crore" },
                   { label: "Paid to Date", value: "₹15.1 Crore" },
                 ].map((item, i) => (

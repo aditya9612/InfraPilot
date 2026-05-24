@@ -1,10 +1,10 @@
 import Navbar from "../../components/common/Navbar";
-import { useAuth } from "../../context/AuthContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Modal from "../../components/common/Modal";
 import { dashboardService, type ClientDashboardData } from "../../services/dashboardService";
+import { projectService } from "../../services/projectService";
 import toast from "react-hot-toast";
 
 const costData = [
@@ -26,43 +26,67 @@ const updates = [
 ];
 
 const ClientDashboard = () => {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [isBotOpen, setIsBotOpen] = useState(false);
   const [dashboardData, setDashboardData] = useState<ClientDashboardData | null>(null);
-
+  const [projectData, setProjectData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
+    const fetchDashboardContent = async () => {
       try {
-        const data = await dashboardService.getClientDashboard(96);
+        setLoading(true);
+
+        // 1. Fetch project to get the correct project_id
+        const result: any = await projectService.getProjects(10, 0);
+        let activeProject = null;
+
+        if (Array.isArray(result)) {
+          activeProject = result[0];
+        } else if (result?.items?.length > 0) {
+          activeProject = result.items[0];
+        } else if (result?.data?.length > 0) {
+          activeProject = result.data[0];
+        }
+
+        if (!activeProject) {
+          throw new Error("No active projects found for this client");
+        }
+
+        setProjectData(activeProject);
+        const projectId = activeProject.project_id || activeProject.id;
+
+        // 2. Fetch dashboard data for that project
+        const data = await dashboardService.getClientDashboard(projectId);
         setDashboardData(data);
-      } catch (error) {
+      } catch (error: any) {
+        console.error("Dashboard Fetch Error:", error);
+
+        // Fallback mock data if fetch fails
         const mockData: ClientDashboardData = {
-          project_id: 96,
+          project_id: 1,
           status: "ONGOING",
-          progress_percent: 0,
-          budget_total: 0,
-          total_expense: 0,
-          budget_used_percent: 0,
-          remaining_budget: 0,
-          milestones_total: 0,
-          milestones_completed: 0,
-          tasks_total: 0,
-          tasks_completed: 0,
-          start_date: "2026-05-21",
-          end_date: "2026-06-01",
-          days_remaining: 10,
+          progress_percent: 65,
+          budget_total: 25000000,
+          total_expense: 18000000,
+          budget_used_percent: 72,
+          remaining_budget: 7000000,
+          milestones_total: 12,
+          milestones_completed: 8,
+          tasks_total: 45,
+          tasks_completed: 32,
+          start_date: "2026-01-15",
+          end_date: "2026-12-20",
+          days_remaining: 210,
         };
         setDashboardData(mockData);
-        toast.error("Failed to load dashboard data – using mock data");
+        toast.error(error.message || "Failed to load dashboard data – using mock data");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchDashboardData();
+    fetchDashboardContent();
   }, []);
 
   const botMessages = [
@@ -78,28 +102,28 @@ const ClientDashboard = () => {
   };
 
   if (loading) {
-  return (
-    <>
-      <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Dashboard"]} />
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
-        <div className="w-12 h-12 border-4 border-slate-200 border-t-primary rounded-full animate-spin" />
-      </div>
-    </>
-  );
-}
+    return (
+      <>
+        <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Dashboard"]} />
+        <div className="flex items-center justify-center min-h-screen bg-slate-50">
+          <div className="w-12 h-12 border-4 border-slate-200 border-t-primary rounded-full animate-spin" />
+        </div>
+      </>
+    );
+  }
 
-if (!dashboardData) {
-  return (
-    <>
-      <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Dashboard"]} />
-      <div className="p-6 bg-slate-50 min-h-screen font-inter">
-        <p className="text-slate-500">Failed to load dashboard data.</p>
-      </div>
-    </>
-  );
-}
+  if (!dashboardData) {
+    return (
+      <>
+        <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Dashboard"]} />
+        <div className="p-6 bg-slate-50 min-h-screen font-inter">
+          <p className="text-slate-500">Failed to load dashboard data.</p>
+        </div>
+      </>
+    );
+  }
 
-return (
+  return (
     <>
       <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Dashboard"]} />
       <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
@@ -107,7 +131,7 @@ return (
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
           <div>
             <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-[10px] mb-1">Project Command Center</p>
-            <h1 className="text-4xl font-black text-slate-800 tracking-tight">SARA CITY</h1>
+            <h1 className="text-4xl font-black text-slate-800 tracking-tight">{projectData?.project_name || "PROPOSAL STAGE"}</h1>
           </div>
           <div className="flex items-center gap-4">
             <div className="bg-white border border-slate-200 rounded-2xl px-6 py-3 shadow-sm flex items-center gap-3">

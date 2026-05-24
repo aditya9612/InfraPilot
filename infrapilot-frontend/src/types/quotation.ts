@@ -106,7 +106,7 @@ export interface Quotation {
     notes?: string;
     terms_conditions?: string;
 
-    status?: "draft" | "sent" | "approved" | "declined";
+    status?: "draft" | "sent" | "approved" | "declined" | "converted";
     is_approved?: boolean;
     created_at?: string;
 }

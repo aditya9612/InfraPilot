@@ -14,6 +14,8 @@ export default function AgreementUploadPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPreview, setSelectedPreview] = useState<Agreement | null>(null);
+  const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
 
   const fetchAgreements = useCallback(async (query = "") => {
     setIsLoading(true);
@@ -50,25 +52,66 @@ export default function AgreementUploadPage() {
     return () => clearTimeout(delayDebounceFn);
   }, [searchTerm, fetchAgreements]);
 
-  const handleView = (agr: Agreement) => {
-    setSelectedPreview(agr);
+  const buildFileUrl = (file_url: string) => {
+    if (!file_url) return "";
+    if (file_url.startsWith('http')) return file_url;
+    // file_url starts with /uploads — prepend VITE_API_URL so it goes through the /api proxy
+    // which correctly routes to https://infrapilot.in/api/v1/uploads/...
+    return `${import.meta.env.VITE_API_URL}${file_url}`;
   };
 
-  const handleDownload = (agr: Agreement) => {
+  const handleView = async (agr: Agreement) => {
+    setSelectedPreview(agr);
+    setPreviewBlobUrl(null);
+    if (!agr.file_url) return;
+    setIsPreviewLoading(true);
+    try {
+      const url = buildFileUrl(agr.file_url);
+      const userString = localStorage.getItem("infrapilot_user");
+      const token = userString ? JSON.parse(userString)?.token?.access_token || JSON.parse(userString)?.token : null;
+      const response = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      setPreviewBlobUrl(objectUrl);
+    } catch (err) {
+      console.error("Preview fetch failed:", err);
+      toast.error("Could not load document preview.");
+    } finally {
+      setIsPreviewLoading(false);
+    }
+  };
+
+  const handleDownload = async (agr: Agreement) => {
     if (!agr.file_url) {
       toast.error("File URL not available");
       return;
     }
     const toastId = toast.loading(`Preparing ${agr.document_id || 'Document'} for download...`);
-
-    const link = document.createElement('a');
-    link.href = agr.file_url.startsWith('http') ? agr.file_url : `${import.meta.env.VITE_API_URL}${agr.file_url}`;
-    link.download = `${agr.document_id || 'Agreement'}_${agr.id}.pdf`;
-    link.target = "_blank";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success("Download started!", { id: toastId });
+    try {
+      const url = buildFileUrl(agr.file_url);
+      const userString = localStorage.getItem("infrapilot_user");
+      const token = userString ? JSON.parse(userString)?.token?.access_token || JSON.parse(userString)?.token : null;
+      const response = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = `${agr.document_id || 'Agreement'}_${agr.id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(objectUrl);
+      toast.success("Download started!", { id: toastId });
+    } catch (err: any) {
+      console.error("Download failed:", err);
+      toast.error(`Download failed: ${err.message}`, { id: toastId });
+    }
   };
 
   return (
@@ -287,16 +330,38 @@ export default function AgreementUploadPage() {
 
               {/* Preview Content */}
               <div className="flex-1 bg-slate-100 p-4 md:p-8 overflow-hidden relative">
-                <div className="w-full h-full bg-white rounded-xl shadow-inner overflow-hidden border border-slate-200">
-                  <iframe
-                    src={selectedPreview.file_url
-                      ? (selectedPreview.file_url.startsWith('http') ? selectedPreview.file_url : `${import.meta.env.VITE_API_URL}${selectedPreview.file_url}`)
-                      : 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
-                    }
-                    className="w-full h-full border-none"
-                    title="Document Preview"
-                  />
-                  {/* Mock Watermark */}
+                <div className="w-full h-full bg-white rounded-xl shadow-inner overflow-hidden border border-slate-200 relative flex items-center justify-center">
+                  {isPreviewLoading ? (
+                    <div className="flex flex-col items-center gap-3 text-slate-400">
+                      <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                      <p className="text-sm font-medium">Loading document...</p>
+                    </div>
+                  ) : previewBlobUrl ? (
+                    <iframe
+                      src={previewBlobUrl}
+                      className="w-full h-full border-none absolute inset-0"
+                      title="Document Preview"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center gap-4 text-slate-400 p-8 text-center">
+                      <svg className="w-16 h-16 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <div>
+                        <p className="font-bold text-slate-500 mb-1">Preview unavailable</p>
+                        <p className="text-xs text-slate-400">The file could not be loaded for preview.</p>
+                      </div>
+                      <a
+                        href={buildFileUrl(selectedPreview.file_url)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all"
+                      >
+                        Open in New Tab ↗
+                      </a>
+                    </div>
+                  )}
+                  {/* Watermark */}
                   <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-[0.03] select-none rotate-12">
                     <span className="text-[120px] font-black text-slate-900">INFRAPILOT</span>
                   </div>

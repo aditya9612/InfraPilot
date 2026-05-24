@@ -11,6 +11,7 @@ interface PurchaseActionModalProps {
 export default function PurchaseActionModal({ isOpen, onClose, onSubmit, material, actionType }: PurchaseActionModalProps) {
   const [formData, setFormData] = useState({
     quantity: 0,
+    rate: material?.purchase_rate || 0,
     payment: 0,
   });
 
@@ -27,21 +28,24 @@ export default function PurchaseActionModal({ isOpen, onClose, onSubmit, materia
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({ ...formData, actionType });
-    setFormData({ quantity: 0, payment: 0 });
+    setFormData({ quantity: 0, rate: material?.purchase_rate || 0, payment: 0 });
   };
 
   const isUsage = actionType === "usage";
   const title = isUsage ? "Log Material Usage" : "Record New Purchase";
   const qtyLabel = isUsage ? "Quantity Used *" : "Quantity Purchased *";
   const paymentLabel = isUsage ? "Associated Payment (Optional)" : "Payment Given Upfront *";
-  
+
   // Predict new state
-  const newStock = isUsage 
-        ? material.remaining_stock - (formData.quantity || 0)
-        : material.remaining_stock + (formData.quantity || 0);
-  
-  // Note: Only purchases increase total amount in this schema, usage doesn't inherently cost more money on the spot.
-  const newTotalAmount = isUsage ? material.total_amount : material.total_amount + ((formData.quantity || 0) * material.purchase_rate);
+  const newStock = isUsage
+    ? material.remaining_stock - (formData.quantity || 0)
+    : material.remaining_stock + (formData.quantity || 0);
+
+  // Note: For usage, total value doesn't change on the spot. For purchase, the new value is old value + (quantity * rate).
+  const currentRate = isUsage ? material.purchase_rate : (formData.rate || 0);
+  const newTotalAmount = isUsage
+    ? material.total_amount
+    : material.total_amount + ((formData.quantity || 0) * currentRate);
   const newPaymentGiven = material.payment_given + (formData.payment || 0);
   const newPending = newTotalAmount - newPaymentGiven;
 
@@ -52,7 +56,7 @@ export default function PurchaseActionModal({ isOpen, onClose, onSubmit, materia
           <div>
             <h2 className={`text-xl font-black tracking-tight ${isUsage ? 'text-amber-900' : 'text-emerald-900'}`}>{title}</h2>
             <p className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${isUsage ? 'text-amber-600' : 'text-emerald-600'}`}>
-                {material.material_name} ({material.unit})
+              {material.material_name} ({material.unit})
             </p>
           </div>
           <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
@@ -69,6 +73,8 @@ export default function PurchaseActionModal({ isOpen, onClose, onSubmit, materia
                   required
                   type="number"
                   name="quantity"
+                  min="0.01"
+                  step="0.01"
                   max={isUsage ? material.remaining_stock : undefined}
                   value={formData.quantity || ""}
                   onChange={handleChange}
@@ -80,9 +86,32 @@ export default function PurchaseActionModal({ isOpen, onClose, onSubmit, materia
                 </span>
               </div>
               {isUsage && formData.quantity > material.remaining_stock && (
-                  <p className="text-[10px] text-rose-500 font-bold uppercase tracking-tight mt-1 ml-1">Cannot exceed remaining inventory ({material.remaining_stock})</p>
+                <p className="text-[10px] text-rose-500 font-bold uppercase tracking-tight mt-1 ml-1">Cannot exceed remaining inventory ({material.remaining_stock})</p>
               )}
             </div>
+
+            {!isUsage && (
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Purchase Rate *</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">₹</span>
+                  <input
+                    required
+                    type="number"
+                    name="rate"
+                    min="0.01"
+                    step="0.01"
+                    value={formData.rate || ""}
+                    onChange={handleChange}
+                    className="w-full pl-10 pr-16 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm font-bold outline-none"
+                    placeholder="0.00"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 uppercase">
+                    / {material.unit}
+                  </span>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{paymentLabel}</label>
@@ -99,31 +128,31 @@ export default function PurchaseActionModal({ isOpen, onClose, onSubmit, materia
                 />
               </div>
             </div>
-            
-            <div className="bg-slate-900 rounded-[28px] p-6 relative overflow-hidden shadow-xl space-y-4">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl -mr-16 -mt-16" />
-                
-                <div className="flex justify-between items-center relative z-10">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inventory Forecast</span>
-                    <span className={`text-sm font-black ${newStock < 10 ? 'text-rose-400' : 'text-primary'}`}>
-                        {newStock.toLocaleString()} {material.unit}
-                    </span>
-                </div>
 
-                {!isUsage && (
-                    <div className="pt-4 border-t border-white/10 relative z-10 space-y-3">
-                        <div className="flex justify-between items-center">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Adjusted Valuation</span>
-                            <span className="text-sm font-black text-white">₹{newTotalAmount.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Updated Payables</span>
-                            <span className={`text-sm font-black ${newPending > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
-                                ₹{newPending.toLocaleString()}
-                            </span>
-                        </div>
-                    </div>
-                )}
+            <div className="bg-slate-900 rounded-[28px] p-6 relative overflow-hidden shadow-xl space-y-4">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl -mr-16 -mt-16" />
+
+              <div className="flex justify-between items-center relative z-10">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inventory Forecast</span>
+                <span className={`text-sm font-black ${newStock < 10 ? 'text-rose-400' : 'text-primary'}`}>
+                  {newStock.toLocaleString()} {material.unit}
+                </span>
+              </div>
+
+              {!isUsage && (
+                <div className="pt-4 border-t border-white/10 relative z-10 space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Adjusted Valuation</span>
+                    <span className="text-sm font-black text-white">₹{newTotalAmount.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Updated Payables</span>
+                    <span className={`text-sm font-black ${newPending > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                      ₹{newPending.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
