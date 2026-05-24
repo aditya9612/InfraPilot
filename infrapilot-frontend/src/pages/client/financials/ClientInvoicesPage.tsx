@@ -6,6 +6,7 @@ import autoTable from "jspdf-autotable";
 
 const ClientInvoicesPage = () => {
   const [invoices, setInvoices] = useState<any[]>([]);
+  const [summary, setSummary] = useState<{ total: number; paid: number; pending: number }>({ total: 0, paid: 0, pending: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -13,8 +14,12 @@ const ClientInvoicesPage = () => {
       try {
         setLoading(true);
         // Fetching 'owner' invoices as requested/implied for client role
-        const data = await financeService.getInvoicesByType("owner");
+        const [data, summaryData] = await Promise.all([
+           financeService.getInvoicesByType("owner"),
+           financeService.getReceivablesSummary()
+        ]);
         setInvoices(data);
+        setSummary(summaryData);
       } catch (err) {
         console.error("Failed to fetch invoices:", err);
       } finally {
@@ -46,13 +51,13 @@ const ClientInvoicesPage = () => {
   const downloadInvoicesPdf = () => {
     try {
       const doc = new jsPDF("landscape");
-      
+
       doc.setFontSize(18);
       doc.text("Project Invoices Report", 14, 22);
       doc.setFontSize(11);
       doc.setTextColor(100);
       doc.text(`Generated on: ${new Date().toLocaleDateString("en-IN")}`, 14, 30);
-      
+
       const head = [["Inv ID", "Date", "Description", "Base Amount", "GST", "Total Amount", "Paid", "Pending", "Status"]];
       const body = invoices.map(inv => [
         `INV-${inv.id}`,
@@ -81,6 +86,21 @@ const ClientInvoicesPage = () => {
     }
   };
 
+  const handleDownloadSinglePdf = async (id: number) => {
+    try {
+      const blob = await financeService.getInvoicePdf(id);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Invoice_${id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+    } catch (error) {
+      console.error("Failed to download PDF:", error);
+    }
+  };
+
   return (
     <>
       <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Financials", "Invoices"]} />
@@ -93,9 +113,9 @@ const ClientInvoicesPage = () => {
         {/* Financial Summary Section */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {[
-            { label: "Total Invoiced", value: formatCurrency(invoices.reduce((acc, inv) => acc + (inv.total_amount || 0), 0)), color: "bg-blue-600", text: "text-white" },
-            { label: "Total Paid", value: formatCurrency(invoices.reduce((acc, inv) => acc + (inv.paid_amount || 0), 0)), color: "bg-white", text: "text-slate-800 border border-slate-100 shadow-sm" },
-            { label: "Outstanding", value: formatCurrency(invoices.reduce((acc, inv) => acc + (inv.pending_amount || 0), 0)), color: "bg-red-50", text: "text-red-700 border border-red-100 shadow-sm" },
+            { label: "Total Invoiced", value: formatCurrency(summary.total || 0), color: "bg-blue-600", text: "text-white" },
+            { label: "Total Paid", value: formatCurrency(summary.paid || 0), color: "bg-white", text: "text-slate-800 border border-slate-100 shadow-sm" },
+            { label: "Outstanding", value: formatCurrency(summary.pending || 0), color: "bg-red-50", text: "text-red-700 border border-red-100 shadow-sm" },
           ].map((item, i) => (
             <div key={i} className={`${item.color} ${item.text} rounded-3xl p-8 transition-transform hover:scale-[1.02] duration-300`}>
               <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${item.label === 'Total Invoiced' ? 'text-blue-100' : 'text-slate-400 font-black'}`}>{item.label}</p>
@@ -107,7 +127,7 @@ const ClientInvoicesPage = () => {
         <div className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-slate-100">
           <div className="p-8 border-b border-slate-50 flex items-center justify-between">
             <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Invoices History</h2>
-            <button 
+            <button
               onClick={downloadInvoicesPdf}
               disabled={loading || invoices.length === 0}
               className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline active:scale-95 transition-transform disabled:opacity-50 disabled:no-underline"
@@ -128,16 +148,17 @@ const ClientInvoicesPage = () => {
                   <th className="p-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Paid</th>
                   <th className="p-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Outstanding</th>
                   <th className="p-4 pr-8 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
+                  <th className="p-4 pr-8 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {loading ? (
                   <tr>
-                    <td colSpan={9} className="p-12 text-center text-slate-400 font-bold animate-pulse uppercase tracking-widest text-xs">Fetching invoices data...</td>
+                    <td colSpan={10} className="p-12 text-center text-slate-400 font-bold animate-pulse uppercase tracking-widest text-xs">Fetching invoices data...</td>
                   </tr>
                 ) : invoices.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="p-12 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">No invoices found.</td>
+                    <td colSpan={10} className="p-12 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">No invoices found.</td>
                   </tr>
                 ) : (
                   invoices.map((inv, i) => (
@@ -158,13 +179,23 @@ const ClientInvoicesPage = () => {
                       <td className="p-4 text-xs font-bold text-emerald-600 text-right">{formatCurrency(inv.paid_amount || 0)}</td>
                       <td className="p-4 text-xs font-bold text-red-600 text-right">{formatCurrency(inv.pending_amount || 0)}</td>
                       <td className="p-4 pr-8 text-center">
-                        <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full ${
-                          inv.status === 'paid' ? 'bg-emerald-50 text-emerald-600' : 
-                          inv.status === 'partial' || inv.status === 'partially paid' ? 'bg-amber-50 text-amber-600 border border-amber-100' : 
-                          'bg-red-50 text-red-600 border border-red-100'
-                        }`}>
+                        <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full ${inv.status === 'paid' ? 'bg-emerald-50 text-emerald-600' :
+                            inv.status === 'partial' || inv.status === 'partially paid' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
+                              'bg-red-50 text-red-600 border border-red-100'
+                          }`}>
                           {inv.status || 'UNPAID'}
                         </span>
+                      </td>
+                      <td className="p-4 pr-8 text-center">
+                        <button
+                          onClick={() => handleDownloadSinglePdf(inv.id)}
+                          className="w-8 h-8 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-colors flex items-center justify-center flex-shrink-0"
+                          title="Download Invoice PDF"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                          </svg>
+                        </button>
                       </td>
                     </tr>
                   ))

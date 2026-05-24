@@ -43,6 +43,35 @@ const ClientIssuesPage = () => {
     }
   };
 
+  const handleDownloadIssue = (issue: any) => {
+    const lines = [
+      `ISSUE REPORT — InfraPilot`,
+      `================================`,
+      `ID         : ${issue.business_id || issue.id}`,
+      `Title      : ${issue.title}`,
+      `Category   : ${issue.category}`,
+      `Priority   : ${issue.priority}`,
+      `Status     : ${issue.status}`,
+      `Reported   : ${issue.reported_date || 'N/A'}`,
+      `Assigned To: ${issue.assigned_to || 'Pending Assignment'}`,
+      ``,
+      `Description:`,
+      issue.description || '—',
+      ``,
+      `Resolution:`,
+      issue.resolution || 'No resolution documented yet.',
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Issue_${issue.business_id || issue.id}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    a.parentNode?.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
 
 
   const stats = {
@@ -65,18 +94,18 @@ const ClientIssuesPage = () => {
       {/* Status Counters */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
         {[
-          { label: "Open Issues", count: stats.open, color: "bg-red-50 text-red-600 border-red-100" },
-          { label: "In Progress", count: stats.inProgress, color: "bg-amber-50 text-amber-600 border-amber-100" },
-          { label: "Resolved", count: stats.resolved, color: "bg-emerald-50 text-emerald-600 border-emerald-100" },
+          { label: "Open Issues", count: stats.open, color: "bg-white text-slate-400 border-slate-100" },
+          { label: "In Progress", count: stats.inProgress, color: "bg-white text-slate-400 border-slate-100" },
+          { label: "Resolved", count: stats.resolved, color: "bg-white text-slate-400 border-slate-100" },
         ].map((stat, i) => (
-          <div key={i} className={`p-6 rounded-3xl border ${stat.color} flex items-center justify-between shadow-sm`}>
+          <div key={i} className={`p-6 rounded-2xl border ${stat.color} flex items-center justify-between shadow-sm`}>
              <p className="text-[10px] font-black uppercase tracking-widest">{stat.label}</p>
-             <p className="text-3xl font-black">{stat.count}</p>
+             <p className="text-3xl font-black text-blue-600">{stat.count}</p>
           </div>
         ))}
       </div>
 
-      <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 px-8 py-4 min-h-[400px]">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 px-8 py-4 min-h-[400px]">
         {loading ? (
           <div className="flex flex-col items-center justify-center p-20 space-y-4">
              <div className="w-10 h-10 border-4 border-slate-100 border-t-primary rounded-full animate-spin" />
@@ -95,8 +124,7 @@ const ClientIssuesPage = () => {
                   <th className="py-6 text-[9px] font-black text-slate-400 uppercase tracking-widest">Category</th>
                   <th className="py-6 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Priority</th>
                   <th className="py-6 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
-                  <th className="py-6 text-[9px] font-black text-slate-400 uppercase tracking-widest">Reported</th>
-                  <th className="py-6 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                  <th className="py-6 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -136,13 +164,30 @@ const ClientIssuesPage = () => {
                           {issue.status}
                         </span>
                     </td>
-                    <td className="py-8 text-right">
-                       <button 
-                         onClick={() => handleViewIssue(issue.id)}
-                         className="px-4 py-2 bg-slate-900 border border-slate-800 text-white text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-800 transition-all shadow-lg active:scale-95"
-                       >
-                         View Details
-                       </button>
+                    <td className="py-8 text-center">
+                      <div className="flex items-center justify-center gap-3">
+                        {/* View button */}
+                        <button
+                          onClick={() => handleViewIssue(issue.id)}
+                          title="View Details"
+                          className="w-9 h-9 rounded-xl text-slate-400 hover:text-primary transition-colors flex items-center justify-center active:scale-95"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        </button>
+                        {/* Download button */}
+                        <button
+                          onClick={() => handleDownloadIssue(issue)}
+                          title="Download Report"
+                          className="w-9 h-9 rounded-xl text-slate-400 hover:text-emerald-600 transition-colors flex items-center justify-center active:scale-95"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -185,13 +230,13 @@ const ClientIssuesPage = () => {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-               <div className="p-4 bg-slate-50 rounded-3xl border border-slate-100">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Reported On</p>
-                  <p className="text-sm font-bold text-slate-700">{selectedIssue.reported_date}</p>
+               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Reported On</p>
+                  <p className="text-sm font-bold text-blue-600">{selectedIssue.reported_date}</p>
                </div>
-               <div className="p-4 bg-slate-50 rounded-3xl border border-slate-100">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Assigned To</p>
-                  <p className="text-sm font-bold text-slate-700">{selectedIssue.assigned_to || "Pending Assignment"}</p>
+               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Assigned To</p>
+                  <p className="text-sm font-bold text-blue-600">{selectedIssue.assigned_to || "Pending Assignment"}</p>
                </div>
             </div>
 

@@ -43,6 +43,34 @@ export const financeService = {
   },
 
   /**
+   * Get receivable summary
+   * GET /api/v1/invoices/receivables/summary
+   */
+  async getReceivablesSummary(): Promise<{ total: number; paid: number; pending: number }> {
+    try {
+      const response = await api.get('/invoices/receivables/summary');
+      return response.data;
+    } catch (error: any) {
+      console.error("Get Receivables Summary Error:", error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  /**
+   * Get payment summary for a project
+   * GET /api/v1/invoices/project/{project_id}/summary
+   */
+  async getProjectPaymentSummary(projectId: number): Promise<{ paid: number; pending: number }> {
+    try {
+      const response = await api.get(`/invoices/project/${projectId}/summary`);
+      return response.data;
+    } catch (error: any) {
+      console.error(`Fetch Project Payment Summary (${projectId}) Error:`, error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  /**
    * Fetch invoices within a date range
    * GET /api/v1/invoices/date-range?start=...&end=...
    */

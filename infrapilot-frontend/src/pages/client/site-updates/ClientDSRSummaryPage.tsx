@@ -185,106 +185,86 @@ const ClientDSRSummaryPage = () => {
               <div className="bg-white rounded-[40px] p-20 text-center border border-slate-100">
                  <p className="text-slate-400 font-black uppercase tracking-widest">No site reports documented yet.</p>
               </div>
-            ) : reports.map((report) => (
-              <div key={report.id} className="bg-white rounded-[40px] p-10 shadow-sm border border-slate-100 transition-all hover:shadow-2xl hover:shadow-blue-500/5 group">
-                
-                {/* Report Header */}
-                <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-8 mb-10 pb-8 border-b border-slate-50">
-                  <div className="flex items-start gap-6">
-                    <div className="bg-slate-900 text-white p-4 rounded-3xl shadow-lg flex flex-col items-center justify-center min-w-[80px]">
-                      <span className="text-[10px] font-black uppercase tracking-widest opacity-60">DSR</span>
-                      <span className="text-2xl font-black tracking-tighter leading-none my-1">{report.report_date?.split('-')[2]}</span>
-                      <span className="text-[10px] font-black uppercase tracking-widest text-blue-400">{report.formattedDate?.split(' ')[1]}</span>
-                    </div>
-                    <div>
-                      <h2 className="text-xl font-black text-slate-800 tracking-tight mb-2">{report.business_id || `Report #${report.id}`}</h2>
-                      <div className="flex flex-wrap items-center gap-3">
-                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${report.status === 'Draft' ? 'bg-amber-50 text-amber-500 border border-amber-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
-                          {report.status || 'SUBMITTED'}
-                        </span>
-                        <div className="flex items-center gap-1.5 text-slate-400 bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                          <span className="text-[9px] font-black uppercase tracking-widest">{report.site_location || "Verified Site"}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-                    {[
-                      { l: 'Total Labor', v: report.total_labour || 0, c: 'text-blue-600' },
-                      { l: 'Contractor', v: report.contractor_name || 'Sai Infra', c: 'text-slate-700' },
-                      { l: 'Weather', v: report.weather || 'Sunny', c: 'text-amber-500' },
-                    ].map((st, idx) => (
-                      <div key={idx} className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 text-center min-w-[100px]">
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">{st.l}</p>
-                        <p className={`text-sm font-black ${st.c}`}>{st.v}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Report Content Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-                  
-                  {/* Left Column: Progress */}
-                  <div className="lg:col-span-8 space-y-8">
-                    <div>
-                      <h3 className="text-[10px] font-black text-primary uppercase tracking-widest mb-4 flex items-center gap-3">
-                        <span className="w-2 h-2 rounded-full bg-primary" /> Progress Achievements
-                      </h3>
-                      <div className="bg-slate-50/30 p-6 rounded-3xl border border-slate-50">
-                        <p className="text-sm text-slate-700 font-bold leading-relaxed">{report.work_done}</p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <div>
-                        <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Planned Next Steps</h4>
-                        <p className="text-xs text-slate-500 font-medium italic border-l-2 border-slate-200 pl-4">{report.work_planned}</p>
-                      </div>
-                      <div>
-                        <h4 className="text-[9px] font-black text-rose-400 uppercase tracking-widest mb-3">Site Issues & Hazards</h4>
-                        <p className="text-xs text-slate-500 font-medium border-l-2 border-rose-100 pl-4">{report.issues || "No critical issues reported."}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right Column: Resources & Remarks */}
-                  <div className="lg:col-span-4 space-y-6">
-                    <div className="bg-slate-900 rounded-[32px] p-6 shadow-xl shadow-slate-900/10 text-white">
-                       <h3 className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-4">Material Log</h3>
-                       <p className="text-[11px] font-bold text-slate-300 leading-relaxed mb-4">Used: {report.material_used || "Standard inventory"}</p>
-                       <p className="text-[11px] font-bold text-emerald-400 leading-relaxed italic">Received: {report.material_received || "None"}</p>
-                    </div>
-
-                    <div className="p-6 bg-slate-50 rounded-[32px] border border-slate-100">
-                       <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Safety & Compliance</h3>
-                       <p className="text-[11px] font-bold text-slate-500 leading-relaxed">{report.safety_observations || "All safety protocols followed."}</p>
-                    </div>
-
-                    <div className="px-2">
-                       <h3 className="text-[9px] font-black text-amber-500 uppercase tracking-widest mb-2">Management Remarks</h3>
-                       <p className="text-[11px] font-black text-slate-700 leading-relaxed">{report.remarks || "No specialized remarks."}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Image Gallery */}
-                {report.gallery && report.gallery.length > 0 && (
-                  <div className="mt-10 pt-8 border-t border-slate-50">
-                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Field Verification Snapshots</h3>
-                    <div className="flex flex-wrap gap-4">
-                      {report.gallery.map((url: string, idx: number) => (
-                        <div key={idx} className="w-16 h-16 md:w-24 md:h-24 rounded-2xl overflow-hidden border border-slate-100 shadow-sm transition-transform hover:scale-110 cursor-zoom-in">
-                          <img src={url} alt="Site update" className="w-full h-full object-cover" />
-                        </div>
+            ) : (
+              <div className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-slate-100">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[1200px]">
+                    <thead>
+                      <tr className="bg-slate-50/50 border-b border-slate-100">
+                        <th className="p-6 pl-8 text-[9px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">Report Details</th>
+                        <th className="p-6 text-[9px] font-black text-slate-400 uppercase tracking-widest w-1/4 min-w-[250px]">Achievements</th>
+                        <th className="p-6 text-[9px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">Next Steps</th>
+                        <th className="p-6 text-[9px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">Issues & Safety</th>
+                        <th className="p-6 text-[9px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">Material Log</th>
+                        <th className="p-6 pr-8 text-[9px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">Management Remarks</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {reports.map((report) => (
+                        <tr key={report.id} className="hover:bg-slate-50/50 transition-colors group align-top">
+                          <td className="p-6 pl-8">
+                            <div className="flex flex-col items-start gap-2">
+                              <p className="text-sm font-black text-slate-800 tracking-tight uppercase">{report.business_id || `DSR-${report.id}`}</p>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-bold text-slate-500">{report.formattedDate}</span>
+                              </div>
+                              <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${report.status === 'Draft' ? 'bg-amber-50 text-amber-500' : 'bg-emerald-50 text-emerald-600'}`}>
+                                {report.status || 'SUBMITTED'}
+                              </span>
+                              
+                              {(report.total_labour || report.weather) && (
+                                <div className="mt-2 text-[9px] text-slate-400 font-medium">
+                                  {report.total_labour && <span className="block"><span className="font-bold uppercase">Labor:</span> {report.total_labour}</span>}
+                                  {report.weather && <span className="block mt-0.5"><span className="font-bold uppercase">Weather:</span> {report.weather}</span>}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-6">
+                            <p className="text-xs text-slate-700 font-medium leading-relaxed whitespace-pre-wrap">{report.work_done || "—"}</p>
+                            {report.gallery && report.gallery.length > 0 && (
+                              <div className="mt-4 flex flex-wrap gap-2">
+                                {report.gallery.map((url: string, idx: number) => (
+                                  <div key={idx} className="w-8 h-8 rounded-lg overflow-hidden border border-slate-200 shadow-sm transition-transform hover:scale-150 origin-bottom-left cursor-zoom-in">
+                                    <img src={url} alt="Snap" className="w-full h-full object-cover" />
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-6">
+                            <p className="text-xs text-slate-500 italic leading-relaxed">{report.work_planned || "—"}</p>
+                          </td>
+                          <td className="p-6 space-y-3">
+                            <div>
+                              <p className="text-[8px] font-black text-rose-400 uppercase tracking-widest mb-1">Hazards / Issues</p>
+                              <p className="text-[11px] text-slate-700 font-medium">{report.issues || "None reported"}</p>
+                            </div>
+                            <div>
+                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Compliance</p>
+                              <p className="text-[11px] text-slate-600">{report.safety_observations || "Verified"}</p>
+                            </div>
+                          </td>
+                          <td className="p-6 space-y-2">
+                            <div>
+                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Consumed</p>
+                              <p className="text-[11px] text-slate-700 font-medium leading-relaxed">{report.material_used || "—"}</p>
+                            </div>
+                            <div>
+                              <p className="text-[8px] font-black text-emerald-500 uppercase tracking-widest mb-1">Received</p>
+                              <p className="text-[11px] text-slate-600 italic leading-relaxed">{report.material_received || "—"}</p>
+                            </div>
+                          </td>
+                          <td className="p-6 pr-8">
+                            <p className="text-[11px] font-black text-slate-700 leading-relaxed">{report.remarks || "—"}</p>
+                          </td>
+                        </tr>
                       ))}
-                    </div>
-                  </div>
-                )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>

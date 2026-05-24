@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Navbar from "../../components/common/Navbar";
 import { projectService } from "../../services/projectService";
+import toast from "react-hot-toast";
 
 const milestones = [
   { name: "Site Preparation & Excavation", status: "done", date: "Jan 2025" },
@@ -9,6 +10,12 @@ const milestones = [
   { name: "Roof Slab Casting & Waterproofing", status: "active", date: "Mar 2026" },
   { name: "Finishing & MEP Works", status: "upcoming", date: "Jun 2026" },
   { name: "Final Inspection & Handover", status: "upcoming", date: "Oct 2026" },
+];
+
+const team = [
+  { name: "Rahul Verma", role: "Project Manager", avatar: "RV", color: "bg-blue-600" },
+  { name: "Priya Singh", role: "Lead Architect", avatar: "PS", color: "bg-emerald-600" },
+  { name: "Amit Kumar", role: "Site Engineer", avatar: "AK", color: "bg-amber-600" }
 ];
 
 const ClientProjectOverviewPage = () => {
@@ -28,15 +35,27 @@ const ClientProjectOverviewPage = () => {
       try {
         setLoading(true);
         setLoadingProjects(true);
-        // Fetch projects without strict filters to avoid 422 validation errors if enum mismatch
-        const result: any = await projectService.getProjects(20, 0);
+        const settings = await import("../../services/settingsService").then(m => m.settingsService.getSettings()).catch(() => null);
 
-        const list = Array.isArray(result) ? result : result.items || result.data || [];
+        // Fetch projects to populate the list at the top
+        const listResult: any = await projectService.getProjects(20, 0);
+        const list = Array.isArray(listResult) ? listResult : (listResult?.items || listResult?.data || []);
         setProjects(list);
 
-        if (list.length > 0) {
-          setProjectData(list[0]);
+        let selected = null;
+        if (settings?.default_project_id) {
+           try {
+               selected = await projectService.getProjectById(settings.default_project_id);
+           } catch(e) {
+               // Ignore
+           }
         }
+        
+        if (!selected && list.length > 0) {
+           selected = list[0];
+        }
+        
+        setProjectData(selected);
       } catch (err) {
         console.error("Failed to fetch project for overview:", err);
         toast.error("Failed to load projects");
@@ -173,7 +192,7 @@ const ClientProjectOverviewPage = () => {
                 <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
                   <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-6">Project Team</h2>
                   <div className="space-y-4">
-                    {team.map((t, i) => (
+                    {team.map((t: any, i: number) => (
                       <div key={i} className="flex items-center gap-3">
                         <div className={`w-10 h-10 rounded-2xl ${t.color} flex items-center justify-center text-white font-black text-sm shrink-0`}>{t.avatar}</div>
                         <div>

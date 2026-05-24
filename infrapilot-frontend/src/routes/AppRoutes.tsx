@@ -487,6 +487,7 @@ function AppRoutes() {
               <Route path="/client/overview" element={<ClientOverviewPage />} />
               <Route path="/client/project-overview" element={<ClientProjectOverviewPage />} />
               <Route path="/client/progress" element={<ClientProgressPage />} />
+              <Route path="/client/financials" element={<Navigate to="/client/financials/summary" replace />} />
               <Route path="/client/financials/summary" element={<ClientFinancialsSummaryPage />} />
               <Route path="/client/financials/invoices" element={<ClientInvoicesPage />} />
               <Route path="/client/financials/payments" element={<ClientPaymentsPage />} />
@@ -494,6 +495,7 @@ function AppRoutes() {
               <Route path="/client/site-updates/dsr" element={<ClientDSRSummaryPage />} />
               <Route path="/client/issues" element={<ClientIssuesPage />} />
               <Route path="/client/documents" element={<ClientDocumentsPage />} />
+              <Route path="/client/approvals" element={<ClientPendingApprovalsPage />} />
               <Route path="/client/approvals/pending" element={<ClientPendingApprovalsPage />} />
               <Route path="/client/approvals/approved" element={<ClientApprovedItemsPage />} />
               <Route path="/client/communication/messages" element={<ClientMessagesPage />} />

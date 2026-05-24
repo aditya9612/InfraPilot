@@ -106,15 +106,17 @@ export const settingsService = {
             if (localProfile) return JSON.parse(localProfile);
             
             return {
-                full_name: "Rahul Sharma",
-                role: "Site Engineer",
-                mobile_number: "9876543210",
-                email: "rahul.sharma@infrapilot.com",
-                address: "Pune, Maharashtra",
+                user_id: 1,
+                full_name: "Admin User",
+                role: "Admin",
+                mobile_number: "9999999990",
+                email: "admin@test.com",
+                address: "Pune",
                 pan_number: "ABCDE1234F",
-                aadhaar_number: "123456789012",
-                designation: "Senior Engineer",
-                joining_date: "2025-01-15",
+                aadhaar_number: "123412341234",
+                profile_image: "/uploads/profile/c5229e6d-19bf-4a3a-a977-9f5e89a51011.png",
+                designation: "Admin",
+                joining_date: "2026-03-30",
                 is_active: true
             } as any;
         }

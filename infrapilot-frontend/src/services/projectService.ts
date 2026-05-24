@@ -289,18 +289,13 @@ export const projectService = {
    */
   async getWorkProgressActivities(projectId: number, engineerId?: number) {
     try {
-<<<<<<< HEAD
       const params: any = {};
       if (engineerId) {
         params.engineer_id = engineerId;
       }
-      
+
       const response = await api.get(`/projects/${projectId}/work-progress/activities`, {
         params: params
-=======
-      const response = await api.get('/work-progress/activities', {
-        params: { project_id: projectId, engineer_id: engineerId }
->>>>>>> testing
       });
       const rawData = response.data;
 
@@ -320,9 +315,6 @@ export const projectService = {
       }));
     } catch (err) {
       console.error('Failed to fetch work progress activities:', err);
-<<<<<<< HEAD
-      throw err;
-=======
       // Fallback mock data
       return [
         {
@@ -345,7 +337,6 @@ export const projectService = {
           end_date: '2026-05-25'
         }
       ];
->>>>>>> testing
     }
   }
 };

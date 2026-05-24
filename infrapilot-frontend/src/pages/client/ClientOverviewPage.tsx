@@ -4,10 +4,8 @@ import { projectService } from "../../services/projectService";
 
 const ClientOverviewPage = () => {
   const [projectData, setProjectData] = useState<any>(null);
-  const [members, setMembers] = useState<any[]>([]);
   const [milestones, setMilestones] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [milestones, setMilestones] = useState<any[]>([]);
   const [loadingMilestones, setLoadingMilestones] = useState(true);
   const [team, setTeam] = useState<any[]>([]);
   const [loadingTeam, setLoadingTeam] = useState(true);
@@ -20,20 +18,33 @@ const ClientOverviewPage = () => {
         setLoadingTeam(true);
 
         // Fetch projects without strict filters to avoid 422 validation errors
-        const projectsResult: any = await projectService.getProjects(20, 0);
+        const settings = await import("../../services/settingsService").then(m => m.settingsService.getSettings()).catch(() => null);
 
         let fetchedProj = null;
-        if (Array.isArray(projectsResult)) {
-          fetchedProj = projectsResult[0];
-        } else if (projectsResult && projectsResult.items && projectsResult.items.length > 0) {
-          fetchedProj = projectsResult.items[0];
-        } else if (projectsResult && projectsResult.data && projectsResult.data.length > 0) {
-          fetchedProj = projectsResult.data[0];
+        if (settings?.default_project_id) {
+          try {
+            fetchedProj = await projectService.getProjectById(settings.default_project_id);
+          } catch (e) {
+            // Ignore error and fall back
+          }
+        }
+
+        if (!fetchedProj) {
+          const projectsResult: any = await projectService.getProjects(20, 0);
+          let list: any[] = [];
+          if (Array.isArray(projectsResult)) {
+            list = projectsResult;
+          } else if (projectsResult && projectsResult.items) {
+            list = projectsResult.items;
+          } else if (projectsResult && projectsResult.data) {
+            list = projectsResult.data;
+          }
+          fetchedProj = list[0];
         }
 
         setProjectData(fetchedProj);
 
-        const projectId = fetchedProj?.id || 96;
+        const projectId = 96;
 
         // Fetch milestones
         const milestonesResult: any = await projectService.getMilestones(projectId);
@@ -112,7 +123,7 @@ const ClientOverviewPage = () => {
         {/* Main Grid: Core Specs (2 cols) + Project Team (1 col) */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
           {/* Core Project Specifications */}
-          <div className="lg:col-span-2 bg-white rounded-3xl p-8 shadow-sm border border-slate-100 h-full">
+          <div className="lg:col-span-2 bg-white rounded-2xl p-8 shadow-sm border border-slate-100 h-full">
             <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.2em] mb-8">Core Project Specifications</h2>
             {loading ? (
               <div className="text-slate-400 text-sm font-bold animate-pulse">Loading core details...</div>
@@ -139,7 +150,7 @@ const ClientOverviewPage = () => {
                   <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-lg">🏗️</div>
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Description</p>
-                    <p className="text-sm font-bold text-slate-800">{projectData?.description || "—"}</p>
+                    <p className="text-sm font-bold text-blue-600">{projectData?.description || "—"}</p>
                   </div>
                 </div>
                 {/* Total Budget */}
@@ -147,7 +158,7 @@ const ClientOverviewPage = () => {
                   <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-lg">💰</div>
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Budget</p>
-                    <p className="text-sm font-bold text-slate-800">₹22,20,00,000.00 (Incl. GST)</p>
+                    <p className="text-sm font-bold text-blue-600">₹22,20,00,000.00 (Incl. GST)</p>
                   </div>
                 </div>
                 {/* Start Date */}
@@ -179,7 +190,7 @@ const ClientOverviewPage = () => {
           </div>
 
           {/* Project Team */}
-          <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 h-full">
+          <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 h-full">
             <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.2em] mb-8">Project Team</h2>
             {loadingTeam ? (
               <div className="text-slate-400 text-sm font-bold animate-pulse">Loading team...</div>
@@ -204,7 +215,7 @@ const ClientOverviewPage = () => {
         </div>
 
         {/* Full Width Milestones */}
-        <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+        <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
           <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.2em] mb-8">Project Milestones</h2>
           {loadingMilestones ? (
             <div className="text-slate-400 text-sm font-bold animate-pulse">Loading milestones...</div>
@@ -219,57 +230,21 @@ const ClientOverviewPage = () => {
                       {milestone.status?.toLowerCase() === "completed" ? "✓" : milestone.status?.toLowerCase() === "in progress" ? "●" : "○"}
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-slate-800">{milestone.title}</p>
+                      <p className="text-sm font-bold text-slate-800">{milestone.title || milestone.name}</p>
                       <p className="text-[10px] text-slate-400 uppercase tracking-widest">
                         {milestone.start_date} – {milestone.end_date}
                       </p>
                     </div>
                   </div>
                   <span className={`text-[10px] font-black uppercase tracking-widest ${milestone.status?.toLowerCase() === "completed" ? "text-emerald-500" :
-                      milestone.status?.toLowerCase() === "in progress" ? "text-blue-500" :
-                        milestone.status?.toLowerCase() === "delayed" ? "text-red-500" :
-                          "text-slate-400"
+                    milestone.status?.toLowerCase() === "in progress" ? "text-blue-500" :
+                      milestone.status?.toLowerCase() === "delayed" ? "text-red-500" :
+                        "text-slate-400"
                     }`}>
                     {getStatusText(milestone.status)}
                   </span>
                 </div>
-              ) : milestones.length > 0 ? milestones.map((milestone, i) => {
-                const status = (milestone.status || "UPCOMING").toUpperCase();
-              const color = status === "COMPLETED" ? "bg-emerald-500" : status === "IN_PROGRESS" || status === "IN PROGRESS" ? "bg-blue-500" : "bg-slate-300";
-
-              // Date formatting
-              let dateStr = "TBD";
-              if (milestone.date) {
-                dateStr = milestone.date;
-                } else if (milestone.start_date || milestone.end_date) {
-                  const start = milestone.start_date ? new Date(milestone.start_date).toLocaleDateString('en-US', {month: 'short', year: 'numeric' }) : "";
-              const end = milestone.end_date ? new Date(milestone.end_date).toLocaleDateString('en-US', {month: 'short', year: 'numeric' }) : "";
-              dateStr = start && end ? `${start} - ${end}` : (start || end);
-              dateStr = dateStr.toUpperCase();
-                }
-
-              return (
-              <div key={i} className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className={`w-8 h-8 rounded-full ${color} flex items-center justify-center text-white text-xs font-bold`}>
-                    {status === "COMPLETED" ? "✓" : (status === "IN_PROGRESS" || status === "IN PROGRESS") ? "●" : "○"}
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-slate-800">{milestone.name}</p>
-                    <p className="text-[10px] text-slate-400 uppercase tracking-widest">{dateStr}</p>
-                  </div>
-                </div>
-                <span className={`text-[10px] font-black uppercase tracking-widest ${status === "COMPLETED" ? "text-emerald-500" :
-                  (status === "IN_PROGRESS" || status === "IN PROGRESS") ? "text-blue-500" :
-                    "text-slate-400"
-                  }`}>
-                  {status.replace(/_/g, ' ')}
-                </span>
-              </div>
-              );
-              }) : (
-              <p className="text-center py-8 text-slate-400 text-sm italic">No milestones defined for this project.</p>
-              )}
+              ))}
             </div>
           )}
         </div>

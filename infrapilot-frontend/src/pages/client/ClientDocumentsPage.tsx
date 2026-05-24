@@ -201,23 +201,31 @@ const ClientDocumentsPage = () => {
         setFetchingDetail(true);
         setIsPreviewOpen(true);
         try {
-           // Fetch the binary data using the authenticated axios instance
            const response = await api.get(`/drawings/documents/view/${doc.id}`, {
               responseType: 'blob'
            });
-           
-           // Create a secure local URL for the PDF blob
-           const blob = new Blob([response.data], { type: 'application/pdf' });
+
+           // Detect actual content type from response
+           const contentType: string = response.headers?.['content-type'] || response.data?.type || 'application/octet-stream';
+           const blob = new Blob([response.data], { type: contentType });
            const blobUrl = URL.createObjectURL(blob);
-           
-           setSelectedPreview({ 
-             ...doc, 
-             previewUrl: blobUrl 
+
+           setSelectedPreview({
+             ...doc,
+             previewUrl: blobUrl,
+             previewType: contentType,
            });
-        } catch (err) {
+        } catch (err: any) {
            console.error("Preview fetch failed:", err);
-           alert("Unauthorized or failed to fetch document.");
-           setIsPreviewOpen(false);
+           // Fallback: if the doc has a direct file_url, open it in a new tab
+           if (doc.file_url) {
+              const baseUrl = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || 'http://127.0.0.1:8000';
+              const fullUrl = doc.file_url.startsWith('http') ? doc.file_url : `${baseUrl}/${doc.file_url.replace(/^\//, '')}`;
+              window.open(fullUrl, '_blank');
+              setIsPreviewOpen(false);
+           } else {
+              setSelectedPreview({ ...doc, previewUrl: null });
+           }
         } finally {
            setFetchingDetail(false);
         }
@@ -371,11 +379,21 @@ const ClientDocumentsPage = () => {
                 <p className="text-[10px] font-black uppercase tracking-widest">Establishing secure stream...</p>
              </div>
            ) : selectedPreview?.previewUrl ? (
-             <iframe 
-               src={selectedPreview.previewUrl} 
-               className="w-full h-[75vh]" 
-               title="Document Preview"
-             />
+             selectedPreview.previewType?.startsWith('image/') ? (
+               <div className="flex items-center justify-center h-[75vh] bg-slate-900">
+                 <img
+                   src={selectedPreview.previewUrl}
+                   alt={selectedPreview.name}
+                   className="max-h-full max-w-full object-contain rounded-2xl"
+                 />
+               </div>
+             ) : (
+               <iframe
+                 src={selectedPreview.previewUrl}
+                 className="w-full h-[75vh]"
+                 title="Document Preview"
+               />
+             )
            ) : (
              <div className="flex items-center justify-center h-[60vh] text-slate-500">
                 <p className="text-[10px] font-black uppercase tracking-widest text-red-400">Failed to stream document</p>

@@ -13,11 +13,7 @@ const costData = [
   { name: "Phase 3", budget: 1.8, actual: 1.5 },
 ];
 
-const sitePhotos = [
-  { id: 1, url: "/photos/slab_reinforcement.png", date: "Today", desc: "Slab reinforcement check" },
-  { id: 2, url: "/photos/foundation.png", date: "29 Mar 2026", desc: "Foundation concrete pour" },
-  { id: 3, url: "/photos/masonry.png", date: "30 Mar 2026", desc: "Brickwork progress - L1" },
-];
+
 
 const updates = [
   { id: 1, text: "Slab reinforcement for Phase 3 completed", time: "Today's Work", icon: "🏗️" },
@@ -38,15 +34,25 @@ const ClientDashboard = () => {
         setLoading(true);
 
         // 1. Fetch project to get the correct project_id
-        const result: any = await projectService.getProjects(10, 0);
         let activeProject = null;
+        const settings = await import("../../services/settingsService").then(m => m.settingsService.getSettings()).catch(() => null);
 
-        if (Array.isArray(result)) {
-          activeProject = result[0];
-        } else if (result?.items?.length > 0) {
-          activeProject = result.items[0];
-        } else if (result?.data?.length > 0) {
-          activeProject = result.data[0];
+        if (settings?.default_project_id) {
+            try {
+                activeProject = await projectService.getProjectById(settings.default_project_id);
+            } catch (e) {
+                // Ignore error and fall back
+            }
+        }
+        if (!activeProject) {
+            const result: any = await projectService.getProjects(10, 0);
+            if (Array.isArray(result) && result.length > 0) {
+              activeProject = result[0];
+            } else if (result?.items?.length > 0) {
+              activeProject = result.items[0];
+            } else if (result?.data?.length > 0) {
+              activeProject = result.data[0];
+            }
         }
 
         if (!activeProject) {
@@ -54,33 +60,31 @@ const ClientDashboard = () => {
         }
 
         setProjectData(activeProject);
-        const projectId = activeProject.project_id || activeProject.id;
-
         // 2. Fetch dashboard data for that project
-        const data = await dashboardService.getClientDashboard(projectId);
+        // The user explicitly requested to use id 96 for now
+        const dashboardId = 96;
+        const data = await dashboardService.getClientDashboard(dashboardId);
         setDashboardData(data);
       } catch (error: any) {
         console.error("Dashboard Fetch Error:", error);
-
-        // Fallback mock data if fetch fails
-        const mockData: ClientDashboardData = {
-          project_id: 1,
-          status: "ONGOING",
-          progress_percent: 65,
+        toast.error(error.message || "Failed to load dashboard data");
+        // Fallback data for project 96 (Rohan Harita)
+        setDashboardData({
+          project_id: 96,
+          status: "PLANNED",
+          progress_percent: 0,
           budget_total: 25000000,
-          total_expense: 18000000,
-          budget_used_percent: 72,
-          remaining_budget: 7000000,
-          milestones_total: 12,
-          milestones_completed: 8,
-          tasks_total: 45,
-          tasks_completed: 32,
-          start_date: "2026-01-15",
-          end_date: "2026-12-20",
-          days_remaining: 210,
-        };
-        setDashboardData(mockData);
-        toast.error(error.message || "Failed to load dashboard data – using mock data");
+          total_expense: 0,
+          budget_used_percent: 0,
+          remaining_budget: 25000000,
+          milestones_total: 5,
+          milestones_completed: 0,
+          tasks_total: 10,
+          tasks_completed: 0,
+          start_date: "2026-04-01",
+          end_date: "2026-07-01",
+          days_remaining: 0,
+        });
       } finally {
         setLoading(false);
       }
@@ -141,28 +145,30 @@ const ClientDashboard = () => {
           </div>
         </div>
         {/* Vital Metrics Grid */}
-        <div className="grid grid-cols-4 gap-6 mb-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
           {[
             { label: "Overall Progress", value: dashboardData ? `${dashboardData.progress_percent}%` : "—", sub: "Progress Percent" },
             { label: "Budget Used", value: dashboardData ? `${dashboardData.budget_used_percent}%` : "—", sub: "Budget Used Percent" },
-            { label: "Budget / Expense", value: dashboardData ? `₹${dashboardData.budget_total.toLocaleString("en-IN")} / ₹${dashboardData.total_expense.toLocaleString("en-IN")}` : "—", sub: "Total vs Expense" },
-            { label: "Remaining Budget", value: dashboardData ? `₹${dashboardData.remaining_budget.toLocaleString("en-IN")}` : "—", sub: "Remaining" },
+            { label: "Budget / Expense", value: dashboardData ? `₹${dashboardData.budget_total.toLocaleString("en-IN")} / ₹${dashboardData.total_expense.toLocaleString("en-IN")}` : "—", sub: "Total vs Expense", smallText: true },
+            { label: "Remaining Budget", value: dashboardData ? `₹${dashboardData.remaining_budget.toLocaleString("en-IN")}` : "—", sub: "Remaining", smallText: true },
             { label: "Milestones", value: dashboardData ? `${dashboardData.milestones_completed} / ${dashboardData.milestones_total}` : "—", sub: "Completed / Total" },
             { label: "Tasks", value: dashboardData ? `${dashboardData.tasks_completed} / ${dashboardData.tasks_total}` : "—", sub: "Completed / Total" },
             { label: "Project Dates", value: dashboardData ? `${formatDate(dashboardData.start_date)}\n${formatDate(dashboardData.end_date)}` : "—", sub: "Start / End Date", smallText: true },
             { label: "Days Remaining", value: dashboardData ? `${dashboardData.days_remaining}` : "—", sub: "Days Remaining" },
           ].map((card, i) => (
-            <div key={i} className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 transition-all hover:shadow-2xl hover:shadow-blue-500/5 group pt-10">
-              <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">{card.label}</p>
-              <p className={`${card.smallText ? "text-sm" : "text-xl"} font-black text-slate-800 tracking-tight leading-snug whitespace-pre-line`}>{card.value}</p>
-              <p className="text-[10px] text-slate-400 font-bold mt-2 uppercase tracking-tight">{card.sub}</p>
+            <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 transition-all hover:shadow-md group flex flex-col justify-between min-h-[140px]">
+              <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">{card.label}</p>
+              <div className="flex-1 flex flex-col justify-center py-2">
+                 <p className={`${card.smallText ? "text-lg" : "text-2xl"} font-black text-blue-600 tracking-tight leading-snug whitespace-pre-line break-words`}>{card.value}</p>
+              </div>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">{card.sub}</p>
             </div>
           ))}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
           <div className="lg:col-span-2 space-y-10">
             {/* Project Progress Viz */}
-            <div className="bg-white rounded-[48px] p-12 shadow-sm border border-slate-100 relative overflow-hidden">
+            <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/50 rounded-full blur-3xl -mr-32 -mt-32" />
               <div className="flex flex-col md:flex-row gap-12 items-center relative z-10">
                 <div className="relative w-40 h-40 flex items-center justify-center shrink-0">
@@ -176,7 +182,7 @@ const ClientDashboard = () => {
                     />
                   </svg>
                   <div className="absolute flex flex-col items-center">
-                    <span className="text-2xl font-black text-slate-800 tracking-tighter leading-none">{dashboardData ? `${dashboardData.progress_percent}%` : "0%"}</span>
+                    <span className="text-3xl font-black text-blue-600 tracking-tighter leading-none">{dashboardData ? `${dashboardData.progress_percent}%` : "0%"}</span>
                     <span className="text-[7px] font-black text-slate-400 tracking-[0.15em] uppercase mt-1">Project Progress</span>
                   </div>
                 </div>
@@ -199,7 +205,7 @@ const ClientDashboard = () => {
               </div>
             </div>
             {/* Financial Status Bar Chart */}
-            <div className="bg-white rounded-[48px] p-10 shadow-sm border border-slate-100">
+            <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
               <div className="flex items-center justify-between mb-10">
                 <div>
                   <h2 className="text-xl font-black text-slate-800 tracking-tight">Cost Management Audit</h2>
@@ -233,29 +239,12 @@ const ClientDashboard = () => {
                 </ResponsiveContainer>
               </div>
             </div>
-            {/* Site Photos Gallery Snippet */}
-            <div className="space-y-6 pb-6">
-              <div className="flex items-center justify-between px-4">
-                <h2 className="text-xl font-black text-slate-800 tracking-tight">Recent Site Evidence</h2>
-                <button onClick={() => navigate("/client/site-updates/photos")} className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline">Explore Full Gallery</button>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-                {sitePhotos.map(photo => (
-                  <div key={photo.id} className="group cursor-pointer">
-                    <div className="aspect-[4/3] rounded-[40px] overflow-hidden mb-4 shadow-sm group-hover:shadow-2xl transition-all duration-500">
-                      <img src={photo.url} alt={photo.desc} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                    </div>
-                    <p className="text-sm font-black text-slate-800 px-2 tracking-tight">{photo.desc}</p>
-                    <p className="text-[10px] text-slate-400 font-bold px-2 mt-1 uppercase tracking-widest">{photo.date}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
+
           </div>
           {/* Side Module: Alerts, Updates, and Actions */}
           <div className="space-y-6">
             {/* Timeline Stream */}
-            <div className="bg-white rounded-[48px] p-10 shadow-sm border border-slate-100">
+            <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
               <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-4 border-b border-slate-50 pb-4">Live Execution Feed</h2>
               <div className="space-y-10 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-px before:bg-slate-100">
                 {updates.map(update => (

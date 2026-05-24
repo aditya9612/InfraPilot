@@ -2,11 +2,12 @@ import { useState, useEffect } from "react";
 import Navbar from "../../components/common/Navbar";
 import { projectService } from "../../services/projectService";
 import { workProgressService } from "../../services/workProgressService";
+import type { DailyEntry } from "../../types/workProgress";
 
 
 const ClientProgressPage = () => {
   const [activities, setActivities] = useState<any[]>([]);
-  const [logs, setLogs] = useState<DailyLogItem[]>([]);
+  const [logs, setLogs] = useState<DailyEntry[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(true);
   const [loadingLogs, setLoadingLogs] = useState(true);
 
@@ -40,16 +41,16 @@ const ClientProgressPage = () => {
         </div>
 
         {/* Overall */}
-        <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 mb-8 flex items-center gap-10">
+        <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 mb-8 flex items-center gap-10">
           <div className="relative w-36 h-36 shrink-0">
-            <svg className="w-full h-full -rotate-90">
+            <svg className="w-full h-full -rotate-90" viewBox="0 0 144 144">
               <circle cx="72" cy="72" r="60" stroke="#f1f5f9" strokeWidth="10" fill="none" />
               <circle cx="72" cy="72" r="60" stroke="#2563eb" strokeWidth="10" fill="none"
                 strokeDasharray={376.99} strokeDashoffset={376.99 * (1 - overallProgress / 100)} strokeLinecap="round" />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-3xl font-black text-slate-800">{overallProgress}%</span>
-              <span className="text-[9px] font-bold text-slate-400 tracking-widest">OVERALL</span>
+              <span className="text-3xl font-black text-blue-600 tracking-tighter">{overallProgress}%</span>
+              <span className="text-[9px] font-bold text-slate-400 tracking-widest uppercase">Overall</span>
             </div>
           </div>
           <div>
@@ -71,7 +72,7 @@ const ClientProgressPage = () => {
 
 
         {/* Detailed Activity Progress — now from API */}
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="p-8 border-b border-slate-50">
             <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Detailed Activity Progress</h2>
           </div>
