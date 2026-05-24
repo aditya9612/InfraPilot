@@ -4,11 +4,12 @@ import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import StatCard from "../../../components/common/StatCard";
 import toast from "react-hot-toast";
-import { 
-  User
-,
+import {
+    User
+    ,
     ChevronLeft,
-    ChevronRight} from "lucide-react";
+    ChevronRight
+} from "lucide-react";
 
 import { qcService } from "../../../services/qcService";
 import { projectService } from "../../../services/projectService";
@@ -16,12 +17,12 @@ import type { QcItem } from "../../../services/qcService";
 
 const QCTestReportsPage = () => {
     const navigate = useNavigate();
-    
+
     // Core Data States
     const [qcList, setQcList] = useState<QcItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [projectId, setProjectId] = useState<number | null>(null);
-    
+
     // UI States
     const [activeTab] = useState<"Inspection" | "Test Reports">("Test Reports");
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Pass" | "Fail">("All");
@@ -95,7 +96,7 @@ const QCTestReportsPage = () => {
         const total = filteredQcList.length;
         const passCount = filteredQcList.filter(q => q.status === "Pass").length;
         const failCount = filteredQcList.filter(q => q.status === "Fail").length;
-        
+
         let totalFields = 0;
         let filledFields = 0;
 
@@ -137,7 +138,7 @@ const QCTestReportsPage = () => {
 
     const breakdown = useMemo(() => {
         const groups: Record<string, { total: number; passed: number; failed: number }> = {};
-        
+
         filteredQcList.forEach(q => {
             if (!groups[q.test_type]) {
                 groups[q.test_type] = { total: 0, passed: 0, failed: 0 };
@@ -160,7 +161,7 @@ const QCTestReportsPage = () => {
         <>
             <Navbar title="QC Test Reports" breadcrumb={["Engineer", "Quality Control", "Analytical Insights"]} />
 
-            <PageTransition className="p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter flex flex-col pb-8">
+            <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
                 {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
@@ -170,7 +171,7 @@ const QCTestReportsPage = () => {
                 </div>
 
                 {/* â”€â”€ Summary Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Total Tests"
@@ -201,13 +202,13 @@ const QCTestReportsPage = () => {
 
                 {/* â”€â”€ Tab Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex items-center gap-8 border-b border-slate-200 mb-8">
-                    <button 
+                    <button
                         onClick={() => navigate("/engineer/qc/inspection")}
                         className={`pb-4 text-sm font-bold transition-all relative ${activeTab === "Inspection" ? "text-primary border-b-2 border-primary" : "text-slate-500 hover:text-slate-700"}`}
                     >
                         QC Inspection
                     </button>
-                    <button 
+                    <button
                         onClick={() => navigate("/engineer/qc/reports")}
                         className={`pb-4 text-sm font-bold transition-all relative ${activeTab === "Test Reports" ? "text-primary border-b-2 border-primary" : "text-slate-500 hover:text-slate-700"}`}
                     >
@@ -217,149 +218,152 @@ const QCTestReportsPage = () => {
 
                 {/* â”€â”€ Scrollable Content Area â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex-1 overflow-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200">
-                {isLoading ? (
-                    <div className="py-20 text-center text-slate-400 font-inter">
-                        <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
-                        <p className="text-[10px] font-bold uppercase tracking-widest">Analyzing test data...</p>
-                    </div>
-                ) : (
-                    <>
-                        {qcList.length > 0 ? (
-                            <div className="space-y-10">
-                                {/* Test Type Breakdown Table */}
-                                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden font-inter">
-                                     <div className="p-4 border-b border-slate-50 bg-white">
-                                         <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Test Protocol Breakdown</h3>
-                                     </div>
-                                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200">
-                                        <table className="w-full text-left font-inter">
-                                            <thead>
-                                                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
-                                                    <th className="px-6 py-4 font-inter">Test Protocol</th>
-                                                    <th className="px-6 py-4 text-center font-inter">Sample Count</th>
-                                                    <th className="px-6 py-4 text-center font-inter">Compliant</th>
-                                                    <th className="px-6 py-4 text-center font-inter">Non-Compliant</th>
-                                                    <th className="px-6 py-4 text-right font-inter">Velocity</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-slate-50 font-inter">
-                                                {breakdown.map((row, idx) => (
-                                                    <tr key={idx} className="hover:bg-slate-50/50 transition-colors group font-inter">
-                                                        <td className="px-6 py-4">
-                                                            <span className="text-sm font-bold text-slate-800 font-inter">{row.type}</span>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-center text-sm font-medium text-slate-600 font-inter">{row.total}</td>
-                                                        <td className="px-6 py-4 text-center">
-                                                            <span className="px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold uppercase tracking-widest">{row.passed}</span>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-center">
-                                                            <span className="px-2.5 py-1 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-bold uppercase tracking-widest">{row.failed}</span>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-right">
-                                                            <span className="text-sm font-bold text-primary font-inter">{row.passRate}</span>
-                                                        </td>
+                    {isLoading ? (
+                        <div className="py-20 text-center text-slate-400 font-inter">
+                            <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
+                            <p className="text-[10px] font-bold uppercase tracking-widest">Analyzing test data...</p>
+                        </div>
+                    ) : (
+                        <>
+                            {qcList.length > 0 ? (
+                                <div className="space-y-10">
+                                    {/* Test Type Breakdown Table */}
+                                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden font-inter">
+                                        <div className="p-4 border-b border-slate-50 bg-white">
+                                            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Test Protocol Breakdown</h3>
+                                        </div>
+                                        <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200">
+                                            <table className="w-full text-left font-inter">
+                                                <thead>
+                                                    <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
+                                                        <th className="px-6 py-4 font-inter">Test Protocol</th>
+                                                        <th className="px-6 py-4 text-center font-inter">Sample Count</th>
+                                                        <th className="px-6 py-4 text-center font-inter">Compliant</th>
+                                                        <th className="px-6 py-4 text-center font-inter">Non-Compliant</th>
+                                                        <th className="px-6 py-4 text-right font-inter">Velocity</th>
                                                     </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-50 font-inter">
+                                                    {breakdown.map((row, idx) => (
+                                                        <tr key={idx} className="hover:bg-slate-50/50 transition-colors group font-inter">
+                                                            <td className="px-6 py-4">
+                                                                <span className="text-sm font-bold text-slate-800 font-inter">{row.type}</span>
+                                                            </td>
+                                                            <td className="px-6 py-4 text-center text-sm font-medium text-slate-600 font-inter">{row.total}</td>
+                                                            <td className="px-6 py-4 text-center">
+                                                                <span className="px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold uppercase tracking-widest">{row.passed}</span>
+                                                            </td>
+                                                            <td className="px-6 py-4 text-center">
+                                                                <span className="px-2.5 py-1 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-bold uppercase tracking-widest">{row.failed}</span>
+                                                            </td>
+                                                            <td className="px-6 py-4 text-right">
+                                                                <span className="text-sm font-bold text-primary font-inter">{row.passRate}</span>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     </div>
-                                </div>
 
-                                {/* All Inspections Table */}
-                                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden font-inter">
-                                     <div className="p-4 border-b border-slate-50 bg-white flex justify-between items-center">
-                                         <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Operational Audit Ledger</h3>
-                                         <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-[10px] font-bold uppercase tracking-widest font-inter">Archive Active</span>
-                                     </div>
-                                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200">
-                                        <table className="w-full text-left font-inter min-w-[1200px]">
-                                            <thead>
-                                                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
-                                                    <th className="px-6 py-4 font-inter">Audit Category</th>
-                                                    <th className="px-6 py-4 font-inter">Test Type</th>
-                                                    <th className="px-6 py-4 text-center font-inter">Metrics</th>
-                                                    <th className="px-6 py-4 font-inter">Compliance</th>
-                                                    <th className="px-6 py-4 font-inter">Technical Auditor</th>
-                                                    <th className="px-6 py-4 font-inter">Narrative</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-slate-50 font-inter">
-                                                {paginatedQcList.map((qc) => (
-                                                    <tr key={qc.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
-                                                        <td className="px-6 py-4">
-                                                            <div className="flex flex-col font-inter">
-                                                                <span className="text-sm font-bold text-slate-800 font-inter">{qc.inspection_type}</span>
-                                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">AUDIT-#{qc.id}</span>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            <span className="text-xs font-bold text-slate-800 font-inter">{qc.test_type}</span>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-center">
-                                                            <div className="flex flex-col font-inter items-center">
-                                                                <p className="text-[10px] font-bold text-slate-800 font-inter">{qc.result}</p>
-                                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">TH: {qc.standard_value}</p>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${qc.status === 'Pass' ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
-                                                                {qc.status}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            <div className="flex items-center gap-2 font-inter">
-                                                                <User className="w-3.5 h-3.5 text-slate-400" />
-                                                                <p className="text-[10px] font-bold text-slate-800 font-inter uppercase tracking-widest">{qc.engineer_name}</p>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            <span className="text-xs text-slate-600 font-inter" title={qc.remarks || ""}>
-                                                                {qc.remarks && qc.remarks.trim() ? qc.remarks : "-"}
-                                                            </span>
-                                                        </td>
+                                    {/* All Inspections Table */}
+                                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden font-inter">
+                                        <div className="p-4 border-b border-slate-50 bg-white flex justify-between items-center">
+                                            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Operational Audit Ledger</h3>
+                                            <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-[10px] font-bold uppercase tracking-widest font-inter">Archive Active</span>
+                                        </div>
+                                        <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200">
+                                            <table className="w-full text-left font-inter min-w-[1200px]">
+                                                <thead>
+                                                    <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
+                                                        <th className="px-6 py-4 font-inter">Audit Category</th>
+                                                        <th className="px-6 py-4 font-inter">Test Type</th>
+                                                        <th className="px-6 py-4 text-center font-inter">Metrics</th>
+                                                        <th className="px-6 py-4 font-inter">Compliance</th>
+                                                        <th className="px-6 py-4 font-inter">Technical Auditor</th>
+                                                        <th className="px-6 py-4 font-inter">Narrative</th>
                                                     </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-50 font-inter">
+                                                    {paginatedQcList.map((qc) => (
+                                                        <tr key={qc.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
+                                                            <td className="px-6 py-4">
+                                                                <div className="flex flex-col font-inter">
+                                                                    <span className="text-sm font-bold text-slate-800 font-inter">{qc.inspection_type}</span>
+                                                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">AUDIT-#{qc.id}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-6 py-4">
+                                                                <span className="text-xs font-bold text-slate-800 font-inter">{qc.test_type}</span>
+                                                            </td>
+                                                            <td className="px-6 py-4 text-center">
+                                                                <div className="flex flex-col font-inter items-center">
+                                                                    <p className="text-[10px] font-bold text-slate-800 font-inter">{qc.result}</p>
+                                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">TH: {qc.standard_value}</p>
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-6 py-4">
+                                                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${qc.status === 'Pass' ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
+                                                                    {qc.status}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-6 py-4">
+                                                                <div className="flex items-center gap-2 font-inter">
+                                                                    <User className="w-3.5 h-3.5 text-slate-400" />
+                                                                    <p className="text-[10px] font-bold text-slate-800 font-inter uppercase tracking-widest">{qc.engineer_name}</p>
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-6 py-4">
+                                                                <span className="text-xs text-slate-600 font-inter" title={qc.remarks || ""}>
+                                                                    {qc.remarks && qc.remarks.trim() ? qc.remarks : "-"}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        {/* ─── Pagination ─────────────────────────────────── */}
+                                        {!isLoading && filteredQcList.length > 0 && (
+                                            <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+                                                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                                                    PAGE {currentPage} OF {Math.max(1, Math.ceil(filteredQcList.length / itemsPerPage))}
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                                        disabled={currentPage === 1}
+                                                        className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
+                                                        title="Previous Page"
+                                                    >
+                                                        <ChevronLeft className="w-5 h-5" />
+                                                    </button>
+                                                    <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
+                                                        {currentPage}
+                                                    </div>
+                                                    <button
+                                                        onClick={() => setCurrentPage(prev => Math.min(Math.max(1, Math.ceil(filteredQcList.length / itemsPerPage)), prev + 1))}
+                                                        disabled={currentPage === Math.max(1, Math.ceil(filteredQcList.length / itemsPerPage))}
+                                                        className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
+                                                        title="Next Page"
+                                                    >
+                                                        <ChevronRight className="w-5 h-5" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
-                                     
-                                     {/* â”€â”€ Pagination â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                                     {filteredQcList.length > 0 && (
-                                         <div className="p-4 border-t border-slate-50 flex items-center justify-end bg-white font-inter">
-                                             <div className="flex items-center gap-2 font-inter">
-                                                 <button
-                                                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                                     disabled={currentPage === 1}
-                                                     className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
-                                                     title="Previous Page"
-                                                 >
-                                                     <ChevronLeft className="w-4 h-4" />
-                                                 </button>
-                                                 <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                                                     Page {currentPage} of 20
-                                                 </div>
-                                                 <button
-                                                     onClick={() => setCurrentPage(prev => Math.min(20, prev + 1))}
-                                                     disabled={currentPage === 20}
-                                                     className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
-                                                     title="Next Page"
-                                                 >
-                                                     <ChevronRight className="w-4 h-4" />
-                                                 </button>
-                                             </div>
-                                         </div>
-                                     )}
                                 </div>
-                            </div>
-                        ) : (
-                            <div className="py-20 text-center bg-white rounded-2xl border-2 border-dashed border-slate-200 font-inter">
-                                <p className="text-4xl mb-4">ðŸ“Š</p>
-                                <h3 className="text-lg font-bold text-slate-400 font-inter">No test reports available</h3>
-                                <p className="text-slate-400 text-sm font-inter">Complete inspections to generate data insights</p>
-                            </div>
-                        )}
-                    </>
-                )}
+                            ) : (
+                                <div className="py-20 text-center bg-white rounded-2xl border-2 border-dashed border-slate-200 font-inter">
+                                    <p className="text-4xl mb-4">ðŸ“Š</p>
+                                    <h3 className="text-lg font-bold text-slate-400 font-inter">No test reports available</h3>
+                                    <p className="text-slate-400 text-sm font-inter">Complete inspections to generate data insights</p>
+                                </div>
+                            )}
+                        </>
+                    )}
                 </div>
             </PageTransition>
         </>

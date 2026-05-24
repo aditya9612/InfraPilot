@@ -1,14 +1,13 @@
 import { useState, useEffect } from "react";
 import Navbar from "../../components/common/Navbar";
 import { projectService } from "../../services/projectService";
-import { workProgressService } from "../../services/workProgressService";
-
+import type { DailyEntry } from "../../types/workProgress";
 
 const ClientProgressPage = () => {
   const [activities, setActivities] = useState<any[]>([]);
-  const [logs, setLogs] = useState<DailyLogItem[]>([]);
+  const [_logs, _setLogs] = useState<DailyEntry[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(true);
-  const [loadingLogs, setLoadingLogs] = useState(true);
+  const [_loadingLogs, _setLoadingLogs] = useState(true);
 
   useEffect(() => {
     const fetchProgressData = async () => {

@@ -141,21 +141,8 @@ const MaterialStockPage = () => {
       setInventory(mergedInv);
       setReport(mergedRep);
 
-      // 6. Fetch transaction history logs for the first valid inventory item
-      let transList: any[] = [];
-      const targetId = mergedInv.length > 0 ? mergedInv[0].material_id : 1;
-      try {
-        transList = await materialService.getTransactions(targetId);
-      } catch (e) {
-        console.warn("Failed to fetch transactions for target material", e);
-        // Fallback to recent logs using active project logs
-        try {
-          transList = await materialService.getLogs({ project_id: projectId, type: "USAGE" });
-        } catch (e2) {
-          console.warn("Failed to fetch general logs", e2);
-        }
-      }
-      setLogs(transList || []);
+      // 6. Use the project-wide logs we already fetched instead of trying to fetch for a specific material
+      setLogs(allLogs || []);
 
     } catch (error) {
       console.error("Failed to load stock data", error);
@@ -213,11 +200,14 @@ const MaterialStockPage = () => {
     );
   }, [inventory, searchTerm, activeStatFilter]);
 
+  const filteredLogs = useMemo(() => {
+    return logs.filter(l => logFilter === "All" || l.type === logFilter);
+  }, [logs, logFilter]);
+
   const paginatedLogs = useMemo(() => {
-    const data = logs.filter(l => logFilter === "All" || l.type === logFilter);
     const startIndex = (currentPageLogs - 1) * itemsPerPageLogs;
-    return data.slice(startIndex, startIndex + itemsPerPageLogs);
-  }, [logs, logFilter, currentPageLogs]);
+    return filteredLogs.slice(startIndex, startIndex + itemsPerPageLogs);
+  }, [filteredLogs, currentPageLogs]);
 
   useEffect(() => {
     setCurrentPageLogs(1);
@@ -381,7 +371,6 @@ const MaterialStockPage = () => {
                       <td className="px-6 py-4 font-inter">
                         <div className="flex flex-col font-inter">
                           <span className="text-sm font-bold text-slate-800 font-inter">{inv.material_name}</span>
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">MID-#{inv.material_id}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-center font-inter">
@@ -537,29 +526,32 @@ const MaterialStockPage = () => {
           </div>
 
           {/* Logs Pagination */}
-          <div className="px-6 py-4 bg-slate-50/30 border-t border-slate-50 flex items-center justify-end font-inter">
-            <div className="flex items-center gap-2 font-inter">
-              <button
-                onClick={() => setCurrentPageLogs(prev => Math.max(prev - 1, 1))}
-                disabled={currentPageLogs === 1}
-                className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
-                title="Previous Page"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <div className="px-4 py-2 bg-primary/10 rounded-xl text-[10px] font-bold text-primary font-inter">
-                Page {currentPageLogs} of 20
-              </div>
-              <button
-                onClick={() => setCurrentPageLogs(prev => Math.min(prev + 1, 20))}
-                disabled={currentPageLogs === 20}
-                className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
-                title="Next Page"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+          <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                                PAGE {currentPageLogs} OF {Math.max(1, Math.ceil(filteredLogs.length / itemsPerPageLogs))}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setCurrentPageLogs(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPageLogs === 1}
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
+                                    title="Previous Page"
+                                >
+                                    <ChevronLeft className="w-5 h-5" />
+                                </button>
+                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
+                                    {currentPageLogs}
+                                </div>
+                                <button
+                                    onClick={() => setCurrentPageLogs(prev => Math.min(Math.max(1, Math.ceil(filteredLogs.length / itemsPerPageLogs)), prev + 1))}
+                                    disabled={currentPageLogs === Math.max(1, Math.ceil(filteredLogs.length / itemsPerPageLogs))}
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
+                                    title="Next Page"
+                                >
+                                    <ChevronRight className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
         </div>
       </PageTransition>
     </>

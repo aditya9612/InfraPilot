@@ -22,8 +22,9 @@ export const dashboardService = {
    * Get Client Dashboard stats
    * GET /api/v1/dashboard/client/{project_id}
    */
-  async getClientDashboard(): Promise<ClientDashboardData> {
-    const response = await api.get<ClientDashboardData>(`/dashboard/client`);
+  async getClientDashboard(projectId?: number): Promise<ClientDashboardData> {
+    const url = projectId ? `/dashboard/client/${projectId}` : `/dashboard/client`;
+    const response = await api.get<ClientDashboardData>(url);
     return response.data;
   },
 

@@ -17,6 +17,7 @@ import { quotationService } from "../../services/quotationService";
 import type { Quotation } from "../../types/quotation";
 import toast from "react-hot-toast";
 import { exportToCSV } from "../../utils/csvExport";
+import { generateQuotationPDF } from "../../utils/quotationPDFGenerator";
 
 const AllInvoicesPage = () => {
   const [quotations, setQuotations] = useState<Quotation[]>([]);
@@ -253,7 +254,11 @@ const AllInvoicesPage = () => {
                             >
                               <Eye className="w-4 h-4" />
                             </Link>
-                            <button className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Download PDF">
+                            <button
+                              onClick={() => generateQuotationPDF(q)}
+                              className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                              title="Download PDF"
+                            >
                               <Download className="w-4 h-4" />
                             </button>
                             <button

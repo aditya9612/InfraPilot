@@ -22,6 +22,8 @@ export interface Invoice {
   due_date?: string;
   quantity?: number;
   rate?: number;
+  start_date?: string;
+  end_date?: string;
 }
 
 export interface InvoiceCreateData {
@@ -36,4 +38,13 @@ export interface InvoiceCreateData {
   tax_amount: number;
   total_amount: number;
   description: string;
+  start_date?: string;
+  end_date?: string;
+}
+
+export interface InvoiceSummary {
+  project_id: number;
+  total_billing: number;
+  pending_collections: number;
+  total_gst: number;
 }

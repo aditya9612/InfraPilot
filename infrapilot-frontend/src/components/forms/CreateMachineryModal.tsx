@@ -214,17 +214,17 @@ const CreateMachineryModal: React.FC<CreateMachineryModalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             <div>
               <label className={labelClasses}>Working Hours <span className="text-rose-500">*</span></label>
-              <input type="number" name="working_hours" value={formData.working_hours} onChange={handleChange} placeholder="0" className={inputClasses(errors.working_hours)} />
+              <input type="number" min="0" onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }} name="working_hours" value={formData.working_hours} onChange={handleChange} placeholder="0" className={inputClasses(errors.working_hours)} />
               {errors.working_hours && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.working_hours}</p>}
             </div>
             <div>
               <label className={labelClasses}>Fuel Consumed (Ltrs) <span className="text-rose-500">*</span></label>
-              <input type="number" name="fuel_used" value={formData.fuel_used} onChange={handleChange} placeholder="0" className={inputClasses(errors.fuel_used)} />
+              <input type="number" min="0" onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }} name="fuel_used" value={formData.fuel_used} onChange={handleChange} placeholder="0" className={inputClasses(errors.fuel_used)} />
               {errors.fuel_used && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.fuel_used}</p>}
             </div>
             <div>
               <label className={labelClasses}>Rental Cost (₹) <span className="text-rose-500">*</span></label>
-              <input type="number" name="rental_cost" value={formData.rental_cost} onChange={handleChange} placeholder="0" className={inputClasses(errors.rental_cost)} />
+              <input type="number" min="0" onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }} name="rental_cost" value={formData.rental_cost} onChange={handleChange} placeholder="0" className={inputClasses(errors.rental_cost)} />
               {errors.rental_cost && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.rental_cost}</p>}
             </div>
             <div>
@@ -238,7 +238,6 @@ const CreateMachineryModal: React.FC<CreateMachineryModalProps> = ({
                 <option value="GOOD">Good</option>
                 <option value="REPAIR">Repair</option>
                 <option value="DAMAGED">Damaged</option>
-                <option value="MAINTENANCE">Maintenance</option>
               </select>
               {errors.condition && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.condition}</p>}
             </div>

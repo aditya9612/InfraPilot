@@ -155,8 +155,8 @@ const ClientProjectOverviewPage = () => {
                     {milestones.map((m, i) => (
                       <div key={i} className="relative pl-12 flex items-start gap-4">
                         <div className={`absolute left-0 w-9 h-9 rounded-full flex items-center justify-center border-2 z-10 ${m.status === "done" ? "bg-emerald-500 border-emerald-500 text-white" :
-                            m.status === "active" ? "bg-blue-600 border-blue-600 text-white animate-pulse" :
-                              "bg-white border-slate-200 text-slate-300"
+                          m.status === "active" ? "bg-blue-600 border-blue-600 text-white animate-pulse" :
+                            "bg-white border-slate-200 text-slate-300"
                           }`}>
                           {m.status === "done" ? "✓" : m.status === "active" ? "●" : "○"}
                         </div>
@@ -165,8 +165,8 @@ const ClientProjectOverviewPage = () => {
                           <p className="text-[10px] font-bold text-slate-400 mt-0.5 uppercase tracking-widest">{m.date}</p>
                         </div>
                         <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${m.status === "done" ? "bg-emerald-50 text-emerald-600" :
-                            m.status === "active" ? "bg-blue-50 text-blue-600" :
-                              "bg-slate-50 text-slate-400"
+                          m.status === "active" ? "bg-blue-50 text-blue-600" :
+                            "bg-slate-50 text-slate-400"
                           }`}>
                           {m.status === "done" ? "Completed" : m.status === "active" ? "In Progress" : "Upcoming"}
                         </span>

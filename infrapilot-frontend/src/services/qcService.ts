@@ -39,10 +39,9 @@ export interface CreateQcRequest {
 }
 
 export const qcService = {
-  listQc: async (projectId: number): Promise<QcResponse> => {
-    const response = await api.get("/qc", {
-      params: { project_id: projectId }
-    });
+  listQc: async (_projectId: number): Promise<QcResponse> => {
+    // Calling the API without project_id in the URL to keep it clean as requested
+    const response = await api.get("/qc");
     return response.data;
   },
 

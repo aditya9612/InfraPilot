@@ -378,7 +378,7 @@ const MaterialRequestPage = () => {
                                         <tr key={request.id} className="hover:bg-slate-50/50 transition-colors group font-inter border-b border-slate-50/50">
                                             <td className="px-6 py-4 font-inter">
                                                 <div className="flex flex-col font-inter">
-                                                    <span className="text-sm font-bold text-slate-800 font-inter">REQ-#{request.id}</span>
+                                                    <span className="text-sm font-bold text-slate-800 font-inter">Requisition</span>
                                                     <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter mt-0.5">Procurement Log</span>
                                                 </div>
                                             </td>
@@ -451,38 +451,29 @@ const MaterialRequestPage = () => {
 
                     {/* â”€â”€ Pagination Controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                     {!isLoading && filteredRequests.length > 0 && (
-                        <div className="px-4 md:px-6 py-4 border-t border-slate-50 flex flex-col sm:flex-row items-center justify-between sm:justify-end gap-4 bg-white sticky left-0 font-inter">
-                            <div className="flex items-center flex-wrap gap-2 font-inter justify-center">
+                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
+                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                                PAGE {currentPage} OF {Math.max(1, Math.ceil(filteredRequests.length / itemsPerPage))}
+                            </div>
+                            <div className="flex items-center gap-2">
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                     disabled={currentPage === 1}
-                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
                                     title="Previous Page"
                                 >
-                                    <ChevronLeft className="w-4 h-4" />
+                                    <ChevronLeft className="w-5 h-5" />
                                 </button>
-                                
-                                {Array.from({ length: Math.min(totalPages, 20) }, (_, i) => i + 1).map(page => (
-                                    <button
-                                        key={page}
-                                        onClick={() => setCurrentPage(page)}
-                                        className={`w-10 h-10 rounded-xl text-sm font-bold transition-all shadow-sm flex items-center justify-center font-inter ${
-                                            currentPage === page 
-                                                ? 'bg-primary text-white border-transparent' 
-                                                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-primary'
-                                        }`}
-                                    >
-                                        {page}
-                                    </button>
-                                ))}
-
+                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
+                                    {currentPage}
+                                </div>
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                                    disabled={currentPage >= totalPages || totalPages === 0}
-                                    className="p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary disabled:opacity-50 transition-all shadow-sm bg-white active:scale-95 flex items-center justify-center font-inter"
+                                    onClick={() => setCurrentPage(prev => Math.min(Math.max(1, Math.ceil(filteredRequests.length / itemsPerPage)), prev + 1))}
+                                    disabled={currentPage === Math.max(1, Math.ceil(filteredRequests.length / itemsPerPage))}
+                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
                                     title="Next Page"
                                 >
-                                    <ChevronRight className="w-4 h-4" />
+                                    <ChevronRight className="w-5 h-5" />
                                 </button>
                             </div>
                         </div>
@@ -632,6 +623,7 @@ const MaterialRequestPage = () => {
                                 <input
                                     name="quantity"
                                     type="number"
+                                    min="0"
                                     value={formData.quantity}
                                     onChange={handleInputChange}
                                     placeholder="e.g. 150"
