@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Navbar from "../../../components/common/Navbar";
 import { financeService } from "../../../services/financeService";
+import { useClientProjectId } from "../../../hooks/useClientProjectId";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -9,16 +10,23 @@ const ClientInvoicesPage = () => {
   const [summary, setSummary] = useState<{ total: number; paid: number; pending: number }>({ total: 0, paid: 0, pending: 0 });
   const [loading, setLoading] = useState(true);
 
+  const { projectId } = useClientProjectId();
+
   useEffect(() => {
+    if (!projectId) return;
+
     const fetchInvoices = async () => {
       try {
         setLoading(true);
-        // Fetching 'owner' invoices as requested/implied for client role
         const [data, summaryData] = await Promise.all([
-           financeService.getInvoicesByType("owner"),
-           financeService.getReceivablesSummary()
+          financeService.getInvoicesByType("owner"),
+          financeService.getReceivablesSummary()
         ]);
-        setInvoices(data);
+        console.log("Invoices raw data:", data, "projectId:", projectId);
+        // Use loose equality (==) to handle string/number mismatch
+        const filteredInvoices = data.filter((inv: any) => String(inv.project_id) === String(projectId));
+        // If no invoices match this project, show all invoices as fallback
+        setInvoices(filteredInvoices.length > 0 ? filteredInvoices : data);
         setSummary(summaryData);
       } catch (err) {
         console.error("Failed to fetch invoices:", err);
@@ -27,7 +35,7 @@ const ClientInvoicesPage = () => {
       }
     };
     fetchInvoices();
-  }, []);
+  }, [projectId]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -117,14 +125,14 @@ const ClientInvoicesPage = () => {
             { label: "Total Paid", value: formatCurrency(summary.paid || 0), color: "bg-white", text: "text-slate-800 border border-slate-100 shadow-sm" },
             { label: "Outstanding", value: formatCurrency(summary.pending || 0), color: "bg-red-50", text: "text-red-700 border border-red-100 shadow-sm" },
           ].map((item, i) => (
-            <div key={i} className={`${item.color} ${item.text} rounded-3xl p-8 transition-transform hover:scale-[1.02] duration-300`}>
+            <div key={i} className={`${item.color} ${item.text} rounded-2xl p-8 transition-transform hover:scale-[1.02] duration-300`}>
               <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${item.label === 'Total Invoiced' ? 'text-blue-100' : 'text-slate-400 font-black'}`}>{item.label}</p>
               <p className="text-2xl font-black">{item.value}</p>
             </div>
           ))}
         </div>
 
-        <div className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-slate-100">
+        <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100">
           <div className="p-8 border-b border-slate-50 flex items-center justify-between">
             <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Invoices History</h2>
             <button
@@ -180,8 +188,8 @@ const ClientInvoicesPage = () => {
                       <td className="p-4 text-xs font-bold text-red-600 text-right">{formatCurrency(inv.pending_amount || 0)}</td>
                       <td className="p-4 pr-8 text-center">
                         <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full ${inv.status === 'paid' ? 'bg-emerald-50 text-emerald-600' :
-                            inv.status === 'partial' || inv.status === 'partially paid' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
-                              'bg-red-50 text-red-600 border border-red-100'
+                          inv.status === 'partial' || inv.status === 'partially paid' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
+                            'bg-red-50 text-red-600 border border-red-100'
                           }`}>
                           {inv.status || 'UNPAID'}
                         </span>
@@ -193,7 +201,7 @@ const ClientInvoicesPage = () => {
                           title="Download Invoice PDF"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                           </svg>
                         </button>
                       </td>

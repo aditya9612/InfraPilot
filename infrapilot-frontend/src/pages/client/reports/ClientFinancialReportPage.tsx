@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import Navbar from "../../../components/common/Navbar";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { reportService } from "../../../services/reportService";
-import { projectService } from "../../../services/projectService";
+import { useClientProjectId } from "../../../hooks/useClientProjectId";
 
 interface FinancialSummaryData {
   project_id: number;
@@ -35,25 +35,15 @@ const ClientFinancialReportPage = () => {
   const [data, setData] = useState<FinancialSummaryData | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const { projectId } = useClientProjectId();
+
   useEffect(() => {
+    if (!projectId) return;
+
     const fetchFinancials = async () => {
       try {
         setLoading(true);
-        const settings = await import("../../../services/settingsService").then(m => m.settingsService.getSettings()).catch(() => null);
-        let pid = 1;
-        
-        if (settings?.default_project_id) {
-            pid = settings.default_project_id;
-        } else {
-            const projectsResult: any = await projectService.getProjects(10, 0);
-            if (Array.isArray(projectsResult) && projectsResult.length > 0) {
-              pid = projectsResult[0].id || projectsResult[0].project_id;
-            } else if (projectsResult?.items?.length > 0) {
-              pid = projectsResult.items[0].id || projectsResult.items[0].project_id;
-            }
-        }
-
-        const result = await reportService.getFinancialSummary(pid);
+        const result = await reportService.getFinancialSummary(projectId);
         setData(result);
       } catch (err) {
         console.error("Failed to fetch financials, using fallback:", err);
@@ -63,7 +53,7 @@ const ClientFinancialReportPage = () => {
       }
     };
     fetchFinancials();
-  }, []);
+  }, [projectId]);
 
   const financialData = data || DEFAULT_FINANCIAL_DATA;
 
@@ -186,7 +176,7 @@ const ClientFinancialReportPage = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           {/* Bar Chart */}
-          <div className="bg-white rounded-[40px] p-10 shadow-sm border border-slate-100 h-[450px] flex flex-col">
+          <div className="bg-white rounded-2xl p-10 shadow-sm border border-slate-100 h-[450px] flex flex-col">
             <div className="mb-8">
               <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-1">Cumulative Spent (₹ Cr)</h2>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Total expenditure tracked over the last 6 months</p>
@@ -205,12 +195,12 @@ const ClientFinancialReportPage = () => {
           </div>
 
           {/* Audit Summary + Download */}
-          <div className="bg-white rounded-[40px] p-10 shadow-sm border border-slate-100 flex flex-col justify-between">
+          <div className="bg-white rounded-2xl p-10 shadow-sm border border-slate-100 flex flex-col justify-between">
             <div>
               <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-10">Quarterly Audit Summary</h2>
               <div className="space-y-6">
                 {stats.map((stat, i) => (
-                  <div key={i} className="flex items-center justify-between p-6 bg-slate-50 rounded-[32px] border border-slate-100">
+                  <div key={i} className="flex items-center justify-between p-6 bg-slate-50 rounded-2xl border border-slate-100">
                     <div>
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
                       <p className={`text-2xl font-black tracking-tighter ${stat.color}`}>{loading ? '...' : stat.val}</p>
@@ -223,7 +213,7 @@ const ClientFinancialReportPage = () => {
 
             <button
               onClick={downloadAuditPdf}
-              className="w-full mt-8 py-5 bg-slate-900 text-white rounded-3xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 hover:bg-indigo-700"
+              className="w-full mt-8 py-5 bg-slate-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 hover:bg-indigo-700"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />

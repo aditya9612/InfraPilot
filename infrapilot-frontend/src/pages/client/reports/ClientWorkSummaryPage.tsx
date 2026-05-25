@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import Navbar from "../../../components/common/Navbar";
 import { reportService } from "../../../services/reportService";
-import { projectService } from "../../../services/projectService";
+import { useClientProjectId } from "../../../hooks/useClientProjectId";
 
 interface WorkSummaryItem {
   task_id: number;
@@ -32,29 +32,15 @@ const ClientWorkSummaryPage = () => {
   const [data, setData] = useState<WorkSummaryData | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const { projectId } = useClientProjectId();
+
   useEffect(() => {
+    if (!projectId) return;
+
     const fetchWorkSummary = async () => {
       try {
         setLoading(true);
-        // Step 1: Resolve valid Project ID
-        const settings = await import("../../../services/settingsService").then(m => m.settingsService.getSettings()).catch(() => null);
-        let pid = 1; // Default
-        
-        if (settings?.default_project_id) {
-            pid = settings.default_project_id;
-        } else {
-            const projectsResult: any = await projectService.getProjects(10, 0);
-            if (Array.isArray(projectsResult) && projectsResult.length > 0) {
-              pid = projectsResult[0].id || projectsResult[0].project_id;
-            } else if (projectsResult?.items?.length > 0) {
-              pid = projectsResult.items[0].id || projectsResult.items[0].project_id;
-            } else if (projectsResult?.data?.length > 0) {
-              pid = projectsResult.data[0].id || projectsResult.data[0].project_id;
-            }
-        }
-
-        // Step 2: Fetch Report Data
-        const result = await reportService.getWorkSummary(pid);
+        const result = await reportService.getWorkSummary(projectId);
         setData(result);
       } catch (err) {
         console.error("Failed to fetch work summary, using fallback:", err);
@@ -70,7 +56,7 @@ const ClientWorkSummaryPage = () => {
     };
 
     fetchWorkSummary();
-  }, []);
+  }, [projectId]);
 
   const items = data?.work_summary || DEFAULT_MOCK_DATA;
 
@@ -93,7 +79,7 @@ const ClientWorkSummaryPage = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-[40px] overflow-hidden shadow-sm border border-slate-100 px-10 py-6">
+        <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 px-10 py-6">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[900px]">
               <thead>

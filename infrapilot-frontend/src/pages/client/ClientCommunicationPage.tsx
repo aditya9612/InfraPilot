@@ -25,7 +25,7 @@ const ClientCommunicationPage = () => {
           <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">Direct messaging with your project team</p>
         </div>
 
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden flex" style={{ height: "calc(100vh - 220px)", minHeight: "500px" }}>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex" style={{ height: "calc(100vh - 220px)", minHeight: "500px" }}>
           {/* Thread List */}
           <div className="w-72 border-r border-slate-100 flex flex-col shrink-0">
             <div className="p-4 border-b border-slate-100">

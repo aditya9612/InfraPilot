@@ -446,7 +446,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       path: "/client/reports",
       icon: "bar-chart",
       subNav: [
-        { label: "Monthly Report", path: "/client/reports/progress", icon: "file-text" },
+        { label: "Report Summary", path: "/client/reports/summary", icon: "file-text" },
         { label: "Financial Summary", path: "/client/reports/financial", icon: "dollar-sign" },
         { label: "Work Summary", path: "/client/reports/work", icon: "activity" },
       ],

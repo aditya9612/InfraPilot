@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Navbar from "../../components/common/Navbar";
 import { projectService } from "../../services/projectService";
+import { useClientProjectId } from "../../hooks/useClientProjectId";
 
 const ClientOverviewPage = () => {
   const [projectData, setProjectData] = useState<any>(null);
@@ -10,41 +11,19 @@ const ClientOverviewPage = () => {
   const [team, setTeam] = useState<any[]>([]);
   const [loadingTeam, setLoadingTeam] = useState(true);
 
+  const { projectId } = useClientProjectId();
+
   useEffect(() => {
+    if (!projectId) return;
+
     const fetchProjectData = async () => {
       try {
         setLoading(true);
         setLoadingMilestones(true);
         setLoadingTeam(true);
 
-        // Fetch projects without strict filters to avoid 422 validation errors
-        const settings = await import("../../services/settingsService").then(m => m.settingsService.getSettings()).catch(() => null);
-
-        let fetchedProj = null;
-        if (settings?.default_project_id) {
-          try {
-            fetchedProj = await projectService.getProjectById(settings.default_project_id);
-          } catch (e) {
-            // Ignore error and fall back
-          }
-        }
-
-        if (!fetchedProj) {
-          const projectsResult: any = await projectService.getProjects(20, 0);
-          let list: any[] = [];
-          if (Array.isArray(projectsResult)) {
-            list = projectsResult;
-          } else if (projectsResult && projectsResult.items) {
-            list = projectsResult.items;
-          } else if (projectsResult && projectsResult.data) {
-            list = projectsResult.data;
-          }
-          fetchedProj = list[0];
-        }
-
+        const fetchedProj = await projectService.getProjectById(projectId);
         setProjectData(fetchedProj);
-
-        const projectId = 96;
 
         // Fetch milestones
         const milestonesResult: any = await projectService.getMilestones(projectId);
@@ -75,7 +54,7 @@ const ClientOverviewPage = () => {
       }
     };
     fetchProjectData();
-  }, []);
+  }, [projectId]);
 
   const getInitials = (name: string) => {
     if (!name) return "?";

@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import type { KeyboardEvent } from "react";
 import toast from "react-hot-toast";
 import { communicationService, type CommunicationMessage } from "../../../services/communicationService";
-import { projectService } from "../../../services/projectService";
+import { useClientProjectId } from "../../../hooks/useClientProjectId";
 
 // Helper to format iso strings
 const formatTime = (isoString?: string) => {
@@ -13,47 +13,28 @@ const formatTime = (isoString?: string) => {
 };
 
 const ClientMessagesPage = () => {
-  const [projectId, setProjectId] = useState<number | null>(null);
   const [messages, setMessages] = useState<CommunicationMessage[]>([]);
   const [selectedThreadId, setSelectedThreadId] = useState<number | null>(null);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
+  const [attachmentUrl, setAttachmentUrl] = useState("");
+  const [showAttachment, setShowAttachment] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const { projectId } = useClientProjectId();
 
   // Resolve project_id and fetch all messages for the project
   const fetchMessages = async () => {
+    if (!projectId) return;
     try {
       setLoading(true);
-
-      // Step 1: Resolve real project_id
-      let resolvedProjectId: number | null = null;
-        try {
-          const settings = await import("../../../services/settingsService").then(m => m.settingsService.getSettings()).catch(() => null);
-          
-          if (settings?.default_project_id) {
-             resolvedProjectId = settings.default_project_id;
-          } else {
-              const result: any = await projectService.getProjects(10, 0);
-              const projects = Array.isArray(result) ? result : (result?.items || result?.data || []);
-              if (projects && projects.length > 0) {
-                  const p1 = projects.find((p: any) => p.id === 1 || p.project_id === 1);
-                  resolvedProjectId = p1 ? (p1.id || p1.project_id) : projects[0].id || projects[0].project_id;
-              }
-          }
-        } catch (e) {
-          resolvedProjectId = 1; // Fallback
-        }
-
-      if (resolvedProjectId) {
-          setProjectId(resolvedProjectId);
-          const data = await communicationService.getMessages(resolvedProjectId);
-          setMessages(data);
-          
-          // Open the first thread by default if available
-          const firstThread = data.find(m => m.parent_id === null);
-          if (firstThread) {
-              setSelectedThreadId(firstThread.id);
-          }
+      const data = await communicationService.getMessages(projectId);
+      setMessages(data);
+      
+      // Open the first thread by default if available
+      const firstThread = data.find(m => m.parent_id === null);
+      if (firstThread) {
+          setSelectedThreadId(firstThread.id);
       }
     } catch (error) {
       console.error("Failed to load messages", error);
@@ -65,7 +46,7 @@ const ClientMessagesPage = () => {
 
   useEffect(() => {
     fetchMessages();
-  }, []);
+  }, [projectId]);
 
   // Filter messages for the selected thread (root + its replies)
   const activeDialog = messages.filter(m => 
@@ -84,7 +65,7 @@ const ClientMessagesPage = () => {
 
     const payload = {
         message: text,
-        attachment_url: undefined, // Option for future
+        attachment_url: attachmentUrl.trim() || undefined,
         parent_id: selectedThreadId || undefined
     };
 
@@ -100,12 +81,31 @@ const ClientMessagesPage = () => {
       }
       
       setInput("");
+      setAttachmentUrl("");
+      setShowAttachment(false);
       toast.success("Synchronized", { id: sendToast });
       
       // Mark delivered
       await communicationService.markDelivered(sentMsg.id).catch(() => {});
     } catch (error) {
       toast.error("Packet transmission failed", { id: sendToast });
+    }
+  };
+
+  const handleDeleteMessage = async (id: number) => {
+    if (!window.confirm("Permanent erasure: Are you sure you want to delete this message from the project stream?")) return;
+
+    try {
+      await communicationService.deleteMessage(id);
+      setMessages(prev => prev.filter(m => m.id !== id));
+      toast.success("Message erased");
+      
+      // If we deleted the root thread, deselect it
+      if (id === selectedThreadId) {
+          setSelectedThreadId(null);
+      }
+    } catch (error) {
+      toast.error("Deletion failed");
     }
   };
 
@@ -133,7 +133,7 @@ const ClientMessagesPage = () => {
           </button>
         </div>
 
-        <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden flex" style={{ height: "calc(100vh - 220px)", minHeight: "500px" }}>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex" style={{ height: "calc(100vh - 220px)", minHeight: "500px" }}>
           
           {/* Threads List */}
           <div className="w-80 border-r border-slate-100 flex flex-col shrink-0 bg-slate-50/50">
@@ -142,7 +142,7 @@ const ClientMessagesPage = () => {
             </div>
             <div className="overflow-y-auto flex-1">
               {loading ? (
-                <div className="p-10 flex justify-center"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
+                <div className="p-10 flex justify-center"><div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>
               ) : rootThreads.length === 0 ? (
                 <div className="p-10 text-center text-[10px] font-black text-slate-300 uppercase tracking-widest">No history recorded</div>
               ) : (
@@ -150,26 +150,25 @@ const ClientMessagesPage = () => {
                   <button
                   key={t.id}
                   onClick={() => setSelectedThreadId(t.id)}
-                  className={`w-full flex items-center justify-between px-8 py-6 border-b border-slate-100 transition-all ${selectedThreadId === t.id ? "bg-white border-l-4 border-l-indigo-600 shadow-sm" : "hover:bg-white border-l-4 border-l-transparent text-slate-500"}`}
+                  className={`w-full group/thread flex items-center justify-between px-8 py-6 border-b border-slate-100 transition-all ${selectedThreadId === t.id ? "bg-white border-l-4 border-l-indigo-600 shadow-sm" : "hover:bg-white border-l-4 border-l-transparent text-slate-500"}`}
                 >
-                  <p className={`text-xs font-black truncate tracking-tight mb-1 ${selectedThreadId === t.id ? 'text-slate-900' : ''}`}>{t.message}</p>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest italic">{formatTime(t.created_at)}</span>
-                    <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase ${t.status === 'read' ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-100'}`}>{t.status}</span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        communicationService.deleteMessage(t.id).then(() => {
-                          toast.success('Message deleted');
-                          setMessages(prev => prev.filter(m => m.id !== t.id && m.parent_id !== t.id));
-                          if (selectedThreadId === t.id) setSelectedThreadId(null);
-                        });
-                      }}
-                      className="p-1 text-red-500 hover:text-red-600"
-                      title="Delete"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"/></svg>
-                    </button>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-xs font-black truncate tracking-tight mb-1 ${selectedThreadId === t.id ? 'text-slate-900' : ''}`}>{t.message}</p>
+                    <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest italic">{formatTime(t.created_at)}</span>
+                        <div className="flex items-center gap-1.5">
+                            <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase ${t.status === 'read' ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-100'}`}>{t.status}</span>
+                            {t.created_by === 1 && (
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); handleDeleteMessage(t.id); }}
+                                    className="p-1 text-slate-300 hover:text-red-500 transition-all"
+                                    title="Delete Stream"
+                                >
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                </button>
+                            )}
+                        </div>
+                    </div>
                   </div>
                 </button>
                 ))
@@ -204,18 +203,29 @@ const ClientMessagesPage = () => {
                   return (
                     <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
                         <div className={`max-w-[80%] flex flex-col gap-2`}>
-                            <div className={`px-8 py-5 rounded-[32px] shadow-sm ${isMine ? 'bg-slate-900 text-white rounded-br-none' : 'bg-white border border-slate-100 text-slate-800 rounded-bl-none'}`}>
+                            <div className={`px-8 py-5 rounded-2xl shadow-sm ${isMine ? 'bg-slate-900 text-white rounded-br-none' : 'bg-white border border-slate-100 text-slate-800 rounded-bl-none'}`}>
                                 <p className="text-[13px] font-bold leading-relaxed">{msg.message}</p>
                                 {msg.attachment_url && (
-                                    <a href={msg.attachment_url} target="_blank" rel="noreferrer" className="mt-3 block p-3 bg-white/5 border border-white/10 rounded-xl flex items-center justify-between hover:bg-white/10 transition-all group">
-                                        <span className="text-[10px] font-black uppercase tracking-widest truncate max-w-[150px]">Attachment Package</span>
-                                        <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                    <a href={msg.attachment_url} target="_blank" rel="noreferrer" className="mt-3 block p-3 bg-white/5 border border-white/10 rounded-xl flex items-center justify-between hover:bg-indigo-600 transition-all group">
+                                        <span className="text-[10px] font-black uppercase tracking-widest truncate max-w-[150px]">Link Attachment</span>
+                                        <svg className="w-4 h-4 text-indigo-400 group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                                     </a>
                                 )}
                             </div>
-                            <div className={`flex items-center gap-2 ${isMine ? 'justify-end' : 'justify-start'}`}>
+                             <div className={`flex items-center gap-2 ${isMine ? 'justify-end' : 'justify-start'}`}>
                                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{formatTime(msg.created_at)}</span>
-                                <span className={`text-[8px] font-black uppercase tracking-widest ${msg.status === 'read' ? 'text-blue-500' : 'text-slate-300'}`}>{msg.status}</span>
+                                <div className="flex items-center gap-1">
+                                    <span className={`text-[8px] font-black uppercase tracking-widest ${msg.status === 'read' ? 'text-blue-500' : 'text-slate-300'}`}>{msg.status}</span>
+                                    {isMine && (
+                                        <button 
+                                            onClick={() => handleDeleteMessage(msg.id)}
+                                            className="p-1 text-slate-300 hover:text-red-500 transition-colors"
+                                            title="Delete Message"
+                                        >
+                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -224,9 +234,31 @@ const ClientMessagesPage = () => {
               <div ref={bottomRef} />
             </div>
 
-            {/* Input */}
+            {/* Input Area */}
             <div className="p-8 bg-white border-t border-slate-100 z-20">
-              <div className="flex items-center gap-4 bg-slate-50 border border-slate-100 rounded-3xl px-8 py-5 focus-within:border-primary transition-all shadow-inner">
+              {showAttachment && (
+                <div className="mb-4 animate-in slide-in-from-bottom-2 duration-300">
+                   <div className="flex items-center gap-3 bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100">
+                      <svg className="w-5 h-5 text-indigo-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.826L7.082 19.085a4.5 4.5 0 11-6.364-6.364l10.94-10.94A3 3 0 1115.95 6.05L4.662 17.336a.75.75 0 101.06 1.06L17.01 7.111a4.5 4.5 0 016.364 6.364l-7.69 7.69a.75.75 0 01-1.06-1.06l7.69-7.69a3 3 0 10-4.243-4.243L6.784 19.558a2.25 2.25 0 01-3.182-3.182l11.322-11.322a.75.75 0 011.06 1.06L4.662 17.336a.75.75 0 001.06 1.06L17.01 7.111" /></svg>
+                      <input 
+                         value={attachmentUrl}
+                         onChange={(e) => setAttachmentUrl(e.target.value)}
+                         placeholder="Paste resource/attachment URL here..."
+                         className="bg-transparent text-[11px] font-black uppercase tracking-widest text-indigo-600 outline-none flex-1 placeholder:text-indigo-300"
+                      />
+                      <button onClick={() => { setAttachmentUrl(""); setShowAttachment(false); }} className="text-indigo-400 hover:text-red-500">
+                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                   </div>
+                </div>
+              )}
+              <div className="flex items-center gap-4 bg-slate-50 border border-slate-100 rounded-2xl px-8 py-5 focus-within:border-indigo-600 transition-all shadow-inner relative">
+                <button 
+                   onClick={() => setShowAttachment(!showAttachment)}
+                   className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center transition-all ${showAttachment ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-indigo-50 hover:text-indigo-600'}`}
+                >
+                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                </button>
                 <input 
                   value={input}
                   onChange={(e) => setInput(e.target.value)}

@@ -289,12 +289,12 @@ export const projectService = {
    */
   async getWorkProgressActivities(projectId: number, engineerId?: number) {
     try {
-      const params: any = {};
+      const params: any = { project_id: projectId };
       if (engineerId) {
         params.engineer_id = engineerId;
       }
 
-      const response = await api.get(`/projects/${projectId}/work-progress/activities`, {
+      const response = await api.get(`/projects/work-progress/activities`, {
         params: params
       });
       const rawData = response.data;

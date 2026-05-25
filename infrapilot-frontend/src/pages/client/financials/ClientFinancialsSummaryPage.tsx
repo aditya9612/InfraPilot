@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import Navbar from "../../../components/common/Navbar";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { reportService } from "../../../services/reportService";
-import { projectService } from "../../../services/projectService";
+import { useClientProjectId } from "../../../hooks/useClientProjectId";
 
 interface FinancialSummaryData {
   project_id: number;
@@ -33,26 +33,20 @@ const costDataMock = [
 const ClientFinancialsSummaryPage = () => {
   const [data, setData] = useState<FinancialSummaryData | null>(null);
   const [loading, setLoading] = useState(true);
+  const { projectId } = useClientProjectId();
 
   useEffect(() => {
+    if (!projectId) return;
+
     const fetchFinancials = async () => {
       try {
         setLoading(true);
-        const settings = await import("../../../services/settingsService").then(m => m.settingsService.getSettings()).catch(() => null);
-        let pid = 1;
-        if (settings?.default_project_id) {
-          pid = settings.default_project_id;
-        } else {
-          const projectsResult: any = await projectService.getProjects(10, 0);
-          if (Array.isArray(projectsResult) && projectsResult.length > 0) {
-            pid = projectsResult[0].id || projectsResult[0].project_id;
-          } else if (projectsResult?.items?.length > 0) {
-            pid = projectsResult.items[0].id || projectsResult.items[0].project_id;
-          }
-        }
-
-        const result = await reportService.getFinancialSummary(pid);
-        setData(result);
+        const result = await reportService.getFinancialSummary(projectId);
+        // Merge with defaults to guarantee all fields exist
+        setData({
+          ...DEFAULT_FINANCIAL_DATA,
+          ...result,
+        });
       } catch (err) {
         console.error("Failed to fetch financials, using fallback:", err);
         setData(DEFAULT_FINANCIAL_DATA);
@@ -61,7 +55,7 @@ const ClientFinancialsSummaryPage = () => {
       }
     };
     fetchFinancials();
-  }, []);
+  }, [projectId]);
 
   const financialData = data || DEFAULT_FINANCIAL_DATA;
 
@@ -69,7 +63,7 @@ const ClientFinancialsSummaryPage = () => {
   const downloadFinancialSummaryPdf = () => {
     const generated = new Date().toLocaleString("en-IN");
     const formatCr = (val: number) => `₹${(val / 10000000).toFixed(2)} Cr`;
-    
+
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -170,7 +164,8 @@ const ClientFinancialsSummaryPage = () => {
     }, 600);
   };
 
-  const formatPrice = (val: number) => {
+  const formatPrice = (val: number | undefined) => {
+    if (val == null) return '—';
     if (val >= 10000000) return `₹${(val / 10000000).toFixed(2)} Cr`;
     if (val >= 100000) return `₹${(val / 100000).toFixed(2)} L`;
     return `₹${val.toLocaleString()}`;
@@ -193,7 +188,7 @@ const ClientFinancialsSummaryPage = () => {
             { label: "Pending Dues", value: formatPrice(financialData.pending_invoice), icon: "⏳", color: "text-amber-600 bg-amber-50" },
             { label: "Total Expense", value: formatPrice(financialData.total_expense), icon: "⚠️", color: "text-red-600 bg-red-50" },
           ].map((card, i) => (
-            <div key={i} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+            <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
               <div className={`w-10 h-10 ${card.color} rounded-2xl flex items-center justify-center text-lg mb-4 shadow-inner`}>
                 {card.icon}
               </div>
@@ -204,7 +199,7 @@ const ClientFinancialsSummaryPage = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-          <div className="lg:col-span-2 bg-white rounded-[32px] p-8 shadow-sm border border-slate-100">
+          <div className="lg:col-span-2 bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
             <div className="flex items-center justify-between mb-8">
               <h2 className="text-lg font-black text-slate-800 tracking-tight">Phase-wise Cost Tracking</h2>
               <div className="flex items-center gap-4">
@@ -236,15 +231,15 @@ const ClientFinancialsSummaryPage = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 flex flex-col justify-center items-center text-center">
+          <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 flex flex-col justify-center items-center text-center">
             <div className="w-24 h-24 rounded-full bg-blue-50 flex items-center justify-center text-3xl mb-6 shadow-inner text-primary">📊</div>
             <h3 className="text-xl font-black text-slate-800 mb-2">Net Project Profit</h3>
             <p className="text-sm text-slate-500 font-medium mb-6">
               Estimated net profit based on current site expenses and billed invoices.
             </p>
             <div className="w-full bg-slate-50 rounded-2xl p-6 border border-slate-100 mb-6">
-               <p className="text-3xl font-black text-emerald-600">{loading ? '...' : formatPrice(financialData.profit)}</p>
-               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Current Standing</p>
+              <p className="text-3xl font-black text-emerald-600">{loading ? '...' : formatPrice(financialData.profit)}</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Current Standing</p>
             </div>
             <button
               onClick={downloadFinancialSummaryPdf}

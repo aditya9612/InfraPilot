@@ -14,7 +14,7 @@ let mockDailyEntries: DailyEntry[] = [];
 try {
   const localActivities = localStorage.getItem("mock_activities");
   if (localActivities) mockActivities = JSON.parse(localActivities);
-  
+
   const localEntries = localStorage.getItem("mock_daily_entries");
   if (localEntries) mockDailyEntries = JSON.parse(localEntries);
 } catch (e) {
@@ -171,7 +171,7 @@ export const workProgressService = {
           act.status = "On Track";
         }
       }
-      
+
       persistMockData();
 
       return {

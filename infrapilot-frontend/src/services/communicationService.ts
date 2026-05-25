@@ -89,7 +89,7 @@ export const communicationService = {
    */
   async deleteMessage(id: number): Promise<void> {
     try {
-      const response = await api.delete(`/communication/messages/${id}`);
+      const response = await api.delete(`/communication/messages/${id}/`);
       return response.data;
     } catch (error: any) {
       console.warn('Delete Message API Error, assuming success fallback:', error.message);

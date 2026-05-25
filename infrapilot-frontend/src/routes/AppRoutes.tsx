@@ -54,11 +54,10 @@ import ClientPhotosPage from "../pages/client/site-updates/ClientPhotosPage";
 import ClientDSRSummaryPage from "../pages/client/site-updates/ClientDSRSummaryPage";
 import ClientIssuesPage from "../pages/client/ClientIssuesPage";
 import ClientDocumentsPage from "../pages/client/ClientDocumentsPage";
-import ClientPendingApprovalsPage from "../pages/client/approvals/ClientPendingApprovalsPage";
-import ClientApprovedItemsPage from "../pages/client/approvals/ClientApprovedItemsPage";
+import ClientApprovalsPage from "../pages/client/ClientApprovalsPage";
 import ClientMessagesPage from "../pages/client/communication/ClientMessagesPage";
 import ClientAnnouncementsPage from "../pages/client/communication/ClientAnnouncementsPage";
-import ClientMonthlyProgressReportPage from "../pages/client/reports/ClientMonthlyProgressReportPage";
+import ClientReportSummaryPage from "../pages/client/reports/ClientReportSummaryPage";
 import ClientFinancialReportPage from "../pages/client/reports/ClientFinancialReportPage";
 import ClientWorkSummaryPage from "../pages/client/reports/ClientWorkSummaryPage";
 import ClientSettingsPage from "../pages/client/ClientSettingsPage";
@@ -321,12 +320,16 @@ function AppRoutes() {
 
               {/* Approvals */}
               <Route
+                path="/client/approvals"
+                element={<ClientApprovalsPage />}
+              />
+              <Route
                 path="/client/pending-approvals"
-                element={<ClientPendingApprovalsPage />}
+                element={<ClientApprovalsPage />}
               />
               <Route
                 path="/client/approved-items"
-                element={<ClientApprovedItemsPage />}
+                element={<ClientApprovalsPage />}
               />
 
               {/* Communication */}
@@ -342,7 +345,7 @@ function AppRoutes() {
               {/* Reports */}
               <Route
                 path="/client/monthly-progress-report"
-                element={<ClientMonthlyProgressReportPage />}
+                element={<ClientReportSummaryPage />}
               />
               <Route
                 path="/client/financial-report"
@@ -495,12 +498,12 @@ function AppRoutes() {
               <Route path="/client/site-updates/dsr" element={<ClientDSRSummaryPage />} />
               <Route path="/client/issues" element={<ClientIssuesPage />} />
               <Route path="/client/documents" element={<ClientDocumentsPage />} />
-              <Route path="/client/approvals" element={<ClientPendingApprovalsPage />} />
-              <Route path="/client/approvals/pending" element={<ClientPendingApprovalsPage />} />
-              <Route path="/client/approvals/approved" element={<ClientApprovedItemsPage />} />
+              <Route path="/client/approvals" element={<ClientApprovalsPage />} />
+              <Route path="/client/approvals/pending" element={<ClientApprovalsPage />} />
+              <Route path="/client/approvals/approved" element={<ClientApprovalsPage />} />
               <Route path="/client/communication/messages" element={<ClientMessagesPage />} />
               <Route path="/client/communication/announcements" element={<ClientAnnouncementsPage />} />
-              <Route path="/client/reports/monthly" element={<ClientMonthlyProgressReportPage />} />
+              <Route path="/client/reports/summary" element={<ClientReportSummaryPage />} />
               <Route path="/client/reports/financial" element={<ClientFinancialReportPage />} />
               <Route path="/client/reports/work" element={<ClientWorkSummaryPage />} />
               <Route path="/client/settings" element={<ClientSettingsPage />} />
