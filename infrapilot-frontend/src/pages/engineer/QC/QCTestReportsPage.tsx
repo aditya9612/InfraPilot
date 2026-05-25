@@ -67,7 +67,9 @@ const QCTestReportsPage = () => {
         setIsLoading(true);
         try {
             const res = await qcService.listQc(projectId);
-            setQcList(res.items || []);
+            const items = res.items || [];
+            const sortedItems = items.sort((a: QcItem, b: QcItem) => Number(b.id) - Number(a.id));
+            setQcList(sortedItems);
         } catch (err) {
             toast.error("Failed to sync QC logs");
         } finally {

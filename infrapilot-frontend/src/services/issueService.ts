@@ -37,10 +37,10 @@ export const issueService = {
      * Get Lists Issues By Project ID
      * GET /api/v1/issues?project_id=92
      */
-    async listIssuesByProject(_project_id: number, params?: any): Promise<IssueResponse> {
+    async listIssuesByProject(project_id: number, params?: any): Promise<IssueResponse> {
         try {
             const response = await api.get(`/issues`, { 
-                params: { ...params } 
+                params: { project_id, ...params } 
             });
             return response.data;
         } catch (error: any) {

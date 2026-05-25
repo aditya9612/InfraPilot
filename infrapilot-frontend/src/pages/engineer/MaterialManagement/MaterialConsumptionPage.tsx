@@ -311,7 +311,7 @@ const MaterialConsumptionPage = () => {
                           }}
                           className="px-4 py-2 bg-slate-50 text-slate-600 hover:text-white hover:bg-rose-500 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border border-slate-200 hover:border-rose-500 font-inter active:scale-95"
                         >
-                          Use Material
+                          Log Usage
                         </button>
                       </td>
                     </tr>

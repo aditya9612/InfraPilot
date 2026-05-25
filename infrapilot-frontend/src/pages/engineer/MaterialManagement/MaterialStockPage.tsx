@@ -219,7 +219,7 @@ const MaterialStockPage = () => {
 
     // Trigger background API call to show in browser's Network Tab
     try {
-      await materialService.exportPdf();
+      await materialService.exportPdf(projectId);
       toast.success("Successful (Status 200) - PDF Exported!", { id: loadToast });
     } catch (error) {
       console.error("PDF Export Error:", error);
@@ -234,7 +234,7 @@ const MaterialStockPage = () => {
     const loadToast = toast.loading("Processing Strategic Excel ledger...");
 
     try {
-      await materialService.exportExcel();
+      await materialService.exportExcel(projectId);
       toast.success("Successful (Status 200) - Excel Exported!", { id: loadToast });
     } catch (error) {
       console.error("Export Failed:", error);

@@ -141,7 +141,9 @@ const SafetyChecklistPage = () => {
         setIsLoading(true);
         try {
             const response = await safetyService.listIncidents(projectId, filterViolationType || undefined);
-            setIncidentList(response.items || []);
+            const items = response.items || [];
+            const sortedItems = items.sort((a: SafetyItem, b: SafetyItem) => Number(b.id) - Number(a.id));
+            setIncidentList(sortedItems);
         } catch (error) {
             console.error("Failed to fetch safety incidents", error);
             toast.error("Failed to load safety records");

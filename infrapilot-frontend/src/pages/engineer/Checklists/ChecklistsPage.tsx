@@ -65,6 +65,7 @@ const ChecklistsPage = () => {
     const [addItemText, setAddItemText] = useState("");
     const [executeStatus, setExecuteStatus] = useState<"Done" | "Pending">("Done");
     const [executeRemarks, setExecuteRemarks] = useState("");
+    const [executeError, setExecuteError] = useState(false);
     const [deleteId, setDeleteId] = useState<number | null>(null);
 
     // Resolve Project ID and fetch assigned projects list
@@ -111,7 +112,8 @@ const ChecklistsPage = () => {
                 }
             });
 
-            setChecklists(combined);
+            const sortedCombined = combined.sort((a: any, b: any) => Number(b.id) - Number(a.id));
+            setChecklists(sortedCombined);
             setLogs(logsRes.items || []);
         } catch (err) {
             toast.error("Failed to sync checklist vault");
@@ -199,10 +201,11 @@ const ChecklistsPage = () => {
     const handleExecuteChecklist = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!executeRemarks.trim() || !selectedChecklist) {
+            setExecuteError(true);
             toast.error("Remarks are required");
             return;
         }
-
+        setExecuteError(false);
         setIsSubmitting(true);
         try {
             const response = await checklistService.executeChecklist({
@@ -215,6 +218,7 @@ const ChecklistsPage = () => {
             setLogs(prev => [response, ...prev]);
             setIsExecuteModalOpen(false);
             setExecuteRemarks("");
+            setExecuteError(false);
         } catch (err) {
             toast.error("Failed to execute checklist");
         } finally {
@@ -301,13 +305,24 @@ const ChecklistsPage = () => {
         let cls = checklists;
 
         return cls.filter(cl => {
-            if (searchTerm && !cl.name.toLowerCase().includes(searchTerm.toLowerCase())) {
-                return false;
+            const latestLog = [...logs].sort((a,b) => b.id - a.id).find(l => l.checklist_id === cl.id);
+            const isDone = latestLog?.status === 'Done';
+
+            if (searchTerm) {
+                const term = searchTerm.toLowerCase();
+                const statusText = isDone ? 'done' : 'pending';
+                const remarksText = (latestLog?.remarks || '').toLowerCase();
+                
+                const matchesName = cl.name.toLowerCase().includes(term);
+                const matchesStatus = statusText.includes(term);
+                const matchesRemarks = remarksText.includes(term);
+                
+                if (!matchesName && !matchesStatus && !matchesRemarks) {
+                    return false;
+                }
             }
 
             if (activeStatFilter !== "All") {
-                const latestLog = [...logs].sort((a,b) => b.id - a.id).find(l => l.checklist_id === cl.id);
-                const isDone = latestLog?.status === 'Done';
                 if (activeStatFilter === "Done" && !isDone) return false;
                 if (activeStatFilter === "Pending" && isDone) return false;
             }
@@ -360,7 +375,7 @@ const ChecklistsPage = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
-                            title="Total Vault"
+                            title="Total Checklists"
                             value={stats.total.toString()}
                             sub="Protocols Logged"
                             accent="text-slate-800" />
@@ -444,7 +459,7 @@ const ChecklistsPage = () => {
                                             <span className="text-[10px] font-bold uppercase tracking-widest">Add Item</span>
                                         </button>
                                         <button
-                                            onClick={() => { setSelectedChecklist(cl); setIsExecuteModalOpen(true); }}
+                                            onClick={() => { setSelectedChecklist(cl); setExecuteError(false); setIsExecuteModalOpen(true); }}
                                             className="flex flex-col items-center gap-2 p-3 bg-primary text-white rounded-2xl transition-all shadow-lg shadow-primary/20 hover:bg-blue-600 font-inter active:scale-95"
                                             title="Execute Audit"
                                         >
@@ -778,14 +793,20 @@ const ChecklistsPage = () => {
                     </div>
 
                     <div className="font-inter">
-                        <label className={labelClasses}>Field Audit Intelligence Remarks</label>
+                        <label className={labelClasses}>
+                            Field Audit Intelligence Remarks <span className="text-rose-500">*</span>
+                        </label>
                         <textarea
                             rows={4}
                             value={executeRemarks}
-                            onChange={(e) => setExecuteRemarks(e.target.value)}
+                            onChange={(e) => {
+                                setExecuteRemarks(e.target.value);
+                                if(e.target.value.trim()) setExecuteError(false);
+                            }}
                             placeholder="Describe technical observations, deviations, or site confirmations..."
-                            className={`${inputClasses} resize-none font-bold`}
+                            className={`${inputClasses} resize-none font-bold ${executeError ? 'border-rose-500 focus:ring-rose-500/20 focus:border-rose-500' : ''}`}
                         />
+                        {executeError && <p className="text-xs text-rose-500 mt-1.5 font-bold font-inter">Remarks are required to commit the audit.</p>}
                     </div>
                 </div>
             </Modal>

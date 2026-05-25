@@ -162,7 +162,9 @@ const QCInspectionPage = () => {
         setIsLoading(true);
         try {
             const res = await qcService.listQc(projectId);
-            setQcList(res.items || []);
+            const items = res.items || [];
+            const sortedItems = items.sort((a: QcItem, b: QcItem) => Number(b.id) - Number(a.id));
+            setQcList(sortedItems);
         } catch (err) {
             toast.error("Failed to sync QC logs");
         } finally {
@@ -505,7 +507,6 @@ const QCInspectionPage = () => {
                                                 <td className="px-6 py-4">
                                                     <div className="flex flex-col font-inter">
                                                         <span className="text-sm font-bold text-slate-800 font-inter">{qc.inspection_type}</span>
-                                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-inter">AUDIT-#{qc.id}</span>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">

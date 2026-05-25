@@ -314,7 +314,6 @@ const ActivityListPage = () => {
                 <option value="Not Started">Not Started</option>
                 <option value="On Track">On Track</option>
                 <option value="Delay">Delay</option>
-                <option value="Completed">Completed</option>
               </select>
               {activeStatFilter !== "All" && (
                 <button onClick={() => setActiveStatFilter("All")} className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors">
