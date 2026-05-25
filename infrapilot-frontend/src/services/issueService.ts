@@ -35,7 +35,7 @@ export const issueService = {
 
     /**
      * Get Lists Issues By Project ID
-     * GET /api/v1/issues?project_id=92
+     * GET /api/v1/issues/project/{project_id}
      */
     async listIssuesByProject(project_id: number, params?: any): Promise<IssueResponse> {
         try {
@@ -44,7 +44,7 @@ export const issueService = {
             });
             return response.data;
         } catch (error: any) {
-            console.error("List Issues By Project API Error:", error.response?.data || error.message);
+            console.error(`List Issues By Project ${project_id} API Error:`, error.response?.data || error.message);
             throw error;
         }
     },

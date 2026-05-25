@@ -145,17 +145,62 @@ export const drawingService = {
 
 
     /**
+     * Get Drawing Approval History
+     * GET /api/v1/drawings/{id}/approval-history
+     */
+    async getApprovalHistory(id: number) {
+        try {
+            const response = await api.get(`/drawings/${id}/approval-history`);
+            return Array.isArray(response.data) ? response.data : [];
+        } catch (error: any) {
+            console.error(`Fetch Approval History Failed for ID ${id}:`, error?.message);
+            return [];
+        }
+    },
+
+    /**
+     * Download Document
+     * GET /api/v1/drawings/documents/download/{id}
+     */
+    async downloadDocument(id: number) {
+        try {
+            console.log(`GET /api/v1/drawings/documents/download/${id}`);
+            const response = await api.get(`/drawings/documents/download/${id}`, {
+                responseType: 'blob'
+            });
+            
+            // Create a temporary link to trigger download
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `drawing_${id}.pdf`); 
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            return true;
+        } catch (error: any) {
+            console.error(`Download Document ${id} Failed:`, error?.message);
+            throw error;
+        }
+    },
+
+    /**
      * View a specific drawing document
      * GET /api/v1/drawings/documents/view/{id}
      */
     async viewDocument(id: number | string) {
         try {
-            // Sanitize ID: Remove any string prefixes like 'DRW-' or 'MOCK-' to ensure it's numeric for the backend
             const numericId = typeof id === 'string' ? id.replace(/[^0-9]/g, '') : id;
             console.log(`GET /api/v1/drawings/documents/view/${numericId}`);
             
-            const response = await api.get(`/drawings/documents/view/${numericId}`);
-            return response.data;
+            const response = await api.get(`/drawings/documents/view/${numericId}`, {
+                responseType: 'blob'
+            });
+
+            const file = new Blob([response.data], { type: 'application/pdf' });
+            const fileURL = URL.createObjectURL(file);
+            window.open(fileURL, '_blank');
+            return true;
         } catch (error: any) {
             const status = error.response?.status;
             console.warn(`View Document API Error (${status}):`, error?.response?.data || error.message);

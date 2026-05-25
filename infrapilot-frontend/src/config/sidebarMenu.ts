@@ -415,7 +415,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       path: "/client/financials",
       icon: "dollar-sign",
       subNav: [
-        { label: "Summary", path: "/client/financials", icon: "bar-chart" },
+        { label: "Summary", path: "/client/financials/summary", icon: "bar-chart" },
         { label: "Invoices", path: "/client/financials/invoices", icon: "file-text" },
         { label: "Payments", path: "/client/financials/payments", icon: "credit-card" },
       ],
@@ -431,15 +431,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     },
     { label: "Issues & Risks", path: "/client/issues", icon: "alert-triangle" },
     { label: "Documents & Drawings", path: "/client/documents", icon: "folder" },
-    {
-      label: "Approvals",
-      path: "/client/approvals",
-      icon: "check-circle",
-      subNav: [
-        { label: "Pending Approvals", path: "/client/approvals/pending", icon: "clock" },
-        { label: "Approved Items", path: "/client/approvals/approved", icon: "check-circle" },
-      ],
-    },
+    { label: "Approvals", path: "/client/approvals", icon: "check-circle" },
     {
       label: "Communication",
       path: "/client/communication",

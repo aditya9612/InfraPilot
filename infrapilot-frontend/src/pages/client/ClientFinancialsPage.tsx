@@ -33,17 +33,17 @@ const ClientFinancialsPage = () => (
           { label: "Pending", value: "₹2.9 Cr", icon: "⏳", color: "bg-amber-50 text-amber-600" },
           { label: "Variation Orders", value: "₹20 L", icon: "⚠️", color: "bg-red-50 text-red-600" },
         ].map((c, i) => (
-          <div key={i} className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
-            <div className={`w-10 h-10 rounded-2xl ${c.color} flex items-center justify-center text-lg mb-4`}>{c.icon}</div>
+          <div key={i} className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col items-start min-h-[140px]">
+            <div className={`w-10 h-10 rounded-xl ${c.color} flex items-center justify-center text-lg mb-4`}>{c.icon}</div>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{c.label}</p>
-            <p className="text-2xl font-black text-slate-800 mt-1">{c.value}</p>
+            <p className="text-2xl font-black text-blue-600 mt-1">{c.value}</p>
           </div>
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Chart */}
-        <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+        <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Phase-wise Budget vs Actual</h2>
             <div className="flex gap-4">
@@ -70,7 +70,7 @@ const ClientFinancialsPage = () => (
         </div>
 
         {/* Invoices */}
-        <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+        <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
           <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-6">Recent Invoices</h2>
           <div className="space-y-3">
             {invoices.map((inv, i) => (
@@ -80,7 +80,7 @@ const ClientFinancialsPage = () => (
                   <p className="text-[10px] text-slate-400 font-bold mt-0.5">{inv.id} · {inv.date}</p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-sm font-black text-slate-800">{inv.amount}</p>
+                  <p className="text-sm font-black text-blue-600">{inv.amount}</p>
                   <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${inv.status === "Paid" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}>{inv.status}</span>
                 </div>
               </div>

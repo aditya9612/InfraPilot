@@ -1,214 +1,272 @@
 import { useEffect, useState } from "react";
 import Navbar from "../../../components/common/Navbar";
 import { dsrService } from "../../../services/dsrService";
-
-const fallbackDsrReports = [
-  { 
-    id: "DSR-2026-089",
-    backendId: null,
-    date: "01 Apr 2026", 
-    workDone: "Casting of Floor 4 slab completed with M25 concrete. Vibrators were used continuously during the pour.", 
-    workPlanned: "Removal of formwork from Floor 3 and preparation of Level 4 columns.",
-    labourCount: 28, 
-    materialUsed: "Cement: 120 bags, Steel: 2.1 Tons, Concrete: 45 Cum",
-    remarks: "Slab finish achieved as per specifications. No safety incidents reported.",
-    photos: ["https://images.unsplash.com/photo-1541888946425-d81bb19480c5?w=200&h=150&fit=crop", "https://images.unsplash.com/photo-1503387762-592dea58ef21?w=200&h=150&fit=crop"]
-  },
-  { 
-    id: "DSR-2026-088",
-    backendId: null,
-    date: "31 Mar 2026", 
-    workDone: "Placement of slab reinforcement for Floor 4. Inspection of electrical conduits by consultant.", 
-    workPlanned: "Casting of Floor 4 slab.",
-    labourCount: 24, 
-    materialUsed: "Steel: 4.5 Tons, PVC Conduits: 180m, Binding Wire: 40kg",
-    remarks: "Reinforcement checked and approved by PM. Concrete pump mobilization confirmed.",
-    photos: ["https://images.unsplash.com/photo-1590486803833-ffc45744a3ae?w=200&h=150&fit=crop"]
-  },
-  { 
-    id: "DSR-2026-087",
-    backendId: null,
-    date: "30 Mar 2026", 
-    workDone: "Shuttering and formwork for Floor 4 slab. Brickwork on Level 1 (Apartments A & B).", 
-    workPlanned: "Reinforcement steel tying for Floor 4.",
-    labourCount: 22, 
-    materialUsed: "Plywood: 15 sheets, Bricks: 2500, Cement: 12 bags",
-    remarks: "Wait for plumbing layout approval for Level 4 bathroom shafts.",
-    photos: []
-  },
-];
+import { 
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  BarChart, Bar, Cell
+} from 'recharts';
 
 const ClientDSRSummaryPage = () => {
-  const [reports, setReports] = useState<any[]>(fallbackDsrReports);
+  const [reports, setReports] = useState<any[]>([]);
+  const [labourTrend, setLabourTrend] = useState<any[]>([]);
+  const [contractorAnalytics, setContractorAnalytics] = useState<any[]>([]);
+  const [mapPoints, setMapPoints] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'reports' | 'analytics'>('reports');
+
+  const projectId = 96; // Scoped to Project 96 as per current requirements
 
   useEffect(() => {
-    const fetchReports = async () => {
+    const fetchDsrData = async () => {
       try {
-        const response: any = await dsrService.getDsrByProject(96);
+        setLoading(true);
         
-        // Defensively parse different possible response structures
-        let itemsToProcess: any[] = [];
-        if (Array.isArray(response)) {
-          itemsToProcess = response;
-        } else if (response?.items && Array.isArray(response.items)) {
-          itemsToProcess = response.items;
-        } else if (response?.data && Array.isArray(response.data)) {
-          itemsToProcess = response.data;
-        } else if (response && response.project_id) {
-          itemsToProcess = [response];
-        }
+        // Parallel fetching for performance
+        const [dsrRes, trendRes, contractorRes, mapRes] = await Promise.allSettled([
+          dsrService.getDsrByProject(projectId),
+          dsrService.getLabourTrend(projectId),
+          dsrService.getContractorAnalytics(projectId),
+          dsrService.getDsrMapPoints(projectId)
+        ]);
 
-        if (itemsToProcess.length > 0) {
-          const formattedReports = itemsToProcess.map((item: any) => ({
-            id: item.business_id || `DSR-${item.id}`,
-            backendId: item.id,
-            date: item.report_date ? new Date(item.report_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : "N/A",
-            workDone: item.work_done,
-            workPlanned: item.work_planned,
-            labourCount: item.total_labour || 0,
-            materialUsed: item.material_used || "None specified",
-            remarks: item.remarks || "No remarks available",
-            photos: item.photos && Array.isArray(item.photos) ? item.photos.map((p: any) => 
+        // Process DSR Reports
+        if (dsrRes.status === 'fulfilled') {
+          const response: any = dsrRes.value;
+          let items: any[] = Array.isArray(response) ? response : (response.items || response.data || []);
+          
+          const formatted = items.map((item: any) => ({
+            ...item,
+            formattedDate: item.report_date ? new Date(item.report_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : "N/A",
+            gallery: item.photos && Array.isArray(item.photos) ? item.photos.map((p: any) => 
                p.file_url ? (p.file_url.startsWith('http') ? p.file_url : `${import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"}/${p.file_url.startsWith('/') ? p.file_url.slice(1) : p.file_url}`) : ""
             ).filter(Boolean) : []
           }));
-          setReports(formattedReports);
+          setReports(formatted);
         }
+
+        // Process Analytics
+        if (trendRes.status === 'fulfilled') {
+          setLabourTrend(Array.isArray(trendRes.value) ? trendRes.value : []);
+        }
+        if (contractorRes.status === 'fulfilled') {
+          setContractorAnalytics(Array.isArray(contractorRes.value) ? contractorRes.value : []);
+        }
+        if (mapRes.status === 'fulfilled') {
+          setMapPoints(Array.isArray(mapRes.value) ? mapRes.value : []);
+        }
+
       } catch (error) {
-        console.error("Failed to fetch DSRs:", error);
+        console.error("DSR Suite fetch failed:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchReports();
+    fetchDsrData();
   }, []);
 
-  const handleDownloadPDF = async (report: any) => {
-    if (report.backendId) {
-      try {
-        // Hit the backend API strictly for PDF download
-        await dsrService.exportDsrPdf(report.backendId);
-      } catch (error) {
-        console.error("API PDF download failed", error);
-        alert("Failed to download PDF from server. Please try again later.");
-      }
-    } else {
-      alert("No backend ID available to download PDF for this report.");
-    }
-  };
+
+
+  const COLORS = ['#2563eb', '#0d9488', '#7c3aed', '#f59e0b', '#dc2626'];
 
   return (
     <>
-      <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Site Updates", "DSR Summary"]} />
+      <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Site Updates", "DSR Suite"]} />
       <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
-        <div className="mb-8">
-          <h1 className="text-3xl font-black text-slate-800 tracking-tight">Daily Site Report Summary</h1>
-          <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">Detailed daily work progress, resource logs, and field reports</p>
-        </div>
-
-        <div className="space-y-8">
-          {loading ? (
-             <div className="flex justify-center p-12">
-               <svg className="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 12h4z"></path>
-               </svg>
-             </div>
-          ) : reports.map((report, i) => (
-            <div key={i} className="bg-white rounded-[40px] p-10 shadow-sm border border-slate-100 transition-all hover:shadow-2xl hover:shadow-blue-500/5 group relative overflow-hidden">
-              {/* Header / Date */}
-              <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-8 mb-10 pb-8 border-b border-slate-50">
-                <div className="flex items-start gap-6">
-                   <div className="bg-slate-900 text-white p-4 rounded-3xl shadow-lg flex flex-col items-center justify-center min-w-[80px]">
-                      <span className="text-[10px] font-black uppercase tracking-widest opacity-60">{report.date.split(' ')[2] || 'YEAR'}</span>
-                      <span className="text-2xl font-black tracking-tighter leading-none my-1">{report.date.split(' ')[0] || 'DD'}</span>
-                      <span className="text-[10px] font-black uppercase tracking-widest">{report.date.split(' ')[1] || 'MON'}</span>
-                   </div>
-                   <div>
-                      <h2 className="text-xl font-black text-slate-800 tracking-tight mb-1">Field Summary: {report.id}</h2>
-                      <div className="flex items-center gap-4">
-                         <div className="flex items-center gap-1.5 bg-blue-50 text-primary px-3 py-1 rounded-full border border-blue-100">
-                            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                            <span className="text-[10px] font-black uppercase tracking-widest">Active Report</span>
-                         </div>
-                         <button
-                            onClick={() => handleDownloadPDF(report)}
-                            className="flex items-center gap-2 bg-white border border-slate-200 text-slate-500 px-3 py-1 rounded-full hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors cursor-pointer shadow-sm active:scale-95 transition-transform"
-                            title="Download Report PDF"
-                         >
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                            </svg>
-                            <span className="text-[10px] font-black uppercase tracking-widest">Download PDF</span>
-                         </button>
-                      </div>
-                   </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                   <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 text-center">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Labour Force</p>
-                      <p className="text-lg font-black text-slate-800">{report.labourCount}</p>
-                   </div>
-                   <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 text-center">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Photos</p>
-                      <p className="text-lg font-black text-slate-800">{report.photos.length}</p>
-                   </div>
-                </div>
-              </div>
-
-              {/* Core Work Details */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-10">
-                 <div className="space-y-8">
-                    <div>
-                      <h3 className="text-[10px] font-black text-primary uppercase tracking-widest mb-3 flex items-center gap-2">
-                         <span className="w-4 h-0.5 bg-primary rounded-full" />
-                         Work Done Today
-                      </h3>
-                      <p className="text-sm text-slate-700 font-bold leading-relaxed">{report.workDone}</p>
-                    </div>
-                    <div>
-                      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                         <span className="w-4 h-0.5 bg-slate-300 rounded-full" />
-                         Work Planned (Tomorrow)
-                      </h3>
-                      <p className="text-sm text-slate-500 font-medium leading-relaxed italic">{report.workPlanned}</p>
-                    </div>
-                 </div>
-
-                 <div className="space-y-8">
-                    <div className="bg-slate-50 rounded-3xl p-6 border border-slate-100 shadow-inner">
-                      <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Material Consumption</h3>
-                      <p className="text-xs text-slate-600 font-black tracking-tight leading-6">{report.materialUsed}</p>
-                    </div>
-                    <div>
-                      <h3 className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-3">Engineer's Remarks</h3>
-                      <p className="text-xs text-slate-500 font-medium leading-relaxed border-l-2 border-amber-200 pl-4 py-1">{report.remarks}</p>
-                    </div>
-                 </div>
-              </div>
-
-              {/* Photos Preview */}
-              {report.photos.length > 0 && (
-                <div className="pt-8 border-t border-slate-50">
-                   <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Field Snapshots</h3>
-                   <div className="flex gap-4">
-                      {report.photos.map((url: string, index: number) => (
-                        <div key={index} className="w-24 h-24 rounded-2xl overflow-hidden border border-slate-100 shadow-sm hover:scale-105 transition-transform cursor-zoom-in">
-                           <img src={url} alt="Site update" className="w-full h-full object-cover" />
-                        </div>
-                      ))}
-                      <div className="w-24 h-24 rounded-2xl border-2 border-dashed border-slate-100 flex items-center justify-center text-slate-300 text-[9px] font-black uppercase text-center px-2">
-                         View All Photos
-                      </div>
-                   </div>
-                </div>
-              )}
+        
+        {/* Page Header */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
+          <div>
+            <h1 className="text-3xl font-black text-slate-800 tracking-tight">Daily Site Report Suite</h1>
+            <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">Project {projectId} • Insights, Analytics & Field Logs</p>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+               onClick={async () => {
+                 try {
+                   await dsrService.exportDsrExcel(projectId);
+                 } catch (err) {
+                   alert("Excel export failed. Please ensure the project has submitted reports.");
+                 }
+               }}
+               className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-500/20 active:scale-95"
+            >
+               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+               Export Excel Ledger
+            </button>
+            <div className="flex bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm">
+              <button 
+                onClick={() => setActiveTab('reports')}
+                className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'reports' ? 'bg-primary text-white shadow-lg shadow-blue-500/20' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                Field Logs
+              </button>
+              <button 
+                onClick={() => setActiveTab('analytics')}
+                className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'analytics' ? 'bg-primary text-white shadow-lg shadow-blue-500/20' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                Trends & Stats
+              </button>
             </div>
-          ))}
+          </div>
         </div>
+
+        {activeTab === 'analytics' ? (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Analytics Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              
+              {/* Labour Trend Chart */}
+              <div className="bg-white rounded-[40px] p-10 border border-slate-100 shadow-sm">
+                <div className="mb-8 flex items-center justify-between">
+                  <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest">Labour Resource Trend</h2>
+                  <span className="text-[10px] text-slate-400 font-bold bg-slate-50 px-3 py-1 rounded-full uppercase">Last 30 Days</span>
+                </div>
+                <div className="h-[300px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={labourTrend}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#94a3b8'}} />
+                      <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#94a3b8'}} />
+                      <Tooltip 
+                        contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}}
+                        itemStyle={{fontWeight: '900', fontSize: '12px'}}
+                      />
+                      <Line type="monotone" dataKey="labour" stroke="#2563eb" strokeWidth={4} dot={{r: 4, fill: '#2563eb', strokeWidth: 2, stroke: '#fff'}} activeDot={{r: 6}} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Contractor Distribution */}
+              <div className="bg-white rounded-[40px] p-10 border border-slate-100 shadow-sm">
+                <div className="mb-8">
+                  <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest">Contractor Presence</h2>
+                </div>
+                <div className="h-[300px] w-full flex items-center">
+                   <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={contractorAnalytics} layout="vertical">
+                        <XAxis type="number" hide />
+                        <YAxis dataKey="contractor" type="category" axisLine={false} tickLine={false} width={100} tick={{fontSize: 10, fill: '#64748b', fontWeight: 800}} />
+                        <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} />
+                        <Bar dataKey="entries" radius={[0, 10, 10, 0]} barSize={20}>
+                          {contractorAnalytics.map((_, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                   </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+
+            {/* Map Points Visualization */}
+            <div className="bg-white rounded-[40px] p-10 border border-slate-100 shadow-sm">
+               <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-8">Verified Site Map Entries</h2>
+               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                  {mapPoints.map((point) => (
+                    <div key={point.date} className="p-6 bg-slate-900 border border-slate-800 rounded-3xl text-center group hover:bg-primary transition-colors">
+                       <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest group-hover:text-blue-200 mb-1">{new Date(point.date).toLocaleDateString('en-GB', {day: '2-digit', month: 'short'})}</p>
+                       <p className="text-white font-bold text-xs">{point.lat.toFixed(2)}, {point.lng.toFixed(2)}</p>
+                    </div>
+                  ))}
+               </div>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {loading ? (
+              <div className="flex flex-col items-center justify-center p-20 space-y-4">
+                <div className="w-12 h-12 border-4 border-slate-100 border-t-primary rounded-full animate-spin" />
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Synchronizing field reports...</p>
+              </div>
+            ) : reports.length === 0 ? (
+              <div className="bg-white rounded-[40px] p-20 text-center border border-slate-100">
+                 <p className="text-slate-400 font-black uppercase tracking-widest">No site reports documented yet.</p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-slate-100">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[1200px]">
+                    <thead>
+                      <tr className="bg-slate-50/50 border-b border-slate-100">
+                        <th className="p-6 pl-8 text-[9px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">Report Details</th>
+                        <th className="p-6 text-[9px] font-black text-slate-400 uppercase tracking-widest w-1/4 min-w-[250px]">Achievements</th>
+                        <th className="p-6 text-[9px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">Next Steps</th>
+                        <th className="p-6 text-[9px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">Issues & Safety</th>
+                        <th className="p-6 text-[9px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">Material Log</th>
+                        <th className="p-6 pr-8 text-[9px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">Management Remarks</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {reports.map((report) => (
+                        <tr key={report.id} className="hover:bg-slate-50/50 transition-colors group align-top">
+                          <td className="p-6 pl-8">
+                            <div className="flex flex-col items-start gap-2">
+                              <p className="text-sm font-black text-slate-800 tracking-tight uppercase">{report.business_id || `DSR-${report.id}`}</p>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-bold text-slate-500">{report.formattedDate}</span>
+                              </div>
+                              <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${report.status === 'Draft' ? 'bg-amber-50 text-amber-500' : 'bg-emerald-50 text-emerald-600'}`}>
+                                {report.status || 'SUBMITTED'}
+                              </span>
+                              
+                              {(report.total_labour || report.weather) && (
+                                <div className="mt-2 text-[9px] text-slate-400 font-medium">
+                                  {report.total_labour && <span className="block"><span className="font-bold uppercase">Labor:</span> {report.total_labour}</span>}
+                                  {report.weather && <span className="block mt-0.5"><span className="font-bold uppercase">Weather:</span> {report.weather}</span>}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-6">
+                            <p className="text-xs text-slate-700 font-medium leading-relaxed whitespace-pre-wrap">{report.work_done || "—"}</p>
+                            {report.gallery && report.gallery.length > 0 && (
+                              <div className="mt-4 flex flex-wrap gap-2">
+                                {report.gallery.map((url: string, idx: number) => (
+                                  <div key={idx} className="w-8 h-8 rounded-lg overflow-hidden border border-slate-200 shadow-sm transition-transform hover:scale-150 origin-bottom-left cursor-zoom-in">
+                                    <img src={url} alt="Snap" className="w-full h-full object-cover" />
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-6">
+                            <p className="text-xs text-slate-500 italic leading-relaxed">{report.work_planned || "—"}</p>
+                          </td>
+                          <td className="p-6 space-y-3">
+                            <div>
+                              <p className="text-[8px] font-black text-rose-400 uppercase tracking-widest mb-1">Hazards / Issues</p>
+                              <p className="text-[11px] text-slate-700 font-medium">{report.issues || "None reported"}</p>
+                            </div>
+                            <div>
+                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Compliance</p>
+                              <p className="text-[11px] text-slate-600">{report.safety_observations || "Verified"}</p>
+                            </div>
+                          </td>
+                          <td className="p-6 space-y-2">
+                            <div>
+                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Consumed</p>
+                              <p className="text-[11px] text-slate-700 font-medium leading-relaxed">{report.material_used || "—"}</p>
+                            </div>
+                            <div>
+                              <p className="text-[8px] font-black text-emerald-500 uppercase tracking-widest mb-1">Received</p>
+                              <p className="text-[11px] text-slate-600 italic leading-relaxed">{report.material_received || "—"}</p>
+                            </div>
+                          </td>
+                          <td className="p-6 pr-8">
+                            <p className="text-[11px] font-black text-slate-700 leading-relaxed">{report.remarks || "—"}</p>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </>
   );

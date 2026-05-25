@@ -26,15 +26,46 @@ export const financeService = {
    * Fetch invoices by type
    * GET /api/v1/invoices/type/{type}
    */
-  async getInvoicesByType(type: string): Promise<Invoice[]> {
+  async getInvoicesByType(type: string, limit: number = 20, offset: number = 0): Promise<Invoice[]> {
     try {
-      const response = await api.get(`/invoices/type/${type}`);
-      return response.data || [];
+      const response = await api.get(`/invoices/type/${type}`, {
+        params: { limit, offset }
+      });
+      const data = response.data;
+      return Array.isArray(data) ? data : (data.items || data.data || []);
     } catch (error: any) {
       console.error(
         `Fetch Invoices By Type (${type}) Error:`,
         error.response?.data || error.message,
       );
+      throw error;
+    }
+  },
+
+  /**
+   * Get receivable summary
+   * GET /api/v1/invoices/receivables/summary
+   */
+  async getReceivablesSummary(): Promise<{ total: number; paid: number; pending: number }> {
+    try {
+      const response = await api.get('/invoices/receivables/summary');
+      return response.data;
+    } catch (error: any) {
+      console.error("Get Receivables Summary Error:", error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  /**
+   * Get payment summary for a project
+   * GET /api/v1/invoices/project/{project_id}/summary
+   */
+  async getProjectPaymentSummary(projectId: number): Promise<{ paid: number; pending: number }> {
+    try {
+      const response = await api.get(`/invoices/project/${projectId}/summary`);
+      return response.data;
+    } catch (error: any) {
+      console.error(`Fetch Project Payment Summary (${projectId}) Error:`, error.response?.data || error.message);
       throw error;
     }
   },
