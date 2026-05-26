@@ -3,6 +3,7 @@ import Navbar from "../../../components/common/Navbar";
 import PageTransition from "../../../components/common/PageTransition";
 import StatCard from "../../../components/common/StatCard";
 import toast from "react-hot-toast";
+import { formatCurrency } from "../../../utils/currencyUtils";
 import {
   Filter,
   History,
@@ -300,7 +301,7 @@ const MaterialStockPage = () => {
           <div className="cursor-default group transition-all rounded-xl hover:scale-[1.01]">
             <StatCard
               title="Valuation"
-              value={`₹${(stats.totalValue / 100000).toFixed(1)}L`}
+              value={formatCurrency(stats.totalValue)}
               sub="Gross Stock Value"
               accent="text-emerald-500" />
           </div>

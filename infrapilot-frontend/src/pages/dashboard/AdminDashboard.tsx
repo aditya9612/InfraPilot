@@ -20,12 +20,15 @@ import NewProjectModal from "../../components/dashboard/NewProjectModal";
 import CreateUserModal from "../../components/forms/CreateUserModal";
 import PageTransition from "../../components/common/PageTransition";
 import CreateBOQModal from "../../components/forms/CreateBOQModal";
+import { formatCurrency } from "../../utils/currencyUtils";
 
 import { projectService } from "../../services/projectService";
 import { boqService } from "../../services/boqService";
 import { userService } from "../../services/userService";
 import { expenseService } from "../../services/expenseService";
 import { financeService } from "../../services/financeService";
+import { sitePhotoService } from "../../services/sitePhotoService";
+import { materialService } from "../../services/materialService";
 import { generateProjectListPDF } from "../../utils/projectPDFGenerator";
 import type { Project, ProjectStatus } from "../../types/project";
 
@@ -85,26 +88,20 @@ const AdminDashboard = () => {
     activeAlerts: 0
   });
 
-  const formatCurrency = (amount: number) => {
-    const isNegative = amount < 0;
-    const abs = Math.abs(amount);
-    const sign = isNegative ? "-" : "";
-    if (abs >= 10000000) return `${sign}₹${(abs / 10000000).toFixed(1)}Cr`;
-    if (abs >= 100000) return `${sign}₹${(abs / 100000).toFixed(1)}L`;
-    return `${sign}₹${abs.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
-  };
 
   const fetchDashboardData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const [pData, pAlerts, tAlerts, expensesData, invoicesRes, usersRes, pendingApprovalsRes] = await Promise.all([
+      const [pData, pAlerts, tAlerts, expensesData, invoicesRes, usersRes, pendingApprovalsRes, photosRes, mLogs] = await Promise.all([
         projectService.getProjects(100, 0),
         projectService.getProjectAlerts().catch(() => []),
         projectService.getTaskAlerts().catch(() => []),
         expenseService.listExpenses().catch(() => []),
         financeService.getInvoices(100).catch(() => []),
         userService.getAllUsers(100).catch(() => []),
-        financeService.getPendingInvoices().catch(() => [])
+        financeService.getPendingInvoices().catch(() => []),
+        sitePhotoService.getPhotos().catch(() => ({ items: [] })),
+        materialService.getLogs({ limit: 50 }).catch(() => [])
       ]);
 
       const projectsList = Array.isArray(pData)
@@ -132,24 +129,68 @@ const AdminDashboard = () => {
 
       setProjectAlertsData(projectAlerts);
 
+      const photos = Array.isArray(photosRes) ? photosRes : (photosRes.items || []);
+      const logs = Array.isArray(mLogs) ? mLogs : [];
+
       // Combine alerts for activity feed
       const combinedAlerts = [
-        ...projectAlerts,
-        ...taskAlerts,
-      ].map((a: any) => ({
-        user: a.user_name || a.author || "System",
-        action:
-          a.message ||
-          a.description ||
-          a.detail ||
-          (a.project_name
-            ? `${a.project_name} is ${a.status}`
-            : "Alert reported"),
-        time: a.created_at
-          ? new Date(a.created_at).toLocaleTimeString()
-          : "Recent",
-        type: a.type || "alert",
-      }));
+        ...projectAlerts.map((a: any) => {
+          const isDelayed = (a.status || "").toLowerCase().includes("delayed");
+          return {
+            user: a.user_name || "System",
+            action: a.message || a.description || (a.project_name ? `${a.project_name} is ${a.status || 'Updated'}` : "Project alert reported"),
+            time: a.created_at ? new Date(a.created_at).toLocaleTimeString() : "Recent",
+            rawTime: a.created_at || "",
+            type: isDelayed ? "alert" : "task",
+            icon: isDelayed ? "⚠️" : "🏗️",
+            color: isDelayed ? "bg-red-50 text-red-500" : "bg-blue-50 text-blue-500",
+          };
+        }),
+        ...taskAlerts.map((a: any) => {
+          const isFinance = /payment|invoice|bill|payroll|budget|expense|salary/i.test(a.task_name || "");
+          const isDelayed = (a.status || "").toLowerCase().includes("delayed") || (a.action || "").toLowerCase().includes("delay");
+          return {
+            user: a.assigned_to_name || a.author || "Member",
+            action: `${a.task_name || 'Task'}: ${a.status || 'Updated'}`,
+            time: a.updated_at ? new Date(a.updated_at).toLocaleTimeString() : (a.created_at ? new Date(a.created_at).toLocaleTimeString() : "Recent"),
+            rawTime: a.updated_at || a.created_at || "",
+            type: isDelayed ? "alert" : (isFinance ? "money" : "task"),
+            icon: isDelayed ? "⚠️" : (isFinance ? "💰" : "✔"),
+            color: isDelayed ? "bg-red-50 text-red-500" : (isFinance ? "bg-emerald-50 text-emerald-500" : "bg-blue-50 text-blue-500"),
+          };
+        }),
+        ...invoices.map((inv: any) => ({
+          user: inv.client_name || "System",
+          action: `Invoice #${inv.invoice_number || inv.id}: ${inv.status}`,
+          time: inv.created_at ? new Date(inv.created_at).toLocaleTimeString() : "Recent",
+          rawTime: inv.created_at || "",
+          type: "money",
+          icon: "🧾",
+          color: "bg-amber-50 text-amber-500",
+        })),
+        ...photos.map((p: any) => ({
+          user: p.uploaded_by || "Engineer",
+          action: `Uploaded site photo: ${p.description || p.activity_tag || "General Update"}`,
+          time: p.created_at ? new Date(p.created_at).toLocaleTimeString() : "Recent",
+          rawTime: p.created_at || "",
+          type: "task",
+          icon: "📷",
+          color: "bg-purple-50 text-purple-500",
+        })),
+        ...logs.map((l: any) => {
+          const isPurchase = l.type === "PURCHASE";
+          return {
+            user: "Store",
+            action: `${l.type}: ${l.quantity} units of material recorded`,
+            time: l.created_at ? new Date(l.created_at).toLocaleTimeString() : "Recent",
+            rawTime: l.created_at || "",
+            type: isPurchase ? "money" : "task",
+            icon: isPurchase ? "🛒" : "📦",
+            color: isPurchase ? "bg-orange-50 text-orange-500" : "bg-slate-50 text-slate-500",
+          };
+        })
+      ].sort((a: any, b: any) => new Date(b.rawTime).getTime() - new Date(a.rawTime).getTime());
+
       setAlerts(combinedAlerts);
 
       // Compute Chart Data
@@ -309,8 +350,9 @@ const AdminDashboard = () => {
 
   const filteredAlerts = alerts.filter(act => {
     if (activityFilter === "All") return true;
-    if (activityFilter === "Issues") return act.type === "alert" || act.action?.toLowerCase().includes("delay");
-    if (activityFilter === "Updates") return act.type !== "alert" && !act.action?.toLowerCase().includes("delay");
+    if (activityFilter === "Finance") return act.type === "money";
+    if (activityFilter === "Issues") return act.type === "alert";
+    if (activityFilter === "Updates") return act.type === "task";
     return true;
   });
 
@@ -552,7 +594,7 @@ const AdminDashboard = () => {
             <div className="px-6 py-5 border-b border-slate-50">
               <h2 className="font-bold text-slate-800 mb-4">Activity Pulse</h2>
               <div className="flex gap-2">
-                {["All", "Issues", "Updates"].map((tab) => (
+                {["All", "Finance", "Issues", "Updates"].map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActivityFilter(tab)}
@@ -578,17 +620,21 @@ const AdminDashboard = () => {
                 filteredAlerts.map((act, i) => (
                   <div key={i} className="flex gap-4 group">
                     <div
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${act.type === "alert"
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${act.color || (act.type === "alert"
                         ? "bg-red-50 text-red-500"
                         : act.type === "money"
                           ? "bg-green-50 text-green-500"
-                          : "bg-blue-50 text-blue-500"
+                          : "bg-blue-50 text-blue-500")
                         }`}
                     >
-                      {act.type === "task" && "✔"}
-                      {act.type === "money" && "₹"}
-                      {act.type === "photo" && "📷"}
-                      {act.type === "alert" && "⚠️"}
+                      {act.icon || (
+                        <>
+                          {act.type === "task" && "✔"}
+                          {act.type === "money" && "₹"}
+                          {act.type === "photo" && "📷"}
+                          {act.type === "alert" && "⚠️"}
+                        </>
+                      )}
                     </div>
                     <div className="min-w-0">
                       <p className="text-xs text-slate-800 leading-snug">

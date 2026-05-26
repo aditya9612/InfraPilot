@@ -2,11 +2,11 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Navbar from '../../../components/common/Navbar';
 import PageTransition from '../../../components/common/PageTransition';
 import StatCard from '../../../components/common/StatCard';
-import { 
-    Search, 
-    Filter, 
-    RotateCcw, 
-    Calendar, 
+import {
+    Search,
+    Filter,
+    RotateCcw,
+    Calendar,
     IndianRupee,
     ArrowDownRight,
     Briefcase,
@@ -18,6 +18,7 @@ import { labourService } from '../../../services/labourService';
 import PaySalaryModal from '../../../components/payment/PaySalaryModal';
 import AdvancePaymentModal from '../../../components/payment/AdvancePaymentModal';
 import toast from 'react-hot-toast';
+import { formatCurrency } from '../../../utils/currencyUtils';
 
 const PaymentPage: React.FC = () => {
     const [labours, setLabours] = useState<any[]>([]);
@@ -66,7 +67,7 @@ const PaymentPage: React.FC = () => {
                 paymentService.getPendingDues({ ...(projectId ? { project_id: projectId } : {}), limit: 50, offset: 0 }),
                 labourService.getAttendanceList(projectId)
             ]);
-            
+
             setLabours(labourRes.items || []);
             setHistory(Array.isArray(historyRes) ? historyRes : ((historyRes as any).items || []));
             setPendingDues(Array.isArray(duesRes) ? duesRes : ((duesRes as any).items || []));
@@ -110,23 +111,23 @@ const PaymentPage: React.FC = () => {
     const stats = useMemo(() => {
         const totalPaid = history.reduce((acc, curr) => acc + (curr.amount || 0), 0);
         const totalPending = pendingDues.reduce((acc, curr) => acc + (curr.pending_amount || 0), 0);
-        
+
         // Count entries that are likely advances or pending reviews
         const advanceCount = history.filter(h => h.payment_type?.toLowerCase() === 'advance').length || 0;
-        
+
         // Monthly Budget as "Total Committed Capital" (Paid + Outstanding)
         const monthlyBudget = totalPaid + totalPending;
-        
+
         return { totalPaid, totalPending, advanceCount, monthlyBudget };
     }, [history, pendingDues]);
 
     const filteredLabours = useMemo(() => {
         return labours.filter(l => {
-            const matchesSearch = !searchTerm || 
+            const matchesSearch = !searchTerm ||
                 l.labour_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 l.worker_code?.toLowerCase().includes(searchTerm.toLowerCase());
-            
-            const matchesContractor = contractorFilter === "All" || 
+
+            const matchesContractor = contractorFilter === "All" ||
                 (l.contractor_id?.toString() === contractorFilter);
 
             return matchesSearch && matchesContractor;
@@ -135,7 +136,7 @@ const PaymentPage: React.FC = () => {
 
     const contractors = useMemo(() => {
         const unique = new Set();
-        const list: {id: string, name: string}[] = [];
+        const list: { id: string, name: string }[] = [];
         labours.forEach(l => {
             if (l.contractor_id && !unique.has(l.contractor_id)) {
                 unique.add(l.contractor_id);
@@ -146,7 +147,7 @@ const PaymentPage: React.FC = () => {
     }, [labours]);
 
     const filteredHistory = useMemo(() => {
-        return history.filter(h => 
+        return history.filter(h =>
             h.worker_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             h.contractor_name?.toLowerCase().includes(searchTerm.toLowerCase())
         );
@@ -164,7 +165,7 @@ const PaymentPage: React.FC = () => {
     return (
         <>
             <Navbar title="Financial Operations" breadcrumb={["Engineer", "Human Resources", "Payroll Management"]} />
-            
+
             <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter flex flex-col">
                 {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 font-inter">
@@ -183,32 +184,32 @@ const PaymentPage: React.FC = () => {
                 {/* ── Interactive Stats ───────────────────────── */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
                     <div onClick={() => setActiveStatFilter("Paid")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Paid" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                      <StatCard
-                          title="Paid This Month"
-                          value={`₹${(stats.totalPaid / 1000).toFixed(1)}k`}
-                          sub="Disbursed Capital"
-                          accent="text-emerald-500" />
+                        <StatCard
+                            title="Paid This Month"
+                            value={formatCurrency(stats.totalPaid)}
+                            sub="Disbursed Capital"
+                            accent="text-emerald-500" />
                     </div>
                     <div onClick={() => setActiveStatFilter("Pending")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Pending" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                      <StatCard
-                          title="Pending Due"
-                          value={`₹${(stats.totalPending / 1000).toFixed(1)}k`}
-                          sub="Outstanding Liability"
-                          accent="text-rose-500" />
+                        <StatCard
+                            title="Pending Due"
+                            value={formatCurrency(stats.totalPending)}
+                            sub="Outstanding Liability"
+                            accent="text-rose-500" />
                     </div>
                     <div className="cursor-default group transition-all rounded-xl hover:scale-[1.01]">
-                      <StatCard
-                          title="Monthly Budget"
-                          value={`₹${(stats.monthlyBudget / 100000).toFixed(1)}L`}
-                          sub="Allocated Liquidity"
-                          accent="text-primary" />
+                        <StatCard
+                            title="Monthly Budget"
+                            value={formatCurrency(stats.monthlyBudget)}
+                            sub="Allocated Liquidity"
+                            accent="text-primary" />
                     </div>
                     <div onClick={() => setActiveStatFilter("Advance")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Advance" ? "ring-2 ring-amber-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                      <StatCard
-                          title="Advance Logs"
-                          value={stats.advanceCount.toString().padStart(2, '0')}
-                          sub="Pending Review"
-                          accent="text-amber-500" />
+                        <StatCard
+                            title="Advance Logs"
+                            value={stats.advanceCount.toString().padStart(2, '0')}
+                            sub="Pending Review"
+                            accent="text-amber-500" />
                     </div>
                 </div>
 
@@ -249,22 +250,22 @@ const PaymentPage: React.FC = () => {
                         </div>
                         <div className="flex items-center gap-4 font-inter">
                             <div className="flex items-center gap-2 font-inter">
-                              <Filter className="w-4 h-4 text-slate-400 font-inter" />
-                             <select 
-                                value={contractorFilter}
-                                onChange={(e) => setContractorFilter(e.target.value)}
-                                className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer uppercase tracking-widest font-inter"
-                             >
-                                  <option value="All">All Contractors</option>
-                                  {contractors.map(c => (
-                                      <option key={c.id} value={c.id}>{c.name}</option>
-                                  ))}
-                              </select>
+                                <Filter className="w-4 h-4 text-slate-400 font-inter" />
+                                <select
+                                    value={contractorFilter}
+                                    onChange={(e) => setContractorFilter(e.target.value)}
+                                    className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer uppercase tracking-widest font-inter"
+                                >
+                                    <option value="All">All Contractors</option>
+                                    {contractors.map(c => (
+                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                    ))}
+                                </select>
                             </div>
                             {activeStatFilter !== "All" && (
-                              <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter">
-                                <RotateCcw className="w-4 h-4 font-inter" />
-                              </button>
+                                <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter">
+                                    <RotateCcw className="w-4 h-4 font-inter" />
+                                </button>
                             )}
                         </div>
                     </div>
@@ -356,13 +357,13 @@ const PaymentPage: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-4 text-right font-inter">
                                                 <div className="flex items-center justify-end gap-2 font-inter">
-                                                    <button 
+                                                    <button
                                                         onClick={() => setAdvanceTarget(labour)}
                                                         className="px-4 py-2 bg-white text-slate-400 text-[9px] font-bold uppercase tracking-widest rounded-xl hover:bg-slate-50 hover:text-slate-600 transition-all border border-slate-100 font-inter active:scale-95"
                                                     >
                                                         Advance
                                                     </button>
-                                                    <button 
+                                                    <button
                                                         onClick={() => setPayTarget(labour)}
                                                         className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-[9px] font-bold uppercase tracking-widest rounded-xl hover:bg-blue-600 shadow-lg shadow-primary/20 transition-all active:scale-95 font-inter"
                                                     >
@@ -389,8 +390,8 @@ const PaymentPage: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-4 text-center font-inter">
                                                 <div className="flex items-center justify-center gap-1 font-inter">
-                                                  <ArrowDownRight className="w-3.5 h-3.5 text-emerald-500" />
-                                                  <span className="text-sm font-bold text-emerald-600 tabular-nums font-inter">₹{h.amount.toLocaleString()}</span>
+                                                    <ArrowDownRight className="w-3.5 h-3.5 text-emerald-500" />
+                                                    <span className="text-sm font-bold text-emerald-600 tabular-nums font-inter">₹{h.amount.toLocaleString()}</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-center font-inter">
@@ -398,7 +399,7 @@ const PaymentPage: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-4 text-right font-inter">
                                                 <div className="flex items-center justify-end gap-2 text-emerald-500 font-inter">
-                                                  <span className="text-[10px] font-bold uppercase tracking-widest font-inter">Confirmed Audit ✓</span>
+                                                    <span className="text-[10px] font-bold uppercase tracking-widest font-inter">Confirmed Audit ✓</span>
                                                 </div>
                                             </td>
                                         </tr>
@@ -420,8 +421,8 @@ const PaymentPage: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-4 text-right font-inter">
                                                 <div className="flex flex-col font-inter">
-                                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">{d.last_payment_date}</span>
-                                                  <span className="text-[9px] font-bold text-slate-300 uppercase font-inter">Transaction ID-#{Math.floor(Math.random()*10000)}</span>
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">{d.last_payment_date}</span>
+                                                    <span className="text-[9px] font-bold text-slate-300 uppercase font-inter">Transaction ID-#{Math.floor(Math.random() * 10000)}</span>
                                                 </div>
                                             </td>
                                         </tr>
@@ -430,27 +431,27 @@ const PaymentPage: React.FC = () => {
                                     {activeTab === 'weekly' && weeklyReports.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((r, i) => (
                                         <tr key={i} className="hover:bg-slate-50/50 transition-colors font-inter">
                                             <td className="px-6 py-4 font-inter">
-                                              <div className="flex items-center gap-3 font-inter">
-                                                <div className="p-2 bg-slate-50 rounded-lg font-inter">
-                                                  <Briefcase className="w-3.5 h-3.5 text-slate-400" />
+                                                <div className="flex items-center gap-3 font-inter">
+                                                    <div className="p-2 bg-slate-50 rounded-lg font-inter">
+                                                        <Briefcase className="w-3.5 h-3.5 text-slate-400" />
+                                                    </div>
+                                                    <span className="text-sm font-bold text-slate-800 font-inter">Interval Cycle #{r.month || i + 1}</span>
                                                 </div>
-                                                <span className="text-sm font-bold text-slate-800 font-inter">Interval Cycle #{r.month || i + 1}</span>
-                                              </div>
                                             </td>
                                             <td className="px-6 py-4 text-center font-inter">
-                                              <span className="text-sm font-bold text-slate-500 font-inter">{r.total_days} Strategic Days</span>
+                                                <span className="text-sm font-bold text-slate-500 font-inter">{r.total_days} Strategic Days</span>
                                             </td>
                                             <td className="px-6 py-4 text-center font-inter">
-                                              <span className="text-sm font-bold text-emerald-600 font-inter">{r.present_days} Verified</span>
+                                                <span className="text-sm font-bold text-emerald-600 font-inter">{r.present_days} Verified</span>
                                             </td>
                                             <td className="px-6 py-4 text-center font-inter">
-                                              <span className="text-sm font-bold text-slate-700 font-inter">{r.total_hours}h Ops</span>
+                                                <span className="text-sm font-bold text-slate-700 font-inter">{r.total_hours}h Ops</span>
                                             </td>
                                             <td className="px-6 py-4 text-center font-inter">
-                                              <span className="text-sm font-bold text-amber-500 font-inter">{r.overtime_hours}h OT</span>
+                                                <span className="text-sm font-bold text-amber-500 font-inter">{r.overtime_hours}h OT</span>
                                             </td>
                                             <td className="px-6 py-4 text-right font-inter">
-                                              <span className="text-base font-bold text-slate-800 font-inter tabular-nums">₹{r.total_wage?.toLocaleString()}</span>
+                                                <span className="text-base font-bold text-slate-800 font-inter tabular-nums">₹{r.total_wage?.toLocaleString()}</span>
                                             </td>
                                         </tr>
                                     ))}
@@ -458,27 +459,27 @@ const PaymentPage: React.FC = () => {
                                     {activeTab === 'monthly' && monthlyReports.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((r, i) => (
                                         <tr key={i} className="hover:bg-slate-50/50 transition-colors font-inter">
                                             <td className="px-6 py-4 font-inter">
-                                              <div className="flex items-center gap-3 font-inter">
-                                                <div className="p-2 bg-slate-50 rounded-lg font-inter">
-                                                  <Calendar className="w-3.5 h-3.5 text-primary" />
+                                                <div className="flex items-center gap-3 font-inter">
+                                                    <div className="p-2 bg-slate-50 rounded-lg font-inter">
+                                                        <Calendar className="w-3.5 h-3.5 text-primary" />
+                                                    </div>
+                                                    <span className="text-sm font-bold text-slate-800 font-inter uppercase tracking-tight">{r.month === 4 ? 'April 2026 Strategy' : `Cycle Month ${r.month}`}</span>
                                                 </div>
-                                                <span className="text-sm font-bold text-slate-800 font-inter uppercase tracking-tight">{r.month === 4 ? 'April 2026 Strategy' : `Cycle Month ${r.month}`}</span>
-                                              </div>
                                             </td>
                                             <td className="px-6 py-4 text-center font-inter">
-                                              <span className="text-sm font-bold text-slate-500 font-inter">{r.total_days} Duty Days</span>
+                                                <span className="text-sm font-bold text-slate-500 font-inter">{r.total_days} Duty Days</span>
                                             </td>
                                             <td className="px-6 py-4 text-center font-inter">
-                                              <span className="text-sm font-bold text-emerald-600 font-inter">{r.present_days} Verified</span>
+                                                <span className="text-sm font-bold text-emerald-600 font-inter">{r.present_days} Verified</span>
                                             </td>
                                             <td className="px-6 py-4 text-center font-inter">
-                                              <span className="text-sm font-bold text-slate-700 font-inter">{Math.round(r.total_hours)}h Ops</span>
+                                                <span className="text-sm font-bold text-slate-700 font-inter">{Math.round(r.total_hours)}h Ops</span>
                                             </td>
                                             <td className="px-6 py-4 text-center font-inter">
-                                              <span className="text-sm font-bold text-amber-500 font-inter">{Math.round(r.overtime_hours)}h Efficiency</span>
+                                                <span className="text-sm font-bold text-amber-500 font-inter">{Math.round(r.overtime_hours)}h Efficiency</span>
                                             </td>
                                             <td className="px-6 py-4 text-right font-inter">
-                                              <span className="text-lg font-bold text-slate-900 font-inter tabular-nums">₹{Math.round(r.total_wage || 0).toLocaleString()}</span>
+                                                <span className="text-lg font-bold text-slate-900 font-inter tabular-nums">₹{Math.round(r.total_wage || 0).toLocaleString()}</span>
                                             </td>
                                         </tr>
                                     ))}
@@ -520,15 +521,15 @@ const PaymentPage: React.FC = () => {
 
 
                 {/* ── Modals ────────────────────────────────────── */}
-                <PaySalaryModal 
-                    isOpen={!!payTarget} 
-                    onClose={() => setPayTarget(null)} 
+                <PaySalaryModal
+                    isOpen={!!payTarget}
+                    onClose={() => setPayTarget(null)}
                     labour={payTarget}
                     onSuccess={fetchData}
                 />
-                <AdvancePaymentModal 
-                    isOpen={!!advanceTarget} 
-                    onClose={() => setAdvanceTarget(null)} 
+                <AdvancePaymentModal
+                    isOpen={!!advanceTarget}
+                    onClose={() => setAdvanceTarget(null)}
                     labour={advanceTarget}
                     onSuccess={fetchData}
                 />
