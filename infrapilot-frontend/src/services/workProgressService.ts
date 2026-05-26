@@ -41,8 +41,11 @@ export const workProgressService = {
    */
   async listActivities(project_id?: number, engineer_id?: number): Promise<ActivityItem[]> {
     try {
-      const response = await api.get("/projects/work-progress/activities");
-      return response.data;
+      const response = await api.get("/projects/work-progress/activities", {
+        params: { project_id, engineer_id }
+      });
+      const data = response.data;
+      return Array.isArray(data) ? data : (data.items || data.data || []);
     } catch (error: any) {
       console.warn("listActivities API error, using virtual success fallback:", error.message);
       return mockActivities.filter(a => {

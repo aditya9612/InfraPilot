@@ -18,7 +18,8 @@ import {
     LayoutGrid,
     List as ListIcon,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    Eye
 } from "lucide-react";
 
 import { sitePhotoService } from "../../services/sitePhotoService";
@@ -219,7 +220,7 @@ const SitePhotosPage = () => {
                 </div>
 
                 {/* â”€â”€ Interactive Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Total Evidence"
@@ -233,20 +234,6 @@ const SitePhotosPage = () => {
                             value={stats.thisWeek.toString()}
                             sub="Past 7 Days"
                             accent="text-emerald-500" />
-                    </div>
-                    <div onClick={() => setActiveStatFilter("Tasks")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Tasks" ? "ring-2 ring-amber-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard
-                            title="Scoped Tasks"
-                            value={stats.activities.toString()}
-                            sub="Tracked Milestones"
-                            accent="text-amber-500" />
-                    </div>
-                    <div onClick={() => setActiveStatFilter("Zones")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Zones" ? "ring-2 ring-indigo-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard
-                            title="Zonal Units"
-                            value={stats.locations.toString()}
-                            sub="Capture Points"
-                            accent="text-indigo-500" />
                     </div>
                 </div>
 
@@ -342,11 +329,17 @@ const SitePhotosPage = () => {
                                                 </div>
 
                                                 {/* Interactive Actions */}
-                                                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex items-center justify-center gap-3 z-20 font-inter">
-
+                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex items-center justify-center gap-3 z-20 font-inter">
+                                                    <button
+                                                        onClick={() => setSelectedPhoto(photo)}
+                                                        className="p-4 bg-primary text-white rounded-2xl scale-90 group-hover:scale-100 transition-all duration-500 shadow-xl shadow-primary/20 hover:bg-blue-600"
+                                                        title="View Evidence"
+                                                    >
+                                                        <Eye className="w-6 h-6" />
+                                                    </button>
                                                     <button
                                                         onClick={() => { setPhotoToDelete(photo.id); setIsDeleteModalOpen(true); }}
-                                                        className="p-4 bg-white text-rose-500 rounded-2xl scale-90 group-hover:scale-100 transition-all duration-500 shadow-xl"
+                                                        className="p-4 bg-white text-rose-500 rounded-2xl scale-90 group-hover:scale-100 transition-all duration-500 shadow-xl hover:bg-rose-50 hover:text-rose-600"
                                                         title="Discard Evidence"
                                                     >
                                                         <Trash2 className="w-6 h-6" />
@@ -429,12 +422,22 @@ const SitePhotosPage = () => {
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4 text-right font-inter">
-                                                            <button 
-                                                                onClick={() => { setPhotoToDelete(photo.id); setIsDeleteModalOpen(true); }}
-                                                                className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all font-inter"
-                                                            >
-                                                                <Trash2 className="w-4 h-4" />
-                                                            </button>
+                                                            <div className="flex items-center justify-end gap-2 font-inter">
+                                                                <button
+                                                                    onClick={() => setSelectedPhoto(photo)}
+                                                                    className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 flex items-center justify-center font-inter"
+                                                                    title="View Insight"
+                                                                >
+                                                                    <Eye className="w-4 h-4" />
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => { setPhotoToDelete(photo.id); setIsDeleteModalOpen(true); }}
+                                                                    className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all font-inter"
+                                                                    title="Discard Evidence"
+                                                                >
+                                                                    <Trash2 className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
                                                         </td>
                                                     </tr>
                                                 ))}
@@ -491,15 +494,15 @@ const SitePhotosPage = () => {
             >
                 {selectedPhoto && (
                     <div className="p-6 font-inter">
-                        <div className="bg-slate-900 rounded-2xl p-10 mb-8 text-white shadow-2xl relative overflow-hidden font-inter">
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 rounded-full -mr-32 -mt-32 blur-3xl" />
+                        <div className="bg-primary rounded-2xl p-10 mb-8 text-white shadow-2xl relative overflow-hidden font-inter">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl" />
                             <div className="relative z-10 font-inter">
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-blue-400 mb-3 font-inter">Intelligence Artifact Record</p>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-blue-100 mb-3 font-inter">Intelligence Artifact Record</p>
                                 <h3 className="text-2xl font-bold tracking-tight leading-tight mb-8 font-inter">{selectedPhoto?.location_tag}</h3>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 font-inter">
                                     <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10 font-inter">
                                         <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1.5 font-inter">Reference Code</p>
-                                        <p className="text-xl font-bold text-blue-400 font-inter">#LOG-{selectedPhoto?.id}</p>
+                                        <p className="text-xl font-bold text-white font-inter">#LOG-{selectedPhoto?.id}</p>
                                     </div>
                                     <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10 font-inter">
                                         <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1.5 font-inter">Capture Sequence</p>

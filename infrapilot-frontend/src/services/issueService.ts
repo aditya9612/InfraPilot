@@ -37,17 +37,14 @@ export const issueService = {
      * Get Lists Issues By Project ID
      * GET /api/v1/issues/project/{project_id}
      */
-    async listIssuesByProject(projectId: number, params?: any): Promise<IssueResponse> {
+    async listIssuesByProject(project_id: number, params?: any): Promise<IssueResponse> {
         try {
-            const queryParams: any = {};
-            if (params?.search) queryParams.search = params.search;
-
-            const response = await api.get(`/issues/project/${projectId}`, { 
-                params: queryParams 
+            const response = await api.get(`/issues`, { 
+                params: { project_id, ...params } 
             });
             return response.data;
         } catch (error: any) {
-            console.error(`List Issues By Project ${projectId} API Error:`, error.response?.data || error.message);
+            console.error(`List Issues By Project ${project_id} API Error:`, error.response?.data || error.message);
             throw error;
         }
     },

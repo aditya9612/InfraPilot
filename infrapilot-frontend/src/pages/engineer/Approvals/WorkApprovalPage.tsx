@@ -17,9 +17,10 @@ import {
     Briefcase,
     Phone,
     RotateCcw
-,
+    ,
     ChevronLeft,
-    ChevronRight} from "lucide-react";
+    ChevronRight
+} from "lucide-react";
 import { approvalService } from "../../../services/approvalService";
 import type { CreateApprovalRequest } from "../../../services/approvalService";
 
@@ -64,7 +65,7 @@ const WorkApprovalPage = () => {
     const itemsPerPage = 20;
 
     // Filter state for StatCards
-    const [activeFilter, setActiveFilter] = useState<"All" | "Approved" | "Pending" | "Rate">("All");
+    const [activeFilter, setActiveFilter] = useState<"All" | "Approved" | "Pending" | "Reject" | "Pending/Reject" | "Rate">("All");
 
     const [formData, setFormData] = useState({
         id: "" as number | string,
@@ -145,9 +146,9 @@ const WorkApprovalPage = () => {
         try {
             await approvalService.approve(id, remarks);
             toast.success("Work Authorized!", { id: toastId });
-            
+
             // Optimistic Update
-            setApprovalData(prev => prev.map(a => 
+            setApprovalData(prev => prev.map(a =>
                 a.id === id ? { ...a, status: "Approved" } : a
             ));
         } catch (error) {
@@ -163,9 +164,9 @@ const WorkApprovalPage = () => {
         try {
             await approvalService.reject(id, remarks);
             toast.success("Work Authorization Rejected", { id: toastId });
-            
+
             // Optimistic Update
-            setApprovalData(prev => prev.map(a => 
+            setApprovalData(prev => prev.map(a =>
                 a.id === id ? { ...a, status: "Rejected" } : a
             ));
         } catch (error) {
@@ -191,14 +192,18 @@ const WorkApprovalPage = () => {
 
     const filteredApprovals = useMemo(() => {
         let data = baseFilteredApprovals;
-        
+
         // Apply StatCard Filter
         if (activeFilter === "Approved") {
             data = data.filter(a => a.status === "Approved");
         } else if (activeFilter === "Pending") {
+            data = data.filter(a => a.status === "Pending" || a.status === "Hold");
+        } else if (activeFilter === "Reject") {
+            data = data.filter(a => a.status === "Rejected");
+        } else if (activeFilter === "Pending/Reject") {
             data = data.filter(a => a.status !== "Approved");
         }
-        
+
         return data;
     }, [baseFilteredApprovals, activeFilter]);
 
@@ -277,14 +282,14 @@ const WorkApprovalPage = () => {
                     </div>
                     <div onClick={() => setActiveFilter("Approved")} className={`cursor-pointer group transition-all rounded-xl ${activeFilter === "Approved" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
-                            title="Cleared"
+                            title="Approved"
                             value={stats.cleared.toString()}
                             sub="Work Authorized"
                             accent="text-emerald-500" />
                     </div>
-                    <div onClick={() => setActiveFilter("Pending")} className={`cursor-pointer group transition-all rounded-xl ${activeFilter === "Pending" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div onClick={() => setActiveFilter("Pending/Reject")} className={`cursor-pointer group transition-all rounded-xl ${activeFilter === "Pending/Reject" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
-                            title="Held / Pending"
+                            title="Pending/ Reject"
                             value={stats.pending.toString()}
                             sub="Awaiting Clearance"
                             accent="text-rose-500" />
@@ -315,9 +320,16 @@ const WorkApprovalPage = () => {
                         </div>
                         <div className="flex flex-wrap items-center gap-3 font-inter">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Active Filter:</span>
-                            <span className="px-3 py-1 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-primary uppercase tracking-widest shadow-sm">
-                                {activeFilter === "Rate" ? "Overall Precision" : activeFilter === "All" ? "Full Ledger" : activeFilter}
-                            </span>
+                            <select
+                                value={activeFilter}
+                                onChange={(e) => setActiveFilter(e.target.value as any)}
+                                className="bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-primary uppercase tracking-widest shadow-sm px-3 py-1 outline-none cursor-pointer"
+                            >
+                                <option value="All">Full Ledger</option>
+                                <option value="Approved">Approved</option>
+                                <option value="Pending">Pending</option>
+                                <option value="Reject">Reject</option>
+                            </select>
                             {activeFilter !== "All" && (
                                 <button onClick={() => setActiveFilter("All")} className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors">
                                     <RotateCcw className="w-4 h-4" />
@@ -332,8 +344,6 @@ const WorkApprovalPage = () => {
                                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
                                     <th className="px-6 py-4">Work Authorization</th>
                                     <th className="px-6 py-4">Status</th>
-                                    <th className="px-6 py-4">Entity Details</th>
-                                    <th className="px-6 py-4">Requested By</th>
                                     <th className="px-6 py-4">Remarks</th>
                                     <th className="px-6 py-4 text-right">Actions</th>
                                 </tr>
@@ -341,7 +351,7 @@ const WorkApprovalPage = () => {
                             <tbody className="divide-y divide-slate-50 font-inter">
                                 {loading ? (
                                     <tr>
-                                        <td colSpan={6} className="px-6 py-20 text-center font-inter">
+                                        <td colSpan={4} className="px-6 py-20 text-center font-inter">
                                             <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
                                             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Syncing Authorizations...</p>
                                         </td>
@@ -359,15 +369,6 @@ const WorkApprovalPage = () => {
                                                 <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest border ${getStatusStyle(approval.status)} font-inter`}>
                                                     {approval.status}
                                                 </span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className="text-sm font-bold text-blue-600 font-inter">Entry Data</span>
-                                            </td>
-                                            <td className="px-6 py-4 font-inter">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-6 h-6 bg-slate-100 rounded-full flex items-center justify-center text-[10px] font-bold text-slate-500">U</div>
-                                                    <span className="text-xs font-bold text-slate-600 font-inter">User {approval.requested_by}</span>
-                                                </div>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <p className="text-[10px] font-bold text-slate-400 truncate max-w-[250px] font-inter">
@@ -406,7 +407,7 @@ const WorkApprovalPage = () => {
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-inter">
+                                        <td colSpan={4} className="px-6 py-20 text-center text-slate-400 font-inter">
                                             No authorization requests discovered in the project vault.
                                         </td>
                                     </tr>

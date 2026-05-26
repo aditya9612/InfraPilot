@@ -1,4 +1,4 @@
-﻿import api from "./api";
+import api from "./api";
 import type {
   Material,
   MaterialCreate,
@@ -176,9 +176,24 @@ export const materialService = {
       payment_pending: rep.payment_pending ?? 0
     }));
   },
-  async exportPdf(): Promise<void> {
+  async exportPdf(project_id?: number): Promise<void> {
     try {
-      await api.get("/materials/reports/pdf", { responseType: 'blob' });
+      const response = await api.get("/materials/reports/pdf", { 
+        params: project_id ? { project_id } : undefined,
+        responseType: 'blob' 
+      });
+      if (response.status === 200) {
+        const blob = new Blob([response.data], { type: "application/pdf" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', 'material_report.pdf');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        return; // Success, don't execute fallback
+      }
     } catch (e) {
       console.warn("PDF API call failed, using fallback...");
     }
@@ -365,9 +380,24 @@ export const materialService = {
     printWindow.document.close();
   },
 
-  async exportExcel(): Promise<void> {
+  async exportExcel(project_id?: number): Promise<void> {
     try {
-      await api.get("/materials/reports/excel", { responseType: 'blob' });
+      const response = await api.get("/materials/reports/excel", { 
+        params: project_id ? { project_id } : undefined,
+        responseType: 'blob' 
+      });
+      if (response.status === 200) {
+        const blob = new Blob([response.data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', 'material_report.xlsx');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        return; // Success, don't execute fallback
+      }
     } catch (e) {
       console.warn("Excel API call failed, using fallback...");
     }

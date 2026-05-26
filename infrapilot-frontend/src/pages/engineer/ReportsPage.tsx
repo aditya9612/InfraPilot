@@ -179,7 +179,7 @@ const ReportsPage = () => {
                 workProgressService.listActivities(projectId, { start_date: selectedDate, end_date: selectedDate } as any).catch(() => null),
                 labourService.getLabours(projectId, { start_date: selectedDate, end_date: selectedDate } as any).catch(() => null),
                 materialService.listMaterials(projectId, { start_date: selectedDate, end_date: selectedDate } as any).catch(() => null),
-                issueService.listIssuesByProject(projectId, { start_date: selectedDate, end_date: selectedDate } as any).catch(() => null)
+                issueService.listIssuesByProject(projectId, { limit: 1000 }).catch(() => null)
             ]);
 
             const updatedReports = [...reportTypes];
@@ -259,7 +259,7 @@ const ReportsPage = () => {
             // 5. Issues Mapping
             const issueIdx = updatedReports.findIndex(r => r.id === "issue");
             if (issueIdx !== -1 && issuesRes && issuesRes.items) {
-                const allIssues = issuesRes.items;
+                const allIssues = issuesRes.items.filter((i: any) => !projectId || i.project_id === projectId);
                 const openIssues = allIssues.filter((i: any) => i.status !== 'Resolved' && i.status !== 'Closed').length;
                 const criticalIssues = allIssues.filter((i: any) => i.priority === 'High' || i.priority === 'Critical').length;
                 const resolvedIssues = allIssues.filter((i: any) => i.status === 'Resolved' || i.status === 'Closed').length;
@@ -545,9 +545,9 @@ const ReportsPage = () => {
         toast.success("PDF Print dialog opened successfully!");
     };
 
-    const handleExport = async (report: ReportType) => {
-        setLoadingId(report.id);
-        toast.loading(`Exporting ${report.name}...`, { id: `exp-${report.id}` });
+    const handleCardPDF = async (report: ReportType) => {
+        setLoadingId(`pdf-${report.id}`);
+        toast.loading(`Exporting PDF for ${report.name}...`, { id: `pdf-${report.id}` });
         try {
             let blob: Blob;
             let filename: string;
@@ -556,10 +556,57 @@ const ReportsPage = () => {
             if (report.id === "daily") {
                 blob = await reportService.exportDailyPDF(projectId || 0, selectedDate);
                 filename = `Daily_Report_${selectedDate}.pdf`;
-            } else if (report.id === "material") {
+            } else if (report.id === "weekly") {
+                blob = await reportService.exportWeeklyPDF(projectId || 0);
+                filename = `Weekly_Progress_${today}.pdf`;
+            } else if (report.id === "audit") {
+                blob = await reportService.exportAuditPDF(projectId || 0);
+                filename = `Audit_Report_${today}.pdf`;
+            } else {
+                // Fallback: use generic print dialog
+                toast.dismiss(`pdf-${report.id}`);
+                setLoadingId(null);
+                handleExportPDF();
+                return;
+            }
+
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', filename);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+
+            toast.success(`${report.name} PDF exported!`, { id: `pdf-${report.id}` });
+        } catch (e) {
+            toast.error("PDF Export failed", { id: `pdf-${report.id}` });
+        } finally {
+            setLoadingId(null);
+        }
+    };
+
+    const handleExport = async (report: ReportType) => {
+        setLoadingId(report.id);
+        toast.loading(`Exporting ${report.name}...`, { id: `exp-${report.id}` });
+        try {
+            const today = new Date().toISOString().split("T")[0];
+
+            if (report.id === "daily") {
+                await dsrService.exportDsrExcel(projectId || 0, { start_date: selectedDate, end_date: selectedDate });
+                toast.success(`${report.name} exported successfully!`, { id: `exp-${report.id}` });
+                setLoadingId(null);
+                return;
+            }
+
+            let blob: Blob;
+            let filename: string;
+
+            if (report.id === "material") {
                 blob = await reportService.exportMaterialExcel(projectId || 0);
                 filename = `Material_Report_${today}.xlsx`;
-            } else if (report.id === "labor") {
+            } else if (report.id === "labour") {
                 blob = await reportService.exportLabourExcel(projectId || 0);
                 filename = `Labour_Deployment_${today}.xlsx`;
             } else if (report.id === "issue") {
@@ -767,7 +814,6 @@ const ReportsPage = () => {
                                 <option value="Daily">Daily</option>
                                 <option value="Weekly">Weekly</option>
                                 <option value="Monthly">Monthly</option>
-                                <option value="As needed">Ad-hoc</option>
                             </select>
                             <span className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -872,12 +918,17 @@ const ReportsPage = () => {
                                         </button>
                                         {/* PDF button */}
                                         <button
-                                            onClick={() => handleExportPDF()}
-                                            className="flex items-center gap-1.5 px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold rounded-xl transition-all shadow-sm"
+                                            onClick={() => handleCardPDF(report)}
+                                            disabled={loadingId === `pdf-${report.id}`}
+                                            className="flex items-center gap-1.5 px-4 py-2 bg-rose-50 hover:bg-rose-100 disabled:opacity-60 text-rose-600 text-xs font-bold rounded-xl transition-all shadow-sm"
                                         >
-                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                            </svg>
+                                            {loadingId === `pdf-${report.id}` ? (
+                                                <span className="w-3.5 h-3.5 border-2 border-rose-600/30 border-t-rose-600 rounded-full animate-spin" />
+                                            ) : (
+                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                </svg>
+                                            )}
                                             PDF
                                         </button>
                                         {/* Export button */}
@@ -893,7 +944,7 @@ const ReportsPage = () => {
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                                 </svg>
                                             )}
-                                            Export
+                                            Excel
                                         </button>
                                     </div>
                                 </div>
@@ -993,18 +1044,9 @@ const ReportsPage = () => {
                         <div className="flex items-center gap-4 pt-6 border-t border-slate-50">
                             <button
                                 onClick={() => setSelectedReport(null)}
-                                className="flex-1 py-4 bg-slate-50 hover:bg-slate-100 text-slate-500 text-[10px] font-bold rounded-2xl transition-all uppercase tracking-widest"
+                                className="w-full py-4 bg-slate-50 hover:bg-slate-100 text-slate-500 text-[10px] font-bold rounded-2xl transition-all uppercase tracking-widest"
                             >
                                 Close
-                            </button>
-                            <button
-                                onClick={() => { handleExport(selectedReport); setSelectedReport(null); }}
-                                className="flex-[1.5] py-4 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded-2xl shadow-lg shadow-blue-200 transition-all uppercase tracking-widest flex items-center justify-center gap-2"
-                            >
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                </svg>
-                                Export Analytic
                             </button>
                         </div>
                     </div>

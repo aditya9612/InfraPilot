@@ -122,7 +122,10 @@ const IssueTrackerPage = () => {
                 search: searchTerm,
                 limit: 1000
             });
-            setIssueData(response.items || []);
+            const allItems = response.items || [];
+            // Fallback frontend filter in case backend doesn't filter properly
+            const projectItems = allItems.filter(i => !projectId || i.project_id === projectId);
+            setIssueData(projectItems);
         } catch (error) {
             console.error("Fetch Issues Failure:", error);
             toast.error("Failed to sync project constraints");

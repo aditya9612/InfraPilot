@@ -78,9 +78,8 @@ const DrawingsDocumentsPage = () => {
 
     // Interactive StatCard Filter
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Recent">("All");
-    
-    // Project Filter State
-    const [selectedFilterProject, setSelectedFilterProject] = useState<string>("");
+
+
 
     // Resolve Project ID and fetch projects list
     useEffect(() => {
@@ -96,7 +95,7 @@ const DrawingsDocumentsPage = () => {
                 console.error("Failed to resolve project ID", e);
             }
         }
-        
+
         // Fetch all assigned projects
         const fetchProjects = async () => {
             try {
@@ -113,16 +112,12 @@ const DrawingsDocumentsPage = () => {
     const fetchDrawings = useCallback(async () => {
         setIsLoading(true);
         try {
-            let activeProjectIds = selectedFilterProject 
-                ? [Number(selectedFilterProject)] 
-                : projects.map((p: any) => p.id || p.project_id);
-                
-            if (activeProjectIds.length === 0) activeProjectIds = [92]; // fallback default
+            const activeProjectIds = [projectId || 92]; // fallback default
 
             // Fetch versions for all active projects
             const versionsPromises = activeProjectIds.map(id => drawingService.getVersions(id).catch(() => []));
             const versionsResults = await Promise.all(versionsPromises);
-            
+
             // Combine all arrays into one flat array
             const combinedData = versionsResults.flat();
             setDrawingData(combinedData);
@@ -141,7 +136,7 @@ const DrawingsDocumentsPage = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [selectedFilterProject, projects]);
+    }, [projectId]);
 
     useEffect(() => {
         fetchDrawings();
@@ -150,7 +145,7 @@ const DrawingsDocumentsPage = () => {
     // Reset pagination on filter change
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, activeStatFilter, selectedFilterProject]);
+    }, [searchTerm, activeStatFilter]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -260,7 +255,7 @@ const DrawingsDocumentsPage = () => {
         try {
             const apiResponse = await drawingService.viewDocument(drawing.id);
             toast.success("Successful", { id: toastId, duration: 3000 });
-            
+
             // Merge API response with local record to ensure we have the latest file_url
             setSelectedDrawing({
                 ...drawing,
@@ -300,10 +295,6 @@ const DrawingsDocumentsPage = () => {
             const thirtyDaysAgo = new Date();
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
             data = data.filter(d => d.date && new Date(d.date as string) >= thirtyDaysAgo);
-        }
-
-        if (selectedFilterProject) {
-            data = data.filter(d => String(d.project_id || d.id) === selectedFilterProject);
         }
 
         return data.filter(d =>
@@ -364,7 +355,7 @@ const DrawingsDocumentsPage = () => {
                 {/* â”€â”€ Interactive Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard title="Total Vault" value={stats.total.toString()} sub="Engineering Assets" accent="text-slate-800" />
+                        <StatCard title="Total Document" value={stats.total.toString()} sub="Engineering Assets" accent="text-slate-800" />
                     </div>
                     <div onClick={() => setActiveStatFilter("Recent")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Recent" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard title="Verified Assets" value={stats.verified.toString()} sub="Execution Ready" accent="text-emerald-500" />
@@ -390,18 +381,6 @@ const DrawingsDocumentsPage = () => {
                             />
                         </div>
                         <div className="flex flex-wrap items-center gap-3 font-inter">
-                            <select
-                                value={selectedFilterProject}
-                                onChange={(e) => setSelectedFilterProject(e.target.value)}
-                                className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-inter"
-                            >
-                                <option value="">Select Project</option>
-                                {projects.map((p: any) => (
-                                    <option key={p.id || p.project_id} value={p.id || p.project_id}>
-                                        {p.name || p.project_name || `Project #${p.id || p.project_id}`}
-                                    </option>
-                                ))}
-                            </select>
 
                             {activeStatFilter !== "All" && (
                                 <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter">
@@ -438,8 +417,8 @@ const DrawingsDocumentsPage = () => {
                                         <tr key={drawing.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                             <td className="px-6 py-4 font-inter">
                                                 <div className="w-12 h-12 rounded-xl bg-slate-100 overflow-hidden border border-slate-200 shadow-sm group-hover:scale-105 transition-transform font-inter">
-                                                    <img 
-                                                        src={drawingService.resolveUrl(drawing.file_url || drawing.upload_file || null) || ""} 
+                                                    <img
+                                                        src={drawingService.resolveUrl(drawing.file_url || drawing.upload_file || null) || ""}
                                                         alt="Drawing"
                                                         className="w-full h-full object-cover font-inter"
                                                         onError={(e) => {
@@ -544,9 +523,9 @@ const DrawingsDocumentsPage = () => {
                             <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl" />
                             <div className="relative z-10 flex items-center gap-8 font-inter">
                                 <div className="w-24 h-24 bg-white/20 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-white/20 shadow-inner font-inter relative overflow-hidden">
-                                    <img 
-                                        src={drawingService.resolveUrl(selectedDrawing.file_url || selectedDrawing.upload_file || null) || ""} 
-                                        alt="Avatar" 
+                                    <img
+                                        src={drawingService.resolveUrl(selectedDrawing.file_url || selectedDrawing.upload_file || null) || ""}
+                                        alt="Avatar"
                                         className="w-full h-full object-cover font-inter"
                                     />
                                     <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-4 border-slate-800 rounded-full animate-pulse" />
@@ -719,72 +698,72 @@ const DrawingsDocumentsPage = () => {
 
                     {/* Site Documentation (DSR Style) */}
                     {!isEditMode && (
-                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm overflow-hidden font-inter">
-                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 flex items-center justify-between font-inter">
-                            Site Documentation
-                            {photoPreview && (
-                                <button
-                                    type="button"
-                                    onClick={() => { setPhotoFile(null); setPhotoPreview(null); }}
-                                    className="text-rose-500 hover:text-rose-600 transition-colors font-inter"
-                                >
-                                    <XIcon className="w-4 h-4" />
-                                </button>
-                            )}
-                        </h3>
+                        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm overflow-hidden font-inter">
+                            <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 flex items-center justify-between font-inter">
+                                Site Documentation
+                                {photoPreview && (
+                                    <button
+                                        type="button"
+                                        onClick={() => { setPhotoFile(null); setPhotoPreview(null); }}
+                                        className="text-rose-500 hover:text-rose-600 transition-colors font-inter"
+                                    >
+                                        <XIcon className="w-4 h-4" />
+                                    </button>
+                                )}
+                            </h3>
 
-                        <div className="flex flex-col items-center justify-center font-inter">
-                            {photoPreview ? (
-                                <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-slate-100 shadow-sm group font-inter">
-                                    <img src={photoPreview} alt="Site" className="w-full h-full object-cover font-inter" />
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4 font-inter">
+                            <div className="flex flex-col items-center justify-center font-inter">
+                                {photoPreview ? (
+                                    <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-slate-100 shadow-sm group font-inter">
+                                        <img src={photoPreview} alt="Site" className="w-full h-full object-cover font-inter" />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4 font-inter">
+                                            <button
+                                                type="button"
+                                                onClick={() => fileInputRef.current?.click()}
+                                                className="px-6 py-2 bg-white text-slate-800 rounded-xl text-xs font-bold shadow-xl active:scale-95 transition-all font-inter"
+                                            >
+                                                Change Photo
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="w-full flex flex-col items-center gap-6 font-inter">
+                                        <input
+                                            type="file"
+                                            ref={fileInputRef}
+                                            className="hidden font-inter"
+                                            accept="image/*"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                    setPhotoFile(file);
+                                                    const reader = new FileReader();
+                                                    reader.onloadend = () => {
+                                                        setPhotoPreview(reader.result as string);
+                                                        setFormData((prev: any) => ({ ...prev, file: file.name }));
+                                                    };
+                                                    reader.readAsDataURL(file);
+                                                    toast.success("Image uploaded successfully!");
+                                                }
+                                            }}
+                                        />
                                         <button
                                             type="button"
                                             onClick={() => fileInputRef.current?.click()}
-                                            className="px-6 py-2 bg-white text-slate-800 rounded-xl text-xs font-bold shadow-xl active:scale-95 transition-all font-inter"
+                                            className="w-full py-12 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-4 bg-slate-50/50 hover:bg-slate-50 hover:border-primary/50 transition-all group font-inter"
                                         >
-                                            Change Photo
+                                            <div className="p-4 bg-white rounded-full shadow-sm text-slate-400 group-hover:text-primary group-hover:scale-110 transition-all font-inter">
+                                                <Upload className="w-8 h-8 font-inter" />
+                                            </div>
+                                            <div className="text-center font-inter">
+                                                <p className="text-sm font-bold text-slate-600 font-inter">Upload Drawing / Document Image</p>
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 font-inter">Select from your device gallery</p>
+                                            </div>
                                         </button>
                                     </div>
-                                </div>
-                            ) : (
-                                <div className="w-full flex flex-col items-center gap-6 font-inter">
-                                    <input
-                                        type="file"
-                                        ref={fileInputRef}
-                                        className="hidden font-inter"
-                                        accept="image/*"
-                                        onChange={(e) => {
-                                            const file = e.target.files?.[0];
-                                            if (file) {
-                                                setPhotoFile(file);
-                                                const reader = new FileReader();
-                                                reader.onloadend = () => {
-                                                    setPhotoPreview(reader.result as string);
-                                                    setFormData((prev: any) => ({ ...prev, file: file.name }));
-                                                };
-                                                reader.readAsDataURL(file);
-                                                toast.success("Image uploaded successfully!");
-                                            }
-                                        }}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => fileInputRef.current?.click()}
-                                        className="w-full py-12 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-4 bg-slate-50/50 hover:bg-slate-50 hover:border-primary/50 transition-all group font-inter"
-                                    >
-                                        <div className="p-4 bg-white rounded-full shadow-sm text-slate-400 group-hover:text-primary group-hover:scale-110 transition-all font-inter">
-                                            <Upload className="w-8 h-8 font-inter" />
-                                        </div>
-                                        <div className="text-center font-inter">
-                                            <p className="text-sm font-bold text-slate-600 font-inter">Upload Drawing / Document Image</p>
-                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 font-inter">Select from your device gallery</p>
-                                        </div>
-                                    </button>
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
-                    </div>
                     )}
                 </form>
             </Modal>

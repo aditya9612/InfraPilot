@@ -45,8 +45,7 @@ const MaterialRequestPage = () => {
     const [projects, setProjects] = useState<any[]>([]);
     const itemsPerPage = 20;
 
-    // Interactive StatCard Filter
-    const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Approved" | "Pending">("All");
+    const [activeFilter, setActiveFilter] = useState<"Select" | "Approved" | "Pending" | "Reject">("Select");
 
     const [formData, setFormData] = useState({
         project_id: "" as string | number,
@@ -68,8 +67,6 @@ const MaterialRequestPage = () => {
         }
     }, []);
 
-    const [selectedProjectFilter, setSelectedProjectFilter] = useState<number | "All">("All");
-
     useEffect(() => {
         const fetchProjects = async () => {
             try {
@@ -88,23 +85,19 @@ const MaterialRequestPage = () => {
     const fetchRequests = useCallback(async () => {
         setIsLoading(true);
         try {
-            let activeProjectIds = selectedProjectFilter !== "All" 
-                ? [selectedProjectFilter] 
-                : projects.map((p: any) => p.id || p.project_id);
-                
-            if (activeProjectIds.length === 0) activeProjectIds = [projectId || 92];
+            const activeProjectIds = [projectId || 92];
 
             const promises = activeProjectIds.map(id => siteRequestService.getRequests(id as number).catch(() => []));
             const results = await Promise.all(promises);
             const combinedData = results.flat();
-
-            setRequestData(combinedData);
+            const sortedData = combinedData.sort((a, b) => Number(b.id) - Number(a.id));
+            setRequestData(sortedData);
         } catch (error) {
             toast.error("Failed to fetch requisition list.");
         } finally {
             setIsLoading(false);
         }
-    }, [selectedProjectFilter, projects, projectId]);
+    }, [projects, projectId]);
 
     useEffect(() => {
         fetchRequests();
@@ -201,27 +194,27 @@ const MaterialRequestPage = () => {
     const filteredRequests = useMemo(() => {
         let data = baseFilteredRequests;
 
-        // Apply StatCard Filter
-        if (activeStatFilter === "Approved") {
+        // Apply Status Filter
+        if (activeFilter === "Approved") {
             data = data.filter(r => r.status === "Approved");
-        } else if (activeStatFilter === "Pending") {
+        } else if (activeFilter === "Pending") {
             data = data.filter(r => r.status === "Pending");
+        } else if (activeFilter === "Reject") {
+            data = data.filter(r => r.status === "Rejected");
         }
 
         return data;
-    }, [baseFilteredRequests, activeStatFilter]);
+    }, [baseFilteredRequests, activeFilter]);
 
     const paginatedRequests = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
         return filteredRequests.slice(startIndex, startIndex + itemsPerPage);
     }, [filteredRequests, currentPage]);
 
-    const totalPages = Math.ceil(filteredRequests.length / itemsPerPage);
-
     // Reset page on filter change
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, activeStatFilter]);
+    }, [searchTerm, activeFilter]);
 
     const stats = {
         total: baseFilteredRequests.length,
@@ -253,7 +246,7 @@ const MaterialRequestPage = () => {
                 {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 font-inter">
                     <div className="font-inter">
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Procurement Requisition Ledger</h1>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Material Request</h1>
                         <p className="text-slate-500 text-sm font-inter">Formal procurement requests for structural and consumable site resources.</p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -271,7 +264,7 @@ const MaterialRequestPage = () => {
                             className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
                         >
                             <Plus className="w-4 h-4" />
-                            Log Requisition
+                            New Material Entry
                         </button>
                         <button
                             onClick={fetchRequests}
@@ -286,21 +279,21 @@ const MaterialRequestPage = () => {
                 {/* â”€â”€ Interactive Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 {/* â”€â”€ Scrollable Content Area â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
-                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div onClick={() => setActiveFilter("Pending")} className={`cursor-pointer group transition-all rounded-xl hover:scale-[1.01]`}>
                         <StatCard
                             title="Total Logs"
                             value={stats.total.toString()}
                             sub="All Requests"
                             accent="text-slate-800" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("Approved")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Approved" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div onClick={() => setActiveFilter("Approved")} className={`cursor-pointer group transition-all rounded-xl hover:scale-[1.01]`}>
                         <StatCard
                             title="Approved"
                             value={stats.approved.toString()}
                             sub="Released for Site"
                             accent="text-emerald-500" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("Pending")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Pending" ? "ring-2 ring-amber-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div onClick={() => setActiveFilter("Pending")} className={`cursor-pointer group transition-all rounded-xl hover:scale-[1.01]`}>
                         <StatCard
                             title="Pending Review"
                             value={stats.pending.toString()}
@@ -331,24 +324,18 @@ const MaterialRequestPage = () => {
                                 className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
                             />
                         </div>
-                        <div className="flex items-center gap-3 font-inter">
+                        <div className="flex flex-wrap items-center gap-3 font-inter">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Active Filter:</span>
                             <select
-                                value={selectedProjectFilter}
-                                onChange={(e) => setSelectedProjectFilter(e.target.value === "All" ? "All" : Number(e.target.value))}
-                                className="bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter"
+                                value={activeFilter}
+                                onChange={(e) => setActiveFilter(e.target.value as any)}
+                                className="bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-primary uppercase tracking-widest shadow-sm px-3 py-1 outline-none cursor-pointer"
                             >
-                                <option value="All">All Projects</option>
-                                {projects.map((p: any) => (
-                                    <option key={`filter-${p.id || p.project_id}`} value={p.id || p.project_id}>
-                                        {p.name || p.project_name || `Project #${p.id || p.project_id}`}
-                                    </option>
-                                ))}
+                                <option value="Select">Select</option>
+                                <option value="Approved">Approved</option>
+                                <option value="Pending">Pending</option>
+                                <option value="Reject">Reject</option>
                             </select>
-                            {activeStatFilter !== "All" && (
-                                <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter">
-                                    <RotateCcw className="w-4 h-4" />
-                                </button>
-                            )}
                         </div>
                     </div>
 
