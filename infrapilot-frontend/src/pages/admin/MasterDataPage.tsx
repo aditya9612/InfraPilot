@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
@@ -10,6 +10,7 @@ import { Eye, Edit2, Trash2 } from "lucide-react";
 import MasterDataDetailsModal from "../../components/dashboard/MasterDataDetailsModal";
 import { masterService } from "../../services/masterService";
 import type { MasterEntity, MasterStats } from "../../services/masterService";
+import SortDropdown from "../../components/common/SortDropdown";
 
 const MasterDataPage = () => {
   const location = useLocation();
@@ -24,6 +25,9 @@ const MasterDataPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("All");
+  const [currentPage, setCurrentPage] = useState(0);
+  const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
+  const PAGE_SIZE = 10;
 
   // Sync tab state with URL path
   useEffect(() => {
@@ -70,6 +74,24 @@ const MasterDataPage = () => {
       setIsLoading(false);
     }
   }, [activeTab, searchTerm]);
+
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [activeTab, searchTerm, sortOrder]);
+
+  const sortedItems = useMemo(() => {
+    return [...items].sort((a, b) => {
+      const aVal = a.id;
+      const bVal = b.id;
+      return sortOrder === "latest" ? bVal - aVal : aVal - bVal;
+    });
+  }, [items, sortOrder]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedItems.length / PAGE_SIZE));
+  const pagedItems = sortedItems.slice(
+    currentPage * PAGE_SIZE,
+    (currentPage + 1) * PAGE_SIZE
+  );
 
   useEffect(() => {
     fetchMasterData();
@@ -194,19 +216,22 @@ const MasterDataPage = () => {
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden min-h-[400px]">
           <div className="p-4 border-b border-slate-50 flex items-center justify-between gap-4">
-            <div className="relative flex-1 max-w-md">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </span>
-              <input
-                type="text"
-                placeholder="Search by name or code..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-              />
+            <div className="flex flex-col sm:flex-row items-center gap-4 flex-1">
+              <div className="relative flex-1 max-w-sm w-full">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </span>
+                <input
+                  type="text"
+                  placeholder="Search by name or code..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                />
+              </div>
+              <SortDropdown value={sortOrder} onChange={setSortOrder} />
             </div>
             <div className="flex gap-2">
               {["All", "Material", "Labour", "Activity", "Unit"].map((tab) => (
@@ -243,7 +268,7 @@ const MasterDataPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {items.map((item) => (
+                {pagedItems.map((item) => (
                   <tr key={`${item.system_tag}-${item.id}`} className="hover:bg-slate-50/50 transition-colors group">
                     <td className="px-6 py-4">
                       <span className="font-bold text-slate-700 group-hover:text-primary transition-colors">{item.name}</span>
@@ -304,6 +329,39 @@ const MasterDataPage = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="px-6 py-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                Showing {(currentPage * PAGE_SIZE) + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, sortedItems.length)} of {sortedItems.length} Records
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                  disabled={currentPage === 0}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700 font-inter">
+                  {currentPage + 1}
+                </div>
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={currentPage >= totalPages - 1}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
+
           {items.length === 0 && !isLoading && (
             <div className="p-20 text-center">
               <p className="text-slate-400 font-medium">No master data matches your search.</p>

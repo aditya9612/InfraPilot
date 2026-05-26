@@ -574,6 +574,7 @@ const CreateInvoicePage = () => {
         advance_paid: advancePaid,
 
         ...paymentDetails,
+        due_date: invoiceDetails.dueDate || paymentDetails.due_date || new Date().toISOString().split('T')[0],
         notes,
         terms_conditions: terms
       };

@@ -3,12 +3,12 @@ import { Link } from "react-router-dom";
 import {
   Plus,
   Search,
-  Filter,
   FileText,
   Eye,
   Trash2,
   Download,
 } from "lucide-react";
+import SortDropdown from "../../components/common/SortDropdown";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
@@ -16,6 +16,7 @@ import ConfirmationModal from "../../components/common/ConfirmationModal";
 import { quotationService } from "../../services/quotationService";
 import type { Quotation } from "../../types/quotation";
 import toast from "react-hot-toast";
+import { formatCurrency } from "../../utils/currencyUtils";
 import { exportToCSV } from "../../utils/csvExport";
 import { generateQuotationPDF } from "../../utils/quotationPDFGenerator";
 
@@ -27,7 +28,8 @@ const AllInvoicesPage = () => {
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
-  const PAGE_SIZE = 8;
+  const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
+  const PAGE_SIZE = 10;
 
   useEffect(() => {
     const fetchEstimates = async () => {
@@ -62,7 +64,7 @@ const AllInvoicesPage = () => {
   };
 
   const filteredData = useMemo(() => {
-    return quotations.filter(q => {
+    const filtered = quotations.filter(q => {
       const matchSearch =
         q.quotation_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         q.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -71,7 +73,12 @@ const AllInvoicesPage = () => {
         q.status?.toLowerCase() === statusFilter.toLowerCase();
       return matchSearch && matchStatus;
     });
-  }, [quotations, searchTerm, statusFilter]);
+    return [...filtered].sort((a, b) => {
+      const aDate = new Date(a.created_at || 0).getTime();
+      const bDate = new Date(b.created_at || 0).getTime();
+      return sortOrder === "latest" ? bDate - aDate : aDate - bDate;
+    });
+  }, [quotations, searchTerm, statusFilter, sortOrder]);
 
   const totalPages = Math.max(1, Math.ceil(filteredData.length / PAGE_SIZE));
   const pagedData = filteredData.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
@@ -144,19 +151,19 @@ const AllInvoicesPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <StatCard
               title={stats.labelTotal}
-              value={`₹${(stats.total / 100000).toFixed(2)}L`}
+              value={formatCurrency(stats.total)}
               sub={`${quotations.length} Active Estimates`}
               accent="text-indigo-600"
             />
             <StatCard
               title={stats.labelPending}
-              value={`₹${(stats.pending / 100000).toFixed(2)}L`}
+              value={formatCurrency(stats.pending)}
               sub="Requires review"
               accent="text-amber-500"
             />
             <StatCard
               title={stats.labelPaid}
-              value={`₹${(stats.paid / 100000).toFixed(2)}L`}
+              value={formatCurrency(stats.paid)}
               sub="Won projects"
               accent="text-emerald-500"
             />
@@ -186,9 +193,7 @@ const AllInvoicesPage = () => {
                   <option value="approved">Approved</option>
                   <option value="converted">Converted</option>
                 </select>
-                <button className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-400 hover:text-indigo-600 transition-colors">
-                  <Filter className="w-4 h-4" />
-                </button>
+                <SortDropdown value={sortOrder} onChange={setSortOrder} />
               </div>
             </div>
 

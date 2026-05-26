@@ -1,3 +1,5 @@
+import { formatCurrency } from "../../utils/currencyUtils";
+
 interface Invoice {
   id: string;
   project: string;
@@ -20,9 +22,9 @@ const InvoiceTable = () => {
       <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-white">
         <h3 className="font-bold text-slate-800">Invoice Management</h3>
         <div className="flex gap-2">
-          <input 
-            type="text" 
-            placeholder="Search invoices..." 
+          <input
+            type="text"
+            placeholder="Search invoices..."
             className="text-xs border border-slate-200 rounded-lg px-3 py-1.5 outline-none focus:ring-1 focus:ring-primary w-40"
           />
           <button className="px-3 py-1.5 text-xs font-medium bg-slate-50 text-slate-600 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors">
@@ -50,13 +52,12 @@ const InvoiceTable = () => {
                   <p className="text-sm font-semibold text-slate-700">{inv.project}</p>
                   <p className="text-[10px] text-slate-400 uppercase tracking-tight">{inv.entity}</p>
                 </td>
-                <td className="px-5 py-4 text-sm font-bold text-slate-700">₹{(inv.amount / 100000).toFixed(2)}L</td>
+                <td className="px-5 py-4 text-sm font-bold text-slate-700">{formatCurrency(inv.amount)}</td>
                 <td className="px-5 py-4">
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                    inv.status === "Paid" ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
-                    inv.status === "Pending" ? "bg-amber-50 text-amber-600 border border-amber-100" :
-                    "bg-rose-50 text-rose-600 border border-rose-100"
-                  }`}>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${inv.status === "Paid" ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
+                      inv.status === "Pending" ? "bg-amber-50 text-amber-600 border border-amber-100" :
+                        "bg-rose-50 text-rose-600 border border-rose-100"
+                    }`}>
                     {inv.status}
                   </span>
                 </td>

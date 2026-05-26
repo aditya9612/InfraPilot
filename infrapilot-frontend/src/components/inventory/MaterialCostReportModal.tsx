@@ -12,6 +12,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
+import { formatCurrency } from "../../utils/currencyUtils";
 
 interface MaterialCostReportModalProps {
   isOpen: boolean;
@@ -94,7 +95,7 @@ const MaterialCostReportModal = ({
               Inventory Financial Analysis
             </h2>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
-                Real-time Asset Valuation & Cost Distribution
+              Real-time Asset Valuation & Cost Distribution
             </p>
           </div>
           <button
@@ -125,21 +126,20 @@ const MaterialCostReportModal = ({
               <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 relative z-10">Total Inventory Value</p>
               <div className="flex items-baseline gap-1 relative z-10">
-                <span className="text-3xl font-black text-white">₹{(totalExpense / 100000).toFixed(2)}</span>
-                <span className="text-sm font-bold text-emerald-400 uppercase">Lacs</span>
+                <span className="text-3xl font-black text-white">{formatCurrency(totalExpense)}</span>
               </div>
             </div>
 
             <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-200 relative overflow-hidden group">
-               <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
-               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 relative z-10">Material Categories</p>
-               <p className="text-3xl font-black text-slate-900 relative z-10">{categoryData.length}</p>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 relative z-10">Material Categories</p>
+              <p className="text-3xl font-black text-slate-900 relative z-10">{categoryData.length}</p>
             </div>
 
             <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-200 relative overflow-hidden group">
-               <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
-               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 relative z-10">Strategic Sites</p>
-               <p className="text-3xl font-black text-slate-900 relative z-10">{projectData.length}</p>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 relative z-10">Strategic Sites</p>
+              <p className="text-3xl font-black text-slate-900 relative z-10">{projectData.length}</p>
             </div>
           </div>
 
@@ -148,8 +148,8 @@ const MaterialCostReportModal = ({
             <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-100 flex flex-col min-h-[450px]">
               <div className="flex items-center justify-between mb-8">
                 <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
-                    Asset Distribution
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                  Asset Distribution
                 </h3>
               </div>
               <div className="flex-1 w-full">
@@ -192,8 +192,8 @@ const MaterialCostReportModal = ({
             <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-100 flex flex-col min-h-[450px]">
               <div className="flex items-center justify-between mb-8">
                 <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                    Project Valuations
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  Project Valuations
                 </h3>
               </div>
               <div className="flex-1 w-full">

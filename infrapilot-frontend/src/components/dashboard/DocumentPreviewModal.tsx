@@ -49,17 +49,16 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
     >
       <div className="space-y-8 pb-4">
         {/* Dynamic Header */}
-        <div className={`relative overflow-hidden rounded-2xl p-8 shadow-xl transition-all ${
-          document.isFolder ? "bg-gradient-to-br from-amber-500 to-orange-500 text-white" :
-          "bg-gradient-to-br from-primary to-blue-600 text-white"
-        }`}>
+        <div className={`relative overflow-hidden rounded-2xl p-8 shadow-xl transition-all ${document.isFolder ? "bg-gradient-to-br from-amber-500 to-orange-500 text-white" :
+            "bg-gradient-to-br from-primary to-blue-600 text-white"
+          }`}>
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32" />
-          
+
           <div className="flex flex-col md:flex-row items-center gap-6 relative z-10">
             <div className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-xl">
               <FileText size={32} strokeWidth={2.5} />
             </div>
-            
+
             <div className="text-center md:text-left">
               <div className="flex flex-col md:flex-row items-center gap-3">
                 <h3 className="text-2xl font-black tracking-tight">{document.name}</h3>
@@ -88,28 +87,44 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
 
           {/* Preview Section */}
           <div className="md:col-span-2 space-y-4">
-             <div className="flex items-center gap-2 pb-2 border-b border-slate-100 text-slate-400">
-                <HardDrive size={16} />
-                <h4 className="text-xs font-black uppercase tracking-widest">
-                  Content Preview
-                </h4>
-              </div>
-              
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl h-64 flex flex-col items-center justify-center text-slate-400 p-6 text-center">
-                {document.isFolder ? (
-                  <>
-                    <FileText size={48} className="text-slate-300 mb-4 opacity-50" />
-                    <p className="font-bold text-slate-500">This is a directory.</p>
-                    <p className="text-sm">Open the folder to view its contents.</p>
-                  </>
-                ) : (
-                  <>
-                    <FileText size={48} className="text-slate-300 mb-4 opacity-50" />
-                    <p className="font-bold text-slate-500">Preview not available for this file type.</p>
-                    <p className="text-sm mt-2">Please download the file to view its full contents securely on your local device.</p>
-                  </>
-                )}
-              </div>
+            <div className="flex items-center gap-2 pb-2 border-b border-slate-100 text-slate-400">
+              <HardDrive size={16} />
+              <h4 className="text-xs font-black uppercase tracking-widest">
+                Content Preview
+              </h4>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl h-[450px] flex flex-col items-center justify-center text-slate-400 overflow-hidden relative">
+              {document.isFolder ? (
+                <div className="flex flex-col items-center justify-center p-6 text-center">
+                  <FileText size={48} className="text-slate-300 mb-4 opacity-50" />
+                  <p className="font-bold text-slate-500">This is a directory.</p>
+                  <p className="text-sm">Open the folder to view its contents.</p>
+                </div>
+              ) : (
+                <>
+                  {(document.file_url?.toLowerCase().endsWith('.pdf')) ? (
+                    <iframe
+                      src={`${document.file_url}#toolbar=0`}
+                      className="w-full h-full border-none rounded-2xl"
+                      title="PDF Preview"
+                    />
+                  ) : (document.file_url?.match(/\.(jpg|jpeg|png|gif|webp)$/i)) ? (
+                    <img
+                      src={document.file_url}
+                      alt={document.name}
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center p-6 text-center">
+                      <FileText size={48} className="text-slate-300 mb-4 opacity-50" />
+                      <p className="font-bold text-slate-500">Preview not available for this file type.</p>
+                      <p className="text-sm mt-2">Please download the file to view its full contents securely on your local device.</p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -117,10 +132,10 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
   );
 };
 
-const Section: React.FC<{ icon: React.ReactNode; title: string; children: React.ReactNode }> = ({ 
-  icon, 
-  title, 
-  children, 
+const Section: React.FC<{ icon: React.ReactNode; title: string; children: React.ReactNode }> = ({
+  icon,
+  title,
+  children,
 }) => (
   <div className="space-y-4">
     <div className="flex items-center gap-2 pb-2 border-b border-slate-100 text-slate-400">
@@ -133,9 +148,9 @@ const Section: React.FC<{ icon: React.ReactNode; title: string; children: React.
   </div>
 );
 
-const InfoItem: React.FC<{ label: string; value: string }> = ({ 
-  label, 
-  value, 
+const InfoItem: React.FC<{ label: string; value: string }> = ({
+  label,
+  value,
 }) => (
   <div className="group">
     <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter mb-0.5">

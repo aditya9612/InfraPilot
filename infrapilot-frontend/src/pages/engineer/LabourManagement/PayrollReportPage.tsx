@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Navbar from '../../../components/common/Navbar';
 import PageTransition from '../../../components/common/PageTransition';
 import StatCard from '../../../components/common/StatCard';
-import { 
+import {
     Filter,
     Download,
     RotateCcw
@@ -10,10 +10,11 @@ import {
 import { paymentService } from '../../../services/paymentService';
 import { labourService } from '../../../services/labourService';
 import toast from 'react-hot-toast';
-import { 
-    XAxis, 
-    CartesianGrid, 
-    Tooltip, 
+import { formatCurrency } from '../../../utils/currencyUtils';
+import {
+    XAxis,
+    CartesianGrid,
+    Tooltip,
     ResponsiveContainer,
     AreaChart,
     Area
@@ -54,7 +55,7 @@ const PayrollReportPage: React.FC = () => {
         setIsLoading(true);
         try {
             console.log(`Reports: Fetching ${activeTab} for Project ${projectId || 'all'}`);
-            
+
             const [labourRes, attendanceRes, historyRes] = await Promise.all([
                 labourService.getLabours(projectId, { limit: 50 }),
                 labourService.getAttendanceList(projectId),
@@ -96,7 +97,7 @@ const PayrollReportPage: React.FC = () => {
             // Build dynamic chart data from history
             const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
             const monthMap: Record<string, number> = {};
-            
+
             history.forEach((h: any) => {
                 const date = new Date(h.payment_date || new Date());
                 const monthName = months[date.getMonth()];
@@ -152,7 +153,7 @@ const PayrollReportPage: React.FC = () => {
                 "Status"
             ];
             const escape = (val: string | number) => `"${String(val).replace(/"/g, '""')}"`;
-            
+
             const rows = filteredList.map((r: any) => [
                 escape(r.labour_name || 'Unknown'),
                 escape(String(r.skill_type || 'â€”').replace('SkillType.', '').replace('SemiSkilled', 'Semi-Skilled')),
@@ -188,7 +189,7 @@ const PayrollReportPage: React.FC = () => {
     return (
         <>
             <Navbar title="Financial Intelligence" breadcrumb={["Engineer", "Human Resources", "Payroll Reports"]} />
-            
+
             <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter flex flex-col">
                 {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
@@ -201,11 +202,11 @@ const PayrollReportPage: React.FC = () => {
                 </div>
 
                 {/* â”€â”€ Summary Stats with Interactive Filtering â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Total Payout"
-                            value={`₹${(stats.totalPayout / 1000).toFixed(1)}k`}
+                            value={formatCurrency(stats.totalPayout)}
                             sub="All Wage Items"
                             accent="text-slate-800" />
                     </div>
@@ -226,7 +227,7 @@ const PayrollReportPage: React.FC = () => {
                     <div onClick={() => setActiveStatFilter("Summary")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Summary" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Advance Adjusted"
-                            value={`₹${(stats.advanceAdjusted / 1000).toFixed(1)}k`}
+                            value={formatCurrency(stats.advanceAdjusted)}
                             sub="Recovery Target"
                             accent="text-rose-500" />
                     </div>
@@ -271,8 +272,8 @@ const PayrollReportPage: React.FC = () => {
                                 onChange={(e) => setSelectedMonth(Number(e.target.value))}
                                 className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer uppercase tracking-widest"
                             >
-                                {['January','February','March','April','May','June','July','August','September','October','November','December'].map((m, i) => (
-                                    <option key={i+1} value={i+1}>{m}</option>
+                                {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((m, i) => (
+                                    <option key={i + 1} value={i + 1}>{m}</option>
                                 ))}
                             </select>
                             <select
@@ -284,7 +285,7 @@ const PayrollReportPage: React.FC = () => {
                                     <option key={y} value={y}>{y}</option>
                                 ))}
                             </select>
-                            <button 
+                            <button
                                 onClick={handleExportExcel}
                                 disabled={isExportingExcel}
                                 className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm hover:bg-emerald-100 active:scale-95 disabled:opacity-50"
@@ -292,7 +293,7 @@ const PayrollReportPage: React.FC = () => {
                                 <Download className="w-4 h-4" />
                                 {isExportingExcel ? 'Generating...' : 'Export Excel'}
                             </button>
-                            <button 
+                            <button
                                 onClick={() => toast.success("PDF Export coming soon!")}
                                 className="flex items-center justify-center gap-2 px-4 py-2 bg-rose-50 text-rose-600 border border-rose-200 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm hover:bg-rose-100 active:scale-95"
                             >
@@ -393,13 +394,13 @@ const PayrollReportPage: React.FC = () => {
                                     <AreaChart data={chartData}>
                                         <defs>
                                             <linearGradient id="colorAmt" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                                                <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                                                <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                                             </linearGradient>
                                         </defs>
                                         <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
                                         <XAxis dataKey="name" stroke="#ffffff40" fontSize={10} axisLine={false} tickLine={false} />
-                                        <Tooltip 
+                                        <Tooltip
                                             contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', fontSize: '10px' }}
                                             itemStyle={{ color: '#fff', fontWeight: 'bold' }}
                                         />

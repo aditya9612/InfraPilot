@@ -28,10 +28,10 @@ const ClientFinancialsPage = () => (
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {[
-          { label: "Total Contract", value: "₹8.2 Cr", icon: "📋", color: "bg-slate-50 text-slate-600" },
-          { label: "Amount Paid", value: "₹5.3 Cr", icon: "✅", color: "bg-emerald-50 text-emerald-600" },
-          { label: "Pending", value: "₹2.9 Cr", icon: "⏳", color: "bg-amber-50 text-amber-600" },
-          { label: "Variation Orders", value: "₹20 L", icon: "⚠️", color: "bg-red-50 text-red-600" },
+          { label: "Total Contract", value: "₹8,20,00,000", icon: "📋", color: "bg-slate-50 text-slate-600" },
+          { label: "Amount Paid", value: "₹5,30,00,000", icon: "✅", color: "bg-emerald-50 text-emerald-600" },
+          { label: "Pending", value: "₹2,90,00,000", icon: "⏳", color: "bg-amber-50 text-amber-600" },
+          { label: "Variation Orders", value: "₹20,00,000", icon: "⚠️", color: "bg-red-50 text-red-600" },
         ].map((c, i) => (
           <div key={i} className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
             <div className={`w-10 h-10 rounded-2xl ${c.color} flex items-center justify-center text-lg mb-4`}>{c.icon}</div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
@@ -11,21 +11,16 @@ import PurchaseActionModal from "../../components/inventory/PurchaseActionModal"
 import MaterialCostReportModal from "../../components/inventory/MaterialCostReportModal";
 import toast from "react-hot-toast";
 import ConfirmModal from "../../components/common/ConfirmModal";
+import SortDropdown from "../../components/common/SortDropdown";
 import { materialService } from "../../services/materialService";
 import {
   mockInventory,
   mockSuppliers,
-  mockProjects,
-  mockPOs,
-  mockTransfers,
   mockLogs,
   mockSummary
 } from "../../components/admin/inventory/mockData";
 import {
-  Edit2,
   PlusCircle,
-  MinusCircle,
-  Trash2,
   FileText,
   History,
   ShoppingCart,
@@ -77,9 +72,12 @@ const InventoryPage = () => {
 
   const [isSupplierModalOpen, setSupplierModalOpen] = useState(false);
   const [supplierApiErrors, setSupplierApiErrors] = useState<Record<string, string>>({});
-  const [supplierPage, setSupplierPage] = useState(1);
-  const [logsPage, setLogsPage] = useState(1);
-  const [materialPage, setMaterialPage] = useState(1);
+  const [supplierPage, setSupplierPage] = useState(0);
+  const [logsPage, setLogsPage] = useState(0);
+  const [materialPage, setMaterialPage] = useState(0);
+  const [poPage, setPoPage] = useState(0);
+  const [transferPage, setTransferPage] = useState(0);
+  const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
   const PAGE_SIZE = 10;
   const [isTransferModalOpen, setTransferModalOpen] = useState(false);
   const [isMaterialFormOpen, setMaterialFormOpen] = useState(false);
@@ -159,6 +157,41 @@ const InventoryPage = () => {
       (s.contactPerson || "").toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
+  const sortedInventory = useMemo(() => {
+    return [...filteredInventory].sort((a, b) => {
+      return sortOrder === "latest" ? b.id - a.id : a.id - b.id;
+    });
+  }, [filteredInventory, sortOrder]);
+
+  const sortedSuppliers = useMemo(() => {
+    return [...filteredSuppliers].sort((a, b) => {
+      return sortOrder === "latest" ? b.id - a.id : a.id - b.id;
+    });
+  }, [filteredSuppliers, sortOrder]);
+
+  const sortedPOs = useMemo(() => {
+    const filtered = pos.filter((p) =>
+      p.material_name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    return [...filtered].sort((a, b) => {
+      return sortOrder === "latest" ? b.id - a.id : a.id - b.id;
+    });
+  }, [pos, searchTerm, sortOrder]);
+
+  const sortedTransfers = useMemo(() => {
+    return [...transfers].sort((a, b) => {
+      return sortOrder === "latest" ? b.id - a.id : a.id - b.id;
+    });
+  }, [transfers, sortOrder]);
+
+  const sortedLogs = useMemo(() => {
+    return [...logs].sort((a, b) => {
+      const aTime = new Date(a.created_at || 0).getTime();
+      const bTime = new Date(b.created_at || 0).getTime();
+      return sortOrder === "latest" ? bTime - aTime : aTime - bTime;
+    });
+  }, [logs, sortOrder]);
+
   // Handlers
   const handleSupplierSubmit = async (data: any) => {
     setSupplierApiErrors({});
@@ -166,7 +199,7 @@ const InventoryPage = () => {
       const payload = {
         supplier_name: data.name,
         contact_person: data.contactPerson,
-        phone_email: data.phone,
+        phone_email: data.phone || data.email ? `${data.phone || ""} ${data.email || ""}`.trim() : "",
         gst_number: data.gst,
         address: data.address,
       };
@@ -421,9 +454,11 @@ const InventoryPage = () => {
                     key={tab.id}
                     onClick={() => {
                       setActiveTab(tab.id as any);
-                      setMaterialPage(1);
-                      setSupplierPage(1);
-                      setLogsPage(1);
+                      setSupplierPage(0);
+                      setLogsPage(0);
+                      setMaterialPage(0);
+                      setPoPage(0);
+                      setTransferPage(0);
                     }}
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === tab.id
                       ? "bg-primary text-white shadow-md shadow-primary/20"
@@ -544,34 +579,37 @@ const InventoryPage = () => {
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-visible min-h-[500px]">
           <div className="p-4 border-b border-slate-50">
-            <div className="relative max-w-md">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
-              </span>
-              <input
-                type="text"
-                placeholder={`Search ${activeTab}...`}
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setMaterialPage(1);
-                  setSupplierPage(1);
-                  setLogsPage(1);
-                }}
-                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-              />
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              <div className="relative flex-1 max-w-md w-full">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                </span>
+                <input
+                  type="text"
+                  placeholder={`Search ${activeTab}...`}
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setMaterialPage(1);
+                    setSupplierPage(1);
+                    setLogsPage(1);
+                  }}
+                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                />
+              </div>
+              <SortDropdown value={sortOrder} onChange={setSortOrder} />
             </div>
           </div>
 
@@ -586,8 +624,8 @@ const InventoryPage = () => {
             ) : (
               <>
                 {(activeTab === "inventory" || activeTab === "overview") && (() => {
-                  const totalPages = Math.max(1, Math.ceil(filteredInventory.length / PAGE_SIZE));
-                  const paged = filteredInventory.slice((materialPage - 1) * PAGE_SIZE, materialPage * PAGE_SIZE);
+                  const totalPages = Math.max(1, Math.ceil(sortedInventory.length / PAGE_SIZE));
+                  const paged = sortedInventory.slice(materialPage * PAGE_SIZE, (materialPage + 1) * PAGE_SIZE);
                   return (
                     <>
                       <InventoryTable
@@ -614,24 +652,27 @@ const InventoryPage = () => {
                         onDelete={(id) => handleDeleteClick(id, "material")}
                       />
                       {totalPages > 1 && (
-                        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100">
-                          <span className="text-xs text-slate-400 font-medium">
-                            Showing {(materialPage - 1) * PAGE_SIZE + 1}–{Math.min(materialPage * PAGE_SIZE, filteredInventory.length)} of {filteredInventory.length}
-                          </span>
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => setMaterialPage(p => Math.max(1, p - 1))} disabled={materialPage === 1}
-                              className="px-3 py-1 text-xs font-bold rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 transition">
-                              ← Prev
+                        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-50 bg-slate-50/30">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                            Showing {materialPage * PAGE_SIZE + 1}–{Math.min((materialPage + 1) * PAGE_SIZE, sortedInventory.length)} of {sortedInventory.length} Materials
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setMaterialPage((p) => Math.max(0, p - 1))}
+                              disabled={materialPage === 0}
+                              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
                             </button>
-                            {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
-                              <button key={n} onClick={() => setMaterialPage(n)}
-                                className={`px-3 py-1 text-xs font-bold rounded-lg border transition ${n === materialPage ? 'bg-primary text-white border-primary' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
-                                  }`}>{n}
-                              </button>
-                            ))}
-                            <button onClick={() => setMaterialPage(p => Math.min(totalPages, p + 1))} disabled={materialPage === totalPages}
-                              className="px-3 py-1 text-xs font-bold rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 transition">
-                              Next →
+                            <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700 font-inter">
+                              {materialPage + 1}
+                            </div>
+                            <button
+                              onClick={() => setMaterialPage((p) => Math.min(totalPages - 1, p + 1))}
+                              disabled={materialPage >= totalPages - 1}
+                              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
                             </button>
                           </div>
                         </div>
@@ -640,8 +681,8 @@ const InventoryPage = () => {
                   );
                 })()}
                 {activeTab === "suppliers" && (() => {
-                  const totalPages = Math.max(1, Math.ceil(filteredSuppliers.length / PAGE_SIZE));
-                  const paged = filteredSuppliers.slice((supplierPage - 1) * PAGE_SIZE, supplierPage * PAGE_SIZE);
+                  const totalPages = Math.max(1, Math.ceil(sortedSuppliers.length / PAGE_SIZE));
+                  const paged = sortedSuppliers.slice(supplierPage * PAGE_SIZE, (supplierPage + 1) * PAGE_SIZE);
                   return (
                     <>
                       <SupplierTable
@@ -650,24 +691,27 @@ const InventoryPage = () => {
                         onDelete={(id) => handleDeleteClick(id, "supplier")}
                       />
                       {totalPages > 1 && (
-                        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100">
-                          <span className="text-xs text-slate-400 font-medium">
-                            Showing {(supplierPage - 1) * PAGE_SIZE + 1}–{Math.min(supplierPage * PAGE_SIZE, filteredSuppliers.length)} of {filteredSuppliers.length}
-                          </span>
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => setSupplierPage(p => Math.max(1, p - 1))} disabled={supplierPage === 1}
-                              className="px-3 py-1 text-xs font-bold rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 transition">
-                              ← Prev
+                        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-50 bg-slate-50/30">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                            Showing {supplierPage * PAGE_SIZE + 1}–{Math.min((supplierPage + 1) * PAGE_SIZE, sortedSuppliers.length)} of {sortedSuppliers.length} Suppliers
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setSupplierPage((p) => Math.max(0, p - 1))}
+                              disabled={supplierPage === 0}
+                              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
                             </button>
-                            {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
-                              <button key={n} onClick={() => setSupplierPage(n)}
-                                className={`px-3 py-1 text-xs font-bold rounded-lg border transition ${n === supplierPage ? 'bg-primary text-white border-primary' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
-                                  }`}>{n}
-                              </button>
-                            ))}
-                            <button onClick={() => setSupplierPage(p => Math.min(totalPages, p + 1))} disabled={supplierPage === totalPages}
-                              className="px-3 py-1 text-xs font-bold rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 transition">
-                              Next →
+                            <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700 font-inter">
+                              {supplierPage + 1}
+                            </div>
+                            <button
+                              onClick={() => setSupplierPage((p) => Math.min(totalPages - 1, p + 1))}
+                              disabled={supplierPage >= totalPages - 1}
+                              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
                             </button>
                           </div>
                         </div>
@@ -675,63 +719,126 @@ const InventoryPage = () => {
                     </>
                   );
                 })()}
-                {activeTab === "pos" && (
-                  <PurchaseOrderTable
-                    pos={pos.filter((p) =>
-                      p.material_name
-                        .toLowerCase()
-                        .includes(searchTerm.toLowerCase()),
-                    )}
-                    onEdit={(po) => {
-                      setSelectedPO(po);
-                      setIsEditPOModalOpen(true);
-                    }}
-                    onDelete={(id) => handleDeleteClick(id, "po")}
-                    onStatusUpdate={async (id, status) => {
-                      setPos(prev => prev.map(p => p.id === id ? { ...p, status } : p));
-                      toast.success("PO status updated!");
-                    }}
-                  />
-                )}
-                {activeTab === "transfers" && (
-                  <TransferTable
-                    transfers={transfers}
-                    onStatusUpdate={async (id, status) => {
-                      try {
-                        await materialService.updateTransferStatus(id, status);
-                        setTransfers(prev => prev.map(t => t.id === id ? { ...t, status } : t));
-                        toast.success(`Transfer marked as ${status.toLowerCase()}!`);
-                      } catch {
-                        toast.error("Failed to update transfer status");
-                      }
-                    }}
-                  />
-                )}
+                {activeTab === "pos" && (() => {
+                  const totalPages = Math.max(1, Math.ceil(sortedPOs.length / PAGE_SIZE));
+                  const paged = sortedPOs.slice(poPage * PAGE_SIZE, (poPage + 1) * PAGE_SIZE);
+                  return (
+                    <>
+                      <PurchaseOrderTable
+                        pos={paged}
+                        onEdit={(po) => {
+                          setSelectedPO(po);
+                          setIsEditPOModalOpen(true);
+                        }}
+                        onDelete={(id) => handleDeleteClick(id, "po")}
+                        onStatusUpdate={async (id, status) => {
+                          setPos(prev => prev.map(p => p.id === id ? { ...p, status } : p));
+                          toast.success("PO status updated!");
+                        }}
+                      />
+                      {totalPages > 1 && (
+                        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-50 bg-slate-50/30">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                            Showing {poPage * PAGE_SIZE + 1}–{Math.min((poPage + 1) * PAGE_SIZE, sortedPOs.length)} of {sortedPOs.length} Orders
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setPoPage((p) => Math.max(0, p - 1))}
+                              disabled={poPage === 0}
+                              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+                            </button>
+                            <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700 font-inter">
+                              {poPage + 1}
+                            </div>
+                            <button
+                              onClick={() => setPoPage((p) => Math.min(totalPages - 1, p + 1))}
+                              disabled={poPage >= totalPages - 1}
+                              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+                {activeTab === "transfers" && (() => {
+                  const totalPages = Math.max(1, Math.ceil(sortedTransfers.length / PAGE_SIZE));
+                  const paged = sortedTransfers.slice(transferPage * PAGE_SIZE, (transferPage + 1) * PAGE_SIZE);
+                  return (
+                    <>
+                      <TransferTable
+                        transfers={paged}
+                        onStatusUpdate={async (id, status) => {
+                          try {
+                            await materialService.updateTransferStatus(id, status);
+                            setTransfers(prev => prev.map(t => t.id === id ? { ...t, status } : t));
+                            toast.success(`Transfer marked as ${status.toLowerCase()}!`);
+                          } catch {
+                            toast.error("Failed to update transfer status");
+                          }
+                        }}
+                      />
+                      {totalPages > 1 && (
+                        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-50 bg-slate-50/30">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                            Showing {transferPage * PAGE_SIZE + 1}–{Math.min((transferPage + 1) * PAGE_SIZE, sortedTransfers.length)} of {sortedTransfers.length} Transfers
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setTransferPage((p) => Math.max(0, p - 1))}
+                              disabled={transferPage === 0}
+                              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+                            </button>
+                            <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700 font-inter">
+                              {transferPage + 1}
+                            </div>
+                            <button
+                              onClick={() => setTransferPage((p) => Math.min(totalPages - 1, p + 1))}
+                              disabled={transferPage >= totalPages - 1}
+                              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
                 {activeTab === "logs" && (() => {
-                  const totalPages = Math.max(1, Math.ceil(logs.length / PAGE_SIZE));
-                  const paged = logs.slice((logsPage - 1) * PAGE_SIZE, logsPage * PAGE_SIZE);
+                  const totalPages = Math.max(1, Math.ceil(sortedLogs.length / PAGE_SIZE));
+                  const paged = sortedLogs.slice(logsPage * PAGE_SIZE, (logsPage + 1) * PAGE_SIZE);
                   return (
                     <>
                       <InventoryLogsTable logs={paged} />
                       {totalPages > 1 && (
-                        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100">
-                          <span className="text-xs text-slate-400 font-medium">
-                            Showing {(logsPage - 1) * PAGE_SIZE + 1}–{Math.min(logsPage * PAGE_SIZE, logs.length)} of {logs.length}
-                          </span>
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => setLogsPage(p => Math.max(1, p - 1))} disabled={logsPage === 1}
-                              className="px-3 py-1 text-xs font-bold rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 transition">
-                              ← Prev
+                        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-50 bg-slate-50/30">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                            Showing {logsPage * PAGE_SIZE + 1}–{Math.min((logsPage + 1) * PAGE_SIZE, sortedLogs.length)} of {sortedLogs.length} Logs
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setLogsPage((p) => Math.max(0, p - 1))}
+                              disabled={logsPage === 0}
+                              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
                             </button>
-                            {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
-                              <button key={n} onClick={() => setLogsPage(n)}
-                                className={`px-3 py-1 text-xs font-bold rounded-lg border transition ${n === logsPage ? 'bg-primary text-white border-primary' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
-                                  }`}>{n}
-                              </button>
-                            ))}
-                            <button onClick={() => setLogsPage(p => Math.min(totalPages, p + 1))} disabled={logsPage === totalPages}
-                              className="px-3 py-1 text-xs font-bold rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 transition">
-                              Next →
+                            <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700 font-inter">
+                              {logsPage + 1}
+                            </div>
+                            <button
+                              onClick={() => setLogsPage((p) => Math.min(totalPages - 1, p + 1))}
+                              disabled={logsPage >= totalPages - 1}
+                              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
                             </button>
                           </div>
                         </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import ConfirmModal from "../../components/common/ConfirmModal";
@@ -6,6 +6,7 @@ import OwnerDetailsModal from "../../components/dashboard/OwnerDetailsModal";
 import { ownerService } from "../../services/ownerService";
 import type { Owner } from "../../types/owner";
 import toast from "react-hot-toast";
+import SortDropdown from "../../components/common/SortDropdown";
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 const validate = (form: Omit<Owner, "id">) => {
@@ -115,6 +116,7 @@ export default function OwnersListPage() {
   );
   const [isSaving, setIsSaving] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
+  const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
   const PAGE_SIZE = 8;
 
   const fetchOwners = useCallback(async (search = "") => {
@@ -234,13 +236,21 @@ export default function OwnersListPage() {
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
   };
 
-  const totalPages = Math.max(1, Math.ceil(owners.length / PAGE_SIZE));
-  const pagedOwners = owners.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+  const sortedOwners = useMemo(() => {
+    return [...owners].sort((a, b) => {
+      const aTime = new Date(a.created_at || 0).getTime();
+      const bTime = new Date(b.created_at || 0).getTime();
+      return sortOrder === "latest" ? bTime - aTime : aTime - bTime;
+    });
+  }, [owners, sortOrder]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedOwners.length / PAGE_SIZE));
+  const pagedOwners = sortedOwners.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 
   // Reset to page 0 on search
   useEffect(() => {
     setCurrentPage(0);
-  }, [searchTerm]);
+  }, [searchTerm, sortOrder]);
 
   return (
     <>
@@ -272,19 +282,22 @@ export default function OwnersListPage() {
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           {/* Toolbar */}
           <div className="p-5 border-b border-slate-50 flex flex-col md:flex-row md:items-center gap-4">
-            <div className="relative flex-1 max-w-md group">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </span>
-              <input
-                type="text"
-                placeholder="Search by name, email or code..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-6 py-4 bg-slate-50/50 border-2 border-slate-50 rounded-2xl text-sm font-bold focus:outline-none focus:border-primary/20 focus:ring-4 focus:ring-primary/5 transition-all"
-              />
+            <div className="flex flex-col sm:flex-row items-center gap-4 flex-1">
+              <div className="relative flex-1 max-w-md w-full group">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </span>
+                <input
+                  type="text"
+                  placeholder="Search by name, email or code..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-6 py-4 bg-slate-50/50 border-2 border-slate-50 rounded-2xl text-sm font-bold focus:outline-none focus:border-primary/20 focus:ring-4 focus:ring-primary/5 transition-all"
+                />
+              </div>
+              <SortDropdown value={sortOrder} onChange={setSortOrder} />
             </div>
             {loading && (
               <div className="flex items-center gap-3 bg-emerald-50/50 border border-emerald-100 px-4 py-2 rounded-xl">
@@ -411,7 +424,7 @@ export default function OwnersListPage() {
           {/* Footer */}
           <div className="p-5 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.35em]">
-              Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, owners.length)} of {owners.length} stakeholders
+              Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, sortedOwners.length)} of {sortedOwners.length} stakeholders
             </p>
             <div className="flex items-center gap-2">
               <button

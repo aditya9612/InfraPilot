@@ -1,3 +1,5 @@
+import { formatCurrency } from "../../utils/currencyUtils";
+
 interface BOQItem {
   id: string;
   project: string;
@@ -27,26 +29,25 @@ const BOQSummary = () => {
             <div key={item.id} className="p-3 rounded-lg border border-slate-50 bg-slate-50/30">
               <div className="flex justify-between items-start mb-2">
                 <p className="text-xs font-bold text-slate-700">{item.project}</p>
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                  isOver ? "bg-rose-50 text-rose-600" : "bg-emerald-50 text-emerald-600"
-                }`}>
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isOver ? "bg-rose-50 text-rose-600" : "bg-emerald-50 text-emerald-600"
+                  }`}>
                   {isOver ? "Overrun" : "Under Control"}
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-[10px] text-slate-400 uppercase tracking-wider">Est. Cost</p>
-                  <p className="text-sm font-bold text-slate-700">₹{(item.estimated / 100000).toFixed(1)}L</p>
+                  <p className="text-sm font-bold text-slate-700">{formatCurrency(item.estimated)}</p>
                 </div>
                 <div>
                   <p className="text-[10px] text-slate-400 uppercase tracking-wider">Actual Cost</p>
-                  <p className="text-sm font-bold text-slate-700">₹{(item.actual / 100000).toFixed(1)}L</p>
+                  <p className="text-sm font-bold text-slate-700">{formatCurrency(item.actual)}</p>
                 </div>
               </div>
               <div className="mt-2 pt-2 border-t border-slate-100 flex justify-between items-center text-[11px]">
                 <span className="text-slate-400 font-medium tracking-tight">Difference:</span>
                 <span className={`font-bold ${isOver ? "text-rose-600" : "text-emerald-600"}`}>
-                  {isOver ? "+" : "-"}₹{Math.abs(diff / 1000).toFixed(0)}k
+                  {isOver ? "+ " : "- "}{formatCurrency(Math.abs(diff))}
                 </span>
               </div>
             </div>

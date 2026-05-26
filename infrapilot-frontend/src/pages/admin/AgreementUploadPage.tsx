@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
@@ -7,6 +7,7 @@ import StatCard from "../../components/common/StatCard";
 import toast from "react-hot-toast";
 import { agreementService } from "../../services/agreementService";
 import type { Agreement, AgreementStats } from "../../types/agreement";
+import SortDropdown from "../../components/common/SortDropdown";
 
 export default function AgreementUploadPage() {
   const [agreements, setAgreements] = useState<Agreement[]>([]);
@@ -16,6 +17,9 @@ export default function AgreementUploadPage() {
   const [selectedPreview, setSelectedPreview] = useState<Agreement | null>(null);
   const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
+  const PAGE_SIZE = 10;
 
   const fetchAgreements = useCallback(async (query = "") => {
     setIsLoading(true);
@@ -47,6 +51,7 @@ export default function AgreementUploadPage() {
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       fetchAgreements(searchTerm);
+      setCurrentPage(0);
     }, 500);
 
     return () => clearTimeout(delayDebounceFn);
@@ -55,9 +60,11 @@ export default function AgreementUploadPage() {
   const buildFileUrl = (file_url: string) => {
     if (!file_url) return "";
     if (file_url.startsWith('http')) return file_url;
-    // file_url starts with /uploads — prepend VITE_API_URL so it goes through the /api proxy
-    // which correctly routes to https://infrapilot.in/api/v1/uploads/...
-    return `${import.meta.env.VITE_API_URL}${file_url}`;
+    // Ensure leading slash for consistency
+    const path = file_url.startsWith('/') ? file_url : `/${file_url}`;
+    // /uploads paths are proxied directly by vite — no API prefix needed
+    if (path.startsWith('/uploads')) return path;
+    return `${import.meta.env.VITE_API_URL}${path}`;
   };
 
   const handleView = async (agr: Agreement) => {
@@ -113,6 +120,20 @@ export default function AgreementUploadPage() {
       toast.error(`Download failed: ${err.message}`, { id: toastId });
     }
   };
+
+  const sortedAgreements = useMemo(() => {
+    return [...agreements].sort((a, b) => {
+      const aDate = new Date(a.uploaded_at || 0).getTime();
+      const bDate = new Date(b.uploaded_at || 0).getTime();
+      return sortOrder === "latest" ? bDate - aDate : aDate - bDate;
+    });
+  }, [agreements, sortOrder]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedAgreements.length / PAGE_SIZE));
+  const pagedAgreements = sortedAgreements.slice(
+    currentPage * PAGE_SIZE,
+    (currentPage + 1) * PAGE_SIZE
+  );
 
   return (
     <>
@@ -172,10 +193,10 @@ export default function AgreementUploadPage() {
                     Document Registry
                   </h2>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                    {isLoading ? "Synchronizing with Archive..." : `Viewing ${agreements.length} identified entries`}
+                    {isLoading ? "Synchronizing with Archive..." : "Official Document Registry"}
                   </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
                   <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 flex items-center gap-2 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
                     <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -188,6 +209,7 @@ export default function AgreementUploadPage() {
                       className="bg-transparent text-xs outline-none w-24 md:w-40 font-medium text-slate-600"
                     />
                   </div>
+                  <SortDropdown value={sortOrder} onChange={setSortOrder} />
                 </div>
               </div>
 
@@ -204,7 +226,7 @@ export default function AgreementUploadPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-50">
                     {agreements.length > 0 ? (
-                      agreements.map((agr) => (
+                      pagedAgreements.map((agr) => (
                         <tr key={agr.id} className="hover:bg-slate-50/50 transition-colors group">
                           <td className="px-6 py-4">
                             <span className="font-mono text-xs font-bold text-slate-900 bg-slate-100 px-2 py-1 rounded">
@@ -279,6 +301,38 @@ export default function AgreementUploadPage() {
                   </div>
                 )}
               </div>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="px-6 py-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                    Showing {(currentPage * PAGE_SIZE) + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, agreements.length)} of {agreements.length} Entries
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                      disabled={currentPage === 0}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                      </svg>
+                    </button>
+                    <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700">
+                      {currentPage + 1}
+                    </div>
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                      disabled={currentPage >= totalPages - 1}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
