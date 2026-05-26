@@ -90,18 +90,19 @@ export const dsrService = {
 
   /**
    * Get all DSRs for a project
-   * GET /api/v1/dsr/project/{project_id}
+   * GET /api/v1/dsr/project/
    */
   async getDsrByProject(
     projectId: number,
     params?: { 
       limit?: number; 
-      offset?: number;
-      start_date?: string;
-      end_date?: string;
-      contractor_name?: string;
+      offset?: number; 
+      start_date?: string; 
+      end_date?: string; 
+      contractor_name?: string; 
     }
   ): Promise<DsrResponse> {
+    // Use path parameter for project ID as per backend specification
     const response = await api.get<DsrResponse>(`/dsr/project/${projectId}`, {
       params,
     });

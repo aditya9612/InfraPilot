@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
 import { approvalService } from "../../../services/approvalService";
+import { useClientProjectId } from "../../../hooks/useClientProjectId";
 import toast from "react-hot-toast";
 
 const ClientPendingApprovalsPage = () => {
@@ -12,8 +13,14 @@ const ClientPendingApprovalsPage = () => {
    const [remarks, setRemarks] = useState("");
    const [formErrors, setFormErrors] = useState<{ entityId?: string }>({});
    const [loading, setLoading] = useState(true);
+   const [selectedApproval, setSelectedApproval] = useState<any>(null);
+   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+
+   const { projectId } = useClientProjectId();
 
    useEffect(() => {
+     if (!projectId) return;
+
      const fetchApprovals = async () => {
        try {
          setLoading(true);
@@ -39,7 +46,7 @@ const ClientPendingApprovalsPage = () => {
        }
      };
      fetchApprovals();
-   }, []);
+   }, [projectId]);
 
    const handleCreateApproval = async () => {
       const errors: { entityId?: string } = {};
@@ -97,18 +104,23 @@ const ClientPendingApprovalsPage = () => {
       }
    };
 
+   const handleViewDetails = (approval: any) => {
+      setSelectedApproval(approval);
+      setIsViewModalOpen(true);
+   };
+
    const handleApprove = async (id: string) => {
       const remarkInput = window.prompt("Enter approval remarks (optional):", "we approved it");
       if (remarkInput === null) return; // User cancelled
 
       const loadingToast = toast.loading("Approving request...");
       try {
-         const response = await approvalService.approve(id, remarkInput || "Approved via portal");
+         const response = await approvalService.approve(id, remarkInput || "we approved it");
          if (response && response.error) {
             throw new Error(response.error);
          }
          toast.success("Request Approved", { id: loadingToast });
-         setApprovalsList(prev => prev.map(a => a.id === id ? { ...a, status: 'Approved', remarks: remarkInput } : a));
+         setApprovalsList(prev => prev.map(a => a.id === id ? { ...a, status: 'Approved', remarks: remarkInput || "we approved it" } : a));
       } catch (err: any) {
          console.error("Approve error:", err);
          toast.error(err?.message || "Failed to approve request", { id: loadingToast });
@@ -125,12 +137,12 @@ const ClientPendingApprovalsPage = () => {
 
       const loadingToast = toast.loading("Rejecting request...");
       try {
-         const response = await approvalService.reject(id, remarkInput);
+         const response = await approvalService.reject(id, remarkInput || "we rejectedit");
          if (response && response.error) {
             throw new Error(response.error);
          }
          toast.success("Request Rejected", { id: loadingToast });
-         setApprovalsList(prev => prev.map(a => a.id === id ? { ...a, status: 'Rejected', remarks: remarkInput } : a));
+         setApprovalsList(prev => prev.map(a => a.id === id ? { ...a, status: 'Rejected', remarks: remarkInput || "we rejectedit" } : a));
       } catch (err: any) {
          console.error("Reject error:", err);
          toast.error(err?.message || "Failed to reject request", { id: loadingToast });
@@ -157,80 +169,144 @@ const ClientPendingApprovalsPage = () => {
             </button>
          </div>
 
-         <div className="space-y-8">
-            {loading ? (
-               <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-                 <div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin mb-4"></div>
-                 <p className="text-[10px] font-black uppercase tracking-widest">Fetching Approvals...</p>
-               </div>
-            ) : approvalsList.length === 0 ? (
-               <div className="flex flex-col items-center justify-center py-24 text-slate-400 bg-white rounded-3xl shadow-sm border border-slate-100">
-                 <svg className="w-12 h-12 mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                 <p className="text-xs font-black uppercase tracking-widest">No approvals</p>
-               </div>
-            ) : approvalsList.map((apr, i) => (
-               <div key={i} className={`bg-white rounded-[40px] p-10 shadow-sm border ${apr.status === 'Approved' ? 'border-emerald-100' : apr.status === 'Rejected' ? 'border-red-100' : 'border-slate-100'} transition-all hover:shadow-2xl hover:shadow-blue-500/5 group relative overflow-hidden`}>
-                  {/* Type Indicator Bar */}
-                  <div className={`absolute top-0 left-0 w-full h-1.5 ${apr.requestType === 'Billing' ? 'bg-blue-500' :
-                     apr.requestType === 'Material' ? 'bg-emerald-500' : 'bg-purple-500'
-                     }`} />
+         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+             {loading ? (
+                <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                  <div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin mb-4"></div>
+                  <p className="text-[10px] font-black uppercase tracking-widest">Fetching Approvals...</p>
+                </div>
+             ) : approvalsList.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-24 text-slate-400">
+                  <svg className="w-12 h-12 mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  <p className="text-xs font-black uppercase tracking-widest">No pending approvals</p>
+                </div>
+             ) : (
+                <div className="divide-y divide-slate-50">
+                   {/* List Header */}
+                   <div className="hidden sm:flex items-center gap-6 px-10 py-4 bg-slate-50/50 border-b border-slate-50">
+                      <div className="flex-1 min-w-0">
+                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Request Details</p>
+                      </div>
+                      <div className="shrink-0 w-[100px] text-center">
+                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Type</p>
+                      </div>
+                      <div className="shrink-0 w-[60px] text-center">
+                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ref</p>
+                      </div>
+                      <div className="shrink-0 w-[100px] text-center">
+                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Date</p>
+                      </div>
+                      <div className="shrink-0 w-[90px] text-center">
+                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Action</p>
+                      </div>
+                   </div>
 
-                  <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-8 mb-10 pb-8 border-b border-slate-50">
-                     <div>
-                        <div className="flex items-center gap-3 mb-2">
-                           <span className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest rounded-full border ${apr.requestType === 'Billing' ? 'bg-blue-50 text-blue-600 border-blue-100' :
-                              apr.requestType === 'Material' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-purple-50 text-purple-600 border-purple-100'
-                              }`}>
-                              {apr.requestType} Request
-                           </span>
-                           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">APR-{apr.id}</span>
-                        </div>
-                        <h2 className="text-2xl font-black text-slate-800 tracking-tight leading-tight max-w-2xl">{apr.description}</h2>
-                     </div>
-                     <div className="text-right">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Value / Qty</p>
-                        <p className="text-3xl font-black text-slate-800 tracking-tighter">{apr.amountQuantity}</p>
-                     </div>
-                  </div>
+                   {approvalsList.map((apr, i) => (
+                      <div key={i} className="flex flex-col sm:flex-row items-center gap-6 p-6 px-10 hover:bg-slate-50/50 transition-all group">
+                         {/* Icon Box */}
+                         <div className="w-12 h-12 bg-blue-50/50 rounded-xl flex items-center justify-center shrink-0 border border-blue-100/30">
+                            <svg className="w-5 h-5 text-blue-500/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                            </svg>
+                         </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-10">
-                     <div className="space-y-6">
-                        <div>
-                           <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Requested By</h3>
-                           <p className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                              <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px]">👤</span>
-                              {apr.requestedBy}
-                           </p>
-                        </div>
-                        <div>
-                           <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Internal Remarks</h3>
-                           <p className="text-sm text-slate-500 font-medium leading-relaxed border-l-2 border-slate-200 pl-4 py-1 italic">
-                              "{apr.remarks}"
-                           </p>
-                        </div>
-                     </div>
-                     <div className={`rounded-3xl p-6 border flex items-center justify-center text-center ${apr.status === 'Approved' ? 'bg-emerald-50 border-emerald-100' : apr.status === 'Rejected' ? 'bg-red-50 border-red-100' : 'bg-slate-50 border-slate-100'}`}>
-                        <div>
-                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Current Status</p>
-                           <p className={`text-sm font-black uppercase tracking-widest ${apr.status === 'Approved' ? 'text-emerald-500' : apr.status === 'Rejected' ? 'text-red-500' : 'text-amber-500 animate-pulse'}`}>{apr.status === 'Pending' ? 'Awaiting Client Sign-off' : apr.status}</p>
-                        </div>
-                     </div>
-                  </div>
+                         {/* Info */}
+                         <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5">
+                               <h3 className="text-sm font-black text-slate-800 tracking-tight truncate">{apr.description}</h3>
+                            </div>
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">ARCHIVED RECORD • APR-{apr.id}</p>
+                         </div>
 
-                  {apr.status === 'Pending' && (
-                  <div className="flex flex-col md:flex-row gap-4 pt-6">
-                     <button onClick={() => handleApprove(apr.id)} className="flex-1 px-8 py-4 bg-emerald-500 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all text-center flex justify-center items-center gap-2">
-                        <span>Approve Request</span>
-                     </button>
-                     <button onClick={() => handleReject(apr.id)} className="flex-1 px-8 py-4 bg-red-50 text-red-600 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-red-100 transition-colors text-center flex justify-center items-center gap-2">
-                        <span>Reject Request</span>
-                     </button>
-                  </div>
-                  )}
-               </div>
-            ))}
-          </div>
-       </div>
+                         {/* Category Pill */}
+                         <div className="shrink-0 w-[100px] flex justify-center">
+                            <span className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-full border shadow-sm ${
+                               apr.requestType === 'Billing' ? 'bg-blue-50 text-blue-600 border-blue-100/50' :
+                               apr.requestType === 'Material' ? 'bg-emerald-50 text-emerald-600 border-emerald-100/50' : 'bg-purple-50 text-purple-600 border-purple-100/50'
+                            }`}>
+                               {apr.requestType}
+                            </span>
+                         </div>
+
+                         {/* Version Badge */}
+                         <div className="shrink-0 w-[60px] flex justify-center">
+                            <span className="px-3 py-1 bg-slate-50 text-slate-400 text-[9px] font-black uppercase tracking-widest rounded-md border border-slate-100">
+                               V1
+                            </span>
+                         </div>
+
+                         {/* Date */}
+                         <div className="shrink-0 w-[100px] text-center">
+                            <p className="text-[11px] font-black text-slate-500">25 May 2026</p>
+                         </div>
+
+                         {/* Actions */}
+                         <div className="flex items-center justify-center gap-3 shrink-0 w-[90px]">
+                            <button 
+                               onClick={() => handleViewDetails(apr)}
+                               title="View Details"
+                               className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition-all"
+                            >
+                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                               </svg>
+                            </button>
+
+                            {apr.status === 'Pending' ? (
+                               <>
+                                  <button 
+                                     onClick={() => handleApprove(apr.id)}
+                                     title="Approve"
+                                     className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all"
+                                  >
+                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                     </svg>
+                                  </button>
+                                  <button 
+                                     onClick={() => handleReject(apr.id)}
+                                     title="Reject"
+                                     className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                                  >
+                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                     </svg>
+                                  </button>
+                               </>
+                            ) : apr.status === 'Approved' ? (
+                               <>
+                                  <div className="w-9 h-9 flex items-center justify-center text-emerald-500 bg-emerald-50 rounded-xl shadow-sm border border-emerald-100/50">
+                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                     </svg>
+                                  </div>
+                                  <div className="w-9 h-9 flex items-center justify-center text-slate-200">
+                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                     </svg>
+                                  </div>
+                               </>
+                            ) : (
+                               <>
+                                  <div className="w-9 h-9 flex items-center justify-center text-slate-200">
+                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                     </svg>
+                                  </div>
+                                  <div className="w-9 h-9 flex items-center justify-center text-red-500 bg-red-50 rounded-xl shadow-sm border border-red-100/50">
+                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                                     </svg>
+                                  </div>
+                               </>
+                            )}
+                         </div>
+                      </div>
+                   ))}
+                </div>
+             )}
+          </div>       </div>
 
        {/* Create Approval Modal */}
        <Modal
@@ -279,6 +355,81 @@ const ClientPendingApprovalsPage = () => {
                 <button onClick={handleCreateApproval} className="px-6 py-3 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all">Submit Request</button>
              </div>
           </div>
+       </Modal>
+
+       {/* View Details Modal */}
+       <Modal
+          isOpen={isViewModalOpen}
+          onClose={() => setIsViewModalOpen(false)}
+          title="Approval Request Details"
+          maxWidth="max-w-xl"
+       >
+          {selectedApproval && (
+             <div className="space-y-8">
+                <div className="flex items-center justify-between p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                   <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Status</p>
+                      <p className={`text-sm font-black uppercase tracking-widest ${
+                         selectedApproval.status === 'Approved' ? 'text-emerald-500' : 
+                         selectedApproval.status === 'Rejected' ? 'text-red-500' : 'text-amber-500'
+                      }`}>
+                         {selectedApproval.status === 'Pending' ? 'Awaiting Client Sign-off' : selectedApproval.status}
+                      </p>
+                   </div>
+                   <div className="text-right">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Reference</p>
+                      <p className="text-sm font-black text-slate-800 uppercase tracking-widest">APR-{selectedApproval.id}</p>
+                   </div>
+                </div>
+
+                <div className="space-y-4">
+                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Detailed Description</h4>
+                   <div className="p-6 bg-white border border-slate-100 rounded-2xl shadow-sm">
+                      <p className="text-lg font-black text-slate-800 leading-tight mb-2">{selectedApproval.description}</p>
+                      <div className="flex items-center gap-2">
+                         <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-black uppercase tracking-widest rounded-full border border-blue-100/50">
+                            {selectedApproval.requestType} Entity
+                         </span>
+                         <span className="px-3 py-1 bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest rounded-full border border-slate-100">
+                            V1 Verified
+                         </span>
+                      </div>
+                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                   <div className="p-6 border border-slate-100 rounded-2xl">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Requested By</p>
+                      <div className="flex items-center gap-3">
+                         <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs">👤</div>
+                         <p className="text-xs font-black text-slate-800">{selectedApproval.requestedBy}</p>
+                      </div>
+                   </div>
+                   <div className="p-6 border border-slate-100 rounded-2xl">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Request Date</p>
+                      <p className="text-xs font-black text-slate-800">25 May 2026</p>
+                   </div>
+                </div>
+
+                <div className="space-y-4">
+                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Audit Trail & Remarks</h4>
+                   <div className="p-6 bg-slate-50/50 border border-slate-100 border-dashed rounded-2xl">
+                      <p className="text-xs text-slate-500 font-medium leading-relaxed italic italic">
+                         "{selectedApproval.remarks}"
+                      </p>
+                   </div>
+                </div>
+
+                <div className="pt-4 flex justify-end border-t border-slate-100">
+                   <button 
+                      onClick={() => setIsViewModalOpen(false)}
+                      className="px-8 py-3 bg-slate-800 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-slate-900 transition-all shadow-xl shadow-slate-900/10"
+                   >
+                      Close Summary
+                   </button>
+                </div>
+             </div>
+          )}
        </Modal>
    </>
    );

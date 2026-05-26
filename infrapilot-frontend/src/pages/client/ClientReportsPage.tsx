@@ -1,5 +1,7 @@
+import { useState, useEffect } from "react";
 import Navbar from "../../components/common/Navbar";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { useClientProjectId } from "../../hooks/useClientProjectId";
 
 const reportData = [
   { month: "Oct", progress: 15, cost: 1.2 },
@@ -116,30 +118,30 @@ const ClientReportsPage = () => (
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+        <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
           <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-6">Progress Growth (Cumulative %)</h2>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={reportData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} unit="%" />
-                <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)'}} />
+                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} unit="%" />
+                <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }} />
                 <Bar dataKey="progress" fill="#2563EB" radius={[4, 4, 0, 0]} barSize={32} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+        <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
           <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-6">Cumulative Spent (₹ Cr)</h2>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={reportData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} unit="Cr" />
-                <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)'}} />
+                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} unit="Cr" />
+                <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }} />
                 <Bar dataKey="cost" fill="#6366F1" radius={[4, 4, 0, 0]} barSize={32} />
               </BarChart>
             </ResponsiveContainer>
@@ -147,7 +149,7 @@ const ClientReportsPage = () => (
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+      <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
         <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-6">Monthly Report Archive</h2>
         <div className="space-y-3">
           {[
@@ -156,8 +158,8 @@ const ClientReportsPage = () => (
             { name: "Safety & Compliance Audit - Feb 2026", date: "05 Mar 2026", type: "PDF" },
             { name: "Quality Control Summary - Jan 2026", date: "02 Feb 2026", type: "PDF" },
           ].map((item, i) => (
-            <div 
-              key={i} 
+            <div
+              key={i}
               onClick={() => downloadReport(item)}
               className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl hover:bg-blue-50 transition-colors border border-transparent hover:border-blue-100 cursor-pointer group"
             >

@@ -45,7 +45,7 @@ const ClientApprovedApprovalsPage = () => {
 ) : (
   <div className="space-y-6">
     {invoices.map((inv, i) => (
-      <div key={i} className="bg-white rounded-[40px] p-8 shadow-sm border border-slate-100">
+      <div key={i} className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
         <div className="flex justify-between items-center mb-4">
           <span className="text-sm font-black uppercase text-slate-400">{inv.type}</span>
           <span className="text-xs text-slate-400">ID: {inv.id}</span>

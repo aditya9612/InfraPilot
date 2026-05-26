@@ -1,20 +1,20 @@
 import { useState, useEffect } from "react";
 import Navbar from "../../components/common/Navbar";
 import { projectService } from "../../services/projectService";
-import { workProgressService } from "../../services/workProgressService";
-import type { DailyEntry } from "../../types/workProgress";
-
+import { useClientProjectId } from "../../hooks/useClientProjectId";
 
 const ClientProgressPage = () => {
   const [activities, setActivities] = useState<any[]>([]);
-  const [logs, setLogs] = useState<DailyEntry[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(true);
-  const [_loadingLogs, _setLoadingLogs] = useState(true);
+  const { projectId } = useClientProjectId();
 
   useEffect(() => {
+    if (!projectId) return;
+
     const fetchProgressData = async () => {
       try {
-        const response = await projectService.getWorkProgressActivities(96);
+        setLoadingActivities(true);
+        const response = await projectService.getWorkProgressActivities(projectId);
         const fetchedActivities = Array.isArray(response) ? response : (response.data || response.items || []);
         setActivities(fetchedActivities);
       } catch (err) {
@@ -24,7 +24,7 @@ const ClientProgressPage = () => {
       }
     };
     fetchProgressData();
-  }, []);
+  }, [projectId]);
 
   // Compute overall progress from activities
   const overallProgress = activities.length > 0

@@ -3,6 +3,7 @@ import Navbar from "../../../components/common/Navbar";
 import PageTransition from "../../../components/common/PageTransition";
 import StatCard from "../../../components/common/StatCard";
 import toast from "react-hot-toast";
+import { formatCurrency } from "../../../utils/currencyUtils";
 import {
   Search,
   Package,

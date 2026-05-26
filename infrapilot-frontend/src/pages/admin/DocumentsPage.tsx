@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
@@ -11,6 +11,7 @@ import { documentService } from "../../services/documentService";
 import UploadDocumentModal from "../../components/forms/UploadDocumentModal";
 import EditDocumentModal from "../../components/forms/EditDocumentModal";
 import type { Document, DocumentStats } from "../../types/document";
+import SortDropdown from "../../components/common/SortDropdown";
 
 const DocumentsPage = () => {
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -26,6 +27,10 @@ const DocumentsPage = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [docToDelete, setDocToDelete] = useState<number | null>(null);
   const [currentFolderId, setCurrentFolderId] = useState<number | null>(null);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
+  const [folderPath, setFolderPath] = useState<{ id: number | null, title: string }[]>([{ id: null, title: "Repository" }]);
+  const PAGE_SIZE = 10;
 
   const fetchDocs = useCallback(async (query = "", folderId = currentFolderId) => {
     setIsLoading(true);
@@ -49,7 +54,8 @@ const DocumentsPage = () => {
 
   useEffect(() => {
     fetchDocs(searchTerm);
-  }, [fetchDocs, searchTerm]);
+    setCurrentPage(0);
+  }, [fetchDocs, searchTerm, currentFolderId]);
 
   const handleNewFolder = async (folderData: { title: string; project_id: number; remarks?: string }) => {
     const toastId = toast.loading("Creating folder...");
@@ -115,8 +121,11 @@ const DocumentsPage = () => {
   const buildFileUrl = (file_url: string) => {
     if (!file_url) return "";
     if (file_url.startsWith('http')) return file_url;
-    // Prepend /api/v1 so the request goes via the /api proxy to https://infrapilot.in/api/v1/uploads/...
-    return `${import.meta.env.VITE_API_URL}${file_url}`;
+    // Ensure leading slash for consistency
+    const path = file_url.startsWith('/') ? file_url : `/${file_url}`;
+    // /uploads paths are proxied directly by vite — no API prefix needed
+    if (path.startsWith('/uploads')) return path;
+    return `${import.meta.env.VITE_API_URL}${path}`;
   };
 
   const handleDownload = async (doc: Document) => {
@@ -146,6 +155,20 @@ const DocumentsPage = () => {
     }
   };
 
+  const sortedDocuments = useMemo(() => {
+    return [...documents].sort((a, b) => {
+      const aDate = new Date(a.uploaded_at || 0).getTime();
+      const bDate = new Date(b.uploaded_at || 0).getTime();
+      return sortOrder === "latest" ? bDate - aDate : aDate - bDate;
+    });
+  }, [documents, sortOrder]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedDocuments.length / PAGE_SIZE));
+  const pagedDocuments = sortedDocuments.slice(
+    currentPage * PAGE_SIZE,
+    (currentPage + 1) * PAGE_SIZE
+  );
+
   return (
     <>
       <Navbar title="Document Management" breadcrumb={["Admin", "Documents"]} />
@@ -154,7 +177,7 @@ const DocumentsPage = () => {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Project Document Repository</h1>
-            <p className="text-slate-500 text-sm">Securely store and manage blueprints, contracts, and financial records.</p>
+            <p className="text-slate-500 text-sm">Securely store and manage official project documentation.</p>
           </div>
           <div className="flex gap-2">
             <button
@@ -172,6 +195,40 @@ const DocumentsPage = () => {
               Upload File
             </button>
           </div>
+        </div>
+
+        {/* Folder Breadcrumbs */}
+        <div className="flex items-center gap-2 mb-6 bg-white p-3 rounded-xl border border-slate-100 shadow-sm overflow-x-auto no-scrollbar">
+          {folderPath.map((folder, idx) => (
+            <div key={idx} className="flex items-center shrink-0">
+              {idx > 0 && <span className="mx-2 text-slate-300 font-bold self-center">/</span>}
+              <button
+                onClick={() => {
+                  setCurrentFolderId(folder.id);
+                  setFolderPath(folderPath.slice(0, idx + 1));
+                }}
+                className={`text-xs font-black uppercase tracking-widest transition-colors ${idx === folderPath.length - 1 ? "text-primary" : "text-slate-400 hover:text-slate-600"
+                  }`}
+              >
+                {folder.title}
+              </button>
+            </div>
+          ))}
+          {currentFolderId && (
+            <button
+              onClick={() => {
+                const newPath = [...folderPath];
+                newPath.pop();
+                const parent = newPath[newPath.length - 1];
+                setCurrentFolderId(parent.id);
+                setFolderPath(newPath);
+              }}
+              className="ml-auto text-[10px] font-black text-rose-500 uppercase tracking-widest hover:underline flex items-center gap-1"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" /></svg>
+              Level Up
+            </button>
+          )}
         </div>
 
         {/* Document Stats */}
@@ -198,19 +255,22 @@ const DocumentsPage = () => {
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden min-h-[400px] relative">
           <div className="p-4 border-b border-slate-50">
-            <div className="relative flex-1 max-w-md">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </span>
-              <input
-                type="text"
-                placeholder="Search documents by name or project..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-              />
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              <div className="relative flex-1 max-w-md w-full">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </span>
+                <input
+                  type="text"
+                  placeholder="Search documents by name or project..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                />
+              </div>
+              <SortDropdown value={sortOrder} onChange={setSortOrder} />
             </div>
           </div>
 
@@ -228,7 +288,7 @@ const DocumentsPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {documents.map((doc) => (
+                {pagedDocuments.map((doc) => (
                   <tr key={doc.id} className="hover:bg-slate-50/50 transition-colors group">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -240,6 +300,7 @@ const DocumentsPage = () => {
                           onClick={() => {
                             if (doc.is_folder) {
                               setCurrentFolderId(doc.id);
+                              setFolderPath(prev => [...prev, { id: doc.id, title: doc.title }]);
                             } else {
                               setViewingDoc(doc);
                               setIsPreviewModalOpen(true);
@@ -319,6 +380,39 @@ const DocumentsPage = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="px-6 py-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                Showing {(currentPage * PAGE_SIZE) + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, documents.length)} of {documents.length} Records
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                  disabled={currentPage === 0}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700">
+                  {currentPage + 1}
+                </div>
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={currentPage >= totalPages - 1}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
+
           {documents.length === 0 && !isLoading && (
             <div className="p-20 text-center">
               <p className="text-slate-400 font-medium">No documents found in this view.</p>
@@ -369,12 +463,7 @@ const DocumentsPage = () => {
           project: viewingDoc.project_name || "General",
           date: new Date(viewingDoc.uploaded_at).toLocaleDateString(),
           isFolder: viewingDoc.is_folder,
-          // /uploads paths are proxied directly by vite — no API prefix needed
-          file_url: viewingDoc.file_url
-            ? (viewingDoc.file_url.startsWith('http') || viewingDoc.file_url.startsWith('/uploads')
-              ? viewingDoc.file_url
-              : `${import.meta.env.VITE_API_URL}${viewingDoc.file_url}`)
-            : ""
+          file_url: buildFileUrl(viewingDoc.file_url || "")
         } : null}
         onDownload={handleDownload}
       />

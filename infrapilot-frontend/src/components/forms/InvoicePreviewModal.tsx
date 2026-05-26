@@ -22,29 +22,8 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
 
     // Helper to convert number to Indian currency words
     const toWords = (num: number) => {
-        const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
-        const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-
-        const inWords = (n: any): string => {
-            if ((n = n.toString()).length > 9) return 'overflow';
-            let n_arr: any = ('000000000' + n).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
-            if (!n_arr) return '';
-            let str = '';
-            str += (n_arr[1] != 0) ? (a[Number(n_arr[1])] || b[n_arr[1][0]] + ' ' + a[n_arr[1][1]]) + 'Crore ' : '';
-            str += (n_arr[2] != 0) ? (a[Number(n_arr[2])] || b[n_arr[2][0]] + ' ' + a[n_arr[2][1]]) + 'Lakh ' : '';
-            str += (n_arr[3] != 0) ? (a[Number(n_arr[3])] || b[n_arr[3][0]] + ' ' + a[n_arr[3][1]]) + 'Thousand ' : '';
-            str += (n_arr[4] != 0) ? (a[Number(n_arr[4])] || b[n_arr[4][0]] + ' ' + a[n_arr[4][1]]) + 'Hundred ' : '';
-            str += (n_arr[5] != 0) ? ((str != '') ? 'and ' : '') + (a[Number(n_arr[5])] || b[n_arr[5][0]] + ' ' + a[n_arr[5][1]]) : '';
-            return str;
-        };
-
         const amount = Math.floor(num);
-        const paisa = Math.round((num - amount) * 100);
-        let res = inWords(amount) + "Rupees Only";
-        if (paisa > 0) {
-            res = inWords(amount) + "Rupees and " + inWords(paisa) + "Paise Only";
-        }
-        return res;
+        return `${amount.toLocaleString()}`;
     };
 
     return (

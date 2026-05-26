@@ -111,12 +111,12 @@ const ClientSettingsPage = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
             {/* Client Profile Section */}
-            <div className="bg-white rounded-[40px] p-10 shadow-sm border border-slate-100">
+            <div className="bg-white rounded-2xl p-10 shadow-sm border border-slate-100">
               <div className="flex items-center gap-6 mb-10 border-b border-slate-50 pb-8">
                 {profile?.profile_image ? (
-                  <img src={settingsService.resolveUrl(profile.profile_image) || ''} alt="Profile" className="w-24 h-24 rounded-3xl object-cover shadow-xl border-4 border-white" />
+                  <img src={settingsService.resolveUrl(profile.profile_image) || ''} alt="Profile" className="w-24 h-24 rounded-2xl object-cover shadow-xl border-4 border-white" />
                 ) : (
-                  <div className="w-24 h-24 bg-slate-900 rounded-3xl flex items-center justify-center text-white text-4xl font-black shadow-xl">
+                  <div className="w-24 h-24 bg-slate-900 rounded-2xl flex items-center justify-center text-white text-4xl font-black shadow-xl">
                     {profile?.full_name?.charAt(0) || "C"}
                   </div>
                 )}
@@ -124,7 +124,6 @@ const ClientSettingsPage = () => {
                   <h2 className="text-2xl font-black text-slate-800 tracking-tight">{profile?.full_name || "Client Profile"}</h2>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-[10px] font-black text-white bg-primary px-2 py-0.5 rounded-md uppercase tracking-widest">{profile?.role}</span>
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">{profile?.designation}</span>
                   </div>
                 </div>
               </div>
@@ -188,7 +187,7 @@ const ClientSettingsPage = () => {
 
                   <div className="pt-6 border-t border-slate-50 flex justify-between items-center">
                     <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest leading-none">Account Active Since: <span className="text-slate-600">{profile?.joining_date}</span></p>
-                    <button onClick={handleSaveProfile} disabled={updating} className="px-12 py-5 bg-slate-900 text-white rounded-3xl text-[11px] font-black uppercase tracking-widest shadow-2xl hover:bg-slate-800 transition-all disabled:opacity-50 hover:scale-[1.02] active:scale-95">
+                    <button onClick={handleSaveProfile} disabled={updating} className="px-12 py-5 bg-slate-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-2xl hover:bg-slate-800 transition-all disabled:opacity-50 hover:scale-[1.02] active:scale-95">
                       {updating ? "Processing..." : "Update Private Profile"}
                     </button>
                   </div>
@@ -197,10 +196,10 @@ const ClientSettingsPage = () => {
             </div>
 
             {/* Notification Preferences */}
-            <div className="bg-white rounded-[40px] p-10 shadow-sm border border-slate-100">
+            <div className="bg-white rounded-2xl p-10 shadow-sm border border-slate-100">
               <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-8 border-b border-slate-50 pb-4">Communication Control</h2>
               
-              <div className="flex items-center justify-between p-8 bg-slate-50 rounded-3xl border border-slate-100 mb-10 transition-all hover:bg-emerald-50/30 group">
+              <div className="flex items-center justify-between p-8 bg-slate-50 rounded-2xl border border-slate-100 mb-10 transition-all hover:bg-emerald-50/30 group">
                 <div className="pr-10">
                   <p className="text-sm font-black text-slate-800 tracking-tight">Enable Master Notifications</p>
                   <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-widest leading-none">Global toggle for all email, SMS and push notifications</p>
@@ -218,17 +217,17 @@ const ClientSettingsPage = () => {
                 <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 ml-1">Live Monitoring Alerts</h3>
                 {loading ? (
                     <div className="space-y-4">
-                        <div className="h-20 bg-slate-50 rounded-3xl animate-pulse"></div>
-                        <div className="h-20 bg-slate-50 rounded-3xl animate-pulse"></div>
+                        <div className="h-20 bg-slate-50 rounded-2xl animate-pulse"></div>
+                        <div className="h-20 bg-slate-50 rounded-2xl animate-pulse"></div>
                     </div>
                 ) : alerts.length === 0 ? (
-                    <div className="p-10 border-2 border-dashed border-slate-100 rounded-[32px] flex flex-col items-center justify-center">
+                    <div className="p-10 border-2 border-dashed border-slate-100 rounded-2xl flex flex-col items-center justify-center">
                         <p className="text-slate-300 font-black uppercase tracking-widest text-[9px]">No active monitoring alerts reported</p>
                     </div>
                 ) : (
                     <div className="space-y-4">
                         {alerts.map((alert) => (
-                            <div key={alert.id} className="flex items-center gap-6 p-6 bg-white border border-slate-100 rounded-[32px] shadow-sm hover:shadow-md transition-all group">
+                            <div key={alert.id} className="flex items-center gap-6 p-6 bg-white border border-slate-100 rounded-2xl shadow-sm hover:shadow-md transition-all group">
                                 <div className="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center text-xl shadow-inner group-hover:scale-110 transition-transform">
                                     {alert.alert_type === 'MaterialDelay' ? '📦' : '⚠️'}
                                 </div>
@@ -251,7 +250,7 @@ const ClientSettingsPage = () => {
           {/* Right Column: System Units & Regional Settings */}
           <div className="space-y-8">
             {/* Project Selection */}
-            <div className="bg-white rounded-[40px] p-10 shadow-sm border border-slate-100">
+            <div className="bg-white rounded-2xl p-10 shadow-sm border border-slate-100">
               <div className="flex items-center gap-3 mb-6">
                 <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
                 <h2 className="text-[11px] font-black text-slate-600 uppercase tracking-[0.2em]">Project Selection</h2>
@@ -277,7 +276,7 @@ const ClientSettingsPage = () => {
               </div>
             </div>
 
-            <div className="bg-white rounded-[40px] p-10 shadow-sm border border-slate-100">
+            <div className="bg-white rounded-2xl p-10 shadow-sm border border-slate-100">
               <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-8 text-primary border-b border-slate-50 pb-4">System Preferences</h2>
               <div className="space-y-6">
                 <div className="space-y-2">
@@ -330,22 +329,14 @@ const ClientSettingsPage = () => {
                 <button 
                   onClick={handleUpdateSettings} 
                   disabled={updating}
-                  className="w-full py-5 bg-primary text-white rounded-3xl text-[11px] font-black uppercase tracking-widest shadow-2xl shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all mt-4 disabled:opacity-50"
+                  className="w-full py-5 bg-primary text-white rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-2xl shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all mt-4 disabled:opacity-50"
                 >
                   {updating ? "Saving Changes..." : "Apply System Settings"}
                 </button>
               </div>
             </div>
 
-            {/* Help & Support */}
-            <div className="bg-slate-900 rounded-[40px] p-10 shadow-2xl shadow-slate-900/40 text-white relative overflow-hidden">
-                <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/5 rounded-full blur-2xl"></div>
-                <h2 className="text-[11px] font-black uppercase tracking-[0.2em] mb-4 text-blue-400">Portal Support</h2>
-                <p className="text-sm font-bold tracking-tight mb-6 leading-relaxed">Need help configuring your project portal or managing team access?</p>
-                <button className="w-full py-3.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all">
-                    Contact Technical Support
-                </button>
-            </div>
+
           </div>
         </div>
       </div>

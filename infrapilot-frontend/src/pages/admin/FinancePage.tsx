@@ -16,6 +16,7 @@ import type { Project } from "../../types/project";
 import type { Expense } from "../../types/expense";
 import CreateExpenseModal from "../../components/forms/CreateExpenseModal";
 import { useEffect, useCallback } from "react";
+import { formatCurrency } from "../../utils/currencyUtils";
 
 // No static mock data here, we use the service
 
@@ -508,19 +509,19 @@ const FinancePage = () => {
           )}
           <StatCard
             title={subPage === "profit" ? "Total Revenue" : usingExpenseFallback ? "Total Expenses" : "Total Billing"}
-            value={`₹${((totals.billing || 0) / 100000).toFixed(2)}L`}
+            value={formatCurrency(totals.billing)}
             sub={subPage === "profit" ? "Total project billings" : usingExpenseFallback ? "Based on actual expenses" : "Gross including taxes"}
             accent="text-primary"
           />
           <StatCard
             title={subPage === "profit" ? "Total Expenses" : usingExpenseFallback ? "Cash / Pending Payments" : "Pending Collections"}
-            value={`₹${((totals.pending || 0) / 100000).toFixed(2)}L`}
+            value={formatCurrency(totals.pending)}
             sub={subPage === "profit" ? "Total project costs" : usingExpenseFallback ? "Cash mode expenses" : "Unpaid invoices"}
             accent={subPage === "profit" ? "text-rose-500" : "text-amber-500"}
           />
           <StatCard
             title={subPage === "profit" ? "Net Profit" : "Total GST"}
-            value={`₹${((totals.gst || 0) / 100000).toFixed(2)}L`}
+            value={formatCurrency(totals.gst)}
             sub={subPage === "profit" ? "Revenue - Expenses" : usingExpenseFallback ? "18% estimate on expenses" : "Net tax liability"}
             accent={subPage === "profit" ? "text-emerald-500" : "text-violet-500"}
           />

@@ -16,33 +16,22 @@ export const alertService = {
    * GET /api/v1/alerts
    */
   async getAlerts(): Promise<Alert[]> {
-    try {
-      const response = await api.get("/alerts");
-      return response.data;
-    } catch (error: any) {
-      console.warn("Get Alerts API Error, using virtual success fallback:", error.message);
-      
-      // Fallback data as provided by the user
-      return [
-        {
-          id: 2,
-          project_id: 1,
-          alert_type: "MaterialDelay",
-          message: "Steel not received at site",
-          user_id: 1,
-          status: "active",
-          created_at: "2026-04-25T03:36:57"
-        },
-        {
-          id: 1,
-          project_id: 1,
-          alert_type: "MaterialDelay",
-          message: "Cement delivery delayed by 2 days",
-          user_id: 1,
-          status: "active",
-          created_at: "2026-04-25T03:36:03"
-        }
-      ];
-    }
+    const response = await api.get("/alerts");
+    return response.data;
+  },
+
+  async createAlert(data: Partial<Alert>): Promise<Alert> {
+    const response = await api.post("/alerts", data);
+    return response.data;
+  },
+
+  async markAlertRead(id: number): Promise<any> {
+    const response = await api.put(`/alerts/${id}/read`);
+    return response.data;
+  },
+
+  async deleteAlert(id: number): Promise<any> {
+    const response = await api.delete(`/alerts/${id}`);
+    return response.data;
   }
 };

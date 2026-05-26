@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
@@ -9,6 +9,7 @@ import { projectService } from "../../services/projectService";
 import type { Measurement } from "../../types/measurement";
 import type { Project } from "../../types/project";
 import toast from "react-hot-toast";
+import SortDropdown from "../../components/common/SortDropdown";
 import {
   Ruler,
   Trash2,
@@ -16,13 +17,16 @@ import {
   Search,
   Edit3
 } from "lucide-react";
+import { formatCurrency } from "../../utils/currencyUtils";
 
 const MeasurementPage = () => {
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
-  const [_isProjectsLoading, setIsProjectsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
+  const PAGE_SIZE = 10;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [targetId, setTargetId] = useState<number | null>(null);
@@ -71,7 +75,22 @@ const MeasurementPage = () => {
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    setCurrentPage(0);
+  }, [fetchData, sortOrder]);
+
+  const sortedMeasurements = useMemo(() => {
+    return [...measurements].sort((a, b) => {
+      const aVal = a.id;
+      const bVal = b.id;
+      return sortOrder === "latest" ? bVal - aVal : aVal - bVal;
+    });
+  }, [measurements, sortOrder]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedMeasurements.length / PAGE_SIZE));
+  const pagedMeasurements = sortedMeasurements.slice(
+    currentPage * PAGE_SIZE,
+    (currentPage + 1) * PAGE_SIZE
+  );
 
   const handleCreateOrUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,6 +160,7 @@ const MeasurementPage = () => {
   const totalFinal = measurements.reduce((acc, curr) => acc + (curr.final_area * curr.approved_rate), 0);
   const totalExtra = measurements.reduce((acc, curr) => acc + (curr.extra_area * curr.extra_rate), 0);
 
+
   return (
     <>
       <Navbar title="Field Measurements" breadcrumb={["Admin", "Finance", "Measurements"]} />
@@ -172,19 +192,19 @@ const MeasurementPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           <StatCard
             title="Total Certified"
-            value={`₹${((totalFinal + totalExtra) / 100000).toFixed(2)}L`}
+            value={formatCurrency(totalFinal + totalExtra)}
             sub="Combined aggregate value"
             accent="text-primary"
           />
           <StatCard
             title="Standard Area"
-            value={`₹${(totalFinal / 100000).toFixed(2)}L`}
+            value={formatCurrency(totalFinal)}
             sub="Based on approved rates"
             accent="text-emerald-500"
           />
           <StatCard
             title="Extra Deviation"
-            value={`₹${(totalExtra / 100000).toFixed(2)}L`}
+            value={formatCurrency(totalExtra)}
             sub="Non-standard work value"
             accent="text-amber-500"
           />
@@ -192,23 +212,26 @@ const MeasurementPage = () => {
 
         <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
           <div className="p-8 border-b border-slate-50 flex flex-col md:flex-row md:items-center gap-6 bg-[#fcfdfe]">
-            <div className="relative flex-1 max-w-md">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.15em] absolute -top-3 left-6 bg-white px-3 py-0.5 rounded-full border border-slate-100 shadow-sm z-10">
-                Active Project Node
-              </label>
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <select
-                  value={selectedProject}
-                  onChange={(e) => setSelectedProject(e.target.value)}
-                  className="w-full pl-11 pr-6 py-4 bg-white border-2 border-slate-100 rounded-2xl text-sm font-black focus:outline-none focus:border-primary/20 transition-all appearance-none cursor-pointer"
-                >
-                  <option value="">Select Project Node...</option>
-                  {projects.map(p => (
-                    <option key={p.id} value={p.id}>{p.project_name}</option>
-                  ))}
-                </select>
+            <div className="flex flex-col sm:flex-row items-center gap-6 flex-1">
+              <div className="relative flex-1 max-w-md w-full">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.15em] absolute -top-3 left-6 bg-white px-3 py-0.5 rounded-full border border-slate-100 shadow-sm z-10">
+                  Active Project Node
+                </label>
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <select
+                    value={selectedProject}
+                    onChange={(e) => setSelectedProject(e.target.value)}
+                    className="w-full pl-11 pr-6 py-4 bg-white border-2 border-slate-100 rounded-2xl text-sm font-black focus:outline-none focus:border-primary/20 transition-all appearance-none cursor-pointer"
+                  >
+                    <option value="">Select Project Node...</option>
+                    {projects.map(p => (
+                      <option key={p.id} value={p.id}>{p.project_name}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
+              <SortDropdown value={sortOrder} onChange={setSortOrder} />
             </div>
             {isLoading && (
               <div className="animate-pulse flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl border border-slate-100">
@@ -241,7 +264,7 @@ const MeasurementPage = () => {
                     </td>
                   </tr>
                 ) : (
-                  measurements.map((m, index) => {
+                  pagedMeasurements.map((m, index) => {
                     const lineTotal = (m.final_area * m.approved_rate) + (m.extra_area * m.extra_rate);
                     return (
                       <tr key={`meas-${m.id}-${index}`} className="hover:bg-slate-50/50 transition-all group">
@@ -284,6 +307,38 @@ const MeasurementPage = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="px-8 py-6 border-t border-slate-50 bg-[#fcfdfe] flex items-center justify-between">
+              <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">
+                Showing {(currentPage * PAGE_SIZE) + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, sortedMeasurements.length)} of {sortedMeasurements.length} Measurements
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                  disabled={currentPage === 0}
+                  className="w-10 h-10 flex items-center justify-center rounded-2xl border-2 border-slate-100 text-slate-400 hover:text-primary hover:border-primary/20 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <div className="w-10 h-10 flex items-center justify-center rounded-2xl bg-slate-50 border-2 border-slate-100 text-xs font-black text-slate-800">
+                  {currentPage + 1}
+                </div>
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={currentPage >= totalPages - 1}
+                  className="w-10 h-10 flex items-center justify-center rounded-2xl border-2 border-slate-100 text-slate-400 hover:text-primary hover:border-primary/20 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </PageTransition>
 

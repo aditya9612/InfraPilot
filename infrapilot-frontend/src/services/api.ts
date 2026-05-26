@@ -17,14 +17,17 @@ api.interceptors.request.use(
     if (userString) {
       try {
         const user = JSON.parse(userString);
-        // Robust token extraction: supports nested access_token or flat string
         const token = user.token?.access_token || user.token;
         if (token && typeof token === 'string') {
           config.headers.Authorization = `Bearer ${token}`;
+        } else {
+          console.warn("Auth Interceptor: Token not found in user object", user);
         }
       } catch (e) {
         console.error("Auth Interceptor: Failed to parse user object", e);
       }
+    } else {
+      console.warn("Auth Interceptor: No user found in localStorage");
     }
     return config;
   },
@@ -40,7 +43,6 @@ api.interceptors.response.use(
       const url = error.config?.url ?? '';
       const isIgnored =
         url.includes('/invoices') ||
-        url.includes('/reports') ||
         url.includes('/communication');
 
       if (isIgnored) {

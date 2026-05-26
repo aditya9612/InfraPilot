@@ -32,18 +32,18 @@ const FinanceChart = () => {
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-          <XAxis 
-            dataKey="month" 
-            axisLine={false} 
-            tickLine={false} 
-            tick={{ fill: "#94a3b8", fontSize: 10 }} 
+          <XAxis
+            dataKey="month"
+            axisLine={false}
+            tickLine={false}
+            tick={{ fill: "#94a3b8", fontSize: 10 }}
             dy={10}
           />
-          <YAxis 
-            axisLine={false} 
-            tickLine={false} 
+          <YAxis
+            axisLine={false}
+            tickLine={false}
             tick={{ fill: "#94a3b8", fontSize: 10 }}
-            tickFormatter={(value) => `₹${value}L`}
+            tickFormatter={(value) => `₹${(value ?? 0).toLocaleString()}`}
           />
           <Tooltip
             contentStyle={{
@@ -52,7 +52,7 @@ const FinanceChart = () => {
               boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
               fontSize: "12px",
             }}
-            formatter={(value) => [`₹${value} Lakhs`, "Expense"]}
+            formatter={(value) => [`₹${(value ?? 0).toLocaleString()}`, "Expense"]}
           />
           <Area
             type="monotone"

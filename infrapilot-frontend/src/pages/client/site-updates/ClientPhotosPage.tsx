@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Navbar from "../../../components/common/Navbar";
 import { sitePhotoService } from "../../../services/sitePhotoService";
+import { useClientProjectId } from "../../../hooks/useClientProjectId";
 
 const tags = ["All", "Structure", "Foundation", "Masonry", "Equipment", "Safety"];
 
@@ -11,9 +12,11 @@ const ClientPhotosPage = () => {
   const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
 
-  const projectId = 96; // Scoped to Project 96
+  const { projectId } = useClientProjectId();
 
   useEffect(() => {
+    if (!projectId) return;
+
     const fetchPhotos = async () => {
       try {
         setLoading(true);
@@ -41,7 +44,7 @@ const ClientPhotosPage = () => {
     };
 
     fetchPhotos();
-  }, [activeTag]);
+  }, [activeTag, projectId]);
 
   const openModal = (photo: any, index: number) => {
     setSelectedPhoto(photo);
@@ -83,7 +86,7 @@ const ClientPhotosPage = () => {
             <h1 className="text-3xl font-black text-slate-800 tracking-tight">Project Photo Gallery</h1>
             <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">A visual chronicle of your project's transformation</p>
           </div>
-          <div className="flex gap-2 bg-white p-2 rounded-[24px] shadow-sm border border-slate-100 overflow-x-auto max-w-full custom-scrollbar">
+          <div className="flex gap-2 bg-white p-2 rounded-2xl shadow-sm border border-slate-100 overflow-x-auto max-w-full custom-scrollbar">
             {tags.map((tag) => (
               <button
                 key={tag}
@@ -115,7 +118,7 @@ const ClientPhotosPage = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {photos.map((photo, index) => (
-              <div key={photo.id} className="group bg-white rounded-[40px] overflow-hidden shadow-sm border border-slate-100 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-500 flex flex-col">
+              <div key={photo.id} className="group bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-500 flex flex-col">
                 <div className="aspect-[4/3] overflow-hidden relative">
                   <img src={photo.displayUrl} alt={photo.description} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -192,7 +195,7 @@ const ClientPhotosPage = () => {
             <img
               src={selectedPhoto.displayUrl}
               alt={selectedPhoto.description}
-              className="w-full max-h-[75vh] object-contain rounded-3xl shadow-2xl"
+              className="w-full max-h-[75vh] object-contain rounded-2xl shadow-2xl"
             />
 
             {/* Next Button */}

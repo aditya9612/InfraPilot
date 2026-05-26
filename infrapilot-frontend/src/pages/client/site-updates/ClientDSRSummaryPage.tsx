@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import Navbar from "../../../components/common/Navbar";
 import { dsrService } from "../../../services/dsrService";
+import { useClientProjectId } from "../../../hooks/useClientProjectId";
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, Cell
@@ -13,10 +14,13 @@ const ClientDSRSummaryPage = () => {
   const [mapPoints, setMapPoints] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'reports' | 'analytics'>('reports');
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
-  const projectId = 96; // Scoped to Project 96 as per current requirements
+  const { projectId } = useClientProjectId();
 
   useEffect(() => {
+    if (!projectId) return;
+
     const fetchDsrData = async () => {
       try {
         setLoading(true);
@@ -37,9 +41,11 @@ const ClientDSRSummaryPage = () => {
           const formatted = items.map((item: any) => ({
             ...item,
             formattedDate: item.report_date ? new Date(item.report_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : "N/A",
-            gallery: item.photos && Array.isArray(item.photos) ? item.photos.map((p: any) => 
-               p.file_url ? (p.file_url.startsWith('http') ? p.file_url : `${import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"}/${p.file_url.startsWith('/') ? p.file_url.slice(1) : p.file_url}`) : ""
-            ).filter(Boolean) : []
+            gallery: item.photos && Array.isArray(item.photos) ? item.photos.map((p: any) => {
+               const photoUrl = p.url || p.file_url;
+               if (!photoUrl) return "";
+               return photoUrl.startsWith('http') ? photoUrl : `${import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"}/${photoUrl.startsWith('/') ? photoUrl.slice(1) : photoUrl}`;
+            }).filter(Boolean) : []
           }));
           setReports(formatted);
         }
@@ -63,7 +69,7 @@ const ClientDSRSummaryPage = () => {
     };
 
     fetchDsrData();
-  }, []);
+  }, [projectId]);
 
 
 
@@ -85,7 +91,7 @@ const ClientDSRSummaryPage = () => {
             <button
                onClick={async () => {
                  try {
-                   await dsrService.exportDsrExcel(projectId);
+                   if (projectId) await dsrService.exportDsrExcel(projectId!);
                  } catch (err) {
                    alert("Excel export failed. Please ensure the project has submitted reports.");
                  }
@@ -118,7 +124,7 @@ const ClientDSRSummaryPage = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               
               {/* Labour Trend Chart */}
-              <div className="bg-white rounded-[40px] p-10 border border-slate-100 shadow-sm">
+              <div className="bg-white rounded-2xl p-10 border border-slate-100 shadow-sm">
                 <div className="mb-8 flex items-center justify-between">
                   <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest">Labour Resource Trend</h2>
                   <span className="text-[10px] text-slate-400 font-bold bg-slate-50 px-3 py-1 rounded-full uppercase">Last 30 Days</span>
@@ -140,7 +146,7 @@ const ClientDSRSummaryPage = () => {
               </div>
 
               {/* Contractor Distribution */}
-              <div className="bg-white rounded-[40px] p-10 border border-slate-100 shadow-sm">
+              <div className="bg-white rounded-2xl p-10 border border-slate-100 shadow-sm">
                 <div className="mb-8">
                   <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest">Contractor Presence</h2>
                 </div>
@@ -162,11 +168,11 @@ const ClientDSRSummaryPage = () => {
             </div>
 
             {/* Map Points Visualization */}
-            <div className="bg-white rounded-[40px] p-10 border border-slate-100 shadow-sm">
+            <div className="bg-white rounded-2xl p-10 border border-slate-100 shadow-sm">
                <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-8">Verified Site Map Entries</h2>
                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                   {mapPoints.map((point) => (
-                    <div key={point.date} className="p-6 bg-slate-900 border border-slate-800 rounded-3xl text-center group hover:bg-primary transition-colors">
+                    <div key={point.date} className="p-6 bg-slate-900 border border-slate-800 rounded-2xl text-center group hover:bg-primary transition-colors">
                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest group-hover:text-blue-200 mb-1">{new Date(point.date).toLocaleDateString('en-GB', {day: '2-digit', month: 'short'})}</p>
                        <p className="text-white font-bold text-xs">{point.lat.toFixed(2)}, {point.lng.toFixed(2)}</p>
                     </div>
@@ -182,11 +188,11 @@ const ClientDSRSummaryPage = () => {
                 <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Synchronizing field reports...</p>
               </div>
             ) : reports.length === 0 ? (
-              <div className="bg-white rounded-[40px] p-20 text-center border border-slate-100">
+              <div className="bg-white rounded-2xl p-20 text-center border border-slate-100">
                  <p className="text-slate-400 font-black uppercase tracking-widest">No site reports documented yet.</p>
               </div>
             ) : (
-              <div className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-slate-100">
+              <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse min-w-[1200px]">
                     <thead>
@@ -225,8 +231,15 @@ const ClientDSRSummaryPage = () => {
                             {report.gallery && report.gallery.length > 0 && (
                               <div className="mt-4 flex flex-wrap gap-2">
                                 {report.gallery.map((url: string, idx: number) => (
-                                  <div key={idx} className="w-8 h-8 rounded-lg overflow-hidden border border-slate-200 shadow-sm transition-transform hover:scale-150 origin-bottom-left cursor-zoom-in">
+                                  <div 
+                                    key={idx} 
+                                    onClick={() => setSelectedPhoto(url)}
+                                    className="w-10 h-10 rounded-xl overflow-hidden border border-slate-200 shadow-sm transition-all hover:scale-110 hover:shadow-lg origin-bottom-left cursor-zoom-in group/photo relative"
+                                  >
                                     <img src={url} alt="Snap" className="w-full h-full object-cover" />
+                                    <div className="absolute inset-0 bg-primary/20 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center">
+                                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                                    </div>
                                   </div>
                                 ))}
                               </div>
@@ -268,6 +281,29 @@ const ClientDSRSummaryPage = () => {
           </div>
         )}
       </div>
+
+      {/* Lightbox Modal */}
+      {selectedPhoto && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/90 backdrop-blur-md p-4 animate-in fade-in duration-300"
+          onClick={() => setSelectedPhoto(null)}
+        >
+          <div className="relative max-w-5xl w-full flex flex-col items-center">
+            <button 
+              className="absolute -top-12 right-0 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors"
+              onClick={() => setSelectedPhoto(null)}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+            <img 
+              src={selectedPhoto} 
+              alt="Site Update Full View" 
+              className="max-h-[85vh] w-auto rounded-2xl shadow-2xl border border-white/10 animate-in zoom-in-95 duration-500"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+      )}
     </>
   );
 };

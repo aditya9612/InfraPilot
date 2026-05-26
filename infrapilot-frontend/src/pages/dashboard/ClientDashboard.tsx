@@ -6,14 +6,13 @@ import Modal from "../../components/common/Modal";
 import { dashboardService, type ClientDashboardData } from "../../services/dashboardService";
 import { projectService } from "../../services/projectService";
 import toast from "react-hot-toast";
+import { useClientProjectId } from "../../hooks/useClientProjectId";
 
 const costData = [
   { name: "Phase 1", budget: 1.2, actual: 1.1 },
   { name: "Phase 2", budget: 2.5, actual: 2.7 },
   { name: "Phase 3", budget: 1.8, actual: 1.5 },
 ];
-
-
 
 const updates = [
   { id: 1, text: "Slab reinforcement for Phase 3 completed", time: "Today's Work", icon: "🏗️" },
@@ -27,50 +26,28 @@ const ClientDashboard = () => {
   const [dashboardData, setDashboardData] = useState<ClientDashboardData | null>(null);
   const [projectData, setProjectData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const { projectId } = useClientProjectId();
 
   useEffect(() => {
+    if (!projectId) return;
+
     const fetchDashboardContent = async () => {
       try {
         setLoading(true);
 
-        // 1. Fetch project to get the correct project_id
-        let activeProject = null;
-        const settings = await import("../../services/settingsService").then(m => m.settingsService.getSettings()).catch(() => null);
-
-        if (settings?.default_project_id) {
-            try {
-                activeProject = await projectService.getProjectById(settings.default_project_id);
-            } catch (e) {
-                // Ignore error and fall back
-            }
-        }
-        if (!activeProject) {
-            const result: any = await projectService.getProjects(10, 0);
-            if (Array.isArray(result) && result.length > 0) {
-              activeProject = result[0];
-            } else if (result?.items?.length > 0) {
-              activeProject = result.items[0];
-            } else if (result?.data?.length > 0) {
-              activeProject = result.data[0];
-            }
-        }
-
-        if (!activeProject) {
-          throw new Error("No active projects found for this client");
-        }
-
+        // 1. Fetch project data for title and details
+        const activeProject = await projectService.getProjectById(projectId);
         setProjectData(activeProject);
+
         // 2. Fetch dashboard data for that project
-        // The user explicitly requested to use id 96 for now
-        const dashboardId = 96;
-        const data = await dashboardService.getClientDashboard(dashboardId);
+        const data = await dashboardService.getClientDashboard(projectId);
         setDashboardData(data);
       } catch (error: any) {
         console.error("Dashboard Fetch Error:", error);
         toast.error(error.message || "Failed to load dashboard data");
-        // Fallback data for project 96 (Rohan Harita)
+        // Fallback data
         setDashboardData({
-          project_id: 96,
+          project_id: projectId,
           status: "PLANNED",
           progress_percent: 0,
           budget_total: 25000000,
@@ -91,7 +68,7 @@ const ClientDashboard = () => {
     };
 
     fetchDashboardContent();
-  }, []);
+  }, [projectId]);
 
   const botMessages = [
     { role: "assistant", text: "Hello! I am your InfraPilot AI assistant. How can I help you today?", time: "Just now" },
@@ -192,11 +169,11 @@ const ClientDashboard = () => {
                     <p className="text-slate-400 text-sm font-medium mt-2 leading-relaxed">Today's Work focus: Finalizing rebar arrangement for the primary roof slab and ensuring plumbing sleeves are accurately placed.</p>
                   </div>
                   <div className="grid grid-cols-2 gap-6">
-                    <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100" onClick={() => navigate('/last-completed')} style={{ cursor: 'pointer' }}>
+                    <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100" onClick={() => navigate('/last-completed')} style={{ cursor: 'pointer' }}>
                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">Last Completed</p>
                       <p className="text-xs font-black text-slate-700 uppercase tracking-tight">4th Floor Column Pour</p>
                     </div>
-                    <div className="p-6 bg-blue-600 rounded-3xl shadow-xl shadow-blue-500/20" onClick={() => navigate('/upcoming-today')} style={{ cursor: 'pointer' }}>
+                    <div className="p-6 bg-blue-600 rounded-2xl shadow-xl shadow-blue-500/20" onClick={() => navigate('/upcoming-today')} style={{ cursor: 'pointer' }}>
                       <p className="text-[9px] font-black text-white/60 uppercase tracking-widest mb-1 italic">Upcoming Today</p>
                       <p className="text-xs font-black text-white uppercase tracking-tight">Casting Prep Meeting</p>
                     </div>

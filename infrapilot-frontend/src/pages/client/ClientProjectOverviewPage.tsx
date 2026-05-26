@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Navbar from "../../components/common/Navbar";
 import { projectService } from "../../services/projectService";
+import { useClientProjectId } from "../../hooks/useClientProjectId";
 import toast from "react-hot-toast";
 
 const milestones = [
@@ -24,6 +25,8 @@ const ClientProjectOverviewPage = () => {
   const [loading, setLoading] = useState(true);
   const [loadingProjects, setLoadingProjects] = useState(true);
 
+  const { projectId } = useClientProjectId();
+
   const formatDate = (d: string | undefined) => {
     if (!d) return "—";
     const date = new Date(d);
@@ -35,29 +38,25 @@ const ClientProjectOverviewPage = () => {
       try {
         setLoading(true);
         setLoadingProjects(true);
-        const settings = await import("../../services/settingsService").then(m => m.settingsService.getSettings()).catch(() => null);
 
         // Fetch projects to populate the list at the top
         const listResult: any = await projectService.getProjects(20, 0);
         const list = Array.isArray(listResult) ? listResult : (listResult?.items || listResult?.data || []);
         setProjects(list);
 
-        let selected = null;
-        if (settings?.default_project_id) {
+        if (projectId) {
           try {
-            selected = await projectService.getProjectById(settings.default_project_id);
+            const selected = await projectService.getProjectById(projectId);
+            setProjectData(selected);
           } catch (e) {
-            // Ignore
+            if (list.length > 0) setProjectData(list[0]);
           }
+        } else if (list.length > 0) {
+          setProjectData(list[0]);
         }
 
-        if (!selected && list.length > 0) {
-          selected = list[0];
-        }
-
-        setProjectData(selected);
       } catch (err) {
-        console.error("Failed to fetch project for overview:", err);
+        console.error("Failed to fetch projects for overview:", err);
         toast.error("Failed to load projects");
       } finally {
         setLoading(false);
@@ -65,7 +64,7 @@ const ClientProjectOverviewPage = () => {
       }
     };
     fetchProjects();
-  }, []);
+  }, [projectId]);
 
   if (loading) {
     return (
@@ -95,7 +94,7 @@ const ClientProjectOverviewPage = () => {
               <div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin" />
             </div>
           ) : projects.length === 0 ? (
-            <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 text-center">
+            <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 text-center">
               <p className="text-slate-500 font-bold mb-2">No projects found</p>
               <p className="text-sm text-slate-400">You don't have any matching projects assigned yet.</p>
             </div>
@@ -105,7 +104,7 @@ const ClientProjectOverviewPage = () => {
                 <div
                   key={i}
                   onClick={() => setProjectData(p)}
-                  className={`bg-white rounded-3xl p-6 border ${projectData?.id === p.id ? 'border-primary ring-2 ring-primary ring-opacity-20' : 'border-slate-100'} shadow-sm hover:shadow-md transition-all cursor-pointer group`}
+                  className={`bg-white rounded-2xl p-6 border ${projectData?.id === p.id ? 'border-primary ring-2 ring-primary ring-opacity-20' : 'border-slate-100'} shadow-sm hover:shadow-md transition-all cursor-pointer group`}
                 >
                   <div className="flex justify-between items-start mb-4">
                     <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-lg shadow-sm">🏢</div>
@@ -133,7 +132,7 @@ const ClientProjectOverviewPage = () => {
         {projectData && (
           <>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-              <div className="lg:col-span-2 bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+              <div className="lg:col-span-2 bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
                 <h2 className="text-base font-black text-slate-800 uppercase tracking-widest text-[11px] mb-8">Core Project Details</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-y-8 gap-x-12">
                   {[
@@ -158,7 +157,7 @@ const ClientProjectOverviewPage = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Milestones */}
-              <div className="lg:col-span-2 bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+              <div className="lg:col-span-2 bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
                 <h2 className="text-base font-black text-slate-800 uppercase tracking-widest text-[11px] mb-8">Project Milestones</h2>
                 <div className="relative">
                   <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-100" />
@@ -189,7 +188,7 @@ const ClientProjectOverviewPage = () => {
 
               {/* Team */}
               <div className="space-y-6">
-                <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+                <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
                   <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-6">Project Team</h2>
                   <div className="space-y-4">
                     {team.map((t: any, i: number) => (
@@ -204,7 +203,7 @@ const ClientProjectOverviewPage = () => {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+                <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
                   <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-6">Key Dates</h2>
                   <div className="space-y-4">
                     {[

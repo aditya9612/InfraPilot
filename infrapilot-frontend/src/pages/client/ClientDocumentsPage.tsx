@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import Navbar from "../../components/common/Navbar";
 import Modal from "../../components/common/Modal";
-import api from "../../services/api";
 import { drawingService } from "../../services/drawingService";
 import { approvalService } from "../../services/approvalService";
+import { useClientProjectId } from "../../hooks/useClientProjectId";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -144,10 +144,13 @@ const viewDocument = (doc: { name: string; type: string; version: string; upload
 const ClientDocumentsPage = () => {
   const [activeTab, setActiveTab] = useState("All");
   const [apiDrawings, setApiDrawings] = useState<DrawingDoc[]>([]);
+  const [latestDrawing, setLatestDrawing] = useState<DrawingDoc | null>(null);
   const [loading, setLoading] = useState(true);
-  const projectId = 96;
+  const [loadingLatest, setLoadingLatest] = useState(true);
+  const { projectId } = useClientProjectId();
 
   const fetchDrawingHistory = async () => {
+    if (!projectId) return;
     try {
       setLoading(true);
       const versions = await drawingService.getVersions(projectId);
@@ -159,25 +162,53 @@ const ClientDocumentsPage = () => {
     }
   };
 
+  const fetchLatestDrawing = async () => {
+    if (!projectId) return;
+    try {
+      setLoadingLatest(true);
+      const latest = await drawingService.getLatest(projectId);
+      if (latest) {
+        setLatestDrawing({
+          id: latest.id,
+          project_id: latest.project_id,
+          drawing_name: latest.drawing_name,
+          version: latest.version,
+          date: latest.date || "",
+          remarks: latest.remarks || "",
+          file_url: latest.file_url || "",
+          approval_status: latest.approval_status || "Pending",
+          approval_id: latest.approval_id || null,
+        });
+      }
+    } catch (err: any) {
+      console.error(">>> Failed to fetch latest drawing:", err?.message);
+    } finally {
+      setLoadingLatest(false);
+    }
+  };
+
   useEffect(() => {
-    fetchDrawingHistory();
-  }, []);
+    if (projectId) {
+      fetchDrawingHistory();
+      fetchLatestDrawing();
+    }
+  }, [projectId]);
 
   const handleApprove = async (doc: any) => {
-     if (!doc.approval_id) {
-       alert("No active approval process found for this document.");
-       return;
-     }
-     const confirmApprove = window.confirm(`Authorize and approve blueprint: ${doc.name}?`);
-     if (!confirmApprove) return;
-     try {
-       await approvalService.approve(doc.approval_id, "Approved via Project Vault");
-       alert("Blueprint authorized successfully.");
-       fetchDrawingHistory();
-     } catch (err) {
-       console.error("Approval failed:", err);
-       alert("Failed to process approval.");
-     }
+    if (!doc.approval_id) {
+      alert("No active approval process found for this document.");
+      return;
+    }
+    const confirmApprove = window.confirm(`Authorize and approve blueprint: ${doc.name}?`);
+    if (!confirmApprove) return;
+    try {
+      await approvalService.approve(doc.approval_id, "Approved via Project Vault");
+      alert("Blueprint authorized successfully.");
+      fetchDrawingHistory();
+    } catch (err) {
+      console.error("Approval failed:", err);
+      alert("Failed to process approval.");
+    }
   };
 
   const [selectedPreview, setSelectedPreview] = useState<any>(null);
@@ -185,53 +216,49 @@ const ClientDocumentsPage = () => {
   const [fetchingDetail, setFetchingDetail] = useState(false);
 
   const handleDownload = async (doc: any) => {
-     if (doc.id) {
-       try {
-         await drawingService.downloadDocument(doc.id);
-       } catch (err) {
-         downloadDocument(doc);
-       }
-     } else {
-       downloadDocument(doc);
-     }
+    if (doc.id) {
+      try {
+        await drawingService.downloadDocument(doc.id);
+      } catch (err) {
+        downloadDocument(doc);
+      }
+    } else {
+      downloadDocument(doc);
+    }
   };
 
   const handleView = async (doc: any) => {
-     if (doc.id) {
-        setFetchingDetail(true);
-        setIsPreviewOpen(true);
-        try {
-           const response = await api.get(`/drawings/documents/view/${doc.id}`, {
-              responseType: 'blob'
-           });
+    if (doc.id) {
+      setFetchingDetail(true);
+      setIsPreviewOpen(true);
+      try {
+        // Fetch drawing blob
+        const result = await drawingService.viewDocument(doc.id);
+        const blob = new Blob([result.data], { type: result.contentType as string });
+        const blobUrl = URL.createObjectURL(blob);
 
-           // Detect actual content type from response
-           const contentType: string = response.headers?.['content-type'] || response.data?.type || 'application/octet-stream';
-           const blob = new Blob([response.data], { type: contentType });
-           const blobUrl = URL.createObjectURL(blob);
-
-           setSelectedPreview({
-             ...doc,
-             previewUrl: blobUrl,
-             previewType: contentType,
-           });
-        } catch (err: any) {
-           console.error("Preview fetch failed:", err);
-           // Fallback: if the doc has a direct file_url, open it in a new tab
-           if (doc.file_url) {
-              const baseUrl = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || 'http://127.0.0.1:8000';
-              const fullUrl = doc.file_url.startsWith('http') ? doc.file_url : `${baseUrl}/${doc.file_url.replace(/^\//, '')}`;
-              window.open(fullUrl, '_blank');
-              setIsPreviewOpen(false);
-           } else {
-              setSelectedPreview({ ...doc, previewUrl: null });
-           }
-        } finally {
-           setFetchingDetail(false);
+        setSelectedPreview({
+          ...doc,
+          previewUrl: blobUrl,
+          previewType: result.contentType,
+        });
+      } catch (err: any) {
+        console.error("Preview fetch failed:", err);
+        // Fallback
+        if (doc.file_url) {
+          const baseUrl = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || 'http://127.0.0.1:8000';
+          const fullUrl = doc.file_url.startsWith('http') ? doc.file_url : `${baseUrl}/${doc.file_url.replace(/^\//, '')}`;
+          window.open(fullUrl, '_blank');
+          setIsPreviewOpen(false);
+        } else {
+          setSelectedPreview({ ...doc, previewUrl: null });
         }
-     } else {
-       viewDocument(doc);
-     }
+      } finally {
+        setFetchingDetail(false);
+      }
+    } else {
+      viewDocument(doc);
+    }
   };
 
   const drawingDocs = apiDrawings.map((d) => ({
@@ -256,46 +283,44 @@ const ClientDocumentsPage = () => {
       <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
         <div className="mb-8">
           <h1 className="text-3xl font-black text-slate-800 tracking-tight">Project Document Vault</h1>
-          <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">Secure access to all project agreements, drawings, and financial records</p>
         </div>
 
-        {!loading && drawingDocs.length > 0 && (
-          <div className="mb-10 bg-slate-900 rounded-[40px] p-8 text-white shadow-2xl shadow-slate-900/40 relative overflow-hidden group">
+        {!loadingLatest && latestDrawing && (
+          <div className="mb-10 bg-slate-900 rounded-2xl p-8 text-white shadow-2xl shadow-slate-900/40 relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-96 h-96 bg-primary/20 rounded-full -mr-32 -mt-32 blur-3xl group-hover:scale-110 transition-transform duration-1000" />
             <div className="relative flex flex-col md:flex-row items-center justify-between gap-8">
-               <div className="flex items-center gap-6">
-                  <div className="w-16 h-16 bg-white/10 rounded-3xl flex items-center justify-center text-3xl shadow-2xl backdrop-blur-md border border-white/10">📐</div>
-                  <div>
-                    <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-2 block">Latest Engineering Schematic</span>
-                    <h2 className="text-2xl font-black tracking-tight">{drawingDocs[0].name}</h2>
-                    <div className="flex items-center gap-4 mt-2">
-                       <span className="text-xs font-bold text-slate-400">Version {drawingDocs[0].version}</span>
-                       <span className="w-1 h-1 bg-slate-700 rounded-full" />
-                       <span className="text-xs font-bold text-slate-400">Released {drawingDocs[0].uploadDate}</span>
-                    </div>
+              <div className="flex items-center gap-6">
+                <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center text-3xl shadow-2xl backdrop-blur-md border border-white/10">📐</div>
+                <div>
+                  <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-2 block">Latest Engineering Schematic</span>
+                  <h2 className="text-2xl font-black tracking-tight">{latestDrawing.drawing_name}</h2>
+                  <div className="flex items-center gap-4 mt-2">
+                    <span className="text-xs font-bold text-slate-400">Version {latestDrawing.version}</span>
+                    <span className="w-1 h-1 bg-slate-700 rounded-full" />
+                    <span className="text-xs font-bold text-slate-400">Released {latestDrawing.date ? new Date(latestDrawing.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}</span>
                   </div>
-               </div>
-               <div className="flex items-center gap-4">
-                  <div className="text-right hidden md:block">
-                     <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Approval Matrix</p>
-                     <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-lg ${
-                       drawingDocs[0].approval_status === 'Approved' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'
-                     }`}>
-                       {drawingDocs[0].approval_status}
-                     </span>
-                  </div>
-                  <div className="flex gap-2">
-                    {drawingDocs[0].approval_status === 'Pending' && (
-                      <button onClick={() => handleApprove(drawingDocs[0])} className="px-6 py-4 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all">Authorize</button>
-                    )}
-                    <button onClick={() => handleView(drawingDocs[0])} className="px-8 py-4 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all">Examine</button>
-                  </div>
-               </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="text-right hidden md:block">
+                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Approval Matrix</p>
+                  <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg ${latestDrawing.approval_status === 'Approved' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'
+                    }`}>
+                    {latestDrawing.approval_status}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  {latestDrawing.approval_status === 'Pending' && (
+                    <button onClick={() => handleApprove(latestDrawing)} className="px-6 py-4 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all">Authorize</button>
+                  )}
+                  <button onClick={() => handleView(latestDrawing)} className="px-8 py-4 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all">Examine</button>
+                </div>
+              </div>
             </div>
           </div>
         )}
 
-        <div className="bg-white rounded-[40px] overflow-hidden shadow-sm border border-slate-100">
+        <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100">
           <div className="p-8 border-b border-slate-50 flex items-center justify-between">
             <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Repository Ledger</h2>
             <div className="flex gap-2">
@@ -372,57 +397,57 @@ const ClientDocumentsPage = () => {
         title={`Vault Record: ${selectedPreview?.name || 'Preview'}`}
         maxWidth="max-w-6xl"
       >
-        <div className="bg-slate-900 rounded-3xl overflow-hidden shadow-2xl border border-slate-800">
-           {fetchingDetail ? (
-             <div className="flex flex-col items-center justify-center h-[60vh] text-slate-500">
-                <div className="w-10 h-10 border-4 border-slate-700 border-t-primary rounded-full animate-spin mb-4" />
-                <p className="text-[10px] font-black uppercase tracking-widest">Establishing secure stream...</p>
-             </div>
-           ) : selectedPreview?.previewUrl ? (
-             selectedPreview.previewType?.startsWith('image/') ? (
-               <div className="flex items-center justify-center h-[75vh] bg-slate-900">
-                 <img
-                   src={selectedPreview.previewUrl}
-                   alt={selectedPreview.name}
-                   className="max-h-full max-w-full object-contain rounded-2xl"
-                 />
-               </div>
-             ) : (
-               <iframe
-                 src={selectedPreview.previewUrl}
-                 className="w-full h-[75vh]"
-                 title="Document Preview"
-               />
-             )
-           ) : (
-             <div className="flex items-center justify-center h-[60vh] text-slate-500">
-                <p className="text-[10px] font-black uppercase tracking-widest text-red-400">Failed to stream document</p>
-             </div>
-           )}
+        <div className="bg-slate-900 rounded-2xl overflow-hidden shadow-2xl border border-slate-800">
+          {fetchingDetail ? (
+            <div className="flex flex-col items-center justify-center h-[60vh] text-slate-500">
+              <div className="w-10 h-10 border-4 border-slate-700 border-t-primary rounded-full animate-spin mb-4" />
+              <p className="text-[10px] font-black uppercase tracking-widest">Establishing secure stream...</p>
+            </div>
+          ) : selectedPreview?.previewUrl ? (
+            selectedPreview.previewType?.startsWith('image/') ? (
+              <div className="flex items-center justify-center h-[75vh] bg-slate-900">
+                <img
+                  src={selectedPreview.previewUrl}
+                  alt={selectedPreview.name}
+                  className="max-h-full max-w-full object-contain rounded-2xl"
+                />
+              </div>
+            ) : (
+              <iframe
+                src={selectedPreview.previewUrl}
+                className="w-full h-[75vh]"
+                title="Document Preview"
+              />
+            )
+          ) : (
+            <div className="flex items-center justify-center h-[60vh] text-slate-500">
+              <p className="text-[10px] font-black uppercase tracking-widest text-red-400">Failed to stream document</p>
+            </div>
+          )}
         </div>
         <div className="mt-6 flex items-center justify-between">
-           <div className="flex items-center gap-3">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
-                Version: {selectedPreview?.version}
-              </span>
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
-                Status: {selectedPreview?.approval_status || 'Archived'}
-              </span>
-           </div>
-           <div className="flex gap-3">
-              <button 
-                onClick={() => handleDownload(selectedPreview)}
-                className="px-6 py-3 bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-200 transition-all"
-              >
-                Download PDF
-              </button>
-              <button 
-                onClick={() => setIsPreviewOpen(false)}
-                className="px-6 py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg active:scale-95 transition-all"
-              >
-                Exit Theater
-              </button>
-           </div>
+          <div className="flex items-center gap-3">
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
+              Version: {selectedPreview?.version}
+            </span>
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
+              Status: {selectedPreview?.approval_status || 'Archived'}
+            </span>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => handleDownload(selectedPreview)}
+              className="px-6 py-3 bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-200 transition-all"
+            >
+              Download PDF
+            </button>
+            <button
+              onClick={() => setIsPreviewOpen(false)}
+              className="px-6 py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg active:scale-95 transition-all"
+            >
+              Exit Theater
+            </button>
+          </div>
         </div>
       </Modal>
     </>

@@ -66,7 +66,7 @@ const RolesPage = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [roleToDelete, setRoleToDelete] = useState<{ id: string, name: string } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const itemsPerPage = 10;
 
   const handleCreateOrUpdateRole = (roleData: any) => {
     if (editingRole) {

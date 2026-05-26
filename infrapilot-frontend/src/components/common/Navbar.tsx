@@ -55,9 +55,39 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
 
   useEffect(() => {
     const fetchNotifs = async () => {
+      let combinedNotifs: Notification[] = [];
+      
+      // 1. Fetch system notifications
       const role = user?.role === "SiteEngineer" ? "SiteEngineer" : "All";
-      const data = await notificationService.getNotifications(role);
-      setNotifications(data);
+      const systemNotifs = await notificationService.getNotifications(role);
+      combinedNotifs = [...systemNotifs];
+
+      // 2. If client, fetch real project alerts/announcements
+      if (user?.role === "Client") {
+        try {
+          const { alertService } = await import("../../services/alertService");
+          const alerts = await alertService.getAlerts();
+          
+          const alertNotifs: Notification[] = alerts.map(a => ({
+            id: a.id + 1000, // Offset IDs to avoid collision with mock system notifs
+            title: a.alert_type === 'Announcement' ? 'New Announcement' : 'Project Alert',
+            description: a.message,
+            details: `Official message from project team: ${a.message}. Type: ${a.alert_type}. Status: ${a.status}.`,
+            type: "Alert",
+            timestamp: a.created_at,
+            read: a.status === 'read',
+            role_target: "All"
+          }));
+          
+          combinedNotifs = [...alertNotifs, ...combinedNotifs];
+        } catch (e) {
+          console.warn("Navbar: Failed to fetch alerts for client", e);
+        }
+      }
+
+      // Sort by timestamp newest first
+      combinedNotifs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      setNotifications(combinedNotifs);
     };
     fetchNotifs();
   }, [user]);
@@ -69,8 +99,17 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
     setIsDetailOpen(true);
     setIsNotificationOpen(false);
     if (!notif.read) {
-      await notificationService.markAsRead(notif.id);
-      setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
+      try {
+        if (notif.id >= 1000) {
+          const { alertService } = await import("../../services/alertService");
+          await alertService.markAlertRead(notif.id - 1000);
+        } else {
+          await notificationService.markAsRead(notif.id);
+        }
+        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
+      } catch (err) {
+        console.error("Navbar: Failed to mark notif as read", err);
+      }
     }
   };
 
