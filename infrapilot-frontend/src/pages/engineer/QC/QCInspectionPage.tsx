@@ -109,28 +109,22 @@ const QCInspectionPage = () => {
 
                 const userStr = localStorage.getItem("infrapilot_user");
                 if (userStr) {
-                    const user = JSON.parse(userStr);
-                    const pId = user?.project_id || user?.user?.project_id;
-                    if (pId) {
-                        const resolvedId = Number(pId);
-                        setProjectId(resolvedId);
-                        setFormData(prev => ({ ...prev, project_id: resolvedId, engineer_name: user.full_name || user.username || "" }));
-                        return;
+                    try {
+                        const user = JSON.parse(userStr);
+                        const pId = user?.project_id || user?.user?.project_id;
+                        if (pId) {
+                            const resolvedId = Number(pId);
+                            setProjectId(resolvedId);
+                            setFormData(prev => ({ ...prev, project_id: resolvedId, engineer_name: user.full_name || user.username || "" }));
+                            return;
+                        }
+                    } catch (e) {
+                        console.error(e);
                     }
                 }
 
-                // Discovery Fallback
-                console.warn("QC Control: No project_id in user context, attempting discovery fallback");
-                const projectsResponse = await projectService.getProjects(1, 0);
-                const projects = Array.isArray(projectsResponse) ? projectsResponse : (projectsResponse.items || []);
-                if (projects && projects.length > 0) {
-                    const resolvedId = Number(projects[0].project_id || projects[0].id);
-                    setProjectId(resolvedId);
-                    setFormData(prev => ({ ...prev, project_id: resolvedId }));
-                } else {
-                    setProjectId(92);
-                    setFormData(prev => ({ ...prev, project_id: 92 }));
-                }
+                setProjectId(92);
+                setFormData(prev => ({ ...prev, project_id: 92 }));
             } catch (e) {
                 console.error("Failed to resolve project ID", e);
                 setProjectId(92);

@@ -546,6 +546,30 @@ const LaborDetailsPage = () => {
                 }
             >
                 <form id="personnel-form" onSubmit={handleSubmit} className="space-y-6">
+                    {formMode === 'create' && (
+                        <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-200 shadow-sm">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2">
+                                    <Building2 className="w-4 h-4 text-primary" />
+                                    <h3 className="text-sm font-bold text-primary">Assign to project</h3>
+                                </div>
+                            </div>
+                            <p className="text-[11px] text-blue-500 mb-4 ml-6">Labour create hone ke baad automatically project assign ho jayega</p>
+                            <div className="ml-6">
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">SELECT PROJECT *</label>
+                                <select 
+                                    value={assignProjectId} 
+                                    onChange={(e) => setAssignProjectId(e.target.value)} 
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
+                                >
+                                    <option value="">-- Select your project --</option>
+                                    {projects.map(p => (
+                                        <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                    )}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Personnel Identity & Professional Details</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -599,31 +623,6 @@ const LaborDetailsPage = () => {
                             </div>
                         </div>
                     </div>
-                    {formMode === 'create' && (
-                        <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-200 shadow-sm mt-4">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="flex items-center gap-2">
-                                    <Building2 className="w-4 h-4 text-primary" />
-                                    <h3 className="text-sm font-bold text-primary">Assign to project</h3>
-                                </div>
-                                <span className="px-2 py-0.5 bg-blue-100 text-blue-600 rounded-lg text-[10px] font-bold">optional</span>
-                            </div>
-                            <p className="text-[11px] text-blue-500 mb-4 ml-6">Labour create hone ke baad automatically project assign ho jayega</p>
-                            <div className="ml-6">
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">SELECT PROJECT *</label>
-                                <select 
-                                    value={assignProjectId} 
-                                    onChange={(e) => setAssignProjectId(e.target.value)} 
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
-                                >
-                                    <option value="">-- Select your project --</option>
-                                    {projects.map(p => (
-                                        <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-                    )}
                 </form>
             </Modal>
 

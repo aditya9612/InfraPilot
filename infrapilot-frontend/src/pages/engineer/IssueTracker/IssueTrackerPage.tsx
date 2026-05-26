@@ -115,7 +115,7 @@ const IssueTrackerPage = () => {
         if (!projectId) return;
         setIsLoading(true);
         try {
-            const response = await issueService.getIssues({ 
+            const response = await issueService.getIssues({
                 project_id: projectId,
                 status: statusFilter,
                 priority: priorityFilter,
@@ -240,7 +240,7 @@ const IssueTrackerPage = () => {
                 </div>
 
                 {/* â”€â”€ Interactive Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Total Logs"
@@ -538,8 +538,7 @@ const IssueTrackerPage = () => {
                                     <option value="Material">Material</option>
                                     <option value="Safety">Safety</option>
                                     <option value="Delay">Delay</option>
-                                    <option value="Equipment">Equipment</option>
-                                    <option value="Labour">Labour</option>
+
                                 </select>
                                 {errors.category && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.category}</p>}
                             </div>

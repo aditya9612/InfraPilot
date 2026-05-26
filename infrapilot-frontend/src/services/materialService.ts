@@ -173,7 +173,8 @@ export const materialService = {
       total_used: rep.total_used ?? 0,
       remaining_stock: rep.remaining_stock ?? 0,
       total_cost: rep.total_cost ?? 0,
-      payment_pending: rep.payment_pending ?? 0
+      payment_pending: rep.payment_pending ?? 0,
+      project_id: rep.project_id
     }));
   },
   async exportPdf(project_id?: number): Promise<void> {

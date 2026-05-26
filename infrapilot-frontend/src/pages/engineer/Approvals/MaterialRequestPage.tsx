@@ -59,11 +59,18 @@ const MaterialRequestPage = () => {
         if (userStr) {
             try {
                 const user = JSON.parse(userStr);
-                const pId = user?.project_id || user?.user?.project_id || user?.id;
-                if (pId) setProjectId(Number(pId));
+                const pId = user?.project_id || user?.user?.project_id;
+                if (pId) {
+                    setProjectId(Number(pId));
+                } else {
+                    setProjectId(92);
+                }
             } catch (e) {
                 console.error("Failed to resolve project ID", e);
+                setProjectId(92);
             }
+        } else {
+            setProjectId(92);
         }
     }, []);
 
@@ -83,21 +90,20 @@ const MaterialRequestPage = () => {
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     const fetchRequests = useCallback(async () => {
+        if (!projectId) return;
         setIsLoading(true);
         try {
-            const activeProjectIds = [projectId || 92];
-
-            const promises = activeProjectIds.map(id => siteRequestService.getRequests(id as number).catch(() => []));
-            const results = await Promise.all(promises);
-            const combinedData = results.flat();
-            const sortedData = combinedData.sort((a, b) => Number(b.id) - Number(a.id));
+            const results = await siteRequestService.getRequests(projectId);
+            const combinedData = Array.isArray(results) ? results : (results as any).items || [];
+            const sortedData = combinedData.sort((a: any, b: any) => Number(b.id) - Number(a.id));
             setRequestData(sortedData);
         } catch (error) {
+            console.error("Failed to fetch requests:", error);
             toast.error("Failed to fetch requisition list.");
         } finally {
             setIsLoading(false);
         }
-    }, [projects, projectId]);
+    }, [projectId]);
 
     useEffect(() => {
         fetchRequests();
@@ -137,10 +143,8 @@ const MaterialRequestPage = () => {
             const newRecord = await siteRequestService.createRequest(payload);
             toast.success("Requisition Created Successfully!", { id: toastId });
 
-            // Switch to the project ID that was just used to submit the request
-            if (projectId !== payload.project_id) {
-                setProjectId(payload.project_id);
-            } else {
+            // Only add to the list if the request was created for the current globally selected project
+            if (projectId === payload.project_id) {
                 setRequestData(prev => [newRecord, ...prev]);
             }
             setIsFormModalOpen(false);
@@ -185,9 +189,10 @@ const MaterialRequestPage = () => {
     const [selectedRequest, setSelectedRequest] = useState<MaterialRequestRecord | null>(null);
 
     const baseFilteredRequests = useMemo(() => {
+        if (!searchTerm.trim()) return requestData;
         return requestData.filter(r =>
-            r.request_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            String(r.id).toLowerCase().includes(searchTerm.toLowerCase())
+            (r.request_type && r.request_type.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (r.id && String(r.id).toLowerCase().includes(searchTerm.toLowerCase()))
         );
     }, [requestData, searchTerm]);
 
@@ -253,7 +258,7 @@ const MaterialRequestPage = () => {
                         <button
                             onClick={() => {
                                 setFormData({
-                                    project_id: projectId ? String(projectId) : "1",
+                                    project_id: "",
                                     request_type: "Material",
                                     description: "",
                                     quantity: ""

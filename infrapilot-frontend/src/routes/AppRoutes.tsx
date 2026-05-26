@@ -79,6 +79,7 @@ import LabourTaskDetailPage from "../pages/engineer/LabourManagement/LabourTaskD
 import MaterialReceiptPage from "../pages/engineer/MaterialManagement/MaterialReceiptPage";
 import MaterialConsumptionPage from "../pages/engineer/MaterialManagement/MaterialConsumptionPage";
 import MaterialStockPage from "../pages/engineer/MaterialManagement/MaterialStockPage";
+import MaterialHistoryPage from "../pages/engineer/MaterialManagement/MaterialHistoryPage";
 import QCInspectionPage from "../pages/engineer/QC/QCInspectionPage";
 import QCTestReportsPage from "../pages/engineer/QC/QCTestReportsPage";
 import MachineryPage from "../pages/engineer/MachineryManagement/MachineryPage";
@@ -379,6 +380,7 @@ function AppRoutes() {
               <Route path="/engineer/material/receipt" element={<MaterialReceiptPage />} />
               <Route path="/engineer/material/consumption" element={<MaterialConsumptionPage />} />
               <Route path="/engineer/material/stock" element={<MaterialStockPage />} />
+              <Route path="/engineer/material/history" element={<MaterialHistoryPage />} />
               <Route path="/engineer/qc/inspection" element={<QCInspectionPage />} />
               <Route path="/engineer/qc/reports" element={<QCTestReportsPage />} />
               <Route path="/engineer/machinery" element={<MachineryPage />} />

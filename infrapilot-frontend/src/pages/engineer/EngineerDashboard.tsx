@@ -156,7 +156,7 @@ const EngineerDashboard = () => {
                 // 6. Process Expenses Data
                 const recent_expenses = expenses.map((e: any) => ({
                     id: e.id || e.expense_id,
-                    date: e.date || new Date().toISOString().split("T")[0],
+                    date: e.payment_date || e.expense_date || e.date || new Date().toISOString().split("T")[0],
                     type: e.expense_type || e.type || "General",
                     category: e.category || "General",
                     note: e.description || e.remarks || e.note || "Site Expense",
@@ -484,7 +484,7 @@ const EngineerDashboard = () => {
 
                             <div className="flex flex-wrap gap-3 px-6 py-4 border-b border-slate-50 bg-slate-50/50">
                                 {["Labour", "Material", "Equipment"].map((cat) => {
-                                    const catTotal = siteExpenses.filter((e: any) => e.type === cat).reduce((s: number, e: any) => s + e.amount, 0);
+                                    const catTotal = siteExpenses.filter((e: any) => e.type === cat || e.category === cat).reduce((s: number, e: any) => s + e.amount, 0);
                                     return (
                                         <div key={cat} className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-2 ${expenseCategoryColors[cat] || "bg-slate-50 text-slate-600"}`}>
                                             <span>{cat}</span>

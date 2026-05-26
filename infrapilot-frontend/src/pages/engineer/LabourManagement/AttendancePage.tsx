@@ -18,7 +18,8 @@ import {
     Eye,
     ArrowRight,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    Briefcase
 } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -28,19 +29,19 @@ type AttendanceState = "NOT_CHECKED_IN" | "CHECKED_IN" | "CHECKED_OUT";
 const AttendancePage: React.FC = () => {
     const [activeTab, setActiveTab] = useState<"Self Attendance" | "Labour Attendance">("Self Attendance");
     const [currentDateTime, setCurrentDateTime] = useState<Date>(new Date());
-    
+
     // Geolocation state
     const [locationAddress, setLocationAddress] = useState<string>("Fetching location...");
-    
+
     // Attendance Flow State
     const [attendanceState, setAttendanceState] = useState<AttendanceState>("NOT_CHECKED_IN");
     const [checkInTime, setCheckInTime] = useState<Date | null>(null);
     const [checkOutTime, setCheckOutTime] = useState<Date | null>(null);
-    
+
     // Modals State
     const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
     const [isCheckOutModalOpen, setIsCheckOutModalOpen] = useState(false);
-    
+
     // Camera State - Check In
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -52,15 +53,20 @@ const AttendancePage: React.FC = () => {
     const checkoutCanvasRef = useRef<HTMLCanvasElement>(null);
     const [checkoutStream, setCheckoutStream] = useState<MediaStream | null>(null);
     const [checkoutCapturedImage, setCheckoutCapturedImage] = useState<string | null>(null);
-    
+
     // View Modal State
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [selectedLabour, setSelectedLabour] = useState<any>(null);
+
+    // Image Preview State
+    const [previewImage, setPreviewImage] = useState<{ url: string, title: string } | null>(null);
+
     const navigate = useNavigate();
 
     // Labour Attendance Filters
     const [empSearch, setEmpSearch] = useState("");
     const [empStatusFilter, setEmpStatusFilter] = useState("All Status");
+    const [empContractorFilter, setEmpContractorFilter] = useState("All Contractors");
     const [empDurationFilter, setEmpDurationFilter] = useState("Today");
 
     // History Quick Filter & Pagination
@@ -126,7 +132,7 @@ const AttendancePage: React.FC = () => {
                 },
                 (error) => {
                     setLocationAddress("Location not available");
-                    if(error.code === 1) toast.error("Please allow location access to check in.");
+                    if (error.code === 1) toast.error("Please allow location access to check in.");
                 },
                 { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
             );
@@ -259,7 +265,7 @@ const AttendancePage: React.FC = () => {
         const diffMs = end.getTime() - checkInTime.getTime();
         const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
         const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-        
+
         // If diff is 0, let's just return a static mock 00:10 for demonstration of checkout
         if (attendanceState === "CHECKED_OUT" && diffHrs === 0 && diffMins === 0) {
             return "00:10";
@@ -267,12 +273,89 @@ const AttendancePage: React.FC = () => {
         return `${diffHrs.toString().padStart(2, '0')}:${diffMins.toString().padStart(2, '0')}`;
     };
 
+    const mockLabourAttendances = [
+        {
+            id: "LAB-001",
+            name: "Rahul Sharma",
+            contractor: "ABC Builders",
+            department: "Engineering",
+            workLocation: "Work from Office",
+            status: "Online",
+            checkIn: "09:30 AM",
+            checkOut: "-",
+            hours: "-",
+            imgInUrl: "https://randomuser.me/api/portraits/men/32.jpg",
+            imgOutUrl: "",
+            startWorkImgUrl: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?q=80&w=100&auto=format&fit=crop",
+            endWorkImgUrl: "",
+            attendanceStatus: "On Time"
+        },
+        {
+            id: "LAB-002",
+            name: "Priya Singh",
+            contractor: "XYZ Constructions",
+            department: "Engineering",
+            workLocation: "Work from Home",
+            status: "Checked Out",
+            checkIn: "10:15 AM",
+            checkOut: "07:00 PM",
+            hours: "08:45",
+            imgInUrl: "https://randomuser.me/api/portraits/women/44.jpg",
+            imgOutUrl: "https://randomuser.me/api/portraits/women/44.jpg",
+            startWorkImgUrl: "https://images.unsplash.com/photo-1541888086425-d81bb19240f5?q=80&w=100&auto=format&fit=crop",
+            endWorkImgUrl: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?q=80&w=100&auto=format&fit=crop",
+            attendanceStatus: "Late"
+        },
+        {
+            id: "LAB-003",
+            name: "Amit Patel",
+            contractor: "ABC Builders",
+            department: "Plumbing",
+            workLocation: "Site A",
+            status: "Checked Out",
+            checkIn: "08:00 AM",
+            checkOut: "05:00 PM",
+            hours: "09:00",
+            imgInUrl: "https://randomuser.me/api/portraits/men/67.jpg",
+            imgOutUrl: "https://randomuser.me/api/portraits/men/67.jpg",
+            startWorkImgUrl: "https://images.unsplash.com/photo-1581092921461-eab62e97a780?q=80&w=100&auto=format&fit=crop",
+            endWorkImgUrl: "https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?q=80&w=100&auto=format&fit=crop",
+            attendanceStatus: "On Time"
+        },
+        {
+            id: "LAB-004",
+            name: "Sneha Roy",
+            contractor: "XYZ Constructions",
+            department: "Electrical",
+            workLocation: "Site B",
+            status: "Online",
+            checkIn: "09:45 AM",
+            checkOut: "-",
+            hours: "-",
+            imgInUrl: "https://randomuser.me/api/portraits/women/68.jpg",
+            imgOutUrl: "",
+            startWorkImgUrl: "https://images.unsplash.com/photo-1581092160562-40aa08e78837?q=80&w=100&auto=format&fit=crop",
+            endWorkImgUrl: "",
+            attendanceStatus: "Late"
+        }
+    ];
+
+    const filteredLabourAttendances = mockLabourAttendances.filter(lab => {
+        if (empStatusFilter !== "All Status" && lab.attendanceStatus !== empStatusFilter) return false;
+        if (empContractorFilter !== "All Contractors" && lab.contractor !== empContractorFilter) return false;
+        if (empSearch) {
+            const searchLower = empSearch.toLowerCase();
+            return lab.name.toLowerCase().includes(searchLower) || lab.id.toLowerCase().includes(searchLower) || lab.department.toLowerCase().includes(searchLower);
+        }
+        return true;
+    });
+
     return (
         <>
             <Navbar title="Attendance Management" breadcrumb={["Engineer", "Human Resources", "Attendance Management"]} />
 
             <PageTransition className="p-4 md:p-6 bg-slate-50 font-inter min-h-[calc(100vh-64px)] overflow-y-auto pb-8 flex flex-col gap-6">
-                
+
                 {/* Header Card */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
@@ -300,11 +383,10 @@ const AttendancePage: React.FC = () => {
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
-                                className={`px-8 py-2.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
-                                    activeTab === tab 
-                                    ? "bg-indigo-500 text-white shadow-sm" 
-                                    : "text-slate-600 hover:bg-slate-50"
-                                }`}
+                                className={`px-8 py-2.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${activeTab === tab
+                                        ? "bg-indigo-500 text-white shadow-sm"
+                                        : "text-slate-600 hover:bg-slate-50"
+                                    }`}
                             >
                                 {tab}
                             </button>
@@ -319,7 +401,7 @@ const AttendancePage: React.FC = () => {
                         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden p-6">
                             <h3 className="text-sm font-bold text-slate-800">Today's Status</h3>
                             <p className="text-xs text-slate-500 mt-1 mb-6">Your attendance status for today</p>
-                            
+
                             <div className="flex items-start gap-2 text-xs font-medium text-slate-600 mb-8">
                                 <MapPin className="w-4 h-4 flex-shrink-0 text-slate-400 mt-0.5" />
                                 <span>{locationAddress}</span>
@@ -331,7 +413,7 @@ const AttendancePage: React.FC = () => {
                                         <span className="text-xl font-bold">!</span>
                                     </div>
                                     <p className="text-xs font-medium text-slate-500 mb-10">Not Checked in Yet.</p>
-                                    <button 
+                                    <button
                                         onClick={() => setIsCheckInModalOpen(true)}
                                         className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20"
                                     >
@@ -382,7 +464,7 @@ const AttendancePage: React.FC = () => {
                                                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                                                 <span className="text-xs font-bold text-emerald-500">Live tracking - updates in real-time</span>
                                             </div>
-                                            <button 
+                                            <button
                                                 onClick={() => setIsCheckOutModalOpen(true)}
                                                 className="w-full mt-2 py-3.5 bg-rose-500 hover:bg-rose-600 text-white text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-rose-500/20"
                                             >
@@ -406,18 +488,17 @@ const AttendancePage: React.FC = () => {
                                 <div>
                                     <h3 className="text-sm font-bold text-slate-800">Attendance History</h3>
                                     <p className="text-xs text-slate-500 mt-1 mb-4">Your Attendance Records</p>
-                                    
+
                                     <div className="flex items-center gap-2 flex-wrap">
                                         <span className="text-[10px] font-bold text-slate-800 mr-2">Quick Filters</span>
                                         {(["Today", "Yesterday", "All", "Date"] as const).map(f => (
                                             <button
                                                 key={f}
                                                 onClick={() => { setHistoryFilter(f); setHistoryPage(1); }}
-                                                className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${
-                                                    historyFilter === f
+                                                className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${historyFilter === f
                                                         ? 'bg-blue-500 text-white shadow-sm'
                                                         : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-                                                }`}
+                                                    }`}
                                             >
                                                 {f === 'Date' && <Calendar className="w-3 h-3" />} {f}
                                             </button>
@@ -522,7 +603,7 @@ const AttendancePage: React.FC = () => {
                                     </tbody>
                                 </table>
                             </div>
-                            
+
                             {/* Pagination footer - only for Yesterday / All / Date */}
                             {historyFilter !== 'Today' && filteredHistory.length > 0 && (
                                 <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between">
@@ -573,8 +654,8 @@ const AttendancePage: React.FC = () => {
                                     <label className="block text-xs font-medium text-slate-600 mb-1.5">Search</label>
                                     <div className="relative">
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                        <input 
-                                            type="text" 
+                                        <input
+                                            type="text"
                                             placeholder="Search by name, email, labour ID, or department."
                                             className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300 italic"
                                             value={empSearch}
@@ -586,7 +667,7 @@ const AttendancePage: React.FC = () => {
                                     <label className="block text-xs font-medium text-slate-600 mb-1.5">Status</label>
                                     <div className="relative">
                                         <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
-                                        <select 
+                                        <select
                                             className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all appearance-none bg-white cursor-pointer"
                                             value={empStatusFilter}
                                             onChange={e => setEmpStatusFilter(e.target.value)}
@@ -598,10 +679,25 @@ const AttendancePage: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="min-w-[150px]">
+                                    <label className="block text-xs font-medium text-slate-600 mb-1.5">Contractor</label>
+                                    <div className="relative">
+                                        <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
+                                        <select
+                                            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all appearance-none bg-white cursor-pointer"
+                                            value={empContractorFilter}
+                                            onChange={e => setEmpContractorFilter(e.target.value)}
+                                        >
+                                            <option value="All Contractors">All Contractors</option>
+                                            <option value="ABC Builders">ABC Builders</option>
+                                            <option value="XYZ Constructions">XYZ Constructions</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="min-w-[150px]">
                                     <label className="block text-xs font-medium text-slate-600 mb-1.5">Duration Filter</label>
                                     <div className="relative">
                                         <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
-                                        <select 
+                                        <select
                                             className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all appearance-none bg-white cursor-pointer"
                                             value={empDurationFilter}
                                             onChange={e => setEmpDurationFilter(e.target.value)}
@@ -622,6 +718,7 @@ const AttendancePage: React.FC = () => {
                                         <th className="px-6 py-4">Date</th>
                                         <th className="px-6 py-4">Labour ID</th>
                                         <th className="px-6 py-4">Labour Name</th>
+                                        <th className="px-6 py-4">Contractor Name</th>
                                         <th className="px-6 py-4">Department</th>
                                         <th className="px-6 py-4">Work Location</th>
                                         <th className="px-6 py-4">Online Status</th>
@@ -629,7 +726,10 @@ const AttendancePage: React.FC = () => {
                                         <th className="px-6 py-4">Check Out</th>
                                         <th className="px-6 py-4">Hours</th>
                                         <th className="px-6 py-4">Location</th>
-                                        <th className="px-6 py-4">Selfie</th>
+                                        <th className="px-6 py-4">Check-In Image</th>
+                                        <th className="px-6 py-4">Check-Out Image</th>
+                                        <th className="px-6 py-4">Start Work Image</th>
+                                        <th className="px-6 py-4">End Work Image</th>
                                         <th className="px-6 py-4">Status</th>
                                         <th className="px-6 py-4">Work Summary</th>
                                         <th className="px-6 py-4">Work Report</th>
@@ -637,120 +737,103 @@ const AttendancePage: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                    <tr className="hover:bg-slate-50/50 transition-colors">
-                                        <td className="px-6 py-4"><span className="text-xs font-bold text-slate-800">21 May 2026</span></td>
-                                        <td className="px-6 py-4"><span className="text-xs font-bold text-slate-500">LAB-001</span></td>
-                                        <td className="px-6 py-4"><span className="text-xs font-bold text-slate-800">Rahul Sharma</span></td>
-                                        <td className="px-6 py-4"><span className="px-3 py-1 border border-slate-200 rounded-full text-[10px] font-bold text-slate-600">Engineering</span></td>
-                                        <td className="px-6 py-4">
-                                            <span className="px-3 py-1 bg-blue-50 border border-blue-200 rounded-full text-[10px] font-bold text-blue-600 flex items-center gap-1 w-max">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div> Work from Office
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <div className="flex flex-col items-center">
-                                                <span className="text-[10px] font-bold text-slate-800 flex items-center gap-1 mb-1">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div> Online
+                                    {filteredLabourAttendances.map((lab, index) => (
+                                        <tr key={index} className="hover:bg-slate-50/50 transition-colors">
+                                            <td className="px-6 py-4"><span className="text-xs font-bold text-slate-800">21 May 2026</span></td>
+                                            <td className="px-6 py-4"><span className="text-xs font-bold text-slate-500">{lab.id}</span></td>
+                                            <td className="px-6 py-4"><span className="text-xs font-bold text-slate-800">{lab.name}</span></td>
+                                            <td className="px-6 py-4"><span className="text-xs font-bold text-slate-800">{lab.contractor}</span></td>
+                                            <td className="px-6 py-4"><span className="px-3 py-1 border border-slate-200 rounded-full text-[10px] font-bold text-slate-600">{lab.department}</span></td>
+                                            <td className="px-6 py-4">
+                                                <span className={`px-3 py-1 ${lab.workLocation === 'Work from Home' ? 'bg-purple-50 border-purple-200 text-purple-600' : 'bg-blue-50 border-blue-200 text-blue-600'} border rounded-full text-[10px] font-bold flex items-center gap-1 w-max`}>
+                                                    <div className={`w-1.5 h-1.5 rounded-full ${lab.workLocation === 'Work from Home' ? 'bg-purple-500' : 'bg-blue-500'}`}></div> {lab.workLocation}
                                                 </span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4"><span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> 09:30 AM</span></td>
-                                        <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-400 flex items-center gap-1"><LogOut className="w-3 h-3 rotate-180" /> -</span></td>
-                                        <td className="px-6 py-4 text-center"><span className="text-xs font-bold text-slate-800">-</span></td>
-                                        <td className="px-6 py-4"><span className="text-[10px] font-bold text-blue-500 flex items-center gap-1 cursor-pointer"><MapPin className="w-3 h-3" /> View</span></td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-2">
-                                                <div className="flex flex-col items-center gap-1">
-                                                    <span className="text-[8px] font-bold text-emerald-600 uppercase tracking-wide">In</span>
-                                                    <div className="w-8 h-8 rounded-full bg-emerald-100 border-2 border-emerald-400 flex items-center justify-center text-[10px] font-bold text-emerald-700">RS</div>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <div className="flex flex-col items-center">
+                                                    {lab.status === "Online" ? (
+                                                        <span className="text-[10px] font-bold text-slate-800 flex items-center gap-1 mb-1">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div> Online
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-[10px] font-bold text-slate-600 mb-1">Checked Out</span>
+                                                    )}
                                                 </div>
-                                                <div className="flex flex-col items-center gap-1">
-                                                    <span className="text-[8px] font-bold text-rose-500 uppercase tracking-wide">Out</span>
-                                                    <div className="w-8 h-8 rounded-full bg-slate-200 border-2 border-slate-300" />
+                                            </td>
+                                            <td className="px-6 py-4"><span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> {lab.checkIn}</span></td>
+                                            <td className="px-6 py-4"><span className={`text-[10px] font-bold ${lab.checkOut !== '-' ? 'text-rose-600' : 'text-slate-400'} flex items-center gap-1`}><LogOut className="w-3 h-3 rotate-180" /> {lab.checkOut}</span></td>
+                                            <td className="px-6 py-4 text-center"><span className="text-xs font-bold text-slate-800">{lab.hours}</span></td>
+                                            <td className="px-6 py-4"><span className="text-[10px] font-bold text-blue-500 flex items-center gap-1 cursor-pointer"><MapPin className="w-3 h-3" /> View</span></td>
+                                            <td className="px-6 py-4">
+                                                <div
+                                                    className="w-8 h-8 rounded-full border-2 border-emerald-400 overflow-hidden bg-emerald-50 cursor-pointer hover:scale-110 transition-transform shadow-sm"
+                                                    onClick={() => setPreviewImage({ url: lab.imgInUrl, title: "Check-In Image - " + lab.name })}
+                                                >
+                                                    <img src={lab.imgInUrl} alt="Check-In" className="w-full h-full object-cover" />
                                                 </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 text-center"><span className="px-2 py-0.5 bg-emerald-50 text-emerald-500 border border-emerald-200 rounded-full text-[9px] font-bold">On Time</span></td>
-                                        <td className="px-6 py-4 text-center text-xs text-slate-400 font-bold">-</td>
-                                        <td className="px-6 py-4 text-center text-xs text-slate-400 font-bold">-</td>
-                                        <td className="px-6 py-4 text-right">
-                                            <div className="flex items-center justify-end gap-2 font-inter">
-                                                <button
-                                                    onClick={() => {
-                                                        setSelectedLabour({ name: "Rahul Sharma", id: "LAB-001", status: "Online", checkIn: "09:30 AM", checkOut: "-", department: "Engineering", location: "Work from Office", img: "RS" });
-                                                        setIsViewModalOpen(true);
-                                                    }}
-                                                    className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 flex items-center justify-center"
-                                                    title="View Insight"
-                                                >
-                                                    <Eye className="w-4 h-4" />
-                                                </button>
-                                                <button
-                                                    onClick={() => navigate('/engineer/labor/LAB-001')}
-                                                    className="px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-all active:scale-95 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest"
-                                                    title="View Full Detail"
-                                                >
-                                                    View Detail <ArrowRight className="w-3.5 h-3.5" />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr className="hover:bg-slate-50/50 transition-colors">
-                                        <td className="px-6 py-4"><span className="text-xs font-bold text-slate-800">21 May 2026</span></td>
-                                        <td className="px-6 py-4"><span className="text-xs font-bold text-slate-500">LAB-002</span></td>
-                                        <td className="px-6 py-4"><span className="text-xs font-bold text-slate-800">Priya Singh</span></td>
-                                        <td className="px-6 py-4"><span className="px-3 py-1 border border-slate-200 rounded-full text-[10px] font-bold text-slate-600">Engineering</span></td>
-                                        <td className="px-6 py-4">
-                                            <span className="px-3 py-1 bg-purple-50 border border-purple-200 rounded-full text-[10px] font-bold text-purple-600 flex items-center gap-1 w-max">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-purple-500"></div> Work from Home
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <div className="flex flex-col items-center">
-                                                <span className="text-[10px] font-bold text-slate-600 mb-1">Checked Out</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4"><span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> 10:15 AM</span></td>
-                                        <td className="px-6 py-4"><span className="text-[10px] font-bold text-rose-600 flex items-center gap-1"><LogOut className="w-3 h-3 rotate-180" /> 07:00 PM</span></td>
-                                        <td className="px-6 py-4 text-center"><span className="text-xs font-bold text-slate-800">08:45</span></td>
-                                        <td className="px-6 py-4"><span className="text-[10px] font-bold text-blue-500 flex items-center gap-1 cursor-pointer"><MapPin className="w-3 h-3" /> View</span></td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-2">
-                                                <div className="flex flex-col items-center gap-1">
-                                                    <span className="text-[8px] font-bold text-emerald-600 uppercase tracking-wide">In</span>
-                                                    <div className="w-8 h-8 rounded-full bg-emerald-100 border-2 border-emerald-400 flex items-center justify-center text-[10px] font-bold text-emerald-700">PS</div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {lab.checkOut !== '-' && lab.imgOutUrl ? (
+                                                    <div
+                                                        className="w-8 h-8 rounded-full border-2 border-rose-400 overflow-hidden bg-rose-50 cursor-pointer hover:scale-110 transition-transform shadow-sm"
+                                                        onClick={() => setPreviewImage({ url: lab.imgOutUrl, title: "Check-Out Image - " + lab.name })}
+                                                    >
+                                                        <img src={lab.imgOutUrl} alt="Check-Out" className="w-full h-full object-cover" />
+                                                    </div>
+                                                ) : (
+                                                    <div className="w-8 h-8 rounded-full bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400"><Camera className="w-3 h-3" /></div>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {lab.startWorkImgUrl ? (
+                                                    <div
+                                                        className="w-10 h-10 rounded-lg border-2 border-blue-400 overflow-hidden bg-blue-50 cursor-pointer hover:scale-110 transition-transform shadow-sm"
+                                                        onClick={() => setPreviewImage({ url: lab.startWorkImgUrl, title: "Start Work Image - " + lab.name })}
+                                                    >
+                                                        <img src={lab.startWorkImgUrl} alt="Start Work" className="w-full h-full object-cover" />
+                                                    </div>
+                                                ) : (
+                                                    <div className="w-10 h-10 rounded-lg bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400"><Camera className="w-3 h-3" /></div>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {lab.checkOut !== '-' && lab.endWorkImgUrl ? (
+                                                    <div
+                                                        className="w-10 h-10 rounded-lg border-2 border-orange-400 overflow-hidden bg-orange-50 cursor-pointer hover:scale-110 transition-transform shadow-sm"
+                                                        onClick={() => setPreviewImage({ url: lab.endWorkImgUrl, title: "End Work Image - " + lab.name })}
+                                                    >
+                                                        <img src={lab.endWorkImgUrl} alt="End Work" className="w-full h-full object-cover" />
+                                                    </div>
+                                                ) : (
+                                                    <div className="w-10 h-10 rounded-lg bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400"><Camera className="w-3 h-3" /></div>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-center"><span className={`px-2 py-0.5 ${lab.attendanceStatus === 'Late' ? 'bg-rose-50 text-rose-500 border-rose-200' : 'bg-emerald-50 text-emerald-500 border-emerald-200'} border rounded-full text-[9px] font-bold`}>{lab.attendanceStatus}</span></td>
+                                            <td className="px-6 py-4 text-center text-xs text-slate-400 font-bold">-</td>
+                                            <td className="px-6 py-4 text-center text-xs text-slate-400 font-bold">-</td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex items-center justify-end gap-2 font-inter">
+                                                    <button
+                                                        onClick={() => {
+                                                            setSelectedLabour(lab);
+                                                            setIsViewModalOpen(true);
+                                                        }}
+                                                        className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 flex items-center justify-center"
+                                                        title="View Insight"
+                                                    >
+                                                        <Eye className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => navigate(`/engineer/labor/${lab.id}`)}
+                                                        className="px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-all active:scale-95 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest"
+                                                        title="View Full Detail"
+                                                    >
+                                                        View Detail <ArrowRight className="w-3.5 h-3.5" />
+                                                    </button>
                                                 </div>
-                                                <div className="flex flex-col items-center gap-1">
-                                                    <span className="text-[8px] font-bold text-rose-500 uppercase tracking-wide">Out</span>
-                                                    <div className="w-8 h-8 rounded-full bg-rose-100 border-2 border-rose-400 flex items-center justify-center text-[10px] font-bold text-rose-700">PS</div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 text-center"><span className="px-2 py-0.5 bg-rose-50 text-rose-500 border border-rose-200 rounded-full text-[9px] font-bold">Late</span></td>
-                                        <td className="px-6 py-4 text-center text-xs text-slate-400 font-bold">-</td>
-                                        <td className="px-6 py-4 text-center text-xs text-slate-400 font-bold">-</td>
-                                        <td className="px-6 py-4 text-right">
-                                            <div className="flex items-center justify-end gap-2 font-inter">
-                                                <button
-                                                    onClick={() => {
-                                                        setSelectedLabour({ name: "Priya Singh", id: "LAB-002", status: "Checked Out", checkIn: "10:15 AM", checkOut: "07:00 PM", department: "Engineering", location: "Work from Home", img: "PS" });
-                                                        setIsViewModalOpen(true);
-                                                    }}
-                                                    className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 flex items-center justify-center"
-                                                    title="View Insight"
-                                                >
-                                                    <Eye className="w-4 h-4" />
-                                                </button>
-                                                <button
-                                                    onClick={() => navigate('/engineer/labor/LAB-002')}
-                                                    className="px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-all active:scale-95 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest"
-                                                    title="View Full Detail"
-                                                >
-                                                    View Detail <ArrowRight className="w-3.5 h-3.5" />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
+                                            </td>
+                                        </tr>
+                                    ))}
                                 </tbody>
                             </table>
                         </div>
@@ -841,20 +924,20 @@ const AttendancePage: React.FC = () => {
             >
                 <div className="p-2">
                     <h2 className="text-center text-sm font-black text-slate-800 mb-4 uppercase tracking-widest mt-2">Capture Checkout Photo</h2>
-                    
+
                     <div className="bg-black rounded-xl overflow-hidden aspect-video relative flex items-center justify-center">
                         {!checkoutCapturedImage ? (
-                            <video 
-                                ref={checkoutVideoRef} 
-                                autoPlay 
-                                playsInline 
-                                muted 
+                            <video
+                                ref={checkoutVideoRef}
+                                autoPlay
+                                playsInline
+                                muted
                                 className="w-full h-full object-cover"
                             />
                         ) : (
-                            <img 
-                                src={checkoutCapturedImage} 
-                                alt="Captured" 
+                            <img
+                                src={checkoutCapturedImage}
+                                alt="Captured"
                                 className="w-full h-full object-cover"
                             />
                         )}
@@ -920,8 +1003,8 @@ const AttendancePage: React.FC = () => {
                             <div className="absolute top-[-20px] right-[-20px] w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none" />
                             <div className="absolute bottom-[-40px] left-[-40px] w-40 h-40 bg-white/5 rounded-full blur-xl pointer-events-none" />
                             <div className="relative z-10 flex items-center gap-5">
-                                <div className="w-16 h-16 bg-blue-400/30 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 relative shadow-inner flex-shrink-0">
-                                    <span className="text-2xl font-black text-white">{selectedLabour.img}</span>
+                                <div className="w-16 h-16 bg-blue-400/30 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 relative shadow-inner flex-shrink-0 overflow-hidden">
+                                    <img src={selectedLabour.imgInUrl} alt={selectedLabour.name} className="w-full h-full object-cover" />
                                     <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-4 border-primary z-20 ${selectedLabour.status === 'Online' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
                                 </div>
                                 <div className="flex-1 min-w-0">
@@ -930,7 +1013,8 @@ const AttendancePage: React.FC = () => {
                                         <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest">{selectedLabour.id}</span>
                                     </div>
                                     <div className="flex flex-wrap items-center gap-3 text-white/70 text-xs font-medium">
-                                        <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-white/80" /> {selectedLabour.location}</span>
+                                        <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-white/80" /> {selectedLabour.workLocation}</span>
+                                        <span className="flex items-center gap-1"><Briefcase className="w-3 h-3 text-white/80" /> {selectedLabour.contractor}</span>
                                         <span className="flex items-center gap-1"><Calendar className="w-3 h-3 text-white/80" /> {formatDate(currentDateTime).replace(/, \d{4}/, ' 2026')}</span>
                                     </div>
                                     <div className="mt-2">
@@ -942,38 +1026,45 @@ const AttendancePage: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Selfie Section */}
+                        {/* Images Section */}
                         <div className="px-6 py-5 border-b border-slate-100">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Attendance Selfies</p>
-                            <div className="flex items-center gap-6">
-                                {/* Check-In Selfie */}
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Attendance & Work Photos</p>
+                            <div className="grid grid-cols-4 gap-4">
                                 <div className="flex flex-col items-center gap-2">
-                                    <div className="w-16 h-16 rounded-2xl bg-emerald-100 border-2 border-emerald-400 flex items-center justify-center text-xl font-black text-emerald-700 overflow-hidden">
-                                        {selectedLabour.img}
+                                    <div
+                                        className="w-14 h-14 rounded-2xl bg-emerald-50 border-2 border-emerald-400 overflow-hidden cursor-pointer hover:scale-105 transition-transform"
+                                        onClick={() => setPreviewImage({ url: selectedLabour.imgInUrl, title: "Check-In Image - " + selectedLabour.name })}
+                                    >
+                                        <img src={selectedLabour.imgInUrl} alt="Check-In" className="w-full h-full object-cover" />
                                     </div>
-                                    <div className="text-center">
-                                        <p className="text-[9px] font-bold text-emerald-600 uppercase tracking-wide">Check-In</p>
-                                        <p className="text-[10px] font-bold text-slate-800">{selectedLabour.checkIn}</p>
-                                    </div>
+                                    <p className="text-[9px] font-bold text-emerald-600 uppercase tracking-wide text-center">Check-In</p>
                                 </div>
-                                {/* Arrow */}
-                                <div className="flex-1 flex flex-col items-center gap-1">
-                                    <div className="w-full h-px bg-slate-200 relative">
-                                        <ArrowRight className="w-4 h-4 text-slate-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white" />
-                                    </div>
-                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">
-                                        {selectedLabour.checkOut !== '-' ? selectedLabour.hours || '-' : 'In Progress'}
-                                    </span>
-                                </div>
-                                {/* Check-Out Selfie */}
                                 <div className="flex flex-col items-center gap-2">
-                                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-black overflow-hidden ${selectedLabour.checkOut !== '-' ? 'bg-rose-100 border-2 border-rose-400 text-rose-700' : 'bg-slate-100 border-2 border-dashed border-slate-300 text-slate-400'}`}>
-                                        {selectedLabour.checkOut !== '-' ? selectedLabour.img : '?'}
+                                    <div
+                                        className={`w-14 h-14 rounded-2xl overflow-hidden ${selectedLabour.checkOut !== '-' && selectedLabour.imgOutUrl ? 'bg-rose-50 border-2 border-rose-400 cursor-pointer hover:scale-105 transition-transform' : 'bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400'}`}
+                                        onClick={() => selectedLabour.checkOut !== '-' && selectedLabour.imgOutUrl && setPreviewImage({ url: selectedLabour.imgOutUrl, title: "Check-Out Image - " + selectedLabour.name })}
+                                    >
+                                        {selectedLabour.checkOut !== '-' && selectedLabour.imgOutUrl ? <img src={selectedLabour.imgOutUrl} alt="Check-Out" className="w-full h-full object-cover" /> : <Camera className="w-4 h-4" />}
                                     </div>
-                                    <div className="text-center">
-                                        <p className={`text-[9px] font-bold uppercase tracking-wide ${selectedLabour.checkOut !== '-' ? 'text-rose-500' : 'text-slate-400'}`}>Check-Out</p>
-                                        <p className="text-[10px] font-bold text-slate-800">{selectedLabour.checkOut}</p>
+                                    <p className={`text-[9px] font-bold uppercase tracking-wide text-center ${selectedLabour.checkOut !== '-' && selectedLabour.imgOutUrl ? 'text-rose-500' : 'text-slate-400'}`}>Check-Out</p>
+                                </div>
+                                <div className="flex flex-col items-center gap-2">
+                                    <div
+                                        className={`w-14 h-14 rounded-2xl overflow-hidden ${selectedLabour.startWorkImgUrl ? 'bg-blue-50 border-2 border-blue-400 cursor-pointer hover:scale-105 transition-transform' : 'bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400'}`}
+                                        onClick={() => selectedLabour.startWorkImgUrl && setPreviewImage({ url: selectedLabour.startWorkImgUrl, title: "Start Work Image - " + selectedLabour.name })}
+                                    >
+                                        {selectedLabour.startWorkImgUrl ? <img src={selectedLabour.startWorkImgUrl} alt="Start Work" className="w-full h-full object-cover" /> : <Camera className="w-4 h-4" />}
                                     </div>
+                                    <p className={`text-[9px] font-bold uppercase tracking-wide text-center ${selectedLabour.startWorkImgUrl ? 'text-blue-500' : 'text-slate-400'}`}>Start Work</p>
+                                </div>
+                                <div className="flex flex-col items-center gap-2">
+                                    <div
+                                        className={`w-14 h-14 rounded-2xl overflow-hidden ${selectedLabour.endWorkImgUrl && selectedLabour.checkOut !== '-' ? 'bg-orange-50 border-2 border-orange-400 cursor-pointer hover:scale-105 transition-transform' : 'bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400'}`}
+                                        onClick={() => selectedLabour.endWorkImgUrl && selectedLabour.checkOut !== '-' && setPreviewImage({ url: selectedLabour.endWorkImgUrl, title: "End Work Image - " + selectedLabour.name })}
+                                    >
+                                        {selectedLabour.endWorkImgUrl && selectedLabour.checkOut !== '-' ? <img src={selectedLabour.endWorkImgUrl} alt="End Work" className="w-full h-full object-cover" /> : <Camera className="w-4 h-4" />}
+                                    </div>
+                                    <p className={`text-[9px] font-bold uppercase tracking-wide text-center ${selectedLabour.endWorkImgUrl && selectedLabour.checkOut !== '-' ? 'text-orange-500' : 'text-slate-400'}`}>End Work</p>
                                 </div>
                             </div>
                         </div>
@@ -985,18 +1076,16 @@ const AttendancePage: React.FC = () => {
                                 <p className="text-xs font-bold text-slate-800">{selectedLabour.id}</p>
                             </div>
                             <div>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Contractor</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.contractor}</p>
+                            </div>
+                            <div>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Department</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.department || 'Engineering'}</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.department}</p>
                             </div>
                             <div>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Work Location</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.location}</p>
-                            </div>
-                            <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Online Status</p>
-                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${selectedLabour.status === 'Online' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-slate-100 text-slate-600 border border-slate-200'}`}>
-                                    {selectedLabour.status}
-                                </span>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.workLocation}</p>
                             </div>
                             <div>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Check-In Time</p>
@@ -1029,6 +1118,24 @@ const AttendancePage: React.FC = () => {
                         </div>
                     </div>
                 )}
+            </Modal>
+
+            {/* Image Preview Modal */}
+            <Modal
+                isOpen={!!previewImage}
+                onClose={() => setPreviewImage(null)}
+                title={previewImage?.title || "Image Preview"}
+                maxWidth="max-w-sm"
+            >
+                <div className="w-full flex items-center justify-center bg-black/5">
+                    {previewImage && (
+                        <img
+                            src={previewImage.url}
+                            alt={previewImage.title}
+                            className="w-full h-auto object-cover rounded-b-2xl"
+                        />
+                    )}
+                </div>
             </Modal>
 
         </>

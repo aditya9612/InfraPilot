@@ -31,7 +31,7 @@ const QCTestReportsPage = () => {
 
     // â”€â”€â”€ PROJECT RESOLUTION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     useEffect(() => {
-        const initializeProject = async () => {
+        const initializeProject = () => {
             try {
                 const userStr = localStorage.getItem("infrapilot_user");
                 if (userStr) {
@@ -42,16 +42,7 @@ const QCTestReportsPage = () => {
                         return;
                     }
                 }
-
-                // Discovery Fallback
-                console.warn("QC Reports: No project_id in user context, attempting discovery fallback");
-                const projectsResponse = await projectService.getProjects(1, 0);
-                const projects = Array.isArray(projectsResponse) ? projectsResponse : (projectsResponse.items || []);
-                if (projects && projects.length > 0) {
-                    setProjectId(Number(projects[0].project_id || projects[0].id));
-                } else {
-                    setProjectId(92);
-                }
+                setProjectId(92);
             } catch (e) {
                 console.error("Failed to resolve project ID", e);
                 setProjectId(92);
