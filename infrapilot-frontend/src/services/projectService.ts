@@ -244,8 +244,13 @@ export const projectService = {
   },
 
   async createTask(projectId: number, taskData: any) {
-    const response = await api.post(`/projects/${projectId}/tasks`, taskData);
-    return response.data;
+    try {
+      const response = await api.post(`/projects/${projectId}/tasks`, taskData);
+      return response.data;
+    } catch (error: any) {
+      console.error("Create Task API Error:", error.response?.data || error.message);
+      throw error;
+    }
   },
 
   async getTask(projectId: number, taskId: number) {
@@ -254,8 +259,13 @@ export const projectService = {
   },
 
   async updateTask(projectId: number, taskId: number, taskData: any) {
-    const response = await api.put(`/projects/${projectId}/tasks/${taskId}`, taskData);
-    return response.data;
+    try {
+      const response = await api.put(`/projects/${projectId}/tasks/${taskId}`, taskData);
+      return response.data;
+    } catch (error: any) {
+      console.error(`Update Task ${taskId} API Error:`, error.response?.data || error.message);
+      throw error;
+    }
   },
 
   async deleteTask(projectId: number, taskId: number) {

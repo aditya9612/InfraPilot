@@ -54,8 +54,8 @@ const EditTaskModal = ({
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: ["priority", "assigned_user_id", "completion_percentage"].includes(name) 
-        ? parseInt(value) 
+      [name]: ["priority", "assigned_user_id", "completion_percentage"].includes(name)
+        ? (value ? parseInt(value) : "")
         : value,
     }));
     if (errors[name]) {
@@ -73,7 +73,7 @@ const EditTaskModal = ({
     if (!formData.start_date) newErrors.start_date = "Start date is required.";
     if (!formData.end_date) newErrors.end_date = "End date is required.";
     if (!formData.assigned_user_id) newErrors.assigned_user_id = "Assigned user is required.";
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -90,12 +90,19 @@ const EditTaskModal = ({
         project_id: task.project_id,
         // The backend expects 'percentage' for progress updates
         percentage: formData.completion_percentage,
+        // Send redundant fields for backend compatibility (Tasks and Activities)
+        activity_name: formData.title,
+        engineer_id: formData.assigned_user_id,
+        assigned_to: formData.assigned_user_id,
+        user_id: formData.assigned_user_id,
+        lead_id: formData.assigned_user_id,
+        assigned_to_id: formData.assigned_user_id,
       };
-      
+
       if (onSubmit) {
         await onSubmit(requestBody);
       }
-      
+
       toast.success("Task updated successfully!");
       onClose();
     } catch (error) {
@@ -172,9 +179,10 @@ const EditTaskModal = ({
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1">Assigned To</label>
                 <select
-                  name="assigned_user_id" value={formData.assigned_user_id} onChange={handleChange}
+                  name="assigned_user_id" value={formData.assigned_user_id || ""} onChange={handleChange}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary outline-none transition-all"
                 >
+                  <option value="">Select individual</option>
                   {members.map(m => (
                     <option key={m.user_id} value={m.user_id}>{m.full_name}</option>
                   ))}
@@ -213,24 +221,24 @@ const EditTaskModal = ({
         </div>
 
         <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
-            <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Timeline</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Start Date</label>
-                <input
-                  type="date" name="start_date" value={formData.start_date} onChange={handleChange}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary outline-none transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">End Date</label>
-                <input
-                  type="date" name="end_date" value={formData.end_date} onChange={handleChange}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary outline-none transition-all"
-                />
-              </div>
+          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Timeline</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Start Date</label>
+              <input
+                type="date" name="start_date" value={formData.start_date} onChange={handleChange}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary outline-none transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">End Date</label>
+              <input
+                type="date" name="end_date" value={formData.end_date} onChange={handleChange}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary outline-none transition-all"
+              />
             </div>
           </div>
+        </div>
       </form>
     </Modal>
   );

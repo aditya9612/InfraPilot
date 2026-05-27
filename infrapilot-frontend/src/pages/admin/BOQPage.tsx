@@ -59,7 +59,7 @@ const BOQPage = () => {
 
   // Pagination States
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(20);
+  const [itemsPerPage] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
 
   const [isModalOpen, setIsModalOpen] = useState(false);

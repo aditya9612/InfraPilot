@@ -131,8 +131,9 @@ const ProjectDetailsPage = () => {
       await projectService.createTask(projectId, taskData);
       toast.success("Task created successfully");
       fetchProjectData();
-    } catch (error) {
-      toast.error("Failed to create task");
+    } catch (err: any) {
+      const errorDetail = err.response?.data?.detail || err.response?.data?.message || "Failed to create task";
+      toast.error(errorDetail);
     }
   };
 

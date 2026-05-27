@@ -19,7 +19,7 @@ export const boqService = {
 
       // Handle array vs object response
       const items = Array.isArray(data) ? data : data.items || data.data || [];
-      const total = data.total || items.length;
+      const total = data.meta?.total ?? data.total ?? items.length;
 
       return {
         items,

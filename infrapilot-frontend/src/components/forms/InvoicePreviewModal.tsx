@@ -1,6 +1,8 @@
 import React from "react";
 import Modal from "../common/Modal";
-import { Printer, QrCode } from "lucide-react";
+import { Printer, QrCode, Download } from "lucide-react";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import logo from "../../assets/logo.png";
 
 interface InvoicePreviewModalProps {
@@ -16,8 +18,203 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
 }) => {
     if (!data) return null;
 
+    // Shared helper: builds the complete invoice PDF and returns the jsPDF instance
+    const buildInvoicePDF = () => {
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.width;
+
+        // Styles
+        const slate900: [number, number, number] = [15, 23, 42];
+        const slate500: [number, number, number] = [100, 116, 139];
+        const slate100: [number, number, number] = [241, 245, 249];
+
+        // 1. Header
+        try {
+            doc.addImage(logo, 'PNG', 15, 12, 20, 20);
+        } catch (e) {
+            console.warn("Logo not found", e);
+        }
+
+        doc.setFontSize(24);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(slate900[0], slate900[1], slate900[2]);
+        doc.text("INFRAPILOT", 38, 22);
+
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(slate500[0], slate500[1], slate500[2]);
+        doc.text("CONSTRUCTION & INFRASTRUCTURE", 38, 28);
+
+        // Tax Invoice Box
+        doc.setDrawColor(slate900[0], slate900[1], slate900[2]);
+        doc.setLineWidth(0.6);
+        doc.rect(pageWidth - 75, 12, 60, 12);
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(slate900[0], slate900[1], slate900[2]);
+        doc.text("TAX INVOICE", pageWidth - 45, 20, { align: "center" });
+
+        doc.setFontSize(7);
+        doc.setTextColor(slate500[0], slate500[1], slate500[2]);
+        doc.text(`GSTIN: 27AAACL6442L1ZA`, pageWidth - 45, 27, { align: "center" });
+        doc.text(`CIN: L26940MH2000PLC128420`, pageWidth - 45, 31, { align: "center" });
+
+        // Address info
+        doc.setFontSize(7);
+        doc.setTextColor(slate500[0], slate500[1], slate500[2]);
+        doc.text("Unit Address: 123, Business Hub, MG Road, Indore, MP - 452001", 15, 38);
+        doc.text("Registered Office: B-wing, 2nd floor, Ahura Centre, Mahakali Caves Road, Andheri (E), Mumbai - 400093", 15, 42);
+
+        // 2. Metadata Tables (2 columns)
+        autoTable(doc, {
+            startY: 48,
+            head: [['RECIPIENT DETAILS', 'INVOICE INFO']],
+            body: [[{
+                content: `Name: ${data.clientName || 'N/A'}\nAddress: ${data.clientAddress || 'N/A'}\nGSTIN: ${data.clientGst || 'N/A'}`,
+                styles: { fontSize: 8, fontStyle: 'normal' }
+            }, {
+                content: `Invoice No: ${data.invoiceNo || 'N/A'}\nDate: ${data.date || new Date().toLocaleDateString()}\nProject Code: PRJ-2024-05\nPlace of Supply: MADHYA PRADESH`,
+                styles: { fontSize: 8, fontStyle: 'normal' }
+            }]],
+            theme: 'grid',
+            headStyles: { fillColor: slate100, textColor: slate500, fontSize: 8, fontStyle: 'bold' },
+            styles: { cellPadding: 4 }
+        });
+
+        // 3. Items Table
+        const tableRows: any[] = [];
+        const addSection = (title: string, items: any[], mapper: (item: any) => any[]) => {
+            if (!items || items.length === 0) return;
+            tableRows.push([{ content: title, colSpan: 5, styles: { fillColor: slate100, textColor: slate900, fontStyle: 'bold', fontSize: 7 } }]);
+            items.forEach((item) => tableRows.push(mapper(item)));
+        };
+
+        addSection('CONSTRUCTION WORK', data.items, (item) => [item.description || item.title, item.quantity, item.unit, item.rate?.toLocaleString(), item.amount?.toLocaleString()]);
+        addSection('MATERIAL SUPPLY', data.materialItems, (item) => [item.material_name, item.estimated_quantity, item.unit, item.estimated_rate?.toLocaleString(), item.estimated_amount?.toLocaleString()]);
+        addSection('LABOUR FORCES', data.labourItems, (item) => [item.skill_type, (item.labour_count * (item.labour_days || 1)), 'Man-days', item.daily_wage?.toLocaleString(), item.amount?.toLocaleString()]);
+        addSection('EXTRA CHARGES & EQUIPMENT', data.extraChargeItems, (item) => [item.description, item.quantity, '-', item.rate?.toLocaleString(), item.amount?.toLocaleString()]);
+
+        autoTable(doc, {
+            startY: (doc as any).lastAutoTable.finalY + 6,
+            head: [['DESCRIPTION', 'QTY', 'UNIT', 'RATE (INR)', 'BASIC VALUE (INR)']],
+            body: tableRows,
+            theme: 'grid',
+            headStyles: { fillColor: slate900, fontSize: 8, fontStyle: 'bold', halign: 'center' },
+            styles: { fontSize: 8, cellPadding: 2.5 },
+            columnStyles: {
+                0: { cellWidth: 85 },
+                1: { halign: 'center' },
+                2: { halign: 'center' },
+                3: { halign: 'right' },
+                4: { halign: 'right', fontStyle: 'bold' }
+            }
+        });
+
+        // Total Basic Value row
+        let currentY = (doc as any).lastAutoTable.finalY;
+        doc.setDrawColor(slate900[0], slate900[1], slate900[2]);
+        doc.setLineWidth(0.4);
+        doc.line(15, currentY, pageWidth - 15, currentY);
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "bold");
+        doc.text("TOTAL BASIC VALUE", pageWidth - 45, currentY + 6, { align: "right" });
+        doc.text(`INR ${data.subTotal?.toLocaleString()}`, pageWidth - 15, currentY + 6, { align: "right" });
+        currentY += 12;
+
+        // 4. Summary (Words & Remarks vs Tax Breakdown)
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.1);
+
+        // Left Column: Words & Remark
+        doc.setFontSize(7);
+        doc.setTextColor(slate500[0], slate500[1], slate500[2]);
+        doc.text("TOTAL AMOUNT IN WORDS:", 15, currentY);
+        doc.setTextColor(slate900[0], slate900[1], slate900[2]);
+        doc.setFont("helvetica", "bold");
+        doc.text(`INR ${toWords(data.grandTotal)}`, 15, currentY + 4, { maxWidth: 80 });
+
+        doc.rect(15, currentY + 12, 80, 15);
+        doc.setFontSize(7);
+        doc.setTextColor(slate900[0], slate900[1], slate900[2]);
+        doc.text("REMARK:", 18, currentY + 17);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(6);
+        doc.text("Material provided as per delivery challan. No breakage responsibility after site delivery.", 18, currentY + 20, { maxWidth: 74 });
+
+        // Right Column: Tax Breakdown
+        const taxX = pageWidth - 80;
+        const addTaxLine = (label: string, value: any, isTotal = false) => {
+            doc.setFontSize(isTotal ? 10 : 8);
+            doc.setFont("helvetica", isTotal ? "bold" : "normal");
+            doc.setTextColor(slate900[0], slate900[1], slate900[2]);
+            doc.text(label, taxX, currentY);
+            doc.text(`INR ${value?.toLocaleString()}`, pageWidth - 15, currentY, { align: "right" });
+            currentY += 6;
+        };
+
+        addTaxLine("Taxable Value", data.subTotal);
+        addTaxLine(`CGST (${data.cgstRate}%)`, (data.subTotal * data.cgstRate) / 100);
+        addTaxLine(`SGST (${data.sgstRate}%)`, (data.subTotal * data.sgstRate) / 100);
+        if (data.discount) addTaxLine("Discount", -data.discount);
+        if (data.advancePaid) addTaxLine("Advance Paid", -data.advancePaid);
+
+        currentY += 2;
+        doc.setLineWidth(0.5);
+        doc.line(taxX, currentY, pageWidth - 15, currentY);
+        currentY += 6;
+        addTaxLine("BALANCE DUE:", data.balanceDue, true);
+
+        // 5. Footer & QR
+        let footerY = doc.internal.pageSize.height - 45;
+        doc.setDrawColor(slate900[0], slate900[1], slate900[2]);
+        doc.setLineWidth(0.5);
+        doc.line(15, footerY, pageWidth - 15, footerY);
+
+        footerY += 10;
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(slate900[0], slate900[1], slate900[2]);
+        doc.text("For INFRA-PILOT PVT LTD", pageWidth - 15, footerY, { align: "right" });
+
+        doc.setDrawColor(203, 213, 225);
+        doc.line(pageWidth - 70, footerY + 15, pageWidth - 15, footerY + 15);
+        doc.setFontSize(7);
+        doc.text("AUTHORIZED SIGNATORY", pageWidth - 42.5, footerY + 19, { align: "center" });
+
+        // QR Placeholder
+        doc.setDrawColor(slate100[0], slate100[1], slate100[2]);
+        doc.setLineWidth(0.5);
+        doc.rect(15, footerY - 5, 20, 20);
+        doc.setFontSize(6);
+        doc.text("SCAN FOR\nPAYMENT", 25, footerY + 5, { align: "center" });
+
+        doc.setFontSize(6);
+        doc.setTextColor(slate500[0], slate500[1], slate500[2]);
+        doc.text("Certified that the particulars given above are true & correct.", 40, footerY + 20);
+
+        // T&C
+        doc.setFontSize(6);
+        doc.setTextColor(148, 163, 184);
+        doc.text("TERMS & CONDITIONS: 1. Subject to Indore Jurisdiction. 2. Payment by RTGS/NEFT/UPI. 3. Interest @18% p.a. 4. TDS as per Form 16A.", 15, doc.internal.pageSize.height - 10);
+
+        return doc;
+    };
+
     const handlePrint = () => {
-        window.print();
+        const doc = buildInvoicePDF();
+        const pdfBlob = doc.output('blob');
+        const url = URL.createObjectURL(pdfBlob);
+        const win = window.open(url, '_blank');
+        if (win) {
+            win.onload = () => {
+                win.print();
+            };
+        }
+    };
+
+    const handleDownloadPDF = () => {
+        const doc = buildInvoicePDF();
+        doc.save(`Invoice_${data.invoiceNo || 'Draft'}.pdf`);
     };
 
     // Helper to convert number to Indian currency words
@@ -35,6 +232,12 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
         >
             <div className="bg-slate-50 p-4 -m-6 rounded-b-2xl">
                 <div className="flex justify-end gap-3 mb-4 no-print">
+                    <button
+                        onClick={handleDownloadPDF}
+                        className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition-all"
+                    >
+                        <Download className="w-4 h-4" /> Download PDF
+                    </button>
                     <button
                         onClick={handlePrint}
                         className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all"
@@ -65,7 +268,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                                 </div>
                             </div>
                             <div className="text-right">
-                                <div className="bg-slate-900 text-white px-6 py-2 text-sm font-black uppercase tracking-[0.2em] mb-4">
+                                <div className="border-2 border-slate-900 text-slate-900 px-6 py-2 text-sm font-black uppercase tracking-[0.2em] mb-4">
                                     Tax Invoice
                                 </div>
                                 <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest space-y-1">
@@ -302,10 +505,63 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
 
             <style>{`
         @media print {
-          .no-print { display: none !important; }
-          body { background: white !important; }
-          .modal-container { box-shadow: none !important; border: none !important; padding: 0 !important; }
-          #printable-invoice { border: none !important; box-shadow: none !important; width: 100% !important; margin: 0 !important; }
+          /* Hide main app and non-essential UI */
+          #root, 
+          .no-print,
+          button,
+          .modal-close-button {
+            display: none !important;
+          }
+
+          /* Reset body for clean printing */
+          body {
+            background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          /* Reset the Modal container and Card */
+          /* Note: We target the specific layout of our Modal.tsx */
+          div.fixed.inset-0 {
+            position: static !important;
+            display: block !important;
+            background: white !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            box-shadow: none !important;
+            overflow: visible !important;
+          }
+
+          /* Hide backdrop and shadows */
+          .backdrop-blur-sm {
+            display: none !important;
+          }
+
+          div.max-w-5xl {
+            max-width: 100% !important;
+            box-shadow: none !important;
+            border: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+
+          /* Optimize printable area */
+          #printable-invoice {
+            display: block !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 20px !important;
+            border: none !important;
+            box-shadow: none !important;
+          }
+
+          @page {
+            margin: 0;
+            size: A4;
+          }
         }
       `}</style>
         </Modal>

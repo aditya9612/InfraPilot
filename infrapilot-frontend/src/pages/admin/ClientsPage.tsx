@@ -44,8 +44,8 @@ const ClientsPage = () => {
           email: u.email,
           mobile: u.mobile_number,
           project: u.address || "No Project Linked",
-          billing: "₹0 Pending", // Placeholders for now
-          payments: "₹0 Received",
+          billing: "—", // Requires billing API integration
+          payments: "—",
           status: u.is_active ? "Active" : "Inactive",
         }));
 
@@ -153,23 +153,17 @@ const ClientsPage = () => {
         </div>
 
         {/* Stats Summary */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <StatCard
             title="Total Clients"
             value={clients.length.toString()}
-            sub="Active relationships"
+            sub="All registered clients"
             accent="text-primary"
           />
           <StatCard
-            title="Outstanding Billing"
-            value="₹2,40,00,000"
-            sub="Across 8 Projects"
-            accent="text-rose-500"
-          />
-          <StatCard
-            title="Satisfaction Score"
-            value="94%"
-            sub="Based on project delivery"
+            title="Active Clients"
+            value={clients.filter(c => c.status === 'Active').length.toString()}
+            sub="Currently active relationships"
             accent="text-emerald-500"
           />
         </div>

@@ -14,6 +14,7 @@ export interface PaymentTransaction {
   reference: string;
   type: "Credit" | "Debit";
   description: string;
+  isFallbackDate: boolean;
 }
 
 export default function PaymentTracker() {
@@ -77,10 +78,19 @@ export default function PaymentTracker() {
           status: txn.status || "Paid", // Defaulting to Paid if API doesn't return
           reference: txn.reference_id ? `${txn.reference_type}-${txn.reference_id}` : "-",
           type: String(txn.type || "").toLowerCase() === "credit" ? "Credit" : "Debit",
-          description: txn.description || "N/A"
+          description: txn.description || "N/A",
+          isFallbackDate: !(txn.payment_date || txn.created_at)
         }));
 
-        setPayments(mappedData);
+        // Sort by date (descending) then by ID (descending)
+        const sortedData = [...mappedData].sort((a, b) => {
+          const dateA = new Date(a.date).getTime();
+          const dateB = new Date(b.date).getTime();
+          if (dateB !== dateA) return dateB - dateA;
+          return parseInt(b.id) - parseInt(a.id);
+        });
+
+        setPayments(sortedData);
       } catch (error) {
         console.error("Failed to fetch payments", error);
         toast.error("Failed to load payment data");
@@ -222,7 +232,17 @@ export default function PaymentTracker() {
                     <p className="text-xs text-slate-500">{txn.ownerId}</p>
                   </td>
                   <td className="p-4 text-sm text-slate-600">
-                    {new Date(txn.date).toLocaleDateString()}
+                    {!txn.isFallbackDate ? (
+                      new Date(txn.date).toLocaleDateString("en-IN", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit"
+                      })
+                    ) : (
+                      <span className="text-slate-400 italic">No Date Provided</span>
+                    )}
                   </td>
                   <td className="p-4 text-sm text-slate-600">
                     {txn.description}
