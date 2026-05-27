@@ -84,7 +84,7 @@ const ClientDSRSummaryPage = () => {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
           <div>
             <h1 className="text-3xl font-black text-slate-800 tracking-tight">Daily Site Report Suite</h1>
-            <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">Project {projectId} • Insights, Analytics & Field Logs</p>
+            <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">Insights, Analytics & Field Logs</p>
           </div>
           
           <div className="flex flex-wrap items-center gap-3">

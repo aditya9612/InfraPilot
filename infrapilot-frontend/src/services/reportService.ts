@@ -57,12 +57,18 @@ export const reportService = {
     },
 
     getFinancialSummary: async (projectId: number) => {
-        const response = await api.get(`/invoices/project/${projectId}/summary`);
+        const response = await api.get(`/reports/financial-summary`, { params: { project_id: projectId } });
         return response.data;
     },
 
+    // Existing method retained for backward compatibility
     getQuarterlyAudit: async (projectId: number, year: number, quarter: number) => {
         const response = await api.get(`/reports/quarterly-audit`, { params: { project_id: projectId, year, quarter } });
+        return response.data;
+    },
+    // New method matching updated API endpoint
+    getQuarterlyAuditSummary: async (projectId: number, year: number, quarter: number) => {
+        const response = await api.get(`/reports/quarterly-audit-summary`, { params: { project_id: projectId, year, quarter } });
         return response.data;
     },
 
@@ -138,12 +144,14 @@ export const reportService = {
     },
 
     exportAuditPDF: async (projectId: number) => {
-        const response = await api.get(`/reports/audit/export/pdf`, {
+        const response = await api.get(`/reports/audit-pdf`, {
             params: { project_id: projectId },
             responseType: 'blob'
         });
         return response.data;
     },
+
+
 
     exportWorkSummaryPDF: async (projectId: number) => {
         const response = await api.get(`/reports/work-summary/export/pdf`, {
@@ -176,4 +184,52 @@ export const reportService = {
         });
         return response.data;
     },
+
+    getProjectReportDetails: async (projectId: number) => {
+        const response = await api.get(`/reports/project/${projectId}`);
+        return response.data;
+    },
+
+    exportProjectReportPDF: async (projectId: number) => {
+        const response = await api.get(`/reports/project/${projectId}/export/pdf`, {
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+
+    exportProjectReportExcel: async (projectId: number) => {
+        const response = await api.get(`/reports/project/${projectId}/export/excel`, {
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+
+    exportCashflowExcel: async () => {
+        const response = await api.get(`/reports/cashflow/export/excel`, {
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+
+    exportAssetExcel: async () => {
+        const response = await api.get(`/reports/assets/export/excel`, {
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+
+    exportContractorExcel: async (projectId: number) => {
+        const response = await api.get(`/reports/contractor-performance/export/excel`, {
+            params: { project_id: projectId },
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+
+    exportProfitLossExcel: async () => {
+        const response = await api.get(`/reports/profit-loss/export/excel`, {
+            responseType: 'blob'
+        });
+        return response.data;
+    }
 };

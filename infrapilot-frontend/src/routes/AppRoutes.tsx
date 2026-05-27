@@ -58,6 +58,16 @@ import ClientApprovalsPage from "../pages/client/ClientApprovalsPage";
 import ClientMessagesPage from "../pages/client/communication/ClientMessagesPage";
 import ClientAnnouncementsPage from "../pages/client/communication/ClientAnnouncementsPage";
 import ClientReportSummaryPage from "../pages/client/reports/ClientReportSummaryPage";
+import ClientLabourReportPage from "../pages/client/reports/ClientLabourReportPage";
+import ClientMaterialReportPage from "../pages/client/reports/ClientMaterialReportPage";
+import ClientIssueReportPage from "../pages/client/reports/ClientIssueReportPage";
+import ClientCombinedReportPage from "../pages/client/reports/ClientCombinedReportPage";
+import ClientContractorPerformancePage from "../pages/client/reports/ClientContractorPerformancePage";
+import ClientProjectReportPage from "../pages/client/reports/ClientProjectReportPage";
+import ClientProfitLossPage from "../pages/client/reports/ClientProfitLossPage";
+import ClientCashflowPage from "../pages/client/reports/ClientCashflowPage";
+import ClientAssetReportPage from "../pages/client/reports/ClientAssetReportPage";
+import ClientIndividualReportPage from "../pages/client/reports/ClientIndividualReportPage";
 import ClientFinancialReportPage from "../pages/client/reports/ClientFinancialReportPage";
 import ClientWorkSummaryPage from "../pages/client/reports/ClientWorkSummaryPage";
 import ClientSettingsPage from "../pages/client/ClientSettingsPage";
@@ -504,6 +514,16 @@ function AppRoutes() {
               <Route path="/client/communication/messages" element={<ClientMessagesPage />} />
               <Route path="/client/communication/announcements" element={<ClientAnnouncementsPage />} />
               <Route path="/client/reports/summary" element={<ClientReportSummaryPage />} />
+              <Route path="/client/reports/labour" element={<ClientLabourReportPage />} />
+              <Route path="/client/reports/material" element={<ClientMaterialReportPage />} />
+              <Route path="/client/reports/issues" element={<ClientIssueReportPage />} />
+              <Route path="/client/reports/client-report" element={<ClientIndividualReportPage />} />
+              <Route path="/client/reports/combined" element={<ClientCombinedReportPage />} />
+              <Route path="/client/reports/contractor" element={<ClientContractorPerformancePage />} />
+              <Route path="/client/reports/project" element={<ClientProjectReportPage />} />
+              <Route path="/client/reports/profit-loss" element={<ClientProfitLossPage />} />
+              <Route path="/client/reports/cashflow" element={<ClientCashflowPage />} />
+              <Route path="/client/reports/assets" element={<ClientAssetReportPage />} />
               <Route path="/client/reports/financial" element={<ClientFinancialReportPage />} />
               <Route path="/client/reports/work" element={<ClientWorkSummaryPage />} />
               <Route path="/client/settings" element={<ClientSettingsPage />} />

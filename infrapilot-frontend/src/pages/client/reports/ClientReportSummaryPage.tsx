@@ -1,4 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+
 import Navbar from "../../../components/common/Navbar";
 import { reportService } from "../../../services/reportService";
 import { projectService } from "../../../services/projectService";
@@ -41,9 +43,14 @@ const ClientReportSummaryPage = () => {
   const [weeklyProgress, setWeeklyProgress] = useState<WeeklyProgress | null>(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState("2026-05-25");
   const [projectData, setProjectData] = useState<any>(null);
+  const [projectReport, setProjectReport] = useState<any>(null);
+  const [labourData, setLabourData] = useState<any>(null);
+  const [isNavOpen, setIsNavOpen] = useState(false);
+  const navigate = useNavigate();
 
   const { projectId } = useClientProjectId();
 
@@ -53,16 +60,26 @@ const ClientReportSummaryPage = () => {
       setLoading(true);
       setError(null);
 
-      const [dailyRes, weeklyRes, projectRes] = await Promise.all([
+      const [projectRes, detailsRes, labourRes, dailyRes, weeklyRes] = await Promise.allSettled([
+        projectService.getProjectById(projectId),
+        reportService.getProjectReportDetails(projectId),
+        reportService.getLabourReport(projectId),
         reportService.getDailyReport(projectId, date),
-        reportService.getWeeklyProgress(projectId),
-        projectService.getProjectById(projectId)
+        reportService.getWeeklyProgress(projectId)
       ]);
 
-      setProjectData(projectRes);
+      if (projectRes.status === 'fulfilled') setProjectData(projectRes.value);
+      if (detailsRes.status === 'fulfilled') {
+        console.log("Project Report Details Fetched:", detailsRes.value);
+        setProjectReport(detailsRes.value);
+      }
+      if (labourRes.status === 'fulfilled') {
+        console.log("Labour Report Fetched:", labourRes.value);
+        setLabourData(labourRes.value);
+      }
 
-      if (dailyRes && dailyRes.dsr) {
-        setDsr(dailyRes.dsr);
+      if (dailyRes.status === 'fulfilled' && dailyRes.value?.dsr) {
+        setDsr(dailyRes.value.dsr);
       } else {
         setDsr(null);
         if (reportType === "Daily") {
@@ -70,9 +87,10 @@ const ClientReportSummaryPage = () => {
         }
       }
 
-      if (weeklyRes) {
-        setWeeklyProgress(weeklyRes);
+      if (weeklyRes.status === 'fulfilled') {
+        setWeeklyProgress(weeklyRes.value);
       }
+
     } catch (err: any) {
       console.error("Error fetching report data:", err);
       setError("Failed to fetch report resources.");
@@ -91,36 +109,49 @@ const ClientReportSummaryPage = () => {
     setSelectedDate(e.target.value);
   };
 
-  const handleExportPDF = async () => {
+
+  const handleExportExcel = async () => {
     if (!projectId) return;
     try {
-      setExporting(true);
-      let blob;
-      if (reportType === "Daily") {
-        blob = await reportService.exportDailyPDF(projectId, selectedDate);
-      } else if (reportType === "Weekly") {
-        blob = await reportService.exportWeeklyPDF(projectId);
-      } else if (reportType === "Monthly") {
-        blob = await reportService.exportWorkSummaryPDF(projectId);
-      } else {
-        blob = await reportService.exportAuditPDF(projectId);
-      }
-
+      setExportingExcel(true);
+      const blob = await reportService.exportProjectReportExcel(projectId);
       const url = window.URL.createObjectURL(new Blob([blob]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `${reportType}_Report_${selectedDate}.pdf`);
+      link.setAttribute('download', `Project_Report_${projectId}_${new Date().toISOString().split('T')[0]}.xlsx`);
       document.body.appendChild(link);
       link.click();
       link.parentNode?.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      console.error("Error exporting PDF:", err);
-      alert("Failed to export PDF.");
+      console.error("Error exporting Excel:", err);
+      alert("Failed to export Excel report.");
+    } finally {
+      setExportingExcel(false);
+    }
+  };
+
+  const handleExportProjectPDF = async () => {
+    if (!projectId) return;
+    try {
+      setExporting(true);
+      const blob = await reportService.exportProjectReportPDF(projectId);
+      const url = window.URL.createObjectURL(new Blob([blob]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Consolidated_Project_Report_${projectId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Error exporting Project PDF:", err);
+      alert("Failed to export Consolidated PDF.");
     } finally {
       setExporting(false);
     }
   };
+
 
   return (
     <>
@@ -143,13 +174,63 @@ const ClientReportSummaryPage = () => {
                   key={type}
                   onClick={() => setReportType(type as any)}
                   className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${reportType === type
-                      ? "bg-slate-800 text-white shadow-lg"
-                      : "text-slate-400 hover:text-slate-600"
+                    ? "bg-slate-800 text-white shadow-lg"
+                    : "text-slate-400 hover:text-slate-600"
                     }`}
                 >
                   {type}
                 </button>
               ))}
+
+              <div className="h-8 w-px bg-slate-100 mx-2"></div>
+
+              <div className="relative">
+                <button
+                  onClick={() => setIsNavOpen(!isNavOpen)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 transition-all"
+                >
+                  Quick Navigation
+                  <svg className={`w-3 h-3 transition-transform ${isNavOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {isNavOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setIsNavOpen(false)}></div>
+                    <div className="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-xl border border-slate-100 py-3 z-50 animate-in fade-in slide-in-from-top-2 duration-200 h-[400px] overflow-y-auto">
+                      {[
+                        { label: "Labour Report", path: "/client/reports/labour", icon: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" },
+                        { label: "Material Report", path: "/client/reports/material", icon: "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" },
+                        { label: "Issue Report", path: "/client/reports/issues", icon: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" },
+                        { label: "Client Report", path: "/client/reports/client-report", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
+                        { label: "Combined Report", path: "/client/reports/combined", icon: "M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" },
+                        { label: "Contractor Performance", path: "/client/reports/contractor", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
+                        { label: "Project Report", path: "/client/reports/project", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" },
+                        { label: "Profit & Loss", path: "/client/reports/profit-loss", icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
+                        { label: "Cashflow Report", path: "/client/reports/cashflow", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v16m-6 0a2 2 0 002 2h2a2 2 0 002-2" },
+                        { label: "Asset Report", path: "/client/reports/assets", icon: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" },
+                        { label: "Report Summary", path: "/client/reports/summary", icon: "M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" }
+                      ].map((item) => (
+                        <div key={item.label} className="px-2 group/item">
+                          <button
+                            onClick={() => {
+                              navigate(item.path);
+                              setIsNavOpen(false);
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:text-blue-600 hover:bg-slate-50 rounded-xl transition-all text-left"
+                          >
+                            <svg className="w-4 h-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
+                            </svg>
+                            {item.label}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
 
             {reportType === "Daily" && (
@@ -166,23 +247,43 @@ const ClientReportSummaryPage = () => {
               </div>
             )}
 
-            <button
-              onClick={handleExportPDF}
-              disabled={exporting || (reportType === "Daily" && !dsr)}
-              className={`flex items-center gap-2 px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm border border-slate-100 ${exporting || (reportType === "Daily" && !dsr)
+            <div className={`flex gap-4 ${reportType === "Daily" ? "flex-col" : "flex-row items-center"}`}>
+              <button
+                onClick={handleExportExcel}
+                disabled={exporting || exportingExcel}
+                className={`flex items-center gap-2 px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm border border-slate-100 ${exporting || exportingExcel
+                  ? 'bg-slate-50 text-slate-300 cursor-not-allowed'
+                  : 'bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95'
+                  }`}
+              >
+                {exportingExcel ? (
+                  <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                )}
+                {exportingExcel ? 'Processing...' : 'Export Project Excel'}
+              </button>
+
+              <button
+                onClick={handleExportProjectPDF}
+                disabled={exporting || exportingExcel}
+                className={`flex items-center gap-2 px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm border border-slate-100 ${exporting || exportingExcel
                   ? 'bg-slate-50 text-slate-300 cursor-not-allowed'
                   : 'bg-white text-slate-800 hover:bg-slate-50 active:scale-95'
-                }`}
-            >
-              {exporting ? (
-                <div className="w-4 h-4 border-2 border-slate-200 border-t-blue-600 rounded-full animate-spin"></div>
-              ) : (
-                <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              )}
-              {exporting ? 'Generating...' : `Export ${reportType} PDF`}
-            </button>
+                  }`}
+              >
+                {exporting ? (
+                  <div className="w-4 h-4 border-2 border-slate-200 border-t-blue-600 rounded-full animate-spin"></div>
+                ) : (
+                  <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                )}
+                {exporting ? 'Generating...' : 'Export Project PDF'}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -193,7 +294,6 @@ const ClientReportSummaryPage = () => {
           </div>
         ) : (
           <div className="animate-in fade-in duration-500">
-
             {/* Daily View Content */}
             {reportType === "Daily" && (
               !dsr ? (
@@ -207,35 +307,35 @@ const ClientReportSummaryPage = () => {
                   <p className="text-slate-500 text-sm max-w-xs">{error || "The daily site report has not been filed for this date yet."}</p>
                 </div>
               ) : (
-                <div className="space-y-8">
+                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                   {/* Summary Highlights Row */}
                   <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                     {/* Daily Status Card */}
                     <div className="lg:col-span-1 bg-white rounded-2xl p-8 shadow-sm border border-slate-100 group">
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Daily Report Status</p>
                       <div className="flex items-center gap-4 mb-4">
-                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${dsr.status === 'Approved' ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'}`}>
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${dsr?.status === 'Approved' ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'}`}>
                           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                         </div>
                         <div>
-                          <p className="text-xl font-black text-slate-800">{dsr.status}</p>
-                          <p className="text-[10px] font-bold text-slate-400">{dsr.business_id}</p>
+                          <p className="text-xl font-black text-slate-800">{dsr?.status}</p>
+                          <p className="text-[10px] font-bold text-slate-400">{dsr?.business_id}</p>
                         </div>
                       </div>
                     </div>
 
-                    {/* Workforce Deploymen Card */}
+                    {/* Workforce Deployment Card */}
                     <div className="lg:col-span-1 bg-white rounded-2xl p-8 shadow-sm border border-slate-100 flex flex-col justify-between">
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Deployment</p>
                       <div className="flex items-baseline gap-2">
-                        <span className="text-3xl font-black text-slate-800">{dsr.total_labour}</span>
+                        <span className="text-3xl font-black text-slate-800">{dsr?.total_labour}</span>
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Team Members</span>
                       </div>
                       <div className="flex gap-4 mt-2">
-                        <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Skilled: {dsr.skilled_labour}</p>
-                        <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest">Unskilled: {dsr.unskilled_labour}</p>
+                        <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Skilled: {dsr?.skilled_labour}</p>
+                        <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest">Unskilled: {dsr?.unskilled_labour}</p>
                       </div>
                     </div>
 
@@ -248,15 +348,49 @@ const ClientReportSummaryPage = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M12 5a7 7 0 100 14 7 7 0 000-14z" />
                           </svg>
                         </div>
-                        <p className="text-xl font-black text-slate-800">{dsr.weather}</p>
+                        <p className="text-xl font-black text-slate-800">{dsr?.weather}</p>
                       </div>
                     </div>
 
-                    {/* Progress Marker */}
+                    {/* Site Location */}
                     <div className="lg:col-span-1 bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Site Location</p>
-                      <p className="text-xs font-bold text-slate-700 truncate">{dsr.site_location}</p>
-                      <p className="text-[8px] font-mono font-black text-slate-300 mt-2">{dsr.latitude}N / {dsr.longitude}E</p>
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center text-xs font-black">LOC</div>
+                        <div className="flex flex-col">
+                          <p className="text-xs font-black text-slate-800">{dsr?.site_location || "N/A"}</p>
+                          <p className="text-[9px] font-bold text-slate-400">{dsr?.latitude?.toFixed(4)} / {dsr?.longitude?.toFixed(4)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Workforce Analytics Row */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
+                      <div className="flex justify-between items-center mb-6">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Workforce Distribution</p>
+                        <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-black rounded-full uppercase tracking-tighter">Live Manpower</span>
+                      </div>
+                      <div className="flex gap-12">
+                        {labourData?.labour_summary?.map((item: any, idx: number) => (
+                          <div key={idx} className="flex flex-col">
+                            <span className="text-3xl font-black text-slate-800">{item.count}</span>
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">{item.skill_type} Labour</span>
+                          </div>
+                        )) || (
+                            <>
+                              <div className="flex flex-col">
+                                <span className="text-3xl font-black text-slate-800">{dsr?.skilled_labour}</span>
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Skilled (Daily)</span>
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-3xl font-black text-slate-800">{dsr?.unskilled_labour}</span>
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Unskilled (Daily)</span>
+                              </div>
+                            </>
+                          )}
+                      </div>
                     </div>
                   </div>
 
@@ -269,16 +403,16 @@ const ClientReportSummaryPage = () => {
                           <div>
                             <div className="flex items-center gap-3 mb-3">
                               <span className="w-6 h-6 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">✓</span>
-                              <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest">Tasks ExecutedToday</h4>
+                              <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest">Tasks Executed Today</h4>
                             </div>
-                            <p className="text-slate-600 font-medium text-lg italic leading-relaxed pl-9">"{dsr.work_done}"</p>
+                            <p className="text-slate-600 font-medium text-lg italic leading-relaxed pl-9">"{dsr?.work_done}"</p>
                           </div>
                           <div>
                             <div className="flex items-center gap-3 mb-3">
                               <span className="w-6 h-6 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">➔</span>
                               <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest">Planned for Tomorrow</h4>
                             </div>
-                            <p className="text-slate-600 font-medium text-lg italic leading-relaxed pl-9">"{dsr.work_planned}"</p>
+                            <p className="text-slate-600 font-medium text-lg italic leading-relaxed pl-9">"{dsr?.work_planned}"</p>
                           </div>
                         </div>
                       </div>
@@ -290,18 +424,18 @@ const ClientReportSummaryPage = () => {
                         <div className="space-y-6">
                           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
                             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Received</p>
-                            <p className="text-xs font-bold text-slate-800">{dsr.material_received}</p>
+                            <p className="text-xs font-bold text-slate-800">{dsr?.material_received}</p>
                           </div>
                           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
                             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Consumed</p>
-                            <p className="text-xs font-bold text-slate-800">{dsr.material_used}</p>
+                            <p className="text-xs font-bold text-slate-800">{dsr?.material_used}</p>
                           </div>
                         </div>
                       </div>
 
                       <div className="bg-red-50/50 rounded-2xl p-8 border border-red-100/50">
                         <h3 className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-4">Issues Reported</h3>
-                        <p className="text-sm font-bold text-red-900 leading-relaxed italic">"{dsr.issues}"</p>
+                        <p className="text-sm font-bold text-red-900 leading-relaxed italic">"{dsr?.issues}"</p>
                       </div>
                     </div>
                   </div>
@@ -383,17 +517,17 @@ const ClientReportSummaryPage = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                   <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 flex flex-col justify-between h-56">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Monthly Variance</p>
-                    <h3 className="text-3xl font-black text-slate-800 Tracking-tight">0.8%</h3>
+                    <h3 className="text-3xl font-black text-slate-800 Tracking-tight">{projectReport?.variance || projectReport?.monthly_variance || "0.8%"}</h3>
                     <p className="text-xs font-bold text-emerald-500 uppercase tracking-widest leading-none">Under Budget Forecast</p>
                   </div>
                   <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 flex flex-col justify-between h-56">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Team Efficiency</p>
-                    <h3 className="text-3xl font-black text-slate-800 Tracking-tight">94%</h3>
+                    <h3 className="text-3xl font-black text-slate-800 Tracking-tight">{projectReport?.efficiency || projectReport?.team_efficiency || "94%"}</h3>
                     <p className="text-xs font-bold text-blue-500 uppercase tracking-widest leading-none">Workforce Utilization</p>
                   </div>
                   <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 flex flex-col justify-between h-56">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Saftey Hours</p>
-                    <h3 className="text-3xl font-black text-emerald-500 Tracking-tight">2.4k</h3>
+                    <h3 className="text-3xl font-black text-emerald-500 Tracking-tight">{projectReport?.safety_hours || "2.4k"}</h3>
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none">Accident Free Hours</p>
                   </div>
                 </div>
@@ -445,11 +579,11 @@ const ClientReportSummaryPage = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-8 text-center shrink-0">
                       <div>
-                        <p className="text-4xl font-black text-slate-800">98%</p>
+                        <p className="text-4xl font-black text-slate-800">{projectReport?.audit_compliance || projectReport?.compliance || "98%"}</p>
                         <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-1">Audit Compliance</p>
                       </div>
                       <div>
-                        <p className="text-4xl font-black text-blue-600">0.0</p>
+                        <p className="text-4xl font-black text-blue-600">{projectReport?.risk_factor || projectReport?.risk || "0.0"}</p>
                         <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-1">Risk Factor</p>
                       </div>
                     </div>
