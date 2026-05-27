@@ -62,9 +62,10 @@ export default function AgreementUploadPage() {
     if (file_url.startsWith('http')) return file_url;
     // Ensure leading slash for consistency
     const path = file_url.startsWith('/') ? file_url : `/${file_url}`;
-    // /uploads paths are proxied directly by vite — no API prefix needed
-    if (path.startsWith('/uploads')) return path;
-    return `${import.meta.env.VITE_API_URL}${path}`;
+
+    // Always use absolute URL for downloads to avoid proxy issues in some environments
+    const baseUrl = import.meta.env.VITE_API_URL?.replace(/\/api\/v1\/?$/, '') || '';
+    return `${baseUrl}${path}`;
   };
 
   const handleView = async (agr: Agreement) => {
@@ -80,6 +81,13 @@ export default function AgreementUploadPage() {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      // Guard: if server returns an HTML page (error/SPA fallback), don't display it as PDF
+      const contentType = response.headers.get("content-type") || "";
+      if (contentType.includes("text/html")) {
+        throw new Error("Server returned a web page instead of the document file.");
+      }
+
       const blob = await response.blob();
       const objectUrl = URL.createObjectURL(blob);
       setPreviewBlobUrl(objectUrl);
@@ -99,13 +107,30 @@ export default function AgreementUploadPage() {
     const toastId = toast.loading(`Preparing ${agr.document_id || 'Document'} for download...`);
     try {
       const url = buildFileUrl(agr.file_url);
+      console.log("[Agreement Download] Fetching URL:", url);
       const userString = localStorage.getItem("infrapilot_user");
       const token = userString ? JSON.parse(userString)?.token?.access_token || JSON.parse(userString)?.token : null;
       const response = await fetch(url, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      // Guard: if response is HTML (error page / SPA fallback), abort — don't save as PDF
+      const contentType = response.headers.get("content-type") || "";
+      console.log("[Agreement Download] Content-Type:", contentType, "| Content-Length:", response.headers.get("content-length"));
+      if (contentType.includes("text/html")) {
+        throw new Error("Server returned a web page instead of the document. The file may not exist on the server.");
+      }
+
       const blob = await response.blob();
+      console.log("[Agreement Download] Blob size:", blob.size, "bytes, type:", blob.type);
+
+      // Verify it's actually a PDF by reading the first few bytes (PDF signature is %PDF-)
+      const header = await blob.slice(0, 5).text();
+      if (!header.startsWith("%PDF")) {
+        throw new Error(`Downloaded file is not a valid PDF (got: "${header.substring(0, 20)}"). The server may have returned an error page.`);
+      }
+
       const objectUrl = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = objectUrl;
