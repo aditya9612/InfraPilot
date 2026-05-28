@@ -1,9 +1,9 @@
-﻿import api from "./api";
-import type { 
-    AdvanceRequestPayload, 
-    Payment, 
-    AdvanceRequest, 
-    PayrollReport 
+import api from "./api";
+import type {
+    AdvanceRequestPayload,
+    Payment,
+    AdvanceRequest,
+    PayrollReport
 } from "../types/payment";
 
 export const paymentService = {
@@ -37,7 +37,7 @@ export const paymentService = {
             };
             if (params?.limit) cleanParams.limit = Number(params.limit);
             if (params?.offset !== undefined) cleanParams.offset = Number(params.offset);
-            
+
             console.log("GET /api/v1/labour/payments Request Params:", cleanParams);
             const response = await api.get<Payment[]>("/labour/payments", { params: cleanParams });
             console.log("GET /api/v1/labour/payments Raw Response Body:", response.data);
@@ -138,6 +138,143 @@ export const paymentService = {
             responseType: 'blob'
         });
         console.log("Payroll PDF Export Success: 200 OK");
+        return response.data;
+    },
+
+    /**
+     * Get Labour Payroll Stats
+     * GET /api/v1/labour/payroll/stats
+     */
+    async getPayrollStats(projectId: number | string, month?: number | string, year?: number | string) {
+        const now = new Date();
+        const params: any = {
+            project_id: projectId,
+            month: month || (now.getMonth() + 1),
+            year: year || now.getFullYear()
+        };
+        const response = await api.get("/labour/payroll/stats", { params });
+        return response.data;
+    },
+
+    /**
+     * Get Contractor Liability
+     * GET /api/v1/labour/payroll/contractor-liability
+     */
+    async getContractorLiability(projectId: number | string, month?: number | string, year?: number | string) {
+        const now = new Date();
+        const params: any = {
+            project_id: projectId,
+            month: month || (now.getMonth() + 1),
+            year: year || now.getFullYear()
+        };
+        const response = await api.get("/labour/payroll/contractor-liability", { params });
+        return response.data;
+    },
+
+    /**
+     * Get Weekly Velocity
+     * GET /api/v1/labour/payroll/weekly-velocity
+     */
+    async getWeeklyVelocity(projectId: number | string, month?: number | string, year?: number | string) {
+        const now = new Date();
+        const params: any = {
+            project_id: projectId,
+            month: month || (now.getMonth() + 1),
+            year: year || now.getFullYear()
+        };
+        const response = await api.get("/labour/payroll/weekly-velocity", { params });
+        return response.data;
+    },
+
+    /**
+     * Get Disbursement History
+     * GET /api/v1/labour/payroll/disbursement-history
+     */
+    async getDisbursementHistory(projectId: number | string, month?: number | string, year?: number | string) {
+        const now = new Date();
+        const params: any = {
+            project_id: projectId,
+            month: month || (now.getMonth() + 1),
+            year: year || now.getFullYear()
+        };
+        const response = await api.get("/labour/payroll/disbursement-history", { params });
+        return response.data;
+    },
+
+    /**
+     * Get Fiscal Summary
+     * GET /api/v1/labour/payroll/fiscal-summary
+     */
+    async getFiscalSummary(projectId: number | string, month?: number | string, year?: number | string) {
+        const now = new Date();
+        const params: any = {
+            project_id: projectId,
+            month: month || (now.getMonth() + 1),
+            year: year || now.getFullYear()
+        };
+        const response = await api.get("/labour/payroll/fiscal-summary", { params });
+        return response.data;
+    },
+
+    /**
+     * Get Payroll Momentum
+     * GET /api/v1/labour/payroll/momentum
+     */
+    async getPayrollMomentum(projectId: number | string) {
+        const response = await api.get("/labour/payroll/momentum", { params: { project_id: projectId } });
+        return response.data;
+    },
+
+    /**
+     * Get Aggregate Payroll Report
+     * GET /api/v1/labour/payroll/aggregate-report
+     */
+    async getAggregatePayrollReport(projectId: number | string, month?: number | string, year?: number | string) {
+        const now = new Date();
+        const params: any = {
+            project_id: projectId,
+            month: month || (now.getMonth() + 1),
+            year: year || now.getFullYear()
+        };
+        const response = await api.get("/labour/payroll/aggregate-report", { params });
+        return response.data;
+    },
+
+    /**
+     * Export Aggregate Payroll Report to PDF
+     * GET /api/v1/labour/payroll/aggregate-report/export/pdf
+     */
+    async exportAggregatePayrollPDF(projectId: number | string, month?: number | string, year?: number | string) {
+        const now = new Date();
+        const params: any = {
+            project_id: projectId.toString(),
+            month: (month || (now.getMonth() + 1)).toString(),
+            year: (year || now.getFullYear()).toString()
+        };
+        // Shifting to /reports/ base path to match reportService patterns
+        const response = await api.get("/reports/payroll/export/pdf", {
+            params,
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+
+    /**
+     * Export Fiscal Summary to Excel
+     * GET /api/v1/labour/payroll/fiscal-summary/export/excel
+     */
+    async exportFiscalSummaryExcel(projectId: number | string, month?: number | string, year?: number | string) {
+        const now = new Date();
+        const params: any = {
+            project_id: projectId.toString(),
+            month: (month || (now.getMonth() + 1)).toString(),
+            year: (year || now.getFullYear()).toString()
+        };
+        // Shifting to /reports/ base path
+        const response = await api.get("/reports/payroll/export", {
+            params,
+            responseType: 'blob'
+        });
         return response.data;
     }
 };

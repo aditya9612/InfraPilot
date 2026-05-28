@@ -294,7 +294,7 @@ export const projectService = {
         params.engineer_id = engineerId;
       }
 
-      const response = await api.get(`/projects/work-progress/activities`, {
+      const response = await api.get(`/work-progress/activities`, {
         params: params
       });
       const rawData = response.data;

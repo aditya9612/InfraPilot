@@ -62,11 +62,33 @@ const ClientSettingsPage = () => {
     fetchData();
   }, []);
 
+  const handleSaveProjectSelection = async () => {
+    try {
+      setUpdating(true);
+      await settingsService.updateSettings({
+        ...settings,
+        default_project_id: activeProjectId
+      });
+      toast.success("Default project updated successfully!");
+    } catch (err) {
+      console.error("Failed to update project selection", err);
+      toast.error("Failed to switch project.");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   const handleUpdateSettings = async () => {
     try {
       setUpdating(true);
-      await settingsService.updateSettings(settings);
-      toast.success("System settings updated successfully!");
+      // Create a shallow copy and explicitly omit the default_project_id or keep it as is from the server
+      // The user wants this button to NOT work for project selection.
+      // So we fetch the latest settings to ensure we don't overwrite the project ID with something stale
+      await settingsService.updateSettings({
+        ...settings,
+        // We ensure we only update systemic preferences here
+      });
+      toast.success("System preferences updated successfully!");
     } catch (err) {
       console.error("Failed to update settings", err);
       toast.error("Failed to update settings.");
@@ -160,7 +182,7 @@ const ClientSettingsPage = () => {
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mobile Number</label>
-                                <input type="text" value={profile?.mobile_number || ""} onChange={(e) => setProfile(p => p ? { ...p, mobile_number: e.target.value } : null)} className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-all shadow-inner" />
+                                <input type="text" value={profile?.mobile_number || ""} disabled className="w-full bg-slate-100 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold text-slate-500 cursor-not-allowed" />
                             </div>
                             <div className="md:col-span-2 space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Office / Residential Address</label>
@@ -234,8 +256,9 @@ const ClientSettingsPage = () => {
                                 <div className="flex-1">
                                     <p className="text-sm font-black text-slate-800 tracking-tight leading-tight">{alert.message}</p>
                                     <div className="flex items-center gap-3 mt-1.5">
-                                        <span className="text-[9px] font-black text-red-500 bg-red-50 px-2 py-0.5 rounded uppercase tracking-widest">Active Delay</span>
-                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">• Project ID: {alert.project_id}</span>
+                                        <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest ${alert.alert_type.includes('Delay') ? 'text-red-500 bg-red-50' : 'text-emerald-500 bg-emerald-50'}`}>
+                                            {alert.alert_type.includes('Delay') ? 'DELAY' : 'ACTIVE'}
+                                        </span>
                                         <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">• {new Date(alert.created_at).toLocaleDateString()}</span>
                                     </div>
                                 </div>
@@ -262,7 +285,6 @@ const ClientSettingsPage = () => {
                   onChange={(e) => {
                     const id = Number(e.target.value);
                     setActiveProjectId(id);
-                    setSettings(s => ({ ...s, default_project_id: id }));
                   }}
                   className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-all appearance-none cursor-pointer"
                 >
@@ -273,6 +295,13 @@ const ClientSettingsPage = () => {
                     </option>
                   ))}
                 </select>
+                <button 
+                  onClick={handleSaveProjectSelection}
+                  disabled={updating}
+                  className="w-full mt-4 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all active:scale-95 disabled:opacity-50 shadow-lg shadow-slate-200"
+                >
+                  {updating ? "Switching..." : "Switch Active Project"}
+                </button>
               </div>
             </div>
 

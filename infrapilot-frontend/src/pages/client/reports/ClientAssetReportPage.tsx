@@ -88,51 +88,51 @@ const ClientAssetReportPage = () => {
         ) : (
           <div className="animate-in fade-in duration-500 space-y-8">
             <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-slate-50/50 border-b border-slate-100">
-                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Asset Name</th>
-                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase Date</th>
-                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Purchase Value</th>
-                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Current Value</th>
-                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Dep. Rate</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {assets.length > 0 ? assets.map((asset) => (
-                                <tr key={asset.id} className="border-b border-slate-50 hover:bg-slate-50/30 transition-colors">
-                                    <td className="px-8 py-5">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400">
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                                            </div>
-                                            <span className="text-sm font-bold text-slate-700 tracking-tight">{asset.name}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-5 text-sm font-medium text-slate-500">{asset.purchase_date}</td>
-                                    <td className="px-8 py-5 text-sm font-black text-slate-700 text-right tracking-tight">₹{asset.purchase_value.toLocaleString()}</td>
-                                    <td className="px-8 py-5 text-sm font-black text-blue-600 text-right tracking-tight">₹{asset.current_value.toLocaleString()}</td>
-                                    <td className="px-8 py-5 text-center">
-                                        <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-widest">{asset.depreciation_rate}%</span>
-                                    </td>
-                                </tr>
-                            )) : (
-                                <tr>
-                                    <td colSpan={5} className="px-8 py-20 text-center text-[10px] font-black text-slate-300 uppercase tracking-widest">No assets registered for this project scope.</td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/50 border-b border-slate-100">
+                      <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Asset Name</th>
+                      <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase Date</th>
+                      <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Purchase Value</th>
+                      <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Current Value</th>
+                      <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Dep. Rate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {assets.length > 0 ? assets.map((asset) => (
+                      <tr key={asset.id} className="border-b border-slate-50 hover:bg-slate-50/30 transition-colors">
+                        <td className="px-8 py-5">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400">
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                            </div>
+                            <span className="text-sm font-bold text-slate-700 tracking-tight">{asset.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-8 py-5 text-sm font-medium text-slate-500">{asset.purchase_date}</td>
+                        <td className="px-8 py-5 text-sm font-black text-slate-700 text-right tracking-tight">₹{asset.purchase_value.toLocaleString()}</td>
+                        <td className="px-8 py-5 text-sm font-black text-blue-600 text-right tracking-tight">₹{asset.current_value.toLocaleString()}</td>
+                        <td className="px-8 py-5 text-center">
+                          <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-widest">{asset.depreciation_rate}%</span>
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr>
+                        <td colSpan={5} className="px-8 py-20 text-center text-[10px] font-black text-slate-300 uppercase tracking-widest">No assets registered for this project scope.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             <div className="bg-slate-50 rounded-3xl p-12 text-center border border-slate-100">
-                <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 text-slate-500 shadow-sm">
-                    <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                </div>
-                <h3 className="text-xl font-black text-slate-800 tracking-tight">Fixed Asset Inventory</h3>
-                <p className="text-slate-500 font-medium mt-2 max-w-sm mx-auto">Maintain a detailed log of machinery, equipment, and fixed assets deployed on-site. Audit trails available in the export.</p>
+              <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 text-slate-500 shadow-sm">
+                <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+              </div>
+              <h3 className="text-xl font-black text-slate-800 tracking-tight">Fixed Asset Inventory</h3>
+              <p className="text-slate-500 font-medium mt-2 max-w-sm mx-auto">Maintain a detailed log of machinery, equipment, and fixed assets deployed on-site. Audit trails available in the export.</p>
             </div>
           </div>
         )}

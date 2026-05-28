@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Navbar from "../../../components/common/Navbar";
 import { reportService } from "../../../services/reportService";
 import { useClientProjectId } from "../../../hooks/useClientProjectId";
@@ -27,8 +28,10 @@ const ClientFinancialReportPage = () => {
   const [audit, setAudit] = useState<QuarterlyAuditData | null>(null);
   const [loading, setLoading] = useState(true);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [isNavOpen, setIsNavOpen] = useState(false);
 
   const { projectId } = useClientProjectId();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!projectId) {
@@ -84,13 +87,55 @@ const ClientFinancialReportPage = () => {
         breadcrumb={["InfraPilot", "Client", "Reports", "Financial Report"]}
       />
       <div className="p-6 bg-slate-50 min-h-screen pb-12">
-        <div className="mb-8">
-          <h1 className="text-3xl font-black text-slate-800 tracking-tight">
-            Financial &amp; Audit Reports
-          </h1>
-          <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">
-            Real-time budget utilization vs actual expenditure analysis
-          </p>
+        <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div>
+            <h1 className="text-3xl font-black text-slate-800 tracking-tight">
+              Financial &amp; Audit Reports
+            </h1>
+            <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">
+              Real-time budget utilization vs actual expenditure analysis
+            </p>
+          </div>
+
+          <div className="relative">
+            <button
+              onClick={() => setIsNavOpen(!isNavOpen)}
+              className="flex items-center gap-3 px-6 py-4 bg-white rounded-2xl shadow-sm border border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all shadow-indigo-100/20"
+            >
+              Financial Reports
+              <svg className={`w-3.5 h-3.5 transition-transform duration-300 ${isNavOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {isNavOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setIsNavOpen(false)}></div>
+                <div className="absolute right-0 mt-3 w-72 bg-white rounded-2xl shadow-xl border border-slate-100 py-3 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                  {[
+                    { label: "Profit & Loss", path: "/client/reports/profit-loss", icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
+                    { label: "Cashflow Report", path: "/client/reports/cashflow", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v16m-6 0a2 2 0 002 2h2a2 2 0 002-2" },
+                    { label: "Asset Report", path: "/client/reports/assets", icon: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" }
+                  ].map((item) => (
+                    <div key={item.label} className="px-2">
+                      <button
+                        onClick={() => {
+                          navigate(item.path);
+                          setIsNavOpen(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:text-indigo-600 hover:bg-slate-50 rounded-xl transition-all text-left"
+                      >
+                        <svg className="w-4 h-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
+                        </svg>
+                        {item.label}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">

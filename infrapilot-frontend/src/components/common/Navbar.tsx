@@ -262,7 +262,13 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
                 </div>
                 <div className="p-2 border-t border-slate-100 bg-slate-50">
                   <button
-                    onClick={() => { setIsNotificationOpen(false); navigate(user?.role === "Admin" ? "/admin/notifications" : user?.role === "SiteEngineer" ? "/engineer/notifications" : "#"); }}
+                    onClick={() => { 
+                      setIsNotificationOpen(false); 
+                      const target = user?.role === "Admin" ? "/admin/notifications" : 
+                                    user?.role === "SiteEngineer" ? "/engineer/notifications" : 
+                                    user?.role === "Client" ? "/client/communication/announcements" : "/";
+                      navigate(target); 
+                    }}
                     className="w-full py-2 text-xs font-bold text-primary hover:text-blue-700 transition-colors"
                   >
                     View All Notifications

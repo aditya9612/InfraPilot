@@ -14,7 +14,25 @@ const ClientDSRSummaryPage = () => {
   const [mapPoints, setMapPoints] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'reports' | 'analytics'>('reports');
-  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [selectedPhoto, setSelectedPhoto] = useState<{id: number, url: string} | null>(null);
+
+  const handleDeletePhoto = async () => {
+    if (!selectedPhoto) return;
+    if (!window.confirm("Are you sure you want to delete this photo from the official site record?")) return;
+    
+    try {
+      await dsrService.deleteDsrPhoto(selectedPhoto.id);
+      // Refresh reports to reflect deletion
+      setReports(prev => prev.map(report => ({
+        ...report,
+        gallery: report.gallery.filter((p: any) => p.id !== selectedPhoto.id)
+      })));
+      setSelectedPhoto(null);
+    } catch (err) {
+      console.error("Deletion failed:", err);
+      alert("Failed to delete photo from repository.");
+    }
+  };
 
   const { projectId } = useClientProjectId();
 
@@ -38,14 +56,42 @@ const ClientDSRSummaryPage = () => {
           const response: any = dsrRes.value;
           let items: any[] = Array.isArray(response) ? response : (response.items || response.data || []);
           
-          const formatted = items.map((item: any) => ({
-            ...item,
-            formattedDate: item.report_date ? new Date(item.report_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : "N/A",
-            gallery: item.photos && Array.isArray(item.photos) ? item.photos.map((p: any) => {
-               const photoUrl = p.url || p.file_url;
-               if (!photoUrl) return "";
-               return photoUrl.startsWith('http') ? photoUrl : `${import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"}/${photoUrl.startsWith('/') ? photoUrl.slice(1) : photoUrl}`;
-            }).filter(Boolean) : []
+          const formatted = await Promise.all(items.map(async (item: any) => {
+            // Fetch fresh photos using the specific API
+            let gallery: any[] = [];
+            
+            // Helper to resolve static asset URLs correctly
+            const resolveStaticUrl = (path: string) => {
+              if (!path) return "";
+              if (path.startsWith('http') || path.startsWith('data:')) return path;
+              
+              let baseUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+              // Remove /api/v1 or trailing slashes for static file serving
+              const cleanBase = baseUrl.replace(/\/api\/v1\/?$/, '').replace(/\/+$/, '');
+              const cleanPath = path.startsWith('/') ? path : `/${path}`;
+              
+              return `${cleanBase}${cleanPath}`;
+            };
+
+            try {
+              const photoData = await dsrService.getDsrPhotos(item.id);
+              gallery = photoData.map((p: any) => ({
+                id: p.id,
+                url: resolveStaticUrl(p.url)
+              }));
+            } catch (e) {
+              // Fallback to pre-populated photos if API fails
+              gallery = (item.photos || []).map((p: any) => ({
+                id: p.id,
+                url: resolveStaticUrl(p.url || p.file_url || "")
+              })).filter((p: any) => p.url);
+            }
+
+            return {
+              ...item,
+              formattedDate: item.report_date ? new Date(item.report_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : "N/A",
+              gallery
+            };
           }));
           setReports(formatted);
         }
@@ -170,10 +216,17 @@ const ClientDSRSummaryPage = () => {
             {/* Map Points Visualization */}
             <div className="bg-white rounded-2xl p-10 border border-slate-100 shadow-sm">
                <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-8">Verified Site Map Entries</h2>
-               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                   {mapPoints.map((point) => (
-                    <div key={point.date} className="p-6 bg-slate-900 border border-slate-800 rounded-2xl text-center group hover:bg-primary transition-colors">
-                       <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest group-hover:text-blue-200 mb-1">{new Date(point.date).toLocaleDateString('en-GB', {day: '2-digit', month: 'short'})}</p>
+                    <div 
+                      key={point.date} 
+                      onClick={() => window.open(`https://www.google.com/maps?q=${point.lat},${point.lng}`, '_blank')}
+                      className="p-6 bg-slate-900 border border-slate-800 rounded-2xl text-center group hover:bg-primary transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-lg hover:shadow-primary/20"
+                    >
+                       <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest group-hover:text-blue-200 mb-1 flex items-center justify-center gap-1">
+                         <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
+                         {new Date(point.date).toLocaleDateString('en-GB', {day: '2-digit', month: 'short'})}
+                       </p>
                        <p className="text-white font-bold text-xs">{point.lat.toFixed(2)}, {point.lng.toFixed(2)}</p>
                     </div>
                   ))}
@@ -230,13 +283,13 @@ const ClientDSRSummaryPage = () => {
                             <p className="text-xs text-slate-700 font-medium leading-relaxed whitespace-pre-wrap">{report.work_done || "—"}</p>
                             {report.gallery && report.gallery.length > 0 && (
                               <div className="mt-4 flex flex-wrap gap-2">
-                                {report.gallery.map((url: string, idx: number) => (
+                                {report.gallery.map((photo: any, idx: number) => (
                                   <div 
-                                    key={idx} 
-                                    onClick={() => setSelectedPhoto(url)}
+                                    key={photo.id || idx} 
+                                    onClick={() => setSelectedPhoto(photo)}
                                     className="w-10 h-10 rounded-xl overflow-hidden border border-slate-200 shadow-sm transition-all hover:scale-110 hover:shadow-lg origin-bottom-left cursor-zoom-in group/photo relative"
                                   >
-                                    <img src={url} alt="Snap" className="w-full h-full object-cover" />
+                                    <img src={photo.url} alt="Snap" className="w-full h-full object-cover" />
                                     <div className="absolute inset-0 bg-primary/20 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center">
                                       <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                                     </div>
@@ -295,8 +348,17 @@ const ClientDSRSummaryPage = () => {
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
+            <div className="absolute -top-12 left-0 flex gap-2">
+               <button 
+                  onClick={(e) => { e.stopPropagation(); handleDeletePhoto(); }}
+                  className="px-6 py-2 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-red-700 transition-all shadow-lg shadow-red-500/30 flex items-center gap-2"
+               >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  Purge Photo
+               </button>
+            </div>
             <img 
-              src={selectedPhoto} 
+              src={selectedPhoto.url} 
               alt="Site Update Full View" 
               className="max-h-[85vh] w-auto rounded-2xl shadow-2xl border border-white/10 animate-in zoom-in-95 duration-500"
               onClick={(e) => e.stopPropagation()}

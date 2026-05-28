@@ -85,34 +85,34 @@ const ClientCashflowPage = () => {
         ) : (
           <div className="animate-in fade-in duration-500 space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-slate-50 rounded-3xl p-10 border border-slate-100">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Total Inflow</p>
-                    <div className="flex items-baseline gap-2">
-                        <span className="text-4xl font-black text-emerald-600 tracking-tighter">₹{cashflowData?.inflow?.toLocaleString() || 0}</span>
-                    </div>
+              <div className="bg-slate-50 rounded-3xl p-10 border border-slate-100">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Total Inflow</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-4xl font-black text-emerald-600 tracking-tighter">₹{cashflowData?.inflow?.toLocaleString() || 0}</span>
                 </div>
+              </div>
 
-                <div className="bg-slate-50 rounded-3xl p-10 border border-slate-100">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Total Outflow</p>
-                    <div className="flex items-baseline gap-2">
-                        <span className="text-4xl font-black text-red-500 tracking-tighter">₹{cashflowData?.outflow?.toLocaleString() || 0}</span>
-                    </div>
+              <div className="bg-slate-50 rounded-3xl p-10 border border-slate-100">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Total Outflow</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-4xl font-black text-red-500 tracking-tighter">₹{cashflowData?.outflow?.toLocaleString() || 0}</span>
                 </div>
+              </div>
 
-                <div className="bg-slate-900 rounded-3xl p-10 shadow-xl border border-slate-800">
-                    <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-4 font-inter">Net Available Balance</p>
-                    <div className="flex items-baseline gap-2">
-                        <span className="text-4xl font-black text-white tracking-tighter">₹{cashflowData?.balance?.toLocaleString() || 0}</span>
-                    </div>
+              <div className="bg-slate-900 rounded-3xl p-10 shadow-xl border border-slate-800">
+                <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-4 font-inter">Net Available Balance</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-4xl font-black text-white tracking-tighter">₹{cashflowData?.balance?.toLocaleString() || 0}</span>
                 </div>
+              </div>
             </div>
 
             <div className="bg-slate-50 rounded-3xl p-12 text-center border border-slate-100">
-                <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 text-blue-500 shadow-sm">
-                    <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v16m-6 0a2 2 0 002 2h2a2 2 0 002-2" /></svg>
-                </div>
-                <h3 className="text-xl font-black text-slate-800 tracking-tight">Liquidity & Inflow Analysis</h3>
-                <p className="text-slate-500 font-medium mt-2 max-w-sm mx-auto">Monitor cash inflows and outflows to ensure operational stability. Detailed cash movement ledger available via Excel.</p>
+              <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 text-blue-500 shadow-sm">
+                <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v16m-6 0a2 2 0 002 2h2a2 2 0 002-2" /></svg>
+              </div>
+              <h3 className="text-xl font-black text-slate-800 tracking-tight">Liquidity & Inflow Analysis</h3>
+              <p className="text-slate-500 font-medium mt-2 max-w-sm mx-auto">Monitor cash inflows and outflows to ensure operational stability. Detailed cash movement ledger available via Excel.</p>
             </div>
           </div>
         )}

@@ -117,9 +117,17 @@ const ClientAnnouncementsPage = () => {
     }
   };
 
-  const filteredAlerts = selectedType === "All" 
+  const filteredAlerts = (selectedType === "All" 
     ? alerts 
-    : alerts.filter(a => a.alert_type === selectedType);
+    : alerts.filter(a => a.alert_type === selectedType)
+  ).sort((a, b) => {
+    // Sort unread ('active') to the top
+    if (a.status === 'active' && b.status !== 'active') return -1;
+    if (a.status !== 'active' && b.status === 'active') return 1;
+    
+    // Within the same status, sort by date (newest first)
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-GB', {
@@ -187,7 +195,12 @@ const ClientAnnouncementsPage = () => {
                 <div className="flex-1">
                   <div className="flex flex-wrap items-center gap-4 mb-4">
                     <div className="flex items-center gap-2">
-                       <span className={`w-2 h-2 rounded-full ${ann.status === 'active' ? 'bg-blue-500' : 'bg-slate-300'}`} />
+                       {ann.status === 'active' && (
+                         <div className="relative flex items-center justify-center mr-1">
+                            <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-blue-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]"></span>
+                         </div>
+                       )}
                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Project Update</p>
                     </div>
                     <div className={`px-4 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${getPriorityColor(ann.alert_type)}`}>

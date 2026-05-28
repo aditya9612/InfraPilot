@@ -85,37 +85,37 @@ const ClientProfitLossPage = () => {
         ) : (
           <div className="animate-in fade-in duration-500 space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-slate-50 rounded-3xl p-10 border border-slate-100 group overflow-hidden relative">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 relative">Total Income</p>
-                    <div className="flex items-baseline gap-2 relative">
-                        <span className="text-4xl font-black text-slate-800 tracking-tighter">₹{plData?.income?.toLocaleString() || 0}</span>
-                        <span className="text-[10px] font-bold text-emerald-600 uppercase">Revenue</span>
-                    </div>
+              <div className="bg-slate-50 rounded-3xl p-10 border border-slate-100 group overflow-hidden relative">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 relative">Total Income</p>
+                <div className="flex items-baseline gap-2 relative">
+                  <span className="text-4xl font-black text-slate-800 tracking-tighter">₹{plData?.income?.toLocaleString() || 0}</span>
+                  <span className="text-[10px] font-bold text-emerald-600 uppercase">Revenue</span>
                 </div>
+              </div>
 
-                <div className="bg-slate-50 rounded-3xl p-10 border border-slate-100 group overflow-hidden relative">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 relative">Operational Expense</p>
-                    <div className="flex items-baseline gap-2 relative">
-                        <span className="text-4xl font-black text-slate-800 tracking-tighter">₹{plData?.expense?.toLocaleString() || 0}</span>
-                        <span className="text-[10px] font-bold text-red-600 uppercase">Cost</span>
-                    </div>
+              <div className="bg-slate-50 rounded-3xl p-10 border border-slate-100 group overflow-hidden relative">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 relative">Operational Expense</p>
+                <div className="flex items-baseline gap-2 relative">
+                  <span className="text-4xl font-black text-slate-800 tracking-tighter">₹{plData?.expense?.toLocaleString() || 0}</span>
+                  <span className="text-[10px] font-bold text-red-600 uppercase">Cost</span>
                 </div>
+              </div>
 
-                <div className="bg-slate-800 rounded-3xl p-10 group overflow-hidden relative shadow-2xl">
-                    <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-6 relative">Net Profitability</p>
-                    <div className="flex items-baseline gap-2 relative">
-                        <span className="text-4xl font-black text-white tracking-tighter">₹{plData?.profit?.toLocaleString() || 0}</span>
-                        <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Yield</span>
-                    </div>
+              <div className="bg-slate-800 rounded-3xl p-10 group overflow-hidden relative shadow-2xl">
+                <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-6 relative">Net Profitability</p>
+                <div className="flex items-baseline gap-2 relative">
+                  <span className="text-4xl font-black text-white tracking-tighter">₹{plData?.profit?.toLocaleString() || 0}</span>
+                  <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Yield</span>
                 </div>
+              </div>
             </div>
 
             <div className="bg-slate-50 rounded-3xl p-12 text-center border border-slate-100">
-                <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 text-emerald-500 shadow-sm">
-                    <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                </div>
-                <h3 className="text-xl font-black text-slate-800 tracking-tight">Yield & Cost Summary</h3>
-                <p className="text-slate-500 font-medium mt-2 max-w-sm mx-auto">Analyze project profitability with categorized revenue and expense tracking. Full statement available via Excel.</p>
+              <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 text-emerald-500 shadow-sm">
+                <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              </div>
+              <h3 className="text-xl font-black text-slate-800 tracking-tight">Yield & Cost Summary</h3>
+              <p className="text-slate-500 font-medium mt-2 max-w-sm mx-auto">Analyze project profitability with categorized revenue and expense tracking. Full statement available via Excel.</p>
             </div>
           </div>
         )}

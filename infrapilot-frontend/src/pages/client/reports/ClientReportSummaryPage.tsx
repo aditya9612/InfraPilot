@@ -60,21 +60,24 @@ const ClientReportSummaryPage = () => {
       setLoading(true);
       setError(null);
 
-      const [projectRes, detailsRes, labourRes, dailyRes, weeklyRes] = await Promise.allSettled([
+      const dateObj = new Date(date);
+      const month = dateObj.getMonth() + 1;
+      const year = dateObj.getFullYear();
+
+      const [projectRes, reportRes, labourRes, dailyRes, weeklyRes] = await Promise.allSettled([
         projectService.getProjectById(projectId),
-        reportService.getProjectReportDetails(projectId),
+        reportService.getProjectReport(projectId, reportType.toLowerCase(), month, year),
         reportService.getLabourReport(projectId),
         reportService.getDailyReport(projectId, date),
         reportService.getWeeklyProgress(projectId)
       ]);
 
       if (projectRes.status === 'fulfilled') setProjectData(projectRes.value);
-      if (detailsRes.status === 'fulfilled') {
-        console.log("Project Report Details Fetched:", detailsRes.value);
-        setProjectReport(detailsRes.value);
+      if (reportRes.status === 'fulfilled') {
+        console.log("Unified Project Report Fetched:", reportRes.value);
+        setProjectReport(reportRes.value);
       }
       if (labourRes.status === 'fulfilled') {
-        console.log("Labour Report Fetched:", labourRes.value);
         setLabourData(labourRes.value);
       }
 
@@ -114,11 +117,15 @@ const ClientReportSummaryPage = () => {
     if (!projectId) return;
     try {
       setExportingExcel(true);
-      const blob = await reportService.exportProjectReportExcel(projectId);
+      const dateObj = new Date(selectedDate);
+      const month = dateObj.getMonth() + 1;
+      const year = dateObj.getFullYear();
+      
+      const blob = await reportService.exportProjectReportExcel(projectId, reportType.toLowerCase(), month, year);
       const url = window.URL.createObjectURL(new Blob([blob]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `Project_Report_${projectId}_${new Date().toISOString().split('T')[0]}.xlsx`);
+      link.setAttribute('download', `Project_Report_${reportType}_${projectId}_${new Date().toISOString().split('T')[0]}.xlsx`);
       document.body.appendChild(link);
       link.click();
       link.parentNode?.removeChild(link);
@@ -135,11 +142,15 @@ const ClientReportSummaryPage = () => {
     if (!projectId) return;
     try {
       setExporting(true);
-      const blob = await reportService.exportProjectReportPDF(projectId);
+      const dateObj = new Date(selectedDate);
+      const month = dateObj.getMonth() + 1;
+      const year = dateObj.getFullYear();
+
+      const blob = await reportService.exportProjectReportPDF(projectId, reportType.toLowerCase(), month, year);
       const url = window.URL.createObjectURL(new Blob([blob]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `Consolidated_Project_Report_${projectId}.pdf`);
+      link.setAttribute('download', `Consolidated_Project_Report_${reportType}_${projectId}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -207,9 +218,6 @@ const ClientReportSummaryPage = () => {
                         { label: "Combined Report", path: "/client/reports/combined", icon: "M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" },
                         { label: "Contractor Performance", path: "/client/reports/contractor", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
                         { label: "Project Report", path: "/client/reports/project", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" },
-                        { label: "Profit & Loss", path: "/client/reports/profit-loss", icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
-                        { label: "Cashflow Report", path: "/client/reports/cashflow", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v16m-6 0a2 2 0 002 2h2a2 2 0 002-2" },
-                        { label: "Asset Report", path: "/client/reports/assets", icon: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" },
                         { label: "Report Summary", path: "/client/reports/summary", icon: "M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" }
                       ].map((item) => (
                         <div key={item.label} className="px-2 group/item">
@@ -233,19 +241,17 @@ const ClientReportSummaryPage = () => {
               </div>
             </div>
 
-            {reportType === "Daily" && (
-              <div className="flex items-center gap-4 bg-white p-3 rounded-2xl shadow-sm border border-slate-100">
-                <div className="flex flex-col px-4">
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Select Date</label>
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={handleDateChange}
-                    className="text-xs font-bold text-slate-700 outline-none cursor-pointer"
-                  />
-                </div>
+            <div className="flex items-center gap-4 bg-white p-3 rounded-2xl shadow-sm border border-slate-100">
+              <div className="flex flex-col px-4">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Select Date</label>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={handleDateChange}
+                  className="text-xs font-bold text-slate-700 outline-none cursor-pointer"
+                />
               </div>
-            )}
+            </div>
 
             <div className={`flex gap-4 ${reportType === "Daily" ? "flex-col" : "flex-row items-center"}`}>
               <button
@@ -511,113 +517,93 @@ const ClientReportSummaryPage = () => {
               </div>
             )}
 
-            {/* Monthly Report Content */}
-            {reportType === "Monthly" && (
+            {/* Monthly & Quarterly & Unified Report Content */}
+            {(reportType === "Monthly" || reportType === "Quarterly") && (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
                   <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 flex flex-col justify-between h-56">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Monthly Variance</p>
-                    <h3 className="text-3xl font-black text-slate-800 Tracking-tight">{projectReport?.variance || projectReport?.monthly_variance || "0.8%"}</h3>
-                    <p className="text-xs font-bold text-emerald-500 uppercase tracking-widest leading-none">Under Budget Forecast</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Tasks</p>
+                    <h3 className="text-4xl font-black text-slate-800 tracking-tight">{projectReport?.summary?.total_tasks || 0}</h3>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest leading-none">Modules Identified</p>
                   </div>
                   <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 flex flex-col justify-between h-56">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Team Efficiency</p>
-                    <h3 className="text-3xl font-black text-slate-800 Tracking-tight">{projectReport?.efficiency || projectReport?.team_efficiency || "94%"}</h3>
-                    <p className="text-xs font-bold text-blue-500 uppercase tracking-widest leading-none">Workforce Utilization</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Completed</p>
+                    <h3 className="text-4xl font-black text-emerald-500 tracking-tight">{projectReport?.summary?.completed_tasks || 0}</h3>
+                    <p className="text-xs font-bold text-emerald-500 uppercase tracking-widest leading-none">Successfully Executed</p>
                   </div>
                   <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 flex flex-col justify-between h-56">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Saftey Hours</p>
-                    <h3 className="text-3xl font-black text-emerald-500 Tracking-tight">{projectReport?.safety_hours || "2.4k"}</h3>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none">Accident Free Hours</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Open Issues</p>
+                    <h3 className="text-4xl font-black text-orange-500 tracking-tight">{projectReport?.summary?.open_issues || 0}</h3>
+                    <p className="text-xs font-bold text-orange-500 uppercase tracking-widest leading-none">Requires Attention</p>
+                  </div>
+                  <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 flex flex-col justify-between h-56">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Overall Progress</p>
+                    <h3 className="text-4xl font-black text-blue-600 tracking-tight">{projectReport?.summary?.overall_progress || 0}%</h3>
+                    <p className="text-xs font-bold text-blue-500 uppercase tracking-widest leading-none">Project Health</p>
                   </div>
                 </div>
 
-                <div className="bg-white rounded-2xl p-10 shadow-sm border border-slate-100">
-                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-10 text-center">Monthly Project Health Indicators</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                    <div className="space-y-6">
-                      {[
-                        { label: "Procurement Lifecycle", value: 85, color: "bg-blue-600" },
-                        { label: "Site Preparation", value: 100, color: "bg-emerald-500" },
-                        { label: "Structural Framework", value: 45, color: "bg-orange-500" }
-                      ].map((item, idx) => (
-                        <div key={idx}>
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{item.label}</span>
-                            <span className="text-xs font-black text-slate-800">{item.value}%</span>
+                <div className="bg-slate-900 rounded-3xl p-10 shadow-2xl relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full -mr-48 -mt-48 blur-3xl"></div>
+                  <div className="relative z-10">
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-12">
+                      <div className="flex-1">
+                        <p className="text-blue-400 font-extrabold uppercase tracking-[0.2em] text-[10px] mb-4">Financial performance</p>
+                        <h2 className="text-4xl md:text-5xl font-black text-white tracking-tight mb-8">Profitability <br /> <span className="text-blue-400">Analysis</span></h2>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                          <div className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/10">
+                            <p className="text-white/40 text-[9px] font-black uppercase tracking-widest mb-1">Total Invoice</p>
+                            <p className="text-2xl font-black text-white">₹{projectReport?.financials?.total_invoice?.toLocaleString() || 0}</p>
                           </div>
-                          <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                            <div className={`h-full ${item.color} rounded-full transition-all duration-1000`} style={{ width: `${item.value}%` }}></div>
+                          <div className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/10">
+                            <p className="text-white/40 text-[9px] font-black uppercase tracking-widest mb-1">Total Expense</p>
+                            <p className="text-2xl font-black text-rose-400">₹{projectReport?.financials?.total_expense?.toLocaleString() || 0}</p>
+                          </div>
+                          <div className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/10">
+                            <p className="text-white/40 text-[9px] font-black uppercase tracking-widest mb-1">Net Profit</p>
+                            <p className="text-3xl font-black text-emerald-400">₹{projectReport?.financials?.profit?.toLocaleString() || 0}</p>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                    <div className="flex flex-col justify-center">
-                      <div className="p-8 bg-slate-50 rounded-2xl border border-slate-100">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Executive Summary</p>
-                        <p className="text-sm font-medium text-slate-600 leading-relaxed italic">"Monthly analysis indicates high compliance with safety standards and efficient procurement cycles. Structural work is moving into secondary phase as anticipated."</p>
                       </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
-            {/* Quarterly Report Content */}
-            {reportType === "Quarterly" && (
-              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="bg-white rounded-2xl p-12 shadow-sm border border-slate-100 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50 rounded-full -mr-32 -mt-32 blur-[100px]"></div>
-                  <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-12">
-                    <div>
-                      <p className="text-blue-500 font-black uppercase tracking-widest text-xs mb-3">Q2 2026 AUDIT</p>
-                      <h2 className="text-5xl font-black tracking-tight leading-none text-slate-800 mb-6">Strategic Audit <br /> Overview</h2>
-                      <div className="flex gap-4">
-                        <span className="px-4 py-1.5 bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-full border border-emerald-100/50">ISO Verified</span>
-                        <span className="px-4 py-1.5 bg-blue-50 text-blue-600 text-[10px] font-black uppercase tracking-widest rounded-full border border-blue-100/50">Financial Oversight OK</span>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-8 text-center shrink-0">
-                      <div>
-                        <p className="text-4xl font-black text-slate-800">{projectReport?.audit_compliance || projectReport?.compliance || "98%"}</p>
-                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-1">Audit Compliance</p>
-                      </div>
-                      <div>
-                        <p className="text-4xl font-black text-blue-600">{projectReport?.risk_factor || projectReport?.risk || "0.0"}</p>
-                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-1">Risk Factor</p>
+                      <div className="w-64 h-64 flex flex-col items-center justify-center p-8 bg-blue-600 rounded-Full shadow-2xl shadow-blue-500/20 text-center shrink-0">
+                        <p className="text-[10px] font-black text-white/60 uppercase tracking-widest mb-2">Generation At</p>
+                        <p className="text-xs font-bold text-white leading-relaxed">
+                          {projectReport?.generated_at ? new Date(projectReport.generated_at).toLocaleString() : 'N/A'}
+                        </p>
                       </div>
                     </div>
                   </div>
                 </div>
 
+                {/* Additional Insight Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
-                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Quarterly Financial Health</h3>
-                    <div className="space-y-6">
-                      <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 flex justify-between items-center">
-                        <span className="text-xs font-bold text-slate-600">Quarterly Burn Rate</span>
-                        <span className="text-lg font-black text-slate-800">Optimized</span>
+                  <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm">
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Execution Period</h4>
+                    <div className="flex items-center gap-8">
+                      <div>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">Start Date</p>
+                        <p className="text-lg font-black text-slate-800">{projectReport?.date_range?.start_date || 'N/A'}</p>
                       </div>
-                      <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 flex justify-between items-center">
-                        <span className="text-xs font-bold text-slate-600">Material Savings</span>
-                        <span className="text-lg font-black text-emerald-500">12.4%</span>
+                      <div className="h-10 w-px bg-slate-100"></div>
+                      <div>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">End Date</p>
+                        <p className="text-lg font-black text-slate-800">{projectReport?.date_range?.end_date || 'N/A'}</p>
                       </div>
                     </div>
                   </div>
-                  <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
-                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Long-term Objectives</h3>
-                    <div className="space-y-4">
-                      {[
-                        "Phase 2 Completion (Structural)",
-                        "System Integration (Electrical/MEP)",
-                        "Finishing Works Commencement"
-                      ].map((obj, i) => (
-                        <div key={i} className="flex items-center gap-4 text-sm font-semibold text-slate-700">
-                          <span className="w-1.5 h-1.5 bg-blue-600 rounded-full"></span>
-                          {obj}
-                        </div>
-                      ))}
+                  
+                  <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm flex items-center justify-between">
+                    <div>
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Report Type</h4>
+                      <p className="text-2xl font-black text-slate-800 uppercase tracking-tight">{projectReport?.report_type || reportType}</p>
                     </div>
+                    {projectReport?.quarter && (
+                      <div className="px-6 py-3 bg-blue-50 text-blue-600 rounded-2xl font-black text-xs">
+                        QUARTER {projectReport.quarter}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

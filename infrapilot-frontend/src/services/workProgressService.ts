@@ -41,7 +41,7 @@ export const workProgressService = {
    */
   async listActivities(project_id?: number, engineer_id?: number): Promise<ActivityItem[]> {
     try {
-      const response = await api.get("/projects/work-progress/activities", {
+      const response = await api.get("/work-progress/activities", {
         params: { project_id, engineer_id }
       });
       const data = response.data;
@@ -61,7 +61,7 @@ export const workProgressService = {
    */
   async getActivity(id: number): Promise<ActivityItem> {
     try {
-      const response = await api.get(`/projects/work-progress/activities/${id}`);
+      const response = await api.get(`/work-progress/activities/${id}`);
       return response.data;
     } catch (error: any) {
       console.warn("getActivity API error, using virtual success fallback:", error.message);
@@ -76,7 +76,7 @@ export const workProgressService = {
    */
   async createActivity(data: CreateActivityRequest): Promise<ActivityItem> {
     try {
-      const response = await api.post("/projects/work-progress/activities", data);
+      const response = await api.post("/work-progress/activities", data);
       return response.data.data;
     } catch (error: any) {
       console.warn("createActivity API error, using virtual success fallback:", error.message);
@@ -190,7 +190,7 @@ export const workProgressService = {
    */
   async listDailyEntries(activityId?: number, entryDate?: string): Promise<DailyEntry[]> {
     try {
-      const response = await api.get("/projects/work-progress/daily-entry", {
+      const response = await api.get("/work-progress/daily-entry", {
         params: { activity_id: activityId, entry_date: entryDate }
       });
       return Array.isArray(response.data) ? response.data : (response.data?.data || []);
@@ -212,7 +212,7 @@ export const workProgressService = {
    */
   async updateDailyEntry(id: number, data: { today_progress: number; remarks: string }): Promise<any> {
     try {
-      const response = await api.put(`/projects/work-progress/daily-entry/${id}`, data);
+      const response = await api.put(`/work-progress/daily-entry/${id}`, data);
       return response.data;
     } catch (error: any) {
       console.warn("updateDailyEntry API error, using virtual success fallback:", error.message);
@@ -240,7 +240,7 @@ export const workProgressService = {
    */
   async deleteDailyEntry(id: number): Promise<void> {
     try {
-      await api.delete(`/projects/work-progress/daily-entry/${id}`);
+      await api.delete(`/work-progress/daily-entry/${id}`);
     } catch (error: any) {
       console.warn("deleteDailyEntry API error, using virtual success fallback:", error.message);
       const entry = mockDailyEntries.find(e => e.id === id);
@@ -263,7 +263,7 @@ export const workProgressService = {
    */
   async getProjectSummary(projectId: number): Promise<ProjectSummary> {
     try {
-      const response = await api.get(`/projects/work-progress/project-summary/${projectId}`);
+      const response = await api.get(`/work-progress/project-summary/${projectId}`);
       return response.data;
     } catch (error: any) {
       console.warn("getProjectSummary API error, using virtual success fallback:", error.message);
@@ -284,7 +284,7 @@ export const workProgressService = {
    */
   async getTodayProgress(engineerId: number): Promise<ActivityItem[]> {
     try {
-      const response = await api.get("/projects/work-progress/site-engineer/today-progress");
+      const response = await api.get("/work-progress/site-engineer/today-progress");
       return response.data;
     } catch (error: any) {
       console.warn("getTodayProgress API error, using virtual success fallback:", error.message);
@@ -297,7 +297,7 @@ export const workProgressService = {
    */
   async siteEngineerProgressEntry(data: DailyProgressRequest): Promise<any> {
     try {
-      const response = await api.post("/projects/work-progress/site-engineer/progress-entry", data);
+      const response = await api.post("/work-progress/site-engineer/progress-entry", data);
       return response.data;
     } catch (error: any) {
       console.warn("siteEngineerProgressEntry API error, using virtual success fallback:", error.message);
@@ -310,7 +310,7 @@ export const workProgressService = {
    */
   async getDelayReport(): Promise<{ limit: number; offset: number; page_count: number; data: ActivityItem[] }> {
     try {
-      const response = await api.get("/projects/work-progress/delay-report");
+      const response = await api.get("/work-progress/delay-report");
       return response.data;
     } catch (error: any) {
       console.warn("getDelayReport API error, using virtual success fallback:", error.message);

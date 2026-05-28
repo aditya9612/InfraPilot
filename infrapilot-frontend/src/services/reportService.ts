@@ -41,8 +41,15 @@ export const reportService = {
         return response.data;
     },
 
-    getProjectReport: async (projectId: number) => {
-        const response = await api.get(`/reports/project-report`, { params: { project_id: projectId } });
+    getProjectReport: async (projectId: number, type: string = "monthly", month?: number, year?: number) => {
+        const response = await api.get(`/reports/project`, {
+            params: {
+                project_id: projectId,
+                type,
+                month,
+                year
+            }
+        });
         return response.data;
     },
 
@@ -190,15 +197,27 @@ export const reportService = {
         return response.data;
     },
 
-    exportProjectReportPDF: async (projectId: number) => {
-        const response = await api.get(`/reports/project/${projectId}/export/pdf`, {
+    exportProjectReportPDF: async (projectId: number, type: string = "monthly", month?: number, year?: number) => {
+        const response = await api.get(`/reports/project/export/pdf`, {
+            params: {
+                project_id: projectId,
+                type,
+                month,
+                year
+            },
             responseType: 'blob'
         });
         return response.data;
     },
 
-    exportProjectReportExcel: async (projectId: number) => {
-        const response = await api.get(`/reports/project/${projectId}/export/excel`, {
+    exportProjectReportExcel: async (projectId: number, type: string = "monthly", month?: number, year?: number) => {
+        const response = await api.get(`/reports/project/export/excel`, {
+            params: {
+                project_id: projectId,
+                type,
+                month,
+                year
+            },
             responseType: 'blob'
         });
         return response.data;

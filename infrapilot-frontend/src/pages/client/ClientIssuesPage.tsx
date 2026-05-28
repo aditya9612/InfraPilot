@@ -11,6 +11,10 @@ const ClientIssuesPage = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [fetchingDetail, setFetchingDetail] = useState(false);
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
   const { projectId } = useClientProjectId();
 
   const fetchIssues = async () => {
@@ -53,6 +57,29 @@ const ClientIssuesPage = () => {
     open: issues.filter(i => i.status === 'Open').length,
     inProgress: issues.filter(i => i.status === 'In Progress').length,
     resolved: issues.filter(i => i.status === 'Resolved').length
+  };
+
+  // Pagination Logic
+  const totalRecords = issues.length;
+  const totalPages = Math.ceil(totalRecords / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = Math.min(startIndex + itemsPerPage, totalRecords);
+  const currentItems = issues.slice(startIndex, endIndex);
+
+  const getPageNumbers = () => {
+    const pages = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (currentPage <= 4) {
+        pages.push(1, 2, 3, 4, 5, '...', totalPages);
+      } else if (currentPage >= totalPages - 3) {
+        pages.push(1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+      } else {
+        pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+      }
+    }
+    return pages;
   };
 
   return (
@@ -103,7 +130,7 @@ const ClientIssuesPage = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {issues.map((issue) => (
+                  {currentItems.map((issue) => (
                     <tr key={issue.id} className="group hover:bg-slate-50/50 transition-colors">
                       <td className="py-8 pr-10 max-w-lg">
                         <div className="flex items-center gap-2 mb-1">
@@ -139,7 +166,6 @@ const ClientIssuesPage = () => {
                       </td>
                       <td className="py-8 text-center">
                         <div className="flex items-center justify-center gap-3">
-                          {/* View button */}
                           <button
                             onClick={() => handleViewIssue(issue.id)}
                             title="View Details"
@@ -156,6 +182,65 @@ const ClientIssuesPage = () => {
                   ))}
                 </tbody>
               </table>
+
+              {/* Pagination UI */}
+              <div className="py-6 border-t border-slate-50 flex flex-col md:flex-row items-center justify-between gap-4 mt-4">
+                <div className="flex items-center gap-3">
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Records per page:</p>
+                  <select 
+                    value={itemsPerPage}
+                    onChange={(e) => {
+                      setItemsPerPage(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-black text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  >
+                    {[5, 10, 20, 50, 100].map(val => (
+                      <option key={val} value={val}>{val}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="text-[11px] font-bold text-slate-400 tracking-wider">
+                  Showing <span className="text-slate-800">{totalRecords > 0 ? startIndex + 1 : 0} - {endIndex}</span> of <span className="text-slate-800">{totalRecords}</span> records
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button 
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    className="px-4 py-2 bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400 rounded-xl hover:bg-slate-100 disabled:opacity-50 transition-all"
+                  >
+                    Prev
+                  </button>
+                  <div className="flex items-center gap-1.5">
+                    {getPageNumbers().map((p, i) => (
+                      p === '...' ? (
+                        <span key={`dots-${i}`} className="px-2 text-slate-300 font-black">...</span>
+                      ) : (
+                        <button
+                          key={p}
+                          onClick={() => setCurrentPage(Number(p))}
+                          className={`w-9 h-9 rounded-xl text-[10px] font-black transition-all ${
+                            currentPage === p 
+                             ? "bg-primary text-white shadow-lg shadow-blue-500/20 scale-110" 
+                             : "text-slate-400 border border-slate-100 hover:bg-slate-50"
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      )
+                    ))}
+                  </div>
+                  <button 
+                    disabled={currentPage === totalPages || totalPages === 0}
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    className="px-4 py-2 bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400 rounded-xl hover:bg-slate-100 disabled:opacity-50 transition-all"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>
