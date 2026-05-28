@@ -57,9 +57,9 @@ import ClientDocumentsPage from "../pages/client/ClientDocumentsPage";
 import ClientApprovalsPage from "../pages/client/ClientApprovalsPage";
 import ClientMessagesPage from "../pages/client/communication/ClientMessagesPage";
 import ClientAnnouncementsPage from "../pages/client/communication/ClientAnnouncementsPage";
-import ClientReportSummaryPage from "../pages/client/reports/ClientReportSummaryPage";
-import ClientFinancialReportPage from "../pages/client/reports/ClientFinancialReportPage";
-import ClientWorkSummaryPage from "../pages/client/reports/ClientWorkSummaryPage";
+import ClientMonthlyProgressPage from "../pages/client/project-data/ClientMonthlyProgressPage";
+import ClientFinancialDetailsPage from "../pages/client/project-data/ClientFinancialDetailsPage";
+import ClientTaskStatusPage from "../pages/client/project-data/ClientTaskStatusPage";
 import ClientSettingsPage from "../pages/client/ClientSettingsPage";
 
 // Engineer Pages
@@ -343,20 +343,20 @@ function AppRoutes() {
                 element={<ClientAnnouncementsPage />}
               />
 
-              {/* Reports */}
+              {/* Reports are mapped under /client/reports/... below */}
+
               <Route
                 path="/client/monthly-progress-report"
-                element={<ClientReportSummaryPage />}
+                element={<ClientMonthlyProgressPage />}
               />
               <Route
                 path="/client/financial-report"
-                element={<ClientFinancialReportPage />}
+                element={<ClientFinancialDetailsPage />}
               />
               <Route
                 path="/client/work-summary"
-                element={<ClientWorkSummaryPage />}
+                element={<ClientTaskStatusPage />}
               />
-
               {/* Settings */}
               <Route
                 path="/client/settings"
@@ -505,9 +505,9 @@ function AppRoutes() {
               <Route path="/client/approvals/approved" element={<ClientApprovalsPage />} />
               <Route path="/client/communication/messages" element={<ClientMessagesPage />} />
               <Route path="/client/communication/announcements" element={<ClientAnnouncementsPage />} />
-              <Route path="/client/reports/summary" element={<ClientReportSummaryPage />} />
-              <Route path="/client/reports/financial" element={<ClientFinancialReportPage />} />
-              <Route path="/client/reports/work" element={<ClientWorkSummaryPage />} />
+              <Route path="/client/reports/summary" element={<ClientMonthlyProgressPage />} />
+              <Route path="/client/reports/financial" element={<ClientFinancialDetailsPage />} />
+              <Route path="/client/reports/work" element={<ClientTaskStatusPage />} />
               <Route path="/client/settings" element={<ClientSettingsPage />} />
             </Route>
           </Route>

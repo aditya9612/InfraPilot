@@ -72,7 +72,11 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    const val = name === "today_progress" ? Number(value) : value;
+    let val: any = value;
+    if (name === "today_progress") {
+      val = value === "" ? "" : Number(value);
+      if (typeof val === "number" && val < 0) return;
+    }
     
     setFormData(prev => ({ ...prev, [name]: val }));
     if (errors[name]) {
@@ -126,7 +130,7 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Logging For</p>
               <h4 className="text-lg font-bold text-slate-800">{activity.activity_name}</h4>
               <div className="flex items-center justify-between mt-2">
-                <span className="text-xs font-bold text-slate-500">Current: {activity.completion_percentage.toFixed(1)}%</span>
+                <span className="text-xs font-bold text-slate-500">Current: {(activity.completion_percentage || 0).toFixed(1)}%</span>
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{activity.unit}</span>
               </div>
             </div>

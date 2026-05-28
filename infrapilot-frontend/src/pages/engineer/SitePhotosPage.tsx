@@ -19,7 +19,9 @@ import {
     List as ListIcon,
     ChevronLeft,
     ChevronRight,
-    Eye
+    Eye,
+    Clock,
+    ChevronDown
 } from "lucide-react";
 
 import { sitePhotoService } from "../../services/sitePhotoService";
@@ -54,17 +56,18 @@ const SitePhotosPage = () => {
     const [filterLocation, setFilterLocation] = useState("All Locations");
     const [projectId, setProjectId] = useState<number | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 12; // Grid friendly number
+    const [itemsPerPage, setItemsPerPage] = useState(12); // Grid friendly number
 
     // Interactive StatCard Filter
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Recent" | "Tasks" | "Zones">("All");
     const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+    const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
 
     // Modal States
     const [isUploadOpen, setIsUploadOpen] = useState(false);
     const [selectedPhoto, setSelectedPhoto] = useState<SitePhoto | null>(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [photoToDelete, setPhotoToDelete] = useState<number | null>(null);
+    const [photoToDelete, setPhotoToDelete] = useState<number | string | null>(null);
 
     // Resolve Project ID from session
     useEffect(() => {
@@ -125,7 +128,7 @@ const SitePhotosPage = () => {
         if (!photoToDelete) return;
         const toastId = toast.loading("Archiving evidence artifact...");
         try {
-            await sitePhotoService.deletePhoto(photoToDelete);
+            await sitePhotoService.deletePhoto(Number(photoToDelete));
             toast.success("Evidence record removed", { id: toastId });
             
             // Optimistic update
@@ -156,7 +159,7 @@ const SitePhotosPage = () => {
     }, [photos, searchQuery, filterActivity, filterLocation]);
 
     const filteredPhotos = useMemo(() => {
-        let data = baseFilteredPhotos;
+        let data = [...baseFilteredPhotos];
 
         // Apply StatCard Filter
         if (activeStatFilter === "Recent") {
@@ -172,13 +175,22 @@ const SitePhotosPage = () => {
             data = data.filter(p => !!p.location_tag);
         }
 
+        // Apply Sort Order
+        data.sort((a, b) => {
+            if (sortOrder === "latest") {
+                return Number(b.id) - Number(a.id);
+            } else {
+                return Number(a.id) - Number(b.id);
+            }
+        });
+
         return data;
-    }, [baseFilteredPhotos, activeStatFilter]);
+    }, [baseFilteredPhotos, activeStatFilter, sortOrder]);
 
     const paginatedPhotos = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
         return filteredPhotos.slice(startIndex, startIndex + itemsPerPage);
-    }, [filteredPhotos, currentPage]);
+    }, [filteredPhotos, currentPage, itemsPerPage]);
 
 
     const stats = useMemo(() => {
@@ -281,6 +293,23 @@ const SitePhotosPage = () => {
                                     <RotateCcw className="w-4 h-4" />
                                 </button>
                             )}
+
+                            <div className="relative flex items-center">
+                                <div className="absolute left-3 text-slate-400 pointer-events-none">
+                                    <Clock className="w-4 h-4" />
+                                </div>
+                                <select
+                                    value={sortOrder}
+                                    onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
+                                    className="appearance-none bg-white border border-primary rounded-full text-sm font-bold text-primary shadow-sm pl-9 pr-8 py-1.5 outline-none cursor-pointer"
+                                >
+                                    <option value="latest">Latest First</option>
+                                    <option value="oldest">Oldest First</option>
+                                </select>
+                                <div className="absolute right-3 text-slate-400 pointer-events-none">
+                                    <ChevronDown className="w-4 h-4" />
+                                </div>
+                            </div>
                         </div>
                         <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-200 ml-auto font-inter">
                             <button
@@ -329,20 +358,20 @@ const SitePhotosPage = () => {
                                                 </div>
 
                                                 {/* Interactive Actions */}
-                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex items-center justify-center gap-3 z-20 font-inter">
+                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex items-center justify-center gap-2 z-20 font-inter">
                                                     <button
                                                         onClick={() => setSelectedPhoto(photo)}
-                                                        className="p-4 bg-primary text-white rounded-2xl scale-90 group-hover:scale-100 transition-all duration-500 shadow-xl shadow-primary/20 hover:bg-blue-600"
+                                                        className="p-2 bg-white text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
                                                         title="View Evidence"
                                                     >
-                                                        <Eye className="w-6 h-6" />
+                                                        <Eye className="w-4 h-4" />
                                                     </button>
                                                     <button
                                                         onClick={() => { setPhotoToDelete(photo.id); setIsDeleteModalOpen(true); }}
-                                                        className="p-4 bg-white text-rose-500 rounded-2xl scale-90 group-hover:scale-100 transition-all duration-500 shadow-xl hover:bg-rose-50 hover:text-rose-600"
+                                                        className="p-2 bg-white text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all font-inter"
                                                         title="Discard Evidence"
                                                     >
-                                                        <Trash2 className="w-6 h-6" />
+                                                        <Trash2 className="w-4 h-4" />
                                                     </button>
                                                 </div>
                                             </div>
@@ -425,7 +454,7 @@ const SitePhotosPage = () => {
                                                             <div className="flex items-center justify-end gap-2 font-inter">
                                                                 <button
                                                                     onClick={() => setSelectedPhoto(photo)}
-                                                                    className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 flex items-center justify-center font-inter"
+                                                                    className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
                                                                     title="View Insight"
                                                                 >
                                                                     <Eye className="w-4 h-4" />
@@ -456,29 +485,81 @@ const SitePhotosPage = () => {
 
                     {/* â”€â”€ Pagination â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                     {!isLoading && filteredPhotos.length > 0 && (
-                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
-                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                                PAGE {currentPage} OF {Math.max(1, Math.ceil(filteredPhotos.length / itemsPerPage))}
-                            </div>
+                        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                            {/* Left: Items per page */}
                             <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                                <select 
+                                    value={itemsPerPage} 
+                                    onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                    className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                                >
+                                    <option value={10}>10</option>
+                                    <option value={20}>20</option>
+                                    <option value={50}>50</option>
+                                    <option value={100}>100</option>
+                                </select>
+                            </div>
+
+                            {/* Center: Showing info */}
+                            <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+                                Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredPhotos.length)} of {filteredPhotos.length} records
+                            </div>
+
+                            {/* Right: Pagination */}
+                            <div className="flex items-center gap-1.5">
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                     disabled={currentPage === 1}
-                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
-                                    title="Previous Page"
+                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
                                 >
-                                    <ChevronLeft className="w-5 h-5" />
+                                    <ChevronLeft className="w-4 h-4" />
                                 </button>
-                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
-                                    {currentPage}
-                                </div>
+                                
+                                {(() => {
+                                    const totalItems = filteredPhotos.length;
+                                    const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+                                    const pages = [];
+                                    if (totalPages <= 5) {
+                                        for (let i = 1; i <= totalPages; i++) pages.push(i);
+                                    } else {
+                                        if (currentPage <= 3) {
+                                            pages.push(1, 2, 3, 4, '...', totalPages);
+                                        } else if (currentPage >= totalPages - 2) {
+                                            pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                                        } else {
+                                            pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                                        }
+                                    }
+
+                                    return pages.map((page, index) => {
+                                        if (page === '...') {
+                                            return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                                        }
+                                        const pageNum = page as number;
+                                        const isActive = currentPage === pageNum;
+                                        return (
+                                            <button
+                                                key={`page-${pageNum}`}
+                                                onClick={() => setCurrentPage(pageNum)}
+                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
+                                                    isActive 
+                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' 
+                                                        : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                                }`}
+                                            >
+                                                {pageNum}
+                                            </button>
+                                        );
+                                    });
+                                })()}
+
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.min(Math.max(1, Math.ceil(filteredPhotos.length / itemsPerPage)), prev + 1))}
-                                    disabled={currentPage === Math.max(1, Math.ceil(filteredPhotos.length / itemsPerPage))}
-                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
-                                    title="Next Page"
+                                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredPhotos.length / itemsPerPage), prev + 1))}
+                                    disabled={currentPage === Math.max(1, Math.ceil(filteredPhotos.length / itemsPerPage)) || filteredPhotos.length === 0}
+                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
                                 >
-                                    <ChevronRight className="w-5 h-5" />
+                                    <ChevronRight className="w-4 h-4" />
                                 </button>
                             </div>
                         </div>

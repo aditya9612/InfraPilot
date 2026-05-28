@@ -10,7 +10,7 @@ interface EditActivityModalProps {
 }
 
 const UNITS = ["Cum", "Sqm", "Rft", "Nos", "Kg", "Ton", "Bag"];
-const STATUSES = ["Not Started", "On Track", "Delay"];
+const STATUSES = ["NOT_STARTED", "ON_TRACK", "DELAY", "COMPLETED"];
 
 const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivityModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -20,7 +20,7 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
     unit: "Cum",
     start_date: "",
     end_date: "",
-    status: "Not Started"
+    status: "NOT_STARTED"
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -66,6 +66,7 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
     if (!activity || !validate()) return;
     setIsSubmitting(true);
     try {
+      // Status is already in backend enum format (NOT_STARTED, ON_TRACK, DELAY, COMPLETED)
       await onSubmit(activity.id, formData);
       setErrors({});
     } catch (err) {
@@ -115,7 +116,7 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
         disabled={isSubmitting}
         className={`px-8 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center gap-2 ${isSubmitting ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}
       >
-        {isSubmitting ? "Updating..." : "Synchronize Record"}
+        {isSubmitting ? "Updating..." : "Edit Activity Record"}
       </button>
     </>
   );
@@ -138,12 +139,7 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
               />
               {errors.activity_name && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.activity_name}</p>}
             </div>
-            <div className="md:col-span-2">
-              <label className={labelClasses}>Current Operational Status*</label>
-              <select name="status" className={inputClasses()} value={formData.status} onChange={handleChange}>
-                {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
+
           </div>
         </div>
 

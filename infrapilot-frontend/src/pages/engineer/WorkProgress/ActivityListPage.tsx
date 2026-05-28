@@ -26,10 +26,10 @@ import ActivityDetailModal from "../../../components/WorkProgress/ActivityDetail
 import LogProgressModal from "../../../components/WorkProgress/LogProgressModal";
 
 const statusBadge: Record<string, string> = {
-  "On Track": "bg-emerald-100 text-emerald-600",
-  "Delay": "bg-red-100 text-red-600",
-  "Completed": "bg-blue-100 text-blue-600",
-  "Not Started": "bg-slate-100 text-slate-500"
+  "ON_TRACK": "bg-emerald-100 text-emerald-600",
+  "DELAY": "bg-red-100 text-red-600",
+  "COMPLETED": "bg-blue-100 text-blue-600",
+  "NOT_STARTED": "bg-slate-100 text-slate-500"
 };
 
 const ActivityListPage = () => {
@@ -61,7 +61,7 @@ const ActivityListPage = () => {
   const [filterStatus, setFilterStatus] = useState("All Status");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 20;
+  const [itemsPerPage, setItemsPerPage] = useState(20);
 
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return "N/A";
@@ -89,21 +89,13 @@ const ActivityListPage = () => {
   const loadActivities = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await workProgressService.listActivities(projectId || 92, engineer_id);
-      const normalizedData = data.map((a: any) => {
-        let status = a.status;
-        if (status) {
-          const upper = status.toUpperCase().replace(/_/g, " ");
-          if (upper === "NOT STARTED" || upper === "NOT_STARTED") status = "Not Started";
-          if (upper === "ON TRACK" || upper === "ON_TRACK") status = "On Track";
-          if (upper === "DELAY") status = "Delay";
-          if (upper === "COMPLETED") status = "Completed";
-        }
-        return {
-          ...a,
-          status: status || "Not Started"
-        };
-      });
+      // Pass project_id from Settings page to API — backend returns only that project's activities
+      const data = await workProgressService.listActivities(projectId ?? undefined);
+      // Keep raw API status values — no normalization needed
+      const normalizedData = data.map((a: any) => ({
+        ...a,
+        status: a.status || "NOT_STARTED"
+      }));
       setActivities(normalizedData);
     } catch (err) {
       console.error("Load Activities Error:", err);
@@ -111,7 +103,7 @@ const ActivityListPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [projectId, engineer_id]);
+  }, [projectId]);
 
   useEffect(() => {
     loadActivities();
@@ -119,9 +111,9 @@ const ActivityListPage = () => {
 
   const stats = useMemo(() => {
     const total = activities.length;
-    const completed = activities.filter(a => a.status === "Completed" || a.completion_percentage === 100).length;
-    const delayed = activities.filter(a => a.status === "Delay").length;
-    const onTrack = activities.filter(a => a.status === "On Track").length;
+    const completed = activities.filter(a => a.status === "COMPLETED" || a.completion_percentage === 100).length;
+    const delayed = activities.filter(a => a.status === "DELAY").length;
+    const onTrack = activities.filter(a => a.status === "ON_TRACK").length;
 
     const complianceRate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
@@ -141,9 +133,9 @@ const ActivityListPage = () => {
     if (activeStatFilter === "Compliance") {
       data = data.filter(a => a.completion_percentage === 100);
     } else if (activeStatFilter === "Delayed") {
-      data = data.filter(a => a.status === "Delay");
+      data = data.filter(a => a.status === "DELAY");
     } else if (activeStatFilter === "Execution") {
-      data = data.filter(a => a.status === "On Track");
+      data = data.filter(a => a.status === "ON_TRACK");
     }
 
     return data.filter(a =>
@@ -176,6 +168,11 @@ const ActivityListPage = () => {
       await workProgressService.updateActivity(id, data);
       toast.success("Activity updated successfully!");
       setIsEditModalOpen(false);
+      // Refetch fresh activity detail and reload list
+      try {
+        const fresh = await workProgressService.getActivity(id);
+        setSelectedActivity(fresh);
+      } catch (_) {}
       loadActivities();
     } catch (err) {
       toast.error("Failed to update activity");
@@ -310,10 +307,11 @@ const ActivityListPage = () => {
                 onChange={(e) => setFilterStatus(e.target.value)}
                 className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer font-inter uppercase tracking-widest"
               >
-                <option value="All Status">All Status</option>
-                <option value="Not Started">Not Started</option>
-                <option value="On Track">On Track</option>
-                <option value="Delay">Delay</option>
+                <option value="All Status">ALL STATUS</option>
+                <option value="NOT_STARTED">NOT_STARTED</option>
+                <option value="ON_TRACK">ON_TRACK</option>
+                <option value="DELAY">DELAY</option>
+                <option value="COMPLETED">COMPLETED</option>
               </select>
               {activeStatFilter !== "All" && (
                 <button onClick={() => setActiveStatFilter("All")} className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors">
@@ -380,8 +378,8 @@ const ActivityListPage = () => {
                       <div className="flex items-center justify-end gap-2 font-inter">
                         <button
                           onClick={() => handleView(a.id)}
-                          className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-95 font-inter"
-                          title="View Insight"
+                          className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
+                          title="View Details"
                         >
                           <Eye className="w-4 h-4" />
                         </button>
@@ -422,29 +420,81 @@ const ActivityListPage = () => {
 
           {/* ── Pagination Controls ── */}
           {!loading && filteredActivities.length > 0 && (
-            <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
-                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                                PAGE {currentPage} OF {Math.max(1, Math.ceil(filteredActivities.length / itemsPerPage))}
-                            </div>
+            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                            {/* Left: Items per page */}
                             <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                                <select 
+                                    value={itemsPerPage} 
+                                    onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                    className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                                >
+                                    <option value={10}>10</option>
+                                    <option value={20}>20</option>
+                                    <option value={50}>50</option>
+                                    <option value={100}>100</option>
+                                </select>
+                            </div>
+
+                            {/* Center: Showing info */}
+                            <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+                                Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredActivities.length)} of {filteredActivities.length} records
+                            </div>
+
+                            {/* Right: Pagination */}
+                            <div className="flex items-center gap-1.5">
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                     disabled={currentPage === 1}
-                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
-                                    title="Previous Page"
+                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
                                 >
-                                    <ChevronLeft className="w-5 h-5" />
+                                    <ChevronLeft className="w-4 h-4" />
                                 </button>
-                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
-                                    {currentPage}
-                                </div>
+                                
+                                {(() => {
+                                    const totalItems = filteredActivities.length;
+                                    const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+                                    const pages = [];
+                                    if (totalPages <= 5) {
+                                        for (let i = 1; i <= totalPages; i++) pages.push(i);
+                                    } else {
+                                        if (currentPage <= 3) {
+                                            pages.push(1, 2, 3, 4, '...', totalPages);
+                                        } else if (currentPage >= totalPages - 2) {
+                                            pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                                        } else {
+                                            pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                                        }
+                                    }
+
+                                    return pages.map((page, index) => {
+                                        if (page === '...') {
+                                            return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                                        }
+                                        const pageNum = page as number;
+                                        const isActive = currentPage === pageNum;
+                                        return (
+                                            <button
+                                                key={`page-${pageNum}`}
+                                                onClick={() => setCurrentPage(pageNum)}
+                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
+                                                    isActive 
+                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' 
+                                                        : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                                }`}
+                                            >
+                                                {pageNum}
+                                            </button>
+                                        );
+                                    });
+                                })()}
+
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.min(Math.max(1, Math.ceil(filteredActivities.length / itemsPerPage)), prev + 1))}
-                                    disabled={currentPage === Math.max(1, Math.ceil(filteredActivities.length / itemsPerPage))}
-                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
-                                    title="Next Page"
+                                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredActivities.length / itemsPerPage), prev + 1))}
+                                    disabled={currentPage === Math.max(1, Math.ceil(filteredActivities.length / itemsPerPage)) || filteredActivities.length === 0}
+                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
                                 >
-                                    <ChevronRight className="w-5 h-5" />
+                                    <ChevronRight className="w-4 h-4" />
                                 </button>
                             </div>
                         </div>

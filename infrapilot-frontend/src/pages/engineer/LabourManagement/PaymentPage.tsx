@@ -11,12 +11,14 @@ import {
     ArrowDownRight,
     Briefcase,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    FileText,
+    Download
 } from "lucide-react";
 import { paymentService } from '../../../services/paymentService';
-import { labourService } from '../../../services/labourService';
 import PaySalaryModal from '../../../components/payment/PaySalaryModal';
 import AdvancePaymentModal from '../../../components/payment/AdvancePaymentModal';
+import GeneratePayrollModal from '../../../components/payment/GeneratePayrollModal';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '../../../utils/currencyUtils';
 
@@ -38,21 +40,45 @@ const PaymentPage: React.FC = () => {
         }
         return 92; // Default fallback to 92 to ensure list renders and matches registered project
     });
-    const [activeTab, setActiveTab] = useState<'payroll' | 'history' | 'dues' | 'weekly' | 'monthly'>('payroll');
+    const [activeTab, setActiveTab] = useState<'payroll' | 'history' | 'dues' | 'weekly'>('payroll');
     const [weeklyReports, setWeeklyReports] = useState<any[]>([]);
-    const [monthlyReports, setMonthlyReports] = useState<any[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [contractorFilter, setContractorFilter] = useState("All");
 
     // Interactive StatCard Filter
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Paid" | "Pending" | "Advance">("All");
 
+    const [stats, setStats] = useState<any>({
+        paid_this_month: 0,
+        pending_due: 0,
+        monthly_budget: 0,
+        advance_logs: 0
+    });
+
     // Modal States
     const [payTarget, setPayTarget] = useState<any | null>(null);
     const [advanceTarget, setAdvanceTarget] = useState<any | null>(null);
+    const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
 
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 20;
+    const [itemsPerPage, setItemsPerPage] = useState(20);
+
+    const [isExporting, setIsExporting] = useState(false);
+
+    const handleExport = async () => {
+        setIsExporting(true);
+        try {
+            const currentMonth = new Date().getMonth() + 1;
+            const currentYear = new Date().getFullYear();
+            await paymentService.exportPayroll(currentMonth, currentYear);
+            toast.success("Payroll exported successfully!");
+        } catch (error) {
+            console.error("Failed to export payroll:", error);
+            toast.error("Failed to export payroll");
+        } finally {
+            setIsExporting(false);
+        }
+    };
 
     useEffect(() => {
         setCurrentPage(1);
@@ -61,42 +87,14 @@ const PaymentPage: React.FC = () => {
     const fetchData = useCallback(async () => {
         setIsLoading(true);
         try {
-            const [labourRes, historyRes, duesRes, attendanceRes] = await Promise.all([
-                labourService.getLabours(projectId, { limit: 50 }),
-                paymentService.getPaymentHistory({ ...(projectId ? { project_id: projectId } : {}), limit: 50, offset: 0 }),
-                paymentService.getPendingDues({ ...(projectId ? { project_id: projectId } : {}), limit: 50, offset: 0 }),
-                labourService.getAttendanceList(projectId)
+            const [payrollRes, statsRes] = await Promise.all([
+                paymentService.getActivePayroll({ project_id: projectId }),
+                paymentService.getPayrollStats({ project_id: projectId })
             ]);
-
-            setLabours(labourRes.items || []);
-            setHistory(Array.isArray(historyRes) ? historyRes : ((historyRes as any).items || []));
-            setPendingDues(Array.isArray(duesRes) ? duesRes : ((duesRes as any).items || []));
-            const allAttendances = attendanceRes.items || [];
-
-            // Calculate Weekly/Monthly stats from attendance data
-            const workerStats = allAttendances.reduce((acc: any, curr: any) => {
-                const id = curr.labour_id;
-                if (!acc[id]) acc[id] = { total_days: 0, present_days: 0, total_hours: 0, overtime_hours: 0, total_wage: 0 };
-                acc[id].total_days++;
-                if (curr.status?.toLowerCase() !== 'absent') {
-                    acc[id].present_days++;
-                    acc[id].total_hours += (curr.working_hours || 0);
-                    acc[id].overtime_hours += (curr.overtime_hours || 0);
-                    acc[id].total_wage += (curr.total_wage || 0);
-                }
-                return acc;
-            }, {});
-
-            setWeeklyReports(Object.values(workerStats).map((s: any) => ({ ...s, month: 4 })));
-            setMonthlyReports(Object.values(workerStats).map((s: any) => ({ ...s, month: 4 })));
-
-            // Update labours with attendance stats for Active Payroll
-            setLabours(prev => prev.map(l => {
-                const stats = workerStats[l.id] || { present_days: 0, total_hours: 0, overtime_hours: 0, total_wage: 0 };
-                return { ...l, ...stats };
-            }));
+            setLabours(Array.isArray(payrollRes) ? payrollRes : ((payrollRes as any).items || []));
+            if (statsRes) setStats(statsRes);
         } catch (error: any) {
-            toast.error('Failed to load payment data');
+            toast.error('Failed to load active payroll');
         } finally {
             setIsLoading(false);
         }
@@ -108,18 +106,50 @@ const PaymentPage: React.FC = () => {
         fetchData();
     }, [fetchData]);
 
-    const stats = useMemo(() => {
-        const totalPaid = history.reduce((acc, curr) => acc + (curr.amount || 0), 0);
-        const totalPending = pendingDues.reduce((acc, curr) => acc + (curr.pending_amount || 0), 0);
+    useEffect(() => {
+        if (activeTab === 'history') {
+            const fetchHistory = async () => {
+                setIsLoading(true);
+                try {
+                    const res = await paymentService.getPaymentHistory({ project_id: projectId });
+                    setHistory(Array.isArray(res) ? res : ((res as any).items || []));
+                } catch (err) {
+                    toast.error('Failed to load payment history');
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+            fetchHistory();
+        } else if (activeTab === 'dues') {
+            const fetchDues = async () => {
+                setIsLoading(true);
+                try {
+                    const res = await paymentService.getPendingDues({ project_id: projectId });
+                    setPendingDues(Array.isArray(res) ? res : ((res as any).items || []));
+                } catch (err) {
+                    toast.error('Failed to load contractor liability');
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+            fetchDues();
+        } else if (activeTab === 'weekly') {
+            const fetchWeekly = async () => {
+                setIsLoading(true);
+                try {
+                    const res = await paymentService.getWeeklyVelocity({ project_id: projectId });
+                    setWeeklyReports(Array.isArray(res) ? res : ((res as any).items || []));
+                } catch (err) {
+                    toast.error('Failed to load weekly velocity');
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+            fetchWeekly();
+        }
+    }, [activeTab, projectId]);
 
-        // Count entries that are likely advances or pending reviews
-        const advanceCount = history.filter(h => h.payment_type?.toLowerCase() === 'advance').length || 0;
 
-        // Monthly Budget as "Total Committed Capital" (Paid + Outstanding)
-        const monthlyBudget = totalPaid + totalPending;
-
-        return { totalPaid, totalPending, advanceCount, monthlyBudget };
-    }, [history, pendingDues]);
 
     const filteredLabours = useMemo(() => {
         return labours.filter(l => {
@@ -147,10 +177,11 @@ const PaymentPage: React.FC = () => {
     }, [labours]);
 
     const filteredHistory = useMemo(() => {
-        return history.filter(h =>
-            h.worker_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            h.contractor_name?.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+        return history.filter(h => {
+            const search = searchTerm.toLowerCase();
+            const workerName = h.labour_name || h.worker_name || "";
+            return workerName.toLowerCase().includes(search);
+        });
     }, [history, searchTerm]);
 
     const currentDataLength = useMemo(() => {
@@ -158,9 +189,8 @@ const PaymentPage: React.FC = () => {
         if (activeTab === 'history') return filteredHistory.length;
         if (activeTab === 'dues') return pendingDues.length;
         if (activeTab === 'weekly') return weeklyReports.length;
-        if (activeTab === 'monthly') return monthlyReports.length;
         return 0;
-    }, [activeTab, filteredLabours, filteredHistory, pendingDues, weeklyReports, monthlyReports]);
+    }, [activeTab, filteredLabours, filteredHistory, pendingDues, weeklyReports]);
 
     return (
         <>
@@ -173,7 +203,14 @@ const PaymentPage: React.FC = () => {
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Workforce Disbursement Terminal</h1>
                         <p className="text-slate-500 text-sm font-inter">Secure wage distribution and advance request management with full audit trails.</p>
                     </div>
-                    <div className="flex items-center gap-3 font-inter">
+                    <div className="flex items-center gap-3 font-inter flex-wrap">
+                        <button
+                            onClick={() => setIsGenerateModalOpen(true)}
+                            className="bg-primary text-white border border-primary px-4 py-2 rounded-xl flex items-center gap-2 font-inter shadow-sm hover:bg-primary/90 transition-all text-sm font-bold"
+                        >
+                            <FileText className="w-4 h-4" />
+                            Generate Payroll
+                        </button>
                         <div className="bg-white border border-slate-200 px-4 py-2 rounded-xl flex items-center gap-3 font-inter shadow-sm">
                             <Calendar className="w-4 h-4 text-primary font-inter" />
                             <span className="text-xs font-bold text-slate-600 uppercase tracking-widest font-inter">{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
@@ -186,28 +223,28 @@ const PaymentPage: React.FC = () => {
                     <div onClick={() => setActiveStatFilter("Paid")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Paid" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Paid This Month"
-                            value={formatCurrency(stats.totalPaid)}
+                            value={formatCurrency(stats.paid_this_month || 0)}
                             sub="Disbursed Capital"
                             accent="text-emerald-500" />
                     </div>
                     <div onClick={() => setActiveStatFilter("Pending")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Pending" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Pending Due"
-                            value={formatCurrency(stats.totalPending)}
+                            value={formatCurrency(stats.pending_due || 0)}
                             sub="Outstanding Liability"
                             accent="text-rose-500" />
                     </div>
                     <div className="cursor-default group transition-all rounded-xl hover:scale-[1.01]">
                         <StatCard
                             title="Monthly Budget"
-                            value={formatCurrency(stats.monthlyBudget)}
+                            value={formatCurrency(stats.monthly_budget || 0)}
                             sub="Allocated Liquidity"
                             accent="text-primary" />
                     </div>
                     <div onClick={() => setActiveStatFilter("Advance")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Advance" ? "ring-2 ring-amber-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Advance Logs"
-                            value={stats.advanceCount.toString().padStart(2, '0')}
+                            value={(stats.advance_logs || 0).toString().padStart(2, '0')}
                             sub="Pending Review"
                             accent="text-amber-500" />
                     </div>
@@ -219,8 +256,7 @@ const PaymentPage: React.FC = () => {
                         { id: 'payroll', label: 'Active Payroll' },
                         { id: 'history', label: 'Payment History' },
                         { id: 'dues', label: 'Contractor Payment Pending' },
-                        { id: 'weekly', label: 'Weekly Velocity' },
-                        { id: 'monthly', label: 'Monthly Report' }
+                        { id: 'weekly', label: 'Weekly Velocity' }
                     ].map((tab) => (
                         <button
                             key={tab.id}
@@ -267,6 +303,14 @@ const PaymentPage: React.FC = () => {
                                     <RotateCcw className="w-4 h-4 font-inter" />
                                 </button>
                             )}
+                            <button
+                                onClick={handleExport}
+                                disabled={isExporting}
+                                className="bg-emerald-50 text-emerald-600 border border-emerald-200 px-4 py-2 rounded-xl flex items-center gap-2 font-inter hover:bg-emerald-100 transition-all text-[10px] font-bold uppercase tracking-widest"
+                            >
+                                <Download className="w-3.5 h-3.5" />
+                                {isExporting ? 'Exporting...' : 'Export Excel'}
+                            </button>
                         </div>
                     </div>
 
@@ -309,9 +353,9 @@ const PaymentPage: React.FC = () => {
                                                 <th className="px-6 py-4 text-right font-inter">Last Transaction</th>
                                             </>
                                         )}
-                                        {(activeTab === 'weekly' || activeTab === 'monthly') && (
+                                        {activeTab === 'weekly' && (
                                             <>
-                                                <th className="px-6 py-4 font-inter">{activeTab === 'weekly' ? 'Interval Velocity' : 'Strategic Period'}</th>
+                                                <th className="px-6 py-4 font-inter">Interval Velocity</th>
                                                 <th className="px-6 py-4 text-center font-inter">Duty Days</th>
                                                 <th className="px-6 py-4 text-center font-inter">Verified Presence</th>
                                                 <th className="px-6 py-4 text-center font-inter">Operational Hrs</th>
@@ -331,17 +375,17 @@ const PaymentPage: React.FC = () => {
                                                     </div>
                                                     <div className="flex flex-col font-inter">
                                                         <span className="text-sm font-bold text-slate-800 font-inter">{labour.labour_name}</span>
-                                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">{labour.worker_code}</span>
+                                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">{labour.worker_code} {labour.skill_type ? `| ${labour.skill_type}` : ''}</span>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-center font-inter">
-                                                <span className="text-sm font-bold text-slate-700 tabular-nums font-inter">{labour.present_days || 0} Days</span>
+                                                <span className="text-sm font-bold text-slate-700 tabular-nums font-inter">-</span>
                                             </td>
                                             <td className="px-6 py-4 text-center font-inter">
                                                 <div className="flex flex-col items-center font-inter">
-                                                    <span className="text-sm font-bold text-slate-700 tabular-nums font-inter">{Math.round(labour.total_hours || 0)}h</span>
-                                                    <span className="text-[9px] font-bold text-amber-500 uppercase tracking-widest font-inter">+{Math.round(labour.overtime_hours || 0)}h OT</span>
+                                                    <span className="text-sm font-bold text-slate-700 tabular-nums font-inter">{Math.round(labour.total_working_hours || 0)}h</span>
+                                                    <span className="text-[9px] font-bold text-amber-500 uppercase tracking-widest font-inter">+{Math.round(labour.total_overtime_hours || 0)}h OT</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-center font-inter">
@@ -352,7 +396,7 @@ const PaymentPage: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-4 text-center font-inter">
                                                 <span className="px-2.5 py-1 bg-amber-50 text-amber-600 rounded-lg text-[9px] font-bold uppercase tracking-widest border border-amber-100 font-inter shadow-amber-50 shadow-sm">
-                                                    Pending
+                                                    {labour.status || 'Pending'}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-right font-inter">
@@ -375,27 +419,35 @@ const PaymentPage: React.FC = () => {
                                         </tr>
                                     ))}
 
-                                    {activeTab === 'history' && filteredHistory.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((h) => (
+                                    {activeTab === 'history' && filteredHistory.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((h) => {
+                                        const workerName = h.labour_name || h.worker_name || `Worker #${h.labour_id || 'N/A'}`;
+
+                                        return (
                                         <tr key={h.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                             <td className="px-6 py-4 font-inter">
                                                 <div className="flex flex-col font-inter">
-                                                    <span className="text-sm font-bold text-slate-800 font-inter">{h.worker_name}</span>
-                                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">{h.contractor_name}</span>
+                                                    <span className="text-sm font-bold text-slate-800 font-inter">{workerName}</span>
+                                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">{h.reference || "N/A"}</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-center font-inter">
-                                                <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border font-inter ${h.payment_type === 'salary' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
-                                                    {h.payment_type}
+                                                <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border font-inter ${h.payment_type?.toLowerCase() === 'salary' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
+                                                    {h.payment_type || 'SALARY'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-center font-inter">
+                                                <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border font-inter bg-slate-50 text-slate-600 border-slate-100`}>
+                                                    {h.mode || 'CASH'}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-center font-inter">
                                                 <div className="flex items-center justify-center gap-1 font-inter">
                                                     <ArrowDownRight className="w-3.5 h-3.5 text-emerald-500" />
-                                                    <span className="text-sm font-bold text-emerald-600 tabular-nums font-inter">₹{h.amount.toLocaleString()}</span>
+                                                    <span className="text-sm font-bold text-emerald-600 tabular-nums font-inter">₹{h.amount?.toLocaleString() || 0}</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-center font-inter">
-                                                <span className="text-xs font-bold text-slate-500 font-inter tabular-nums">{h.payment_date}</span>
+                                                <span className="text-xs font-bold text-slate-500 font-inter tabular-nums">{h.created_at ? new Date(h.created_at).toLocaleDateString() : (h.payment_date || '-')}</span>
                                             </td>
                                             <td className="px-6 py-4 text-right font-inter">
                                                 <div className="flex items-center justify-end gap-2 text-emerald-500 font-inter">
@@ -403,26 +455,26 @@ const PaymentPage: React.FC = () => {
                                                 </div>
                                             </td>
                                         </tr>
-                                    ))}
+                                    )})}
 
                                     {activeTab === 'dues' && pendingDues.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((d, idx) => (
                                         <tr key={idx} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                             <td className="px-6 py-4 font-inter">
-                                                <span className="text-sm font-bold text-slate-800 font-inter">{d.contractor_name}</span>
+                                                <span className="text-sm font-bold text-slate-800 font-inter">{d.contractor_name || `Contractor #${d.contractor_id}`}</span>
                                             </td>
                                             <td className="px-6 py-4 text-center font-inter">
-                                                <span className="text-sm font-bold text-slate-500 tabular-nums font-inter">₹{d.total_due.toLocaleString()}</span>
+                                                <span className="text-sm font-bold text-slate-500 tabular-nums font-inter">₹{(d.total_wage || 0).toLocaleString()}</span>
                                             </td>
                                             <td className="px-6 py-4 text-center font-inter">
-                                                <span className="text-sm font-bold text-emerald-600 tabular-nums font-inter">₹{d.paid_amount.toLocaleString()}</span>
+                                                <span className="text-sm font-bold text-emerald-600 tabular-nums font-inter">₹{(d.paid_amount || 0).toLocaleString()}</span>
                                             </td>
                                             <td className="px-6 py-4 text-center font-inter">
-                                                <span className="text-sm font-bold text-rose-500 tabular-nums font-inter">₹{d.pending_amount.toLocaleString()}</span>
+                                                <span className="text-sm font-bold text-rose-500 tabular-nums font-inter">₹{(d.remaining_amount || 0).toLocaleString()}</span>
                                             </td>
                                             <td className="px-6 py-4 text-right font-inter">
                                                 <div className="flex flex-col font-inter">
-                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">{d.last_payment_date}</span>
-                                                    <span className="text-[9px] font-bold text-slate-300 uppercase font-inter">Transaction ID-#{Math.floor(Math.random() * 10000)}</span>
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">-</span>
+                                                    <span className="text-[9px] font-bold text-slate-300 uppercase font-inter">-</span>
                                                 </div>
                                             </td>
                                         </tr>
@@ -435,51 +487,23 @@ const PaymentPage: React.FC = () => {
                                                     <div className="p-2 bg-slate-50 rounded-lg font-inter">
                                                         <Briefcase className="w-3.5 h-3.5 text-slate-400" />
                                                     </div>
-                                                    <span className="text-sm font-bold text-slate-800 font-inter">Interval Cycle #{r.month || i + 1}</span>
+                                                    <span className="text-sm font-bold text-slate-800 font-inter">Interval Cycle #{r.week_number || i + 1}</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-center font-inter">
-                                                <span className="text-sm font-bold text-slate-500 font-inter">{r.total_days} Strategic Days</span>
+                                                <span className="text-sm font-bold text-slate-500 font-inter">-</span>
                                             </td>
                                             <td className="px-6 py-4 text-center font-inter">
-                                                <span className="text-sm font-bold text-emerald-600 font-inter">{r.present_days} Verified</span>
+                                                <span className="text-sm font-bold text-emerald-600 font-inter">{r.attendance_count || 0} Verified</span>
                                             </td>
                                             <td className="px-6 py-4 text-center font-inter">
-                                                <span className="text-sm font-bold text-slate-700 font-inter">{r.total_hours}h Ops</span>
+                                                <span className="text-sm font-bold text-slate-700 font-inter">-</span>
                                             </td>
                                             <td className="px-6 py-4 text-center font-inter">
-                                                <span className="text-sm font-bold text-amber-500 font-inter">{r.overtime_hours}h OT</span>
+                                                <span className="text-sm font-bold text-amber-500 font-inter">-</span>
                                             </td>
                                             <td className="px-6 py-4 text-right font-inter">
-                                                <span className="text-base font-bold text-slate-800 font-inter tabular-nums">₹{r.total_wage?.toLocaleString()}</span>
-                                            </td>
-                                        </tr>
-                                    ))}
-
-                                    {activeTab === 'monthly' && monthlyReports.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((r, i) => (
-                                        <tr key={i} className="hover:bg-slate-50/50 transition-colors font-inter">
-                                            <td className="px-6 py-4 font-inter">
-                                                <div className="flex items-center gap-3 font-inter">
-                                                    <div className="p-2 bg-slate-50 rounded-lg font-inter">
-                                                        <Calendar className="w-3.5 h-3.5 text-primary" />
-                                                    </div>
-                                                    <span className="text-sm font-bold text-slate-800 font-inter uppercase tracking-tight">{r.month === 4 ? 'April 2026 Strategy' : `Cycle Month ${r.month}`}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-center font-inter">
-                                                <span className="text-sm font-bold text-slate-500 font-inter">{r.total_days} Duty Days</span>
-                                            </td>
-                                            <td className="px-6 py-4 text-center font-inter">
-                                                <span className="text-sm font-bold text-emerald-600 font-inter">{r.present_days} Verified</span>
-                                            </td>
-                                            <td className="px-6 py-4 text-center font-inter">
-                                                <span className="text-sm font-bold text-slate-700 font-inter">{Math.round(r.total_hours)}h Ops</span>
-                                            </td>
-                                            <td className="px-6 py-4 text-center font-inter">
-                                                <span className="text-sm font-bold text-amber-500 font-inter">{Math.round(r.overtime_hours)}h Efficiency</span>
-                                            </td>
-                                            <td className="px-6 py-4 text-right font-inter">
-                                                <span className="text-lg font-bold text-slate-900 font-inter tabular-nums">₹{Math.round(r.total_wage || 0).toLocaleString()}</span>
+                                                <span className="text-base font-bold text-slate-800 font-inter tabular-nums">₹{r.total_wage?.toLocaleString() || 0}</span>
                                             </td>
                                         </tr>
                                     ))}
@@ -489,32 +513,84 @@ const PaymentPage: React.FC = () => {
                         
                         {/* ── Pagination Controls ───────────────────────── */}
                         {!isLoading && currentDataLength > 0 && (
-                            <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
-                                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                                    PAGE {currentPage} OF {Math.max(1, Math.ceil(currentDataLength / itemsPerPage))}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                        disabled={currentPage === 1}
-                                        className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
-                                        title="Previous Page"
-                                    >
-                                        <ChevronLeft className="w-5 h-5" />
-                                    </button>
-                                    <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
-                                        {currentPage}
-                                    </div>
-                                    <button
-                                        onClick={() => setCurrentPage(prev => Math.min(Math.max(1, Math.ceil(currentDataLength / itemsPerPage)), prev + 1))}
-                                        disabled={currentPage === Math.max(1, Math.ceil(currentDataLength / itemsPerPage))}
-                                        className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
-                                        title="Next Page"
-                                    >
-                                        <ChevronRight className="w-5 h-5" />
-                                    </button>
-                                </div>
+                            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                            {/* Left: Items per page */}
+                            <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                                <select 
+                                    value={itemsPerPage} 
+                                    onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                    className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                                >
+                                    <option value={10}>10</option>
+                                    <option value={20}>20</option>
+                                    <option value={50}>50</option>
+                                    <option value={100}>100</option>
+                                </select>
                             </div>
+
+                            {/* Center: Showing info */}
+                            <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+                                Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, currentDataLength)} of {currentDataLength} records
+                            </div>
+
+                            {/* Right: Pagination */}
+                            <div className="flex items-center gap-1.5">
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                </button>
+                                
+                                {(() => {
+                                    const totalItems = currentDataLength;
+                                    const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+                                    const pages = [];
+                                    if (totalPages <= 5) {
+                                        for (let i = 1; i <= totalPages; i++) pages.push(i);
+                                    } else {
+                                        if (currentPage <= 3) {
+                                            pages.push(1, 2, 3, 4, '...', totalPages);
+                                        } else if (currentPage >= totalPages - 2) {
+                                            pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                                        } else {
+                                            pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                                        }
+                                    }
+
+                                    return pages.map((page, index) => {
+                                        if (page === '...') {
+                                            return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                                        }
+                                        const pageNum = page;
+                                        const isActive = currentPage === pageNum;
+                                        return (
+                                            <button
+                                                key={`page-${pageNum}`}
+                                                onClick={() => setCurrentPage(pageNum)}
+                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
+                                                    isActive 
+                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' 
+                                                        : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                                }`}
+                                            >
+                                                {pageNum}
+                                            </button>
+                                        );
+                                    });
+                                })()}
+
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(currentDataLength / itemsPerPage), prev + 1))}
+                                    disabled={currentPage === Math.max(1, Math.ceil(currentDataLength / itemsPerPage)) || currentDataLength === 0}
+                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                >
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
                         )}
                     </div>
                 </div>
@@ -531,6 +607,11 @@ const PaymentPage: React.FC = () => {
                     isOpen={!!advanceTarget}
                     onClose={() => setAdvanceTarget(null)}
                     labour={advanceTarget}
+                    onSuccess={fetchData}
+                />
+                <GeneratePayrollModal
+                    isOpen={isGenerateModalOpen}
+                    onClose={() => setIsGenerateModalOpen(false)}
                     onSuccess={fetchData}
                 />
             </PageTransition>

@@ -46,7 +46,7 @@ const ChecklistsPage = () => {
     // Interactive StatCard Filter
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Pending" | "Done">("All");
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 20;
+    const [itemsPerPage, setItemsPerPage] = useState(20);
 
     // Modal Visibility States
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);
@@ -97,8 +97,8 @@ const ChecklistsPage = () => {
     const fetchData = useCallback(async () => {
         try {
             const [clRes, logsRes] = await Promise.all([
-                checklistService.listChecklists(),
-                checklistService.listLogs()
+                checklistService.listChecklists(projectId),
+                checklistService.listLogs(projectId)
             ]);
 
             // Merge with local storage created checklists to support mock/virtual fallback persistence
@@ -112,13 +112,16 @@ const ChecklistsPage = () => {
                 }
             });
 
-            const sortedCombined = combined.sort((a: any, b: any) => Number(b.id) - Number(a.id));
+            // Fallback strict filter to ensure ONLY current project checklists show up
+            const projectSpecificCombined = combined.filter(c => Number(c.project_id) === Number(projectId));
+
+            const sortedCombined = projectSpecificCombined.sort((a: any, b: any) => Number(b.id) - Number(a.id));
             setChecklists(sortedCombined);
             setLogs(logsRes.items || []);
         } catch (err) {
             toast.error("Failed to sync checklist vault");
         }
-    }, []);
+    }, [projectId]);
 
     useEffect(() => {
         fetchData();
@@ -209,13 +212,14 @@ const ChecklistsPage = () => {
         setIsSubmitting(true);
         try {
             const response = await checklistService.executeChecklist({
-                project_id: projectId,
-                checklist_id: selectedChecklist.id,
-                status: executeStatus,
+                project_id: Number(projectId),
+                checklist_id: Number(selectedChecklist.id),
+                status: executeStatus === "Done" ? "DONE" : executeStatus,
                 remarks: executeRemarks
             });
             toast.success("Checklist executed successfully!");
             setLogs(prev => [response, ...prev]);
+            await fetchData();
             setIsExecuteModalOpen(false);
             setExecuteRemarks("");
             setExecuteError(false);
@@ -247,6 +251,7 @@ const ChecklistsPage = () => {
             toast.success("Checklist deleted successfully!");
             setChecklists(prev => prev.filter(c => c.id !== deleteId));
             setLogs(prev => prev.filter(l => l.checklist_id !== deleteId));
+            await fetchData();
             setIsDeleteModalOpen(false);
             setDeleteId(null);
         } catch (err) {
@@ -272,7 +277,7 @@ const ChecklistsPage = () => {
         let done = 0;
         activeChecklists.forEach(c => {
             const latestLog = latestLogsMap.get(c.id);
-            if (latestLog && latestLog.status === "Done") {
+            if (latestLog && (latestLog.status === "Done" || latestLog.status === "DONE" || latestLog.status === "Passed")) {
                 done++;
             }
         });
@@ -280,7 +285,7 @@ const ChecklistsPage = () => {
         let globalDone = 0;
         checklists.forEach(c => {
             const latestLog = latestLogsMap.get(c.id);
-            if (latestLog && latestLog.status === "Done") {
+            if (latestLog && (latestLog.status === "Done" || latestLog.status === "DONE" || latestLog.status === "Passed")) {
                 globalDone++;
             }
         });
@@ -306,7 +311,7 @@ const ChecklistsPage = () => {
 
         return cls.filter(cl => {
             const latestLog = [...logs].sort((a,b) => b.id - a.id).find(l => l.checklist_id === cl.id);
-            const isDone = latestLog?.status === 'Done';
+            const isDone = latestLog?.status === 'Done' || latestLog?.status === 'DONE' || latestLog?.status === 'Passed';
 
             if (searchTerm) {
                 const term = searchTerm.toLowerCase();
@@ -334,7 +339,7 @@ const ChecklistsPage = () => {
     const paginatedChecklists = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
         return filteredChecklists.slice(startIndex, startIndex + itemsPerPage);
-    }, [filteredChecklists, currentPage]);
+    }, [filteredChecklists, currentPage, itemsPerPage]);
 
     // Reset page on filter change
     useEffect(() => {
@@ -521,7 +526,7 @@ const ChecklistsPage = () => {
                                     {paginatedChecklists.length > 0 ? (
                                         paginatedChecklists.map((cl) => {
                                             const latestLog = [...logs].sort((a,b) => b.id - a.id).find(l => l.checklist_id === cl.id);
-                                            const isDone = latestLog?.status === 'Done';
+                                            const isDone = latestLog?.status === 'Done' || latestLog?.status === 'DONE' || latestLog?.status === 'Passed';
                                             return (
                                                 <tr key={cl.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                                     <td className="px-6 py-4 font-inter">
@@ -568,29 +573,81 @@ const ChecklistsPage = () => {
 
                     {/* â”€â”€ Pagination Controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                     {filteredChecklists.length > 0 && (
-                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
-                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                                PAGE {currentPage} OF {Math.max(1, Math.ceil(filteredChecklists.length / itemsPerPage))}
-                            </div>
+                        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                            {/* Left: Items per page */}
                             <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                                <select 
+                                    value={itemsPerPage} 
+                                    onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                    className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                                >
+                                    <option value={10}>10</option>
+                                    <option value={20}>20</option>
+                                    <option value={50}>50</option>
+                                    <option value={100}>100</option>
+                                </select>
+                            </div>
+
+                            {/* Center: Showing info */}
+                            <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+                                Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredChecklists.length)} of {filteredChecklists.length} records
+                            </div>
+
+                            {/* Right: Pagination */}
+                            <div className="flex items-center gap-1.5">
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                     disabled={currentPage === 1}
-                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
-                                    title="Previous Page"
+                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
                                 >
-                                    <ChevronLeft className="w-5 h-5" />
+                                    <ChevronLeft className="w-4 h-4" />
                                 </button>
-                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
-                                    {currentPage}
-                                </div>
+                                
+                                {(() => {
+                                    const totalItems = filteredChecklists.length;
+                                    const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+                                    const pages = [];
+                                    if (totalPages <= 5) {
+                                        for (let i = 1; i <= totalPages; i++) pages.push(i);
+                                    } else {
+                                        if (currentPage <= 3) {
+                                            pages.push(1, 2, 3, 4, '...', totalPages);
+                                        } else if (currentPage >= totalPages - 2) {
+                                            pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                                        } else {
+                                            pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                                        }
+                                    }
+
+                                    return pages.map((page, index) => {
+                                        if (page === '...') {
+                                            return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                                        }
+                                        const pageNum = page;
+                                        const isActive = currentPage === pageNum;
+                                        return (
+                                            <button
+                                                key={`page-${pageNum}`}
+                                                onClick={() => setCurrentPage(pageNum)}
+                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
+                                                    isActive 
+                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' 
+                                                        : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                                }`}
+                                            >
+                                                {pageNum}
+                                            </button>
+                                        );
+                                    });
+                                })()}
+
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.min(Math.max(1, Math.ceil(filteredChecklists.length / itemsPerPage)), prev + 1))}
-                                    disabled={currentPage === Math.max(1, Math.ceil(filteredChecklists.length / itemsPerPage))}
-                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
-                                    title="Next Page"
+                                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredChecklists.length / itemsPerPage), prev + 1))}
+                                    disabled={currentPage === Math.max(1, Math.ceil(filteredChecklists.length / itemsPerPage)) || filteredChecklists.length === 0}
+                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
                                 >
-                                    <ChevronRight className="w-5 h-5" />
+                                    <ChevronRight className="w-4 h-4" />
                                 </button>
                             </div>
                         </div>

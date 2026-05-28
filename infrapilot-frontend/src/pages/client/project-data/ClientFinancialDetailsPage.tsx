@@ -31,7 +31,7 @@ const barDataMock = [
   { month: "Mar", cost: 5.3 },
 ];
 
-const ClientFinancialReportPage = () => {
+const ClientFinancialDetailsPage = () => {
   const [data, setData] = useState<FinancialSummaryData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -227,4 +227,4 @@ const ClientFinancialReportPage = () => {
   );
 };
 
-export default ClientFinancialReportPage;
+export default ClientFinancialDetailsPage;

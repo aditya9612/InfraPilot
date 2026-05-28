@@ -16,7 +16,10 @@ import {
   RotateCcw
   ,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Clock,
+  ChevronDown,
+  Filter
 } from "lucide-react";
 import { materialService, type MaterialItem, type CreateMaterialRequest, type IssueType, type RateType, type Supplier } from "../../../services/materialService";
 import { projectService } from "../../../services/projectService";
@@ -45,8 +48,10 @@ const MaterialReceiptPage = () => {
   const [projectsList, setProjectsList] = useState<any[]>([]);
   // Pagination States
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
+  const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
+  const [activeFilter, setActiveFilter] = useState("All");
 
   // Interactive StatCard Filter
   const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Purchased" | "Amount" | "Pending">("All");
@@ -245,7 +250,7 @@ const MaterialReceiptPage = () => {
   }, [materials]);
 
   const filteredMaterials = useMemo(() => {
-    let data = materials;
+    let data = [...materials];
 
     // Apply StatCard Filter
     if (activeStatFilter === "Pending") {
@@ -254,30 +259,40 @@ const MaterialReceiptPage = () => {
       data = data.filter(m => m.quantity_purchased > 0);
     }
 
-    return data.filter(m =>
+    // Apply Active Filter
+    if (activeFilter === "In Stock") {
+      data = data.filter(m => m.alert_type === 'IN_STOCK');
+    } else if (activeFilter === "Low Stock") {
+      data = data.filter(m => m.alert_type === 'LOW_STOCK');
+    }
+
+    data = data.filter(m =>
       searchTerm === "" ||
       m.material_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.material_code.toLowerCase().includes(searchTerm.toLowerCase())
+      (m.material_code && m.material_code.toLowerCase().includes(searchTerm.toLowerCase()))
     );
-  }, [materials, searchTerm, activeStatFilter]);
+
+    data.sort((a, b) => {
+        if (sortOrder === "latest") {
+            return Number(b.id) - Number(a.id);
+        } else {
+            return Number(a.id) - Number(b.id);
+        }
+    });
+
+    return data;
+  }, [materials, searchTerm, activeStatFilter, sortOrder, activeFilter]);
 
   const paginatedMaterials = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     return filteredMaterials.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredMaterials, currentPage]);
+  }, [filteredMaterials, currentPage, itemsPerPage]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, activeStatFilter]);
+  }, [searchTerm, activeStatFilter, sortOrder, activeFilter]);
 
-  const alertBadge = (type: string) => {
-    switch (type) {
-      case "IN_STOCK": return "bg-emerald-100 text-emerald-600 border-emerald-200";
-      case "LOW_STOCK": return "bg-amber-100 text-amber-600 border-amber-200";
-      case "OUT_OF_STOCK": return "bg-rose-100 text-rose-600 border-rose-200";
-      default: return "bg-slate-100 text-slate-600 border-slate-200";
-    }
-  };
+
 
   const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
   const inputClasses = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 focus:ring-primary/20 focus:border-primary";
@@ -391,6 +406,38 @@ const MaterialReceiptPage = () => {
                 <RotateCcw className="w-4 h-4" />
               </button>
             )}
+
+            <div className="flex flex-wrap items-center gap-3 font-inter">
+                <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm font-inter">
+                    <Filter className="w-4 h-4 text-slate-400" />
+                    <select
+                        value={activeFilter}
+                        onChange={(e) => setActiveFilter(e.target.value)}
+                        className="bg-transparent text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer pr-2 font-inter"
+                    >
+                        <option>All</option>
+                        <option>In Stock</option>
+                        <option>Low Stock</option>
+                    </select>
+                </div>
+
+                <div className="relative flex items-center font-inter">
+                    <div className="absolute left-3 text-slate-400 pointer-events-none">
+                        <Clock className="w-4 h-4" />
+                    </div>
+                    <select
+                        value={sortOrder}
+                        onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
+                        className="appearance-none bg-white border border-primary rounded-full text-sm font-bold text-primary shadow-sm pl-9 pr-8 py-1.5 outline-none cursor-pointer"
+                    >
+                        <option value="latest">Latest First</option>
+                        <option value="oldest">Oldest First</option>
+                    </select>
+                    <div className="absolute right-3 text-slate-400 pointer-events-none">
+                        <ChevronDown className="w-4 h-4" />
+                    </div>
+                </div>
+            </div>
           </div>
 
           <div className="flex-1 overflow-auto font-inter scrollbar-thin scrollbar-thumb-slate-200">
@@ -463,8 +510,8 @@ const MaterialReceiptPage = () => {
                                 toast.error("Failed to fetch material details");
                               }
                             }}
-                            className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
-                            title="View Intelligence"
+                            className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
+                            title="View Details"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
@@ -524,32 +571,84 @@ const MaterialReceiptPage = () => {
           </div>
 
           {/* Pagination Controls */}
-          <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
-            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-              PAGE {currentPage} OF {Math.max(1, Math.ceil(filteredMaterials.length / itemsPerPage))}
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-                className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
-                title="Previous Page"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
-                {currentPage}
-              </div>
-              <button
-                onClick={() => setCurrentPage(prev => Math.min(Math.max(1, Math.ceil(filteredMaterials.length / itemsPerPage)), prev + 1))}
-                disabled={currentPage === Math.max(1, Math.ceil(filteredMaterials.length / itemsPerPage))}
-                className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
-                title="Next Page"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
+          <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                            {/* Left: Items per page */}
+                            <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                                <select 
+                                    value={itemsPerPage} 
+                                    onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                    className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                                >
+                                    <option value={10}>10</option>
+                                    <option value={20}>20</option>
+                                    <option value={50}>50</option>
+                                    <option value={100}>100</option>
+                                </select>
+                            </div>
+
+                            {/* Center: Showing info */}
+                            <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+                                Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredMaterials.length)} of {filteredMaterials.length} records
+                            </div>
+
+                            {/* Right: Pagination */}
+                            <div className="flex items-center gap-1.5">
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                </button>
+                                
+                                {(() => {
+                                    const totalItems = filteredMaterials.length;
+                                    const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+                                    const pages = [];
+                                    if (totalPages <= 5) {
+                                        for (let i = 1; i <= totalPages; i++) pages.push(i);
+                                    } else {
+                                        if (currentPage <= 3) {
+                                            pages.push(1, 2, 3, 4, '...', totalPages);
+                                        } else if (currentPage >= totalPages - 2) {
+                                            pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                                        } else {
+                                            pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                                        }
+                                    }
+
+                                    return pages.map((page, index) => {
+                                        if (page === '...') {
+                                            return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                                        }
+                                        const pageNum = page as number;
+                                        const isActive = currentPage === pageNum;
+                                        return (
+                                            <button
+                                                key={`page-${pageNum}`}
+                                                onClick={() => setCurrentPage(pageNum)}
+                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
+                                                    isActive 
+                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' 
+                                                        : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                                }`}
+                                            >
+                                                {pageNum}
+                                            </button>
+                                        );
+                                    });
+                                })()}
+
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredMaterials.length / itemsPerPage), prev + 1))}
+                                    disabled={currentPage === Math.max(1, Math.ceil(filteredMaterials.length / itemsPerPage)) || filteredMaterials.length === 0}
+                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                >
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
         </div>
 
       </PageTransition>

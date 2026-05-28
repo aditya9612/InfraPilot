@@ -35,7 +35,7 @@ interface WeeklyProgress {
   tasks_count: number;
 }
 
-const ClientReportSummaryPage = () => {
+const ClientMonthlyProgressPage = () => {
   const [reportType, setReportType] = useState<"Daily" | "Weekly" | "Monthly" | "Quarterly">("Daily");
   const [dsr, setDsr] = useState<DSRData | null>(null);
   const [weeklyProgress, setWeeklyProgress] = useState<WeeklyProgress | null>(null);
@@ -495,4 +495,4 @@ const ClientReportSummaryPage = () => {
   );
 };
 
-export default ClientReportSummaryPage;
+export default ClientMonthlyProgressPage;

@@ -5,14 +5,14 @@ import Navbar from "../../../components/common/Navbar";
 import StatCard from "../../../components/common/StatCard";
 import toast from "react-hot-toast";
 import {
-    User
-    ,
+    User,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    Clock,
+    ChevronDown
 } from "lucide-react";
 
 import { qcService } from "../../../services/qcService";
-import { projectService } from "../../../services/projectService";
 import type { QcItem } from "../../../services/qcService";
 
 const QCTestReportsPage = () => {
@@ -27,7 +27,8 @@ const QCTestReportsPage = () => {
     const [activeTab] = useState<"Inspection" | "Test Reports">("Test Reports");
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Pass" | "Fail">("All");
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 10;
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
 
     // â”€â”€â”€ PROJECT RESOLUTION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     useEffect(() => {
@@ -80,10 +81,18 @@ const QCTestReportsPage = () => {
     // â”€â”€â”€ HELPERS & ANALYTICS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     const filteredQcList = useMemo(() => {
-        if (activeStatFilter === "Pass") return qcList.filter(q => q.status === "Pass");
-        if (activeStatFilter === "Fail") return qcList.filter(q => q.status === "Fail");
-        return qcList;
-    }, [qcList, activeStatFilter]);
+        let list = qcList;
+        if (activeStatFilter === "Pass") list = list.filter(q => q.status === "Pass");
+        if (activeStatFilter === "Fail") list = list.filter(q => q.status === "Fail");
+        
+        return [...list].sort((a, b) => {
+            if (sortOrder === "latest") {
+                return Number(b.id) - Number(a.id);
+            } else {
+                return Number(a.id) - Number(b.id);
+            }
+        });
+    }, [qcList, activeStatFilter, sortOrder]);
 
     const stats = useMemo(() => {
         const total = filteredQcList.length;
@@ -127,7 +136,7 @@ const QCTestReportsPage = () => {
     const paginatedQcList = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
         return filteredQcList.slice(startIndex, startIndex + itemsPerPage);
-    }, [filteredQcList, currentPage]);
+    }, [filteredQcList, currentPage, itemsPerPage]);
 
     const breakdown = useMemo(() => {
         const groups: Record<string, { total: number; passed: number; failed: number }> = {};
@@ -154,7 +163,7 @@ const QCTestReportsPage = () => {
         <>
             <Navbar title="QC Test Reports" breadcrumb={["Engineer", "Quality Control", "Analytical Insights"]} />
 
-            <PageTransition className="p-6 bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter flex flex-col">
+            <PageTransition className="p-6 bg-slate-50 min-h-[calc(100vh-64px)] font-inter flex flex-col">
                 {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
@@ -210,7 +219,7 @@ const QCTestReportsPage = () => {
                 </div>
 
                 {/* â”€â”€ Scrollable Content Area â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                <div className="flex-1 overflow-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200">
+                <div className="flex-1 w-full max-w-full font-inter">
                     {isLoading ? (
                         <div className="py-20 text-center text-slate-400 font-inter">
                             <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
@@ -263,7 +272,25 @@ const QCTestReportsPage = () => {
                                     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden font-inter">
                                         <div className="p-4 border-b border-slate-50 bg-white flex justify-between items-center">
                                             <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Operational Audit Ledger</h3>
-                                            <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-[10px] font-bold uppercase tracking-widest font-inter">Archive Active</span>
+                                            <div className="flex items-center gap-3">
+                                                <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-[10px] font-bold uppercase tracking-widest font-inter">Archive Active</span>
+                                                <div className="relative flex items-center font-inter">
+                                                    <div className="absolute left-3 text-slate-400 pointer-events-none">
+                                                        <Clock className="w-4 h-4" />
+                                                    </div>
+                                                    <select
+                                                        value={sortOrder}
+                                                        onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
+                                                        className="appearance-none bg-white border border-primary rounded-full text-sm font-bold text-primary shadow-sm pl-9 pr-8 py-1.5 outline-none cursor-pointer"
+                                                    >
+                                                        <option value="latest">Latest First</option>
+                                                        <option value="oldest">Oldest First</option>
+                                                    </select>
+                                                    <div className="absolute right-3 text-slate-400 pointer-events-none">
+                                                        <ChevronDown className="w-4 h-4" />
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                         <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200">
                                             <table className="w-full text-left font-inter min-w-[1200px]">
@@ -319,32 +346,84 @@ const QCTestReportsPage = () => {
 
                                         {/* ─── Pagination ─────────────────────────────────── */}
                                         {!isLoading && filteredQcList.length > 0 && (
-                                            <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
-                                                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                                                    PAGE {currentPage} OF {Math.max(1, Math.ceil(filteredQcList.length / itemsPerPage))}
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                                        disabled={currentPage === 1}
-                                                        className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
-                                                        title="Previous Page"
-                                                    >
-                                                        <ChevronLeft className="w-5 h-5" />
-                                                    </button>
-                                                    <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
-                                                        {currentPage}
-                                                    </div>
-                                                    <button
-                                                        onClick={() => setCurrentPage(prev => Math.min(Math.max(1, Math.ceil(filteredQcList.length / itemsPerPage)), prev + 1))}
-                                                        disabled={currentPage === Math.max(1, Math.ceil(filteredQcList.length / itemsPerPage))}
-                                                        className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
-                                                        title="Next Page"
-                                                    >
-                                                        <ChevronRight className="w-5 h-5" />
-                                                    </button>
-                                                </div>
-                                            </div>
+                                            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                            {/* Left: Items per page */}
+                            <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                                <select 
+                                    value={itemsPerPage} 
+                                    onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                    className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                                >
+                                    <option value={10}>10</option>
+                                    <option value={20}>20</option>
+                                    <option value={50}>50</option>
+                                    <option value={100}>100</option>
+                                </select>
+                            </div>
+
+                            {/* Center: Showing info */}
+                            <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+                                Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredQcList.length)} of {filteredQcList.length} records
+                            </div>
+
+                            {/* Right: Pagination */}
+                            <div className="flex items-center gap-1.5">
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                </button>
+                                
+                                {(() => {
+                                    const totalItems = filteredQcList.length;
+                                    const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+                                    const pages = [];
+                                    if (totalPages <= 5) {
+                                        for (let i = 1; i <= totalPages; i++) pages.push(i);
+                                    } else {
+                                        if (currentPage <= 3) {
+                                            pages.push(1, 2, 3, 4, '...', totalPages);
+                                        } else if (currentPage >= totalPages - 2) {
+                                            pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                                        } else {
+                                            pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                                        }
+                                    }
+
+                                    return pages.map((page, index) => {
+                                        if (page === '...') {
+                                            return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                                        }
+                                        const pageNum = page;
+                                        const isActive = currentPage === pageNum;
+                                        return (
+                                            <button
+                                                key={`page-${pageNum}`}
+                                                onClick={() => setCurrentPage(pageNum as number)}
+                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
+                                                    isActive 
+                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' 
+                                                        : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                                }`}
+                                            >
+                                                {pageNum}
+                                            </button>
+                                        );
+                                    });
+                                })()}
+
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredQcList.length / itemsPerPage), prev + 1))}
+                                    disabled={currentPage === Math.max(1, Math.ceil(filteredQcList.length / itemsPerPage)) || filteredQcList.length === 0}
+                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                >
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
                                         )}
                                     </div>
                                 </div>

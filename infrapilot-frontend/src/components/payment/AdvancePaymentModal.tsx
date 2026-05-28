@@ -14,8 +14,9 @@ interface Props {
 const AdvancePaymentModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess }) => {
     const [formData, setFormData] = useState({
         labour_id: 0,
-        advance_amount: 0,
-        reason: ''
+        project_id: 1, // Will be overridden on mount
+        amount: 0,
+        description: ''
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -28,22 +29,23 @@ const AdvancePaymentModal: React.FC<Props> = ({ isOpen, onClose, labour, onSucce
         if (isOpen && labour) {
             setFormData({
                 labour_id: labour.id,
-                advance_amount: 0,
-                reason: ''
+                project_id: labour.project_id || 1, // Fallback if project_id is not on labour
+                amount: 0,
+                description: ''
             });
         }
     }, [isOpen, labour]);
 
     const handleSubmit = async () => {
-        if (formData.advance_amount <= 0) {
+        if (formData.amount <= 0) {
             toast.error('Please enter a valid amount');
             return;
         }
-        if (formData.advance_amount > maxAllowed) {
+        if (formData.amount > maxAllowed) {
             toast.error(`Advance cannot exceed 50% of salary (Max ₹${maxAllowed.toLocaleString()})`);
             return;
         }
-        if (!formData.reason.trim()) {
+        if (!formData.description.trim()) {
             toast.error('Reason is mandatory');
             return;
         }
@@ -110,8 +112,8 @@ const AdvancePaymentModal: React.FC<Props> = ({ isOpen, onClose, labour, onSucce
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</span>
                             <input 
                                 type="number" 
-                                value={formData.advance_amount || ''}
-                                onChange={(e) => setFormData({ ...formData, advance_amount: parseFloat(e.target.value) || 0 })}
+                                value={formData.amount || ''}
+                                onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
                                 placeholder="0.00"
                                 className="w-full pl-9 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm outline-none focus:border-primary transition-all font-bold"
                             />
@@ -123,8 +125,8 @@ const AdvancePaymentModal: React.FC<Props> = ({ isOpen, onClose, labour, onSucce
                         <div className="relative">
                             <HelpCircle className="absolute left-4 top-4 w-4 h-4 text-slate-400" />
                             <textarea 
-                                value={formData.reason}
-                                onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                                value={formData.description}
+                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                 placeholder="State the reason for advance (Medical, Personal, etc.)"
                                 className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm outline-none focus:border-primary transition-all min-h-[100px] resize-none"
                             />

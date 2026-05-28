@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Modal from '../common/Modal';
 import { paymentService } from '../../services/paymentService';
 import toast from 'react-hot-toast';
-import { CreditCard, Wallet, Landmark, Info } from 'lucide-react';
-import type { PaymentMethod } from '../../types/payment';
+import { Info } from 'lucide-react';
 
 interface Props {
     isOpen: boolean;
@@ -18,43 +17,32 @@ const PaySalaryModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess })
         project_id: 0,
         month: new Date().getMonth() + 1,
         year: new Date().getFullYear(),
-        amount: 0,
-        payment_method: 'UPI' as PaymentMethod
+        amount: 0
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [daysPresent, setDaysPresent] = useState<number | ''>('');
-    const [overtimeAmount, setOvertimeAmount] = useState<number | ''>('');
-    const [advanceDeduction, setAdvanceDeduction] = useState<number | ''>('');
-
-    // Dynamic calculations as per SRS:
-    const dailyWage = parseFloat(labour?.daily_wage_rate || '0');
-    const baseSalary = ((Number(daysPresent) || 0) * dailyWage);
-    const finalSalary = baseSalary + (Number(overtimeAmount) || 0) - (Number(advanceDeduction) || 0);
 
     useEffect(() => {
         if (isOpen && labour) {
-            // Force project_id to 36 for active site operations
-            const pId = 36; 
+            const pId = labour.project_id || 92; 
 
             setFormData({
                 labour_id: labour.id,
                 project_id: pId,
-                month: 4, 
-                year: 2026,
-                amount: finalSalary,
-                payment_method: 'UPI'
+                month: new Date().getMonth() + 1, 
+                year: new Date().getFullYear(),
+                amount: 0
             });
         }
-    }, [isOpen, labour, finalSalary]);
+    }, [isOpen, labour]);
 
     const handlePay = async () => {
         setIsSubmitting(true);
         try {
-            // Strictly enforce Project 36 and correct payload structure
             const finalPayload = {
-                ...formData,
-                project_id: 36, // Hard-locking for safety
                 labour_id: labour.id,
+                project_id: formData.project_id || 92,
+                month: formData.month,
+                year: formData.year,
                 amount: formData.amount
             };
             
@@ -94,94 +82,46 @@ const PaySalaryModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess })
             }
         >
             <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 col-span-2">
-                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Days Worked in Cycle</label>
-                        <input 
-                            type="number" 
-                            min="0"
-                            max="31"
-                            value={daysPresent}
-                            onChange={(e) => setDaysPresent(e.target.value === '' ? '' : parseInt(e.target.value))}
-                            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary transition-all font-bold"
-                        />
-                    </div>
-                    <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100">
-                        <label className="block text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1.5 ml-1">Overtime Bonus</label>
-                        <input 
-                            type="number" 
-                            min="0"
-                            value={overtimeAmount}
-                            onChange={(e) => setOvertimeAmount(e.target.value === '' ? '' : parseInt(e.target.value))}
-                            className="w-full px-4 py-3 bg-white border border-emerald-200 rounded-xl text-sm outline-none focus:border-emerald-500 transition-all font-bold text-emerald-700 placeholder-emerald-300"
-                            placeholder="₹0"
-                        />
-                    </div>
-                    <div className="bg-rose-50/50 p-4 rounded-2xl border border-rose-100">
-                        <label className="block text-[10px] font-black text-rose-600 uppercase tracking-widest mb-1.5 ml-1">Advance Recovery</label>
-                        <input 
-                            type="number" 
-                            min="0"
-                            value={advanceDeduction}
-                            onChange={(e) => setAdvanceDeduction(e.target.value === '' ? '' : parseInt(e.target.value))}
-                            className="w-full px-4 py-3 bg-white border border-rose-200 rounded-xl text-sm outline-none focus:border-rose-500 transition-all font-bold text-rose-700 placeholder-rose-300"
-                            placeholder="₹0"
-                        />
-                    </div>
-                </div>
-
-                {/* Breakdown Card */}
-                <div className="bg-slate-900 rounded-[2rem] p-6 text-white shadow-2xl relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl" />
-                    <div className="relative z-10 space-y-4">
-                        <div className="flex justify-between items-center border-b border-white/10 pb-4">
-                            <p className="text-xs font-black text-white/50 uppercase tracking-[0.2em]">Salary Breakdown</p>
-                            <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-500/30">
-                                Cycle: April 2026
-                            </span>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-y-3">
-                            <p className="text-sm font-bold text-white/60">
-                                Base ({daysPresent || 0} Days)
-                            </p>
-                            <p className="text-sm font-black text-right">₹{baseSalary.toLocaleString()}</p>
-                            
-                            <p className="text-sm font-bold text-white/60">Overtime Bonus</p>
-                            <p className="text-sm font-black text-right text-emerald-400">+ ₹{(Number(overtimeAmount) || 0).toLocaleString()}</p>
-                            
-                            <p className="text-sm font-bold text-white/60">Advance Recovery</p>
-                            <p className="text-sm font-black text-right text-rose-400">- ₹{(Number(advanceDeduction) || 0).toLocaleString()}</p>
-                        </div>
-
-                        <div className="pt-4 border-t border-white/10 flex justify-between items-end">
-                            <div>
-                                <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">Net Payable Amount</p>
-                                <p className="text-3xl font-black italic-none tracking-tighter text-emerald-400">₹{finalSalary.toLocaleString()}</p>
-                            </div>
-                            <Wallet className="w-10 h-10 text-white/10" />
-                        </div>
-                    </div>
-                </div>
-
-                {/* Payment Method Selector */}
-                <div className="space-y-3">
-                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Select Payment Method</label>
-                    <div className="grid grid-cols-3 gap-4">
-                        {[
-                            { id: 'UPI', label: 'UPI / Digital', icon: <CreditCard className="w-5 h-5" /> },
-                            { id: 'Cash', label: 'Cash Entry', icon: <Wallet className="w-5 h-5" /> },
-                            { id: 'Bank', label: 'Bank Trans.', icon: <Landmark className="w-5 h-5" /> }
-                        ].map((method) => (
-                            <button
-                                key={method.id}
-                                onClick={() => setFormData({ ...formData, payment_method: method.id as PaymentMethod })}
-                                className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${formData.payment_method === method.id ? 'border-primary bg-primary/5 text-primary' : 'border-slate-100 bg-slate-50 text-slate-400 hover:border-slate-200'}`}
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Payment Month</label>
+                            <select 
+                                value={formData.month}
+                                onChange={(e) => setFormData({ ...formData, month: parseInt(e.target.value) })}
+                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary transition-all font-bold"
                             >
-                                {method.icon}
-                                <span className="text-[10px] font-black uppercase tracking-tight">{method.label}</span>
-                            </button>
-                        ))}
+                                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                                    <option key={m} value={m}>{new Date(0, m - 1).toLocaleString('default', { month: 'long' })}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Payment Year</label>
+                            <input 
+                                type="number" 
+                                min="2020"
+                                max="2100"
+                                value={formData.year}
+                                onChange={(e) => setFormData({ ...formData, year: parseInt(e.target.value) || new Date().getFullYear() })}
+                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary transition-all font-bold"
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Disbursement Amount</label>
+                        <div className="relative">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</span>
+                            <input 
+                                type="number" 
+                                min="0"
+                                value={formData.amount || ''}
+                                onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+                                className="w-full pl-9 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-emerald-500 transition-all font-bold text-emerald-700"
+                                placeholder="0.00"
+                            />
+                        </div>
                     </div>
                 </div>
 

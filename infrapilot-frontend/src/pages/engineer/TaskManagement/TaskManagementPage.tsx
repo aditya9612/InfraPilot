@@ -524,9 +524,9 @@ const TaskManagementPage = () => {
                                                     <button onClick={() => handleDeleteTask(task.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
                                                         <Trash2 className="w-4 h-4" />
                                                     </button>
-                                                    <button onClick={() => openTaskModal(task)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
-                                                        <Eye className="w-4 h-4" />
-                                                    </button>
+                                                    <button onClick={() => openTaskModal(task)} className="px-4 py-2 text-[10px] font-bold text-white bg-primary hover:bg-blue-600 uppercase tracking-widest rounded-xl transition-all font-inter shadow-lg shadow-primary/20 active:scale-95">
+                                                            VIEW DETAILS
+                                                        </button>
                                                 </div>
                                             </div>
                                         ))}
@@ -633,9 +633,9 @@ const TaskManagementPage = () => {
                                                         </td>
                                                         <td className="p-4 text-center">
                                                             <div className="flex items-center justify-center gap-1">
-                                                                <button onClick={() => openTaskModal(task)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="View">
-                                                                    <Eye className="w-4 h-4" />
-                                                                </button>
+                                                                <button onClick={() => openTaskModal(task)} className="px-4 py-2 text-[10px] font-bold text-white bg-primary hover:bg-blue-600 uppercase tracking-widest rounded-xl transition-all font-inter shadow-lg shadow-primary/20 active:scale-95">
+                                                            VIEW DETAILS
+                                                        </button>
                                                                 <button onClick={() => openEditModal(task)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
                                                                     <Edit2 className="w-4 h-4" />
                                                                 </button>

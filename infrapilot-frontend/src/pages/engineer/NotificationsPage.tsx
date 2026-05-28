@@ -218,10 +218,10 @@ const EngineerNotificationsPage = () => {
                     <td className="px-6 py-4 text-right">
                       <button 
                         onClick={() => handleViewDetails(notif)}
-                        className="p-2 text-slate-400 hover:text-primary bg-white hover:bg-slate-100 rounded-lg border border-slate-200 transition-all shadow-sm flex items-center gap-2 ml-auto"
+                        className="px-4 py-2 text-[10px] font-bold text-white bg-primary hover:bg-blue-600 uppercase tracking-widest rounded-xl transition-all font-inter shadow-lg shadow-primary/20 active:scale-95"
                       >
-                        <Eye className="w-4 h-4" />
-                        <span className="text-xs font-bold">View</span>
+                        <Eye className="px-4 py-2 text-[10px] font-bold text-white bg-primary hover:bg-blue-600 uppercase tracking-widest rounded-xl transition-all font-inter shadow-lg shadow-primary/20 active:scale-95" />
+                        <span className="px-4 py-2 text-[10px] font-bold text-white bg-primary hover:bg-blue-600 uppercase tracking-widest rounded-xl transition-all font-inter shadow-lg shadow-primary/20 active:scale-95">View</span>
                       </button>
                     </td>
                   </tr>

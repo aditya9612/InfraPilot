@@ -54,7 +54,7 @@ const PayrollReportPage: React.FC = () => {
     });
 
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 20;
+    const [itemsPerPage, setItemsPerPage] = useState(20);
 
     useEffect(() => {
         setCurrentPage(1);
@@ -63,70 +63,36 @@ const PayrollReportPage: React.FC = () => {
     const fetchReports = async () => {
         setIsLoading(true);
         try {
-            console.log(`Reports: Fetching ${activeTab} for Project ${projectId || 'all'}`);
+            console.log(`Reports: Fetching aggregate report for Project ${projectId || 'all'}`);
 
-            const [labourRes, attendanceRes, historyRes] = await Promise.all([
-                labourService.getLabours(projectId, { limit: 50 }),
-                labourService.getAttendanceList(projectId),
-                paymentService.getPaymentHistory({ ...(projectId ? { project_id: projectId } : {}), limit: 50, offset: 0 })
+            const [aggregateRes, summaryRes, momentumRes] = await Promise.all([
+                paymentService.getAggregateReport({ project_id: projectId, month: selectedMonth, year: selectedYear }),
+                paymentService.getFiscalSummary({ project_id: projectId, month: selectedMonth, year: selectedYear }),
+                paymentService.getPayrollMomentum({ project_id: projectId })
             ]);
 
-            const laboursList = labourRes.items || [];
-            const attendances = attendanceRes.items || [];
-            const history = historyRes || [];
-
-            // Build report rows from laboursList enriched with attendance stats
-            const workerStats = attendances.reduce((acc: any, curr: any) => {
-                const id = curr.labour_id;
-                if (!acc[id]) acc[id] = { present_days: 0, total_hours: 0, overtime_hours: 0, total_wage: 0 };
-                if (curr.status?.toLowerCase() !== 'absent') {
-                    acc[id].present_days++;
-                    acc[id].total_hours += (curr.working_hours || 0);
-                    acc[id].overtime_hours += (curr.overtime_hours || 0);
-                    acc[id].total_wage += (curr.total_wage || 0);
-                }
-                return acc;
-            }, {});
-
-            const enrichedLabours = laboursList.map((l: any) => ({
-                ...l,
-                ...(workerStats[l.id] || { present_days: 0, total_hours: 0, overtime_hours: 0, total_wage: 0 })
-            }));
+            const enrichedLabours = aggregateRes || [];
 
             setReports(enrichedLabours);
 
-            // Summary Stats derived directly from the loaded list (reports)
-            const totalPayout = enrichedLabours.reduce((acc: number, curr: any) => acc + (curr.total_wage || (Number(curr.daily_wage_rate || 0) * (curr.present_days || 0))), 0);
-            const highPayouts = enrichedLabours.filter((r: any) => (r.total_wage || (Number(r.daily_wage_rate || 0) * (r.present_days || 0))) > 5000).length;
-            const otIntensive = enrichedLabours.filter((r: any) => (r.overtime_hours || 0) > 0).length;
-            const advanceAdjusted = history.filter((h: any) => h.payment_type?.toLowerCase() === 'advance').reduce((acc: number, curr: any) => acc + (curr.amount || 0), 0);
+            // Summary Stats derived from the fiscal-summary API
+            const totalPayout = summaryRes?.total_payout || 0;
+            const highPayouts = summaryRes?.high_payouts || 0;
+            const otIntensive = summaryRes?.ot_intensive || 0;
+            const advanceAdjusted = summaryRes?.advance_adjusted || 0;
 
             setStats({ totalPayout, highPayouts, otIntensive, advanceAdjusted });
 
-            // Build dynamic chart data from history
-            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            const monthMap: Record<string, number> = {};
+            // Build dynamic chart data from momentum API
+            const momentumData = momentumRes || [];
+            const newChartData = momentumData.map((item: any) => ({
+                name: item.period_name || `${item.month}/${item.year}`,
+                amount: item.total_wage || 0
+            }));
 
-            history.forEach((h: any) => {
-                const date = new Date(h.payment_date || new Date());
-                const monthName = months[date.getMonth()];
-                monthMap[monthName] = (monthMap[monthName] || 0) + (h.amount || 0);
-            });
-
-            const currentMonthIndex = new Date().getMonth();
-            const newChartData = [];
-            for (let i = 3; i >= 0; i--) {
-                let mIndex = currentMonthIndex - i;
-                if (mIndex < 0) mIndex += 12;
-                const mName = months[mIndex];
-                newChartData.push({
-                    name: mName,
-                    amount: monthMap[mName] || 0
-                });
-            }
             // If completely empty, provide an empty state to avoid broken chart
-            if (newChartData.every(d => d.amount === 0)) {
-                newChartData.forEach(d => d.amount = 0);
+            if (newChartData.length === 0) {
+                newChartData.push({ name: 'No Data', amount: 0 });
             }
             setChartData(newChartData);
 
@@ -141,60 +107,24 @@ const PayrollReportPage: React.FC = () => {
 
     useEffect(() => {
         fetchReports();
-    }, [activeTab, projectId]);
+    }, [activeTab, projectId, selectedMonth, selectedYear]);
 
-    const handleExportExcel = () => {
+    const handleExport = async () => {
         setIsExportingExcel(true);
         try {
-            const filteredList = reports.filter(r => {
-                if (activeStatFilter === "High") return (r.total_wage || 0) > 5000;
-                if (activeStatFilter === "OT") return (r.overtime_hours || 0) > 0;
-                return true;
-            });
-
-            const headers = [
-                "Labour Name",
-                "Skill Type",
-                "Daily Wage Rate",
-                "Days Present",
-                "OT Hours",
-                "Total Wage Earned",
-                "Status"
-            ];
-            const escape = (val: string | number) => `"${String(val).replace(/"/g, '""')}"`;
-
-            const rows = filteredList.map((r: any) => [
-                escape(r.labour_name || 'Unknown'),
-                escape(String(r.skill_type || 'â€”').replace('SkillType.', '').replace('SemiSkilled', 'Semi-Skilled')),
-                escape(`₹${Number(r.daily_wage_rate || 0).toLocaleString()}`),
-                escape(r.present_days || 0),
-                escape(`${r.overtime_hours || 0}h`),
-                escape(`₹${(r.total_wage || (Number(r.daily_wage_rate || 0) * (r.present_days || 0))).toLocaleString()}`),
-                escape(r.status || 'Active')
-            ].join(","));
-
-            const csvContent = [headers.join(","), ...rows].join("\n");
-            const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `payroll_report_${selectedMonth}_${selectedYear}.csv`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            toast.success('Payroll Excel exported successfully');
+            await paymentService.exportPayroll(selectedMonth, selectedYear);
+            toast.success('Payroll exported successfully');
         } catch (error) {
-            console.error("Excel Export Error:", error);
-            toast.error('Excel export failed');
+            console.error("Export Error:", error);
+            toast.error('Export failed');
         } finally {
             setIsExportingExcel(false);
         }
     };
 
     const filteredReports = reports.filter(r => {
-        if (activeStatFilter === "High") return (r.total_wage || 0) > 5000;
-        if (activeStatFilter === "OT") return (r.overtime_hours || 0) > 0;
+        if (activeStatFilter === "High") return (r.total_wage_earned || 0) > 5000;
+        if (activeStatFilter === "OT") return (r.ot_hours || 0) > 0;
         return true;
     });
 
@@ -298,7 +228,7 @@ const PayrollReportPage: React.FC = () => {
                                 ))}
                             </select>
                             <button
-                                onClick={handleExportExcel}
+                                onClick={handleExport}
                                 disabled={isExportingExcel}
                                 className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm hover:bg-emerald-100 active:scale-95 disabled:opacity-50"
                             >
@@ -306,11 +236,12 @@ const PayrollReportPage: React.FC = () => {
                                 {isExportingExcel ? 'Generating...' : 'Export Excel'}
                             </button>
                             <button
-                                onClick={() => toast.success("PDF Export coming soon!")}
-                                className="flex items-center justify-center gap-2 px-4 py-2 bg-rose-50 text-rose-600 border border-rose-200 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm hover:bg-rose-100 active:scale-95"
+                                onClick={handleExport}
+                                disabled={isExportingExcel}
+                                className="flex items-center justify-center gap-2 px-4 py-2 bg-rose-50 text-rose-600 border border-rose-200 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm hover:bg-rose-100 active:scale-95 disabled:opacity-50"
                             >
                                 <Download className="w-4 h-4" />
-                                Export PDF
+                                {isExportingExcel ? 'Generating...' : 'Export PDF'}
                             </button>
                         </div>
                     </div>
@@ -349,19 +280,19 @@ const PayrollReportPage: React.FC = () => {
                                                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">{String(r.skill_type || 'â€”').replace('SkillType.', '').replace('SemiSkilled', 'Semi-Skilled')}</span>
                                             </td>
                                             <td className="px-6 py-4 text-center">
-                                                <span className="text-sm font-bold text-slate-700 tabular-nums">₹{Number(r.daily_wage_rate || 0).toLocaleString()}</span>
+                                                <span className="text-sm font-bold text-slate-700 tabular-nums">₹{Number(r.daily_wage || 0).toLocaleString()}</span>
                                             </td>
                                             <td className="px-6 py-4 text-center">
-                                                <span className="text-sm font-bold text-slate-700 tabular-nums">{r.present_days || 0}</span>
+                                                <span className="text-sm font-bold text-slate-700 tabular-nums">{r.days_present || 0}</span>
                                             </td>
                                             <td className="px-6 py-4 text-center">
-                                                <span className={`text-sm font-bold tabular-nums ${(r.overtime_hours || 0) > 0 ? 'text-amber-500' : 'text-slate-300'}`}>
-                                                    {r.overtime_hours || 0}h
+                                                <span className={`text-sm font-bold tabular-nums ${(r.ot_hours || 0) > 0 ? 'text-amber-500' : 'text-slate-300'}`}>
+                                                    {r.ot_hours || 0}h
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <span className="text-sm font-bold text-emerald-600 tabular-nums">
-                                                    ₹{(r.total_wage || (Number(r.daily_wage_rate || 0) * (r.present_days || 0))).toLocaleString()}
+                                                    ₹{(r.total_wage_earned || 0).toLocaleString()}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-center">
@@ -381,35 +312,87 @@ const PayrollReportPage: React.FC = () => {
                                 </tbody>
                             </table>
                         )}
-                        
+
                         {/* ── Pagination Controls ───────────────────────── */}
                         {!isLoading && filteredReports.length > 0 && (
-                            <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white font-inter">
-                                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                                    PAGE {currentPage} OF {Math.max(1, Math.ceil(filteredReports.length / itemsPerPage))}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                        disabled={currentPage === 1}
-                                        className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
-                                        title="Previous Page"
-                                    >
-                                        <ChevronLeft className="w-5 h-5" />
-                                    </button>
-                                    <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
-                                        {currentPage}
-                                    </div>
-                                    <button
-                                        onClick={() => setCurrentPage(prev => Math.min(Math.max(1, Math.ceil(filteredReports.length / itemsPerPage)), prev + 1))}
-                                        disabled={currentPage === Math.max(1, Math.ceil(filteredReports.length / itemsPerPage))}
-                                        className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
-                                        title="Next Page"
-                                    >
-                                        <ChevronRight className="w-5 h-5" />
-                                    </button>
-                                </div>
+                            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                            {/* Left: Items per page */}
+                            <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                                <select 
+                                    value={itemsPerPage} 
+                                    onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                    className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                                >
+                                    <option value={10}>10</option>
+                                    <option value={20}>20</option>
+                                    <option value={50}>50</option>
+                                    <option value={100}>100</option>
+                                </select>
                             </div>
+
+                            {/* Center: Showing info */}
+                            <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+                                Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredReports.length)} of {filteredReports.length} records
+                            </div>
+
+                            {/* Right: Pagination */}
+                            <div className="flex items-center gap-1.5">
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                </button>
+                                
+                                {(() => {
+                                    const totalItems = filteredReports.length;
+                                    const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+                                    const pages = [];
+                                    if (totalPages <= 5) {
+                                        for (let i = 1; i <= totalPages; i++) pages.push(i);
+                                    } else {
+                                        if (currentPage <= 3) {
+                                            pages.push(1, 2, 3, 4, '...', totalPages);
+                                        } else if (currentPage >= totalPages - 2) {
+                                            pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                                        } else {
+                                            pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                                        }
+                                    }
+
+                                    return pages.map((page, index) => {
+                                        if (page === '...') {
+                                            return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                                        }
+                                        const pageNum = page;
+                                        const isActive = currentPage === pageNum;
+                                        return (
+                                            <button
+                                                key={`page-${pageNum}`}
+                                                onClick={() => setCurrentPage(pageNum)}
+                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
+                                                    isActive 
+                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' 
+                                                        : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                                }`}
+                                            >
+                                                {pageNum}
+                                            </button>
+                                        );
+                                    });
+                                })()}
+
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredReports.length / itemsPerPage), prev + 1))}
+                                    disabled={currentPage === Math.max(1, Math.ceil(filteredReports.length / itemsPerPage)) || filteredReports.length === 0}
+                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                >
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
                         )}
                     </div>
                 </div>

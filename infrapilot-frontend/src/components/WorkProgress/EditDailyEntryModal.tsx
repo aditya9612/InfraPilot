@@ -55,7 +55,11 @@ const EditDailyEntryModal = ({ isOpen, onClose, onSubmit, entry }: EditDailyEntr
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    const val = name === "today_progress" ? Number(value) : value;
+    let val: any = value;
+    if (name === "today_progress") {
+      val = value === "" ? "" : Number(value);
+      if (typeof val === "number" && val < 0) return;
+    }
     setFormData(prev => ({ ...prev, [name]: val }));
     if (errors[name]) {
         setErrors(prev => {

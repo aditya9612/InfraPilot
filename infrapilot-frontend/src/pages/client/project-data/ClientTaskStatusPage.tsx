@@ -28,7 +28,7 @@ const DEFAULT_MOCK_DATA: WorkSummaryItem[] = [
   { task_id: 7, category: "Plumbing & Electrification", plan_percentage: 40, actual_percentage: 35, efficiency: "MEDIUM", status: "In Progress" },
 ];
 
-const ClientWorkSummaryPage = () => {
+const ClientTaskStatusPage = () => {
   const [data, setData] = useState<WorkSummaryData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -150,4 +150,4 @@ const ClientWorkSummaryPage = () => {
   );
 };
 
-export default ClientWorkSummaryPage;
+export default ClientTaskStatusPage;

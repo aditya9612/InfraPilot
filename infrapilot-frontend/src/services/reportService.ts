@@ -46,6 +46,11 @@ export const reportService = {
         return response.data;
     },
 
+    getProjectReportData: async (projectId: number, type: string, month: string, year: string) => {
+        const response = await api.get(`/reports/project`, { params: { project_id: projectId, type, month, year } });
+        return response.data;
+    },
+
     getCashflow: async () => {
         const response = await api.get(`/reports/cashflow`);
         return response.data;

@@ -1,9 +1,6 @@
-﻿import api from "./api";
+import api from "./api";
 import type { 
-    AdvanceRequestPayload, 
-    Payment, 
-    AdvanceRequest, 
-    PayrollReport 
+    Payment
 } from "../types/payment";
 
 export const paymentService = {
@@ -19,28 +16,66 @@ export const paymentService = {
     },
 
     /**
-     * Submit advance payment request
-     * POST /api/v1/payments/advance
+     * Generate payroll for a given month
+     * POST /api/v1/labour/payroll/generate
      */
-    async requestAdvance(payload: AdvanceRequestPayload): Promise<AdvanceRequest> {
-        console.log("POST /api/v1/labour/payments/advance Request Body:", payload);
-        const response = await api.post<AdvanceRequest>("/labour/payments/advance", payload);
-        console.log("POST /api/v1/labour/payments/advance Raw Response Body:", response.data);
+    async generatePayroll(payload: { month: number; year: number }): Promise<any> {
+        console.log("POST /api/v1/labour/payroll/generate Request Body:", payload);
+        const response = await api.post<any>("/labour/payroll/generate", payload);
+        console.log("POST /api/v1/labour/payroll/generate Raw Response Body:", response.data);
+        return response.data;
+    },
+
+    /**
+     * Export Payroll Excel
+     * GET /api/v1/labour/payroll/export
+     */
+    async exportPayroll(month: number, year: number): Promise<void> {
+        console.log(`GET /api/v1/labour/payroll/export?month=${month}&year=${year}`);
+        const response = await api.get("/labour/payroll/export", {
+            params: { month, year },
+            responseType: 'blob'
+        });
+        
+        // Create a download link for the blob
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `Payroll_Report_${month}_${year}.xlsx`);
+        document.body.appendChild(link);
+        link.click();
+        
+        // Cleanup
+        link.parentNode?.removeChild(link);
+        window.URL.revokeObjectURL(url);
+    },
+
+    /**
+     * Submit advance payment request
+     * POST /api/v1/labour/advance
+     */
+    async requestAdvance(payload: any): Promise<any> {
+        console.log("POST /api/v1/labour/advance Request Body:", payload);
+        const response = await api.post<any>("/labour/advance", payload);
+        console.log("POST /api/v1/labour/advance Raw Response Body:", response.data);
         return response.data;
     },
 
     async getPaymentHistory(params?: any): Promise<Payment[]> {
         try {
+            const now = new Date();
             // Standardize parameters to avoid 422 Validation Errors
             const cleanParams: any = {
-                project_id: params?.project_id?.toString() || "92"
+                project_id: params?.project_id?.toString() || "1",
+                month: params?.month?.toString() || (now.getMonth() + 1).toString().padStart(2, '0'),
+                year: params?.year?.toString() || now.getFullYear().toString()
             };
             if (params?.limit) cleanParams.limit = Number(params.limit);
             if (params?.offset !== undefined) cleanParams.offset = Number(params.offset);
             
-            console.log("GET /api/v1/labour/payments Request Params:", cleanParams);
-            const response = await api.get<Payment[]>("/labour/payments", { params: cleanParams });
-            console.log("GET /api/v1/labour/payments Raw Response Body:", response.data);
+            console.log("GET /api/v1/labour/payroll/disbursement-history Request Params:", cleanParams);
+            const response = await api.get<Payment[]>("/labour/payroll/disbursement-history", { params: cleanParams });
+            console.log("GET /api/v1/labour/payroll/disbursement-history Raw Response Body:", response.data);
             return response.data;
         } catch (err: any) {
             if (err.response?.status === 422) {
@@ -57,9 +92,15 @@ export const paymentService = {
      */
     async getPendingDues(params?: any): Promise<any[]> {
         try {
-            console.log("GET /api/v1/labour/pending Request Params:", params);
-            const response = await api.get("/labour/pending", { params });
-            console.log("GET /api/v1/labour/pending Raw Response Body:", response.data);
+            const now = new Date();
+            const cleanParams: any = {
+                project_id: params?.project_id?.toString() || "1",
+                month: params?.month?.toString() || (now.getMonth() + 1).toString().padStart(2, '0'),
+                year: params?.year?.toString() || now.getFullYear().toString()
+            };
+            console.log("GET /api/v1/labour/payroll/contractor-liability Request Params:", cleanParams);
+            const response = await api.get("/labour/payroll/contractor-liability", { params: cleanParams });
+            console.log("GET /api/v1/labour/payroll/contractor-liability Raw Response Body:", response.data);
             return response.data;
         } catch (err) {
             console.log("paymentService: Pending Dues fetch failed. Returning empty recordset.");
@@ -68,64 +109,125 @@ export const paymentService = {
     },
 
     /**
-     * Get Daily Payroll Report
-     * GET /api/v1/labour/report/daily
+     * Get Aggregate Payroll Report
+     * GET /api/v1/labour/payroll/aggregate-report
      */
-    async getDailyPayroll(projectId?: number | string): Promise<PayrollReport[]> {
-        console.log(`GET /api/v1/labour/report/daily?project_id=${projectId}`);
-        const response = await api.get("/labour/report/daily", {
-            params: { project_id: projectId }
-        });
-        console.log("GET /api/v1/labour/report/daily Raw Response Body:", response.data);
-        return response.data;
-    },
-
-    /**
-     * Get Weekly Payroll Report
-     * GET /api/v1/labour/report/weekly
-     */
-    async getWeeklyPayroll(projectId?: number | string): Promise<PayrollReport[]> {
-        console.log(`GET /api/v1/labour/report/weekly?project_id=${projectId}`);
-        const response = await api.get("/labour/report/weekly", {
-            params: { project_id: projectId }
-        });
-        console.log("GET /api/v1/labour/report/weekly Raw Response Body:", response.data);
-        return response.data;
-    },
-
-    /**
-     * Get Monthly Payroll Report
-     * GET /api/v1/labour/report/monthly
-     */
-    async getMonthlyPayroll(projectId?: number | string): Promise<PayrollReport[]> {
-        console.log(`GET /api/v1/labour/report/monthly?project_id=${projectId}`);
-        const response = await api.get("/labour/report/monthly", {
-            params: { project_id: projectId }
-        });
-        console.log("GET /api/v1/labour/report/monthly Raw Response Body:", response.data);
-        return response.data;
-    },
-
-    /**
-     * Export Payroll to Excel
-     * GET /api/v1/labour/payroll/export
-     */
-    async exportPayroll(filters?: any): Promise<Blob> {
+    async getAggregateReport(params?: any): Promise<any[]> {
         const now = new Date();
         const cleanParams: any = {
-            month: (filters?.month || (now.getMonth() + 1)).toString(),
-            year: (filters?.year || now.getFullYear()).toString()
+            project_id: params?.project_id?.toString() || "1",
+            month: params?.month?.toString() || (now.getMonth() + 1).toString().padStart(2, '0'),
+            year: params?.year?.toString() || now.getFullYear().toString()
         };
-        // Only pass project_id if explicitly provided
-        if (filters?.project_id) cleanParams.project_id = filters.project_id.toString();
-        console.log("GET /api/v1/labour/payroll/export Request Params:", cleanParams);
-        const response = await api.get("/labour/payroll/export", {
-            params: cleanParams,
-            responseType: 'blob'
-        });
-        console.log("Payroll Excel Export Success: 200 OK");
+        console.log("GET /api/v1/labour/payroll/aggregate-report Request Params:", cleanParams);
+        try {
+            const response = await api.get("/labour/payroll/aggregate-report", { params: cleanParams });
+            console.log("GET /api/v1/labour/payroll/aggregate-report Raw Response Body:", response.data);
+            return Array.isArray(response.data) ? response.data : (response.data?.items || []);
+        } catch (err) {
+            console.error("Failed to fetch aggregate report:", err);
+            return [];
+        }
+    },
+
+    /**
+     * Get Fiscal Summary
+     * GET /api/v1/labour/payroll/fiscal-summary
+     */
+    async getFiscalSummary(params?: any): Promise<any> {
+        const now = new Date();
+        const cleanParams: any = {
+            project_id: params?.project_id?.toString() || "1",
+            month: params?.month?.toString() || (now.getMonth() + 1).toString().padStart(2, '0'),
+            year: params?.year?.toString() || now.getFullYear().toString()
+        };
+        console.log("GET /api/v1/labour/payroll/fiscal-summary Request Params:", cleanParams);
+        try {
+            const response = await api.get("/labour/payroll/fiscal-summary", { params: cleanParams });
+            console.log("GET /api/v1/labour/payroll/fiscal-summary Raw Response Body:", response.data);
+            return response.data;
+        } catch (err) {
+            console.error("Failed to fetch fiscal summary:", err);
+            return {
+                total_payout: 0,
+                high_payouts: 0,
+                ot_intensive: 0,
+                advance_adjusted: 0
+            };
+        }
+    },
+
+    /**
+     * Get Payroll Momentum
+     * GET /api/v1/labour/payroll/momentum
+     */
+    async getPayrollMomentum(params?: any): Promise<any[]> {
+        const cleanParams: any = {
+            project_id: params?.project_id?.toString() || "1"
+        };
+        console.log("GET /api/v1/labour/payroll/momentum Request Params:", cleanParams);
+        try {
+            const response = await api.get("/labour/payroll/momentum", { params: cleanParams });
+            console.log("GET /api/v1/labour/payroll/momentum Raw Response Body:", response.data);
+            return Array.isArray(response.data) ? response.data : (response.data?.items || []);
+        } catch (err) {
+            console.error("Failed to fetch payroll momentum:", err);
+            return [];
+        }
+    },
+
+    /**
+     * Get Weekly Velocity
+     * GET /api/v1/labour/payroll/weekly-velocity
+     */
+    async getWeeklyVelocity(params?: any): Promise<any[]> {
+        const now = new Date();
+        const cleanParams: any = {
+            project_id: params?.project_id?.toString() || "1",
+            month: params?.month?.toString() || (now.getMonth() + 1).toString().padStart(2, '0'),
+            year: params?.year?.toString() || now.getFullYear().toString()
+        };
+        console.log("GET /api/v1/labour/payroll/weekly-velocity Request Params:", cleanParams);
+        const response = await api.get("/labour/payroll/weekly-velocity", { params: cleanParams });
+        console.log("GET /api/v1/labour/payroll/weekly-velocity Raw Response Body:", response.data);
         return response.data;
     },
+
+    /**
+     * Get Active Payroll List
+     * GET /api/v1/labour/payroll
+     */
+    async getActivePayroll(params?: any): Promise<any[]> {
+        const now = new Date();
+        const cleanParams: any = {
+            project_id: params?.project_id?.toString() || "1",
+            month: params?.month?.toString() || (now.getMonth() + 1).toString().padStart(2, '0'),
+            year: params?.year?.toString() || now.getFullYear().toString()
+        };
+        console.log("GET /api/v1/labour/payroll Request Params:", cleanParams);
+        const response = await api.get("/labour/payroll", { params: cleanParams });
+        console.log("GET /api/v1/labour/payroll Raw Response Body:", response.data);
+        return response.data;
+    },
+
+    /**
+     * Get Payroll Stats
+     * GET /api/v1/labour/payroll/stats
+     */
+    async getPayrollStats(params?: any): Promise<any> {
+        const now = new Date();
+        const cleanParams: any = {
+            project_id: params?.project_id?.toString() || "1",
+            month: params?.month?.toString() || (now.getMonth() + 1).toString().padStart(2, '0'),
+            year: params?.year?.toString() || now.getFullYear().toString()
+        };
+        console.log("GET /api/v1/labour/payroll/stats Request Params:", cleanParams);
+        const response = await api.get("/labour/payroll/stats", { params: cleanParams });
+        console.log("GET /api/v1/labour/payroll/stats Raw Response Body:", response.data);
+        return response.data;
+    },
+
+
 
     /**
      * Export Payroll to PDF

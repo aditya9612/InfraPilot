@@ -16,7 +16,9 @@ import {
     Box
     ,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    Clock,
+    ChevronDown
 } from "lucide-react";
 import { siteRequestService } from "../../../services/siteRequestService";
 import { projectService } from "../../../services/projectService";
@@ -43,9 +45,10 @@ const MaterialRequestPage = () => {
     const [projectId, setProjectId] = useState<number | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [projects, setProjects] = useState<any[]>([]);
-    const itemsPerPage = 20;
+    const [itemsPerPage, setItemsPerPage] = useState(10);
 
     const [activeFilter, setActiveFilter] = useState<"Select" | "Approved" | "Pending" | "Reject">("Select");
+    const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
 
     const [formData, setFormData] = useState({
         project_id: "" as string | number,
@@ -197,7 +200,7 @@ const MaterialRequestPage = () => {
     }, [requestData, searchTerm]);
 
     const filteredRequests = useMemo(() => {
-        let data = baseFilteredRequests;
+        let data = [...baseFilteredRequests];
 
         // Apply Status Filter
         if (activeFilter === "Approved") {
@@ -208,13 +211,22 @@ const MaterialRequestPage = () => {
             data = data.filter(r => r.status === "Rejected");
         }
 
+        // Apply Sort Order
+        data.sort((a, b) => {
+            if (sortOrder === "latest") {
+                return Number(b.id) - Number(a.id);
+            } else {
+                return Number(a.id) - Number(b.id);
+            }
+        });
+
         return data;
-    }, [baseFilteredRequests, activeFilter]);
+    }, [baseFilteredRequests, activeFilter, sortOrder]);
 
     const paginatedRequests = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
         return filteredRequests.slice(startIndex, startIndex + itemsPerPage);
-    }, [filteredRequests, currentPage]);
+    }, [filteredRequests, currentPage, itemsPerPage]);
 
     // Reset page on filter change
     useEffect(() => {
@@ -341,6 +353,24 @@ const MaterialRequestPage = () => {
                                 <option value="Pending">Pending</option>
                                 <option value="Reject">Reject</option>
                             </select>
+
+                            {/* Sort Filter */}
+                            <div className="relative flex items-center">
+                                <div className="absolute left-3 text-slate-400 pointer-events-none">
+                                    <Clock className="w-4 h-4" />
+                                </div>
+                                <select
+                                    value={sortOrder}
+                                    onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
+                                    className="appearance-none bg-white border border-primary rounded-full text-sm font-bold text-primary shadow-sm pl-9 pr-8 py-1.5 outline-none cursor-pointer"
+                                >
+                                    <option value="latest">Latest First</option>
+                                    <option value="oldest">Oldest First</option>
+                                </select>
+                                <div className="absolute right-3 text-slate-400 pointer-events-none">
+                                    <ChevronDown className="w-4 h-4" />
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -399,11 +429,8 @@ const MaterialRequestPage = () => {
                                                 <div className="flex items-center justify-end gap-2 font-inter">
                                                     <button
                                                         onClick={() => setSelectedRequest(request)}
-                                                        className={`p-2 text-white rounded-xl shadow-lg transition-all active:scale-95 font-inter ${request.status === 'Approved' ? 'bg-emerald-600 shadow-emerald-600/20 hover:bg-emerald-700' :
-                                                            request.status === 'Pending' ? 'bg-amber-600 shadow-amber-600/20 hover:bg-amber-700' :
-                                                                'bg-rose-600 shadow-rose-600/20 hover:bg-rose-700'
-                                                            }`}
-                                                        title="Analyze Requisition"
+                                                        className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
+                                                        title="View Details"
                                                     >
                                                         <Eye className="w-4 h-4" />
                                                     </button>
@@ -441,31 +468,83 @@ const MaterialRequestPage = () => {
                         </table>
                     </div>
 
-                    {/* â”€â”€ Pagination Controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                    {/* ── Pagination Controls ──────────────────────────── */}
                     {!isLoading && filteredRequests.length > 0 && (
-                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
-                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                                PAGE {currentPage} OF {Math.max(1, Math.ceil(filteredRequests.length / itemsPerPage))}
-                            </div>
+                        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                            {/* Left: Items per page */}
                             <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                                <select 
+                                    value={itemsPerPage} 
+                                    onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                    className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                                >
+                                    <option value={10}>10</option>
+                                    <option value={20}>20</option>
+                                    <option value={50}>50</option>
+                                    <option value={100}>100</option>
+                                </select>
+                            </div>
+
+                            {/* Center: Showing info */}
+                            <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+                                Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredRequests.length)} of {filteredRequests.length} records
+                            </div>
+
+                            {/* Right: Pagination */}
+                            <div className="flex items-center gap-1.5">
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                     disabled={currentPage === 1}
-                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
-                                    title="Previous Page"
+                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
                                 >
-                                    <ChevronLeft className="w-5 h-5" />
+                                    <ChevronLeft className="w-4 h-4" />
                                 </button>
-                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
-                                    {currentPage}
-                                </div>
+                                
+                                {(() => {
+                                    const totalItems = filteredRequests.length;
+                                    const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+                                    const pages = [];
+                                    if (totalPages <= 5) {
+                                        for (let i = 1; i <= totalPages; i++) pages.push(i);
+                                    } else {
+                                        if (currentPage <= 3) {
+                                            pages.push(1, 2, 3, 4, '...', totalPages);
+                                        } else if (currentPage >= totalPages - 2) {
+                                            pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                                        } else {
+                                            pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                                        }
+                                    }
+
+                                    return pages.map((page, index) => {
+                                        if (page === '...') {
+                                            return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                                        }
+                                        const pageNum = page as number;
+                                        const isActive = currentPage === pageNum;
+                                        return (
+                                            <button
+                                                key={`page-${pageNum}`}
+                                                onClick={() => setCurrentPage(pageNum)}
+                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
+                                                    isActive 
+                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' 
+                                                        : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                                }`}
+                                            >
+                                                {pageNum}
+                                            </button>
+                                        );
+                                    });
+                                })()}
+
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.min(Math.max(1, Math.ceil(filteredRequests.length / itemsPerPage)), prev + 1))}
-                                    disabled={currentPage === Math.max(1, Math.ceil(filteredRequests.length / itemsPerPage))}
-                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
-                                    title="Next Page"
+                                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredRequests.length / itemsPerPage), prev + 1))}
+                                    disabled={currentPage === Math.max(1, Math.ceil(filteredRequests.length / itemsPerPage)) || filteredRequests.length === 0}
+                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
                                 >
-                                    <ChevronRight className="w-5 h-5" />
+                                    <ChevronRight className="w-4 h-4" />
                                 </button>
                             </div>
                         </div>
