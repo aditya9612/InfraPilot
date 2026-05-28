@@ -244,8 +244,13 @@ export const projectService = {
   },
 
   async createTask(projectId: number, taskData: any) {
-    const response = await api.post(`/projects/${projectId}/tasks`, taskData);
-    return response.data;
+    try {
+      const response = await api.post(`/projects/${projectId}/tasks`, taskData);
+      return response.data;
+    } catch (error: any) {
+      console.error("Create Task API Error:", error.response?.data || error.message);
+      throw error;
+    }
   },
 
   async getTask(projectId: number, taskId: number) {
@@ -254,8 +259,13 @@ export const projectService = {
   },
 
   async updateTask(projectId: number, taskId: number, taskData: any) {
-    const response = await api.put(`/projects/${projectId}/tasks/${taskId}`, taskData);
-    return response.data;
+    try {
+      const response = await api.put(`/projects/${projectId}/tasks/${taskId}`, taskData);
+      return response.data;
+    } catch (error: any) {
+      console.error(`Update Task ${taskId} API Error:`, error.response?.data || error.message);
+      throw error;
+    }
   },
 
   async deleteTask(projectId: number, taskId: number) {
@@ -287,15 +297,10 @@ export const projectService = {
    * Get work progress activities for a project and engineer
    * GET /api/v1/projects/work-progress/activities
    */
-  async getWorkProgressActivities(projectId: number, engineerId?: number) {
+  async getWorkProgressActivities(projectId: number, engineerId: number) {
     try {
-      const params: any = { project_id: projectId };
-      if (engineerId) {
-        params.engineer_id = engineerId;
-      }
-
-      const response = await api.get(`/projects/work-progress/activities`, {
-        params: params
+      const response = await api.get('/work-progress/activities', {
+        params: { project_id: projectId, engineer_id: engineerId }
       });
       const rawData = response.data;
 

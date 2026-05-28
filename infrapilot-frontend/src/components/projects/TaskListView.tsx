@@ -9,8 +9,32 @@ interface TaskListViewProps {
 }
 
 const TaskListView = ({ tasks, members, onEdit, onDelete, onView }: TaskListViewProps) => {
-  const getMemberName = (id: number) => {
-    return members.find(m => m.user_id === id)?.full_name || `User ${id}`;
+  const getMemberName = (task: any) => {
+    // 1. Check for direct name fields
+    const directName = task.assigned_to_name ||
+      task.engineer_name ||
+      task.assigned_user?.full_name ||
+      task.engineer?.full_name ||
+      task.user?.full_name ||
+      task.user?.name;
+    if (directName) return directName;
+
+    // 2. Check for various possible assignment ID fields
+    const id = task.assigned_user_id ||
+      task.assigned_to ||
+      task.engineer_id ||
+      task.lead_id ||
+      task.assigned_user?.id ||
+      task.engineer?.id;
+
+    // If no ID found at all, then it's truly unassigned
+    if (!id && id !== 0) return "Unassigned";
+
+    // Diagnostic: If we have an ID but can't find the member, show the ID
+    const member = members.find(m => (m as any).user_id == id || (m as any).id == id);
+    if (!member) return `User ${id}`;
+
+    return member.full_name;
   };
 
   const priorityLabels: Record<number, string> = {
@@ -52,53 +76,52 @@ const TaskListView = ({ tasks, members, onEdit, onDelete, onView }: TaskListView
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                   <div className="flex justify-center">
+                  <div className="flex justify-center">
                     <span className={`px-2 py-0.5 rounded border text-[9px] font-bold uppercase tracking-wider ${priorityColors[task.priority] || priorityColors[3]}`}>
-                        {priorityLabels[task.priority] || "Low"}
+                      {priorityLabels[task.priority] || "Low"}
                     </span>
-                   </div>
+                  </div>
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-bold text-slate-500 border border-slate-200 ring-2 ring-white shadow-sm">
-                        {getMemberName(task.assigned_user_id).split(' ').map(n => n[0]).join('')}
+                      {getMemberName(task).split(' ').map((n: string) => n[0]).join('')}
                     </div>
-                    <span className="text-xs font-bold text-slate-600">{getMemberName(task.assigned_user_id)}</span>
+                    <span className="text-xs font-bold text-slate-600">{getMemberName(task)}</span>
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                   <div className="flex flex-col gap-0.5">
-                     <span className="text-[10px] font-bold text-slate-600">{new Date(task.end_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</span>
-                     <span className="text-[8px] text-slate-400 uppercase font-bold tracking-tighter">Deadline</span>
-                   </div>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[10px] font-bold text-slate-600">{new Date(task.end_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</span>
+                    <span className="text-[8px] text-slate-400 uppercase font-bold tracking-tighter">Deadline</span>
+                  </div>
                 </td>
                 <td className="px-6 py-4">
-                   <div className="flex flex-col gap-1.5 min-w-[120px]">
-                      <div className="flex justify-between text-[9px] font-bold">
-                        <span className="text-slate-400">{task.completion_percentage}% Done</span>
-                        {task.is_delayed && <span className="text-rose-500 animate-pulse">DELAYED</span>}
-                      </div>
-                      <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full transition-all duration-1000 ${task.is_delayed ? 'bg-rose-500' : 'bg-success'}`}
-                          style={{ width: `${task.completion_percentage}%` }}
-                        />
-                      </div>
-                   </div>
+                  <div className="flex flex-col gap-1.5 min-w-[120px]">
+                    <div className="flex justify-between text-[9px] font-bold">
+                      <span className="text-slate-400">{task.completion_percentage}% Done</span>
+                      {task.is_delayed && <span className="text-rose-500 animate-pulse">DELAYED</span>}
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full transition-all duration-1000 ${task.is_delayed ? 'bg-rose-500' : 'bg-success'}`}
+                        style={{ width: `${task.completion_percentage}%` }}
+                      />
+                    </div>
+                  </div>
                 </td>
                 <td className="px-6 py-4">
-                  <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${
-                    task.status === 'Completed' ? 'bg-emerald-100 text-emerald-600' :
+                  <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${task.status === 'Completed' ? 'bg-emerald-100 text-emerald-600' :
                     task.status === 'In Progress' ? 'bg-blue-100 text-primary' :
-                    task.status === 'Delayed' ? 'bg-rose-100 text-rose-600' :
-                    'bg-slate-100 text-slate-500'
-                  }`}>
+                      task.status === 'Delayed' ? 'bg-rose-100 text-rose-600' :
+                        'bg-slate-100 text-slate-500'
+                    }`}>
                     {task.status}
                   </span>
                 </td>
                 <td className="px-6 py-4 text-center">
                   <div className="flex items-center justify-center gap-1.5">
-                    <button 
+                    <button
                       onClick={() => onView(task)}
                       className="p-1.5 text-slate-400 hover:text-primary hover:bg-blue-50 rounded-lg transition-all"
                       title="View Details"
@@ -108,7 +131,7 @@ const TaskListView = ({ tasks, members, onEdit, onDelete, onView }: TaskListView
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                       </svg>
                     </button>
-                    <button 
+                    <button
                       onClick={() => onEdit(task)}
                       className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
                       title="Edit Task"
@@ -117,7 +140,7 @@ const TaskListView = ({ tasks, members, onEdit, onDelete, onView }: TaskListView
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                       </svg>
                     </button>
-                    <button 
+                    <button
                       onClick={() => onDelete(task.id)}
                       className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
                       title="Delete Task"

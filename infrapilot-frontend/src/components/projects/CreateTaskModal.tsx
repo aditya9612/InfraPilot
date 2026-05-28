@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Modal from "../common/Modal";
 import toast from "react-hot-toast";
 import type { TaskStatus, ProjectMember } from "../../types/project";
@@ -25,10 +25,17 @@ const CreateTaskModal = ({
     status: "Planned" as TaskStatus,
     start_date: "",
     end_date: "",
-    assigned_user_id: members[0]?.user_id || 0,
+    assigned_user_id: members[0]?.user_id || "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
+
+  // Sync default assigned user when members load
+  useEffect(() => {
+    if (members.length > 0 && !formData.assigned_user_id) {
+      setFormData(prev => ({ ...prev, assigned_user_id: members[0].user_id }));
+    }
+  }, [members, formData.assigned_user_id]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -38,7 +45,9 @@ const CreateTaskModal = ({
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === "priority" || name === "assigned_user_id" ? parseInt(value) : value,
+      [name]: (name === "priority" || name === "assigned_user_id")
+        ? (value ? parseInt(value) : "")
+        : value,
     }));
     if (errors[name]) {
       setErrors((prev) => {
@@ -55,37 +64,45 @@ const CreateTaskModal = ({
     if (!formData.start_date) newErrors.start_date = "Start date is required.";
     if (!formData.end_date) newErrors.end_date = "End date is required.";
     if (!formData.assigned_user_id) newErrors.assigned_user_id = "Assigned user is required.";
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
 
     setIsLoading(true);
-    // Simulate API call based on USER requirement
-    setTimeout(() => {
+    try {
       const requestBody = {
         project_id: projectId,
         ...formData,
+        // Send redundant fields for backend compatibility (Tasks and Activities)
+        activity_name: formData.title,
+        engineer_id: formData.assigned_user_id,
+        assigned_to: formData.assigned_user_id,
+        user_id: formData.assigned_user_id,
+        lead_id: formData.assigned_user_id,
+        assigned_to_id: formData.assigned_user_id,
       };
-      
+
       console.log("Creating Task (Request Body):", requestBody);
-      
-      if (onSubmit) onSubmit(requestBody);
-      setIsLoading(false);
-      
+
+      if (onSubmit) {
+        await onSubmit(requestBody);
+      }
+
       toast.success(`Task "${formData.title}" assigned successfully!`, {
         style: {
-          borderRadius: '12px',
-          background: '#333',
-          color: '#fff',
-          fontSize: '14px',
-          fontWeight: '600'
+          borderRadius: "12px",
+          background: "#333",
+          color: "#fff",
+          fontSize: "14px",
+          fontWeight: "600",
         },
       });
+
       onClose();
       // Reset form
       setFormData({
@@ -95,9 +112,14 @@ const CreateTaskModal = ({
         status: "Planned",
         start_date: "",
         end_date: "",
-        assigned_user_id: members[0]?.user_id || 0,
+        assigned_user_id: members[0]?.user_id || "",
       });
-    }, 1000);
+    } catch (error) {
+      // Error is handled by the parent's toast
+      console.error("Task Creation Error:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const modalFooter = (
@@ -140,7 +162,7 @@ const CreateTaskModal = ({
               />
               {errors.title && <p className="text-[10px] text-red-500 mt-1">{errors.title}</p>}
             </div>
-            
+
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">Description <span className="text-red-500">*</span></label>
               <textarea
@@ -160,10 +182,10 @@ const CreateTaskModal = ({
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1">Assigned To</label>
                 <select
-                  name="assigned_user_id" value={formData.assigned_user_id} onChange={handleChange}
+                  name="assigned_user_id" value={formData.assigned_user_id || ""} onChange={handleChange}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                 >
-                  <option value={0}>Select a team member</option>
+                  <option value="">Select a team member</option>
                   {members.map(m => (
                     <option key={m.user_id} value={m.user_id}>{m.full_name} ({m.role})</option>
                   ))}
