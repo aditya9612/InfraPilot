@@ -12,8 +12,7 @@ import {
     Briefcase,
     ChevronLeft,
     ChevronRight,
-    FileText,
-    Download
+    FileText
 } from "lucide-react";
 import { paymentService } from '../../../services/paymentService';
 import PaySalaryModal from '../../../components/payment/PaySalaryModal';
@@ -63,22 +62,7 @@ const PaymentPage: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
 
-    const [isExporting, setIsExporting] = useState(false);
 
-    const handleExport = async () => {
-        setIsExporting(true);
-        try {
-            const currentMonth = new Date().getMonth() + 1;
-            const currentYear = new Date().getFullYear();
-            await paymentService.exportPayroll(currentMonth, currentYear);
-            toast.success("Payroll exported successfully!");
-        } catch (error) {
-            console.error("Failed to export payroll:", error);
-            toast.error("Failed to export payroll");
-        } finally {
-            setIsExporting(false);
-        }
-    };
 
     useEffect(() => {
         setCurrentPage(1);
@@ -303,14 +287,6 @@ const PaymentPage: React.FC = () => {
                                     <RotateCcw className="w-4 h-4 font-inter" />
                                 </button>
                             )}
-                            <button
-                                onClick={handleExport}
-                                disabled={isExporting}
-                                className="bg-emerald-50 text-emerald-600 border border-emerald-200 px-4 py-2 rounded-xl flex items-center gap-2 font-inter hover:bg-emerald-100 transition-all text-[10px] font-bold uppercase tracking-widest"
-                            >
-                                <Download className="w-3.5 h-3.5" />
-                                {isExporting ? 'Exporting...' : 'Export Excel'}
-                            </button>
                         </div>
                     </div>
 
@@ -401,12 +377,6 @@ const PaymentPage: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-4 text-right font-inter">
                                                 <div className="flex items-center justify-end gap-2 font-inter">
-                                                    <button
-                                                        onClick={() => setAdvanceTarget(labour)}
-                                                        className="px-4 py-2 bg-white text-slate-400 text-[9px] font-bold uppercase tracking-widest rounded-xl hover:bg-slate-50 hover:text-slate-600 transition-all border border-slate-100 font-inter active:scale-95"
-                                                    >
-                                                        Advance
-                                                    </button>
                                                     <button
                                                         onClick={() => setPayTarget(labour)}
                                                         className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-[9px] font-bold uppercase tracking-widest rounded-xl hover:bg-blue-600 shadow-lg shadow-primary/20 transition-all active:scale-95 font-inter"
@@ -564,7 +534,7 @@ const PaymentPage: React.FC = () => {
                                         if (page === '...') {
                                             return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
                                         }
-                                        const pageNum = page;
+                                        const pageNum = page as number;
                                         const isActive = currentPage === pageNum;
                                         return (
                                             <button

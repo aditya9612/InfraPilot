@@ -220,17 +220,17 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
               {errors.activity_name && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.activity_name}</p>}
             </div>
             <div>
-              <label className={labelClasses}>BOQ Reference Code</label>
+              <label className={labelClasses}>BOQ Item</label>
               <select
                 name="boq_code"
                 className={inputClasses(errors.boq_code)}
                 value={formData.boq_code}
                 onChange={handleChange}
               >
-                <option value="">Select BOQ Code</option>
+                <option value="">Select BOQ Item</option>
                 {displayedBoqs.map(b => (
                   <option key={b.id || b.boq_id} value={b.id || b.boq_id}>
-                    {b.item_name ? `${b.item_name} (${b.id})` : `BOQ #${b.id}`}
+                    {b.item_name || `BOQ #${b.id}`}
                   </option>
                 ))}
               </select>
@@ -247,7 +247,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
                 <option value="">Select Work Order</option>
                 {displayedWorkOrders.map(w => (
                   <option key={w.id} value={w.id}>
-                    {w.title || w.work_order_no || `Work Order #${w.id}`}
+                    {w.title || w.work_order_no || `Work Order`}
                   </option>
                 ))}
               </select>

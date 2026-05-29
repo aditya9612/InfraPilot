@@ -2,54 +2,50 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Navbar from '../../../components/common/Navbar';
 import PageTransition from '../../../components/common/PageTransition';
 import Modal from '../../../components/common/Modal';
+import { useNavigate } from 'react-router-dom';
 import {
     Clock,
     MapPin,
-    Search,
     Download,
     Calendar,
-    Filter,
     Camera,
-    RefreshCw,
-    Check,
-    X,
-    LogOut,
     CheckCircle2,
-    ArrowRight,
+    LogIn,
+    LogOut,
     ChevronLeft,
     ChevronRight,
     Briefcase
 } from "lucide-react";
-import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import labourService from '../../../services/labourService';
+import SelfCheckInModal from './components/SelfCheckInModal';
+import SelfCheckOutModal from './components/SelfCheckOutModal';
 
 type AttendanceState = "NOT_CHECKED_IN" | "CHECKED_IN" | "CHECKED_OUT";
 
 const AttendancePage: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<"Self Attendance" | "Labour Attendance">("Self Attendance");
     const [currentDateTime, setCurrentDateTime] = useState<Date>(new Date());
 
     // Geolocation state
     const [locationAddress, setLocationAddress] = useState<string>("Fetching location...");
 
     // Attendance Flow State
+    const navigate = useNavigate();
     const [attendanceState, setAttendanceState] = useState<AttendanceState>("NOT_CHECKED_IN");
     const [checkInTime, setCheckInTime] = useState<Date | null>(null);
     const [checkOutTime, setCheckOutTime] = useState<Date | null>(null);
 
     // Modals State
-    const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
+    const [isCheckInModalOpen] = useState(false);
     const [isCheckOutModalOpen, setIsCheckOutModalOpen] = useState(false);
 
     // Camera State - Check In
     const videoRef = useRef<HTMLVideoElement>(null);
-    const canvasRef = useRef<HTMLCanvasElement>(null);
     const [stream, setStream] = useState<MediaStream | null>(null);
     const [capturedImage, setCapturedImage] = useState<string | null>(null);
 
     // Camera State - Check Out
     const checkoutVideoRef = useRef<HTMLVideoElement>(null);
-    const checkoutCanvasRef = useRef<HTMLCanvasElement>(null);
     const [checkoutStream, setCheckoutStream] = useState<MediaStream | null>(null);
     const [checkoutCapturedImage, setCheckoutCapturedImage] = useState<string | null>(null);
 
@@ -57,61 +53,85 @@ const AttendancePage: React.FC = () => {
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [selectedLabour, setSelectedLabour] = useState<any>(null);
 
+    // Labour Check-In Form State
+            
+    // Labour Check-Out Form State
+            
+    // Self Check-Out Form State
+    
+    // Self Check-In Form State
+    const [isSelfCheckInFormOpen, setIsSelfCheckInFormOpen] = useState(false);
     // Image Preview State
     const [previewImage, setPreviewImage] = useState<{ url: string, title: string } | null>(null);
 
-    const navigate = useNavigate();
-
+    
     // Labour Attendance Filters
-    const [empSearch, setEmpSearch] = useState("");
-    const [empStatusFilter, setEmpStatusFilter] = useState("All Status");
-    const [empContractorFilter, setEmpContractorFilter] = useState("All Contractors");
-    const [empDurationFilter, setEmpDurationFilter] = useState("Today");
-
+                
     // History Quick Filter & Pagination
     const [historyFilter, setHistoryFilter] = useState<"Today" | "Yesterday" | "All" | "Date">("Today");
     const [historyPage, setHistoryPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [historyDateInput, setHistoryDateInput] = useState("");
 
-    // Mock history records for Yesterday / All / Date views
-    const mockHistoryRecords = Array.from({ length: 25 }, (_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() - (i + 1));
-        return {
-            date: d.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long' }) + ' 2026',
-            project: 'InfraPilot',
-            location: 'Work from Office',
-            onlineStatus: 'Checked Out',
-            checkIn: '09:' + String(10 + (i % 10)).padStart(2, '0') + ' AM',
-            checkOut: '06:' + String(i % 60).padStart(2, '0') + ' PM',
-            hours: '08:' + String(i % 60).padStart(2, '0'),
-            status: i % 3 === 0 ? 'Late' : 'On Time',
-        };
-    });
+    const [selfAttendances, setSelfAttendances] = useState<any[]>([]);
 
-    const getFilteredHistory = () => {
-        if (historyFilter === 'Yesterday') return mockHistoryRecords.slice(0, 1);
-        if (historyFilter === 'All') return mockHistoryRecords;
-        if (historyFilter === 'Date' && historyDateInput) {
-            return mockHistoryRecords.slice(0, 5);
+    const fetchSelfAttendances = async () => {
+        try {
+            const getActiveProjectId = () => {
+                try {
+                    const userStr = localStorage.getItem("infrapilot_user");
+                    if (userStr) {
+                        const parsed = JSON.parse(userStr);
+                        return parsed.user?.project_id || parsed.project_id || 92;
+                    }
+                } catch (e) {}
+                return 92;
+            };
+
+            const activeProjectId = getActiveProjectId();
+            // Assuming project_id=1 as per user request
+            let fromDate = "";
+            let toDate = "";
+            const today = new Date().toISOString().split('T')[0];
+            
+            if (historyFilter === 'Today') {
+                fromDate = today;
+                toDate = today;
+            } else if (historyFilter === 'Yesterday') {
+                const y = new Date();
+                y.setDate(y.getDate() - 1);
+                const yStr = y.toISOString().split('T')[0];
+                fromDate = yStr;
+                toDate = yStr;
+            } else if (historyFilter === 'Date' && historyDateInput) {
+                fromDate = historyDateInput;
+                toDate = historyDateInput;
+            }
+            
+            const data = await labourService.getAttendanceList(activeProjectId, fromDate || undefined, toDate || undefined);
+            setSelfAttendances(data.items || []);
+        } catch (error) {
+            console.error("Failed to fetch self attendances", error);
         }
-        return [];
     };
 
-    const filteredHistory = getFilteredHistory();
-    const paginatedHistory = filteredHistory.slice((historyPage - 1) * itemsPerPage, historyPage * itemsPerPage);
+    useEffect(() => {
+        
+            fetchSelfAttendances();
+        
+    }, [historyFilter, historyDateInput]);
 
+    const paginatedHistory = selfAttendances.slice((historyPage - 1) * itemsPerPage, historyPage * itemsPerPage);
     useEffect(() => {
         const timer = setInterval(() => setCurrentDateTime(new Date()), 60000);
         return () => clearInterval(timer);
     }, []);
 
     useEffect(() => {
-        if (activeTab === "Self Attendance") {
+        
             captureGPS();
-        }
-    }, [activeTab]);
+        
+    }, []);
 
     const captureGPS = () => {
         setLocationAddress("Locating...");
@@ -120,9 +140,12 @@ const AttendancePage: React.FC = () => {
                 async (pos) => {
                     const { latitude, longitude } = pos.coords;
                     try {
-                        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`);
+                        const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`);
                         const data = await res.json();
-                        const address = data.display_name || `${latitude}, ${longitude}`;
+                        let address = `${latitude}, ${longitude}`;
+                        if (data.locality || data.city) {
+                            address = [data.locality, data.city, data.principalSubdivision, data.countryName].filter(Boolean).join(", ");
+                        }
                         setLocationAddress(address);
                     } catch (err) {
                         setLocationAddress(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
@@ -170,13 +193,19 @@ const AttendancePage: React.FC = () => {
     }, [stream]);
 
     useEffect(() => {
-        if (isCheckInModalOpen && !capturedImage) {
+        if ((isCheckInModalOpen || isSelfCheckInFormOpen) && !capturedImage) {
             startCamera();
         } else {
             stopCamera();
         }
         return () => stopCamera();
-    }, [isCheckInModalOpen, capturedImage]);
+    }, [isCheckInModalOpen, isSelfCheckInFormOpen, capturedImage]);
+
+    useEffect(() => {
+        if (isSelfCheckInFormOpen) {
+            captureGPS();
+        }
+    }, [isSelfCheckInFormOpen]);
 
     // Camera Logic - Check Out
     const startCheckoutCamera = async () => {
@@ -209,51 +238,17 @@ const AttendancePage: React.FC = () => {
         return () => stopCheckoutCamera();
     }, [isCheckOutModalOpen, checkoutCapturedImage]);
 
-    const takePhoto = () => {
-        if (videoRef.current && canvasRef.current) {
-            const video = videoRef.current;
-            const canvas = canvasRef.current;
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const context = canvas.getContext('2d');
-            if (context) {
-                context.drawImage(video, 0, 0, canvas.width, canvas.height);
-                const imageUrl = canvas.toDataURL('image/jpeg');
-                setCapturedImage(imageUrl);
-                stopCamera();
-            }
+    useEffect(() => {
+        if (isCheckOutModalOpen) {
+            captureGPS();
         }
-    };
+    }, [isCheckOutModalOpen]);
 
-    const takeCheckoutPhoto = () => {
-        if (checkoutVideoRef.current && checkoutCanvasRef.current) {
-            const video = checkoutVideoRef.current;
-            const canvas = checkoutCanvasRef.current;
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const context = canvas.getContext('2d');
-            if (context) {
-                context.drawImage(video, 0, 0, canvas.width, canvas.height);
-                const imageUrl = canvas.toDataURL('image/jpeg');
-                setCheckoutCapturedImage(imageUrl);
-                stopCheckoutCamera();
-            }
-        }
-    };
+    
+    
+    // Labour View / Delete Logic
 
-    const handleUsePhoto = () => {
-        setCheckInTime(new Date());
-        setAttendanceState("CHECKED_IN");
-        setIsCheckInModalOpen(false);
-        toast.success("Successfully Checked In!");
-    };
 
-    const handleUseCheckoutPhoto = () => {
-        setCheckOutTime(new Date());
-        setAttendanceState("CHECKED_OUT");
-        setIsCheckOutModalOpen(false);
-        toast.success("Successfully Checked Out!");
-    };
 
 
     // Calculate hours diff
@@ -271,83 +266,8 @@ const AttendancePage: React.FC = () => {
         return `${diffHrs.toString().padStart(2, '0')}:${diffMins.toString().padStart(2, '0')}`;
     };
 
-    const mockLabourAttendances = [
-        {
-            id: "LAB-001",
-            name: "Rahul Sharma",
-            contractor: "ABC Builders",
-            department: "Engineering",
-            workLocation: "Work from Office",
-            status: "Online",
-            checkIn: "09:30 AM",
-            checkOut: "-",
-            hours: "-",
-            imgInUrl: "https://randomuser.me/api/portraits/men/32.jpg",
-            imgOutUrl: "",
-            startWorkImgUrl: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?q=80&w=100&auto=format&fit=crop",
-            endWorkImgUrl: "",
-            attendanceStatus: "On Time"
-        },
-        {
-            id: "LAB-002",
-            name: "Priya Singh",
-            contractor: "XYZ Constructions",
-            department: "Engineering",
-            workLocation: "Work from Home",
-            status: "Checked Out",
-            checkIn: "10:15 AM",
-            checkOut: "07:00 PM",
-            hours: "08:45",
-            imgInUrl: "https://randomuser.me/api/portraits/women/44.jpg",
-            imgOutUrl: "https://randomuser.me/api/portraits/women/44.jpg",
-            startWorkImgUrl: "https://images.unsplash.com/photo-1541888086425-d81bb19240f5?q=80&w=100&auto=format&fit=crop",
-            endWorkImgUrl: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?q=80&w=100&auto=format&fit=crop",
-            attendanceStatus: "Late"
-        },
-        {
-            id: "LAB-003",
-            name: "Amit Patel",
-            contractor: "ABC Builders",
-            department: "Plumbing",
-            workLocation: "Site A",
-            status: "Checked Out",
-            checkIn: "08:00 AM",
-            checkOut: "05:00 PM",
-            hours: "09:00",
-            imgInUrl: "https://randomuser.me/api/portraits/men/67.jpg",
-            imgOutUrl: "https://randomuser.me/api/portraits/men/67.jpg",
-            startWorkImgUrl: "https://images.unsplash.com/photo-1581092921461-eab62e97a780?q=80&w=100&auto=format&fit=crop",
-            endWorkImgUrl: "https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?q=80&w=100&auto=format&fit=crop",
-            attendanceStatus: "On Time"
-        },
-        {
-            id: "LAB-004",
-            name: "Sneha Roy",
-            contractor: "XYZ Constructions",
-            department: "Electrical",
-            workLocation: "Site B",
-            status: "Online",
-            checkIn: "09:45 AM",
-            checkOut: "-",
-            hours: "-",
-            imgInUrl: "https://randomuser.me/api/portraits/women/68.jpg",
-            imgOutUrl: "",
-            startWorkImgUrl: "https://images.unsplash.com/photo-1581092160562-40aa08e78837?q=80&w=100&auto=format&fit=crop",
-            endWorkImgUrl: "",
-            attendanceStatus: "Late"
-        }
-    ];
 
-    const filteredLabourAttendances = mockLabourAttendances.filter(lab => {
-        if (empStatusFilter !== "All Status" && lab.attendanceStatus !== empStatusFilter) return false;
-        if (empContractorFilter !== "All Contractors" && lab.contractor !== empContractorFilter) return false;
-        if (empSearch) {
-            const searchLower = empSearch.toLowerCase();
-            return lab.name.toLowerCase().includes(searchLower) || lab.id.toLowerCase().includes(searchLower) || lab.department.toLowerCase().includes(searchLower);
-        }
-        return true;
-    });
-
+    
     return (
         <>
             <Navbar title="Attendance Management" breadcrumb={["Engineer", "Human Resources", "Attendance Management"]} />
@@ -377,23 +297,23 @@ const AttendancePage: React.FC = () => {
                 {/* Tabs Navigation */}
                 <div className="flex items-center justify-center w-full">
                     <div className="inline-flex bg-white rounded-full p-1 border border-slate-200 shadow-sm overflow-x-auto max-w-full">
-                        {(["Self Attendance", "Labour Attendance"] as const).map(tab => (
-                            <button
-                                key={tab}
-                                onClick={() => setActiveTab(tab)}
-                                className={`px-8 py-2.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${activeTab === tab
-                                        ? "bg-indigo-500 text-white shadow-sm"
-                                        : "text-slate-600 hover:bg-slate-50"
-                                    }`}
-                            >
-                                {tab}
-                            </button>
-                        ))}
+                        <button
+                            onClick={() => navigate('/engineer/labor/attendance')}
+                            className="px-8 py-2.5 rounded-full text-xs font-bold whitespace-nowrap transition-all bg-indigo-500 text-white shadow-sm"
+                        >
+                            Self Attendance
+                        </button>
+                        <button
+                            onClick={() => navigate('/engineer/labor/labour-attendance')}
+                            className="px-8 py-2.5 rounded-full text-xs font-bold whitespace-nowrap transition-all text-slate-600 hover:bg-slate-50"
+                        >
+                            Labour Attendance
+                        </button>
                     </div>
                 </div>
 
                 {/* Self Attendance Content */}
-                {activeTab === "Self Attendance" && (
+                
                     <div className="flex flex-col gap-6">
                         {/* Today's Status Card */}
                         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden p-6">
@@ -412,10 +332,10 @@ const AttendancePage: React.FC = () => {
                                     </div>
                                     <p className="text-xs font-medium text-slate-500 mb-10">Not Checked in Yet.</p>
                                     <button
-                                        onClick={() => setIsCheckInModalOpen(true)}
+                                        onClick={() => setIsSelfCheckInFormOpen(true)}
                                         className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20"
                                     >
-                                        <LogOut className="w-4 h-4 rotate-180" /> Check In
+                                        <LogIn className="w-4 h-4" /> Check In
                                     </button>
                                 </div>
                             )}
@@ -425,7 +345,7 @@ const AttendancePage: React.FC = () => {
                                     <div className="flex items-start justify-between">
                                         <div>
                                             <div className="flex items-center gap-2 mb-2">
-                                                <LogOut className="w-4 h-4 text-emerald-500" />
+                                                <LogIn className="w-4 h-4 text-emerald-500" />
                                                 <span className="text-xs font-bold text-slate-800">Check-In Time</span>
                                                 <span className="px-2 py-0.5 bg-rose-500 text-white rounded-full text-[10px] font-bold">Late</span>
                                                 <span className="px-2 py-0.5 bg-blue-50 text-blue-500 border border-blue-200 rounded-full text-[10px] font-bold flex items-center gap-1">
@@ -438,7 +358,7 @@ const AttendancePage: React.FC = () => {
 
                                         <div>
                                             <div className="flex items-center gap-2 mb-2">
-                                                <LogOut className="w-4 h-4 text-rose-500 rotate-180" />
+                                                <LogOut className="w-4 h-4 text-rose-500" />
                                                 <span className="text-xs font-bold text-slate-800">Check-out Time</span>
                                                 {attendanceState === "CHECKED_OUT" && (
                                                     <span className="px-2 py-0.5 bg-orange-50 text-orange-500 border border-orange-200 rounded-full text-[10px] font-bold">Early</span>
@@ -466,7 +386,7 @@ const AttendancePage: React.FC = () => {
                                                 onClick={() => setIsCheckOutModalOpen(true)}
                                                 className="w-full mt-2 py-3.5 bg-rose-500 hover:bg-rose-600 text-white text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-rose-500/20"
                                             >
-                                                <LogOut className="w-4 h-4 rotate-180" /> Check Out
+                                                <LogOut className="w-4 h-4" /> Check Out
                                             </button>
                                         </>
                                     )}
@@ -494,8 +414,8 @@ const AttendancePage: React.FC = () => {
                                                 key={f}
                                                 onClick={() => { setHistoryFilter(f); setHistoryPage(1); }}
                                                 className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${historyFilter === f
-                                                        ? 'bg-blue-500 text-white shadow-sm'
-                                                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                                                    ? 'bg-blue-500 text-white shadow-sm'
+                                                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
                                                     }`}
                                             >
                                                 {f === 'Date' && <Calendar className="w-3 h-3" />} {f}
@@ -512,89 +432,62 @@ const AttendancePage: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="px-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600">
-                                    Showing {historyFilter === 'Today' ? (attendanceState !== 'NOT_CHECKED_IN' ? '1' : '0') : filteredHistory.length} records
+                                    Showing {historyFilter === 'Today' ? (attendanceState !== 'NOT_CHECKED_IN' ? '1' : '0') : selfAttendances.length} records
                                 </div>
                             </div>
 
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left whitespace-nowrap">
                                     <thead>
-                                        <tr className="bg-slate-50/50 text-slate-800 text-[10px] font-bold uppercase tracking-widest border-b border-slate-100">
-                                            <th className="px-6 py-4">Date</th>
-                                            <th className="px-6 py-4">Project</th>
-                                            <th className="px-6 py-4">Work Location</th>
-                                            <th className="px-6 py-4">Online Status</th>
-                                            <th className="px-6 py-4">Check In</th>
-                                            <th className="px-6 py-4">Check Out</th>
-                                            <th className="px-6 py-4 text-center">Hours</th>
-                                            <th className="px-6 py-4">Location</th>
-                                            <th className="px-6 py-4">Selfie</th>
-                                            <th className="px-6 py-4">Status</th>
-                                            <th className="px-6 py-4">Work Summary</th>
-                                            <th className="px-6 py-4">Overdue</th>
+                                        <tr className="bg-slate-50/50 text-slate-800 text-[10px] font-bold tracking-widest border-b border-slate-100">
+                                            <th className="px-6 py-4">labour_id</th>
+                                            <th className="px-6 py-4">labour_name</th>
+                                            <th className="px-6 py-4">worker_code</th>
+                                            <th className="px-6 py-4">attendance_date</th>
+                                            <th className="px-6 py-4">in_time</th>
+                                            <th className="px-6 py-4">out_time</th>
+                                            <th className="px-6 py-4">working_hours</th>
+                                            <th className="px-6 py-4">overtime_hours</th>
+                                            <th className="px-6 py-4">task_id</th>
+                                            <th className="px-6 py-4">check_in_address</th>
+                                            <th className="px-6 py-4">check_out_address</th>
+                                            <th className="px-6 py-4">check_in_image</th>
+                                            <th className="px-6 py-4">check_out_image</th>
+                                            <th className="px-6 py-4">status</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
-                                        {historyFilter === 'Today' ? (
-                                            // Today: show today's checkin row (existing logic)
-                                            attendanceState === 'NOT_CHECKED_IN' ? (
-                                                <tr><td colSpan={12} className="px-6 py-12 text-center"><p className="text-xs text-slate-500 font-medium">No records found</p></td></tr>
-                                            ) : (
-                                                <tr className="hover:bg-slate-50/50 transition-colors">
-                                                    <td className="px-6 py-4"><span className="text-xs font-bold text-slate-800">{formatDate(currentDateTime).replace(/, \d{4}/, ' 2026')}</span></td>
-                                                    <td className="px-6 py-4"><span className="px-3 py-1 border border-slate-200 rounded-full text-[10px] font-bold text-slate-600">InfraPilot</span></td>
-                                                    <td className="px-6 py-4"><span className="px-3 py-1 bg-blue-50 border border-blue-200 rounded-full text-[10px] font-bold text-blue-600 flex items-center gap-1 w-max"><div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div> Work from Office</span></td>
-                                                    <td className="px-6 py-4 text-center">
-                                                        <div className="flex flex-col items-center">
-                                                            {attendanceState === 'CHECKED_IN' ? (<span className="text-[10px] font-bold text-slate-800 flex items-center gap-1 mb-1"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div> Online</span>) : (<span className="text-[10px] font-bold text-slate-600 mb-1">Checked Out</span>)}
-                                                            <span className="text-[9px] font-bold text-rose-500">IN: LATE</span>
-                                                            <span className={`text-[9px] font-bold ${attendanceState === 'CHECKED_OUT' ? 'text-orange-500' : 'text-slate-400'}`}>OUT: {attendanceState === 'CHECKED_OUT' ? 'EARLY' : 'PENDING'}</span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> {checkInTime ? formatTime(checkInTime) : '-'}</span></td>
-                                                    <td className="px-6 py-4">{attendanceState === 'CHECKED_OUT' ? (<span className="text-[10px] font-bold text-rose-600 flex items-center gap-1"><LogOut className="w-3 h-3 rotate-180" /> {checkOutTime ? formatTime(checkOutTime) : '-'}</span>) : (<span className="text-[10px] font-bold text-rose-500 flex items-center gap-1"><LogOut className="w-3 h-3 rotate-180" /> -</span>)}</td>
-                                                    <td className="px-6 py-4 text-center"><span className="text-xs font-bold text-slate-800">{attendanceState === 'CHECKED_OUT' ? calculateHours() : '-'}</span></td>
-                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-blue-500 flex items-center gap-1 cursor-pointer"><MapPin className="w-3 h-3" /> View</span></td>
-                                                    <td className="px-6 py-4">
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="flex flex-col items-center gap-1">
-                                                                <span className="text-[8px] font-bold text-emerald-600 uppercase tracking-wide">In</span>
-                                                                {capturedImage ? (<div className="w-8 h-8 rounded-full overflow-hidden border-2 border-emerald-400"><img src={capturedImage} alt="CheckIn Selfie" className="w-full h-full object-cover" /></div>) : (<div className="w-8 h-8 rounded-full bg-slate-200 border-2 border-slate-300" />)}
-                                                            </div>
-                                                            <div className="flex flex-col items-center gap-1">
-                                                                <span className="text-[8px] font-bold text-rose-500 uppercase tracking-wide">Out</span>
-                                                                {checkoutCapturedImage ? (<div className="w-8 h-8 rounded-full overflow-hidden border-2 border-rose-400"><img src={checkoutCapturedImage} alt="CheckOut Selfie" className="w-full h-full object-cover" /></div>) : (<div className="w-8 h-8 rounded-full bg-slate-200 border-2 border-slate-300" />)}
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-center">
-                                                        <div className="flex flex-col items-center">
-                                                            <span className="px-2 py-0.5 bg-rose-500 text-white rounded-full text-[9px] font-bold mb-1">Late</span>
-                                                            <span className="text-[9px] font-bold text-rose-500">IN: LATE</span>
-                                                            <span className={`text-[9px] font-bold ${attendanceState === 'CHECKED_OUT' ? 'text-orange-500' : 'text-slate-400'}`}>OUT: {attendanceState === 'CHECKED_OUT' ? 'EARLY' : 'PENDING'}</span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-center text-xs text-slate-400 font-bold">-</td>
-                                                    <td className="px-6 py-4 text-center text-xs text-slate-400 font-bold">-</td>
-                                                </tr>
-                                            )
-                                        ) : paginatedHistory.length === 0 ? (
-                                            <tr><td colSpan={12} className="px-6 py-12 text-center"><p className="text-xs text-slate-500 font-medium">{historyFilter === 'Date' && !historyDateInput ? 'Select a date to view records' : 'No records found'}</p></td></tr>
+                                        {paginatedHistory.length === 0 ? (
+                                            <tr><td colSpan={14} className="px-6 py-12 text-center"><p className="text-xs text-slate-500 font-medium">{historyFilter === 'Date' && !historyDateInput ? 'Select a date to view records' : 'No records found'}</p></td></tr>
                                         ) : (
                                             paginatedHistory.map((rec, idx) => (
                                                 <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                                                    <td className="px-6 py-4"><span className="text-xs font-bold text-slate-800">{rec.date}</span></td>
-                                                    <td className="px-6 py-4"><span className="px-3 py-1 border border-slate-200 rounded-full text-[10px] font-bold text-slate-600">{rec.project}</span></td>
-                                                    <td className="px-6 py-4"><span className="px-3 py-1 bg-blue-50 border border-blue-200 rounded-full text-[10px] font-bold text-blue-600 flex items-center gap-1 w-max"><div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div> {rec.location}</span></td>
-                                                    <td className="px-6 py-4 text-center"><span className="text-[10px] font-bold text-slate-600">{rec.onlineStatus}</span></td>
-                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> {rec.checkIn}</span></td>
-                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-rose-600 flex items-center gap-1"><LogOut className="w-3 h-3 rotate-180" /> {rec.checkOut}</span></td>
-                                                    <td className="px-6 py-4 text-center"><span className="text-xs font-bold text-slate-800">{rec.hours}</span></td>
-                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-blue-500 flex items-center gap-1 cursor-pointer"><MapPin className="w-3 h-3" /> View</span></td>
-                                                    <td className="px-6 py-4"><div className="w-8 h-8 rounded-full bg-slate-200 border-2 border-slate-300" /></td>
-                                                    <td className="px-6 py-4 text-center"><span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${rec.status === 'Late' ? 'bg-rose-500 text-white' : 'bg-emerald-50 text-emerald-600 border border-emerald-200'}`}>{rec.status}</span></td>
-                                                    <td className="px-6 py-4 text-center text-xs text-slate-400 font-bold">-</td>
-                                                    <td className="px-6 py-4 text-center text-xs text-slate-400 font-bold">-</td>
+                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-800">{rec.labour_id ?? '-'}</span></td>
+                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.labour_name ?? '-'}</span></td>
+                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.worker_code ?? '-'}</span></td>
+                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.attendance_date ?? '-'}</span></td>
+                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.in_time ?? '-'}</span></td>
+                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.out_time ?? '-'}</span></td>
+                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.working_hours ?? '-'}</span></td>
+                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.overtime_hours ?? '-'}</span></td>
+                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.task_id ?? '-'}</span></td>
+                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.check_in_address ?? '-'}</span></td>
+                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.check_out_address ?? '-'}</span></td>
+                                                    <td className="px-6 py-4">
+                                                        {rec.check_in_image ? (
+                                                            <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-emerald-400">
+                                                                <img src={rec.check_in_image} alt="Check In" className="w-full h-full object-cover" />
+                                                            </div>
+                                                        ) : <span className="text-[10px] text-slate-400">-</span>}
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        {rec.check_out_image ? (
+                                                            <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-rose-400">
+                                                                <img src={rec.check_out_image} alt="Check Out" className="w-full h-full object-cover" />
+                                                            </div>
+                                                        ) : <span className="text-[10px] text-slate-400">-</span>}
+                                                    </td>
+                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.status ?? '-'}</span></td>
                                                 </tr>
                                             ))
                                         )}
@@ -603,13 +496,13 @@ const AttendancePage: React.FC = () => {
                             </div>
 
                             {/* Pagination footer - only for Yesterday / All / Date */}
-                            {historyFilter !== 'Today' && filteredHistory.length > 0 && (
+                            {historyFilter !== 'Today' && selfAttendances.length > 0 && (
                                 <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
                                     {/* Left: Items per page */}
                                     <div className="flex items-center gap-2">
                                         <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
-                                        <select 
-                                            value={itemsPerPage} 
+                                        <select
+                                            value={itemsPerPage}
                                             onChange={(e) => { setItemsPerPage(Number(e.target.value)); setHistoryPage(1); }}
                                             className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
                                         >
@@ -622,7 +515,7 @@ const AttendancePage: React.FC = () => {
 
                                     {/* Center: Showing info */}
                                     <div className="text-[11px] font-medium text-slate-500 hidden md:block">
-                                        Showing {(historyPage - 1) * itemsPerPage + 1} - {Math.min(historyPage * itemsPerPage, filteredHistory.length)} of {filteredHistory.length} records
+                                        Showing {(historyPage - 1) * itemsPerPage + 1} - {Math.min(historyPage * itemsPerPage, selfAttendances.length)} of {selfAttendances.length} records
                                     </div>
 
                                     {/* Right: Pagination */}
@@ -634,9 +527,9 @@ const AttendancePage: React.FC = () => {
                                         >
                                             <ChevronLeft className="w-4 h-4" />
                                         </button>
-                                        
+
                                         {(() => {
-                                            const totalItems = filteredHistory.length;
+                                            const totalItems = selfAttendances.length;
                                             const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
                                             const pages = [];
                                             if (totalPages <= 5) {
@@ -661,11 +554,10 @@ const AttendancePage: React.FC = () => {
                                                     <button
                                                         key={`page-${pageNum}`}
                                                         onClick={() => setHistoryPage(pageNum)}
-                                                        className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
-                                                            isActive 
-                                                                ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' 
-                                                                : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
-                                                        }`}
+                                                        className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
+                                                            ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
+                                                            : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                                            }`}
                                                     >
                                                         {pageNum}
                                                     </button>
@@ -674,8 +566,8 @@ const AttendancePage: React.FC = () => {
                                         })()}
 
                                         <button
-                                            onClick={() => setHistoryPage(prev => Math.min(Math.ceil(filteredHistory.length / itemsPerPage), prev + 1))}
-                                            disabled={historyPage === Math.max(1, Math.ceil(filteredHistory.length / itemsPerPage)) || filteredHistory.length === 0}
+                                            onClick={() => setHistoryPage(prev => Math.min(Math.ceil(selfAttendances.length / itemsPerPage), prev + 1))}
+                                            disabled={historyPage === Math.max(1, Math.ceil(selfAttendances.length / itemsPerPage)) || selfAttendances.length === 0}
                                             className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
                                         >
                                             <ChevronRight className="w-4 h-4" />
@@ -690,353 +582,57 @@ const AttendancePage: React.FC = () => {
                             )}
                         </div>
                     </div>
-                )}
-
-                {/* Labour Attendance Content */}
-                {activeTab === "Labour Attendance" && (
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col flex-1">
-                        <div className="p-5 border-b border-slate-100">
-                            <h3 className="text-sm font-bold text-slate-800">Labour Attendances</h3>
-                            <p className="text-xs text-slate-500 mt-1 mb-4">View and manage labour attendance</p>
-
-                            <div className="flex flex-wrap items-end gap-4">
-                                <div className="flex-1 min-w-[250px]">
-                                    <label className="block text-xs font-medium text-slate-600 mb-1.5">Search</label>
-                                    <div className="relative">
-                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                        <input
-                                            type="text"
-                                            placeholder="Search by name, email, labour ID, or department."
-                                            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300 italic"
-                                            value={empSearch}
-                                            onChange={e => setEmpSearch(e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="min-w-[150px]">
-                                    <label className="block text-xs font-medium text-slate-600 mb-1.5">Status</label>
-                                    <div className="relative">
-                                        <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
-                                        <select
-                                            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all appearance-none bg-white cursor-pointer"
-                                            value={empStatusFilter}
-                                            onChange={e => setEmpStatusFilter(e.target.value)}
-                                        >
-                                            <option value="All Status">All Status</option>
-                                            <option value="On Time">On Time</option>
-                                            <option value="Late">Late</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div className="min-w-[150px]">
-                                    <label className="block text-xs font-medium text-slate-600 mb-1.5">Contractor</label>
-                                    <div className="relative">
-                                        <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
-                                        <select
-                                            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all appearance-none bg-white cursor-pointer"
-                                            value={empContractorFilter}
-                                            onChange={e => setEmpContractorFilter(e.target.value)}
-                                        >
-                                            <option value="All Contractors">All Contractors</option>
-                                            <option value="ABC Builders">ABC Builders</option>
-                                            <option value="XYZ Constructions">XYZ Constructions</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div className="min-w-[150px]">
-                                    <label className="block text-xs font-medium text-slate-600 mb-1.5">Duration Filter</label>
-                                    <div className="relative">
-                                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
-                                        <select
-                                            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all appearance-none bg-white cursor-pointer"
-                                            value={empDurationFilter}
-                                            onChange={e => setEmpDurationFilter(e.target.value)}
-                                        >
-                                            <option value="Today">Today</option>
-                                            <option value="Current Month">Current Month</option>
-                                            <option value="Last Month">Last Month</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left whitespace-nowrap">
-                                <thead>
-                                    <tr className="bg-slate-50/50 text-slate-800 text-[10px] font-bold uppercase tracking-widest border-b border-slate-100">
-                                        <th className="px-6 py-4">Date</th>
-                                        <th className="px-6 py-4">Labour ID</th>
-                                        <th className="px-6 py-4">Labour Name</th>
-                                        <th className="px-6 py-4">Contractor Name</th>
-                                        <th className="px-6 py-4">Department</th>
-                                        <th className="px-6 py-4">Work Location</th>
-                                        <th className="px-6 py-4">Online Status</th>
-                                        <th className="px-6 py-4">Check In</th>
-                                        <th className="px-6 py-4">Check Out</th>
-                                        <th className="px-6 py-4">Hours</th>
-                                        <th className="px-6 py-4">Location</th>
-                                        <th className="px-6 py-4">Check-In Image</th>
-                                        <th className="px-6 py-4">Check-Out Image</th>
-                                        <th className="px-6 py-4">Start Work Image</th>
-                                        <th className="px-6 py-4">End Work Image</th>
-                                        <th className="px-6 py-4">Status</th>
-                                        <th className="px-6 py-4">Work Summary</th>
-                                        <th className="px-6 py-4">Work Report</th>
-                                        <th className="px-6 py-4 text-center">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {filteredLabourAttendances.map((lab, index) => (
-                                        <tr key={index} className="hover:bg-slate-50/50 transition-colors">
-                                            <td className="px-6 py-4"><span className="text-xs font-bold text-slate-800">21 May 2026</span></td>
-                                            <td className="px-6 py-4"><span className="text-xs font-bold text-slate-500">{lab.id}</span></td>
-                                            <td className="px-6 py-4"><span className="text-xs font-bold text-slate-800">{lab.name}</span></td>
-                                            <td className="px-6 py-4"><span className="text-xs font-bold text-slate-800">{lab.contractor}</span></td>
-                                            <td className="px-6 py-4"><span className="px-3 py-1 border border-slate-200 rounded-full text-[10px] font-bold text-slate-600">{lab.department}</span></td>
-                                            <td className="px-6 py-4">
-                                                <span className={`px-3 py-1 ${lab.workLocation === 'Work from Home' ? 'bg-purple-50 border-purple-200 text-purple-600' : 'bg-blue-50 border-blue-200 text-blue-600'} border rounded-full text-[10px] font-bold flex items-center gap-1 w-max`}>
-                                                    <div className={`w-1.5 h-1.5 rounded-full ${lab.workLocation === 'Work from Home' ? 'bg-purple-500' : 'bg-blue-500'}`}></div> {lab.workLocation}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <div className="flex flex-col items-center">
-                                                    {lab.status === "Online" ? (
-                                                        <span className="text-[10px] font-bold text-slate-800 flex items-center gap-1 mb-1">
-                                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div> Online
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-[10px] font-bold text-slate-600 mb-1">Checked Out</span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4"><span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> {lab.checkIn}</span></td>
-                                            <td className="px-6 py-4"><span className={`text-[10px] font-bold ${lab.checkOut !== '-' ? 'text-rose-600' : 'text-slate-400'} flex items-center gap-1`}><LogOut className="w-3 h-3 rotate-180" /> {lab.checkOut}</span></td>
-                                            <td className="px-6 py-4 text-center"><span className="text-xs font-bold text-slate-800">{lab.hours}</span></td>
-                                            <td className="px-6 py-4"><span className="text-[10px] font-bold text-blue-500 flex items-center gap-1 cursor-pointer"><MapPin className="w-3 h-3" /> View</span></td>
-                                            <td className="px-6 py-4">
-                                                <div
-                                                    className="w-8 h-8 rounded-full border-2 border-emerald-400 overflow-hidden bg-emerald-50 cursor-pointer hover:scale-110 transition-transform shadow-sm"
-                                                    onClick={() => setPreviewImage({ url: lab.imgInUrl, title: "Check-In Image - " + lab.name })}
-                                                >
-                                                    <img src={lab.imgInUrl} alt="Check-In" className="w-full h-full object-cover" />
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                {lab.checkOut !== '-' && lab.imgOutUrl ? (
-                                                    <div
-                                                        className="w-8 h-8 rounded-full border-2 border-rose-400 overflow-hidden bg-rose-50 cursor-pointer hover:scale-110 transition-transform shadow-sm"
-                                                        onClick={() => setPreviewImage({ url: lab.imgOutUrl, title: "Check-Out Image - " + lab.name })}
-                                                    >
-                                                        <img src={lab.imgOutUrl} alt="Check-Out" className="w-full h-full object-cover" />
-                                                    </div>
-                                                ) : (
-                                                    <div className="w-8 h-8 rounded-full bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400"><Camera className="w-3 h-3" /></div>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                {lab.startWorkImgUrl ? (
-                                                    <div
-                                                        className="w-10 h-10 rounded-lg border-2 border-blue-400 overflow-hidden bg-blue-50 cursor-pointer hover:scale-110 transition-transform shadow-sm"
-                                                        onClick={() => setPreviewImage({ url: lab.startWorkImgUrl, title: "Start Work Image - " + lab.name })}
-                                                    >
-                                                        <img src={lab.startWorkImgUrl} alt="Start Work" className="w-full h-full object-cover" />
-                                                    </div>
-                                                ) : (
-                                                    <div className="w-10 h-10 rounded-lg bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400"><Camera className="w-3 h-3" /></div>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                {lab.checkOut !== '-' && lab.endWorkImgUrl ? (
-                                                    <div
-                                                        className="w-10 h-10 rounded-lg border-2 border-orange-400 overflow-hidden bg-orange-50 cursor-pointer hover:scale-110 transition-transform shadow-sm"
-                                                        onClick={() => setPreviewImage({ url: lab.endWorkImgUrl, title: "End Work Image - " + lab.name })}
-                                                    >
-                                                        <img src={lab.endWorkImgUrl} alt="End Work" className="w-full h-full object-cover" />
-                                                    </div>
-                                                ) : (
-                                                    <div className="w-10 h-10 rounded-lg bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400"><Camera className="w-3 h-3" /></div>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 text-center"><span className={`px-2 py-0.5 ${lab.attendanceStatus === 'Late' ? 'bg-rose-50 text-rose-500 border-rose-200' : 'bg-emerald-50 text-emerald-500 border-emerald-200'} border rounded-full text-[9px] font-bold`}>{lab.attendanceStatus}</span></td>
-                                            <td className="px-6 py-4 text-center text-xs text-slate-400 font-bold">-</td>
-                                            <td className="px-6 py-4 text-center text-xs text-slate-400 font-bold">-</td>
-                                            <td className="px-6 py-4 text-right">
-                                                <div className="flex items-center justify-end gap-2 font-inter">
-                                                    <button
-                                                        onClick={() => {
-                                                            setSelectedLabour(lab);
-                                                            setIsViewModalOpen(true);
-                                                        }}
-                                                        className="px-4 py-2 text-[10px] font-bold text-white bg-primary hover:bg-blue-600 uppercase tracking-widest rounded-xl transition-all font-inter shadow-lg shadow-primary/20 active:scale-95"
-                                                    >
-                                                            VIEW DETAILS
-                                                        </button>
-                                                    <button
-                                                        onClick={() => navigate(`/engineer/labor/${lab.id}`)}
-                                                        className="px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-all active:scale-95 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest"
-                                                        title="View Full Detail"
-                                                    >
-                                                        View Detail <ArrowRight className="w-3.5 h-3.5" />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
             </PageTransition>
 
-            {/* Check-In Camera Modal */}
-            <Modal
-                isOpen={isCheckInModalOpen}
-                onClose={() => setIsCheckInModalOpen(false)}
-                title=""
-                maxWidth="max-w-xl"
-            >
-                <div className="p-2">
-                    <h2 className="text-center text-sm font-black text-slate-800 mb-4 uppercase tracking-widest mt-2">Capture Check-In Photo</h2>
+            {isSelfCheckInFormOpen && selectedLabour && (
+                <SelfCheckInModal
+                    isOpen={isSelfCheckInFormOpen}
+                    onClose={() => {
+                        setIsSelfCheckInFormOpen(false);
+                        setSelectedLabour(null);
+                    }}
+                    onSuccess={() => {
+                        setIsSelfCheckInFormOpen(false);
+                        setSelectedLabour(null);
+                    }}
+                    labourId={selectedLabour.id}
+                    title={`Check-In: ${selectedLabour.name || 'Labour'}`}
+                />
+            )}
 
-                    <div className="bg-black rounded-xl overflow-hidden aspect-video relative flex items-center justify-center">
-                        {!capturedImage ? (
-                            <video
-                                ref={videoRef}
-                                autoPlay
-                                playsInline
-                                muted
-                                className="w-full h-full object-cover"
-                            />
-                        ) : (
-                            <img
-                                src={capturedImage}
-                                alt="Captured"
-                                className="w-full h-full object-cover"
-                            />
-                        )}
-                        <canvas ref={canvasRef} className="hidden" />
-                        {!capturedImage && (
-                            <div className="absolute inset-0 pointer-events-none">
-                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-40 border-2 border-blue-400/70 rounded-full opacity-60" />
-                                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2">
-                                    <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                                    <span className="text-white text-[10px] font-bold uppercase tracking-widest">Live</span>
-                                </div>
-                            </div>
-                        )}
-                    </div>
+            {isCheckOutModalOpen && selectedLabour && (
+                <SelfCheckOutModal
+                    isOpen={isCheckOutModalOpen}
+                    onClose={() => {
+                        setIsCheckOutModalOpen(false);
+                        setSelectedLabour(null);
+                    }}
+                    onSuccess={() => {
+                        setIsCheckOutModalOpen(false);
+                        setSelectedLabour(null);
+                    }}
+                    attendanceId={selectedLabour.id}
+                    title={`Check-Out: ${selectedLabour.name || 'Labour'}`}
+                />
+            )}
 
-                    <div className="flex items-center justify-center gap-4 mt-6 mb-2">
-                        {!capturedImage ? (
-                            <>
-                                <button
-                                    onClick={() => takePhoto()}
-                                    className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95 flex items-center justify-center gap-2"
-                                >
-                                    <Camera className="w-4 h-4" /> Capture Photo
-                                </button>
-                                <button
-                                    onClick={() => setIsCheckInModalOpen(false)}
-                                    className="flex-1 py-3 bg-white text-slate-800 border border-slate-200 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-all active:scale-95 flex items-center justify-center gap-2"
-                                >
-                                    <X className="w-4 h-4" /> Cancel
-                                </button>
-                            </>
-                        ) : (
-                            <>
-                                <button
-                                    onClick={() => setCapturedImage(null)}
-                                    className="flex-1 py-3 bg-white text-slate-800 border border-slate-200 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-all active:scale-95 flex items-center justify-center gap-2"
-                                >
-                                    <RefreshCw className="w-4 h-4" /> Retake
-                                </button>
-                                <button
-                                    onClick={handleUsePhoto}
-                                    className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95 flex items-center justify-center gap-2"
-                                >
-                                    <Check className="w-4 h-4" /> Use Photo
-                                </button>
-                            </>
-                        )}
-                    </div>
-                </div>
-            </Modal>
+            <SelfCheckInModal
+                isOpen={isSelfCheckInFormOpen}
+                onClose={() => setIsSelfCheckInFormOpen(false)}
+                onSuccess={(time) => {
+                    setCheckInTime(time);
+                    setAttendanceState("CHECKED_IN");
+                }}
+            />
 
-            {/* Check-Out Camera Modal */}
-            <Modal
+            <SelfCheckOutModal
                 isOpen={isCheckOutModalOpen}
-                onClose={() => { setIsCheckOutModalOpen(false); setCheckoutCapturedImage(null); }}
-                title=""
-                maxWidth="max-w-xl"
-            >
-                <div className="p-2">
-                    <h2 className="text-center text-sm font-black text-slate-800 mb-4 uppercase tracking-widest mt-2">Capture Checkout Photo</h2>
-
-                    <div className="bg-black rounded-xl overflow-hidden aspect-video relative flex items-center justify-center">
-                        {!checkoutCapturedImage ? (
-                            <video
-                                ref={checkoutVideoRef}
-                                autoPlay
-                                playsInline
-                                muted
-                                className="w-full h-full object-cover"
-                            />
-                        ) : (
-                            <img
-                                src={checkoutCapturedImage}
-                                alt="Captured"
-                                className="w-full h-full object-cover"
-                            />
-                        )}
-                        <canvas ref={checkoutCanvasRef} className="hidden" />
-                        {!checkoutCapturedImage && (
-                            <div className="absolute inset-0 pointer-events-none">
-                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-40 border-2 border-rose-400/70 rounded-full opacity-60" />
-                                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2">
-                                    <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-                                    <span className="text-white text-[10px] font-bold uppercase tracking-widest">Live</span>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="flex items-center justify-center gap-4 mt-6 mb-2">
-                        {!checkoutCapturedImage ? (
-                            <>
-                                <button
-                                    onClick={() => takeCheckoutPhoto()}
-                                    className="flex-1 py-3 bg-rose-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all active:scale-95 flex items-center justify-center gap-2"
-                                >
-                                    <Camera className="w-4 h-4" /> Capture Photo
-                                </button>
-                                <button
-                                    onClick={() => { setIsCheckOutModalOpen(false); setCheckoutCapturedImage(null); }}
-                                    className="flex-1 py-3 bg-white text-slate-800 border border-slate-200 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-all active:scale-95 flex items-center justify-center gap-2"
-                                >
-                                    <X className="w-4 h-4" /> Cancel
-                                </button>
-                            </>
-                        ) : (
-                            <>
-                                <button
-                                    onClick={() => { setCheckoutCapturedImage(null); }}
-                                    className="flex-1 py-3 bg-white text-slate-800 border border-slate-200 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-all active:scale-95 flex items-center justify-center gap-2"
-                                >
-                                    <RefreshCw className="w-4 h-4" /> Retake
-                                </button>
-                                <button
-                                    onClick={handleUseCheckoutPhoto}
-                                    className="flex-1 py-3 bg-rose-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all active:scale-95 flex items-center justify-center gap-2"
-                                >
-                                    <Check className="w-4 h-4" /> Use Photo
-                                </button>
-                            </>
-                        )}
-                    </div>
-                </div>
-            </Modal>
+                onClose={() => setIsCheckOutModalOpen(false)}
+                onSuccess={(time) => {
+                    setCheckOutTime(time);
+                    setAttendanceState("CHECKED_OUT");
+                }}
+            />
 
             {/* Labour Detail View Modal */}
             <Modal

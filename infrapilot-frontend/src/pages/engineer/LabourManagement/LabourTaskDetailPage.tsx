@@ -7,7 +7,7 @@ import {
     Filter, Search, Eye, Calendar, User, 
     CheckCircle, Clock, AlertCircle, XCircle, List, 
     Download, FileText, X, Mail, Briefcase, Phone,
-    Edit2, Trash2, RefreshCw, LayoutGrid
+    Edit2, Trash2, RefreshCw, LayoutGrid, Camera
 } from 'lucide-react';
 
 interface TaskItem {
@@ -21,6 +21,8 @@ interface TaskItem {
     assignedDate?: string;
     status: "To Do" | "In Progress" | "Completed" | "Overdue" | "Cancelled";
     hasHistory: boolean;
+    startWorkImgUrl?: string;
+    endWorkImgUrl?: string;
 }
 
 const mockTasks: TaskItem[] = [
@@ -34,7 +36,8 @@ const mockTasks: TaskItem[] = [
         deadline: "May 27, 2026",
         assignedDate: "May 19, 2026",
         status: "To Do",
-        hasHistory: true
+        hasHistory: true,
+        startWorkImgUrl: "https://images.unsplash.com/photo-1504307651254-35680f356f27?w=100&h=100&fit=crop"
     },
     {
         id: "2",
@@ -45,7 +48,9 @@ const mockTasks: TaskItem[] = [
         priority: "MEDIUM",
         deadline: "Jul 23, 2026",
         status: "To Do",
-        hasHistory: true
+        hasHistory: true,
+        startWorkImgUrl: "https://images.unsplash.com/photo-1541888086425-d81bb19240f5?w=100&h=100&fit=crop",
+        endWorkImgUrl: "https://images.unsplash.com/photo-1581092160562-40aa08e78837?w=100&h=100&fit=crop"
     },
     {
         id: "3",
@@ -80,6 +85,7 @@ const LabourTaskDetailPage = () => {
 
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedEditTask, setSelectedEditTask] = useState<TaskItem | null>(null);
+    const [previewImage, setPreviewImage] = useState<{ url: string, title: string } | null>(null);
 
     const openEditModal = (task: TaskItem) => {
         setSelectedEditTask(task);
@@ -265,6 +271,8 @@ const LabourTaskDetailPage = () => {
                                         <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Priority</th>
                                         <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Deadline</th>
                                         <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Selfie</th>
+                                        <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Start Work Image</th>
+                                        <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">End Work Image</th>
                                         <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Status</th>
                                         <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Actions</th>
                                     </tr>
@@ -319,6 +327,30 @@ const LabourTaskDetailPage = () => {
                                                     </div>
                                                 </div>
                                             </td>
+                                            <td className="p-4 text-center">
+                                                {task.startWorkImgUrl ? (
+                                                    <div 
+                                                        onClick={() => setPreviewImage({ url: task.startWorkImgUrl!, title: "Start Work Image - " + task.title })}
+                                                        className="w-10 h-10 rounded-lg border-2 border-blue-400 overflow-hidden bg-blue-50 mx-auto cursor-pointer hover:scale-110 transition-transform shadow-sm"
+                                                    >
+                                                        <img src={task.startWorkImgUrl} alt="Start Work" className="w-full h-full object-cover" />
+                                                    </div>
+                                                ) : (
+                                                    <div className="w-10 h-10 rounded-lg bg-slate-50 border-2 border-dashed border-slate-200 mx-auto flex items-center justify-center text-slate-400"><Camera className="w-3 h-3" /></div>
+                                                )}
+                                            </td>
+                                            <td className="p-4 text-center">
+                                                {task.endWorkImgUrl ? (
+                                                    <div 
+                                                        onClick={() => setPreviewImage({ url: task.endWorkImgUrl!, title: "End Work Image - " + task.title })}
+                                                        className="w-10 h-10 rounded-lg border-2 border-orange-400 overflow-hidden bg-orange-50 mx-auto cursor-pointer hover:scale-110 transition-transform shadow-sm"
+                                                    >
+                                                        <img src={task.endWorkImgUrl} alt="End Work" className="w-full h-full object-cover" />
+                                                    </div>
+                                                ) : (
+                                                    <div className="w-10 h-10 rounded-lg bg-slate-50 border-2 border-dashed border-slate-200 mx-auto flex items-center justify-center text-slate-400"><Camera className="w-3 h-3" /></div>
+                                                )}
+                                            </td>
                                             <td className="p-4">
                                                 <select 
                                                     defaultValue={task.status}
@@ -333,9 +365,9 @@ const LabourTaskDetailPage = () => {
                                             </td>
                                             <td className="p-4">
                                                 <div className="flex items-center justify-center gap-1.5">
-                                                    <button onClick={() => openTaskModal(task)} className="px-4 py-2 text-[10px] font-bold text-white bg-primary hover:bg-blue-600 uppercase tracking-widest rounded-xl transition-all font-inter shadow-lg shadow-primary/20 active:scale-95">
-                                                            VIEW DETAILS
-                                                        </button>
+                                                    <button onClick={() => openTaskModal(task)} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter" title="View Details">
+                                                        <Eye className="w-4 h-4" />
+                                                    </button>
                                                     <button onClick={() => openEditModal(task)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit Task">
                                                         <Edit2 className="w-4 h-4" />
                                                     </button>
@@ -704,6 +736,24 @@ const LabourTaskDetailPage = () => {
                         </button>
                     </div>
                 </form>
+            </Modal>
+
+            {/* Image Preview Modal */}
+            <Modal
+                isOpen={!!previewImage}
+                onClose={() => setPreviewImage(null)}
+                title={previewImage?.title || "Image Preview"}
+                maxWidth="max-w-md"
+            >
+                <div className="w-full p-4 flex items-center justify-center bg-slate-50">
+                    {previewImage && (
+                        <img
+                            src={previewImage.url}
+                            alt={previewImage.title}
+                            className="w-full h-auto max-h-[70vh] object-contain rounded-xl shadow-sm border border-slate-200"
+                        />
+                    )}
+                </div>
             </Modal>
         </>
     );

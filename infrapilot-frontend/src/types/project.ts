@@ -6,7 +6,7 @@ export type ProjectStatus =
   | "Delayed"
   | "Completed"
   | "On Hold";
-export type TaskStatus = "Planned" | "In Progress" | "Completed" | "Delayed";
+export type TaskStatus = "Planned" | "In Progress" | "Completed" | "Cancelled";
 export type MilestoneStatus = "Pending" | "In Progress" | "Completed";
 
 export interface Project {

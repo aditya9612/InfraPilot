@@ -8,7 +8,6 @@ import Modal from "../../../components/common/Modal";
 import toast from "react-hot-toast";
 import { equipmentService } from "../../../services/equipmentService";
 import type { Equipment } from "../../../services/equipmentService";
-import { projectService } from "../../../services/projectService";
 
 import { 
   Search, 
@@ -38,7 +37,6 @@ const conditionColors: Record<string, string> = {
 const MachineryPage = () => {
     const [machineryList, setMachineryList] = useState<Equipment[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [projects, setProjects] = useState<any[]>([]);
     
     // UI States
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -52,20 +50,20 @@ const MachineryPage = () => {
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "GOOD" | "REPAIR" | "DAMAGED" | "MAINTENANCE">("All");
 
-    const [selectedProjectId, setSelectedProjectId] = useState<number>(0);
-
-    useEffect(() => {
-        const fetchProjects = async () => {
-            try {
-                const res = await projectService.getProjects(100, 0);
-                const projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
-                setProjects(projectsList);
-            } catch (err) {
-                console.error("Failed to fetch projects list:", err);
+    // Project ID resolved once from localStorage (Settings page) — never changes during session
+    const selectedProjectId = (() => {
+        try {
+            const userStr = localStorage.getItem("infrapilot_user");
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                const pId = user?.default_project_id || user?.project_id || user?.user?.project_id;
+                if (pId) return Number(pId);
             }
-        };
-        fetchProjects();
-    }, []);
+        } catch (e) {
+            console.error("Failed to resolve project ID from localStorage", e);
+        }
+        return 92;
+    })();
 
     useEffect(() => {
         fetchEquipment(selectedProjectId);
@@ -112,14 +110,14 @@ const MachineryPage = () => {
                 const userStr = localStorage.getItem("infrapilot_user");
                 if (userStr) {
                     const user = JSON.parse(userStr);
-                    const pId = user?.project_id || user?.user?.project_id;
+                    const pId = user?.default_project_id || user?.project_id || user?.user?.project_id;
                     if (pId) targetProjectId = Number(pId);
                 }
             } catch (err) {
                 console.error("Failed to load user project context:", err);
             }
         }
-        if (!targetProjectId) targetProjectId = 92; // Fallback to 92
+        if (!targetProjectId) targetProjectId = 92;
 
         try {
             if (editingEquipment) {
@@ -277,21 +275,7 @@ const MachineryPage = () => {
                             <option value="DAMAGED">Damaged</option>
                         </select>
 
-                        <div className="flex items-center gap-2 lg:ml-2">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Project:</span>
-                            <select
-                                value={selectedProjectId}
-                                onChange={(e) => setSelectedProjectId(Number(e.target.value))}
-                                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-primary/10 transition-all cursor-pointer uppercase tracking-wider"
-                            >
-                                <option value={0}>All Projects</option>
-                                {projects.map((p: any) => (
-                                    <option key={p.project_id || p.id} value={p.project_id || p.id}>
-                                        {p.project_name || p.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
+
                     </div>
 
                     <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
@@ -438,7 +422,7 @@ const MachineryPage = () => {
                                         return (
                                             <button
                                                 key={`page-${pageNum}`}
-                                                onClick={() => setCurrentPage(pageNum)}
+                                                onClick={() => setCurrentPage(pageNum as number)}
                                                 className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
                                                     isActive 
                                                         ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' 

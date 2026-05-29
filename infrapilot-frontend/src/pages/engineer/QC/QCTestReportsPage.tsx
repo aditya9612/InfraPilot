@@ -25,7 +25,7 @@ const QCTestReportsPage = () => {
 
     // UI States
     const [activeTab] = useState<"Inspection" | "Test Reports">("Test Reports");
-    const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Pass" | "Fail">("All");
+    const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Pass" | "Fail" | "Momentum">("All");
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
@@ -175,31 +175,17 @@ const QCTestReportsPage = () => {
                 {/* â”€â”€ Summary Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard
-                            title="Total Tests"
-                            value={stats.total.toString()}
-                            sub="Analytic Samples"
-                            accent="text-slate-800" />
+                        <StatCard title="Total Audits" value={stats.total.toString()} sub="Verified Logs" accent="text-slate-800" />
                     </div>
                     <div onClick={() => setActiveStatFilter("Pass")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Pass" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard
-                            title="Pass Rate"
-                            value={`${stats.passRate}%`}
-                            sub="Compliance Velocity"
-                            accent="text-emerald-500" />
+                        <StatCard title="Pass Tests" value={stats.passCount.toString()} sub="Pass Tests" accent="text-emerald-500" />
                     </div>
                     <div onClick={() => setActiveStatFilter("Fail")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Fail" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard
-                            title="Failures"
-                            value={stats.failCount.toString()}
-                            sub="Critical Deviations"
-                            accent="text-rose-500" />
+                        <StatCard title="Failed Tests" value={stats.failCount.toString()} sub="Failed Tests" accent="text-rose-500" />
                     </div>
-                    <StatCard
-                        title="Data Quality"
-                        value={`${stats.dataQuality}%`}
-                        sub="Verification Level"
-                        accent="text-blue-500" />
+                    <div onClick={() => setActiveStatFilter("Momentum")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Momentum" ? "ring-2 ring-blue-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard title="Audit Momentum" value={`${stats.passRate}%`} sub="Overall Pass Percentage" accent="text-blue-500" />
+                    </div>
                 </div>
 
                 {/* â”€â”€ Tab Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}

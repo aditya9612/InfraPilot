@@ -282,6 +282,7 @@ const SettingsPage = () => {
                     const selectedProjObj = projects.find(p => p.id === selectedProject);
                     if (selectedProjObj) {
                         parsed.project_id = selectedProject;
+                        parsed.default_project_id = selectedProject;  // used by all pages for priority resolution
                         parsed.project_name = selectedProjObj.project_name || selectedProjObj.name;
                         if (parsed.user) {
                             parsed.user.project_id = selectedProject;

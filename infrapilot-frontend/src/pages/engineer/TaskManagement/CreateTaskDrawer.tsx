@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
-import { Calendar, Search, Building2, UserCircle, Briefcase, FileText, Filter as FilterIcon, Check } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Calendar, Search, Building2, UserCircle, Briefcase, FileText, Filter as FilterIcon, Check, Mic, Square, Play, Pause, Trash2 } from 'lucide-react';
 import Modal from '../../../components/common/Modal';
 import { projectService } from '../../../services/projectService';
+import { labourService } from '../../../services/labourService';
 import toast from 'react-hot-toast';
-import type { ProjectMember } from '../../../types/project';
 
 interface CreateTaskModalProps {
     isOpen: boolean;
@@ -24,8 +24,41 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
     const [showAllDepartments, setShowAllDepartments] = useState(false);
     const [searchEmployee, setSearchEmployee] = useState('');
     
-    const [employees, setEmployees] = useState<ProjectMember[]>([]);
-    const [isLoadingMembers, setIsLoadingMembers] = useState(false);
+    const [employees, setEmployees] = useState<any[]>([]);
+
+    // Audio Recording State
+    const [isRecording, setIsRecording] = useState(false);
+    const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+    const [recordingTime, setRecordingTime] = useState(0);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioChunksRef = useRef<Blob[]>([]);
+    const timerRef = useRef<any>(null);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+    const [assignedProjects, setAssignedProjects] = useState<any[]>([]);
+
+    useEffect(() => {
+        const userStr = localStorage.getItem('infrapilot_user');
+        let localProjects: any[] = [];
+        if (userStr) {
+            try {
+                const user = JSON.parse(userStr);
+                localProjects = user?.assigned_projects || user?.user?.assigned_projects || [];
+            } catch (e) {}
+        }
+
+        if (isOpen) {
+            projectService.getProjects(100, 0)
+                .then(data => {
+                    const apiProjects = Array.isArray(data) ? data : (data.items || []);
+                    setAssignedProjects(apiProjects.length > 0 ? apiProjects : localProjects);
+                })
+                .catch(err => {
+                    console.error("Failed to load projects", err);
+                    setAssignedProjects(localProjects);
+                });
+        }
+    }, [isOpen]);
 
     useEffect(() => {
         if (isOpen && projectId) {
@@ -35,14 +68,11 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
 
     const fetchMembers = async () => {
         if (!projectId) return;
-        setIsLoadingMembers(true);
         try {
-            const data = await projectService.getProjectMembers(projectId);
-            setEmployees(Array.isArray(data) ? data : (data.items || data.data || []));
+            const data = await labourService.getLabours(projectId, { limit: 100 });
+            setEmployees(data.items || []);
         } catch (error) {
-            console.error("Failed to load members", error);
-        } finally {
-            setIsLoadingMembers(false);
+            console.error("Failed to load labours", error);
         }
     };
 
@@ -52,7 +82,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
         if (selectedEmployees.length === employees.length) {
             setSelectedEmployees([]);
         } else {
-            setSelectedEmployees(employees.map(e => e.user_id));
+            setSelectedEmployees(employees.map(e => e.id));
         }
     };
 
@@ -62,19 +92,96 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
         );
     };
 
+    const startRecording = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const mediaRecorder = new MediaRecorder(stream);
+            mediaRecorderRef.current = mediaRecorder;
+            audioChunksRef.current = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    audioChunksRef.current.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                setAudioBlob(audioBlob);
+            };
+
+            mediaRecorder.start();
+            setIsRecording(true);
+            setRecordingTime(0);
+            timerRef.current = setInterval(() => {
+                setRecordingTime(prev => prev + 1);
+            }, 1000);
+        } catch (error) {
+            console.error("Error accessing microphone:", error);
+            toast.error("Microphone access denied or not available");
+        }
+    };
+
+    const stopRecording = () => {
+        if (mediaRecorderRef.current && isRecording) {
+            mediaRecorderRef.current.stop();
+            mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+            setIsRecording(false);
+            clearInterval(timerRef.current);
+        }
+    };
+
+    const deleteRecording = () => {
+        setAudioBlob(null);
+        setRecordingTime(0);
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.src = "";
+        }
+    };
+
+    const togglePlay = () => {
+        if (!audioRef.current || !audioBlob) return;
+        
+        if (isPlaying) {
+            audioRef.current.pause();
+            setIsPlaying(false);
+        } else {
+            if (!audioRef.current.src) {
+                audioRef.current.src = URL.createObjectURL(audioBlob);
+                audioRef.current.onended = () => setIsPlaying(false);
+            }
+            audioRef.current.play();
+            setIsPlaying(true);
+        }
+    };
+
+    const formatTime = (seconds: number) => {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return `${m}:${s < 10 ? '0' : ''}${s}`;
+    };
+
+    const blobToBase64 = (blob: Blob): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!projectId) return;
 
-        if (selectedEmployees.length === 0) {
-            toast.error("Please select at least one assignee");
-            return;
-        }
-
         try {
-            // For now, create a task for the first selected employee. 
-            // In a real app, you might create multiple or the backend accepts an array.
             const priorityMap: Record<string, number> = { 'Low': 3, 'Medium': 2, 'High': 1 };
+            
+            let audio_data = undefined;
+            if (audioBlob) {
+                audio_data = await blobToBase64(audioBlob);
+            }
             
             await projectService.createTask(projectId, {
                 title,
@@ -82,7 +189,8 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                 priority: priorityMap[priority],
                 start_date: startDate,
                 end_date: deadline,
-                assigned_user_id: selectedEmployees[0]
+                assigned_user_id: selectedEmployees.length > 0 ? selectedEmployees[0] : undefined,
+                audio_data
             });
 
             toast.success("Task created successfully");
@@ -161,6 +269,68 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className={labelClasses}>
+                                Voice Note
+                            </label>
+                            <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                                {!isRecording && !audioBlob && (
+                                    <button 
+                                        type="button"
+                                        onClick={startRecording}
+                                        className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center hover:bg-emerald-100 transition-colors"
+                                    >
+                                        <Mic className="w-5 h-5" />
+                                    </button>
+                                )}
+                                
+                                {isRecording && (
+                                    <>
+                                        <button 
+                                            type="button"
+                                            onClick={stopRecording}
+                                            className="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center hover:bg-rose-100 transition-colors animate-pulse"
+                                        >
+                                            <Square className="w-5 h-5 fill-current" />
+                                        </button>
+                                        <div className="flex items-center gap-2 text-rose-500 font-medium">
+                                            <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+                                            {formatTime(recordingTime)}
+                                        </div>
+                                    </>
+                                )}
+
+                                {audioBlob && !isRecording && (
+                                    <>
+                                        <button 
+                                            type="button"
+                                            onClick={togglePlay}
+                                            className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100 transition-colors"
+                                        >
+                                            {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-1" />}
+                                        </button>
+                                        <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+                                            <div className="h-full bg-blue-500 w-full opacity-30"></div>
+                                        </div>
+                                        <button 
+                                            type="button"
+                                            onClick={deleteRecording}
+                                            className="p-2 text-slate-400 hover:text-rose-500 transition-colors"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                        <audio ref={audioRef} className="hidden" />
+                                    </>
+                                )}
+
+                                {!isRecording && !audioBlob && (
+                                    <span className="text-sm text-slate-400">Click to record a voice note</span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className={labelClasses}>
                                 <Briefcase className="w-3 h-3 text-primary" />
                                 Priority
                             </label>
@@ -178,7 +348,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                         <div>
                             <label className={labelClasses}>
                                 <FileText className="w-3 h-3 text-primary" />
-                                Project (Optional)
+                                Project
                             </label>
                             <select 
                                 className={inputClasses}
@@ -186,9 +356,9 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                                 onChange={(e) => setProject(e.target.value)}
                             >
                                 <option value="None">None</option>
-                                <option value="Shopex">Shopex</option>
-                                <option value="Test Project">Test Project</option>
-                                <option value="staffly">staffly</option>
+                                {assignedProjects.map((p: any) => (
+                                    <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
+                                ))}
                             </select>
                         </div>
 
@@ -261,7 +431,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                         <div className="flex items-center justify-between mb-2">
                             <label className={labelClasses}>
                                 <UserCircle className="w-3 h-3 text-primary" />
-                                Assign To <span className="text-rose-500">*</span>
+                                Assign To
                             </label>
                             <div className="flex items-center gap-2">
                                 <button
@@ -307,29 +477,35 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                             </div>
 
                             <div className="max-h-48 overflow-y-auto">
-                                {employees.map(emp => (
+                                {employees
+                                    .filter(emp => 
+                                        !searchEmployee || 
+                                        emp.labour_name?.toLowerCase().includes(searchEmployee.toLowerCase()) || 
+                                        emp.worker_code?.toLowerCase().includes(searchEmployee.toLowerCase())
+                                    )
+                                    .map(emp => (
                                     <div 
-                                        key={emp.user_id}
+                                        key={emp.id}
                                         className="flex items-center justify-between p-3 border-b border-slate-50 cursor-pointer hover:bg-slate-50 transition-colors"
-                                        onClick={() => toggleEmployee(emp.user_id)}
+                                        onClick={() => toggleEmployee(emp.id)}
                                     >
                                         <div className="flex items-start gap-3">
-                                            <div className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${selectedEmployees.includes(emp.user_id) ? 'bg-primary border-primary text-white' : 'border-slate-300 text-transparent'}`}>
+                                            <div className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${selectedEmployees.includes(emp.id) ? 'bg-primary border-primary text-white' : 'border-slate-300 text-transparent'}`}>
                                                 <Check className="w-3 h-3" />
                                             </div>
                                             <div>
                                                 <div className="flex items-center gap-1.5">
-                                                    <span className="text-sm font-bold text-slate-800">{emp.full_name}</span>
+                                                    <span className="text-sm font-bold text-slate-800">{emp.labour_name || emp.name}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2 mt-1">
                                                     <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-bold border border-slate-200">
-                                                        {emp.email}
+                                                        {emp.worker_code}
                                                     </span>
                                                 </div>
                                             </div>
                                         </div>
                                         <span className="px-2 py-1 bg-slate-100 text-slate-500 rounded text-[10px] font-bold uppercase tracking-wider">
-                                            {emp.role}
+                                            {emp.skill_type || 'Labour'}
                                         </span>
                                     </div>
                                 ))}

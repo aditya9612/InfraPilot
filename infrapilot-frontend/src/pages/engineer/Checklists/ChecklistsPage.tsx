@@ -74,7 +74,8 @@ const ChecklistsPage = () => {
         if (userStr) {
             try {
                 const user = JSON.parse(userStr);
-                const pId = user?.project_id || user?.user?.project_id || user?.id;
+                // Priority: default_project_id (set by Settings page) > project_id > user.project_id
+                const pId = user?.default_project_id || user?.project_id || user?.user?.project_id || user?.id;
                 if (pId) setProjectId(Number(pId));
             } catch (e) {
                 console.error("Failed to resolve project ID", e);
@@ -506,11 +507,23 @@ const ChecklistsPage = () => {
                                     className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
                                 />
                             </div>
-                            {activeStatFilter !== "All" && (
-                                <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter">
-                                    <RotateCcw className="w-4 h-4" />
-                                </button>
-                            )}
+                            <div className="flex items-center gap-3 font-inter">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden sm:block">Filter:</span>
+                                <select
+                                    value={activeStatFilter}
+                                    onChange={(e) => setActiveStatFilter(e.target.value as "All" | "Pending" | "Done")}
+                                    className="bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-600 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary cursor-pointer font-inter uppercase tracking-widest min-w-[140px]"
+                                >
+                                    <option value="All">ALL</option>
+                                    <option value="Done">DONE</option>
+                                    <option value="Pending">PENDING</option>
+                                </select>
+                                {activeStatFilter !== "All" && (
+                                    <button onClick={() => setActiveStatFilter("All")} className="p-2.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors font-inter" title="Reset Filter">
+                                        <RotateCcw className="w-4 h-4" />
+                                    </button>
+                                )}
+                            </div>
                         </div>
                         <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
                             <table className="w-full text-left font-inter min-w-[1000px]">
@@ -624,7 +637,7 @@ const ChecklistsPage = () => {
                                         if (page === '...') {
                                             return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
                                         }
-                                        const pageNum = page;
+                                        const pageNum = page as number;
                                         const isActive = currentPage === pageNum;
                                         return (
                                             <button

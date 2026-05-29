@@ -6,8 +6,9 @@ import {
     Filter, Search, Plus, Eye, Calendar, User, 
     CheckCircle, Clock, AlertCircle, XCircle, List, Grid, 
     Download, Share2, ChevronDown, ChevronUp, Folder,
-    Paperclip, Send, X, FileText, Edit2, Trash2
+    Paperclip, Send, X, FileText, Edit2, Trash2, Play
 } from 'lucide-react';
+import ConfirmModal from "../../../components/common/ConfirmModal";
 import CreateTaskDrawer from './CreateTaskDrawer';
 import Modal from '../../../components/common/Modal';
 import { projectService } from '../../../services/projectService';
@@ -18,6 +19,8 @@ interface FrontendTask extends Omit<Task, 'priority'> {
     assignedBy: { name: string; role: string };
     assignedTo: { name: string; role: string };
     hasHistory: boolean;
+    projectName?: string;
+    audio_data?: string;
 }
 
 
@@ -28,9 +31,9 @@ const priorityBadges: Record<string, string> = {
     HIGH: "bg-rose-500 text-white",
 };
 
-const mapPriority = (priority: number): "LOW" | "MEDIUM" | "HIGH" => {
-    if (priority === 1) return "HIGH";
-    if (priority === 2) return "MEDIUM";
+const mapPriority = (priority: number | string): "LOW" | "MEDIUM" | "HIGH" => {
+    if (priority === 1 || priority === "High" || priority === "HIGH") return "HIGH";
+    if (priority === 2 || priority === "Medium" || priority === "MEDIUM") return "MEDIUM";
     return "LOW";
 };
 
@@ -38,10 +41,16 @@ const TaskManagementPage = () => {
     const [projectId, setProjectId] = useState<number | null>(null);
     const [tasks, setTasks] = useState<FrontendTask[]>([]);
     
+    // Delete Modal State
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [deleteId, setDeleteId] = useState<number | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
     // Filters
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState("All Status");
     const [departmentFilter, setDepartmentFilter] = useState("All Departments");
+    const [ownershipFilter, setOwnershipFilter] = useState("Entire View");
 
     const [activeTab, setActiveTab] = useState("All Tasks");
     const [viewMode, setViewMode] = useState<"list" | "grid">("list");
@@ -68,7 +77,16 @@ const TaskManagementPage = () => {
             
             const membersList: ProjectMember[] = Array.isArray(fetchedMembers) ? fetchedMembers : (fetchedMembers.items || fetchedMembers.data || []);
 
-            const mappedTasks: FrontendTask[] = (Array.isArray(fetchedTasks) ? fetchedTasks : (fetchedTasks.items || fetchedTasks.data || [])).map((t: Task) => {
+            const userStr = localStorage.getItem("infrapilot_user");
+            let pName = "Unknown Project";
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                const assignedProjects = user.assigned_projects || [];
+                const matched = assignedProjects.find((p: any) => p.id === projectId);
+                if (matched) pName = matched.name;
+            }
+
+            const mappedTasks: FrontendTask[] = (Array.isArray(fetchedTasks) ? fetchedTasks : (fetchedTasks.items || fetchedTasks.data || [])).map((t: Task & { audio_data?: string }) => {
                 const assignee = membersList.find(m => m.user_id === t.assigned_user_id);
                 // Hardcoding assigner to Admin for now or if we had a created_by field
                 const assigner = { name: "System / Admin", role: "Manager" };
@@ -81,7 +99,9 @@ const TaskManagementPage = () => {
                         name: assignee?.full_name || "Unassigned", 
                         role: assignee?.role || "Engineer" 
                     },
-                    hasHistory: false
+                    hasHistory: false,
+                    projectName: pName,
+                    audio_data: t.audio_data
                 };
             });
             setTasks(mappedTasks);
@@ -126,13 +146,39 @@ const TaskManagementPage = () => {
         const formData = new FormData(e.currentTarget);
         
         try {
-            await projectService.updateTask(projectId, selectedEditTask.id, {
-                ...selectedEditTask,
+            const updatedTaskData = {
                 title: formData.get('title') as string,
                 description: formData.get('description') as string,
-                start_date: formData.get('start_date') as string || selectedEditTask.start_date,
-                end_date: formData.get('end_date') as string || selectedEditTask.end_date
-            });
+                priority: formData.get('priority') as string,
+                status: formData.get('status') as string,
+                start_date: formData.get('start_date') as string,
+                end_date: formData.get('end_date') as string,
+                assigned_user_ids: [parseInt(formData.get('assigned_user_id') as string) || 1]
+            };
+
+            const updatedTaskResponse = await projectService.updateTask(projectId, selectedEditTask.id, updatedTaskData);
+            
+            // Optimistic UI Update
+            setTasks(prevTasks => prevTasks.map(t => {
+                if (t.id === selectedEditTask.id) {
+                    const selectEl = document.querySelector('select[name="assigned_user_id"]') as HTMLSelectElement;
+                    const assignedName = selectEl ? selectEl.options[selectEl.selectedIndex].text : t.assignedTo.name;
+                    return {
+                        ...t,
+                        ...updatedTaskData,
+                        ...updatedTaskResponse,
+                        priority: mapPriority(updatedTaskData.priority),
+                        status: updatedTaskData.status as any,
+                        assigned_user_id: updatedTaskData.assigned_user_ids[0],
+                        assignedTo: {
+                            ...t.assignedTo,
+                            name: assignedName
+                        }
+                    };
+                }
+                return t;
+            }));
+
             toast.success("Task updated successfully");
             setIsEditModalOpen(false);
             fetchData();
@@ -141,24 +187,7 @@ const TaskManagementPage = () => {
         }
     };
 
-    const handleGenerateDemoTasks = async () => {
-        if (!projectId) return;
-        try {
-            const demoTasks = [
-                { title: "Site Inspection", description: "Perform routine site safety check", priority: 1, start_date: new Date().toISOString().split('T')[0], end_date: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0] },
-                { title: "Material Procurement", description: "Order 500 bags of cement", priority: 2, start_date: new Date(Date.now() - 86400000 * 2).toISOString().split('T')[0], end_date: new Date(Date.now() + 86400000 * 5).toISOString().split('T')[0] },
-                { title: "Client Meeting Prep", description: "Prepare slides for the milestone meeting", priority: 3, start_date: new Date(Date.now() - 86400000 * 5).toISOString().split('T')[0], end_date: new Date(Date.now() - 86400000 * 1).toISOString().split('T')[0] },
-            ];
-            for (const t of demoTasks) {
-                await projectService.createTask(projectId, t);
-            }
-            toast.success("Demo tasks generated successfully");
-            fetchData();
-        } catch (error) {
-            console.error(error);
-            toast.error("Failed to generate demo tasks");
-        }
-    };
+
 
     const toggleProject = (id: number) => {
         setExpandedProjects(prev => 
@@ -166,21 +195,39 @@ const TaskManagementPage = () => {
         );
     };
 
-    const openTaskModal = (task: FrontendTask) => {
-        setSelectedTask(task);
-        setModalTab("Details");
+    const openTaskModal = async (task: FrontendTask) => {
+        if (!projectId) return;
+        try {
+            const fetchedTask = await projectService.getTask(projectId, task.id);
+            setSelectedTask({
+                ...task,
+                ...fetchedTask,
+                priority: task.priority
+            });
+            setModalTab("Details");
+        } catch (error) {
+            toast.error("Failed to fetch task details");
+        }
     };
 
-    const handleDeleteTask = async (taskId: number) => {
-        if (!projectId) return;
-        if (!window.confirm("Are you sure you want to delete this task?")) return;
-        
+    const handleDeleteTask = (taskId: number) => {
+        setDeleteId(taskId);
+        setIsDeleteModalOpen(true);
+    };
+
+    const executeDeleteTask = async () => {
+        if (!projectId || !deleteId) return;
+        setIsSubmitting(true);
         try {
-            await projectService.deleteTask(projectId, taskId);
+            await projectService.deleteTask(projectId, deleteId);
             toast.success("Task deleted successfully");
+            setIsDeleteModalOpen(false);
+            setDeleteId(null);
             fetchData();
         } catch (error) {
             toast.error("Failed to delete task");
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -188,14 +235,7 @@ const TaskManagementPage = () => {
         if (!projectId) return;
         
         try {
-            // Find task to send full object if necessary, or just status
-            const task = tasks.find(t => t.id === taskId);
-            if (!task) return;
-            
-            await projectService.updateTask(projectId, taskId, {
-                ...task,
-                status: newStatus
-            });
+            await projectService.updateTaskStatus(projectId, taskId, newStatus);
             toast.success("Status updated");
             fetchData();
         } catch (error) {
@@ -207,12 +247,12 @@ const TaskManagementPage = () => {
         return tasks.filter(t => {
             let match = true;
             if (searchQuery && !t.title.toLowerCase().includes(searchQuery.toLowerCase())) match = false;
-            if (statusFilter === "Overdue" && !t.is_delayed) match = false;
-            else if (statusFilter !== "All Status" && statusFilter !== "Overdue" && t.status !== statusFilter) match = false;
+            if (statusFilter !== "All Status" && t.status !== statusFilter) match = false;
+            if (ownershipFilter === "My Projects" && t.assignedTo.name === "Unassigned") match = false; 
             // Add departmentFilter logic if needed later
             return match;
         });
-    }, [tasks, searchQuery, statusFilter]);
+    }, [tasks, searchQuery, statusFilter, ownershipFilter]);
 
     return (
         <>
@@ -227,19 +267,15 @@ const TaskManagementPage = () => {
                         <p className="text-slate-500 text-sm">Efficiently organize, track, and manage all your tasks in one place</p>
                     </div>
                     <div className="flex items-center gap-3">
-                        <button
-                            onClick={handleGenerateDemoTasks}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-xl text-sm shadow-sm hover:bg-slate-200 transition-colors whitespace-nowrap"
-                        >
-                            Generate Demo Tasks
-                        </button>
-                        <button 
-                            onClick={() => setIsCreateDrawerOpen(true)}
-                            className="flex items-center gap-2 px-6 py-2.5 bg-indigo-500 text-white font-bold rounded-xl text-sm shadow-sm hover:bg-indigo-600 transition-colors whitespace-nowrap"
-                        >
-                            <Plus className="w-4 h-4" />
-                            Create Task
-                        </button>
+                        {activeTab !== "Project Tasks" && (
+                            <button 
+                                onClick={() => setIsCreateDrawerOpen(true)}
+                                className="flex items-center gap-2 px-6 py-2.5 bg-indigo-500 text-white font-bold rounded-xl text-sm shadow-sm hover:bg-indigo-600 transition-colors whitespace-nowrap"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Create Task
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -270,97 +306,97 @@ const TaskManagementPage = () => {
                 {/* ─── Stats Cards Section ──────────────────────────────────────────────────────── */}
                 {activeTab === "All Tasks" ? (
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-                        <div onClick={() => setStatusFilter("All Status")} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between group hover:-translate-y-1 transition-transform cursor-pointer">
+                        <div onClick={() => setStatusFilter("All Status")} className={`bg-white p-5 rounded-2xl border ${statusFilter === "All Status" ? 'border-primary ring-1 ring-primary shadow-md' : 'border-slate-200 shadow-sm'} flex items-center justify-between group hover:-translate-y-1 transition-all cursor-pointer`}>
                             <div>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Tasks</p>
+                                <p className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${statusFilter === "All Status" ? 'text-primary' : 'text-slate-400'}`}>Total Tasks</p>
                                 <h3 className="text-2xl font-black text-slate-800">{tasks.length}</h3>
                             </div>
                             <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-slate-100 transition-colors">
                                 <List className="w-5 h-5" />
                             </div>
                         </div>
-                        <div onClick={() => setStatusFilter("In Progress")} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between group hover:-translate-y-1 transition-transform cursor-pointer">
+                        <div onClick={() => setStatusFilter("Planned")} className={`bg-white p-5 rounded-2xl border ${statusFilter === "Planned" ? 'border-slate-500 ring-1 ring-slate-500 shadow-md' : 'border-slate-200 shadow-sm'} flex items-center justify-between group hover:-translate-y-1 transition-all cursor-pointer`}>
                             <div>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">In Progress</p>
+                                <p className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${statusFilter === "Planned" ? 'text-slate-600' : 'text-slate-400'}`}>Planned</p>
+                                <h3 className="text-2xl font-black text-slate-800">{tasks.filter(t => t.status === 'Planned').length}</h3>
+                            </div>
+                            <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 group-hover:bg-slate-100 transition-colors">
+                                <Calendar className="w-5 h-5" />
+                            </div>
+                        </div>
+                        <div onClick={() => setStatusFilter("In Progress")} className={`bg-white p-5 rounded-2xl border ${statusFilter === "In Progress" ? 'border-blue-500 ring-1 ring-blue-500 shadow-md' : 'border-slate-200 shadow-sm'} flex items-center justify-between group hover:-translate-y-1 transition-all cursor-pointer`}>
+                            <div>
+                                <p className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${statusFilter === "In Progress" ? 'text-blue-500' : 'text-slate-400'}`}>In Progress</p>
                                 <h3 className="text-2xl font-black text-slate-800">{tasks.filter(t => t.status === 'In Progress').length}</h3>
                             </div>
                             <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-500 group-hover:bg-blue-100 transition-colors">
                                 <Clock className="w-5 h-5" />
                             </div>
                         </div>
-                        <div onClick={() => setStatusFilter("Completed")} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between group hover:-translate-y-1 transition-transform cursor-pointer">
+                        <div onClick={() => setStatusFilter("Completed")} className={`bg-white p-5 rounded-2xl border ${statusFilter === "Completed" ? 'border-emerald-500 ring-1 ring-emerald-500 shadow-md' : 'border-slate-200 shadow-sm'} flex items-center justify-between group hover:-translate-y-1 transition-all cursor-pointer`}>
                             <div>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Completed</p>
+                                <p className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${statusFilter === "Completed" ? 'text-emerald-500' : 'text-slate-400'}`}>Completed</p>
                                 <h3 className="text-2xl font-black text-slate-800">{tasks.filter(t => t.status === 'Completed').length}</h3>
                             </div>
                             <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-500 group-hover:bg-emerald-100 transition-colors">
                                 <CheckCircle className="w-5 h-5" />
                             </div>
                         </div>
-                        <div onClick={() => setStatusFilter("Overdue")} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between group hover:-translate-y-1 transition-transform cursor-pointer">
+                        <div onClick={() => setStatusFilter("Cancelled")} className={`bg-white p-5 rounded-2xl border ${statusFilter === "Cancelled" ? 'border-rose-500 ring-1 ring-rose-500 shadow-md' : 'border-slate-200 shadow-sm'} flex items-center justify-between group hover:-translate-y-1 transition-all cursor-pointer`}>
                             <div>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Overdue</p>
-                                <h3 className="text-2xl font-black text-slate-800">{tasks.filter(t => t.is_delayed).length}</h3>
+                                <p className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${statusFilter === "Cancelled" ? 'text-rose-500' : 'text-slate-400'}`}>Cancelled</p>
+                                <h3 className="text-2xl font-black text-slate-800">{tasks.filter(t => t.status === 'Cancelled').length}</h3>
                             </div>
                             <div className="w-10 h-10 rounded-full bg-rose-50 flex items-center justify-center text-rose-500 group-hover:bg-rose-100 transition-colors">
-                                <AlertCircle className="w-5 h-5" />
-                            </div>
-                        </div>
-                        <div onClick={() => setStatusFilter("Delayed")} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between group hover:-translate-y-1 transition-transform cursor-pointer">
-                            <div>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Delayed</p>
-                                <h3 className="text-2xl font-black text-slate-800">{tasks.filter(t => t.status === 'Delayed').length}</h3>
-                            </div>
-                            <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-slate-100 transition-colors">
                                 <XCircle className="w-5 h-5" />
                             </div>
                         </div>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                        <div onClick={() => setStatusFilter("All Status")} className={`bg-white p-5 rounded-2xl border ${statusFilter === "All Status" ? 'border-primary ring-1 ring-primary shadow-md' : 'border-slate-200 shadow-sm'} flex items-center justify-between group hover:-translate-y-1 transition-all cursor-pointer`}>
                             <div>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Tasks</p>
-                                <h3 className="text-2xl font-black text-slate-800">0</h3>
+                                <p className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${statusFilter === "All Status" ? 'text-primary' : 'text-slate-400'}`}>Total Tasks</p>
+                                <h3 className="text-2xl font-black text-slate-800">{tasks.length}</h3>
                             </div>
-                            <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400">
+                            <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-slate-100 transition-colors">
                                 <List className="w-5 h-5" />
                             </div>
                         </div>
-                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                        <div onClick={() => setStatusFilter("Planned")} className={`bg-white p-5 rounded-2xl border ${statusFilter === "Planned" ? 'border-slate-500 ring-1 ring-slate-500 shadow-md' : 'border-slate-200 shadow-sm'} flex items-center justify-between group hover:-translate-y-1 transition-all cursor-pointer`}>
                             <div>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">To Do</p>
-                                <h3 className="text-2xl font-black text-slate-800">0</h3>
+                                <p className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${statusFilter === "Planned" ? 'text-slate-600' : 'text-slate-400'}`}>To Do</p>
+                                <h3 className="text-2xl font-black text-slate-800">{tasks.filter(t => t.status === 'Planned').length}</h3>
                             </div>
-                            <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400">
+                            <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 group-hover:bg-slate-100 transition-colors">
                                 <FileText className="w-5 h-5" />
                             </div>
                         </div>
-                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                        <div onClick={() => setStatusFilter("In Progress")} className={`bg-white p-5 rounded-2xl border ${statusFilter === "In Progress" ? 'border-blue-500 ring-1 ring-blue-500 shadow-md' : 'border-slate-200 shadow-sm'} flex items-center justify-between group hover:-translate-y-1 transition-all cursor-pointer`}>
                             <div>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">In Progress</p>
-                                <h3 className="text-2xl font-black text-slate-800">0</h3>
+                                <p className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${statusFilter === "In Progress" ? 'text-blue-500' : 'text-slate-400'}`}>In Progress</p>
+                                <h3 className="text-2xl font-black text-slate-800">{tasks.filter(t => t.status === 'In Progress').length}</h3>
                             </div>
-                            <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-500">
+                            <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-500 group-hover:bg-blue-100 transition-colors">
                                 <Clock className="w-5 h-5" />
                             </div>
                         </div>
-                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                        <div onClick={() => setStatusFilter("Completed")} className={`bg-white p-5 rounded-2xl border ${statusFilter === "Completed" ? 'border-emerald-500 ring-1 ring-emerald-500 shadow-md' : 'border-slate-200 shadow-sm'} flex items-center justify-between group hover:-translate-y-1 transition-all cursor-pointer`}>
                             <div>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Completed</p>
-                                <h3 className="text-2xl font-black text-slate-800">0</h3>
+                                <p className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${statusFilter === "Completed" ? 'text-emerald-500' : 'text-slate-400'}`}>Completed</p>
+                                <h3 className="text-2xl font-black text-slate-800">{tasks.filter(t => t.status === 'Completed').length}</h3>
                             </div>
-                            <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-500">
+                            <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-500 group-hover:bg-emerald-100 transition-colors">
                                 <CheckCircle className="w-5 h-5" />
                             </div>
                         </div>
-                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                        <div onClick={() => setStatusFilter("Cancelled")} className={`bg-white p-5 rounded-2xl border ${statusFilter === "Cancelled" ? 'border-rose-500 ring-1 ring-rose-500 shadow-md' : 'border-slate-200 shadow-sm'} flex items-center justify-between group hover:-translate-y-1 transition-all cursor-pointer`}>
                             <div>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Overdue</p>
-                                <h3 className="text-2xl font-black text-slate-800">0</h3>
+                                <p className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${statusFilter === "Cancelled" ? 'text-rose-500' : 'text-slate-400'}`}>Cancelled</p>
+                                <h3 className="text-2xl font-black text-slate-800">{tasks.filter(t => t.status === 'Cancelled').length}</h3>
                             </div>
-                            <div className="w-10 h-10 rounded-full bg-rose-50 flex items-center justify-center text-rose-500">
-                                <AlertCircle className="w-5 h-5" />
+                            <div className="w-10 h-10 rounded-full bg-rose-50 flex items-center justify-center text-rose-500 group-hover:bg-rose-100 transition-colors">
+                                <XCircle className="w-5 h-5" />
                             </div>
                         </div>
                     </div>
@@ -406,8 +442,6 @@ const TaskManagementPage = () => {
                                             <option>All Status</option>
                                             <option>Planned</option>
                                             <option>In Progress</option>
-                                            <option>Overdue</option>
-                                            <option>Delayed</option>
                                             <option>Completed</option>
                                             <option>Cancelled</option>
                                         </select>
@@ -461,20 +495,20 @@ const TaskManagementPage = () => {
                                 {viewMode === 'grid' ? (
                                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                                         {filteredTasks.map(task => (
-                                            <div key={task.id} className={`bg-white rounded-2xl border shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col ${task.status === 'Delayed' ? 'border-rose-200' : 'border-slate-200'}`}>
+                                            <div key={task.id} className={`bg-white rounded-2xl border shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col ${task.status === 'Cancelled' ? 'border-rose-200' : 'border-slate-200'}`}>
                                                 <div className="p-5 flex-1">
                                                     <div className="flex items-center justify-between mb-4">
                                                         <div className="flex items-center gap-2">
                                                             <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest ${priorityBadges[task.priority]}`}>
                                                                 {task.priority}
                                                             </span>
-                                                            {task.status === "Delayed" && (
+                                                            {task.status === "Cancelled" && (
                                                                 <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest bg-rose-500 text-white">
-                                                                    DELAYED
+                                                                    CANCELLED
                                                                 </span>
                                                             )}
                                                         </div>
-                                                        <div className={`w-2 h-2 rounded-full ${task.status === 'Delayed' ? 'bg-rose-500' : task.status === 'Planned' ? 'bg-slate-400' : 'bg-blue-500'}`} />
+                                                        <div className={`w-2 h-2 rounded-full ${task.status === 'Cancelled' ? 'bg-rose-500' : task.status === 'Planned' ? 'bg-slate-400' : 'bg-blue-500'}`} />
                                                     </div>
 
                                                     <h3 className="text-base font-bold text-slate-800 mb-1">{task.title}</h3>
@@ -518,42 +552,63 @@ const TaskManagementPage = () => {
                                                         <Share2 className="w-3.5 h-3.5" />
                                                         View History
                                                     </button>
-                                                    <button onClick={() => openEditModal(task)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                                    <button onClick={() => openEditModal(task)} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all">
                                                         <Edit2 className="w-4 h-4" />
                                                     </button>
-                                                    <button onClick={() => handleDeleteTask(task.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
+                                                    <button onClick={() => handleDeleteTask(task.id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all">
                                                         <Trash2 className="w-4 h-4" />
                                                     </button>
-                                                    <button onClick={() => openTaskModal(task)} className="px-4 py-2 text-[10px] font-bold text-white bg-primary hover:bg-blue-600 uppercase tracking-widest rounded-xl transition-all font-inter shadow-lg shadow-primary/20 active:scale-95">
-                                                            VIEW DETAILS
-                                                        </button>
+                                                    <button onClick={() => openTaskModal(task)} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all" title="View Details">
+                                                        <Eye className="w-4 h-4" />
+                                                    </button>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="overflow-x-auto bg-white rounded-xl border border-slate-200">
-                                        <table className="w-full text-left border-collapse">
-                                            <thead>
+                                    <div className="overflow-x-auto custom-scrollbar bg-white rounded-xl border border-slate-200">
+                                        <table className="w-full text-left border-collapse block md:table">
+                                            <thead className="hidden md:table-header-group">
                                                 <tr className="border-b border-slate-200 bg-slate-50/50">
                                                     <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Task</th>
+                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Project</th>
                                                     <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Assigned By</th>
                                                     <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Assigned To</th>
+                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Assignment</th>
                                                     <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Priority</th>
                                                     <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Deadline</th>
-                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Selfies</th>
                                                     <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Status</th>
                                                     <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Actions</th>
                                                 </tr>
                                             </thead>
-                                            <tbody>
+                                            <tbody className="block md:table-row-group">
                                                 {filteredTasks.map((task) => (
-                                                    <tr key={task.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
-                                                        <td className="p-4">
+                                                    <tr key={task.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors block md:table-row">
+                                                        <td className="p-4 block md:table-cell">
                                                             <p className="text-sm font-bold text-slate-800">{task.title}</p>
                                                             <p className="text-xs text-slate-500 mt-1 truncate max-w-[200px]">{task.description}</p>
+                                                            {task.audio_data && (
+                                                                <div className="mt-2 flex items-center gap-2 max-w-[160px] bg-slate-100/80 rounded-full p-1 pr-3 border border-slate-200/50">
+                                                                    <div className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm cursor-pointer" onClick={(e) => {
+                                                                        const audio = e.currentTarget.parentElement?.querySelector('audio');
+                                                                        if (audio) { audio.paused ? audio.play() : audio.pause(); }
+                                                                    }}>
+                                                                        <Play className="w-3 h-3 ml-0.5" />
+                                                                    </div>
+                                                                    <div className="flex-1 h-1 bg-slate-300 rounded-full overflow-hidden flex items-center">
+                                                                        <div className="h-full bg-emerald-500 w-1/3"></div>
+                                                                    </div>
+                                                                    <audio src={task.audio_data} className="hidden" />
+                                                                    <span className="text-[10px] font-bold text-slate-400">0:00</span>
+                                                                </div>
+                                                            )}
                                                         </td>
-                                                        <td className="p-4">
+                                                        <td className="p-4 block md:table-cell">
+                                                            <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100 whitespace-nowrap">
+                                                                {task.projectName}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-4 block md:table-cell">
                                                             <div className="flex items-center gap-2">
                                                                 <div className="w-6 h-6 rounded-full border border-slate-200 bg-slate-100 flex items-center justify-center text-slate-400">
                                                                     <User className="w-3 h-3" />
@@ -564,7 +619,7 @@ const TaskManagementPage = () => {
                                                                 </div>
                                                             </div>
                                                         </td>
-                                                        <td className="p-4">
+                                                        <td className="p-4 block md:table-cell">
                                                             <div className="flex items-center gap-2">
                                                                 <div className="w-6 h-6 rounded-full border border-slate-200 bg-slate-100 flex items-center justify-center text-slate-400">
                                                                     <User className="w-3 h-3" />
@@ -575,52 +630,37 @@ const TaskManagementPage = () => {
                                                                 </div>
                                                             </div>
                                                         </td>
-                                                        <td className="p-4 text-center">
+                                                        <td className="p-4 text-center block md:table-cell">
+                                                            <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${task.assignedTo.name === 'Unassigned' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                                                {task.assignedTo.name === 'Unassigned' ? 'UNASSIGNED' : 'ASSIGNED'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-4 text-center block md:table-cell">
                                                             <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${priorityBadges[task.priority]}`}>
                                                                 {task.priority}
                                                             </span>
                                                         </td>
-                                                        <td className="p-4">
+                                                        <td className="p-4 block md:table-cell">
                                                             <div className="flex items-center gap-2 text-sm text-slate-800 font-medium">
                                                                 <Calendar className="w-4 h-4 text-slate-400" />
                                                                 {new Date(task.end_date).toLocaleDateString()}
                                                             </div>
                                                         </td>
-                                                        <td className="p-4 text-center">
-                                                            <div className="flex items-center justify-center -space-x-2">
-                                                                <div className="relative group cursor-pointer" title="Start Selfie">
-                                                                    <div className="w-8 h-8 rounded-full border-2 border-white bg-emerald-100 flex items-center justify-center relative z-20 shadow-sm overflow-hidden">
-                                                                        <User className="w-4 h-4 text-emerald-600" />
-                                                                    </div>
-                                                                    <div className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-30">
-                                                                        <Eye className="w-3 h-3 text-white" />
-                                                                    </div>
-                                                                </div>
-                                                                <div className="relative group cursor-pointer" title="End Selfie">
-                                                                    <div className="w-8 h-8 rounded-full border-2 border-white bg-rose-100 flex items-center justify-center relative z-10 shadow-sm overflow-hidden">
-                                                                        <User className="w-4 h-4 text-rose-600" />
-                                                                    </div>
-                                                                    <div className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-30">
-                                                                        <Eye className="w-3 h-3 text-white" />
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                        <td className="p-4">
+                                                        <td className="p-4 block md:table-cell">
                                                             <div className="relative inline-block w-full min-w-[130px]">
                                                                 <select 
                                                                     value={task.status}
                                                                     onChange={(e) => handleStatusChange(task.id, e.target.value)}
                                                                     className="w-full appearance-none bg-white border border-slate-200 rounded-xl px-3 py-1.5 pl-8 text-xs font-bold text-slate-700 outline-none cursor-pointer focus:ring-2 focus:ring-indigo-500/20"
                                                                 >
-                                                                    <option value="To Do">To Do</option>
+                                                                    <option value="Planned">Planned</option>
                                                                     <option value="In Progress">In Progress</option>
                                                                     <option value="Completed">Completed</option>
-                                                                    <option value="Delayed">Delayed</option>
+                                                                    <option value="Cancelled">Cancelled</option>
                                                                 </select>
                                                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                                                     <div className={`w-2 h-2 rounded-full ${
-                                                                        task.status === 'Delayed' ? 'bg-rose-500' : 
+                                                                        task.status === 'Cancelled' ? 'bg-rose-500' : 
                                                                         task.status === 'Completed' ? 'bg-emerald-500' : 
                                                                         task.status === 'In Progress' ? 'bg-blue-500' : 
                                                                         'bg-slate-400'
@@ -631,15 +671,15 @@ const TaskManagementPage = () => {
                                                                 </div>
                                                             </div>
                                                         </td>
-                                                        <td className="p-4 text-center">
+                                                        <td className="p-4 text-center block md:table-cell">
                                                             <div className="flex items-center justify-center gap-1">
-                                                                <button onClick={() => openTaskModal(task)} className="px-4 py-2 text-[10px] font-bold text-white bg-primary hover:bg-blue-600 uppercase tracking-widest rounded-xl transition-all font-inter shadow-lg shadow-primary/20 active:scale-95">
-                                                            VIEW DETAILS
-                                                        </button>
-                                                                <button onClick={() => openEditModal(task)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
+                                                                <button onClick={() => openTaskModal(task)} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all" title="View Details">
+                                                                    <Eye className="w-4 h-4" />
+                                                                </button>
+                                                                <button onClick={() => openEditModal(task)} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all" title="Edit">
                                                                     <Edit2 className="w-4 h-4" />
                                                                 </button>
-                                                                <button onClick={() => handleDeleteTask(task.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors" title="Delete">
+                                                                <button onClick={() => handleDeleteTask(task.id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="Delete">
                                                                     <Trash2 className="w-4 h-4" />
                                                                 </button>
                                                             </div>
@@ -670,6 +710,8 @@ const TaskManagementPage = () => {
                                         </div>
                                         <input
                                             type="text"
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
                                             placeholder="Search projects or task..."
                                             className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all w-64 bg-slate-50 hover:bg-white"
                                         />
@@ -679,18 +721,28 @@ const TaskManagementPage = () => {
                                 <div className="flex flex-wrap items-end gap-4">
                                     <div className="flex flex-col">
                                         <span className="text-[10px] font-black text-slate-800 mb-1">Status</span>
-                                        <select className="border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer bg-slate-50 hover:bg-white transition-colors">
-                                            <option>All Status</option>
-                                            <option>Planned</option>
-                                            <option>Completed</option>
+                                        <select 
+                                            value={statusFilter}
+                                            onChange={(e) => setStatusFilter(e.target.value)}
+                                            className="border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer bg-slate-50 hover:bg-white transition-colors"
+                                        >
+                                            <option value="All Status">All Status</option>
+                                            <option value="Planned">Planned</option>
+                                            <option value="In Progress">In Progress</option>
+                                            <option value="Completed">Completed</option>
+                                            <option value="Cancelled">Cancelled</option>
                                         </select>
                                     </div>
 
                                     <div className="flex flex-col">
                                         <span className="text-[10px] font-black text-slate-800 mb-1">Ownership</span>
-                                        <select className="border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer bg-slate-50 hover:bg-white transition-colors">
-                                            <option>Entire View</option>
-                                            <option>My Projects</option>
+                                        <select 
+                                            value={ownershipFilter}
+                                            onChange={(e) => setOwnershipFilter(e.target.value)}
+                                            className="border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer bg-slate-50 hover:bg-white transition-colors"
+                                        >
+                                            <option value="Entire View">Entire View</option>
+                                            <option value="My Projects">My Projects</option>
                                         </select>
                                     </div>
                                 </div>
@@ -732,9 +784,9 @@ const TaskManagementPage = () => {
                                             
                                             {isExpanded && (
                                                 <div className="border-t border-slate-200">
-                                                    <div className="overflow-x-auto">
-                                                        <table className="w-full text-left border-collapse min-w-[800px]">
-                                                            <thead>
+                                                    <div className="overflow-x-auto custom-scrollbar">
+                                                        <table className="w-full text-left border-collapse min-w-[800px] block md:table">
+                                                            <thead className="hidden md:table-header-group">
                                                                 <tr className="border-b border-slate-200 bg-slate-50/50">
                                                                     <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Task Intelligence</th>
                                                                     <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Assigned To</th>
@@ -744,21 +796,26 @@ const TaskManagementPage = () => {
                                                                     <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Actions</th>
                                                                 </tr>
                                                             </thead>
-                                                            <tbody>
+                                                            <tbody className="block md:table-row-group">
                                                                 {project.tasks.length > 0 ? (
                                                                     project.tasks.map((task) => (
-                                                                        <tr key={task.id}>
-                                                                            <td className="p-4">{task.title}</td>
-                                                                            <td className="p-4">{task.assignedTo.name}</td>
-                                                                            <td className="p-4">{new Date(task.end_date).toLocaleDateString()}</td>
-                                                                            <td className="p-4">{task.status}</td>
-                                                                            <td className="p-4">{task.priority}</td>
-                                                                            <td className="p-4 text-center"><Eye className="w-4 h-4 mx-auto" /></td>
+                                                                        <tr key={task.id} className="block md:table-row border-b border-slate-200 md:border-none p-4 md:p-0">
+                                                                            <td className="p-2 md:p-4 block md:table-cell before:content-['Task:'] md:before:content-none before:font-bold before:mr-2 before:text-[10px] before:uppercase before:text-slate-500">{task.title}</td>
+                                                                            <td className="p-2 md:p-4 block md:table-cell before:content-['Assigned:'] md:before:content-none before:font-bold before:mr-2 before:text-[10px] before:uppercase before:text-slate-500">{task.assignedTo.name}</td>
+                                                                            <td className="p-2 md:p-4 block md:table-cell before:content-['Deadline:'] md:before:content-none before:font-bold before:mr-2 before:text-[10px] before:uppercase before:text-slate-500">{new Date(task.end_date).toLocaleDateString()}</td>
+                                                                            <td className="p-2 md:p-4 block md:table-cell before:content-['Status:'] md:before:content-none before:font-bold before:mr-2 before:text-[10px] before:uppercase before:text-slate-500">{task.status}</td>
+                                                                            <td className="p-2 md:p-4 block md:table-cell before:content-['Priority:'] md:before:content-none before:font-bold before:mr-2 before:text-[10px] before:uppercase before:text-slate-500">{task.priority}</td>
+                                                                            <td className="p-2 md:p-4 block md:table-cell md:text-center mt-2 md:mt-0 border-t md:border-none border-slate-100 pt-3 md:pt-4">
+                                                                                <button onClick={() => openTaskModal(task)} className="p-2 bg-indigo-50 md:bg-transparent text-indigo-600 md:text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl md:rounded-lg transition-colors flex items-center justify-center gap-2 w-full md:w-auto" title="View Details">
+                                                                                    <Eye className="w-4 h-4 md:mx-auto" />
+                                                                                    <span className="md:hidden text-xs font-bold">View Task</span>
+                                                                                </button>
+                                                                            </td>
                                                                         </tr>
                                                                     ))
                                                                 ) : (
-                                                                    <tr>
-                                                                        <td colSpan={6} className="p-12 text-center text-sm font-bold text-slate-800 bg-white">
+                                                                    <tr className="block md:table-row">
+                                                                        <td colSpan={6} className="p-12 text-center text-sm font-bold text-slate-800 bg-white block md:table-cell">
                                                                             No matching tasks found in this project.
                                                                         </td>
                                                                     </tr>
@@ -796,7 +853,7 @@ const TaskManagementPage = () => {
                         </div>
 
                         {/* Modal Tabs */}
-                        <div className="flex bg-white border-b border-slate-200 px-6 pt-4 gap-4">
+                        <div className="flex bg-white border-b border-slate-200 px-6 pt-4 gap-4 overflow-x-auto custom-scrollbar">
                             <button 
                                 onClick={() => setModalTab("Details")}
                                 className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors ${modalTab === 'Details' ? 'border-slate-800 text-slate-800 bg-slate-100 rounded-t-lg' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
@@ -818,10 +875,10 @@ const TaskManagementPage = () => {
                         </div>
 
                         {/* Modal Content */}
-                        <div className="p-6 overflow-y-auto flex-1">
+                        <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
                             {modalTab === "Details" && (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm md:col-span-2">
                                         <div className="flex items-center gap-2 mb-2">
                                             <div className="w-6 h-6 rounded bg-indigo-50 flex items-center justify-center text-indigo-500">
                                                 <FileText className="w-3.5 h-3.5" />
@@ -829,6 +886,22 @@ const TaskManagementPage = () => {
                                             <span className="text-sm font-bold text-slate-800">Description</span>
                                         </div>
                                         <p className="text-sm text-slate-600 pl-8">{selectedTask.description || "No description provided."}</p>
+                                        
+                                        {selectedTask.audio_data && (
+                                            <div className="mt-4 ml-8 flex items-center gap-3 max-w-sm bg-slate-50 rounded-full p-2 pr-4 border border-slate-200 shadow-sm">
+                                                <div className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm cursor-pointer hover:bg-emerald-600 transition-colors" onClick={(e) => {
+                                                    const audio = e.currentTarget.parentElement?.querySelector('audio');
+                                                    if (audio) { audio.paused ? audio.play() : audio.pause(); }
+                                                }}>
+                                                    <Play className="w-4 h-4 ml-0.5" />
+                                                </div>
+                                                <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden flex items-center">
+                                                    <div className="h-full bg-emerald-500 w-1/3"></div>
+                                                </div>
+                                                <audio src={selectedTask.audio_data} className="hidden" />
+                                                <span className="text-xs font-bold text-slate-400">0:00</span>
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                                         <div className="flex items-center gap-2 mb-2">
@@ -893,7 +966,7 @@ const TaskManagementPage = () => {
                                             <span className="text-sm font-bold text-slate-800">Status</span>
                                         </div>
                                         <div className="pl-8 flex items-center gap-2">
-                                            <div className={`w-2.5 h-2.5 rounded-full ${selectedTask.status === 'Delayed' ? 'bg-rose-500' : selectedTask.status === 'Completed' ? 'bg-emerald-500' : selectedTask.status === 'In Progress' ? 'bg-blue-500' : 'bg-slate-400'}`} />
+                                            <div className={`w-2.5 h-2.5 rounded-full ${selectedTask.status === 'Cancelled' ? 'bg-rose-500' : selectedTask.status === 'Completed' ? 'bg-emerald-500' : selectedTask.status === 'In Progress' ? 'bg-blue-500' : 'bg-slate-400'}`} />
                                             <p className="text-sm text-slate-600 font-medium">{selectedTask.status}</p>
                                         </div>
                                     </div>
@@ -955,133 +1028,136 @@ const TaskManagementPage = () => {
                 isOpen={isEditModalOpen}
                 onClose={() => setIsEditModalOpen(false)}
                 title="Edit Task"
-                maxWidth="max-w-2xl"
-                hideHeader
-            >
-                <form onSubmit={handleEditFormSubmit} className="flex flex-col h-full font-inter">
-                    {/* Custom Header */}
-                    <div className="flex items-start justify-between p-6 border-b border-slate-100 bg-slate-50/50">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center text-white shadow-sm -rotate-3">
-                                <Edit2 className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <h2 className="text-xl font-bold text-slate-800 tracking-tight">Edit Task</h2>
-                                <p className="text-xs text-slate-500 mt-0.5">Update task details and assignment</p>
-                            </div>
-                        </div>
-                        <button 
+                maxWidth="max-w-3xl"
+                footer={
+                    <>
+                        <button
                             type="button"
                             onClick={() => setIsEditModalOpen(false)}
-                            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                            className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors"
                         >
-                            <X className="w-5 h-5" />
+                            Cancel
                         </button>
-                    </div>
-
-                    <div className="p-6 space-y-5 flex-1 overflow-y-auto">
-                        <div className="space-y-1.5">
-                            <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
-                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                                Task Title <span className="text-rose-500">*</span>
-                            </label>
-                            <input 
-                                type="text"
-                                name="title"
-                                defaultValue={selectedEditTask?.title}
-                                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
-                                required
-                            />
-                        </div>
-
-                        <div className="space-y-1.5">
-                            <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
-                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                                Description <span className="text-rose-500">*</span>
-                            </label>
-                            <textarea 
-                                name="description"
-                                rows={4}
-                                defaultValue={selectedEditTask?.description}
-                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all resize-none"
-                                required
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                            <div className="space-y-1.5">
-                                <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
-                                    <User className="w-4 h-4 text-indigo-500" />
-                                    Assign To
-                                </label>
-                                <select 
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all appearance-none cursor-pointer"
-                                >
-                                    <option>{selectedEditTask?.assignedTo?.name || ""}</option>
-                                    <option>Suresh Chaudhari</option>
-                                    <option>Vishal Sathe</option>
-                                    <option>Amit Khare</option>
-                                </select>
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
-                                    <Calendar className="w-4 h-4 text-indigo-500" />
-                                    Start Date
+                        <button
+                            form="edit-task-form"
+                            type="submit"
+                            className="px-8 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center gap-2 active:scale-95"
+                        >
+                            Update Task
+                        </button>
+                    </>
+                }
+            >
+                <form id="edit-task-form" onSubmit={handleEditFormSubmit} className="space-y-6 font-inter">
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
+                            Basic Information
+                        </h3>
+                        
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                                    Task Title <span className="text-rose-500">*</span>
                                 </label>
                                 <input 
-                                    type="date"
-                                    name="start_date"
-                                    defaultValue={selectedEditTask?.start_date ? new Date(selectedEditTask.start_date).toISOString().split('T')[0] : ''}
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
-                                />
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
-                                    <Calendar className="w-4 h-4 text-indigo-500" />
-                                    Deadline <span className="text-rose-500">*</span>
-                                </label>
-                                <input 
-                                    type="date"
-                                    name="end_date"
-                                    defaultValue={selectedEditTask?.end_date ? new Date(selectedEditTask.end_date).toISOString().split('T')[0] : ''}
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                                    type="text"
+                                    name="title"
+                                    defaultValue={selectedEditTask?.title}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
                                     required
                                 />
                             </div>
 
-                            <div className="space-y-1.5">
-                                <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
-                                    <FileText className="w-4 h-4 text-indigo-500" />
-                                    Project (Optional)
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                                    Description <span className="text-rose-500">*</span>
                                 </label>
-                                <select 
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all appearance-none cursor-pointer"
-                                >
-                                    <option>None</option>
-                                    <option>Shopex</option>
-                                    <option>Test Project</option>
-                                    <option>staffly</option>
-                                </select>
+                                <textarea 
+                                    name="description"
+                                    rows={4}
+                                    defaultValue={selectedEditTask?.description}
+                                    className="w-full px-4 py-3 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 resize-none"
+                                    required
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                                        Assign To <span className="text-rose-500">*</span>
+                                    </label>
+                                    <select 
+                                        name="assigned_user_id"
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
+                                        required
+                                    >
+                                        <option value={selectedEditTask?.assigned_user_id || 1}>{selectedEditTask?.assignedTo?.name || "Select User"}</option>
+                                        <option value="1">Suresh Chaudhari</option>
+                                        <option value="2">Vishal Sathe</option>
+                                        <option value="3">Amit Khare</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                                        Priority <span className="text-rose-500">*</span>
+                                    </label>
+                                    <select 
+                                        name="priority"
+                                        defaultValue={selectedEditTask?.priority}
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
+                                        required
+                                    >
+                                        <option value="High">High</option>
+                                        <option value="Medium">Medium</option>
+                                        <option value="Low">Low</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                                        Status <span className="text-rose-500">*</span>
+                                    </label>
+                                    <select 
+                                        name="status"
+                                        defaultValue={selectedEditTask?.status}
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
+                                        required
+                                    >
+                                        <option value="Planned">Planned</option>
+                                        <option value="In Progress">In Progress</option>
+                                        <option value="Completed">Completed</option>
+                                        <option value="Cancelled">Cancelled</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                                        Start Date <span className="text-rose-500">*</span>
+                                    </label>
+                                    <input 
+                                        type="date"
+                                        name="start_date"
+                                        defaultValue={selectedEditTask?.start_date ? new Date(selectedEditTask.start_date).toISOString().split('T')[0] : ''}
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                                        Deadline <span className="text-rose-500">*</span>
+                                    </label>
+                                    <input 
+                                        type="date"
+                                        name="end_date"
+                                        defaultValue={selectedEditTask?.end_date ? new Date(selectedEditTask.end_date).toISOString().split('T')[0] : ''}
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
+                                        required
+                                    />
+                                </div>
                             </div>
                         </div>
-                    </div>
-
-                    <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex items-center justify-end gap-3 rounded-b-3xl">
-                        <button 
-                            type="button"
-                            onClick={() => setIsEditModalOpen(false)}
-                            className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl hover:bg-slate-50 transition-colors shadow-sm active:scale-95"
-                        >
-                            Cancel
-                        </button>
-                        <button 
-                            type="submit"
-                            className="px-6 py-2.5 bg-indigo-500 text-white text-sm font-bold rounded-xl hover:bg-indigo-600 transition-colors shadow-sm active:scale-95"
-                        >
-                            Save Changes
-                        </button>
                     </div>
                 </form>
             </Modal>
@@ -1095,6 +1171,17 @@ const TaskManagementPage = () => {
                     fetchData();
                     setIsCreateDrawerOpen(false);
                 }}
+            />
+
+            <ConfirmModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={executeDeleteTask}
+                title="Discard Task Entry"
+                message="Are you sure you want to delete this task record? This action will permanently remove the entry and all its progress history."
+                confirmText="Archive Record"
+                type="danger"
+                isLoading={isSubmitting}
             />
         </>
     );

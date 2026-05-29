@@ -71,6 +71,7 @@ import EngineerNotificationsPage from "../pages/engineer/NotificationsPage";
 import ActivityListPage from "../pages/engineer/WorkProgress/ActivityListPage";
 import DailyProgressEntryPage from "../pages/engineer/WorkProgress/DailyProgressEntryPage";
 import AttendancePage from "../pages/engineer/LabourManagement/AttendancePage";
+import LabourAttendancePage from "../pages/engineer/LabourManagement/LabourAttendancePage";
 import PaymentPage from "../pages/engineer/LabourManagement/PaymentPage";
 import PayrollReportPage from "../pages/engineer/LabourManagement/PayrollReportPage";
 import LaborDetailsPage from "../pages/engineer/LabourManagement/LaborDetailsPage";
@@ -377,6 +378,7 @@ function AppRoutes() {
               <Route path="/engineer/labor/list" element={<LaborDetailsPage />} />
               <Route path="/engineer/labor/:id" element={<LabourTaskDetailPage />} />
               <Route path="/engineer/labor/attendance" element={<AttendancePage />} />
+              <Route path="/engineer/labor/labour-attendance" element={<LabourAttendancePage />} />
               <Route path="/engineer/labor/payments" element={<PaymentPage />} />
               <Route path="/engineer/labor/reports" element={<PayrollReportPage />} />
               <Route path="/engineer/tasks" element={<TaskManagementPage />} />
