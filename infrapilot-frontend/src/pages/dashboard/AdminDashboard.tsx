@@ -29,6 +29,8 @@ import { expenseService } from "../../services/expenseService";
 import { financeService } from "../../services/financeService";
 import { sitePhotoService } from "../../services/sitePhotoService";
 import { materialService } from "../../services/materialService";
+import { equipmentService } from "../../services/equipmentService";
+import { notificationService } from "../../services/notificationService";
 import { generateProjectListPDF } from "../../utils/projectPDFGenerator";
 import type { Project, ProjectStatus } from "../../types/project";
 
@@ -92,24 +94,22 @@ const AdminDashboard = () => {
   const fetchDashboardData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const [pData, pAlerts, tAlerts, expensesData, invoicesRes, usersRes, pendingApprovalsRes, photosRes, mLogs] = await Promise.all([
-        projectService.getProjects(100, 0),
-        projectService.getProjectAlerts().catch(() => []),
-        projectService.getTaskAlerts().catch(() => []),
-        expenseService.listExpenses().catch(() => []),
-        financeService.getInvoices(100).catch(() => []),
-        userService.getAllUsers(100).catch(() => []),
-        financeService.getPendingInvoices().catch(() => []),
-        sitePhotoService.getPhotos().catch(() => ({ items: [] })),
-        materialService.getLogs({ limit: 50 }).catch(() => [])
+      console.log("Dashboard: Starting Tier 1 (Core) fetch...");
+
+      // Tier 1: Core Data (Essential for stats and graphs)
+      const coreResults = await Promise.all([
+        projectService.getProjects(100, 0).catch(err => { console.error("Tier 1: Projects failed", err); return []; }),
+        expenseService.listExpenses().catch(err => { console.error("Tier 1: Expenses failed", err); return []; }),
+        financeService.getInvoices(100).catch(err => { console.error("Tier 1: Invoices failed", err); return []; }),
+        userService.getAllUsers(100).catch(err => { console.error("Tier 1: Users failed", err); return []; }),
+        financeService.getPendingInvoices().catch(err => { console.error("Tier 1: Pending Invoices failed", err); return []; }),
       ]);
 
-      const projectsList = Array.isArray(pData)
-        ? pData
-        : pData.items || pData.data || [];
+      const [pData, expensesData, invoicesRes, usersRes, pendingApprovalsRes] = coreResults;
+
+      const projectsList = Array.isArray(pData) ? pData : pData.items || pData.data || [];
       setProjects(projectsList);
-      const projectAlerts = Array.isArray(pAlerts) ? pAlerts : (pAlerts?.items || pAlerts?.data || []);
-      const taskAlerts = Array.isArray(tAlerts) ? tAlerts : (tAlerts?.items || tAlerts?.data || []);
+
       const invoices = Array.isArray(invoicesRes) ? invoicesRes : ((invoicesRes as any)?.items || (invoicesRes as any)?.data || []);
       const users = Array.isArray(usersRes) ? usersRes : ((usersRes as any)?.items || (usersRes as any)?.data || []);
       const pendingApprovals = Array.isArray(pendingApprovalsRes) ? pendingApprovalsRes : ((pendingApprovalsRes as any)?.items || (pendingApprovalsRes as any)?.data || []);
@@ -118,82 +118,16 @@ const AdminDashboard = () => {
       const totalRevenue = invoices.reduce((sum: number, inv: any) => sum + (Number(inv.total_amount) || Number(inv.amount) || 0), 0);
       const profitLoss = totalRevenue - totalExpenses;
 
-      setDashboardStats({
+      setDashboardStats(prev => ({
+        ...prev,
         totalRevenue,
         totalExpenses,
         profitLoss,
         activeUsers: users.filter((u: any) => u.is_active !== false).length,
         pendingApprovals: pendingApprovals.length,
-        activeAlerts: projectAlerts.length + taskAlerts.length
-      });
+      }));
 
-      setProjectAlertsData(projectAlerts);
-
-      const photos = Array.isArray(photosRes) ? photosRes : (photosRes.items || []);
-      const logs = Array.isArray(mLogs) ? mLogs : [];
-
-      // Combine alerts for activity feed
-      const combinedAlerts = [
-        ...projectAlerts.map((a: any) => {
-          const isDelayed = (a.status || "").toLowerCase().includes("delayed");
-          return {
-            user: a.user_name || "System",
-            action: a.message || a.description || (a.project_name ? `${a.project_name} is ${a.status || 'Updated'}` : "Project alert reported"),
-            time: a.created_at ? new Date(a.created_at).toLocaleTimeString() : "Recent",
-            rawTime: a.created_at || "",
-            type: isDelayed ? "alert" : "task",
-            icon: isDelayed ? "⚠️" : "🏗️",
-            color: isDelayed ? "bg-red-50 text-red-500" : "bg-blue-50 text-blue-500",
-          };
-        }),
-        ...taskAlerts.map((a: any) => {
-          const isFinance = /payment|invoice|bill|payroll|budget|expense|salary/i.test(a.task_name || "");
-          const isDelayed = (a.status || "").toLowerCase().includes("delayed") || (a.action || "").toLowerCase().includes("delay");
-          return {
-            user: a.assigned_to_name || a.author || "Member",
-            action: `${a.task_name || 'Task'}: ${a.status || 'Updated'}`,
-            time: a.updated_at ? new Date(a.updated_at).toLocaleTimeString() : (a.created_at ? new Date(a.created_at).toLocaleTimeString() : "Recent"),
-            rawTime: a.updated_at || a.created_at || "",
-            type: isDelayed ? "alert" : (isFinance ? "money" : "task"),
-            icon: isDelayed ? "⚠️" : (isFinance ? "💰" : "✔"),
-            color: isDelayed ? "bg-red-50 text-red-500" : (isFinance ? "bg-emerald-50 text-emerald-500" : "bg-blue-50 text-blue-500"),
-          };
-        }),
-        ...invoices.map((inv: any) => ({
-          user: inv.client_name || "System",
-          action: `Invoice #${inv.invoice_number || inv.id}: ${inv.status}`,
-          time: inv.created_at ? new Date(inv.created_at).toLocaleTimeString() : "Recent",
-          rawTime: inv.created_at || "",
-          type: "money",
-          icon: "🧾",
-          color: "bg-amber-50 text-amber-500",
-        })),
-        ...photos.map((p: any) => ({
-          user: p.uploaded_by || "Engineer",
-          action: `Uploaded site photo: ${p.description || p.activity_tag || "General Update"}`,
-          time: p.created_at ? new Date(p.created_at).toLocaleTimeString() : "Recent",
-          rawTime: p.created_at || "",
-          type: "task",
-          icon: "📷",
-          color: "bg-purple-50 text-purple-500",
-        })),
-        ...logs.map((l: any) => {
-          const isPurchase = l.type === "PURCHASE";
-          return {
-            user: "Store",
-            action: `${l.type}: ${l.quantity} units of material recorded`,
-            time: l.created_at ? new Date(l.created_at).toLocaleTimeString() : "Recent",
-            rawTime: l.created_at || "",
-            type: isPurchase ? "money" : "task",
-            icon: isPurchase ? "🛒" : "📦",
-            color: isPurchase ? "bg-orange-50 text-orange-500" : "bg-slate-50 text-slate-500",
-          };
-        })
-      ].sort((a: any, b: any) => new Date(b.rawTime).getTime() - new Date(a.rawTime).getTime());
-
-      setAlerts(combinedAlerts);
-
-      // Compute Chart Data
+      // Compute Chart Data (Needs Tier 1)
       const monthlyData: Record<string, { budget: number, actual: number }> = {
         Jan: { budget: 0, actual: 0 }, Feb: { budget: 0, actual: 0 },
         Mar: { budget: 0, actual: 0 }, Apr: { budget: 0, actual: 0 },
@@ -231,25 +165,16 @@ const AdminDashboard = () => {
       }
 
       const monthsArr = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
       if (timeFilter === "This Year") {
-        const formattedGraphData = monthsArr.map(m => ({
-          month: m,
-          budget: Math.round(monthlyData[m].budget),
-          actual: Math.round(monthlyData[m].actual),
-        }));
-        setGraphData(formattedGraphData);
+        setGraphData(monthsArr.map(m => ({ month: m, budget: Math.round(monthlyData[m].budget), actual: Math.round(monthlyData[m].actual) })));
       } else {
-        // "This Month" logic - show days of the current month
         const now = new Date();
         const currentMonth = now.getMonth();
         const currentYear = now.getFullYear();
         const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
         const monthName = monthsArr[currentMonth];
-
         const dailyBudget = monthlyData[monthName].budget / daysInMonth;
         const dailyDataArray = [];
-
         for (let i = 1; i <= daysInMonth; i++) {
           let dayActual = 0;
           if (Array.isArray(expensesData)) {
@@ -262,22 +187,131 @@ const AdminDashboard = () => {
               }
             });
           }
-
-          dailyDataArray.push({
-            month: `${i} ${monthName}`, // Label as "1 May", "2 May", etc.
-            budget: Math.round(dailyBudget),
-            actual: Math.round(dayActual),
-          });
+          dailyDataArray.push({ month: `${i} ${monthName}`, budget: Math.round(dailyBudget), actual: Math.round(dayActual) });
         }
         setGraphData(dailyDataArray);
       }
+
+      setIsLoading(false); // Tier 1 Done!
+
+      // Tier 2: Activities & Batch 2 (Non-blocking)
+      console.log("Dashboard: Starting Tier 2 fetch...");
+      const tier2Results = await Promise.allSettled([
+        projectService.getProjectAlerts(),
+        projectService.getTaskAlerts(),
+        materialService.getLogs({ limit: 50 }),
+        sitePhotoService.getPhotos(),
+      ]);
+
+      const pAlerts = tier2Results[0].status === 'fulfilled' ? tier2Results[0].value : [];
+      const tAlerts = tier2Results[1].status === 'fulfilled' ? tier2Results[1].value : [];
+      const mLogs = tier2Results[2].status === 'fulfilled' ? tier2Results[2].value : [];
+      const photosRes = tier2Results[3].status === 'fulfilled' ? tier2Results[3].value : { items: [] };
+
+      // Tier 3: Secondary Monitoring (Non-blocking)
+      console.log("Dashboard: Starting Tier 3 fetch...");
+      const tier3Results = await Promise.allSettled([
+        materialService.getMaterialAlerts(),
+        equipmentService.getMaintenanceAlerts(),
+        equipmentService.getEquipmentAlerts(),
+        notificationService.listAlerts(),
+      ]);
+
+      const matAlerts = tier3Results[0].status === 'fulfilled' ? tier3Results[0].value : [];
+      const maintainAlerts = tier3Results[1].status === 'fulfilled' ? tier3Results[1].value : [];
+      const equipAlerts = tier3Results[2].status === 'fulfilled' ? tier3Results[2].value : [];
+      const genAlerts = tier3Results[3].status === 'fulfilled' ? tier3Results[3].value : [];
+
+      const projectAlerts = Array.isArray(pAlerts) ? pAlerts : (pAlerts?.items || pAlerts?.data || []);
+      const taskAlerts = Array.isArray(tAlerts) ? tAlerts : (tAlerts?.items || tAlerts?.data || []);
+
+      const allAlertsCount = projectAlerts.length + taskAlerts.length + (matAlerts?.length || 0) + (maintainAlerts?.length || 0) + (equipAlerts?.length || 0) + (genAlerts?.length || 0);
+
+      setDashboardStats(prev => ({ ...prev, activeAlerts: allAlertsCount }));
+
+      const criticalAlerts = [
+        ...projectAlerts.filter((a: any) => (a.status || "").toLowerCase().includes("delayed")).map((a: any) => ({
+          ...a, type: 'Project', display_name: a.project_name, display_status: a.status,
+          display_date: a.end_date ? `Delayed since: ${new Date(a.end_date).toLocaleDateString()}` : "TBD"
+        })),
+        ...(matAlerts || []).filter((a: any) => (a.remaining_stock < (a.threshold || 10))).map((a: any) => ({
+          ...a, type: 'Material', display_name: a.material_name, display_status: 'Low Stock',
+          display_date: `Only ${a.remaining_stock} ${a.unit || 'units'} left`
+        })),
+        ...(maintainAlerts || []).map((a: any) => ({
+          ...a, type: 'Maintenance', display_name: a.equipment_name, display_status: 'Service Due',
+          display_date: 'Requires immediate attention'
+        }))
+      ];
+      setProjectAlertsData(criticalAlerts);
+
+      const photos = Array.isArray(photosRes) ? photosRes : (photosRes.items || []);
+      const logs = Array.isArray(mLogs) ? mLogs : [];
+
+      const combinedAlerts = [
+        ...projectAlerts.map((a: any) => ({
+          user: a.user_name || "System",
+          action: a.message || a.description || (a.project_name ? `${a.project_name} is ${a.status || 'Updated'}` : "Project alert reported"),
+          time: a.created_at ? new Date(a.created_at).toLocaleTimeString() : "Recent",
+          rawTime: a.created_at || "",
+          type: (a.status || "").toLowerCase().includes("delayed") ? "alert" : "task",
+          icon: (a.status || "").toLowerCase().includes("delayed") ? "⚠️" : "🏗️",
+          color: (a.status || "").toLowerCase().includes("delayed") ? "bg-red-50 text-red-500" : "bg-blue-50 text-blue-500",
+        })),
+        ...taskAlerts.map((a: any) => {
+          const isFinance = /payment|invoice|bill|payroll|budget|expense|salary/i.test(a.task_name || "");
+          const isDelayed = (a.status || "").toLowerCase().includes("delayed") || (a.action || "").toLowerCase().includes("delay");
+          return {
+            user: a.assigned_to_name || a.author || "Member",
+            action: `${a.task_name || 'Task'}: ${a.status || 'Updated'}`,
+            time: a.updated_at ? new Date(a.updated_at).toLocaleTimeString() : (a.created_at ? new Date(a.created_at).toLocaleTimeString() : "Recent"),
+            rawTime: a.updated_at || a.created_at || "",
+            type: isDelayed ? "alert" : (isFinance ? "money" : "task"),
+            icon: isDelayed ? "⚠️" : (isFinance ? "💰" : "✔"),
+            color: isDelayed ? "bg-red-50 text-red-500" : (isFinance ? "bg-emerald-50 text-emerald-500" : "bg-blue-50 text-blue-500"),
+          };
+        }),
+        ...(matAlerts || []).map((a: any) => ({
+          user: "Inventory", action: `Low stock: ${a.material_name} (${a.remaining_stock} ${a.unit || 'units'} left)`,
+          time: "Now", rawTime: new Date().toISOString(), type: "alert", icon: "📦", color: "bg-orange-50 text-orange-500",
+        })),
+        ...(maintainAlerts || []).map((a: any) => ({
+          user: "Equipment", action: `Maintenance due: ${a.equipment_name || 'Machinery'}`,
+          time: "Scheduled", rawTime: new Date().toISOString(), type: "alert", icon: "🔧", color: "bg-red-50 text-red-500",
+        })),
+        ...(genAlerts || []).map((a: any) => ({
+          user: "System", action: a.message || "New alert reported",
+          time: a.created_at ? new Date(a.created_at).toLocaleTimeString() : "Recent",
+          rawTime: a.created_at || new Date().toISOString(), type: "alert", icon: "🔔", color: "bg-indigo-50 text-indigo-500",
+        })),
+        ...invoices.map((inv: any) => ({
+          user: inv.client_name || "System", action: `Invoice #${inv.invoice_number || inv.id}: ${inv.status}`,
+          time: inv.created_at ? new Date(inv.created_at).toLocaleTimeString() : "Recent", rawTime: inv.created_at || "",
+          type: "money", icon: "🧾", color: "bg-amber-50 text-amber-500",
+        })),
+        ...photos.map((p: any) => ({
+          user: p.uploaded_by || "Engineer", action: `Uploaded site photo: ${p.description || p.activity_tag || "General Update"}`,
+          time: p.created_at ? new Date(p.created_at).toLocaleTimeString() : "Recent", rawTime: p.created_at || "",
+          type: "task", icon: "📷", color: "bg-purple-50 text-purple-500",
+        })),
+        ...logs.map((l: any) => {
+          const isPurchase = l.type === "PURCHASE";
+          return {
+            user: "Store", action: `${l.type}: ${l.quantity} units of material recorded`,
+            time: l.created_at ? new Date(l.created_at).toLocaleTimeString() : "Recent", rawTime: l.created_at || "",
+            type: isPurchase ? "money" : "task", icon: isPurchase ? "🛒" : "📦", color: isPurchase ? "bg-orange-50 text-orange-500" : "bg-slate-50 text-slate-500",
+          };
+        })
+      ].sort((a: any, b: any) => new Date(b.rawTime).getTime() - new Date(a.rawTime).getTime());
+
+      setAlerts(combinedAlerts);
     } catch (error) {
-      console.error("Dashboard: Data Sync Error", error);
-      toast.error("Failed to sync dashboard data");
+      console.error("Dashboard: Critical Data Sync Error", error);
+      toast.error("Failed to load core dashboard data");
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [timeFilter]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -678,16 +712,13 @@ const AdminDashboard = () => {
                     <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5 animate-pulse" />
                     <div className="flex-1">
                       <p className="text-xs font-bold text-red-900 flex justify-between items-center">
-                        {alert.project_name}
+                        {alert.display_name || alert.project_name}
                         <span className="text-[8px] px-1.5 py-0.5 bg-red-100 text-red-600 rounded">
-                          {alert.status}
+                          {alert.display_status || alert.status}
                         </span>
                       </p>
                       <p className="text-[10px] text-red-600 mt-0.5">
-                        Delayed since:{" "}
-                        {alert.end_date
-                          ? new Date(alert.end_date).toLocaleDateString()
-                          : "TBD"}
+                        {alert.display_date || (alert.end_date ? `Delayed since: ${new Date(alert.end_date).toLocaleDateString()}` : "TBD")}
                       </p>
                     </div>
                   </div>

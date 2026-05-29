@@ -29,7 +29,7 @@ const DocumentsPage = () => {
   const [currentFolderId, setCurrentFolderId] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
-  const [folderPath, setFolderPath] = useState<{ id: number | null, title: string }[]>([{ id: null, title: "Repository" }]);
+
   const PAGE_SIZE = 10;
 
   const fetchDocs = useCallback(async (query = "", folderId = currentFolderId) => {
@@ -42,7 +42,10 @@ const DocumentsPage = () => {
         }),
         documentService.getStats()
       ]);
-      setDocuments(res.items);
+      // Explicitly filter to only show items at this folder level
+      // This prevents sub-folder documents from showing at the root
+      const items = (res.items || []).filter(item => item.parent_id === folderId);
+      setDocuments(items);
       setStats(statsData);
     } catch (err) {
       console.error("Failed to fetch documents", err);
@@ -73,6 +76,11 @@ const DocumentsPage = () => {
   };
 
   const handleUploadSubmit = async (uploadFormData: FormData) => {
+    const file = uploadFormData.get("file") as File;
+    if (file && file.size > 5 * 1024 * 1024) {
+      toast.error("File is too large. Max size is 5MB.");
+      return;
+    }
     const toastId = toast.loading("Uploading document...");
     try {
       await documentService.uploadDocument({
@@ -173,11 +181,27 @@ const DocumentsPage = () => {
     <>
       <Navbar title="Document Management" breadcrumb={["Admin", "Documents"]} />
 
-      <PageTransition className="p-6 bg-slate-50 min-h-screen">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Project Document Repository</h1>
-            <p className="text-slate-500 text-sm">Securely store and manage official project documentation.</p>
+      <PageTransition className="p-3 sm:p-6 bg-slate-50 min-h-screen">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+          <div className="flex items-center gap-4">
+            {currentFolderId && (
+              <button
+                onClick={() => {
+                  // In a more complex app, we'd need a stack of folder IDs. 
+                  // For now, since we removed breadcrumbs, we'll go back to root.
+                  // OR better: we can keep a stack in a separate state.
+                  setCurrentFolderId(null);
+                }}
+                className="p-2 bg-white border border-slate-200 text-slate-500 rounded-xl hover:bg-slate-50 transition-all shadow-sm"
+                title="Back to Root"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 19l-7-7 7-7" /></svg>
+              </button>
+            )}
+            <div>
+              <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Project Document Repository</h1>
+              <p className="text-slate-500 text-sm">Securely store and manage official project documentation.</p>
+            </div>
           </div>
           <div className="flex gap-2">
             <button
@@ -197,39 +221,7 @@ const DocumentsPage = () => {
           </div>
         </div>
 
-        {/* Folder Breadcrumbs */}
-        <div className="flex items-center gap-2 mb-6 bg-white p-3 rounded-xl border border-slate-100 shadow-sm overflow-x-auto no-scrollbar">
-          {folderPath.map((folder, idx) => (
-            <div key={idx} className="flex items-center shrink-0">
-              {idx > 0 && <span className="mx-2 text-slate-300 font-bold self-center">/</span>}
-              <button
-                onClick={() => {
-                  setCurrentFolderId(folder.id);
-                  setFolderPath(folderPath.slice(0, idx + 1));
-                }}
-                className={`text-xs font-black uppercase tracking-widest transition-colors ${idx === folderPath.length - 1 ? "text-primary" : "text-slate-400 hover:text-slate-600"
-                  }`}
-              >
-                {folder.title}
-              </button>
-            </div>
-          ))}
-          {currentFolderId && (
-            <button
-              onClick={() => {
-                const newPath = [...folderPath];
-                newPath.pop();
-                const parent = newPath[newPath.length - 1];
-                setCurrentFolderId(parent.id);
-                setFolderPath(newPath);
-              }}
-              className="ml-auto text-[10px] font-black text-rose-500 uppercase tracking-widest hover:underline flex items-center gap-1"
-            >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" /></svg>
-              Level Up
-            </button>
-          )}
-        </div>
+
 
         {/* Document Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -278,36 +270,35 @@ const DocumentsPage = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-                  <th className="px-6 py-4">Document Name</th>
-                  <th className="px-6 py-4">Type</th>
-                  <th className="px-6 py-4">Project Link</th>
-                  <th className="px-6 py-4">Version</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4">Date</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
+                  <th className="px-3 sm:px-4 py-3">Document Name</th>
+                  <th className="px-3 sm:px-4 py-3">Type</th>
+                  <th className="hidden md:table-cell px-3 sm:px-4 py-3">Project Link</th>
+                  <th className="hidden lg:table-cell px-3 sm:px-4 py-3">Version</th>
+                  <th className="px-3 sm:px-4 py-3">Status</th>
+                  <th className="hidden sm:table-cell px-3 sm:px-4 py-3">Date</th>
+                  <th className="px-3 sm:px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {pagedDocuments.map((doc) => (
                   <tr key={doc.id} className="hover:bg-slate-50/50 transition-colors group">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 ${doc.is_folder ? "bg-amber-100 text-amber-600" : "bg-slate-100 text-slate-500"} rounded-lg flex items-center justify-center`}>
+                    <td className="px-3 sm:px-4 py-3">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <div className={`w-8 h-8 flex-shrink-0 ${doc.is_folder ? "bg-amber-100 text-amber-600" : "bg-slate-100 text-slate-500"} rounded-lg flex items-center justify-center`}>
                           {doc.is_folder ? <Folder size={16} /> : <FileText size={16} />}
                         </div>
                         <div
-                          className="cursor-pointer"
+                          className="cursor-pointer min-w-0"
                           onClick={() => {
                             if (doc.is_folder) {
                               setCurrentFolderId(doc.id);
-                              setFolderPath(prev => [...prev, { id: doc.id, title: doc.title }]);
                             } else {
                               setViewingDoc(doc);
                               setIsPreviewModalOpen(true);
                             }
                           }}
                         >
-                          <span className="font-bold text-slate-700 group-hover:text-primary transition-colors block leading-tight">
+                          <span className="font-bold text-slate-700 group-hover:text-primary transition-colors block leading-tight truncate max-w-[10rem] sm:max-w-xs">
                             {doc.title}
                           </span>
                           {doc.remarks && (
@@ -316,24 +307,24 @@ const DocumentsPage = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-xs font-semibold text-slate-500">{doc.document_type || "Folder"}</td>
-                    <td className="px-6 py-4 text-xs font-bold text-slate-500">{doc.project_name || "General"}</td>
-                    <td className="px-6 py-4">
+                    <td className="px-3 sm:px-4 py-3 text-xs font-semibold text-slate-500 whitespace-nowrap">{doc.document_type || "Folder"}</td>
+                    <td className="hidden md:table-cell px-3 sm:px-4 py-3 text-xs font-bold text-slate-500 whitespace-nowrap">{doc.project_name || "General"}</td>
+                    <td className="hidden lg:table-cell px-3 sm:px-4 py-3">
                       <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-bold">
                         {doc.version}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${doc.status === "APPROVED" ? "bg-emerald-100 text-emerald-600" : doc.status === "PENDING" ? "bg-amber-100 text-amber-500" : "bg-slate-100 text-slate-500"
+                    <td className="px-3 sm:px-4 py-3">
+                      <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold tracking-widest uppercase whitespace-nowrap ${doc.status === "APPROVED" ? "bg-emerald-100 text-emerald-600" : doc.status === "PENDING" ? "bg-amber-100 text-amber-500" : "bg-slate-100 text-slate-500"
                         }`}>
                         {doc.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-xs font-bold text-slate-400">
+                    <td className="hidden sm:table-cell px-3 sm:px-4 py-3 text-xs font-bold text-slate-400 whitespace-nowrap">
                       {new Date(doc.uploaded_at).toLocaleDateString()}
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="px-3 sm:px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1 sm:gap-2 flex-shrink-0">
                         <button
                           onClick={() => {
                             setViewingDoc(doc);
@@ -383,7 +374,7 @@ const DocumentsPage = () => {
 
           {/* Pagination Controls */}
           {totalPages > 1 && (
-            <div className="px-6 py-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
+            <div className="px-3 sm:px-6 py-4 border-t border-slate-50 bg-slate-50/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
                 Showing {(currentPage * PAGE_SIZE) + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, documents.length)} of {documents.length} Records
               </p>

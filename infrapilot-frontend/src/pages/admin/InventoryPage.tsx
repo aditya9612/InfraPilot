@@ -154,7 +154,10 @@ const InventoryPage = () => {
   const filteredSuppliers = suppliers.filter(
     (s) =>
       (s.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (s.contactPerson || "").toLowerCase().includes(searchTerm.toLowerCase()),
+      (s.contactPerson || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (s.contact || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (s.gst || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (s.address || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const sortedInventory = useMemo(() => {
@@ -602,9 +605,11 @@ const InventoryPage = () => {
                   value={searchTerm}
                   onChange={(e) => {
                     setSearchTerm(e.target.value);
-                    setMaterialPage(1);
-                    setSupplierPage(1);
-                    setLogsPage(1);
+                    setMaterialPage(0);
+                    setSupplierPage(0);
+                    setLogsPage(0);
+                    setPoPage(0);
+                    setTransferPage(0);
                   }}
                   className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                 />

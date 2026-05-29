@@ -42,7 +42,7 @@ const backendStatusMap: Record<string, string> = {
   "Ongoing": "ONGOING",
   "Completed": "COMPLETED",
   "On Hold": "ON_HOLD",
-  "Delayed": "" // Fallback for statuses not yet in backend enum
+  "Delayed": "" // Backend filter doesn't support DELAYED yet, so we fetch all and filter client-side
 };
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -76,8 +76,11 @@ const ProjectsPage = () => {
     try {
       setIsLoading(true);
       // Fetch data concurrently
+      const statusParam = filterStatus === "All" ? "" : (backendStatusMap[filterStatus] || "");
+      console.log(`Fetching projects with filterStatus="${filterStatus}", statusParam="${statusParam}"`);
+
       const [pRes, allRes, pAlerts, tAlerts, invoices] = await Promise.all([
-        projectService.getProjects(100, 0, debouncedSearch, filterStatus === "All" ? "" : (backendStatusMap[filterStatus] || "")),
+        projectService.getProjects(100, 0, debouncedSearch, statusParam),
         projectService.getProjects(100, 0),
         projectService.getProjectAlerts().catch(() => []),
         projectService.getTaskAlerts().catch(() => []),
@@ -206,12 +209,17 @@ const ProjectsPage = () => {
     setTablePage(0);
   };
 
-  const stats = {
-    total: allProjects.length,
-    active: allProjects.filter((p) => p.status?.toLowerCase() === "ongoing").length,
-    completed: allProjects.filter((p) => p.status?.toLowerCase() === "completed").length,
-    delayed: allProjects.filter((p) => p.status?.toLowerCase() === "delayed").length,
-  };
+  const stats = useMemo(() => {
+    const s = {
+      total: allProjects.length,
+      ongoing: allProjects.filter((p) => p.status?.toLowerCase() === "ongoing").length,
+      completed: allProjects.filter((p) => p.status?.toLowerCase() === "completed").length,
+      delayed: allProjects.filter((p) => p.status?.toLowerCase() === "delayed").length,
+      planned: allProjects.filter((p) => p.status?.toLowerCase() === "planned").length,
+      onhold: allProjects.filter((p) => p.status?.toLowerCase() === "on hold" || p.status?.toLowerCase() === "on_hold").length,
+    };
+    return s;
+  }, [allProjects]);
 
   const handleViewProject = (id: number) => {
     // Determine the base path based on the current URL (admin or manager)
@@ -302,7 +310,7 @@ const ProjectsPage = () => {
             },
             {
               title: "Ongoing Sites",
-              value: String(stats.active),
+              value: String(stats.ongoing),
               sub: "Currently in progress",
               accent: "text-success",
               status: "Ongoing",
@@ -377,18 +385,29 @@ const ProjectsPage = () => {
                       "Completed",
                       "On Hold",
                     ] as const
-                  ).map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => handleFilterChange(s)}
-                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${filterStatus === s
-                        ? "bg-primary text-white shadow-md shadow-primary/20"
-                        : "bg-slate-50 text-slate-500 hover:bg-slate-100"
-                        }`}
-                    >
-                      {s.toUpperCase()}
-                    </button>
-                  ))}
+                  ).map((s) => {
+                    const count = s === "All" ? stats.total :
+                      s === "Ongoing" ? stats.ongoing :
+                        s === "Planned" ? stats.planned :
+                          s === "Delayed" ? stats.delayed :
+                            s === "Completed" ? stats.completed :
+                              s === "On Hold" ? stats.onhold : 0;
+                    return (
+                      <button
+                        key={s}
+                        onClick={() => handleFilterChange(s)}
+                        className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1.5 ${filterStatus === s
+                          ? "bg-primary text-white shadow-md shadow-primary/20"
+                          : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                          }`}
+                      >
+                        {s.toUpperCase()}
+                        <span className={`px-1 rounded-md ${filterStatus === s ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>

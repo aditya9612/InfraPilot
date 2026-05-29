@@ -402,4 +402,21 @@ export const boqService = {
       throw error;
     }
   },
+
+  /**
+   * Get BOQ alerts
+   * GET /api/v1/boq/{boq_id}/alerts
+   */
+  async getBoqAlerts(boqId: number): Promise<any[]> {
+    try {
+      const response = await api.get(`/boq/${boqId}/alerts`);
+      return response.data;
+    } catch (error: any) {
+      console.error(
+        `Get Alerts for Boq ${boqId} Error:`,
+        error.response?.data || error.message,
+      );
+      return [];
+    }
+  },
 };

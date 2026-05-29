@@ -101,7 +101,7 @@ const reportTypes: ReportType[] = [
         metrics: [
             { label: "Cement Consumed", value: "450 Bags", accent: "text-rose-500" },
             { label: "Steel Used", value: "12 Tons", accent: "text-rose-500" },
-            { label: "Aggregate Used", value: "320 m³" },
+            { label: "Aggregate Used", value: "320 Cum" },
             { label: "Closing Stock Value", value: "₹1.2 Cr", accent: "text-emerald-600" },
         ],
     },

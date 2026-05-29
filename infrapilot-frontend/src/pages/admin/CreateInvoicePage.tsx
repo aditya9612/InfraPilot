@@ -140,7 +140,7 @@ const CreateInvoicePage = () => {
 
   const [items, setItems] = useState<InvoiceItem[]>([
     { id: "1", description: "Soling", unit: "Brass", quantity: 0, rate: 0, amount: 0 },
-    { id: "2", description: "Plum Concrete", unit: "m³", quantity: 0, rate: 0, amount: 0 },
+    { id: "2", description: "Plum Concrete", unit: "Cum", quantity: 0, rate: 0, amount: 0 },
     { id: "3", description: "Stone Work", unit: "Brass", quantity: 0, rate: 0, amount: 0 }
   ]);
 
@@ -191,7 +191,7 @@ const CreateInvoicePage = () => {
   useEffect(() => {
     const cuft = measurementData.plum.l * measurementData.plum.w * measurementData.plum.h;
     const m3 = Number((cuft * 0.0283168).toFixed(2));
-    if (cuft !== measurementData.plum.cuft || m3 !== measurementData.plum.m3) {
+    if (Math.abs(cuft - measurementData.plum.cuft) > 0.001 || Math.abs(m3 - measurementData.plum.m3) > 0.001) {
       setMeasurementData(prev => ({
         ...prev,
         plum: { ...prev.plum, cuft, m3 }
@@ -203,12 +203,14 @@ const CreateInvoicePage = () => {
   // Calculate Stone Work
   useEffect(() => {
     const totalCuft = measurementData.stone.reduce((sum, s) => sum + (s.l * s.w * s.h), 0);
-    const brass = totalCuft / 100;
+    const brass = Number((totalCuft / 100).toFixed(2));
     updateItem("3", "quantity", brass);
   }, [measurementData.stone]);
 
   useEffect(() => {
-    if (selectedProjectId !== 0) {
+    // Only auto-populate from project list when creating a new quotation.
+    // When editing (id exists), project details are already loaded from the API.
+    if (!id && selectedProjectId !== 0) {
       const selectedProject = projects.find(p => p.id === selectedProjectId);
       if (selectedProject) {
         setProjectDetails({
@@ -228,7 +230,7 @@ const CreateInvoicePage = () => {
         }
       }
     }
-  }, [selectedProjectId, projects]);
+  }, [selectedProjectId, projects, id]);
 
   // Fetch Projects
   useEffect(() => {
@@ -291,6 +293,16 @@ const CreateInvoicePage = () => {
             due_date: q.due_date || ""
           });
 
+          // Sync due_date into invoiceDetails (the Invoice Details card reads this field)
+          if (q.due_date) {
+            setInvoiceDetails(prev => ({ ...prev, dueDate: q.due_date || "" }));
+          }
+
+          // Set project dropdown to the project this quotation belongs to
+          if (q.project_id) {
+            setSelectedProjectId(q.project_id);
+          }
+
           setLabourItems(q.labour_items || []);
           setMaterialItems(q.material_items || []);
           setExtraChargeItems(q.extra_charge_items || []);
@@ -343,12 +355,22 @@ const CreateInvoicePage = () => {
   }, [id]);
 
   // Calculations
-  const subTotal = useMemo(() => items.reduce((sum, item) => sum + item.amount, 0), [items]);
-  const cgst = useMemo(() => (subTotal * (gstRates.cgst)) / 100, [subTotal, gstRates.cgst]);
-  const sgst = useMemo(() => (subTotal * (gstRates.sgst)) / 100, [subTotal, gstRates.sgst]);
-  const tdsAmount = useMemo(() => (subTotal * gstRates.tds) / 100, [subTotal, gstRates.tds]);
-  const grandTotal = subTotal + cgst + sgst - discount - tdsAmount;
-  const balanceDue = grandTotal - advancePaid;
+  // Calculations with robust rounding to 2 decimal places
+  // SubTotal = work items + labour + material + extra charges (matches backend)
+  const subTotal = useMemo(() => {
+    const workTotal = items.reduce((sum, item) => sum + item.amount, 0);
+    const labourTotal = labourItems.reduce((sum, item) => sum + (item.amount || 0), 0);
+    const materialTotal = materialItems.reduce((sum, item) => sum + (item.estimated_amount || (item.estimated_quantity * item.estimated_rate) || 0), 0);
+    const extraTotal = extraChargeItems.reduce((sum, item) => sum + (item.amount || (item.quantity * item.rate) || 0), 0);
+    return Number((workTotal + labourTotal + materialTotal + extraTotal).toFixed(2));
+  }, [items, labourItems, materialItems, extraChargeItems]);
+
+  const cgst = useMemo(() => Number((subTotal * (gstRates.cgst / 100)).toFixed(2)), [subTotal, gstRates.cgst]);
+  const sgst = useMemo(() => Number((subTotal * (gstRates.sgst / 100)).toFixed(2)), [subTotal, gstRates.sgst]);
+  // TDS is deducted on total invoice value including GST (matches backend formula)
+  const tdsAmount = useMemo(() => Number(((subTotal + cgst + sgst) * (gstRates.tds / 100)).toFixed(2)), [subTotal, cgst, sgst, gstRates.tds]);
+  const grandTotal = Number((subTotal + cgst + sgst - discount - tdsAmount).toFixed(2));
+  const balanceDue = Number((grandTotal - advancePaid).toFixed(2));
 
   const handleAddItem = () => {
     const newItem: InvoiceItem = {
@@ -572,6 +594,15 @@ const CreateInvoicePage = () => {
         tds_percent: gstRates.tds,
         discount_amount: discount,
         advance_paid: advancePaid,
+
+        // Computed totals — sent explicitly so backend stores correct values
+        // (list view reads grand_total directly from the database)
+        subtotal: subTotal,
+        cgst_amount: cgst,
+        sgst_amount: sgst,
+        tds_amount: tdsAmount,
+        grand_total: grandTotal,
+        balance_due: balanceDue,
 
         ...paymentDetails,
         due_date: invoiceDetails.dueDate || paymentDetails.due_date || new Date().toISOString().split('T')[0],
@@ -810,7 +841,8 @@ const CreateInvoicePage = () => {
       if (item.id === id) {
         const updatedItem = { ...item, [field]: value };
         if (field === "quantity" || field === "rate") {
-          updatedItem.amount = Number(updatedItem.quantity) * Number(updatedItem.rate);
+          const rawAmount = Number(updatedItem.quantity) * Number(updatedItem.rate);
+          updatedItem.amount = Number(rawAmount.toFixed(2));
         }
         return updatedItem;
       }
@@ -2144,13 +2176,13 @@ const CreateInvoicePage = () => {
                     <span className="font-bold text-slate-500">TDS</span>
                     <span className="text-[10px] font-black text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{gstRates.tds}%</span>
                   </div>
-                  <span className="font-black text-rose-500">- ₹ {(subTotal * gstRates.tds / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                  <span className="font-black text-rose-500">- ₹ {tdsAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                 </div>
 
                 <div className="py-4 border-y border-slate-100 my-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-black text-slate-800 uppercase tracking-widest">Grand Total</span>
-                    <span className="text-xl font-black text-indigo-600">₹ {(subTotal + cgst + sgst - discount - (subTotal * gstRates.tds / 100)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                    <span className="text-xl font-black text-indigo-600">₹ {grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                   </div>
                 </div>
 

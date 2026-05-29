@@ -66,6 +66,7 @@ export interface Quotation {
     billing_address: string;
     site_address: string;
     gst_number: string;
+    project_id?: number;
 
     project_name: string;
     project_type: string;

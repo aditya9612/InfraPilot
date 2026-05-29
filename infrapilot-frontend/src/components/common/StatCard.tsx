@@ -11,7 +11,7 @@ interface Props {
 }
 
 const StatCard = ({ title, value, sub, accent = "text-primary", icon, trend }: Props) => (
-  <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all hover:shadow-md">
+  <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 transition-all hover:shadow-md min-w-0">
     {(icon || trend) && (
       <div className="flex justify-between items-start mb-4">
         {icon ? (
@@ -28,7 +28,7 @@ const StatCard = ({ title, value, sub, accent = "text-primary", icon, trend }: P
     )}
     <div>
       <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">{title}</p>
-      <p className={`text-2xl font-bold ${accent}`}>{value}</p>
+      <p className={`text-xl sm:text-2xl font-bold truncate ${accent}`}>{value}</p>
       {sub && <p className="text-[10px] text-slate-400 mt-1.5 font-medium">{sub}</p>}
     </div>
   </div>
