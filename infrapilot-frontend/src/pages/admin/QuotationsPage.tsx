@@ -1,10 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     FileText,
     Plus,
     Search,
-    Filter,
     Eye,
     Trash2,
     CheckCircle,
@@ -12,16 +11,17 @@ import {
     XCircle,
     Download
 } from "lucide-react";
+import SortDropdown from "../../components/common/SortDropdown";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
 import ConfirmationModal from "../../components/common/ConfirmationModal";
 import RejectReasonModal from "../../components/common/RejectReasonModal";
-import { useEffect } from "react";
 import { quotationService } from "../../services/quotationService";
 import type { Quotation } from "../../types/quotation";
 import toast from "react-hot-toast";
 import InvoicePreviewModal from "../../components/forms/InvoicePreviewModal";
+import { formatCurrency } from "../../utils/currencyUtils";
 
 const QuotationsPage = () => {
     const navigate = useNavigate();
@@ -30,7 +30,8 @@ const QuotationsPage = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState("all");
     const [currentPage, setCurrentPage] = useState(0);
-    const PAGE_SIZE = 8;
+    const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
+    const PAGE_SIZE = 10;
 
     // Modal state
     const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
@@ -74,14 +75,21 @@ const QuotationsPage = () => {
         }
     };
 
-    const filteredQuotations = quotations.filter(q => {
-        const matchSearch = q.client_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            q.project_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            q.quotation_no?.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchStatus = statusFilter === "all" ||
-            q.status?.toLowerCase() === statusFilter.toLowerCase();
-        return matchSearch && matchStatus;
-    });
+    const filteredQuotations = useMemo(() => {
+        const filtered = quotations.filter(q => {
+            const matchSearch = q.client_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                q.project_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                q.quotation_no?.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchStatus = statusFilter === "all" ||
+                q.status?.toLowerCase() === statusFilter.toLowerCase();
+            return matchSearch && matchStatus;
+        });
+        return [...filtered].sort((a, b) => {
+            const aDate = new Date(a.created_at || 0).getTime();
+            const bDate = new Date(b.created_at || 0).getTime();
+            return sortOrder === "latest" ? bDate - aDate : aDate - bDate;
+        });
+    }, [quotations, searchQuery, statusFilter, sortOrder]);
 
     const totalPages = Math.max(1, Math.ceil(filteredQuotations.length / PAGE_SIZE));
     const pagedQuotations = filteredQuotations.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
@@ -199,7 +207,7 @@ const QuotationsPage = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     <StatCard
                         title="Total Pipeline Value"
-                        value={`₹${(totalValue / 100000).toFixed(1)}L`}
+                        value={formatCurrency(totalValue)}
                         sub={`${quotations.length} Active Quotations`}
                         accent="text-primary"
                     />
@@ -241,9 +249,7 @@ const QuotationsPage = () => {
                                 <option value="declined">Declined</option>
                                 <option value="converted">Converted</option>
                             </select>
-                            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-all">
-                                <Filter className="w-4 h-4" /> Filter
-                            </button>
+                            <SortDropdown value={sortOrder} onChange={setSortOrder} />
                         </div>
                     </div>
 
@@ -293,7 +299,7 @@ const QuotationsPage = () => {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className="text-sm font-black text-slate-700">₹{q.grand_total?.toLocaleString() ?? 0}</span>
+                                                <span className="text-sm font-black text-slate-700">{formatCurrency(q.grand_total || 0)}</span>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-tight ${getStatusColor(q.status || "draft")}`}>

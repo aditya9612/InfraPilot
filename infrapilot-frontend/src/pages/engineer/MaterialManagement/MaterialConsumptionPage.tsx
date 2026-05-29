@@ -10,9 +10,11 @@ import {
   RotateCcw
   ,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Clock,
+  ChevronDown
 } from "lucide-react";
-import { materialService, type InventoryItem, type MaterialLog, type IssueType } from "../../../services/materialService";
+import { materialService, type InventoryItem, type IssueType } from "../../../services/materialService";
 import { projectService } from "../../../services/projectService";
 
 const ISSUE_TYPES = [
@@ -27,19 +29,25 @@ const ISSUE_TYPES = [
 ];
 
 const MaterialConsumptionPage = () => {
+  const formatINR = (amount: number | string | undefined | null) => {
+    if (amount === undefined || amount === null || isNaN(Number(amount))) return "₹0";
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(Number(amount));
+  };
+
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const [logs, setLogs] = useState<MaterialLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [projectId, setProjectId] = useState<number | null>(null);
   const [projectsList, setProjectsList] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-
-  // Pagination States
+  const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
   const [currentPageInv, setCurrentPageInv] = useState(1);
-  const [currentPageLogs, setCurrentPageLogs] = useState(1);
-  const itemsPerPageInv = 10;
-  const itemsPerPageLogs = 10;
+  const [itemsPerPageInv, setItemsPerPageInv] = useState(10);
 
   // Interactive StatCard Filter
   const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Stock" | "Value">("All");
@@ -58,9 +66,8 @@ const MaterialConsumptionPage = () => {
     if (!projectId) return;
     setIsLoading(true);
     try {
-      const [invList, lList, realList] = await Promise.all([
+      const [invList, realList] = await Promise.all([
         materialService.getInventory(projectId),
-        materialService.getLogs({ project_id: projectId || 0, type: "USAGE" }),
         materialService.listMaterials(projectId)
       ]);
 
@@ -74,7 +81,6 @@ const MaterialConsumptionPage = () => {
       );
 
       setInventory(filteredInv);
-      setLogs(lList || []);
       setMaterialsList(realList || []);
     } catch (error) {
       toast.error("Failed to load consumption data");
@@ -151,33 +157,40 @@ const MaterialConsumptionPage = () => {
   }, [inventory]);
 
   const filteredInventory = useMemo(() => {
-    let data = inventory;
+    let data = [...inventory];
 
     // Apply StatCard Filter
     if (activeStatFilter === "Stock") {
       data = data.filter(i => i.remaining_stock > 0);
     }
 
-    return data.filter(i =>
+    data = data.filter(i =>
       searchTerm === "" ||
       i.material_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       String(i.material_id).includes(searchTerm)
     );
-  }, [inventory, searchTerm, activeStatFilter]);
+
+    data.sort((a, b) => {
+        if (sortOrder === "latest") {
+            return Number(b.material_id) - Number(a.material_id);
+        } else {
+            return Number(a.material_id) - Number(b.material_id);
+        }
+    });
+
+    return data;
+  }, [inventory, searchTerm, activeStatFilter, sortOrder]);
 
   const paginatedInventory = useMemo(() => {
     const startIndex = (currentPageInv - 1) * itemsPerPageInv;
     return filteredInventory.slice(startIndex, startIndex + itemsPerPageInv);
   }, [filteredInventory, currentPageInv]);
 
-  const paginatedLogs = useMemo(() => {
-    const startIndex = (currentPageLogs - 1) * itemsPerPageLogs;
-    return logs.slice(startIndex, startIndex + itemsPerPageLogs);
-  }, [logs, currentPageLogs]);
+
 
   useEffect(() => {
     setCurrentPageInv(1);
-  }, [searchTerm, activeStatFilter]);
+  }, [searchTerm, activeStatFilter, sortOrder]);
 
   return (
     <>
@@ -186,7 +199,7 @@ const MaterialConsumptionPage = () => {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
           <div className="font-inter">
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Material Consumption Ledger</h1>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Material Consumption</h1>
             <p className="text-slate-500 text-sm">Track and manage project material usage across site locations.</p>
           </div>
           <div className="flex items-center gap-3 font-inter">
@@ -210,7 +223,7 @@ const MaterialConsumptionPage = () => {
               className="flex items-center gap-2 px-6 py-2.5 bg-rose-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all active:scale-95 font-inter"
             >
               <Activity className="w-4 h-4" />
-              Log Usage
+              Usage Material
             </button>
           </div>
         </div>
@@ -234,7 +247,7 @@ const MaterialConsumptionPage = () => {
           <div onClick={() => setActiveStatFilter("Value")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Value" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
             <StatCard
               title="Inventory Value"
-              value={`₹${stats.totalValue.toLocaleString()}`}
+              value={formatINR(stats.totalValue)}
               sub="Current valuation"
               accent="text-emerald-500" />
           </div>
@@ -260,17 +273,34 @@ const MaterialConsumptionPage = () => {
                 <RotateCcw className="w-4 h-4" />
               </button>
             )}
+
+            <div className="relative flex items-center font-inter">
+                <div className="absolute left-3 text-slate-400 pointer-events-none">
+                    <Clock className="w-4 h-4" />
+                </div>
+                <select
+                    value={sortOrder}
+                    onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
+                    className="appearance-none bg-white border border-primary rounded-full text-sm font-bold text-primary shadow-sm pl-9 pr-8 py-1.5 outline-none cursor-pointer"
+                >
+                    <option value="latest">Latest First</option>
+                    <option value="oldest">Oldest First</option>
+                </select>
+                <div className="absolute right-3 text-slate-400 pointer-events-none">
+                    <ChevronDown className="w-4 h-4" />
+                </div>
+            </div>
           </div>
 
           <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
             <table className="w-full text-left font-inter min-w-[1000px]">
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
-                  <th className="px-6 py-4 font-inter">Material Identity</th>
-                  <th className="px-6 py-4 font-inter text-center text-emerald-600">Inventory Status</th>
-                  <th className="px-6 py-4 font-inter">Unit</th>
-                  <th className="px-6 py-4 font-inter text-right">Valuation Rate</th>
-                  <th className="px-6 py-4 font-inter text-right">Holding Value</th>
+                  <th className="px-6 py-4 font-inter">material_name</th>
+                  <th className="px-6 py-4 font-inter text-center text-emerald-600">remaining_stock</th>
+                  <th className="px-6 py-4 font-inter">unit</th>
+                  <th className="px-6 py-4 font-inter text-right">avg_rate</th>
+                  <th className="px-6 py-4 font-inter text-right">total_value</th>
                   <th className="px-6 py-4 font-inter text-right">Actions</th>
                 </tr>
               </thead>
@@ -297,10 +327,10 @@ const MaterialConsumptionPage = () => {
                       </td>
                       <td className="px-6 py-4 text-xs font-bold text-slate-500 font-inter uppercase tracking-widest">{inv.unit}</td>
                       <td className="px-6 py-4 text-right font-inter">
-                        <span className="text-xs font-bold text-slate-500 font-inter">₹{inv.avg_rate?.toLocaleString()}</span>
+                        <span className="text-xs font-bold text-slate-500 font-inter">{formatINR(inv.avg_rate)}</span>
                       </td>
                       <td className="px-6 py-4 text-right font-inter">
-                        <span className="text-sm font-bold text-slate-800 font-inter">₹{inv.total_value?.toLocaleString()}</span>
+                        <span className="text-sm font-bold text-slate-800 font-inter">{formatINR(inv.total_value)}</span>
                       </td>
                       <td className="px-6 py-4 text-right font-inter">
                         <button
@@ -311,7 +341,7 @@ const MaterialConsumptionPage = () => {
                           }}
                           className="px-4 py-2 bg-slate-50 text-slate-600 hover:text-white hover:bg-rose-500 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border border-slate-200 hover:border-rose-500 font-inter active:scale-95"
                         >
-                          Log Usage
+                          Usage Material
                         </button>
                       </td>
                     </tr>
@@ -328,126 +358,110 @@ const MaterialConsumptionPage = () => {
           </div>
 
           {/* Inventory Pagination */}
-          <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
-                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                                PAGE {currentPageInv} OF {Math.max(1, Math.ceil(filteredInventory.length / itemsPerPageInv))}
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => setCurrentPageInv(prev => Math.max(1, prev - 1))}
-                                    disabled={currentPageInv === 1}
-                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
-                                    title="Previous Page"
-                                >
-                                    <ChevronLeft className="w-5 h-5" />
-                                </button>
-                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
-                                    {currentPageInv}
-                                </div>
-                                <button
-                                    onClick={() => setCurrentPageInv(prev => Math.min(Math.max(1, Math.ceil(filteredInventory.length / itemsPerPageInv)), prev + 1))}
-                                    disabled={currentPageInv === Math.max(1, Math.ceil(filteredInventory.length / itemsPerPageInv))}
-                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
-                                    title="Next Page"
-                                >
-                                    <ChevronRight className="w-5 h-5" />
-                                </button>
-                            </div>
-                        </div>
+          {filteredInventory.length > 0 && (
+          <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+              {/* Left: Items per page */}
+              <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                  <select 
+                      value={itemsPerPageInv} 
+                      onChange={(e) => { setItemsPerPageInv(Number(e.target.value)); setCurrentPageInv(1); }}
+                      className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                  >
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                  </select>
+              </div>
+
+              {/* Center: Showing info */}
+              <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+                  Showing {(currentPageInv - 1) * itemsPerPageInv + 1} - {Math.min(currentPageInv * itemsPerPageInv, filteredInventory.length)} of {filteredInventory.length} records
+              </div>
+
+              {/* Right: Pagination */}
+              <div className="flex items-center gap-1.5">
+                  <button
+                      onClick={() => setCurrentPageInv(prev => Math.max(1, prev - 1))}
+                      disabled={currentPageInv === 1}
+                      className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                  >
+                      <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  
+                  {(() => {
+                      const totalItems = filteredInventory.length;
+                      const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPageInv));
+                      const pages = [];
+                      if (totalPages <= 5) {
+                          for (let i = 1; i <= totalPages; i++) pages.push(i);
+                      } else {
+                          if (currentPageInv <= 3) {
+                              pages.push(1, 2, 3, 4, '...', totalPages);
+                          } else if (currentPageInv >= totalPages - 2) {
+                              pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                          } else {
+                              pages.push(1, '...', currentPageInv - 1, currentPageInv, currentPageInv + 1, '...', totalPages);
+                          }
+                      }
+
+                      return pages.map((page, index) => {
+                          if (page === '...') {
+                              return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                          }
+                          const pageNum = page as number;
+                          const isActive = currentPageInv === pageNum;
+                          return (
+                              <button
+                                  key={`page-${pageNum}`}
+                                  onClick={() => setCurrentPageInv(pageNum)}
+                                  className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
+                                      isActive 
+                                          ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' 
+                                          : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                  }`}
+                              >
+                                  {pageNum}
+                              </button>
+                          );
+                      });
+                  })()}
+
+                  <button
+                      onClick={() => setCurrentPageInv(prev => Math.min(Math.ceil(filteredInventory.length / itemsPerPageInv), prev + 1))}
+                      disabled={currentPageInv === Math.max(1, Math.ceil(filteredInventory.length / itemsPerPageInv)) || filteredInventory.length === 0}
+                      className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                  >
+                      <ChevronRight className="w-4 h-4" />
+                  </button>
+              </div>
+          </div>
+          )}
         </div>
 
-        {/* Usage Logs Container */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden font-inter">
-          <div className="p-4 border-b border-slate-50 flex items-center justify-between bg-white font-inter">
-            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest font-inter">Material Audit Logs (Usage)</h3>
-          </div>
-          <div className="overflow-x-auto font-inter">
-            <table className="w-full text-left font-inter min-w-[800px]">
-              <thead>
-                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
-                  <th className="px-6 py-4 font-inter">Audit Date</th>
-                  <th className="px-6 py-4 font-inter">Resource Description</th>
-                  <th className="px-6 py-4 font-inter text-center">Intensity (Qty)</th>
-                  <th className="px-6 py-4 font-inter">Disbursement Type</th>
-                  <th className="px-6 py-4 font-inter">Context</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50 font-inter">
-                {paginatedLogs.length > 0 ? (
-                  paginatedLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
-                      <td className="px-6 py-4 text-xs font-bold text-slate-500 font-inter uppercase tracking-widest">{new Date(log.created_at).toLocaleDateString()}</td>
-                      <td className="px-6 py-4 font-inter">
-                        <span className="font-bold text-slate-700 text-sm font-inter uppercase">
-                          {inventory.find(inv => inv.material_id === log.material_id)?.material_name || `Unknown Material`}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-center font-bold text-rose-500 text-sm font-inter">-{log.quantity}</td>
-                      <td className="px-6 py-4 font-inter">
-                        <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-[9px] font-bold uppercase tracking-widest border border-slate-200 font-inter">{log.issue_type}</span>
-                      </td>
-                      <td className="px-6 py-4 text-xs font-bold text-slate-400 font-inter">Project Audit-#{log.project_id}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">No historical usage records found.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Logs Pagination */}
-          <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
-                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                                PAGE {currentPageLogs} OF {Math.max(1, Math.ceil(logs.length / itemsPerPageLogs))}
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => setCurrentPageLogs(prev => Math.max(1, prev - 1))}
-                                    disabled={currentPageLogs === 1}
-                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
-                                    title="Previous Page"
-                                >
-                                    <ChevronLeft className="w-5 h-5" />
-                                </button>
-                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
-                                    {currentPageLogs}
-                                </div>
-                                <button
-                                    onClick={() => setCurrentPageLogs(prev => Math.min(Math.max(1, Math.ceil(logs.length / itemsPerPageLogs)), prev + 1))}
-                                    disabled={currentPageLogs === Math.max(1, Math.ceil(logs.length / itemsPerPageLogs))}
-                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
-                                    title="Next Page"
-                                >
-                                    <ChevronRight className="w-5 h-5" />
-                                </button>
-                            </div>
-                        </div>
-        </div>
       </PageTransition>
 
       {/* Record Usage Modal */}
       <Modal
         isOpen={isUsageModalOpen}
         onClose={() => setIsUsageModalOpen(false)}
-        title="Disburse Project Material"
+        title="Material Usage"
         maxWidth="max-w-md"
         footer={
-          <div className="flex gap-3 px-6 pb-6 font-inter">
+          <div className="flex justify-end gap-3 px-6 pb-6 font-inter">
             <button
               onClick={() => setIsUsageModalOpen(false)}
-              className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter"
+              className="px-6 py-2.5 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter"
             >
               Cancel
             </button>
             <button
               disabled={isSubmitting}
               onClick={handleUsageSubmit}
-              className="flex-[2] py-3 bg-rose-500 text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-rose-500/20 hover:bg-rose-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
+              className="px-6 py-2.5 bg-rose-500 text-white rounded-xl font-bold uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
             >
-              {isSubmitting ? "Syncing..." : "Confirm Disbursement"}
+              {isSubmitting ? "SYNCING..." : "ADD USAGE"}
             </button>
           </div>
         }

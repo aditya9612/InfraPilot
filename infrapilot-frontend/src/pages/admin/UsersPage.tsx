@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import CreateUserModal from "../../components/forms/CreateUserModal";
@@ -7,6 +7,7 @@ import UserDetailsModal from "../../components/dashboard/UserDetailsModal";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import { userService } from "../../services/userService";
 import type { User } from "../../types/user";
+import SortDropdown from "../../components/common/SortDropdown";
 
 const UsersPage = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -21,7 +22,8 @@ const UsersPage = () => {
   const [roleFilter, setRoleFilter] = useState("All Roles");
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [currentPage, setCurrentPage] = useState(0);
-  const PAGE_SIZE = 8;
+  const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
+  const PAGE_SIZE = 10;
 
   const fetchUsers = async () => {
     try {
@@ -106,32 +108,40 @@ const UsersPage = () => {
     setEditingUser(null);
   };
 
-  const filteredUsers = users.filter((user) => {
-    const term = searchTerm.toLowerCase();
-    const nameStr = user.full_name || "";
-    const emailStr = user.email || "";
-    const roleStr = user.role || "";
+  const sortedUsers = useMemo(() => {
+    const list = users.filter((user) => {
+      const term = searchTerm.toLowerCase();
+      const nameStr = user.full_name || "";
+      const emailStr = user.email || "";
+      const roleStr = user.role || "";
 
-    const matchesSearch = nameStr.toLowerCase().includes(term) ||
-      emailStr.toLowerCase().includes(term) ||
-      roleStr.toLowerCase().includes(term);
+      const matchesSearch = nameStr.toLowerCase().includes(term) ||
+        emailStr.toLowerCase().includes(term) ||
+        roleStr.toLowerCase().includes(term);
 
-    const matchesRole = roleFilter === "All Roles" || roleStr === roleFilter;
+      const matchesRole = roleFilter === "All Roles" || roleStr === roleFilter;
 
-    const matchesStatus = statusFilter === "All Status" ||
-      (statusFilter === "Active" && user.is_active) ||
-      (statusFilter === "Inactive" && !user.is_active);
+      const matchesStatus = statusFilter === "All Status" ||
+        (statusFilter === "Active" && user.is_active) ||
+        (statusFilter === "Inactive" && !user.is_active);
 
-    return matchesSearch && matchesRole && matchesStatus;
-  });
+      return matchesSearch && matchesRole && matchesStatus;
+    });
 
-  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
-  const pagedUsers = filteredUsers.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+    return [...list].sort((a, b) => {
+      const aVal = a.user_id;
+      const bVal = b.user_id;
+      return sortOrder === "latest" ? bVal - aVal : aVal - bVal;
+    });
+  }, [users, searchTerm, roleFilter, statusFilter, sortOrder]);
 
-  // Reset to page 0 on search/filter changes
+  const totalPages = Math.max(1, Math.ceil(sortedUsers.length / PAGE_SIZE));
+  const pagedUsers = sortedUsers.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+
+  // Reset to page 0 on search/filter/sort changes
   useEffect(() => {
     setCurrentPage(0);
-  }, [searchTerm, roleFilter, statusFilter]);
+  }, [searchTerm, roleFilter, statusFilter, sortOrder]);
 
   return (
     <>
@@ -157,29 +167,32 @@ const UsersPage = () => {
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row md:items-center gap-4">
-            <div className="relative flex-1 max-w-md">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
-              </span>
-              <input
-                type="text"
-                placeholder="Search by name, email or role..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-              />
+            <div className="flex flex-col sm:flex-row items-center gap-4 flex-1">
+              <div className="relative flex-1 max-w-md w-full">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                </span>
+                <input
+                  type="text"
+                  placeholder="Search by name, email or role..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                />
+              </div>
+              <SortDropdown value={sortOrder} onChange={setSortOrder} />
             </div>
             <div className="flex items-center gap-2">
               <select
@@ -228,7 +241,7 @@ const UsersPage = () => {
                       </div>
                     </td>
                   </tr>
-                ) : filteredUsers.length === 0 ? (
+                ) : sortedUsers.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic text-sm">
                       No users found.
@@ -382,7 +395,7 @@ const UsersPage = () => {
 
           <div className="p-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-              Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, filteredUsers.length)} of {filteredUsers.length} Users
+              Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, sortedUsers.length)} of {sortedUsers.length} Users
             </p>
             <div className="flex items-center gap-2">
               <button

@@ -26,7 +26,7 @@ export const labourService = {
     resolveUrl(path: string | null): string | null {
         if (!path) return null;
         if (path.startsWith('http') || path.startsWith('data:')) return path;
-        
+
         let baseUrl = import.meta.env.VITE_API_URL || '';
         // If the path starts with /uploads, it's likely served from the root of the backend, not the /api/v1 path
         if (path.startsWith('/uploads') || path.startsWith('uploads')) {
@@ -112,7 +112,7 @@ export const labourService = {
         projectId?: number | string | null,
         params?: { limit?: number; offset?: number; search?: string; status?: string }
     ): Promise<LabourResponse> {
-        const queryParams: any = { 
+        const queryParams: any = {
             limit: params?.limit || 50,
             offset: params?.offset || 0
         };
@@ -137,10 +137,10 @@ export const labourService = {
                 meta.total = data.length;
             } else if (data && typeof data === 'object') {
                 rawItems = data.items || data.data || (Array.isArray(data) ? data : []);
-                meta = data.meta || { 
-                    total: rawItems.length, 
-                    limit: data.limit || queryParams.limit, 
-                    offset: data.offset || queryParams.offset 
+                meta = data.meta || {
+                    total: rawItems.length,
+                    limit: data.limit || queryParams.limit,
+                    offset: data.offset || queryParams.offset
                 };
             }
 
@@ -160,13 +160,13 @@ export const labourService = {
             }
             if (params?.search) {
                 const s = params.search.toLowerCase();
-                filtered = filtered.filter((l: any) => 
-                    l.labour_name.toLowerCase().includes(s) || 
-                    l.worker_code.toLowerCase().includes(s) || 
+                filtered = filtered.filter((l: any) =>
+                    l.labour_name.toLowerCase().includes(s) ||
+                    l.worker_code.toLowerCase().includes(s) ||
                     l.aadhaar_number.includes(s)
                 );
             }
-            
+
             return {
                 items: filtered.slice(queryParams.offset, queryParams.offset + queryParams.limit),
                 meta: { total: filtered.length, limit: queryParams.limit, offset: queryParams.offset }
@@ -299,9 +299,9 @@ export const labourService = {
 
             console.log(`GET /api/v1/labour/${labourId}/attendance`, params);
             const response = await api.get(`/labour/${labourId}/attendance`, { params });
-            
+
             const backendData = Array.isArray(response.data) ? response.data : (response.data?.items || []);
-            
+
             // Normalize backend data
             const normalizedBackend = backendData.map((item: any) => ({
                 ...item,

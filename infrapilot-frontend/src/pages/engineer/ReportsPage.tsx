@@ -7,12 +7,12 @@ import {
     RotateCcw
 } from "lucide-react";
 import StatCard from "../../components/common/StatCard";
-import { reportService } from "../../services/reportService";
 import { dsrService } from "../../services/dsrService";
 import { workProgressService } from "../../services/workProgressService";
 import { labourService } from "../../services/labourService";
 import { materialService } from "../../services/materialService";
 import { issueService } from "../../services/issueService";
+import { reportService } from "../../services/reportService";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -50,7 +50,7 @@ const reportTypes: ReportType[] = [
         frequency: "Daily",
         metrics: [
             { label: "Total Labour", value: "142 Workers", accent: "text-blue-600" },
-            { label: "Concrete Poured", value: "120 m³" },
+            { label: "Concrete Poured", value: "120 Cum" },
             { label: "Steel Fixed", value: "8.5 Tons" },
             { label: "Safety Incidents", value: "0", accent: "text-emerald-600" },
         ],
@@ -102,7 +102,7 @@ const reportTypes: ReportType[] = [
         metrics: [
             { label: "Cement Consumed", value: "450 Bags", accent: "text-rose-500" },
             { label: "Steel Used", value: "12 Tons", accent: "text-rose-500" },
-            { label: "Aggregate Used", value: "320 m³" },
+            { label: "Aggregate Used", value: "320 Cum" },
             { label: "Closing Stock Value", value: "₹1.2 Cr", accent: "text-emerald-600" },
         ],
     },
@@ -174,107 +174,127 @@ const ReportsPage = () => {
         if (!projectId) return;
         setIsInitialLoading(true);
         try {
-            const [dailyRes, weeklyRes, labourRes, materialRes, issuesRes] = await Promise.all([
-                dsrService.getDsrByProject(projectId, { start_date: selectedDate, end_date: selectedDate }).catch(() => null),
-                workProgressService.listActivities(projectId, { start_date: selectedDate, end_date: selectedDate } as any).catch(() => null),
-                labourService.getLabours(projectId, { start_date: selectedDate, end_date: selectedDate } as any).catch(() => null),
-                materialService.listMaterials(projectId, { start_date: selectedDate, end_date: selectedDate } as any).catch(() => null),
-                issueService.listIssuesByProject(projectId, { limit: 1000 }).catch(() => null)
-            ]);
-
             const updatedReports = [...reportTypes];
 
             // 1. Daily Report Mapping (DSR)
-            const dailyIdx = updatedReports.findIndex(r => r.id === "daily");
-            if (dailyIdx !== -1 && dailyRes && dailyRes.items && dailyRes.items.length > 0) {
-                // Get the most recent DSR
-                const latestDsr = dailyRes.items.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
-                updatedReports[dailyIdx] = {
-                    ...updatedReports[dailyIdx],
-                    metrics: [
-                        { label: "Total Labour", value: `${latestDsr.total_labour || 0} Workers`, accent: "text-blue-600" },
-                        { label: "Skilled", value: latestDsr.skilled_labour?.toString() || "0" },
-                        { label: "Weather", value: latestDsr.weather || "Clear" },
-                        { label: "Location", value: latestDsr.site_location || "Site" },
-                    ]
-                };
+            try {
+                const dailyRes = await dsrService.getDsrByProject(projectId, { start_date: selectedDate, end_date: selectedDate });
+                const dailyIdx = updatedReports.findIndex(r => r.id === "daily");
+                if (dailyIdx !== -1 && dailyRes && dailyRes.items && dailyRes.items.length > 0) {
+                    // Get the most recent DSR
+                    const latestDsr = dailyRes.items.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+                    updatedReports[dailyIdx] = {
+                        ...updatedReports[dailyIdx],
+                        metrics: [
+                            { label: "Total Labour", value: `${latestDsr.total_labour || 0} Workers`, accent: "text-blue-600" },
+                            { label: "Skilled", value: latestDsr.skilled_labour?.toString() || "0" },
+                            { label: "Weather", value: latestDsr.weather || "Clear" },
+                            { label: "Location", value: latestDsr.site_location || "Site" },
+                        ]
+                    };
+                }
+            } catch (err) {
+                console.warn("Failed to fetch DSR report metrics", err);
             }
 
             // 2. Weekly Progress Mapping (Activities)
-            const weeklyIdx = updatedReports.findIndex(r => r.id === "weekly");
-            if (weeklyIdx !== -1 && weeklyRes && weeklyRes.length > 0) {
-                const completedActivities = weeklyRes.filter((a: any) => a.completion_percentage === 100).length;
-                const totalActivities = weeklyRes.length;
-                const overallCompletion = totalActivities > 0 
-                    ? Math.round((weeklyRes.reduce((acc: number, val: any) => acc + (Number(val.completion_percentage) || 0), 0)) / totalActivities)
-                    : 0;
-                    
-                updatedReports[weeklyIdx] = {
-                    ...updatedReports[weeklyIdx],
-                    metrics: [
-                        { label: "Overall Completion", value: `${overallCompletion}%`, accent: "text-emerald-600" },
-                        { label: "Completed Activities", value: completedActivities.toString() },
-                        { label: "Total Activities", value: totalActivities.toString() },
-                        { label: "Status", value: overallCompletion >= 100 ? "Completed" : "In Progress" },
-                    ]
-                };
+            try {
+                const weeklyRes = await workProgressService.listActivities(projectId, { start_date: selectedDate, end_date: selectedDate } as any);
+                const weeklyIdx = updatedReports.findIndex(r => r.id === "weekly");
+                if (weeklyIdx !== -1 && weeklyRes && weeklyRes.length > 0) {
+                    const completedActivities = weeklyRes.filter((a: any) => a.completion_percentage === 100).length;
+                    const totalActivities = weeklyRes.length;
+                    const overallCompletion = totalActivities > 0 
+                        ? Math.round((weeklyRes.reduce((acc: number, val: any) => acc + (Number(val.completion_percentage) || 0), 0)) / totalActivities)
+                        : 0;
+                        
+                    updatedReports[weeklyIdx] = {
+                        ...updatedReports[weeklyIdx],
+                        metrics: [
+                            { label: "Overall Completion", value: `${overallCompletion}%`, accent: "text-emerald-600" },
+                            { label: "Completed Activities", value: completedActivities.toString() },
+                            { label: "Total Activities", value: totalActivities.toString() },
+                            { label: "Status", value: overallCompletion >= 100 ? "Completed" : "In Progress" },
+                        ]
+                    };
+                }
+            } catch (err) {
+                console.warn("Failed to fetch weekly report metrics", err);
             }
 
-            // 3. Labour Mapping
-            const laborIdx = updatedReports.findIndex(r => r.id === "labour");
-            if (laborIdx !== -1 && labourRes && labourRes.items) {
-                const totalPresent = labourRes.items.filter((l: any) => l.status?.toLowerCase() === 'active').length;
-                updatedReports[laborIdx] = {
-                    ...updatedReports[laborIdx],
-                    metrics: [
-                        { label: "Total Workers", value: labourRes.items.length.toString(), accent: "text-blue-600" },
-                        { label: "Active", value: totalPresent.toString() },
-                        { label: "Inactive", value: (labourRes.items.length - totalPresent).toString() },
-                        { label: "Shift", value: "Day" },
-                    ]
-                };
+            // 3. Labour Mapping (Only this API)
+            try {
+                const labourRes = await labourService.getLabours(projectId, { limit: 1000 } as any);
+                const laborIdx = updatedReports.findIndex(r => r.id === "labour");
+                if (laborIdx !== -1 && labourRes && labourRes.items) {
+                    const totalPresent = labourRes.items.filter((l: any) => l.status?.toLowerCase() === 'active').length;
+                    updatedReports[laborIdx] = {
+                        ...updatedReports[laborIdx],
+                        metrics: [
+                            { label: "Total Workers", value: labourRes.items.length.toString(), accent: "text-blue-600" },
+                            { label: "Active", value: totalPresent.toString() },
+                            { label: "Inactive", value: (labourRes.items.length - totalPresent).toString() },
+                            { label: "Shift", value: "Day" },
+                        ]
+                    };
+                }
+            } catch (err) {
+                console.warn("Failed to fetch labour report metrics", err);
             }
 
             // 4. Material Mapping
-            const materialIdx = updatedReports.findIndex(r => r.id === "material");
-            if (materialIdx !== -1 && materialRes && materialRes.length > 0) {
-                let totalStock = 0;
-                let totalValue = 0;
-                materialRes.forEach((m: any) => {
-                    totalStock += Number(m.remaining_stock || 0);
-                    totalValue += Number(m.total_amount || m.total_value || 0);
-                });
-                
-                updatedReports[materialIdx] = {
-                    ...updatedReports[materialIdx],
-                    metrics: [
-                        { label: "Total Stock Items", value: materialRes.length.toString(), accent: "text-rose-500" },
-                        { label: "Stock Qty", value: totalStock.toFixed(1) },
-                        { label: "Stock Value", value: `₹${(totalValue/1000).toFixed(1)}k` },
-                        { label: "Status", value: "Updated" },
-                    ]
-                };
+            try {
+                const materialRes = await materialService.listMaterials(projectId, { start_date: selectedDate, end_date: selectedDate } as any);
+                const materialIdx = updatedReports.findIndex(r => r.id === "material");
+                if (materialIdx !== -1 && materialRes && materialRes.length > 0) {
+                    let totalStock = 0;
+                    let totalValue = 0;
+                    materialRes.forEach((m: any) => {
+                        totalStock += Number(m.remaining_stock || 0);
+                        totalValue += Number(m.total_amount || m.total_value || 0);
+                    });
+                    
+                    updatedReports[materialIdx] = {
+                        ...updatedReports[materialIdx],
+                        metrics: [
+                            { label: "Total Stock Items", value: materialRes.length.toString(), accent: "text-rose-500" },
+                            { label: "Stock Qty", value: totalStock.toFixed(1) },
+                            { label: "Stock Value", value: `₹${(totalValue/1000).toFixed(1)}k` },
+                            { label: "Status", value: "Updated" },
+                        ]
+                    };
+                }
+            } catch (err) {
+                console.warn("Failed to fetch material report metrics", err);
             }
 
             // 5. Issues Mapping
-            const issueIdx = updatedReports.findIndex(r => r.id === "issue");
-            if (issueIdx !== -1 && issuesRes && issuesRes.items) {
-                const allIssues = issuesRes.items.filter((i: any) => !projectId || i.project_id === projectId);
-                const openIssues = allIssues.filter((i: any) => i.status !== 'Resolved' && i.status !== 'Closed').length;
-                const criticalIssues = allIssues.filter((i: any) => i.priority === 'High' || i.priority === 'Critical').length;
-                const resolvedIssues = allIssues.filter((i: any) => i.status === 'Resolved' || i.status === 'Closed').length;
-                
-                updatedReports[issueIdx] = {
-                    ...updatedReports[issueIdx],
-                    metrics: [
-                        { label: "Open Issues", value: openIssues.toString(), accent: "text-rose-500" },
-                        { label: "Critical", value: criticalIssues.toString() },
-                        { label: "Resolved", value: resolvedIssues.toString() },
-                        { label: "Total", value: allIssues.length.toString() },
-                    ]
-                };
+            try {
+                const issuesRes = await issueService.getIssues({ project_id: projectId, limit: 1000 });
+                const issueIdx = updatedReports.findIndex(r => r.id === "issue");
+                if (issueIdx !== -1 && issuesRes && issuesRes.items) {
+                    const allIssues = issuesRes.items;
+                    const openIssues = allIssues.filter((i: any) => i.status !== 'Resolved' && i.status !== 'Closed').length;
+                    const criticalIssues = allIssues.filter((i: any) => i.priority === 'High' || i.priority === 'Critical').length;
+                    const resolvedIssues = allIssues.filter((i: any) => i.status === 'Resolved' || i.status === 'Closed').length;
+                    
+                    updatedReports[issueIdx] = {
+                        ...updatedReports[issueIdx],
+                        metrics: [
+                            { label: "Open Issues", value: openIssues.toString(), accent: "text-rose-500" },
+                            { label: "Critical", value: criticalIssues.toString() },
+                            { label: "Resolved", value: resolvedIssues.toString() },
+                            { label: "Total", value: allIssues.length.toString() },
+                        ]
+                    };
+                }
+            } catch (err) {
+                console.warn("Failed to fetch issue report metrics", err);
             }
 
+            // Simulate small delay for the rest
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
             setDynamicReports(updatedReports);
         } catch (error) {
             console.error("Failed to fetch reports", error);
@@ -547,41 +567,27 @@ const ReportsPage = () => {
 
     const handleCardPDF = async (report: ReportType) => {
         setLoadingId(`pdf-${report.id}`);
-        toast.loading(`Exporting PDF for ${report.name}...`, { id: `pdf-${report.id}` });
+        toast.loading(`Fetching data for ${report.name}...`, { id: `pdf-${report.id}` });
         try {
-            let blob: Blob;
-            let filename: string;
-            const today = new Date().toISOString().split("T")[0];
-
-            if (report.id === "daily") {
-                blob = await reportService.exportDailyPDF(projectId || 0, selectedDate);
-                filename = `Daily_Report_${selectedDate}.pdf`;
-            } else if (report.id === "weekly") {
-                blob = await reportService.exportWeeklyPDF(projectId || 0);
-                filename = `Weekly_Progress_${today}.pdf`;
-            } else if (report.id === "audit") {
-                blob = await reportService.exportAuditPDF(projectId || 0);
-                filename = `Audit_Report_${today}.pdf`;
-            } else {
-                // Fallback: use generic print dialog
-                toast.dismiss(`pdf-${report.id}`);
-                setLoadingId(null);
-                handleExportPDF();
-                return;
-            }
-
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', filename);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            window.URL.revokeObjectURL(url);
-
-            toast.success(`${report.name} PDF exported!`, { id: `pdf-${report.id}` });
-        } catch (e) {
-            toast.error("PDF Export failed", { id: `pdf-${report.id}` });
+            const today = new Date();
+            const month = (today.getMonth() + 1).toString().padStart(2, '0');
+            const year = today.getFullYear().toString();
+            
+            // Map our report.id to backend types: ["daily", "weekly", "monthly", "quarterly"]
+            let mappedType = "monthly";
+            if (report.id === "daily") mappedType = "daily";
+            if (report.id === "weekly") mappedType = "weekly";
+            
+            const reportData = await reportService.getProjectReportData(projectId || 1, mappedType, month, year);
+            
+            // Usually we'd pass this data to a PDF generator, but for now we fallback to our generic print
+            console.log("Successfully fetched report data for PDF:", reportData);
+            toast.dismiss(`pdf-${report.id}`);
+            handleExportPDF();
+            
+        } catch (err) {
+            console.error("Failed to fetch report data", err);
+            toast.error("Failed to fetch report data", { id: `pdf-${report.id}` });
         } finally {
             setLoadingId(null);
         }
@@ -591,32 +597,19 @@ const ReportsPage = () => {
         setLoadingId(report.id);
         toast.loading(`Exporting ${report.name}...`, { id: `exp-${report.id}` });
         try {
-            const today = new Date().toISOString().split("T")[0];
+            const today = new Date();
+            const month = (today.getMonth() + 1).toString().padStart(2, '0');
+            const year = today.getFullYear().toString();
+            
+            let mappedType = "monthly";
+            if (report.id === "daily") mappedType = "daily";
+            if (report.id === "weekly") mappedType = "weekly";
 
-            if (report.id === "daily") {
-                await dsrService.exportDsrExcel(projectId || 0, { start_date: selectedDate, end_date: selectedDate });
-                toast.success(`${report.name} exported successfully!`, { id: `exp-${report.id}` });
-                setLoadingId(null);
-                return;
-            }
-
-            let blob: Blob;
-            let filename: string;
-
-            if (report.id === "material") {
-                blob = await reportService.exportMaterialExcel(projectId || 0);
-                filename = `Material_Report_${today}.xlsx`;
-            } else if (report.id === "labour") {
-                blob = await reportService.exportLabourExcel(projectId || 0);
-                filename = `Labour_Deployment_${today}.xlsx`;
-            } else if (report.id === "issue") {
-                blob = await reportService.exportIssueExcel(projectId || 0);
-                filename = `Issue_Registry_${today}.xlsx`;
-            } else {
-                // Fallback for others (Weekly, etc.)
-                blob = new Blob([`Report Content for ${report.name}`], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-                filename = `${report.name}_Report_${today}.xlsx`;
-            }
+            const reportData = await reportService.getProjectReportData(projectId || 1, mappedType, month, year);
+            
+            // Dump the JSON to an excel/text file for now as a placeholder for actual excel generation
+            const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
+            const filename = `${report.name}_Report_${year}-${month}.json`;
 
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -629,6 +622,7 @@ const ReportsPage = () => {
 
             toast.success(`${report.name} exported!`, { id: `exp-${report.id}` });
         } catch (e) {
+            console.error("Export failed", e);
             toast.error("Export failed", { id: `exp-${report.id}` });
         } finally {
             setLoadingId(null);

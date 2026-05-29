@@ -11,7 +11,9 @@ export const projectService = {
       offset: skip
     };
     if (search) params.search = search;
-    if (status && status !== "All") params.status = status;
+    if (status && status !== "All" && status !== "") {
+      params.status = status;
+    }
 
     try {
       const response = await api.get('/projects', { params });
@@ -20,11 +22,25 @@ export const projectService = {
       // Handle different possible response structures (array or wrapper object)
       const items = Array.isArray(data) ? data : (data.items || data.data || []);
 
-      // Map project_id to id for frontend compatibility
-      const mappedItems = items.map((p: any) => ({
-        ...p,
-        id: p.project_id || p.id
-      }));
+      // Map project_id to id and normalize status for frontend compatibility
+      const mappedItems = items.map((p: any) => {
+        const rawStatus = p.status || "";
+        let normalizedStatus = rawStatus;
+
+        // Map backend UPPERCASE to frontend PascalCase if needed
+        if (rawStatus === "PLANNED") normalizedStatus = "Planned";
+        else if (rawStatus === "ONGOING") normalizedStatus = "Ongoing";
+        else if (rawStatus === "COMPLETED") normalizedStatus = "Completed";
+        else if (rawStatus === "ON_HOLD") normalizedStatus = "On Hold";
+        else if (rawStatus === "DELAYED") normalizedStatus = "Delayed";
+        else if (rawStatus === "delayed") normalizedStatus = "Delayed"; // Handle lowercase too
+
+        return {
+          ...p,
+          id: p.project_id || p.id,
+          status: normalizedStatus as any
+        };
+      });
 
       if (Array.isArray(data)) return mappedItems;
 
@@ -244,8 +260,13 @@ export const projectService = {
   },
 
   async createTask(projectId: number, taskData: any) {
-    const response = await api.post(`/projects/${projectId}/tasks`, taskData);
-    return response.data;
+    try {
+      const response = await api.post(`/projects/${projectId}/tasks`, taskData);
+      return response.data;
+    } catch (error: any) {
+      console.error("Create Task API Error:", error.response?.data || error.message);
+      throw error;
+    }
   },
 
   async getTask(projectId: number, taskId: number) {
@@ -254,8 +275,13 @@ export const projectService = {
   },
 
   async updateTask(projectId: number, taskId: number, taskData: any) {
-    const response = await api.put(`/projects/${projectId}/tasks/${taskId}`, taskData);
-    return response.data;
+    try {
+      const response = await api.put(`/projects/${projectId}/tasks/${taskId}`, taskData);
+      return response.data;
+    } catch (error: any) {
+      console.error(`Update Task ${taskId} API Error:`, error.response?.data || error.message);
+      throw error;
+    }
   },
 
   async deleteTask(projectId: number, taskId: number) {
@@ -287,15 +313,10 @@ export const projectService = {
    * Get work progress activities for a project and engineer
    * GET /api/v1/projects/work-progress/activities
    */
-  async getWorkProgressActivities(projectId: number, engineerId?: number) {
+  async getWorkProgressActivities(projectId: number, engineerId: number) {
     try {
-      const params: any = { project_id: projectId };
-      if (engineerId) {
-        params.engineer_id = engineerId;
-      }
-
-      const response = await api.get(`/work-progress/activities`, {
-        params: params
+      const response = await api.get('/work-progress/activities', {
+        params: { project_id: projectId, engineer_id: engineerId }
       });
       const rawData = response.data;
 

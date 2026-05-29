@@ -90,19 +90,18 @@ export const dsrService = {
 
   /**
    * Get all DSRs for a project
-   * GET /api/v1/dsr/project/
+   * GET /api/v1/dsr/project/{project_id}
    */
   async getDsrByProject(
     projectId: number,
-    params?: { 
-      limit?: number; 
-      offset?: number; 
-      start_date?: string; 
-      end_date?: string; 
-      contractor_name?: string; 
+    params?: {
+      limit?: number;
+      offset?: number;
+      start_date?: string;
+      end_date?: string;
+      contractor_name?: string;
     }
   ): Promise<DsrResponse> {
-    // Use path parameter for project ID as per backend specification
     const response = await api.get<DsrResponse>(`/dsr/project/${projectId}`, {
       params,
     });
@@ -124,7 +123,7 @@ export const dsrService = {
    */
   async updateDsr(id: number, data: UpdateDsrRequest): Promise<DsrItem> {
     const { dsr_image, resolved_address, ...payload } = data;
-    
+
     // We send payload in the body, but also copy fields to params just in case the backend reads them from query string
     const params: Record<string, any> = {};
     Object.entries(payload).forEach(([key, value]) => {
@@ -162,6 +161,24 @@ export const dsrService = {
    */
   async submitDsr(id: number): Promise<{ message: string }> {
     const response = await api.put<{ message: string }>(`/dsr/${id}/submit`, {});
+    return response.data;
+  },
+
+  /**
+   * Approve DSR (Submitted → Approved)
+   * PUT /api/v1/dsr/{id}/approve
+   */
+  async approveDsr(id: number): Promise<{ message: string }> {
+    const response = await api.put<{ message: string }>(`/dsr/${id}/approve`, {});
+    return response.data;
+  },
+
+  /**
+   * Reject DSR (Submitted → Draft/Rejected)
+   * PUT /api/v1/dsr/{id}/reject
+   */
+  async rejectDsr(id: number): Promise<{ message: string }> {
+    const response = await api.put<{ message: string }>(`/dsr/${id}/reject`, {});
     return response.data;
   },
 

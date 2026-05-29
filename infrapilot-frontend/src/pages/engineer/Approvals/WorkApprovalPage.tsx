@@ -19,7 +19,9 @@ import {
     RotateCcw
     ,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    Clock,
+    ChevronDown
 } from "lucide-react";
 import { approvalService } from "../../../services/approvalService";
 import type { CreateApprovalRequest } from "../../../services/approvalService";
@@ -62,10 +64,11 @@ const WorkApprovalPage = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 20;
+    const [itemsPerPage, setItemsPerPage] = useState(10);
 
     // Filter state for StatCards
-    const [activeFilter, setActiveFilter] = useState<"All" | "Approved" | "Pending" | "Reject" | "Pending/Reject" | "Rate">("All");
+    const [activeFilter, setActiveFilter] = useState<"Select" | "Approved" | "Pending" | "Reject" | "Pending/Reject" | "Rate">("Select");
+    const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
 
     const [formData, setFormData] = useState({
         id: "" as number | string,
@@ -191,7 +194,7 @@ const WorkApprovalPage = () => {
     }, [approvalData, searchTerm]);
 
     const filteredApprovals = useMemo(() => {
-        let data = baseFilteredApprovals;
+        let data = [...baseFilteredApprovals];
 
         // Apply StatCard Filter
         if (activeFilter === "Approved") {
@@ -204,13 +207,22 @@ const WorkApprovalPage = () => {
             data = data.filter(a => a.status !== "Approved");
         }
 
+        // Apply Sort Order
+        data.sort((a, b) => {
+            if (sortOrder === "latest") {
+                return Number(b.id) - Number(a.id);
+            } else {
+                return Number(a.id) - Number(b.id);
+            }
+        });
+
         return data;
-    }, [baseFilteredApprovals, activeFilter]);
+    }, [baseFilteredApprovals, activeFilter, sortOrder]);
 
     const paginatedApprovals = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
         return filteredApprovals.slice(startIndex, startIndex + itemsPerPage);
-    }, [filteredApprovals, currentPage]);
+    }, [filteredApprovals, currentPage, itemsPerPage]);
 
     const totalPages = Math.ceil(filteredApprovals.length / itemsPerPage);
 
@@ -273,7 +285,7 @@ const WorkApprovalPage = () => {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
-                    <div onClick={() => setActiveFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                    <div onClick={() => setActiveFilter("Select")} className={`cursor-pointer group transition-all rounded-xl ${activeFilter === "Select" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Total Logs"
                             value={stats.total.toString()}
@@ -325,16 +337,29 @@ const WorkApprovalPage = () => {
                                 onChange={(e) => setActiveFilter(e.target.value as any)}
                                 className="bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-primary uppercase tracking-widest shadow-sm px-3 py-1 outline-none cursor-pointer"
                             >
-                                <option value="All">Full Ledger</option>
+                                <option value="Select">Select</option>
                                 <option value="Approved">Approved</option>
                                 <option value="Pending">Pending</option>
                                 <option value="Reject">Reject</option>
                             </select>
-                            {activeFilter !== "All" && (
-                                <button onClick={() => setActiveFilter("All")} className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors">
-                                    <RotateCcw className="w-4 h-4" />
-                                </button>
-                            )}
+
+                            {/* Sort Filter */}
+                            <div className="relative flex items-center">
+                                <div className="absolute left-3 text-slate-400 pointer-events-none">
+                                    <Clock className="w-4 h-4" />
+                                </div>
+                                <select
+                                    value={sortOrder}
+                                    onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
+                                    className="appearance-none bg-white border border-primary rounded-full text-sm font-bold text-primary shadow-sm pl-9 pr-8 py-1.5 outline-none cursor-pointer"
+                                >
+                                    <option value="latest">Latest First</option>
+                                    <option value="oldest">Oldest First</option>
+                                </select>
+                                <div className="absolute right-3 text-slate-400 pointer-events-none">
+                                    <ChevronDown className="w-4 h-4" />
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -379,7 +404,8 @@ const WorkApprovalPage = () => {
                                                 <div className="flex items-center justify-end gap-2 font-inter">
                                                     <button
                                                         onClick={() => setSelectedApproval(approval)}
-                                                        className={`p-2 text-white rounded-xl shadow-lg transition-all active:scale-95 ${statusColors[approval.status as keyof typeof statusColors] || 'bg-primary'} shadow-primary/10 font-inter`}
+                                                        className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
+                                                        title="View Details"
                                                     >
                                                         <Eye className="w-4 h-4" />
                                                     </button>
@@ -418,29 +444,81 @@ const WorkApprovalPage = () => {
 
                     {/* ── Pagination Controls ──────────────────────────── */}
                     {!loading && filteredApprovals.length > 0 && (
-                        <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
-                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                                PAGE {currentPage} OF {Math.max(1, Math.ceil(filteredApprovals.length / itemsPerPage))}
-                            </div>
+                        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                            {/* Left: Items per page */}
                             <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                                <select 
+                                    value={itemsPerPage} 
+                                    onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                    className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                                >
+                                    <option value={10}>10</option>
+                                    <option value={20}>20</option>
+                                    <option value={50}>50</option>
+                                    <option value={100}>100</option>
+                                </select>
+                            </div>
+
+                            {/* Center: Showing info */}
+                            <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+                                Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredApprovals.length)} of {filteredApprovals.length} records
+                            </div>
+
+                            {/* Right: Pagination */}
+                            <div className="flex items-center gap-1.5">
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                     disabled={currentPage === 1}
-                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
-                                    title="Previous Page"
+                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
                                 >
-                                    <ChevronLeft className="w-5 h-5" />
+                                    <ChevronLeft className="w-4 h-4" />
                                 </button>
-                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
-                                    {currentPage}
-                                </div>
+                                
+                                {(() => {
+                                    const totalItems = filteredApprovals.length;
+                                    const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+                                    const pages = [];
+                                    if (totalPages <= 5) {
+                                        for (let i = 1; i <= totalPages; i++) pages.push(i);
+                                    } else {
+                                        if (currentPage <= 3) {
+                                            pages.push(1, 2, 3, 4, '...', totalPages);
+                                        } else if (currentPage >= totalPages - 2) {
+                                            pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                                        } else {
+                                            pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                                        }
+                                    }
+
+                                    return pages.map((page, index) => {
+                                        if (page === '...') {
+                                            return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                                        }
+                                        const pageNum = page as number;
+                                        const isActive = currentPage === pageNum;
+                                        return (
+                                            <button
+                                                key={`page-${pageNum}`}
+                                                onClick={() => setCurrentPage(pageNum)}
+                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
+                                                    isActive 
+                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' 
+                                                        : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                                }`}
+                                            >
+                                                {pageNum}
+                                            </button>
+                                        );
+                                    });
+                                })()}
+
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.min(Math.max(1, Math.ceil(filteredApprovals.length / itemsPerPage)), prev + 1))}
-                                    disabled={currentPage === Math.max(1, Math.ceil(filteredApprovals.length / itemsPerPage))}
-                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
-                                    title="Next Page"
+                                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredApprovals.length / itemsPerPage), prev + 1))}
+                                    disabled={currentPage === Math.max(1, Math.ceil(filteredApprovals.length / itemsPerPage)) || filteredApprovals.length === 0}
+                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
                                 >
-                                    <ChevronRight className="w-5 h-5" />
+                                    <ChevronRight className="w-4 h-4" />
                                 </button>
                             </div>
                         </div>

@@ -15,7 +15,7 @@ import { boqService } from "../../services/boqService";
 import api from "../../services/api";
 
 const UNITS = ["Cum", "Sqm", "Rft", "Nos", "Kg", "Ton", "Bag"];
-const STATUSES = ["Not Started", "On Track", "Delay"];
+const STATUSES = ["NOT_STARTED", "ON_TRACK", "DELAY", "COMPLETED"];
 
 const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: AddActivityModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -28,7 +28,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
     unit: "Cum",
     start_date: "",
     end_date: "",
-    status: "Not Started",
+    status: "NOT_STARTED",
     work_order_id: "" as any
   });
 
@@ -38,7 +38,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
   useEffect(() => {
     if (isOpen) {
       setFormData(prev => ({ ...prev, project_id: "" }));
-      
+
       const fetchAllData = async () => {
         try {
           const res = await projectService.getProjects(100, 0);
@@ -65,7 +65,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
           setAllWorkOrders([]);
         }
       };
-      
+
       fetchAllData();
     }
   }, [isOpen]);
@@ -99,7 +99,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
 
     if (!formData.start_date) errs.start_date = "Start date is required";
     if (!formData.end_date) errs.end_date = "End date is required";
-    
+
     if (formData.start_date && formData.end_date && new Date(formData.start_date) > new Date(formData.end_date)) {
       errs.end_date = "End date cannot be before start date";
     }
@@ -129,7 +129,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
         unit: "Cum",
         start_date: "",
         end_date: "",
-        status: "Not Started",
+        status: "NOT_STARTED",
         work_order_id: "" as any
       });
       setErrors({});
@@ -142,18 +142,18 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    
+
     if (name === "activity_name" && /[0-9]/.test(value)) {
-        setErrors(prev => ({ ...prev, [name]: "Numbers are not allowed in activity name" }));
-        return;
+      setErrors(prev => ({ ...prev, [name]: "Numbers are not allowed in activity name" }));
+      return;
     }
 
     setFormData(prev => ({ ...prev, [name]: value }));
     if (errors[name]) {
-        setErrors(prev => {
-            const { [name]: _, ...rest } = prev;
-            return rest;
-        });
+      setErrors(prev => {
+        const { [name]: _, ...rest } = prev;
+        return rest;
+      });
     }
   };
 
@@ -197,7 +197,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={labelClasses}>Project*</label>
-              <select 
+              <select
                 name="project_id"
                 className={inputClasses(errors.project_id)}
                 value={formData.project_id}
@@ -212,7 +212,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
             </div>
             <div>
               <label className={labelClasses}>Activity Name*</label>
-              <input 
+              <input
                 required type="text" name="activity_name" placeholder="e.g. Excavation, RCC, Brickwork"
                 className={inputClasses(errors.activity_name)}
                 value={formData.activity_name} onChange={handleChange}
@@ -221,7 +221,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
             </div>
             <div>
               <label className={labelClasses}>BOQ Reference Code</label>
-              <select 
+              <select
                 name="boq_code"
                 className={inputClasses(errors.boq_code)}
                 value={formData.boq_code}
@@ -237,7 +237,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
             </div>
             <div>
               <label className={labelClasses}>Work Order ID*</label>
-              <select 
+              <select
                 required
                 name="work_order_id"
                 className={inputClasses(errors.work_order_id)}
@@ -270,10 +270,10 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={labelClasses}>Planned Quantity*</label>
-              <input 
+              <input
                 required type="number" name="planned_quantity" min="0" step="any"
                 className={inputClasses(errors.planned_quantity)}
-                value={formData.planned_quantity} onChange={e => setFormData({...formData, planned_quantity: e.target.value})}
+                value={formData.planned_quantity} onChange={e => setFormData({ ...formData, planned_quantity: e.target.value })}
               />
               {errors.planned_quantity && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.planned_quantity}</p>}
             </div>
@@ -294,7 +294,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={labelClasses}>Start Date*</label>
-              <input 
+              <input
                 required type="date" name="start_date" className={inputClasses(errors.start_date)}
                 value={formData.start_date} onChange={handleChange}
               />
@@ -302,7 +302,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
             </div>
             <div>
               <label className={labelClasses}>End Date*</label>
-              <input 
+              <input
                 required type="date" name="end_date" className={inputClasses(errors.end_date)}
                 value={formData.end_date} onChange={handleChange}
               />

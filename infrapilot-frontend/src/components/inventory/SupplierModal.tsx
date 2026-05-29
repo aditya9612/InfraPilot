@@ -26,11 +26,15 @@ export default function SupplierModal({
 
   useEffect(() => {
     if (initialData) {
+      const contactStr = initialData.contact || "";
+      const phoneMatch = contactStr.match(/\d{10}/);
+      const emailMatch = contactStr.match(/[^\s@]+@[^\s@]+\.[^\s@]+/);
+
       setFormData({
         name: initialData.name || "",
         contactPerson: initialData.contactPerson || "",
-        phone: initialData.phone || initialData.contact || "",
-        email: initialData.email || "",
+        phone: phoneMatch ? phoneMatch[0] : "",
+        email: emailMatch ? emailMatch[0] : "",
         gst: initialData.gst || "",
         address: initialData.address || "",
       });
@@ -78,8 +82,14 @@ export default function SupplierModal({
 
     if (!formData.name.trim()) newErrors.name = "Supplier name is required.";
     if (!formData.contactPerson.trim()) newErrors.contactPerson = "Contact person is required.";
-    if (!formData.phone.trim()) newErrors.phone = "Phone number is required.";
-    else if (formData.phone.length !== 10) newErrors.phone = "Phone must be 10 digits.";
+
+    if (!formData.phone.trim() && !formData.email.trim()) {
+      newErrors.phone = "Phone or email is required.";
+      newErrors.email = "Phone or email is required.";
+    } else if (formData.phone.trim() && formData.phone.length !== 10) {
+      newErrors.phone = "Phone must be 10 digits.";
+    }
+
     if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Invalid email format.";
     }
@@ -139,7 +149,7 @@ export default function SupplierModal({
           <div>
             <div className="flex items-center gap-2 mb-4">
               <div className="w-1 h-6 bg-primary rounded-full"></div>
-              <h3 className="font-semibold text-gray-700">Business Identity</h3>
+              <h3 className="font-semibold text-gray-700">Business Identity & Contact</h3>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -180,7 +190,7 @@ export default function SupplierModal({
 
               <div className="space-y-1">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Phone Number <span className="text-rose-500">*</span>
+                  Phone Number
                 </label>
                 <input
                   type="tel"

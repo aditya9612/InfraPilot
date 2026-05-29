@@ -14,7 +14,7 @@ interface FinancialSummaryData {
 
 
 
-const ClientFinancialReportPage = () => {
+const ClientFinancialDetailsPage = () => {
   const [data, setData] = useState<FinancialSummaryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [exportingPdf, setExportingPdf] = useState(false);
@@ -185,4 +185,4 @@ const ClientFinancialReportPage = () => {
   );
 };
 
-export default ClientFinancialReportPage;
+export default ClientFinancialDetailsPage;

@@ -37,38 +37,27 @@ if (typeof window !== "undefined") {
 
 export const workProgressService = {
   /**
-   * List all activities for a project and engineer
+   * List all activities from API
+   * GET /api/v1/work-progress/activities
    */
   async listActivities(project_id?: number, engineer_id?: number): Promise<ActivityItem[]> {
-    try {
-      const response = await api.get("/work-progress/activities", {
-        params: { project_id, engineer_id }
-      });
-      const data = response.data;
-      return Array.isArray(data) ? data : (data.items || data.data || []);
-    } catch (error: any) {
-      console.warn("listActivities API error, using virtual success fallback:", error.message);
-      return mockActivities.filter(a => {
-        if (project_id && a.project_id !== project_id) return false;
-        if (engineer_id && a.engineer_id !== engineer_id) return false;
-        return true;
-      });
-    }
+    const params: Record<string, any> = {};
+    if (project_id) params.project_id = project_id;
+    if (engineer_id) params.engineer_id = engineer_id;
+    const response = await api.get("/work-progress/activities", { params });
+    const data = response.data;
+    return Array.isArray(data) ? data : (data.items || data.data || []);
   },
 
   /**
    * Get a single activity detail
    */
+  /**
+   * GET /api/v1/work-progress/activities/{id}
+   */
   async getActivity(id: number): Promise<ActivityItem> {
-    try {
-      const response = await api.get(`/work-progress/activities/${id}`);
-      return response.data;
-    } catch (error: any) {
-      console.warn("getActivity API error, using virtual success fallback:", error.message);
-      const act = mockActivities.find(a => a.id === id);
-      if (act) return act;
-      throw new Error("Activity not found");
-    }
+    const response = await api.get(`/work-progress/activities/${id}`);
+    return response.data.data || response.data;
   },
 
   /**
@@ -77,7 +66,7 @@ export const workProgressService = {
   async createActivity(data: CreateActivityRequest): Promise<ActivityItem> {
     try {
       const response = await api.post("/work-progress/activities", data);
-      return response.data.data;
+      return response.data.data || response.data;
     } catch (error: any) {
       console.warn("createActivity API error, using virtual success fallback:", error.message);
       const newAct: ActivityItem = {
@@ -105,28 +94,12 @@ export const workProgressService = {
 
   /**
    * Update an existing activity
+   * PUT /api/v1/work-progress/activities/{id}
+   * Success: 200 with updated activity
    */
   async updateActivity(id: number, data: UpdateActivityRequest): Promise<ActivityItem> {
-    try {
-      const response = await api.put(`/projects/work-progress/activities/${id}`, data);
-      return response.data.data;
-    } catch (error: any) {
-      console.warn("updateActivity API error, using virtual success fallback:", error.message);
-      const act = mockActivities.find(a => a.id === id);
-      if (act) {
-        act.activity_name = data.activity_name;
-        act.planned_quantity = data.planned_quantity;
-        act.unit = data.unit;
-        act.start_date = data.start_date;
-        act.end_date = data.end_date;
-        act.status = data.status;
-        act.remaining_quantity = Math.max(0, data.planned_quantity - act.total_completed);
-        act.completion_percentage = Math.min(100, (act.total_completed / data.planned_quantity) * 100);
-        persistMockData();
-        return act;
-      }
-      throw new Error("Activity not found");
-    }
+    const response = await api.put(`/work-progress/activities/${id}`, data);
+    return response.data.data || response.data;
   },
 
   /**
@@ -134,7 +107,7 @@ export const workProgressService = {
    */
   async deleteActivity(id: number): Promise<void> {
     try {
-      await api.delete(`/projects/work-progress/activities/${id}`);
+      await api.delete(`/work-progress/activities/${id}`);
     } catch (error: any) {
       console.warn("deleteActivity API error, using virtual success fallback:", error.message);
       mockActivities = mockActivities.filter(a => a.id !== id);
@@ -147,7 +120,8 @@ export const workProgressService = {
    */
   async addDailyProgress(data: DailyProgressRequest): Promise<any> {
     try {
-      const response = await api.post("/projects/work-progress/daily-entry", data);
+      const { created_by, ...payload } = data;
+      const response = await api.post("/work-progress/daily-entry", payload);
       return response.data;
     } catch (error: any) {
       console.warn("addDailyProgress API error, using virtual success fallback:", error.message);
@@ -190,9 +164,11 @@ export const workProgressService = {
    */
   async listDailyEntries(activityId?: number, entryDate?: string): Promise<DailyEntry[]> {
     try {
-      const response = await api.get("/work-progress/daily-entry", {
-        params: { activity_id: activityId, entry_date: entryDate }
-      });
+      const params: Record<string, any> = {};
+      if (activityId !== undefined) params.activity_id = activityId;
+      if (entryDate !== undefined) params.entry_date = entryDate;
+
+      const response = await api.get("/work-progress/daily-entry", { params });
       return Array.isArray(response.data) ? response.data : (response.data?.data || []);
     } catch (error: any) {
       console.warn("listDailyEntries API error, using virtual success fallback:", error.message);
@@ -237,25 +213,13 @@ export const workProgressService = {
 
   /**
    * Delete a daily progress entry
+   * DELETE /api/v1/projects/work-progress/daily-entry/{id}
+   * Success: 200 { message: "Daily Entry Deleted" }
    */
   async deleteDailyEntry(id: number): Promise<void> {
-    try {
-      await api.delete(`/work-progress/daily-entry/${id}`);
-    } catch (error: any) {
-      console.warn("deleteDailyEntry API error, using virtual success fallback:", error.message);
-      const entry = mockDailyEntries.find(e => e.id === id);
-      if (entry) {
-        const act = mockActivities.find(a => a.id === entry.activity_id);
-        if (act) {
-          act.total_completed = Math.max(0, act.total_completed - entry.today_progress);
-          act.remaining_quantity = act.planned_quantity - act.total_completed;
-          act.completion_percentage = (act.total_completed / act.planned_quantity) * 100;
-          if (act.completion_percentage < 100 && act.status === "Completed") act.status = "On Track";
-        }
-      }
-      mockDailyEntries = mockDailyEntries.filter(e => e.id !== id);
-      persistMockData();
-    }
+    const response = await api.delete(`/projects/work-progress/daily-entry/${id}`);
+    // 200 success — return without any mock fallback
+    return response.data;
   },
 
   /**
@@ -282,13 +246,13 @@ export const workProgressService = {
   /**
    * Get today's progress items for a site engineer
    */
-  async getTodayProgress(engineerId: number): Promise<ActivityItem[]> {
+  async getTodayProgress(engineerId: number): Promise<DailyEntry[]> {
     try {
       const response = await api.get("/work-progress/site-engineer/today-progress");
-      return response.data;
+      return Array.isArray(response.data) ? response.data : (response.data?.data || []);
     } catch (error: any) {
       console.warn("getTodayProgress API error, using virtual success fallback:", error.message);
-      return mockActivities.filter(a => a.engineer_id === engineerId);
+      return mockDailyEntries.filter(e => e.created_by === engineerId);
     }
   },
 

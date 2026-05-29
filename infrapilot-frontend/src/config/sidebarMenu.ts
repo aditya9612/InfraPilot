@@ -264,6 +264,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
         { label: "Material Receipt", path: "/engineer/material/receipt", icon: "package" },
         { label: "Material Consumption", path: "/engineer/material/consumption", icon: "tool" },
         { label: "Stock Summary", path: "/engineer/material/stock", icon: "database" },
+        { label: "Material History", path: "/engineer/material/history", icon: "history" },
       ],
     },
     { label: "Machinery & Equipment", path: "/engineer/machinery", icon: "tool" },
@@ -443,5 +444,11 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       ],
     },
     { label: "Settings", path: "/client/settings", icon: "settings" },
+  ],
+  Labour: [
+    { label: "Dashboard", path: "/labour", icon: "grid" },
+    { label: "My Tasks", path: "/labour/tasks", icon: "clipboard" },
+    { label: "Payments", path: "/labour/payments", icon: "wallet" },
+    { label: "Settings", path: "/labour/settings", icon: "settings" },
   ],
 };

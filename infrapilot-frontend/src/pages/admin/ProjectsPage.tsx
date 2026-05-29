@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { exportToCSV } from "../../utils/csvExport";
 import Navbar from "../../components/common/Navbar";
@@ -8,7 +8,9 @@ import EditProjectModal from "../../components/dashboard/EditProjectModal";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 import { projectService } from "../../services/projectService";
+import { financeService } from "../../services/financeService";
 import type { Project, ProjectStatus } from "../../types/project";
+import SortDropdown from "../../components/common/SortDropdown";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const statusBadge: Record<ProjectStatus, string> = {
@@ -40,7 +42,7 @@ const backendStatusMap: Record<string, string> = {
   "Ongoing": "ONGOING",
   "Completed": "COMPLETED",
   "On Hold": "ON_HOLD",
-  "Delayed": "" // Fallback for statuses not yet in backend enum
+  "Delayed": "" // Backend filter doesn't support DELAYED yet, so we fetch all and filter client-side
 };
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -55,6 +57,7 @@ const ProjectsPage = () => {
   );
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
   const [actTab, setActTab] = useState("All");
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<number | null>(null);
@@ -73,11 +76,15 @@ const ProjectsPage = () => {
     try {
       setIsLoading(true);
       // Fetch data concurrently
-      const [pRes, allRes, pAlerts, tAlerts] = await Promise.all([
-        projectService.getProjects(100, 0, debouncedSearch, filterStatus === "All" ? "" : (backendStatusMap[filterStatus] || "")),
+      const statusParam = filterStatus === "All" ? "" : (backendStatusMap[filterStatus] || "");
+      console.log(`Fetching projects with filterStatus="${filterStatus}", statusParam="${statusParam}"`);
+
+      const [pRes, allRes, pAlerts, tAlerts, invoices] = await Promise.all([
+        projectService.getProjects(100, 0, debouncedSearch, statusParam),
         projectService.getProjects(100, 0),
         projectService.getProjectAlerts().catch(() => []),
-        projectService.getTaskAlerts().catch(() => [])
+        projectService.getTaskAlerts().catch(() => []),
+        financeService.getInvoices(50, 0).catch(() => [])
       ]);
 
       const projectList = Array.isArray(pRes) ? pRes : (pRes.items || pRes.data || []);
@@ -90,21 +97,33 @@ const ProjectsPage = () => {
       const combined = [
         ...pAlerts.map((a: any) => ({
           user: a.user_name || "System",
-          action: `${a.project_name} is ${a.status}`,
+          action: `${a.project_name || 'Project'} is ${a.status || 'Updated'}`,
           rawTime: a.created_at || "",
           time: a.created_at ? new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Recent",
           type: "Site",
           icon: "⚠️",
           color: "bg-red-50 text-red-500",
         })),
-        ...tAlerts.map((a: any) => ({
-          user: a.assigned_to_name || a.author || "Member",
-          action: `${a.task_name}: ${a.status}`,
-          rawTime: a.updated_at || a.created_at || "",
-          time: a.updated_at ? new Date(a.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Recent",
-          type: "Site",
-          icon: "✔",
-          color: "bg-blue-50 text-blue-500",
+        ...tAlerts.map((a: any) => {
+          const isFinance = /payment|invoice|bill|payroll|budget|expense|salary/i.test(a.task_name || "");
+          return {
+            user: a.assigned_to_name || a.author || "Member",
+            action: `${a.task_name || 'Task'}: ${a.status || 'Updated'}`,
+            rawTime: a.updated_at || a.created_at || "",
+            time: a.updated_at ? new Date(a.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Recent",
+            type: isFinance ? "Finance" : "Site",
+            icon: isFinance ? "💰" : "✔",
+            color: isFinance ? "bg-emerald-50 text-emerald-500" : "bg-blue-50 text-blue-500",
+          };
+        }),
+        ...invoices.map((inv: any) => ({
+          user: inv.client_name || "System",
+          action: `Invoice #${inv.invoice_number || inv.id}: ${inv.status}`,
+          rawTime: inv.created_at || "",
+          time: inv.created_at ? new Date(inv.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Recent",
+          type: "Finance",
+          icon: "🧾",
+          color: "bg-amber-50 text-amber-500",
         }))
       ].sort((a, b) => new Date(b.rawTime).getTime() - new Date(a.rawTime).getTime());
 
@@ -169,9 +188,19 @@ const ProjectsPage = () => {
     return () => clearTimeout(handler);
   }, [search]);
 
-  const filtered = filterStatus === "All"
-    ? projects
-    : projects.filter((p) => p.status?.toLowerCase() === filterStatus.toLowerCase());
+  const sortedProjects = useMemo(() => {
+    const list = filterStatus === "All"
+      ? projects
+      : projects.filter((p) => p.status?.toLowerCase() === filterStatus.toLowerCase());
+
+    return [...list].sort((a, b) => {
+      const aVal = a.id;
+      const bVal = b.id;
+      return sortOrder === "latest" ? bVal - aVal : aVal - bVal;
+    });
+  }, [projects, filterStatus, sortOrder]);
+
+  const filtered = sortedProjects;
 
   // Reset pages when filter changes
   const handleFilterChange = (s: any) => {
@@ -180,12 +209,17 @@ const ProjectsPage = () => {
     setTablePage(0);
   };
 
-  const stats = {
-    total: allProjects.length,
-    active: allProjects.filter((p) => p.status?.toLowerCase() === "ongoing").length,
-    completed: allProjects.filter((p) => p.status?.toLowerCase() === "completed").length,
-    delayed: allProjects.filter((p) => p.status?.toLowerCase() === "delayed").length,
-  };
+  const stats = useMemo(() => {
+    const s = {
+      total: allProjects.length,
+      ongoing: allProjects.filter((p) => p.status?.toLowerCase() === "ongoing").length,
+      completed: allProjects.filter((p) => p.status?.toLowerCase() === "completed").length,
+      delayed: allProjects.filter((p) => p.status?.toLowerCase() === "delayed").length,
+      planned: allProjects.filter((p) => p.status?.toLowerCase() === "planned").length,
+      onhold: allProjects.filter((p) => p.status?.toLowerCase() === "on hold" || p.status?.toLowerCase() === "on_hold").length,
+    };
+    return s;
+  }, [allProjects]);
 
   const handleViewProject = (id: number) => {
     // Determine the base path based on the current URL (admin or manager)
@@ -276,7 +310,7 @@ const ProjectsPage = () => {
             },
             {
               title: "Ongoing Sites",
-              value: String(stats.active),
+              value: String(stats.ongoing),
               sub: "Currently in progress",
               accent: "text-success",
               status: "Ongoing",
@@ -318,7 +352,7 @@ const ProjectsPage = () => {
           <div className="lg:col-span-2 space-y-4">
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
               <div className="flex flex-wrap gap-3 items-center">
-                <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2 flex-1">
+                <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2 flex-1 min-w-[200px]">
                   <svg
                     className="w-3.5 h-3.5 text-slate-400"
                     fill="none"
@@ -340,6 +374,7 @@ const ProjectsPage = () => {
                     className="bg-transparent text-xs text-slate-500 outline-none w-full placeholder:text-slate-400"
                   />
                 </div>
+                <SortDropdown value={sortOrder} onChange={setSortOrder} />
                 <div className="flex gap-2">
                   {(
                     [
@@ -350,18 +385,29 @@ const ProjectsPage = () => {
                       "Completed",
                       "On Hold",
                     ] as const
-                  ).map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => handleFilterChange(s)}
-                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${filterStatus === s
-                        ? "bg-primary text-white shadow-md shadow-primary/20"
-                        : "bg-slate-50 text-slate-500 hover:bg-slate-100"
-                        }`}
-                    >
-                      {s.toUpperCase()}
-                    </button>
-                  ))}
+                  ).map((s) => {
+                    const count = s === "All" ? stats.total :
+                      s === "Ongoing" ? stats.ongoing :
+                        s === "Planned" ? stats.planned :
+                          s === "Delayed" ? stats.delayed :
+                            s === "Completed" ? stats.completed :
+                              s === "On Hold" ? stats.onhold : 0;
+                    return (
+                      <button
+                        key={s}
+                        onClick={() => handleFilterChange(s)}
+                        className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1.5 ${filterStatus === s
+                          ? "bg-primary text-white shadow-md shadow-primary/20"
+                          : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                          }`}
+                      >
+                        {s.toUpperCase()}
+                        <span className={`px-1 rounded-md ${filterStatus === s ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>

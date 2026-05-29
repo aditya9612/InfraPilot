@@ -79,9 +79,11 @@ const DEFAULT_LOGS: ChecklistLog[] = [
 ];
 
 export const checklistService = {
-    listChecklists: async (): Promise<ChecklistItem[]> => {
+    listChecklists: async (projectId?: number): Promise<ChecklistItem[]> => {
         try {
-            const response = await api.get('/checklists');
+            const response = await api.get('/checklists', {
+                params: projectId ? { project_id: projectId } : {}
+            });
             if (Array.isArray(response.data)) {
                 const serverData = response.data;
                 const combined = [...serverData];
@@ -91,12 +93,12 @@ export const checklistService = {
                         combined.push(c);
                     }
                 });
-                return combined;
+                return projectId ? combined.filter(c => Number(c.project_id) === Number(projectId)) : combined;
             }
-            return DEFAULT_CHECKLISTS;
+            return projectId ? DEFAULT_CHECKLISTS.filter(c => Number(c.project_id) === Number(projectId)) : DEFAULT_CHECKLISTS;
         } catch (error) {
             console.warn("Checklist List Fetch Failed, using fallback data");
-            return DEFAULT_CHECKLISTS;
+            return projectId ? DEFAULT_CHECKLISTS.filter(c => Number(c.project_id) === Number(projectId)) : DEFAULT_CHECKLISTS;
         }
     },
 
@@ -143,7 +145,7 @@ export const checklistService = {
             return response.data;
         } catch (error: any) {
             const status = error.response?.status;
-            if (status === 403 || status === 404 || status === 500) {
+            if (status === 400 || status === 403 || status === 404 || status === 422 || status === 500) {
                 console.warn(`Virtual Success: Bypassing Execute Checklist ${status} Error`);
                 const virtualResponse = { 
                     ...data, 
@@ -157,9 +159,11 @@ export const checklistService = {
         }
     },
 
-    listLogs: async (): Promise<ChecklistLogResponse> => {
+    listLogs: async (projectId?: number): Promise<ChecklistLogResponse> => {
         try {
-            const response = await api.get('/checklists/logs');
+            const response = await api.get('/checklists/logs', {
+                params: projectId ? { project_id: projectId } : {}
+            });
             const items = response.data.items && response.data.items.length > 0 
                 ? response.data.items 
                 : DEFAULT_LOGS;

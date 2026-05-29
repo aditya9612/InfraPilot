@@ -81,12 +81,12 @@ export const settingsService = {
             return response.data;
         } catch (error: any) {
             console.warn("Settings Update Failed, using virtual success fallback:", error.message);
-            
+
             // Merge with existing
             const localSettingsStr = localStorage.getItem("mock_settings");
             const localSettings = localSettingsStr ? JSON.parse(localSettingsStr) : {};
             const updated = { ...localSettings, ...payload };
-            
+
             localStorage.setItem("mock_settings", JSON.stringify(updated));
             return updated as any;
         }
@@ -104,7 +104,7 @@ export const settingsService = {
             console.warn("Get Profile API Error, using virtual success fallback:", error.message);
             const localProfile = localStorage.getItem("mock_profile");
             if (localProfile) return JSON.parse(localProfile);
-            
+
             return {
                 user_id: 1,
                 full_name: "Admin User",
@@ -161,7 +161,7 @@ export const settingsService = {
             console.warn("Profile Update Failed, using virtual success fallback:", error.message);
             const localProfileStr = localStorage.getItem("mock_profile");
             const localProfile = localProfileStr ? JSON.parse(localProfileStr) : {};
-            
+
             if (data.full_name) localProfile.full_name = data.full_name;
             if (data.role) localProfile.role = data.role;
             if (data.mobile_number) localProfile.mobile_number = data.mobile_number;
@@ -172,7 +172,7 @@ export const settingsService = {
             if (data.designation) localProfile.designation = data.designation;
             if (data.joining_date) localProfile.joining_date = data.joining_date;
             if (data.is_active !== undefined) localProfile.is_active = data.is_active;
-            
+
             localStorage.setItem("mock_profile", JSON.stringify(localProfile));
             return localProfile as any;
         }

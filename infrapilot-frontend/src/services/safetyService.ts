@@ -67,18 +67,28 @@ export const safetyService = {
     listIncidents: async (project_id?: number, violation_type?: string): Promise<IncidentResponse> => {
         const params: Record<string, any> = {};
         if (project_id) {
-            // Ignored as requested to use simple API URL
+            params.project_id = project_id;
         }
         if (violation_type) {
             params.violation_type = violation_type;
         }
 
+        let defaultItems = DEFAULT_INCIDENTS;
+        if (project_id) {
+            defaultItems = defaultItems.filter(i => i.project_id === project_id);
+        }
+
         try {
             const response = await api.get('/safety', { params });
             // Respect empty list if items field is present, otherwise fallback to defaults for demo
-            const items = response.data && Array.isArray(response.data.items) 
+            let items = response.data && Array.isArray(response.data.items) 
                 ? response.data.items 
-                : DEFAULT_INCIDENTS;
+                : defaultItems;
+            
+            // Client side filter fallback for backend issues
+            if (project_id) {
+                items = items.filter((i: IncidentItem) => i.project_id === project_id);
+            }
 
             return {
                 ...response.data,
@@ -87,8 +97,8 @@ export const safetyService = {
         } catch (error) {
             console.warn("Safety List Fetch Failed, using default incidents as fallback:", error);
             return {
-                items: DEFAULT_INCIDENTS,
-                meta: { total: DEFAULT_INCIDENTS.length, limit: 10, offset: 0 }
+                items: defaultItems,
+                meta: { total: defaultItems.length, limit: 10, offset: 0 }
             };
         }
     },

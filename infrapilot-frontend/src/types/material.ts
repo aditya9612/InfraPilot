@@ -161,6 +161,7 @@ export interface MaterialReport {
   remaining_stock: number;
   total_cost: number;
   payment_pending: number;
+  project_id?: number;
 }
 
 export interface PriceHistory {

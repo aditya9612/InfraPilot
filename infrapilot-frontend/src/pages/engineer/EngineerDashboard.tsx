@@ -112,7 +112,7 @@ const EngineerDashboard = () => {
                 const milestones = Array.isArray(milestonesRes) ? milestonesRes : ((milestonesRes as any)?.items || []);
 
                 // 2. Process Work Progress Data
-                const activeActivities = activities.filter((a: any) => a.status !== "Completed" && a.completion_percentage < 100);
+                const activeActivities = activities.filter((a: any) => a.status !== "COMPLETED" && a.completion_percentage < 100);
                 const totalAct = activities.length;
                 const progress = totalAct > 0 ? Math.round(activities.reduce((sum: number, a: any) => sum + (a.completion_percentage || 0), 0) / totalAct) : 0;
 
@@ -134,9 +134,9 @@ const EngineerDashboard = () => {
                     id: a.id,
                     activity: a.activity_name,
                     description: `Executing BOQ code ${a.boq_code || "N/A"}. Planned quantity: ${a.planned_quantity} ${a.unit}.`,
-                    status: a.status === "Completed" ? "Completed" : a.status === "Delay" ? "Pending" : "In Progress",
+                    status: a.status === "COMPLETED" ? "Completed" : a.status === "DELAY" ? "Pending" : "In Progress",
                     time: `Deadline: ${a.end_date}`,
-                    statusColor: a.status === "Completed" ? "bg-emerald-100 text-emerald-600" : a.status === "Delay" ? "bg-rose-100 text-rose-600" : "bg-blue-100 text-blue-600"
+                    statusColor: a.status === "COMPLETED" ? "bg-emerald-100 text-emerald-600" : a.status === "DELAY" ? "bg-rose-100 text-rose-600" : "bg-blue-100 text-blue-600"
                 }));
 
                 // 3. Process Labour Data
@@ -156,7 +156,7 @@ const EngineerDashboard = () => {
                 // 6. Process Expenses Data
                 const recent_expenses = expenses.map((e: any) => ({
                     id: e.id || e.expense_id,
-                    date: e.date || new Date().toISOString().split("T")[0],
+                    date: e.payment_date || e.expense_date || e.date || new Date().toISOString().split("T")[0],
                     type: e.expense_type || e.type || "General",
                     category: e.category || "General",
                     note: e.description || e.remarks || e.note || "Site Expense",
@@ -484,7 +484,7 @@ const EngineerDashboard = () => {
 
                             <div className="flex flex-wrap gap-3 px-6 py-4 border-b border-slate-50 bg-slate-50/50">
                                 {["Labour", "Material", "Equipment"].map((cat) => {
-                                    const catTotal = siteExpenses.filter((e: any) => e.type === cat).reduce((s: number, e: any) => s + e.amount, 0);
+                                    const catTotal = siteExpenses.filter((e: any) => e.type === cat || e.category === cat).reduce((s: number, e: any) => s + e.amount, 0);
                                     return (
                                         <div key={cat} className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-2 ${expenseCategoryColors[cat] || "bg-slate-50 text-slate-600"}`}>
                                             <span>{cat}</span>

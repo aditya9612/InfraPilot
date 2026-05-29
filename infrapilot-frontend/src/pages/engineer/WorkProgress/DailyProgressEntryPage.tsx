@@ -3,21 +3,23 @@ import Navbar from "../../../components/common/Navbar";
 import PageTransition from "../../../components/common/PageTransition";
 import StatCard from "../../../components/common/StatCard";
 import toast from "react-hot-toast";
+import ConfirmModal from "../../../components/common/ConfirmModal";
 import {
   Plus,
   Calendar,
-  Save,
   AlertCircle,
-  Trash2,
   Search,
   RotateCcw,
   TrendingUp,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Edit2,
+  Trash2
 } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 import { workProgressService } from "../../../services/workProgressService";
 import type { ActivityItem, DailyEntry } from "../../../types/workProgress";
+
 
 // Modular Components
 import LogProgressModal from "../../../components/WorkProgress/LogProgressModal";
@@ -56,15 +58,16 @@ const DailyProgressEntryPage = () => {
     }
   }, []);
 
-  const [activeTab, setActiveTab] = useState<'today' | 'all'>('today');
+  const [activeTab, setActiveTab] = useState<'today' | 'all' | 'delay'>('today');
+  const [delayActivities, setDelayActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasLoadedToday, setHasLoadedToday] = useState(false);
   const [hasLoadedAll, setHasLoadedAll] = useState(false);
-  const [todayActivities, setTodayActivities] = useState<ActivityItem[]>([]);
+  const [todayActivities, setTodayActivities] = useState<DailyEntry[]>([]);
   const [allEntries, setAllEntries] = useState<any[]>([]);
   const [activitiesList, setActivitiesList] = useState<ActivityItem[]>([]); // for dropdown
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState("");
@@ -75,12 +78,14 @@ const DailyProgressEntryPage = () => {
   const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Delayed" | "Completed" | "Momentum">("All");
 
   // Input states for Tab 1 cards
-  const [cardInputs, setCardInputs] = useState<Record<number, number>>({});
 
-  // Modal states
+
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedEntry] = useState<DailyEntry | null>(null);
+  const [selectedEntry, setSelectedEntry] = useState<DailyEntry | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteEntryId, setDeleteEntryId] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
 
   const loadActivities = useCallback(async () => {
@@ -111,11 +116,8 @@ const DailyProgressEntryPage = () => {
       if (!hasLoadedToday) {
         setLoading(true);
       }
-      const [data, entries] = await Promise.all([
-        workProgressService.getTodayProgress(engineer_id),
-        workProgressService.listDailyEntries(undefined, new Date().toISOString().split("T")[0])
-      ]);
-      setTodayActivities(data);
+      const entries = await workProgressService.listDailyEntries();
+      setTodayActivities(entries);
       setAllEntries(entries);
       setHasLoadedToday(true);
     } catch (err) {
@@ -144,6 +146,19 @@ const DailyProgressEntryPage = () => {
     }
   }, [hasLoadedAll, selectedActivityId, activitiesList]);
 
+  const loadDelayReport = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await workProgressService.getDelayReport();
+      setDelayActivities(res?.data || []);
+    } catch (err) {
+      console.error("Load Delay Error:", err);
+      toast.error("Failed to load delay report");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadActivities();
   }, [loadActivities]);
@@ -151,35 +166,12 @@ const DailyProgressEntryPage = () => {
   useEffect(() => {
     if (activeTab === 'today') {
       loadTodayProgress();
-    } else {
+    } else if (activeTab === 'all') {
       loadAllEntries();
+    } else if (activeTab === 'delay') {
+      loadDelayReport();
     }
-  }, [activeTab, loadTodayProgress, loadAllEntries]);
-
-  const handleSaveCardProgress = async (activity_id: number) => {
-    const today_progress = cardInputs[activity_id];
-    if (!today_progress || today_progress <= 0) {
-      toast.error("Please enter a valid quantity");
-      return;
-    }
-
-    const toastId = toast.loading("Syncing progress with project ledger...");
-    try {
-      await workProgressService.siteEngineerProgressEntry({
-        activity_id,
-        entry_date: new Date().toISOString().split("T")[0],
-        today_progress,
-        remarks: "",
-        created_by: engineer_id
-      });
-      toast.success("Progress synchronized successfully!", { id: toastId });
-      loadTodayProgress();
-      loadActivities();
-      setCardInputs(prev => ({ ...prev, [activity_id]: 0 }));
-    } catch (err) {
-      toast.error("Failed to save progress", { id: toastId });
-    }
-  };
+  }, [activeTab, loadTodayProgress, loadAllEntries, loadDelayReport]);
 
   const handleLogModalSubmit = async (data: any) => {
     try {
@@ -200,17 +192,23 @@ const DailyProgressEntryPage = () => {
       toast.success("Entry updated successfully!");
       setIsEditModalOpen(false);
       loadActivities();
-      loadAllEntries();
+      if (activeTab === 'today') {
+        loadTodayProgress();
+      } else {
+        loadAllEntries();
+      }
     } catch (err) {
       toast.error("Failed to update entry");
     }
   };
 
-  const handleDeleteEntry = async (id: number) => {
-    const toastId = toast.loading("Purging daily entry...");
+  const handleDeleteEntry = async () => {
+    if (!deleteEntryId) return;
+    setIsDeleting(true);
     try {
-      await workProgressService.deleteDailyEntry(id);
-      toast.success("Daily Entry Deleted", { id: toastId });
+      await workProgressService.deleteDailyEntry(deleteEntryId);
+      toast.success("Entry deleted successfully!");
+      setIsDeleteModalOpen(false);
       loadActivities();
       if (activeTab === 'today') {
         loadTodayProgress();
@@ -218,28 +216,37 @@ const DailyProgressEntryPage = () => {
         loadAllEntries();
       }
     } catch (err) {
-      toast.error("Purge failed", { id: toastId });
+      toast.error("Failed to delete entry");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
-  const filteredTodayActivities = useMemo(() => {
-    let data = todayActivities;
+  const baseTodayActivities = useMemo(() => {
+    return todayActivities.filter(e => {
+      const a = activitiesList.find(act => act.id === e.activity_id);
+      return searchTerm === "" ||
+        a?.activity_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (a?.boq_code && String(a.boq_code).toLowerCase().includes(searchTerm.toLowerCase()));
+    });
+  }, [todayActivities, searchTerm, activitiesList]);
 
-    // Apply StatCard Filter
+  const filteredTodayActivities = useMemo(() => {
+    let data = baseTodayActivities;
+
     if (activeStatFilter === "Delayed") {
-      data = data.filter(a => a.status === "Delay");
+      data = data.filter(e => {
+        const a = activitiesList.find(act => act.id === e.activity_id);
+        return a?.status === "Delay" || a?.status === "DELAY";
+      });
     } else if (activeStatFilter === "Completed") {
-      data = data.filter(a => a.completion_percentage === 100);
+      data = data.filter(e => Number(e.today_progress) >= 100);
     }
 
-    return data.filter(a =>
-      searchTerm === "" ||
-      a.activity_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (a.boq_code && String(a.boq_code).toLowerCase().includes(searchTerm.toLowerCase()))
-    );
-  }, [todayActivities, searchTerm, activeStatFilter]);
+    return data;
+  }, [baseTodayActivities, activeStatFilter, activitiesList]);
 
-  const filteredHistoryEntries = useMemo(() => {
+  const baseHistoryEntries = useMemo(() => {
     let list = allEntries;
     
     if (selectedActivityId !== "all") {
@@ -250,85 +257,91 @@ const DailyProgressEntryPage = () => {
       list = list.filter(e => e.entry_date === filterDate);
     }
 
-    if (activeStatFilter === "Delayed") {
-      list = list.filter(e => {
-        const act = activitiesList.find(a => a.id === e.activity_id);
-        return act?.status === "Delay";
-      });
-    } else if (activeStatFilter === "Completed") {
-      list = list.filter(e => {
-        const act = activitiesList.find(a => a.id === e.activity_id);
-        return act?.status === "Completed" || act?.completion_percentage === 100;
-      });
-    }
-
     return list.filter(e => {
       const activity = activitiesList.find(a => a.id === e.activity_id);
       const activityName = activity?.activity_name.toLowerCase() || "";
       const boqCode = String(activity?.boq_code || "").toLowerCase();
       return searchTerm === "" || activityName.includes(searchTerm.toLowerCase()) || boqCode.includes(searchTerm.toLowerCase());
     });
-  }, [allEntries, activitiesList, searchTerm, selectedActivityId, filterDate, activeStatFilter]);
+  }, [allEntries, activitiesList, searchTerm, selectedActivityId, filterDate]);
+
+  const filteredHistoryEntries = useMemo(() => {
+    let list = baseHistoryEntries;
+
+    if (activeStatFilter === "Delayed") {
+      list = list.filter(e => {
+        return e.new_value?.status?.toLowerCase() === "delay";
+      });
+    } else if (activeStatFilter === "Completed") {
+      list = list.filter(e => {
+        return Number(e.new_value?.today_progress) >= 100;
+      });
+    }
+
+    return list;
+  }, [baseHistoryEntries, activeStatFilter]);
 
   const stats = useMemo(() => {
+    if (activeTab === 'delay') {
+      return { total: delayActivities.length, yieldRate: '0%', completed: 0, delayed: delayActivities.length, momentum: '0' };
+    }
+    
     if (activeTab === 'today') {
-      const list = filteredTodayActivities;
+      const list = baseTodayActivities;
       const total = list.length;
-      const completed = list.filter(a => a.status === "Completed" || a.completion_percentage === 100).length;
-      const delayed = list.filter(a => a.status === "Delay").length;
-      const yieldRate = total > 0 ? Math.round((completed / total) * 100) : 0;
       
-      const todayStr = new Date().toISOString().split("T")[0];
-      const activitiesWithTodayLog = allEntries.filter(e => e.entry_date === todayStr).length;
-      const momentumRate = total > 0 ? Math.round((activitiesWithTodayLog / total) * 100) : 0;
+      const delayedCount = list.filter(e => {
+        const a = activitiesList.find(act => act.id === e.activity_id);
+        return a?.status === "Delay" || a?.status === "DELAY";
+      }).length;
+      
+      const completedCount = list.filter(e => {
+        return Number(e.today_progress) >= 100;
+      }).length;
+      
+      const yieldRate = total > 0 ? Math.round((completedCount / total) * 100) : 0;
+      const totalProgress = list.reduce((sum, e) => sum + (Number(e.today_progress) || 0), 0);
 
       return {
         total,
-        completed,
-        delayed,
+        completed: completedCount,
+        delayed: delayedCount,
         yieldRate: `${yieldRate}%`,
-        momentum: `${momentumRate}%`
+        momentum: `${totalProgress}`
       };
     } else {
-      const list = filteredHistoryEntries;
+      const list = baseHistoryEntries;
       const total = list.length;
       const completed = list.filter(e => {
-        const status = e.new_value?.status;
-        return status === "Completed" || status === "ON_TRACK" || status === "ON TRACK" || status === "On Track";
+        return Number(e.new_value?.today_progress) >= 100;
       }).length;
-      const delayed = list.filter(e => e.new_value?.status === "Delay").length;
+      const delayed = list.filter(e => e.new_value?.status?.toLowerCase() === "delay").length;
       const yieldRate = total > 0 ? Math.round((completed / total) * 100) : 0;
       
-      const todayStr = new Date().toISOString().split("T")[0];
-      const activitiesWithTodayLog = list.filter(e => e.entry_date === todayStr).length;
-      const momentumRate = total > 0 ? Math.round((activitiesWithTodayLog / total) * 100) : 0;
+      const totalProgress = list.reduce((sum, e) => sum + (Number(e.new_value?.today_progress) || 0), 0);
 
       return {
         total,
         completed,
         delayed,
         yieldRate: `${yieldRate}%`,
-        momentum: `${momentumRate}%`
+        momentum: `${totalProgress}`
       };
     }
-  }, [activeTab, filteredTodayActivities, filteredHistoryEntries, allEntries]);
+  }, [activeTab, baseTodayActivities, baseHistoryEntries, delayActivities, activitiesList]);
 
   useEffect(() => {
     setCurrentPage(1);
   }, [activeTab, searchTerm, filterDate, selectedActivityId, activeStatFilter]);
 
-  const paginatedTodayActivities = filteredTodayActivities.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-  const paginatedHistoryEntries = filteredHistoryEntries.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedTodayEntries = filteredTodayActivities.slice(startIndex, endIndex);
+  const paginatedHistoryEntries = filteredHistoryEntries.slice(startIndex, endIndex);
+  const paginatedDelayActivities = delayActivities.slice(startIndex, endIndex);
+  const totalPages = Math.ceil((activeTab === 'today' ? filteredTodayActivities.length : activeTab === 'delay' ? delayActivities.length : filteredHistoryEntries.length) / itemsPerPage);
 
   const momentum = stats.momentum;
-
-  const getProgressColor = (percent: number) => {
-    if (percent >= 75) return "bg-emerald-500 shadow-emerald-500/20";
-    if (percent >= 40) return "bg-blue-500 shadow-blue-500/20";
-    if (percent > 0) return "bg-amber-500 shadow-amber-500/20";
-    return "bg-slate-200";
-  };
 
   const resetFilters = () => {
     setSearchTerm("");
@@ -336,6 +349,8 @@ const DailyProgressEntryPage = () => {
     setSelectedActivityId("all");
     setActiveStatFilter("All");
   };
+
+
 
   return (
     <>
@@ -354,7 +369,7 @@ const DailyProgressEntryPage = () => {
               className="flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
             >
               <Plus className="w-4 h-4" />
-              Daily Entry
+              Add Daily Progress
             </button>
           )}
         </div>
@@ -363,30 +378,30 @@ const DailyProgressEntryPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
           <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
             <StatCard
-              title="Active Registry"
+              title="Total Logs"
               value={stats.total.toString()}
-              sub="Tasks in Terminal"
+              sub="Entries Displayed"
               accent="text-slate-800" />
           </div>
           <div onClick={() => setActiveStatFilter("Completed")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Completed" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
             <StatCard
-              title="Yield Rate"
-              value={stats.yieldRate}
-              sub="Project Completion"
+              title="Finished Logs"
+              value={stats.completed.toString()}
+              sub="100% Progress Reached"
               accent="text-emerald-500" />
           </div>
           <div onClick={() => setActiveStatFilter("Delayed")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Delayed" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
             <StatCard
-              title="Critical Delay"
+              title="Delayed Logs"
               value={stats.delayed.toString()}
-              sub="Inertia Items"
+              sub="Critical Items"
               accent="text-rose-500" />
           </div>
           <div className="cursor-default group transition-all rounded-xl hover:scale-[1.01]">
             <StatCard
               title="Momentum"
               value={momentum}
-              sub="Operational Pulse"
+              sub="Total Executed Qty"
               accent="text-blue-500" />
           </div>
         </div>
@@ -406,6 +421,12 @@ const DailyProgressEntryPage = () => {
               className={`pb-5 text-[10px] font-bold uppercase tracking-wider transition-all relative ${activeTab === 'all' ? 'text-primary border-b-2 border-primary' : 'text-slate-400 hover:text-slate-700'}`}
             >
               historical intelligence
+            </button>
+            <button
+              onClick={() => setActiveTab('delay')}
+              className={`pb-5 text-[10px] font-bold uppercase tracking-wider transition-all relative ${activeTab === 'delay' ? 'text-primary border-b-2 border-primary' : 'text-slate-400 hover:text-slate-700'}`}
+            >
+              delay report
             </button>
           </div>
 
@@ -465,77 +486,55 @@ const DailyProgressEntryPage = () => {
                     <table className="w-full text-left font-inter min-w-[1200px]">
                       <thead>
                         <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
-                          <th className="px-6 py-4 font-inter">activity_id</th>
-                          <th className="px-6 py-4 font-inter">completion_percentage</th>
-                          <th className="px-6 py-4 font-inter">volumes</th>
-                          <th className="px-6 py-4 font-inter">today_progress</th>
-                          <th className="px-6 py-4 text-right font-inter">actions</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">entry_date</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">remarks</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">created_at</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">today_progress</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">created_by</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">updated_at</th>
+                          <th className="px-6 py-4 text-right font-inter whitespace-nowrap">actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50 font-inter">
                         {loading ? (
                           <tr>
-                            <td colSpan={5} className="py-20 text-center font-inter">
+                            <td colSpan={7} className="py-20 text-center font-inter">
                               <div className="inline-block w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-6" />
                               <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-slate-400">Syncing Field Intelligence...</p>
                             </td>
                           </tr>
-                        ) : paginatedTodayActivities.length > 0 ? paginatedTodayActivities.map((a) => {
-                          const todayStr = new Date().toISOString().split("T")[0];
-                          const todayEntry = allEntries.find(ent => ent.activity_id === a.id && ent.entry_date === todayStr);
+                        ) : paginatedTodayEntries.length > 0 ? paginatedTodayEntries.map((e) => {
                           return (
-                            <tr key={a.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
+                            <tr key={e.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
+                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.entry_date}</td>
+                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600 max-w-[200px] truncate" title={e.remarks}>{e.remarks || "-"}</td>
+                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.created_at ? new Date(e.created_at).toLocaleString() : "-"}</td>
                               <td className="px-6 py-6 font-inter">
-                                <p className="font-bold text-slate-800 text-sm font-inter leading-tight tracking-tight">
-                                  {a.activity_name}
-                                </p>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <span className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-widest font-inter">{a.boq_code || "No BOQ Identity"}</span>
-                                  <span className={`px-2 py-0.5 rounded-lg text-[8px] font-bold uppercase tracking-widest border font-inter ${statusBadge[a.status] || "bg-slate-50 text-slate-500 border-slate-100 shadow-slate-50"}`}>
-                                    {a.status}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="px-6 py-6 font-inter">
-                                <div className="flex items-center gap-3 font-inter">
-                                  <span className="text-sm font-bold text-slate-800 font-inter">{a.completion_percentage.toFixed(1)}%</span>
-                                  <div className="w-24 bg-slate-100 rounded-full h-1.5 overflow-hidden font-inter">
-                                    <div className={`h-full rounded-full transition-all duration-1000 ${getProgressColor(a.completion_percentage)}`} style={{ width: `${a.completion_percentage}%` }} />
+                                <div className="flex items-center gap-3">
+                                  <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden w-24">
+                                    <div 
+                                      className="h-full bg-primary rounded-full transition-all" 
+                                      style={{ width: `${Math.min(100, Math.max(0, Number(e.today_progress) || 0))}%` }}
+                                    />
                                   </div>
+                                  <span className="text-sm font-bold text-primary min-w-[40px]">{e.today_progress}%</span>
                                 </div>
                               </td>
-                              <td className="px-6 py-6 font-inter text-xs text-slate-500 font-bold">
-                                {a.planned_quantity} / <span className="text-primary">{a.total_completed}</span> / {a.remaining_quantity} <span className="text-[10px] text-slate-400">{a.unit}</span>
-                              </td>
-                              <td className="px-6 py-6 font-inter">
-                                <div className="flex items-center gap-2 max-w-[200px] font-inter">
-                                  <input
-                                    type="number" min="0" placeholder={`Qty (${a.unit})`}
-                                    value={cardInputs[a.id] || ""}
-                                    onChange={(e) => setCardInputs({ ...cardInputs, [a.id]: Number(e.target.value) })}
-                                    className="w-full pl-3 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-inter"
-                                  />
-                                  <button
-                                    onClick={() => handleSaveCardProgress(a.id)}
-                                    className="p-2 bg-emerald-500 text-white rounded-lg shadow-md shadow-emerald-500/20 hover:bg-emerald-600 transition-all active:scale-95 group font-inter"
-                                    title="Save Progress"
-                                  >
-                                    <Save className="w-4 h-4 transition-transform font-inter" />
-                                  </button>
-                                </div>
-                              </td>
+                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.created_by}</td>
+                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.updated_at ? new Date(e.updated_at).toLocaleString() : "-"}</td>
                               <td className="px-6 py-6 font-inter text-right">
                                 <div className="flex items-center justify-end gap-3 font-inter">
                                   <button
-                                    onClick={() => {
-                                      if (todayEntry) {
-                                        handleDeleteEntry(todayEntry.id);
-                                      } else {
-                                        toast.error("No daily progress logged today to remove.");
-                                      }
-                                    }}
+                                    onClick={() => { setSelectedEntry(e); setIsEditModalOpen(true); }}
+                                    className="p-2.5 text-slate-400 hover:text-primary hover:bg-blue-50 rounded-xl transition-all border border-transparent hover:border-blue-100 font-inter"
+                                    title="Edit Entry"
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => { setDeleteEntryId(e.id); setIsDeleteModalOpen(true); }}
                                     className="p-2.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all border border-transparent hover:border-rose-100 font-inter"
-                                    title="Purge Daily Progress"
+                                    title="Delete Entry"
                                   >
                                     <Trash2 className="w-4 h-4" />
                                   </button>
@@ -545,10 +544,10 @@ const DailyProgressEntryPage = () => {
                           );
                         }) : (
                           <tr>
-                            <td colSpan={5} className="px-6 py-20 text-center font-inter bg-slate-50 border-dashed border border-slate-200 rounded-2xl">
+                            <td colSpan={7} className="px-6 py-20 text-center font-inter bg-slate-50 border-dashed border border-slate-200 rounded-2xl">
                               <AlertCircle className="w-12 h-12 text-slate-200 mx-auto mb-4 font-inter" />
                               <h3 className="text-xl font-bold text-slate-400 tracking-tight font-inter uppercase">Field Registry Exhausted</h3>
-                              <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mt-2 font-inter">No active items requiring immediate execution logs discovered.</p>
+                              <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mt-2 font-inter">No execution logs discovered for today.</p>
                             </td>
                           </tr>
                         )}
@@ -557,46 +556,97 @@ const DailyProgressEntryPage = () => {
                   </div>
 
                   {/* â”€â”€ Pagination for Today's Logs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                  {!loading && filteredTodayActivities.length > 0 && (
-                    <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
-                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                                PAGE {currentPage} OF {Math.max(1, Math.ceil(filteredTodayActivities.length / itemsPerPage))}
-                            </div>
+                  {!loading && (activeTab === 'today' ? todayActivities.length : activeTab === 'delay' ? delayActivities.length : filteredHistoryEntries.length) > 0 && (
+                    <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                            {/* Left: Items per page */}
                             <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                                <select 
+                                    value={itemsPerPage} 
+                                    onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                    className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                                >
+                                    <option value={10}>10</option>
+                                    <option value={20}>20</option>
+                                    <option value={50}>50</option>
+                                    <option value={100}>100</option>
+                                </select>
+                            </div>
+
+                            {/* Center: Showing info */}
+                            <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+                                Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, (activeTab === 'today' ? filteredTodayActivities.length : activeTab === 'delay' ? delayActivities.length : filteredHistoryEntries.length))} of {(activeTab === 'today' ? filteredTodayActivities.length : activeTab === 'delay' ? delayActivities.length : filteredHistoryEntries.length)} records
+                            </div>
+
+                            {/* Right: Pagination */}
+                            <div className="flex items-center gap-1.5">
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                     disabled={currentPage === 1}
-                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
-                                    title="Previous Page"
+                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
                                 >
-                                    <ChevronLeft className="w-5 h-5" />
+                                    <ChevronLeft className="w-4 h-4" />
                                 </button>
-                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
-                                    {currentPage}
-                                </div>
+                                
+                                {(() => {
+                                    const totalItems = (activeTab === 'today' ? filteredTodayActivities.length : activeTab === 'delay' ? delayActivities.length : filteredHistoryEntries.length);
+                                    const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+                                    const pages = [];
+                                    if (totalPages <= 5) {
+                                        for (let i = 1; i <= totalPages; i++) pages.push(i);
+                                    } else {
+                                        if (currentPage <= 3) {
+                                            pages.push(1, 2, 3, 4, '...', totalPages);
+                                        } else if (currentPage >= totalPages - 2) {
+                                            pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                                        } else {
+                                            pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                                        }
+                                    }
+
+                                    return pages.map((page, index) => {
+                                        if (page === '...') {
+                                            return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                                        }
+                                        const pageNum = page;
+                                        const isActive = currentPage === pageNum;
+                                        return (
+                                            <button
+                                                key={`page-${pageNum}`}
+                                                onClick={() => setCurrentPage(pageNum as number)}
+                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
+                                                    isActive 
+                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' 
+                                                        : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                                }`}
+                                            >
+                                                {pageNum}
+                                            </button>
+                                        );
+                                    });
+                                })()}
+
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.min(Math.max(1, Math.ceil(filteredTodayActivities.length / itemsPerPage)), prev + 1))}
-                                    disabled={currentPage === Math.max(1, Math.ceil(filteredTodayActivities.length / itemsPerPage))}
-                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
-                                    title="Next Page"
+                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                    disabled={currentPage === Math.max(1, totalPages) || (activeTab === 'today' ? filteredTodayActivities.length : activeTab === 'delay' ? delayActivities.length : filteredHistoryEntries.length) === 0}
+                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
                                 >
-                                    <ChevronRight className="w-5 h-5" />
+                                    <ChevronRight className="w-4 h-4" />
                                 </button>
                             </div>
                         </div>
                   )}
                 </>
-              ) : (
+              ) : activeTab === 'all' ? (
                 <>
                   <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
                     <table className="w-full text-left font-inter min-w-[1200px]">
                       <thead>
                         <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
-                          <th className="px-6 py-4 font-inter">activity_id</th>
-                          <th className="px-6 py-4 font-inter">action</th>
-                          <th className="px-6 py-4 font-inter">status</th>
-                          <th className="px-6 py-4 font-inter">today_progress</th>
-                          <th className="px-6 py-4 font-inter">total_completed</th>
+                          <th className="px-6 py-4 font-inter">ACTION</th>
+                          <th className="px-6 py-4 font-inter">STATUS</th>
+                          <th className="px-6 py-4 font-inter">TODAY_PROGRESS</th>
+                          <th className="px-6 py-4 font-inter">TOTAL_COMPLETED</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50 font-inter">
@@ -604,30 +654,24 @@ const DailyProgressEntryPage = () => {
                           const currentActivity = activitiesList.find(a => a.id === e.activity_id) || activitiesList[index % activitiesList.length];
                           return (
                             <tr key={e.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
-                              <td className="px-6 py-6 font-inter">
-                                <p className="font-bold text-slate-800 text-sm font-inter leading-tight uppercase tracking-tight">
-                                  {currentActivity?.activity_name || "Unknown Strategic Item"}
-                                </p>
-                                <span className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-widest font-inter">{currentActivity?.id || e.activity_id}</span>
-                              </td>
                               <td className="px-6 py-6 font-inter text-xs font-bold text-slate-500 uppercase tracking-tight">
-                                DAILY_PROGRESS_UPDATE
+                                {e.action || "DAILY_PROGRESS_UPDATE"}
                               </td>
                               <td className="px-6 py-6 font-inter">
-                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${statusBadge[currentActivity?.status || ""] || "bg-slate-100 text-slate-500"} font-inter`}>
-                                  {currentActivity?.status || "Not Started"}
+                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${statusBadge[e.new_value?.status || ""] || "bg-rose-50 text-rose-600"} font-inter`}>
+                                  {e.new_value?.status || "DELAY"}
                                 </span>
                               </td>
                               <td className="px-6 py-6 font-inter">
                                 <div className="flex items-center gap-2 font-inter">
                                   <TrendingUp className="w-3.5 h-3.5 text-primary font-inter" />
                                   <span className="text-sm font-bold text-primary font-inter">
-                                    {e.today_progress} {currentActivity?.unit || ""}
+                                    {e.new_value?.today_progress || 0} {currentActivity?.unit || "Cum"}
                                   </span>
                                 </div>
                               </td>
                               <td className="px-6 py-6 font-inter text-sm font-bold text-slate-700">
-                                {currentActivity?.total_completed || 0} {currentActivity?.unit || ""}
+                                {e.new_value?.total_completed || 0} {currentActivity?.unit || "Cum"}
                               </td>
                             </tr>
                           );
@@ -644,29 +688,216 @@ const DailyProgressEntryPage = () => {
 
                   {/* â”€â”€ Pagination for Historical Logs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                   {filteredHistoryEntries.length > 0 && (
-                    <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between bg-white sticky left-0 font-inter">
-                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                                PAGE {currentPage} OF {Math.max(1, Math.ceil(filteredHistoryEntries.length / itemsPerPage))}
-                            </div>
+                    <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                            {/* Left: Items per page */}
                             <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                                <select 
+                                    value={itemsPerPage} 
+                                    onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                    className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                                >
+                                    <option value={10}>10</option>
+                                    <option value={20}>20</option>
+                                    <option value={50}>50</option>
+                                    <option value={100}>100</option>
+                                </select>
+                            </div>
+
+                            {/* Center: Showing info */}
+                            <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+                                Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredHistoryEntries.length)} of {filteredHistoryEntries.length} records
+                            </div>
+
+                            {/* Right: Pagination */}
+                            <div className="flex items-center gap-1.5">
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                     disabled={currentPage === 1}
-                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
-                                    title="Previous Page"
+                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
                                 >
-                                    <ChevronLeft className="w-5 h-5" />
+                                    <ChevronLeft className="w-4 h-4" />
                                 </button>
-                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm shadow-primary/20">
-                                    {currentPage}
-                                </div>
+                                
+                                {(() => {
+                                    const totalItems = filteredHistoryEntries.length;
+                                    const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+                                    const pages = [];
+                                    if (totalPages <= 5) {
+                                        for (let i = 1; i <= totalPages; i++) pages.push(i);
+                                    } else {
+                                        if (currentPage <= 3) {
+                                            pages.push(1, 2, 3, 4, '...', totalPages);
+                                        } else if (currentPage >= totalPages - 2) {
+                                            pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                                        } else {
+                                            pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                                        }
+                                    }
+
+                                    return pages.map((page, index) => {
+                                        if (page === '...') {
+                                            return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                                        }
+                                        const pageNum = page;
+                                        const isActive = currentPage === pageNum;
+                                        return (
+                                            <button
+                                                key={`page-${pageNum}`}
+                                                onClick={() => setCurrentPage(pageNum as number)}
+                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
+                                                    isActive 
+                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' 
+                                                        : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                                }`}
+                                            >
+                                                {pageNum}
+                                            </button>
+                                        );
+                                    });
+                                })()}
+
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.min(Math.max(1, Math.ceil(filteredHistoryEntries.length / itemsPerPage)), prev + 1))}
-                                    disabled={currentPage === Math.max(1, Math.ceil(filteredHistoryEntries.length / itemsPerPage))}
-                                    className="p-1 text-slate-400 hover:text-primary disabled:opacity-30 transition-colors"
-                                    title="Next Page"
+                                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredHistoryEntries.length / itemsPerPage), prev + 1))}
+                                    disabled={currentPage === Math.max(1, Math.ceil(filteredHistoryEntries.length / itemsPerPage)) || filteredHistoryEntries.length === 0}
+                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
                                 >
-                                    <ChevronRight className="w-5 h-5" />
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                    <table className="w-full text-left font-inter min-w-[1500px]">
+                      <thead>
+                        <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
+                          <th className="px-6 py-4 font-inter">created_at</th>
+                          <th className="px-6 py-4 font-inter">total_completed</th>
+                          <th className="px-6 py-4 font-inter">updated_at</th>
+                          <th className="px-6 py-4 font-inter">remaining_quantity</th>
+                          <th className="px-6 py-4 font-inter">activity_name</th>
+                          <th className="px-6 py-4 font-inter">completion_percentage</th>
+                          <th className="px-6 py-4 font-inter">planned_quantity</th>
+                          <th className="px-6 py-4 font-inter">discipline</th>
+                          <th className="px-6 py-4 font-inter">unit</th>
+                          <th className="px-6 py-4 font-inter">status</th>
+                          <th className="px-6 py-4 font-inter">start_date</th>
+                          <th className="px-6 py-4 font-inter">end_date</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50 font-inter">
+                        {paginatedDelayActivities.length > 0 ? paginatedDelayActivities.map((e: any) => {
+                          return (
+                            <tr key={e.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
+                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.created_at || "-"}</td>
+                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.total_completed || 0}</td>
+                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.updated_at || "-"}</td>
+                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.remaining_quantity || 0}</td>
+                              <td className="px-6 py-6 font-inter text-sm font-bold text-slate-700 whitespace-nowrap">{e.activity_name || "-"}</td>
+                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.completion_percentage || 0}%</td>
+                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.planned_quantity || 0}</td>
+                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.discipline || "-"}</td>
+                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.unit || "-"}</td>
+                              <td className="px-6 py-6 font-inter">
+                                <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase bg-rose-50 text-rose-600 font-inter">
+                                  {e.status || "DELAY"}
+                                </span>
+                              </td>
+                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.start_date || "-"}</td>
+                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.end_date || "-"}</td>
+                            </tr>
+                          );
+                        }) : (
+                          <tr>
+                            <td colSpan={12} className="px-6 py-32 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
+                              No delay items reported currently.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* ── Pagination for Delay Logs ─────────────────────────────── */}
+                  {delayActivities.length > 0 && (
+                    <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                            {/* Left: Items per page */}
+                            <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                                <select 
+                                    value={itemsPerPage} 
+                                    onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                    className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                                >
+                                    <option value={10}>10</option>
+                                    <option value={20}>20</option>
+                                    <option value={50}>50</option>
+                                    <option value={100}>100</option>
+                                </select>
+                            </div>
+
+                            {/* Center: Showing info */}
+                            <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+                                Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, delayActivities.length)} of {delayActivities.length} records
+                            </div>
+
+                            {/* Right: Pagination */}
+                            <div className="flex items-center gap-1.5">
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                </button>
+                                
+                                {(() => {
+                                    const totalItems = delayActivities.length;
+                                    const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+                                    const pages = [];
+                                    if (totalPages <= 5) {
+                                        for (let i = 1; i <= totalPages; i++) pages.push(i);
+                                    } else {
+                                        if (currentPage <= 3) {
+                                            pages.push(1, 2, 3, 4, '...', totalPages);
+                                        } else if (currentPage >= totalPages - 2) {
+                                            pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                                        } else {
+                                            pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                                        }
+                                    }
+
+                                    return pages.map((page, index) => {
+                                        if (page === '...') {
+                                            return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                                        }
+                                        const pageNum = page;
+                                        const isActive = currentPage === pageNum;
+                                        return (
+                                            <button
+                                                key={`page-${pageNum}`}
+                                                onClick={() => setCurrentPage(pageNum as number)}
+                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
+                                                    isActive 
+                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' 
+                                                        : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                                }`}
+                                            >
+                                                {pageNum}
+                                            </button>
+                                        );
+                                    });
+                                })()}
+
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(delayActivities.length / itemsPerPage), prev + 1))}
+                                    disabled={currentPage === Math.max(1, Math.ceil(delayActivities.length / itemsPerPage)) || delayActivities.length === 0}
+                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                >
+                                    <ChevronRight className="w-4 h-4" />
                                 </button>
                             </div>
                         </div>
@@ -693,6 +924,17 @@ const DailyProgressEntryPage = () => {
         onClose={() => setIsEditModalOpen(false)}
         onSubmit={handleEditSubmit}
         entry={selectedEntry}
+      />
+
+      <ConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleDeleteEntry}
+        title="Delete Daily Entry"
+        message="Are you sure you want to delete this progress entry? This action is permanent and cannot be undone."
+        confirmText="Delete Entry"
+        type="danger"
+        isLoading={isDeleting}
       />
     </>
   );

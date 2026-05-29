@@ -1,13 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar, Search, Building2, UserCircle, Briefcase, FileText, Filter as FilterIcon, Check } from 'lucide-react';
 import Modal from '../../../components/common/Modal';
+import { projectService } from '../../../services/projectService';
+import toast from 'react-hot-toast';
+import type { ProjectMember } from '../../../types/project';
 
 interface CreateTaskModalProps {
     isOpen: boolean;
     onClose: () => void;
+    projectId: number | null;
+    onSuccess: () => void;
 }
 
-const CreateTaskDrawer = ({ isOpen, onClose }: CreateTaskModalProps) => {
+const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskModalProps) => {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [priority, setPriority] = useState('Medium');
@@ -19,34 +24,74 @@ const CreateTaskDrawer = ({ isOpen, onClose }: CreateTaskModalProps) => {
     const [showAllDepartments, setShowAllDepartments] = useState(false);
     const [searchEmployee, setSearchEmployee] = useState('');
     
-    // Mock employees
-    const employees = [
-        { id: '1', name: 'Vicky Singh', role: 'MANAGER', isSelf: true, dept: '', empId: '' },
-        { id: '2', name: 'Ankit Bose', role: 'TEAM LEAD', dept: 'Engineering', empId: 'EMP03' },
-        { id: '3', name: 'Suresh Chaudhari', role: 'EMPLOYEE', dept: 'Engineering', empId: 'EMP05' },
-        { id: '4', name: 'Amit Khare', role: 'EMPLOYEE', dept: '', empId: '' }
-    ];
+    const [employees, setEmployees] = useState<ProjectMember[]>([]);
+    const [isLoadingMembers, setIsLoadingMembers] = useState(false);
 
-    const [selectedEmployees, setSelectedEmployees] = useState<string[]>(['1']);
+    useEffect(() => {
+        if (isOpen && projectId) {
+            fetchMembers();
+        }
+    }, [isOpen, projectId]);
+
+    const fetchMembers = async () => {
+        if (!projectId) return;
+        setIsLoadingMembers(true);
+        try {
+            const data = await projectService.getProjectMembers(projectId);
+            setEmployees(Array.isArray(data) ? data : (data.items || data.data || []));
+        } catch (error) {
+            console.error("Failed to load members", error);
+        } finally {
+            setIsLoadingMembers(false);
+        }
+    };
+
+    const [selectedEmployees, setSelectedEmployees] = useState<number[]>([]);
 
     const handleSelectAll = () => {
         if (selectedEmployees.length === employees.length) {
             setSelectedEmployees([]);
         } else {
-            setSelectedEmployees(employees.map(e => e.id));
+            setSelectedEmployees(employees.map(e => e.user_id));
         }
     };
 
-    const toggleEmployee = (id: string) => {
+    const toggleEmployee = (id: number) => {
         setSelectedEmployees(prev => 
             prev.includes(id) ? prev.filter(e => e !== id) : [...prev, id]
         );
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        // create task logic
-        onClose();
+        if (!projectId) return;
+
+        if (selectedEmployees.length === 0) {
+            toast.error("Please select at least one assignee");
+            return;
+        }
+
+        try {
+            // For now, create a task for the first selected employee. 
+            // In a real app, you might create multiple or the backend accepts an array.
+            const priorityMap: Record<string, number> = { 'Low': 3, 'Medium': 2, 'High': 1 };
+            
+            await projectService.createTask(projectId, {
+                title,
+                description,
+                priority: priorityMap[priority],
+                start_date: startDate,
+                end_date: deadline,
+                assigned_user_id: selectedEmployees[0]
+            });
+
+            toast.success("Task created successfully");
+            onSuccess();
+            onClose();
+        } catch (error) {
+            toast.error("Failed to create task");
+            console.error(error);
+        }
     };
 
     const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 flex items-center gap-1.5";
@@ -264,34 +309,23 @@ const CreateTaskDrawer = ({ isOpen, onClose }: CreateTaskModalProps) => {
                             <div className="max-h-48 overflow-y-auto">
                                 {employees.map(emp => (
                                     <div 
-                                        key={emp.id}
+                                        key={emp.user_id}
                                         className="flex items-center justify-between p-3 border-b border-slate-50 cursor-pointer hover:bg-slate-50 transition-colors"
-                                        onClick={() => toggleEmployee(emp.id)}
+                                        onClick={() => toggleEmployee(emp.user_id)}
                                     >
                                         <div className="flex items-start gap-3">
-                                            <div className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${selectedEmployees.includes(emp.id) ? 'bg-primary border-primary text-white' : 'border-slate-300 text-transparent'}`}>
+                                            <div className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${selectedEmployees.includes(emp.user_id) ? 'bg-primary border-primary text-white' : 'border-slate-300 text-transparent'}`}>
                                                 <Check className="w-3 h-3" />
                                             </div>
                                             <div>
                                                 <div className="flex items-center gap-1.5">
-                                                    <span className="text-sm font-bold text-slate-800">{emp.name}</span>
-                                                    {emp.isSelf && <span className="text-xs font-bold text-primary">(Self)</span>}
+                                                    <span className="text-sm font-bold text-slate-800">{emp.full_name}</span>
                                                 </div>
-                                                {(emp.dept || emp.empId) && (
-                                                    <div className="flex items-center gap-2 mt-1">
-                                                        {emp.dept && (
-                                                            <div className="flex items-center gap-1 text-[10px] text-slate-500">
-                                                                <Building2 className="w-3 h-3 text-slate-400" />
-                                                                {emp.dept}
-                                                            </div>
-                                                        )}
-                                                        {emp.empId && (
-                                                            <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-bold border border-slate-200">
-                                                                ID: {emp.empId}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                )}
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-bold border border-slate-200">
+                                                        {emp.email}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
                                         <span className="px-2 py-1 bg-slate-100 text-slate-500 rounded text-[10px] font-bold uppercase tracking-wider">
