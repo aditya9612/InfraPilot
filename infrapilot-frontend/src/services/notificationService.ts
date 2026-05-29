@@ -1,3 +1,5 @@
+import api from "./api";
+
 export interface Notification {
     id: number;
     title: string;
@@ -68,5 +70,40 @@ export const notificationService = {
         mockNotifications.forEach(n => {
             if (n.role_target === role || n.role_target === "All") n.read = true;
         });
+    },
+
+    /**
+     * Get all general alerts
+     * GET /api/v1/alerts
+     */
+    async listAlerts(): Promise<any[]> {
+        const response = await api.get('/alerts');
+        return response.data;
+    },
+
+    /**
+     * Create a new alert
+     * POST /api/v1/alerts
+     */
+    async createAlert(data: { project_id: number; alert_type: string; message: string; user_id: number }): Promise<any> {
+        const response = await api.post('/alerts', data);
+        return response.data;
+    },
+
+    /**
+     * Mark alert as read
+     * PUT /api/v1/alerts/{id}/read
+     */
+    async markAlertRead(id: number): Promise<any> {
+        const response = await api.put(`/alerts/${id}/read`);
+        return response.data;
+    },
+
+    /**
+     * Delete an alert
+     * DELETE /api/v1/alerts/{id}
+     */
+    async deleteAlert(id: number): Promise<void> {
+        await api.delete(`/alerts/${id}`);
     }
 };

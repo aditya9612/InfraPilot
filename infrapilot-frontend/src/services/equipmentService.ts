@@ -61,6 +61,24 @@ export const equipmentService = {
   async deleteEquipment(id: number) {
     const response = await api.delete(`/equipment/${id}`);
     return response.data;
+  },
+
+  /**
+   * Get maintenance alerts
+   * GET /api/v1/equipment/alerts/maintenance
+   */
+  async getMaintenanceAlerts() {
+    const response = await api.get('/equipment/alerts/maintenance');
+    return response.data;
+  },
+
+  /**
+   * Get equipment alerts (issues like overused)
+   * GET /api/v1/equipment/alerts/equipment
+   */
+  async getEquipmentAlerts() {
+    const response = await api.get('/equipment/alerts/equipment');
+    return response.data;
   }
 };
 
