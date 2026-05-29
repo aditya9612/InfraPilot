@@ -6,7 +6,8 @@ export type Role =
   | "ProjectManager"
   | "SiteEngineer"
   | "Accountant"
-  | "Client";
+  | "Client"
+  | "Labour";
 
 export interface User {
   id: string;

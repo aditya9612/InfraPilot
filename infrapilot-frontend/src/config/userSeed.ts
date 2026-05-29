@@ -43,4 +43,18 @@ export const INITIAL_USERS: User[] = [
     is_active: true,
     profile_image: "https://i.pravatar.cc/150?u=amit",
   },
+  {
+    user_id: 999,
+    full_name: "Gopal Yadav",
+    email: "gopal.y@infrapilot.com",
+    mobile_number: "8888888888",
+    role: "Labour",
+    designation: "Head Mason",
+    pan_number: "ABCDE9999Z",
+    aadhaar_number: "9999 9999 9999",
+    joining_date: "01 May 2024",
+    address: "Lucknow, UP",
+    is_active: true,
+    profile_image: "https://i.pravatar.cc/150?u=gopal",
+  },
 ];

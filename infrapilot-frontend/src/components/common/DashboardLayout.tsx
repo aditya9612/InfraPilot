@@ -11,7 +11,7 @@ const DashboardContent = ({ children }: Props) => {
   const { isSidebarOpen, closeSidebar } = useSidebar();
 
   return (
-    <div className="flex h-screen bg-slate-100 overflow-hidden">
+    <div className="flex min-h-screen bg-slate-100">
       {/* Mobile Overlay */}
       {isSidebarOpen && (
         <div
@@ -22,12 +22,12 @@ const DashboardContent = ({ children }: Props) => {
 
       {/* Sidebar Container */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 w-56 transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
+        className={`fixed inset-y-0 left-0 z-50 w-56 transform transition-transform duration-300 ease-in-out lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 lg:flex-shrink-0 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <Sidebar onClose={closeSidebar} />
       </div>
 
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
         <main className="flex-1 overflow-y-auto">{children || <Outlet />}</main>
       </div>
     </div>

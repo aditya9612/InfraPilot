@@ -17,12 +17,19 @@
 
 @layer base {
 
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
   html,
   body {
     font-family: var(--font-inter);
     background-color: var(--color-background);
     font-size: var(--text-body);
     color: #1F2937;
+    overflow-x: hidden;
     /* Tailwind Gray 800 for better readability */
   }
 
@@ -34,6 +41,11 @@
   h2 {
     font-size: var(--text-h2);
     font-weight: 600;
+  }
+
+  /* Prevent flex children from overflowing their containers */
+  .flex>* {
+    min-width: 0;
   }
 }
 

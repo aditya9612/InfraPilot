@@ -140,7 +140,7 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
 
   return (
     <>
-      <div className="sticky top-0 z-40 shadow-sm bg-primary px-6 py-4 flex items-center justify-between">
+      <div className="sticky top-0 z-40 shadow-sm bg-primary px-3 sm:px-6 py-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           {/* Mobile menu toggle */}
           <button
@@ -162,8 +162,8 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
             </svg>
           </button>
 
-          <div className="flex flex-col">
-            <h1 className="text-xl font-bold text-white leading-tight">
+          <div className="flex flex-col min-w-0">
+            <h1 className="text-base sm:text-xl font-bold text-white leading-tight truncate">
               {title}
             </h1>
             {breadcrumb && (
@@ -213,7 +213,7 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
           {action && (
             <button
               onClick={action.onClick}
@@ -238,7 +238,7 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
             </button>
 
             {isNotificationOpen && (
-              <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="absolute right-0 mt-2 w-72 sm:w-80 max-w-[calc(100vw-1.5rem)] bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                 <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center font-inter">
                   <h3 className="font-bold text-slate-800">Notifications</h3>
                   {unreadCount > 0 && (
