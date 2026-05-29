@@ -1,14 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import {
     User, Building2, Mail, Phone, Briefcase, FileText, MessageCircle,
     Send, Upload, Trash2, PlusCircle, ArrowLeft,
-    ClipboardList, CreditCard
+    ClipboardList, CreditCard, Download
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { userService } from "../../services/userService";
+import { documentService } from "../../services/documentService";
+import type { Document } from "../../types/document";
+
 
 // ─── Mocked data (to be replaced with API) ───────────────────────────────────
 
@@ -134,26 +137,136 @@ function LedgerTab({ client, navigate }: any) {
 // ─── Documents Tab ────────────────────────────────────────────────────────────
 const DOC_CATEGORIES = ["Contract", "Agreement", "Invoice", "Site Photo", "Other"];
 
-function DocumentsTab({ client }: any) {
-    const [docs, setDocs] = useState(client.documents ?? []);
+function DocumentsTab({ client }: { client: any }) {
+    const [docs, setDocs] = useState<Document[]>([]);
     const [category, setCategory] = useState("Contract");
+    const [isLoading, setIsLoading] = useState(true);
+    const [folderId, setFolderId] = useState<number | null>(null);
+    const syncLock = useRef(false);
 
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fetchFolderAndDocs = async (clientId: number) => {
+        if (syncLock.current) return;
+        syncLock.current = true;
+        setIsLoading(true);
+        try {
+            // 1. Get or create a "Clients" root folder
+            // Increase limit to 100 to avoid missing folder due to pagination
+            const repoRes = await documentService.listDocuments({ parent_id: null, project_id: 92, limit: 100 });
+            let clientsFolder = (repoRes.items || []).find(i => i.is_folder && i.title === "Clients");
+
+            if (!clientsFolder) {
+                clientsFolder = await documentService.createFolder({
+                    project_id: 92,
+                    title: "Clients",
+                    parent_id: null
+                });
+            }
+
+            // 2. Get or create specific client folder
+            const clientFolderName = `Client_${client.name.replace(/\s+/g, '_')}_${clientId}`;
+            const clientsContent = await documentService.listDocuments({ parent_id: clientsFolder.id, project_id: 92, limit: 100 });
+            let specificFolder = (clientsContent.items || []).find(i => i.is_folder && (i.title === clientFolderName || i.title === `Client_${client.name.replace(/\s+/g, '_')}_${clientId}`));
+
+            if (!specificFolder) {
+                specificFolder = await documentService.createFolder({
+                    project_id: 92,
+                    title: clientFolderName,
+                    parent_id: clientsFolder.id
+                });
+            }
+
+            setFolderId(specificFolder.id);
+
+            // 3. List docs in that folder
+            const docsRes = await documentService.listDocuments({ parent_id: specificFolder.id, project_id: 92 });
+            setDocs(docsRes.items || []);
+        } catch (err) {
+            console.error("Failed to sync client documents", err);
+            toast.error("Failed to sync documents");
+        } finally {
+            setIsLoading(false);
+            syncLock.current = false;
+        }
+    };
+
+    useEffect(() => {
+        if (client?.id) fetchFolderAndDocs(client.id);
+    }, [client?.id]);
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (!file) return;
-        const newDoc = {
-            id: `d${Date.now()}`, name: file.name, category,
-            date: new Date().toISOString().split("T")[0],
-            size: `${(file.size / 1024).toFixed(0)} KB`,
-        };
-        setDocs((prev: any[]) => [newDoc, ...prev]);
-        toast.success(`${file.name} uploaded successfully!`);
+        if (!file || !folderId) return;
+
+        // Check file size (5MB limit)
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error("File is too large. Max size is 5MB.");
+            e.target.value = "";
+            return;
+        }
+
+        const toastId = toast.loading("Uploading...");
+        try {
+            await documentService.uploadDocument({
+                project_id: 92,
+                title: file.name,
+                document_type: category,
+                parent_id: folderId,
+                file: file
+            });
+            toast.success("Uploaded successfully", { id: toastId });
+            // Refresh list
+            const docsRes = await documentService.listDocuments({ parent_id: folderId, project_id: 92 });
+            setDocs(docsRes.items);
+        } catch (err) {
+            toast.error("Upload failed", { id: toastId });
+        }
         e.target.value = "";
     };
 
-    const handleDelete = (id: string) => {
-        setDocs((prev: any[]) => prev.filter((d: any) => d.id !== id));
-        toast.success("Document removed.");
+    const handleDelete = async (id: number) => {
+        const toastId = toast.loading("Removing...");
+        try {
+            await documentService.deleteDocument(id);
+            setDocs(prev => prev.filter(d => d.id !== id));
+            toast.success("Removed", { id: toastId });
+        } catch (err) {
+            toast.error("Deletion failed", { id: toastId });
+        }
+    };
+
+    const handleDownload = async (doc: Document) => {
+        const toastId = toast.loading(`Preparing ${doc.title}...`);
+        try {
+            const { file_url } = await documentService.getDownloadUrl(doc.id);
+
+            // Build full URL
+            let fullUrl = file_url;
+            if (!file_url.startsWith('http')) {
+                const path = file_url.startsWith('/') ? file_url : `/${file_url}`;
+                fullUrl = path.startsWith('/uploads') ? path : `${import.meta.env.VITE_API_URL}${path}`;
+            }
+
+            const userString = localStorage.getItem("infrapilot_user");
+            const token = userString ? JSON.parse(userString)?.token?.access_token || JSON.parse(userString)?.token : null;
+
+            const response = await fetch(fullUrl, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const blob = await response.blob();
+            const objectUrl = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = objectUrl;
+            link.download = doc.title;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(objectUrl);
+            toast.success("Download started", { id: toastId });
+        } catch (err: any) {
+            toast.error(`Download failed: ${err.message}`, { id: toastId });
+        }
     };
 
     return (
@@ -175,11 +288,16 @@ function DocumentsTab({ client }: any) {
                 </div>
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden min-h-[300px] relative">
                 <div className="p-4 border-b border-slate-50">
                     <h3 className="text-sm font-black text-slate-700">Uploaded Documents ({docs.length})</h3>
                 </div>
-                {docs.length === 0 ? (
+                {isLoading ? (
+                    <div className="p-12 text-center text-slate-400 text-sm">
+                        <div className="w-6 h-6 border-2 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-2"></div>
+                        Syncing repository...
+                    </div>
+                ) : docs.length === 0 ? (
                     <div className="p-12 text-center text-slate-400 text-sm">No documents uploaded yet.</div>
                 ) : (
                     <table className="w-full text-sm text-left">
@@ -188,25 +306,38 @@ function DocumentsTab({ client }: any) {
                                 <th className="px-6 py-3">File Name</th>
                                 <th className="px-6 py-3">Category</th>
                                 <th className="px-6 py-3">Date</th>
-                                <th className="px-6 py-3">Size</th>
                                 <th className="px-6 py-3 text-right">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
-                            {docs.map((d: any) => (
+                            {docs.map((d: Document) => (
                                 <tr key={d.id} className="hover:bg-slate-50/50 transition-colors">
                                     <td className="px-6 py-3 font-semibold text-slate-700 flex items-center gap-2">
-                                        <FileText className="w-4 h-4 text-primary" /> {d.name}
+                                        <FileText className="w-4 h-4 text-primary" /> {d.title}
                                     </td>
                                     <td className="px-6 py-3">
-                                        <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-bold uppercase tracking-widest">{d.category}</span>
+                                        <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-bold uppercase tracking-widest">{d.document_type}</span>
                                     </td>
-                                    <td className="px-6 py-3 text-slate-400 text-xs">{d.date}</td>
-                                    <td className="px-6 py-3 text-slate-400 text-xs">{d.size}</td>
+                                    <td className="px-6 py-3 text-slate-400 text-xs">
+                                        {new Date(d.uploaded_at).toLocaleDateString()}
+                                    </td>
                                     <td className="px-6 py-3 text-right">
-                                        <button onClick={() => handleDelete(d.id)} className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors">
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                                        <div className="flex items-center justify-end gap-2">
+                                            <button
+                                                onClick={() => handleDownload(d)}
+                                                className="p-1.5 text-slate-400 hover:text-emerald-500 transition-colors"
+                                                title="Download"
+                                            >
+                                                <Download className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(d.id)}
+                                                className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors"
+                                                title="Delete"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}

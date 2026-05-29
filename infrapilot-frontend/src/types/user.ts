@@ -3,7 +3,8 @@ export type UserRole =
   | "ProjectManager"
   | "SiteEngineer"
   | "Accountant"
-  | "Client";
+  | "Client"
+  | "Labour";
 
 export interface User {
   user_id: number;

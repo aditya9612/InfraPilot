@@ -45,7 +45,7 @@ const reportTypes: ReportType[] = [
         frequency: "Daily",
         metrics: [
             { label: "Total Labour", value: "142 Workers", accent: "text-blue-600" },
-            { label: "Concrete Poured", value: "120 m³" },
+            { label: "Concrete Poured", value: "120 Cum" },
             { label: "Steel Fixed", value: "8.5 Tons" },
             { label: "Safety Incidents", value: "0", accent: "text-emerald-600" },
         ],
@@ -97,7 +97,7 @@ const reportTypes: ReportType[] = [
         metrics: [
             { label: "Cement Consumed", value: "450 Bags", accent: "text-rose-500" },
             { label: "Steel Used", value: "12 Tons", accent: "text-rose-500" },
-            { label: "Aggregate Used", value: "320 m³" },
+            { label: "Aggregate Used", value: "320 Cum" },
             { label: "Closing Stock Value", value: "₹1.2 Cr", accent: "text-emerald-600" },
         ],
     },

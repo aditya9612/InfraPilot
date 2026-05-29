@@ -11,7 +11,9 @@ export const projectService = {
       offset: skip
     };
     if (search) params.search = search;
-    if (status && status !== "All") params.status = status;
+    if (status && status !== "All" && status !== "") {
+      params.status = status;
+    }
 
     try {
       const response = await api.get('/projects', { params });
@@ -20,11 +22,25 @@ export const projectService = {
       // Handle different possible response structures (array or wrapper object)
       const items = Array.isArray(data) ? data : (data.items || data.data || []);
 
-      // Map project_id to id for frontend compatibility
-      const mappedItems = items.map((p: any) => ({
-        ...p,
-        id: p.project_id || p.id
-      }));
+      // Map project_id to id and normalize status for frontend compatibility
+      const mappedItems = items.map((p: any) => {
+        const rawStatus = p.status || "";
+        let normalizedStatus = rawStatus;
+
+        // Map backend UPPERCASE to frontend PascalCase if needed
+        if (rawStatus === "PLANNED") normalizedStatus = "Planned";
+        else if (rawStatus === "ONGOING") normalizedStatus = "Ongoing";
+        else if (rawStatus === "COMPLETED") normalizedStatus = "Completed";
+        else if (rawStatus === "ON_HOLD") normalizedStatus = "On Hold";
+        else if (rawStatus === "DELAYED") normalizedStatus = "Delayed";
+        else if (rawStatus === "delayed") normalizedStatus = "Delayed"; // Handle lowercase too
+
+        return {
+          ...p,
+          id: p.project_id || p.id,
+          status: normalizedStatus as any
+        };
+      });
 
       if (Array.isArray(data)) return mappedItems;
 

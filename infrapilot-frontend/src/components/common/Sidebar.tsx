@@ -896,6 +896,7 @@ const Sidebar = ({ onClose }: SidebarProps) => {
     SiteEngineer: "/engineer",
     Accountant: "/accountant",
     Client: "/client",
+    Labour: "/labour",
   };
 
   return (

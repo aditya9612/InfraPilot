@@ -110,6 +110,7 @@ import FixedAssetsPage from "../pages/accountant/FixedAssetsPage";
 import AccountantReportsPage from "../pages/accountant/AccountantReportsPage";
 import AccountantSettingsPage from "../pages/accountant/AccountantSettingsPage";
 import ClientDashboard from "../pages/dashboard/ClientDashboard";
+import LabourDashboard from "../pages/labour/LabourDashboard";
 
 const RootRedirect = () => {
   const { user, isAuthenticated } = useAuth();
@@ -120,6 +121,7 @@ const RootRedirect = () => {
     SiteEngineer: "/engineer",
     Accountant: "/accountant",
     Client: "/client",
+    Labour: "/labour",
   };
   return <Navigate to={paths[user!.role] || "/admin"} replace />;
 };
@@ -389,6 +391,14 @@ function AppRoutes() {
               <Route path="/engineer/checklists" element={<ChecklistsPage />} />
               <Route path="/engineer/approvals/material" element={<MaterialRequestPage />} />
               <Route path="/engineer/approvals/work" element={<WorkApprovalPage />} />
+            </Route>
+
+            {/* Labour Routes */}
+            <Route element={<ProtectedRoute allowedRoles={["Labour"]} />}>
+              <Route path="/labour" element={<LabourDashboard />} />
+              <Route path="/labour/tasks" element={<LabourDashboard />} />
+              <Route path="/labour/payments" element={<LabourDashboard />} />
+              <Route path="/labour/settings" element={<LabourDashboard />} />
             </Route>
 
             {/* Contractor Routes - Temporarily commented out as Contractor is not in UserRole type */}

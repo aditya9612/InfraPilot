@@ -461,4 +461,10 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     },
     { label: "Settings", path: "/client/settings", icon: "settings" },
   ],
+  Labour: [
+    { label: "Dashboard", path: "/labour", icon: "grid" },
+    { label: "My Tasks", path: "/labour/tasks", icon: "clipboard" },
+    { label: "Payments", path: "/labour/payments", icon: "wallet" },
+    { label: "Settings", path: "/labour/settings", icon: "settings" },
+  ],
 };
