@@ -32,6 +32,7 @@ const MaterialHistoryPage = () => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [projectId, setProjectId] = useState<number | null>(null);
+  const [materialsMap, setMaterialsMap] = useState<Record<number, string>>({});
 
   // Pagination States
   const [currentPage, setCurrentPage] = useState(1);
@@ -41,8 +42,16 @@ const MaterialHistoryPage = () => {
     if (!projectId) return;
     setIsLoading(true);
     try {
-      const data = await materialService.getLogs({ project_id: projectId });
+      const [data, materials] = await Promise.all([
+        materialService.getLogs({ project_id: projectId }),
+        materialService.listMaterials(projectId)
+      ]);
       setLogs(data || []);
+      const map: Record<number, string> = {};
+      materials.forEach(m => {
+        map[m.id] = m.material_name;
+      });
+      setMaterialsMap(map);
     } catch (error) {
       console.error("Failed to load logs", error);
       toast.error("Failed to sync audit history");
@@ -141,6 +150,20 @@ const MaterialHistoryPage = () => {
     }
   };
 
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "-";
+    try {
+      // Ensure it parses correctly, appending Z if backend returns naive UTC string
+      const d = new Date(dateString.includes('T') && !dateString.includes('Z') ? `${dateString}Z` : dateString);
+      return d.toLocaleString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: true
+      });
+    } catch {
+      return dateString;
+    }
+  };
+
   return (
     <>
       <Navbar title="Material History" breadcrumb={["Engineer", "Logistics", "Material History"]} />
@@ -236,6 +259,7 @@ const MaterialHistoryPage = () => {
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
                   <th className="px-6 py-4 font-inter">type</th>
+                  <th className="px-6 py-4 font-inter">material</th>
                   <th className="px-6 py-4 font-inter text-center">quantity</th>
                   <th className="px-6 py-4 font-inter text-right">rate</th>
                   <th className="px-6 py-4 font-inter text-right">avg_rate</th>
@@ -249,7 +273,7 @@ const MaterialHistoryPage = () => {
               <tbody className="divide-y divide-slate-50 font-inter">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={9} className="px-6 py-20 text-center font-inter">
+                    <td colSpan={10} className="px-6 py-20 text-center font-inter">
                       <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin font-inter mb-4" />
                       <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing ledger...</p>
                     </td>
@@ -261,6 +285,9 @@ const MaterialHistoryPage = () => {
                         <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest font-inter border shadow-sm ${logBadge(log.type)}`}>
                           {log.type}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 text-xs font-bold text-slate-800 font-inter">
+                        {materialsMap[log.material_id] || `Material #${log.material_id}`}
                       </td>
                       <td className="px-6 py-4 text-center font-inter">
                         <span className={`text-sm font-bold font-inter tabular-nums`}>
@@ -279,12 +306,12 @@ const MaterialHistoryPage = () => {
                         <span className="text-sm font-bold text-rose-500 font-inter tabular-nums">{formatINR(log.payment_pending)}</span>
                       </td>
                       <td className="px-6 py-4 text-xs font-bold text-slate-500 font-inter">{log.issue_type}</td>
-                      <td className="px-6 py-4 text-xs font-bold text-slate-500 font-inter">{new Date(log.created_at).toLocaleString('en-GB')}</td>
+                      <td className="px-6 py-4 text-xs font-bold text-slate-500 font-inter">{formatDate(log.created_at)}</td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={9} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">No transactions found for the selected criteria.</td>
+                    <td colSpan={10} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">No transactions found for the selected criteria.</td>
                   </tr>
                 )}
               </tbody>

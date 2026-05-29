@@ -325,7 +325,7 @@ const QCInspectionPage = () => {
             data = data.filter(q => q.status === "Fail");
         }
 
-        return data.filter(q => {
+        const filtered = data.filter(q => {
             const term = searchTerm.toLowerCase();
             const matchesSearch = searchTerm === "" ||
                 q.engineer_name.toLowerCase().includes(term) ||
@@ -339,15 +339,13 @@ const QCInspectionPage = () => {
             return matchesSearch && matchesType && matchesStatus;
         });
 
-        data.sort((a, b) => {
+        return filtered.sort((a, b) => {
             if (sortOrder === "latest") {
                 return Number(b.id) - Number(a.id);
             } else {
                 return Number(a.id) - Number(b.id);
             }
         });
-
-        return data;
     }, [qcList, searchTerm, filterType, filterStatus, activeStatFilter, sortOrder]);
 
     const paginatedList = useMemo(() => {
@@ -389,6 +387,8 @@ const QCInspectionPage = () => {
             passed,
             failed,
             compliance: Math.round((passed / (total || 1)) * 100),
+            passPercent: total > 0 ? Math.round((passed / total) * 100) : 0,
+            failPercent: total > 0 ? Math.round((failed / total) * 100) : 0,
             momentum
         };
     }, [filteredList]);
@@ -422,13 +422,13 @@ const QCInspectionPage = () => {
                         <StatCard title="Total Audits" value={stats.total.toString()} sub="Verified Logs" accent="text-slate-800" />
                     </div>
                     <div onClick={() => setActiveStatFilter("Compliance")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Compliance" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard title="Compliance" value={`${stats.compliance}%`} sub="Pass Rate" accent="text-emerald-500" />
+                        <StatCard title="Pass Tests" value={stats.passed.toString()} sub="Pass Tests" accent="text-emerald-500" />
                     </div>
                     <div onClick={() => setActiveStatFilter("Failed")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Failed" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard title="Failed Tests" value={stats.failed.toString()} sub="Action Required" accent="text-rose-500" />
+                        <StatCard title="Failed Tests" value={stats.failed.toString()} sub="Failed Tests" accent="text-rose-500" />
                     </div>
                     <div onClick={() => setActiveStatFilter("Momentum")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Momentum" ? "ring-2 ring-blue-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard title="Audit Momentum" value={`${stats.momentum}%`} sub="Project Efficiency" accent="text-blue-500" />
+                        <StatCard title="Audit Momentum" value={`${stats.compliance}%`} sub="Overall Pass Percentage" accent="text-blue-500" />
                     </div>
                 </div>
 
@@ -605,8 +605,8 @@ const QCInspectionPage = () => {
                             {/* Left: Items per page */}
                             <div className="flex items-center gap-2">
                                 <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
-                                <select 
-                                    value={itemsPerPage} 
+                                <select
+                                    value={itemsPerPage}
                                     onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
                                     className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
                                 >
@@ -631,7 +631,7 @@ const QCInspectionPage = () => {
                                 >
                                     <ChevronLeft className="w-4 h-4" />
                                 </button>
-                                
+
                                 {(() => {
                                     const totalItems = filteredList.length;
                                     const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
@@ -658,11 +658,10 @@ const QCInspectionPage = () => {
                                             <button
                                                 key={`page-${pageNum}`}
                                                 onClick={() => setCurrentPage(pageNum as number)}
-                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
-                                                    isActive 
-                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' 
+                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
+                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
                                                         : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
-                                                }`}
+                                                    }`}
                                             >
                                                 {pageNum}
                                             </button>

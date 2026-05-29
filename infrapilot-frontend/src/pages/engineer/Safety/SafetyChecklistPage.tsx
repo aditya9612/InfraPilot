@@ -176,7 +176,11 @@ const SafetyChecklistPage = () => {
         const critical = data.filter(i =>
             i.violation_type === "Electrical Hazard" || i.violation_type === "Fire Hazard"
         ).length;
-        const noInjury = data.filter(i => !i.injury_details || i.injury_details.toLowerCase().includes("no injury")).length;
+        const noInjury = data.filter(i => {
+            if (!i.injury_details) return true;
+            const text = i.injury_details.trim().toLowerCase();
+            return text === "" || text.includes("no injury") || text.includes("none") || text.includes("n/a") || text === "-";
+        }).length;
 
         // Site Safety score: average of PPE compliance, checklist completion, and injury-free rates
         const ppeCompliant = data.filter(i => i.ppe_compliance === true).length;

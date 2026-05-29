@@ -9,7 +9,6 @@ import {
 import StatCard from "../../components/common/StatCard";
 import { dsrService } from "../../services/dsrService";
 import { workProgressService } from "../../services/workProgressService";
-import { labourService } from "../../services/labourService";
 import { materialService } from "../../services/materialService";
 import { issueService } from "../../services/issueService";
 import { reportService } from "../../services/reportService";
@@ -49,8 +48,8 @@ const reportTypes: ReportType[] = [
         size: "1.2 MB",
         frequency: "Daily",
         metrics: [
-            { label: "Total Labour", value: "142 Workers", accent: "text-blue-600" },
-            { label: "Concrete Poured", value: "120 Cum" },
+            { label: "Total Labour", value: "142 Labour", accent: "text-blue-600" },
+            { label: "Concrete Poured", value: "120 m³" },
             { label: "Steel Fixed", value: "8.5 Tons" },
             { label: "Safety Incidents", value: "0", accent: "text-emerald-600" },
         ],
@@ -186,7 +185,7 @@ const ReportsPage = () => {
                     updatedReports[dailyIdx] = {
                         ...updatedReports[dailyIdx],
                         metrics: [
-                            { label: "Total Labour", value: `${latestDsr.total_labour || 0} Workers`, accent: "text-blue-600" },
+                            { label: "Total Labour", value: `${latestDsr.total_labour || 0} Labour`, accent: "text-blue-600" },
                             { label: "Skilled", value: latestDsr.skilled_labour?.toString() || "0" },
                             { label: "Weather", value: latestDsr.weather || "Clear" },
                             { label: "Location", value: latestDsr.site_location || "Site" },
@@ -222,19 +221,25 @@ const ReportsPage = () => {
                 console.warn("Failed to fetch weekly report metrics", err);
             }
 
-            // 3. Labour Mapping (Only this API)
+            // 3. Labour Mapping — /api/v1/reports/labour
             try {
-                const labourRes = await labourService.getLabours(projectId, { limit: 1000 } as any);
+                const labourRes = await reportService.getLabourReport(projectId);
                 const laborIdx = updatedReports.findIndex(r => r.id === "labour");
-                if (laborIdx !== -1 && labourRes && labourRes.items) {
-                    const totalPresent = labourRes.items.filter((l: any) => l.status?.toLowerCase() === 'active').length;
+                if (laborIdx !== -1 && labourRes) {
+                    const summary: Array<{ skill_type: string; count: number }> =
+                        labourRes.labour_summary || labourRes.data?.labour_summary || [];
+
+                    const skilled   = summary.find(s => s.skill_type?.toLowerCase() === "skilled")?.count   ?? 0;
+                    const unskilled = summary.find(s => s.skill_type?.toLowerCase() === "unskilled")?.count ?? 0;
+                    const total     = summary.reduce((acc, s) => acc + (s.count ?? 0), 0);
+
                     updatedReports[laborIdx] = {
                         ...updatedReports[laborIdx],
                         metrics: [
-                            { label: "Total Workers", value: labourRes.items.length.toString(), accent: "text-blue-600" },
-                            { label: "Active", value: totalPresent.toString() },
-                            { label: "Inactive", value: (labourRes.items.length - totalPresent).toString() },
-                            { label: "Shift", value: "Day" },
+                            { label: "Total Labour",    value: total.toString(),     accent: "text-blue-600" },
+                            { label: "Skilled Labour",  value: skilled.toString(),   accent: "text-emerald-600" },
+                            { label: "Unskilled Labour", value: unskilled.toString() },
+                            { label: "Categories",      value: summary.length.toString() },
                         ]
                     };
                 }
@@ -678,7 +683,7 @@ const ReportsPage = () => {
                 breadcrumb={["InfraPilot", "Engineer", "Reports"]}
             />
 
-            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter flex flex-col pb-8">
+            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto custom-scrollbar font-inter flex flex-col pb-8">
 
                 {/* ── Header ──────────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6 md:mb-10">
@@ -847,7 +852,7 @@ const ReportsPage = () => {
                 </div>
 
                 {/* ── Report Cards Grid ───────────────────────────── */}
-                <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 pr-2">
+                <div className="flex-1 overflow-auto custom-scrollbar pr-2">
 
                     {/* Cards Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

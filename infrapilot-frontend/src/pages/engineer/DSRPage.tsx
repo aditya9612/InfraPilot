@@ -22,7 +22,8 @@ import {
     Send,
     FileDown,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    CheckCircle
 } from "lucide-react";
 
 import { dsrService } from "../../services/dsrService";
@@ -48,7 +49,7 @@ const DSRPage = () => {
 
 
     // Filter state for StatCards
-    const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Draft" | "Submitted">("All");
+    const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Draft" | "Submitted" | "Approved">("All");
     const [currentPage, setCurrentPage] = useState(1);
     const [totalItems, setTotalItems] = useState(0);
     const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -257,6 +258,8 @@ const DSRPage = () => {
             data = data.filter(d => d.status === "Draft");
         } else if (activeStatFilter === "Submitted") {
             data = data.filter(d => d.status === "Submitted");
+        } else if (activeStatFilter === "Approved") {
+            data = data.filter(d => d.status === "Approved");
         }
 
         return data.filter(dsr => {
@@ -272,12 +275,14 @@ const DSRPage = () => {
         const total = totalItems;
         const draftCount = dsrList.filter(d => d.status === "Draft").length;
         const submittedCount = dsrList.filter(d => d.status === "Submitted").length;
+        const approvedCount = dsrList.filter(d => d.status === "Approved").length;
         const totalLabour = dsrList.reduce((sum, d) => sum + (d.total_labour || 0), 0);
 
         return {
             total,
             draftCount,
             submittedCount,
+            approvedCount,
             totalLabour
         };
     }, [dsrList, totalItems]);
@@ -351,11 +356,11 @@ const DSRPage = () => {
                             sub="Pending Audit"
                             accent="text-blue-500" />
                     </div>
-                    <div>
+                    <div onClick={() => setActiveStatFilter("Approved")} className={`cursor-pointer hover:scale-[1.02] active:scale-95 transition-all ${activeStatFilter === "Approved" ? "ring-2 ring-emerald-500/20 rounded-xl" : ""}`}>
                         <StatCard
-                            title="Total Labour"
-                            value={stats.totalLabour.toString()}
-                            sub="On Current Page"
+                            title="Approved Reports"
+                            value={stats.approvedCount.toString()}
+                            sub="Verified & Approved"
                             accent="text-emerald-500" />
                     </div>
                 </div>
@@ -386,6 +391,7 @@ const DSRPage = () => {
                                 <option value="All">All Status</option>
                                 <option value="Draft">Draft</option>
                                 <option value="Submitted">Submitted</option>
+                                <option value="Approved">Approved</option>
                             </select>
 
                             {activeStatFilter !== "All" && (
@@ -488,7 +494,7 @@ const DSRPage = () => {
                                                                     className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all border border-blue-100 active:scale-95 flex items-center justify-center font-inter"
                                                                     title="Submit DSR"
                                                                 >
-                                                                    <Send className="w-4 h-4" />
+                                                                    <CheckCircle className="w-4 h-4" />
                                                                 </button>
                                                             </div>
                                                         )}
@@ -533,8 +539,8 @@ const DSRPage = () => {
                             {/* Left: Items per page */}
                             <div className="flex items-center gap-2">
                                 <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
-                                <select 
-                                    value={itemsPerPage} 
+                                <select
+                                    value={itemsPerPage}
                                     onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
                                     className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
                                 >
@@ -559,7 +565,7 @@ const DSRPage = () => {
                                 >
                                     <ChevronLeft className="w-4 h-4" />
                                 </button>
-                                
+
                                 {(() => {
                                     const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
                                     const pages = [];
@@ -585,11 +591,10 @@ const DSRPage = () => {
                                             <button
                                                 key={`page-${pageNum}`}
                                                 onClick={() => setCurrentPage(pageNum)}
-                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
-                                                    isActive 
-                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' 
+                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
+                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
                                                         : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
-                                                }`}
+                                                    }`}
                                             >
                                                 {pageNum}
                                             </button>

@@ -70,14 +70,60 @@ const EngineerDashboard = () => {
     const [dashboardData, setDashboardData] = useState<any>(getEmptyDashboardData(projectId, projectName));
     const [isLoading, setIsLoading] = useState(true);
 
-    const weatherData = {
-        condition: dashboardData?.weather?.condition || "Clear",
-        temperature: dashboardData?.weather?.temperature || 32,
-        humidity: dashboardData?.weather?.humidity || 54,
-        windSpeed: dashboardData?.weather?.windSpeed || dashboardData?.weather?.wind_speed || 12
-    };
+    // Live weather state
+    const [liveWeather, setLiveWeather] = useState({
+        condition: "Clear",
+        temperature: 32,
+        humidity: 54, // Open-Meteo current_weather doesn't have humidity natively without hourly, using default
+        windSpeed: 12
+    });
+
     const [showPlanned, setShowPlanned] = useState(true);
     const [showActual, setShowActual] = useState(true);
+
+    // Fetch Live Weather based on location
+    useEffect(() => {
+        const fetchWeather = async (lat: number, lon: number) => {
+            try {
+                const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
+                const data = await res.json();
+                if (data.current_weather) {
+                    const temp = Math.round(data.current_weather.temperature);
+                    const wind = Math.round(data.current_weather.windspeed);
+                    const code = data.current_weather.weathercode;
+                    
+                    let cond = "Clear";
+                    if ([1, 2, 3].includes(code)) cond = "Partly Cloudy";
+                    else if ([45, 48].includes(code)) cond = "Foggy";
+                    else if ([51, 53, 55, 56, 57].includes(code)) cond = "Drizzle";
+                    else if ([61, 63, 65, 66, 67].includes(code)) cond = "Rainy";
+                    else if ([71, 73, 75, 77].includes(code)) cond = "Snowy";
+                    else if ([80, 81, 82].includes(code)) cond = "Showers";
+                    else if ([95, 96, 99].includes(code)) cond = "Thunderstorm";
+
+                    setLiveWeather(prev => ({
+                        ...prev,
+                        condition: cond,
+                        temperature: temp,
+                        windSpeed: wind
+                    }));
+                }
+            } catch (err) {
+                console.error("Failed to fetch weather", err);
+            }
+        };
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    fetchWeather(pos.coords.latitude, pos.coords.longitude);
+                },
+                (err) => {
+                    console.warn("Geolocation denied/failed, using fallback weather", err);
+                }
+            );
+        }
+    }, []);
 
     useEffect(() => {
         let isFirstLoad = true;
@@ -99,7 +145,7 @@ const EngineerDashboard = () => {
                     workProgressService.listActivities(projectId, engineer_id).catch(() => []),
                     labourService.getLabours(projectId, { status: "All" }).catch(() => ({ items: [] })),
                     issueService.listIssuesByProject(projectId, { limit: 1000 }).catch(() => ({ items: [] })),
-                    materialService.getInventory(projectId).catch(() => []),
+                    materialService.getMaterialReport(projectId).catch(() => []),
                     expenseService.getExpensesByProject(projectId).catch(() => []),
                     projectService.getMilestones(projectId).catch(() => []),
                     projectService.getProjectById(projectId).catch(() => null)
@@ -144,10 +190,15 @@ const EngineerDashboard = () => {
                 const unskilledLabours = labours.length - skilledLabours;
 
                 // 4. Process Material Data
-                const material_stock_status = materials.slice(0, 3).map((m: any) => ({
-                    material: m.name || m.item_name || m.material_name || "Unknown",
-                    status: (m.quantity || m.remaining_stock || 0) < (m.min_threshold || 10) ? "Low" : "OK"
-                }));
+                const totalPurchased = materials.reduce((sum: number, m: any) => sum + (Number(m.total_purchased) || Number(m.quantity_purchased) || 0), 0);
+                const totalUsed = materials.reduce((sum: number, m: any) => sum + (Number(m.total_used) || Number(m.quantity_used) || 0), 0);
+                const remainingStock = materials.reduce((sum: number, m: any) => sum + (Number(m.remaining_stock) || Number(m.quantity) || 0), 0);
+                
+                const material_stock_status = {
+                    purchased: totalPurchased,
+                    used: totalUsed,
+                    stock: remainingStock
+                };
 
                 // 5. Process Issues Data
                 const openIssues = issues.filter((i: any) => i.status !== "Resolved" && i.status !== "Closed");
@@ -200,7 +251,7 @@ const EngineerDashboard = () => {
                             total: openIssues.length,
                             high_priority: highPriorityIssues.length
                         },
-                        material_stock_status: material_stock_status.length > 0 ? material_stock_status : [{ material: "No Stock Data", status: "N/A" }]
+                        material_stock_status: material_stock_status
                     },
                     today_work_summary: today_work_summary,
                     discipline_progress: discipline_progress,
@@ -263,20 +314,20 @@ const EngineerDashboard = () => {
                         </div>
                         <div className="flex items-center gap-3 px-5 py-3 bg-white border border-slate-200 text-slate-700 rounded-2xl shadow-sm">
                             <div className="flex items-center justify-center p-2 rounded-xl bg-slate-50">
-                                {weatherData.condition === "Clear" ? <Sun className="w-8 h-8 text-amber-500" /> :
-                                    weatherData.condition === "Partly Cloudy" ? <CloudSun className="w-8 h-8 text-amber-500" /> :
-                                        weatherData.condition === "Foggy" ? <CloudFog className="w-8 h-8 text-slate-400" /> :
-                                            weatherData.condition === "Drizzle" ? <CloudDrizzle className="w-8 h-8 text-blue-400" /> :
-                                                weatherData.condition === "Rainy" ? <CloudRain className="w-8 h-8 text-blue-500" /> :
-                                                    weatherData.condition === "Snowy" ? <CloudSnow className="w-8 h-8 text-blue-200" /> :
-                                                        weatherData.condition === "Showers" ? <CloudRain className="w-8 h-8 text-blue-600" /> :
-                                                            weatherData.condition === "Thunderstorm" ? <CloudLightning className="w-8 h-8 text-purple-500" /> :
+                                {liveWeather.condition === "Clear" ? <Sun className="w-8 h-8 text-amber-500" /> :
+                                    liveWeather.condition === "Partly Cloudy" ? <CloudSun className="w-8 h-8 text-amber-500" /> :
+                                        liveWeather.condition === "Foggy" ? <CloudFog className="w-8 h-8 text-slate-400" /> :
+                                            liveWeather.condition === "Drizzle" ? <CloudDrizzle className="w-8 h-8 text-blue-400" /> :
+                                                liveWeather.condition === "Rainy" ? <CloudRain className="w-8 h-8 text-blue-500" /> :
+                                                    liveWeather.condition === "Snowy" ? <CloudSnow className="w-8 h-8 text-blue-200" /> :
+                                                        liveWeather.condition === "Showers" ? <CloudRain className="w-8 h-8 text-blue-600" /> :
+                                                            liveWeather.condition === "Thunderstorm" ? <CloudLightning className="w-8 h-8 text-purple-500" /> :
                                                                 <Cloud className="w-8 h-8 text-slate-400" />}
                             </div>
                             <div>
                                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none mb-1">Weather – Live</p>
-                                <p className="text-sm font-bold text-slate-800 tracking-tight">{weatherData.condition}, {weatherData.temperature}°C</p>
-                                <p className="text-[10px] text-slate-400 font-medium">Humidity {weatherData.humidity}% · Wind {weatherData.windSpeed} km/h</p>
+                                <p className="text-sm font-bold text-slate-800 tracking-tight">{liveWeather.condition}, {liveWeather.temperature}°C</p>
+                                <p className="text-[10px] text-slate-400 font-medium">Humidity {liveWeather.humidity}% · Wind {liveWeather.windSpeed} km/h</p>
                             </div>
                         </div>
                     </div>
@@ -284,7 +335,7 @@ const EngineerDashboard = () => {
                     {/* â”€â”€ Site Vitals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                     <div className="mb-6">
                         <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Site Vitals</h2>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                             <StatCard
                                 title="Total Labor Today"
                                 value={(dashboardData.vitals?.total_labour_today || 0).toString()}
@@ -296,15 +347,15 @@ const EngineerDashboard = () => {
                                 sub="Real-Time Active Tracking"
                                 accent="text-blue-500" />
                             <StatCard
-                                title="Material Stock Status"
-                                value="OK"
-                                sub={dashboardData.vitals?.material_stock_status?.map((m: any) => `${m.material}: ${m.status}`).join(" · ") || "Cement: OK · Steel: Low"}
-                                accent="text-emerald-500" />
-                            <StatCard
                                 title="Open Issues"
                                 value={(dashboardData.vitals?.open_issues?.total || 0).toString()}
                                 sub={`${dashboardData.vitals?.open_issues?.high_priority || 0} High Priority`}
                                 accent="text-rose-500" />
+                            <StatCard
+                                title="Material Stock Status"
+                                value={`${dashboardData.vitals?.material_stock_status?.stock || 0} Add Material`}
+                                sub={`${dashboardData.vitals?.material_stock_status?.purchased || 0} Purchase · ${dashboardData.vitals?.material_stock_status?.used || 0} Usage`}
+                                accent="text-emerald-500" />
                         </div>
                     </div>
 

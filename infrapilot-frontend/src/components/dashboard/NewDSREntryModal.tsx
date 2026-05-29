@@ -70,7 +70,7 @@ const NewDSREntryModal = ({
             const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`);
             const data = await res.json();
             const address = data.display_name || "";
-            
+
             setFormData((prev: CreateDsrRequest) => ({
               ...prev,
               latitude,
@@ -108,10 +108,10 @@ const NewDSREntryModal = ({
 
     // Strict Alphabetic Validation for specific fields
     if (name === "weather") {
-        if (/[0-9]/.test(value)) {
-            setErrors(prev => ({ ...prev, [name]: "Numbers are not allowed in this field" }));
-            return;
-        }
+      if (/[0-9]/.test(value)) {
+        setErrors(prev => ({ ...prev, [name]: "Numbers are not allowed in this field" }));
+        return;
+      }
     }
 
     setFormData((prev: CreateDsrRequest) => ({ ...prev, [name]: value }));
@@ -126,7 +126,7 @@ const NewDSREntryModal = ({
   const validate = () => {
     const errs: Record<string, string> = {};
     if (!formData.report_date) errs.report_date = "Report Date is required";
-    
+
     if (!formData.site_location || !formData.site_location.trim()) {
       errs.site_location = "Site Location is required";
     }
@@ -135,7 +135,7 @@ const NewDSREntryModal = ({
       errs.work_done = "Work Done is required";
     if (!formData.work_planned || !formData.work_planned.trim())
       errs.work_planned = "Work Planned is required";
-    
+
     if (!formData.weather) {
       errs.weather = "Weather condition is required";
     } else if (/[0-9]/.test(formData.weather)) {
@@ -173,21 +173,21 @@ const NewDSREntryModal = ({
 
   const handleLabourChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    
+
     // Prevent non-numeric characters
     if (/[^0-9]/.test(value) && value !== "") {
-        setErrors(prev => ({ ...prev, [name]: "Only numbers are allowed" }));
-        return;
+      setErrors(prev => ({ ...prev, [name]: "Only numbers are allowed" }));
+      return;
     }
 
     const numValue = value === "" ? 0 : Number(value);
     setFormData((prev: any) => ({ ...prev, [name]: numValue }));
-    
+
     if (errors[name]) {
-        setErrors(prev => {
-            const { [name]: _, ...rest } = prev;
-            return rest;
-        });
+      setErrors(prev => {
+        const { [name]: _, ...rest } = prev;
+        return rest;
+      });
     }
   };
 
@@ -374,8 +374,8 @@ const NewDSREntryModal = ({
                         <div className="bg-emerald-50/50 px-3 py-2.5 rounded-xl border border-emerald-100/50">
                           <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1">LIVE CAPTURED ADDRESS</p>
                           <p className="text-[11px] font-bold text-slate-700 leading-relaxed min-h-[1.5em]">
-                            {gpsStatus === "capturing" && !formData.resolved_address 
-                              ? "Resolving location address..." 
+                            {gpsStatus === "capturing" && !formData.resolved_address
+                              ? "Resolving location address..."
                               : formData.resolved_address || (gpsStatus === "captured" ? "Site location identified (Address details pending...)" : "Awaiting GPS signal...")}
                           </p>
                         </div>

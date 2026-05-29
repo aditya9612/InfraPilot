@@ -52,7 +52,20 @@ const LaborDetailsPage = () => {
     const [formData, setFormData] = useState(initialFormData);
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
-    const [projectId, setProjectId] = useState<number | null>(null);
+    const [projectId] = useState<number>(() => {
+        try {
+            const userStr = localStorage.getItem("infrapilot_user");
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                const pId = user?.project_id || user?.user?.project_id;
+                return pId ? Number(pId) : 92;
+            }
+            return 92;
+        } catch (err) {
+            console.error("Failed to load user project context:", err);
+            return 92;
+        }
+    });
     const [contractorFilter, setContractorFilter] = useState<number | null>(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [labourToDelete, setLabourToDelete] = useState<number | null>(null);
@@ -64,29 +77,6 @@ const LaborDetailsPage = () => {
     const [assignProjectId, setAssignProjectId] = useState<string>("");
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
-
-    useEffect(() => {
-        const initializeProject = () => {
-            try {
-                const userStr = localStorage.getItem("infrapilot_user");
-                if (userStr) {
-                    const user = JSON.parse(userStr);
-                    const pId = user?.project_id || user?.user?.project_id;
-                    if (pId) {
-                        setProjectId(Number(pId));
-                    } else {
-                        setProjectId(92);
-                    }
-                } else {
-                    setProjectId(92);
-                }
-            } catch (err) {
-                console.error("Failed to load user project context:", err);
-                setProjectId(92);
-            }
-        };
-        initializeProject();
-    }, []);
 
     useEffect(() => {
         if (isFormModalOpen) {
@@ -314,8 +304,8 @@ const LaborDetailsPage = () => {
         // Apply Contractor ID filter
         if (contractorFilter !== null && l.contractor_id !== contractorFilter) return false;
 
-        // Apply Contractor ID filter
-        if (contractorFilter !== null && l.contractor_id !== contractorFilter) return false;
+        // Apply Status Filter
+        if (statusFilter !== "All" && l.status !== statusFilter) return false;
 
         // Apply Search Term filter (Name, ID, Worker Code, Aadhaar)
         const search = searchTerm.toLowerCase().trim();
@@ -373,17 +363,16 @@ const LaborDetailsPage = () => {
                 </div>
 
                 {/* â”€â”€ Summary Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard title="Personnel Database" value={stats.total.toString()} sub="Total Records" accent="text-slate-800" />
                     </div>
                     <div onClick={() => setActiveStatFilter("Active")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Active" ? "ring-2 ring-blue-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard title="Active Assets" value={stats.active.toString()} sub="Currently Deployed" accent="text-blue-500" />
+                        <StatCard title="Active Labour" value={stats.active.toString()} sub="Currently Deployed" accent="text-blue-500" />
                     </div>
                     <div onClick={() => setActiveStatFilter("Skilled")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Skilled" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard title="Technical Skill" value={stats.skilled.toString()} sub="Skilled Laborers" accent="text-emerald-500" />
+                        <StatCard title="Technical Skill" value={stats.skilled.toString()} sub="Skilled Labourers" accent="text-emerald-500" />
                     </div>
-                    <StatCard title="Database Integrity" value="99.4%" sub="System Health" accent="text-indigo-500" />
                 </div>
 
                 {/* â”€â”€ Main Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
@@ -446,7 +435,7 @@ const LaborDetailsPage = () => {
                                                 <span className="text-xs font-bold text-slate-700 font-inter uppercase tracking-tight">{labor.skill_type}</span>
                                             </td>
                                             <td className="px-6 py-4 text-center">
-                                                <span className="text-sm font-bold text-slate-800 tabular-nums font-inter">₹{labor.daily_wage_rate}</span>
+                                                <span className="text-sm font-bold text-slate-800 tabular-nums font-inter">{labor.daily_wage_rate}</span>
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <span className="text-xs font-bold text-slate-500 font-inter">{labor.contractor_id}</span>
@@ -538,7 +527,7 @@ const LaborDetailsPage = () => {
                                         if (page === '...') {
                                             return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
                                         }
-                                        const pageNum = page;
+                                        const pageNum = page as number;
                                         const isActive = currentPage === pageNum;
                                         return (
                                             <button
@@ -582,7 +571,7 @@ const LaborDetailsPage = () => {
                         <button
                             type="button"
                             onClick={() => setIsFormModalOpen(false)}
-                            className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter"
+                            className="min-w-[180px] px-6 py-2.5 bg-white text-slate-600 border border-slate-200 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all font-inter"
                         >
                             Cancel
                         </button>
@@ -590,7 +579,7 @@ const LaborDetailsPage = () => {
                             form="personnel-form"
                             type="submit"
                             disabled={isSubmitting}
-                            className="flex-[2] py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 font-inter"
+                            className="min-w-[180px] px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 font-inter"
                         >
                             {isSubmitting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                             {formMode === 'create' ? 'Confirm Registration' : 'Update Profile'}
@@ -653,7 +642,7 @@ const LaborDetailsPage = () => {
                             </div>
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Daily Wage Rate <span className="text-rose-500">*</span></label>
-                                <input type="number" value={formData.daily_wage_rate} onChange={(e) => setFormData({ ...formData, daily_wage_rate: e.target.value })} placeholder="900.00" className={`w-full px-4 py-2.5 bg-white border ${errors.daily_wage_rate ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all`} required />
+                                <input type="text" value={formData.daily_wage_rate} onChange={(e) => setFormData({ ...formData, daily_wage_rate: e.target.value.replace(/[^0-9.]/g, '') })} placeholder="900.00" className={`w-full px-4 py-2.5 bg-white border ${errors.daily_wage_rate ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all`} required />
                                 {errors.daily_wage_rate && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.daily_wage_rate}</p>}
                             </div>
                             <div>

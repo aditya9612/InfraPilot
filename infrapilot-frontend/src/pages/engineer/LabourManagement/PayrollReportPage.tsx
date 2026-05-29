@@ -10,21 +10,13 @@ import {
     ChevronRight
 } from "lucide-react";
 import { paymentService } from '../../../services/paymentService';
-import { labourService } from '../../../services/labourService';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '../../../utils/currencyUtils';
-import {
-    XAxis,
-    CartesianGrid,
-    Tooltip,
-    ResponsiveContainer,
-    AreaChart,
-    Area
-} from 'recharts';
+
 
 const PayrollReportPage: React.FC = () => {
     const [reports, setReports] = useState<any[]>([]);
-    const [chartData, setChartData] = useState<any[]>([]);
+
     const [activeTab, setActiveTab] = useState<string>('daily');
     const [isLoading, setIsLoading] = useState(true);
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "High" | "OT" | "Summary">("All");
@@ -65,10 +57,9 @@ const PayrollReportPage: React.FC = () => {
         try {
             console.log(`Reports: Fetching aggregate report for Project ${projectId || 'all'}`);
 
-            const [aggregateRes, summaryRes, momentumRes] = await Promise.all([
+            const [aggregateRes, summaryRes] = await Promise.all([
                 paymentService.getAggregateReport({ project_id: projectId, month: selectedMonth, year: selectedYear }),
-                paymentService.getFiscalSummary({ project_id: projectId, month: selectedMonth, year: selectedYear }),
-                paymentService.getPayrollMomentum({ project_id: projectId })
+                paymentService.getFiscalSummary({ project_id: projectId, month: selectedMonth, year: selectedYear })
             ]);
 
             const enrichedLabours = aggregateRes || [];
@@ -83,18 +74,7 @@ const PayrollReportPage: React.FC = () => {
 
             setStats({ totalPayout, highPayouts, otIntensive, advanceAdjusted });
 
-            // Build dynamic chart data from momentum API
-            const momentumData = momentumRes || [];
-            const newChartData = momentumData.map((item: any) => ({
-                name: item.period_name || `${item.month}/${item.year}`,
-                amount: item.total_wage || 0
-            }));
 
-            // If completely empty, provide an empty state to avoid broken chart
-            if (newChartData.length === 0) {
-                newChartData.push({ name: 'No Data', amount: 0 });
-            }
-            setChartData(newChartData);
 
             console.log("Reports Sync Success (200 OK)");
         } catch (error) {
@@ -366,7 +346,7 @@ const PayrollReportPage: React.FC = () => {
                                         if (page === '...') {
                                             return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
                                         }
-                                        const pageNum = page;
+                                        const pageNum = page as number;
                                         const isActive = currentPage === pageNum;
                                         return (
                                             <button
@@ -397,41 +377,7 @@ const PayrollReportPage: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
-                    {/* Chart Card */}
-                    <div className="lg:col-span-3 bg-primary rounded-2xl p-8 shadow-xl relative overflow-hidden">
-                        <div className="relative z-10 h-full flex flex-col">
-                            <div className="flex justify-between items-start mb-8">
-                                <div>
-                                    <h3 className="text-lg font-bold text-white uppercase tracking-tight">Payroll Momentum</h3>
-                                    <p className="text-white/70 text-xs font-bold">Monthly wage expenditure trend analysis.</p>
-                                </div>
-                                <span className="px-3 py-1 bg-white/20 text-white text-[10px] font-bold uppercase tracking-widest rounded-lg">
-                                    +12.4% vs Mar
-                                </span>
-                            </div>
-                            <div className="flex-1 min-h-[250px]">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={chartData}>
-                                        <defs>
-                                            <linearGradient id="colorAmt" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                                                <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                                            </linearGradient>
-                                        </defs>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
-                                        <XAxis dataKey="name" stroke="#ffffff40" fontSize={10} axisLine={false} tickLine={false} />
-                                        <Tooltip
-                                            contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', fontSize: '10px' }}
-                                            itemStyle={{ color: '#fff', fontWeight: 'bold' }}
-                                        />
-                                        <Area type="monotone" dataKey="amount" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorAmt)" />
-                                    </AreaChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+
             </PageTransition>
         </>
     );

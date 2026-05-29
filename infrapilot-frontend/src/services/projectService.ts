@@ -284,6 +284,16 @@ export const projectService = {
     }
   },
 
+  async updateTaskStatus(projectId: number, taskId: number, status: string) {
+    try {
+      const response = await api.patch(`/projects/${projectId}/tasks/${taskId}/status`, { status });
+      return response.data;
+    } catch (error: any) {
+      console.error(`Update Task Status ${taskId} API Error:`, error.response?.data || error.message);
+      throw error;
+    }
+  },
+
   async deleteTask(projectId: number, taskId: number) {
     const response = await api.delete(`/projects/${projectId}/tasks/${taskId}`);
     return response.data;

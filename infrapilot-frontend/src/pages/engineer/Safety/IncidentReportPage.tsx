@@ -168,9 +168,11 @@ const IncidentReportPage = () => {
             return itemDate.getMonth() === currentMonth && itemDate.getFullYear() === currentYear;
         }).length;
 
-        const withInjuryCount = data.filter(item =>
-            item.injury_details && !item.injury_details.toLowerCase().includes("no injury")
-        ).length;
+        const withInjuryCount = data.filter(item => {
+            if (!item.injury_details) return false;
+            const text = item.injury_details.trim().toLowerCase();
+            return text !== "" && !text.includes("no injury") && !text.includes("none") && !text.includes("n/a") && text !== "-";
+        }).length;
 
         return {
             total,
@@ -347,7 +349,7 @@ const IncidentReportPage = () => {
                 </div>
 
                 {/* â”€â”€ Summary Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Total Reports"
@@ -368,13 +370,6 @@ const IncidentReportPage = () => {
                             value={stats.critical.toString()}
                             sub="Injury Incidents"
                             accent="text-rose-500" />
-                    </div>
-                    <div onClick={() => setActiveStatFilter("Month")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Month" ? "ring-2 ring-blue-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard
-                            title="Month Activity"
-                            value={stats.thisMonthCount.toString()}
-                            sub="Current Month"
-                            accent="text-blue-500" />
                     </div>
                 </div>
 

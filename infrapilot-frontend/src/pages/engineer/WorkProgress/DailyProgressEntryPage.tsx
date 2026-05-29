@@ -375,7 +375,7 @@ const DailyProgressEntryPage = () => {
         </div>
 
         {/* â”€â”€ Interactive Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 font-inter">
           <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
             <StatCard
               title="Total Logs"
@@ -396,13 +396,6 @@ const DailyProgressEntryPage = () => {
               value={stats.delayed.toString()}
               sub="Critical Items"
               accent="text-rose-500" />
-          </div>
-          <div className="cursor-default group transition-all rounded-xl hover:scale-[1.01]">
-            <StatCard
-              title="Momentum"
-              value={momentum}
-              sub="Total Executed Qty"
-              accent="text-blue-500" />
           </div>
         </div>
 
@@ -490,7 +483,6 @@ const DailyProgressEntryPage = () => {
                           <th className="px-6 py-4 font-inter whitespace-nowrap">remarks</th>
                           <th className="px-6 py-4 font-inter whitespace-nowrap">created_at</th>
                           <th className="px-6 py-4 font-inter whitespace-nowrap">today_progress</th>
-                          <th className="px-6 py-4 font-inter whitespace-nowrap">created_by</th>
                           <th className="px-6 py-4 font-inter whitespace-nowrap">updated_at</th>
                           <th className="px-6 py-4 text-right font-inter whitespace-nowrap">actions</th>
                         </tr>
@@ -510,17 +502,8 @@ const DailyProgressEntryPage = () => {
                               <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600 max-w-[200px] truncate" title={e.remarks}>{e.remarks || "-"}</td>
                               <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.created_at ? new Date(e.created_at).toLocaleString() : "-"}</td>
                               <td className="px-6 py-6 font-inter">
-                                <div className="flex items-center gap-3">
-                                  <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden w-24">
-                                    <div 
-                                      className="h-full bg-primary rounded-full transition-all" 
-                                      style={{ width: `${Math.min(100, Math.max(0, Number(e.today_progress) || 0))}%` }}
-                                    />
-                                  </div>
-                                  <span className="text-sm font-bold text-primary min-w-[40px]">{e.today_progress}%</span>
-                                </div>
+                                <span className="text-sm font-bold text-primary">{e.today_progress}%</span>
                               </td>
-                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.created_by}</td>
                               <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.updated_at ? new Date(e.updated_at).toLocaleString() : "-"}</td>
                               <td className="px-6 py-6 font-inter text-right">
                                 <div className="flex items-center justify-end gap-3 font-inter">

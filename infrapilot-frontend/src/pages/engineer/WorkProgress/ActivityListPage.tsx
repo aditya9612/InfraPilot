@@ -353,14 +353,8 @@ const ActivityListPage = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 font-inter">
-                      <div className="flex items-center gap-3 font-inter">
-                        <div className="flex-1 bg-slate-100 rounded-full h-1.5 overflow-hidden font-inter">
-                          <div
-                            className={`h-full rounded-full transition-all duration-700 ${getProgressColor(a.completion_percentage)}`}
-                            style={{ width: `${a.completion_percentage}%` }}
-                          />
-                        </div>
-                        <span className="text-xs font-bold text-slate-800 font-inter">{a.completion_percentage.toFixed(1)}%</span>
+                      <div className="flex items-center font-inter">
+                        <span className="text-sm font-bold text-slate-800 font-inter">{a.completion_percentage.toFixed(1)}%</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 font-inter">
