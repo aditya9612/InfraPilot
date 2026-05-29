@@ -250,5 +250,13 @@ export const reportService = {
             responseType: 'blob'
         });
         return response.data;
+    },
+
+    exportFinancialSummaryPDF: async (projectId: number) => {
+        const response = await api.get(`/reports/financial-summary/export/pdf`, {
+            params: { project_id: projectId },
+            responseType: 'blob'
+        });
+        return response.data;
     }
 };

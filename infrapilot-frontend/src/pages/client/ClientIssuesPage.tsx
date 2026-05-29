@@ -10,6 +10,15 @@ const ClientIssuesPage = () => {
   const [selectedIssue, setSelectedIssue] = useState<any>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [fetchingDetail, setFetchingDetail] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [newIssue, setNewIssue] = useState({
+    title: "",
+    description: "",
+    category: "Client Feedback",
+    priority: "Medium",
+    reported_date: new Date().toISOString().split('T')[0]
+  });
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -22,7 +31,19 @@ const ClientIssuesPage = () => {
     try {
       setLoading(true);
       const response = await issueService.listIssuesByProject(projectId);
-      setIssues(response.items || []);
+      const allIssues = response.items || [];
+      
+      // Filter issues to only show those raised by the client
+      // We check for specific categories or reporter flags that correspond to client-facing issues
+      const clientIssues = allIssues.filter((i: any) => 
+        i.reporter_role === "Client" || 
+        i.category === "Client Feedback" || 
+        i.source === "Client" ||
+        // Fallback: If no explicit role, we show issues that don't have engineering-specific categories
+        !["Safety Flag", "Labor Constraint", "Material Shortage"].includes(i.category)
+      );
+      
+      setIssues(clientIssues);
     } catch (error) {
       console.error("Failed to fetch project issues:", error);
     } finally {
@@ -46,6 +67,29 @@ const ClientIssuesPage = () => {
       setIsViewModalOpen(false);
     } finally {
       setFetchingDetail(false);
+    }
+  };
+
+  const handleCreateIssue = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!projectId) return;
+    try {
+      setIsSubmitting(true);
+      await issueService.createIssue({ ...newIssue, project_id: projectId });
+      setIsCreateModalOpen(false);
+      setNewIssue({
+        title: "",
+        description: "",
+        category: "Client Feedback",
+        priority: "Medium",
+        reported_date: new Date().toISOString().split('T')[0]
+      });
+      fetchIssues();
+    } catch (error) {
+      console.error("Failed to create issue:", error);
+      alert("Failed to lodge issue.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -86,12 +130,22 @@ const ClientIssuesPage = () => {
     <>
       <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Issues & Risks"]} />
       <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-          <div>
-            <h1 className="text-3xl font-black text-slate-800 tracking-tight">Issues & Risk Ledger</h1>
-            <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">Real-time tracking of project hurdles, safety flags, and mitigation strategies</p>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+            <div>
+              <h1 className="text-3xl font-black text-slate-800 tracking-tight">Client Issue Ledger</h1>
+              <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">Tracking and resolution of issues reported by you regarding project quality or progress</p>
+            </div>
+            
+            <button 
+              onClick={() => setIsCreateModalOpen(true)}
+              className="px-8 py-4 bg-primary text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg shadow-blue-100 active:scale-95 flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
+              </svg>
+              Log New Issue
+            </button>
           </div>
-        </div>
 
         {/* Status Counters */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
@@ -320,6 +374,85 @@ const ClientIssuesPage = () => {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Create Issue Modal */}
+      <Modal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        title="Lodge New Issue"
+        maxWidth="max-w-2xl"
+      >
+        <form onSubmit={handleCreateIssue} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="md:col-span-2">
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Subject / Title</label>
+              <input 
+                required
+                type="text" 
+                value={newIssue.title}
+                onChange={(e) => setNewIssue({...newIssue, title: e.target.value})}
+                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20"
+                placeholder="Briefly describe the concern"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Category</label>
+              <select 
+                value={newIssue.category}
+                onChange={(e) => setNewIssue({...newIssue, category: e.target.value})}
+                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20"
+              >
+                <option value="Client Feedback">Client Feedback</option>
+                <option value="Quality Concern">Quality Concern</option>
+                <option value="Progress Delay">Progress Delay</option>
+                <option value="Safety Risk">Safety Risk</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Priority</label>
+              <select 
+                value={newIssue.priority}
+                onChange={(e) => setNewIssue({...newIssue, priority: e.target.value})}
+                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20"
+              >
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+                <option value="Urgent">Urgent</option>
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Detailed Observations</label>
+              <textarea 
+                required
+                rows={5}
+                value={newIssue.description}
+                onChange={(e) => setNewIssue({...newIssue, description: e.target.value})}
+                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+                placeholder="Provide as much detail as possible to help us address the issue quickly..."
+              />
+            </div>
+          </div>
+          <div className="pt-6 border-t border-slate-50 flex justify-end gap-4">
+             <button 
+               type="button"
+               onClick={() => setIsCreateModalOpen(false)}
+               className="px-8 py-4 bg-slate-100 text-slate-500 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
+             >
+               Cancel
+             </button>
+             <button 
+               type="submit"
+               disabled={isSubmitting}
+               className="px-10 py-4 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg shadow-blue-100 flex items-center gap-2 disabled:opacity-50"
+             >
+               {isSubmitting ? <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : null}
+               {isSubmitting ? "LODGING..." : "LODGE ISSUE"}
+             </button>
+          </div>
+        </form>
       </Modal>
     </>
   );

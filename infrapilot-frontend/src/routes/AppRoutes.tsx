@@ -47,9 +47,7 @@ import ManagerSettingsPage from "../pages/manager/ManagerSettingsPage";
 import ClientOverviewPage from "../pages/client/ClientOverviewPage";
 import ClientProjectOverviewPage from "../pages/client/ClientProjectOverviewPage";
 import ClientProgressPage from "../pages/client/ClientProgressPage";
-import ClientFinancialsSummaryPage from "../pages/client/financials/ClientFinancialsSummaryPage";
-import ClientInvoicesPage from "../pages/client/financials/ClientInvoicesPage";
-import ClientPaymentsPage from "../pages/client/financials/ClientPaymentsPage";
+
 import ClientPhotosPage from "../pages/client/site-updates/ClientPhotosPage";
 import ClientDSRSummaryPage from "../pages/client/site-updates/ClientDSRSummaryPage";
 import ClientIssuesPage from "../pages/client/ClientIssuesPage";
@@ -292,19 +290,7 @@ function AppRoutes() {
               {/* Progress */}
               <Route path="/client/progress" element={<ClientProgressPage />} />
 
-              {/* Financials */}
-              <Route
-                path="/client/financial-summary"
-                element={<ClientFinancialsSummaryPage />}
-              />
-              <Route
-                path="/client/invoices"
-                element={<ClientInvoicesPage />}
-              />
-              <Route
-                path="/client/payments"
-                element={<ClientPaymentsPage />}
-              />
+
 
               {/* Site Updates */}
               <Route
@@ -500,10 +486,7 @@ function AppRoutes() {
               <Route path="/client/overview" element={<ClientOverviewPage />} />
               <Route path="/client/project-overview" element={<ClientProjectOverviewPage />} />
               <Route path="/client/progress" element={<ClientProgressPage />} />
-              <Route path="/client/financials" element={<Navigate to="/client/financials/summary" replace />} />
-              <Route path="/client/financials/summary" element={<ClientFinancialsSummaryPage />} />
-              <Route path="/client/financials/invoices" element={<ClientInvoicesPage />} />
-              <Route path="/client/financials/payments" element={<ClientPaymentsPage />} />
+
               <Route path="/client/site-updates/photos" element={<ClientPhotosPage />} />
               <Route path="/client/site-updates/dsr" element={<ClientDSRSummaryPage />} />
               <Route path="/client/issues" element={<ClientIssuesPage />} />

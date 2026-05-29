@@ -13,6 +13,20 @@
   --text-h1: 24px;
   --text-h2: 18px;
   --text-body: 14px;
+
+  --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+@utility text-shadow-glow {
+  text-shadow: 0 0 20px rgba(37, 99, 235, 0.4);
+}
+
+@utility scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @layer base {

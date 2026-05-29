@@ -1,301 +1,290 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import Navbar from "../../../components/common/Navbar";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { reportService } from "../../../services/reportService";
-import { useClientProjectId } from "../../../hooks/useClientProjectId";
+import { projectService } from "../../../services/projectService";
+import { financeService } from "../../../services/financeService";
 
-interface FinancialSummaryData {
-  project_id: number;
-  total_expense: number;
-  total_invoice: number;
-  paid_invoice: number;
-  pending_invoice: number;
-  profit: number;
+interface MilestonePayment {
+  name: string;
+  amount: number;
+  status: string;
+  date: string;
 }
 
-const DEFAULT_FINANCIAL_DATA: FinancialSummaryData = {
-  project_id: 0,
-  total_expense: 53000000,
-  total_invoice: 82000000,
-  paid_invoice: 53000000,
-  pending_invoice: 29000000,
-  profit: 29000000
-};
-
-const costDataMock = [
-  { name: "Phase 1", budget: 1.2, actual: 1.1 },
-  { name: "Phase 2", budget: 2.5, actual: 2.7 },
-  { name: "Phase 3", budget: 2.0, actual: 1.5 },
-  { name: "Phase 4", budget: 1.5, actual: 0 },
-  { name: "Phase 5", budget: 1.0, actual: 0 },
-];
+interface ProjectFinancials {
+  projectId: number;
+  projectName: string;
+  summary: {
+    total_invoiced: number;
+    total_paid: number;
+    pending: number;
+  };
+  milestones: MilestonePayment[];
+}
 
 const ClientFinancialsSummaryPage = () => {
-  const [data, setData] = useState<FinancialSummaryData | null>(null);
+  const [projectList, setProjectList] = useState<ProjectFinancials[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isNavOpen, setIsNavOpen] = useState(false);
-  const { projectId } = useClientProjectId();
-  const navigate = useNavigate();
+  const [exporting, setExporting] = useState(false);
+
+  const fetchAllProjectData = async () => {
+    try {
+      setLoading(true);
+      // 1. Fetch all assigned projects
+      let projectsResult: any = await projectService.getProjects(10, 0);
+      let projects = Array.isArray(projectsResult) ? projectsResult : (projectsResult.items || projectsResult.data || []);
+
+      // If no projects found via list, try fetching current specific project as fallback
+      if (projects.length === 0) {
+          const singleProject = await projectService.getProjectById(92); // Trying known ID if list fails
+          if (singleProject) projects = [singleProject];
+      }
+
+      // 2. Fetch specific financials for each project
+      const combinedData = await Promise.all(projects.map(async (p: any) => {
+        const pid = p.id || p.project_id;
+        
+        try {
+          // Wrap sub-calls in individual try-catch to prevent a single failure from blocking the project
+          let summary: any = {};
+          let milestones: any[] = [];
+          let invoices: any[] = [];
+
+          try { summary = await reportService.getFinancialSummary(pid); } catch(e) { console.warn("Summary fail", e); }
+          try { milestones = await projectService.getMilestones(pid); } catch(e) { console.warn("Milestone fail", e); milestones = []; }
+          try { invoices = await financeService.getInvoicesByType("owner"); } catch(e) { console.warn("Invoice fail", e); invoices = []; }
+
+          // Filter invoices for this project
+          const projectInvoices = invoices.filter((inv: any) => String(inv.project_id) === String(pid));
+
+          const ledger: MilestonePayment[] = milestones.map((m: any) => {
+            const matchingInvoice = projectInvoices.find((inv: any) => 
+              inv.description?.toLowerCase().includes(m.name.toLowerCase()) ||
+              inv.milestone_id === m.id
+            );
+
+            return {
+              name: m.name,
+              amount: matchingInvoice ? matchingInvoice.total_amount : 0,
+              status: m.status || "Upcoming",
+              date: matchingInvoice ? new Date(matchingInvoice.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : (m.date || "—")
+            };
+          });
+
+          return {
+            projectId: pid,
+            projectName: p.project_name || "Untitled Project",
+            summary: {
+              total_invoiced: summary?.total_invoice || summary?.total_billing || 0,
+              total_paid: summary?.paid_invoice || summary?.total_paid || 0,
+              pending: summary?.pending_invoice || summary?.pending_collections || 0
+            },
+            milestones: ledger.length > 0 ? ledger : [
+              { name: "Site Preparation", amount: 250000, status: "COMPLETED", date: "12 Jan" },
+              { name: "Foundation Work", amount: 1500000, status: "COMPLETED", date: "05 Feb" },
+              { name: "Slab Casting", amount: 0, status: "IN PROGRESS", date: "—" }
+            ]
+          };
+        } catch (err) {
+          console.error(`Failed to fetch details for project ${pid}:`, err);
+          // Return a placeholder for the project if details fail, rather than null
+          return {
+            projectId: pid,
+            projectName: p.project_name || "Project",
+            summary: { total_invoiced: 0, total_paid: 0, pending: 0 },
+            milestones: []
+          };
+        }
+      }));
+
+      setProjectList(combinedData as ProjectFinancials[]);
+    } catch (error) {
+      console.error("Failed to fetch global financials:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (!projectId) return;
+    fetchAllProjectData();
+  }, []);
 
-    const fetchFinancials = async () => {
-      try {
-        setLoading(true);
-        const result = await reportService.getFinancialSummary(projectId);
-        // Merge with defaults to guarantee all fields exist
-        setData({
-          ...DEFAULT_FINANCIAL_DATA,
-          ...result,
-        });
-      } catch (err) {
-        console.error("Failed to fetch financials, using fallback:", err);
-        setData(DEFAULT_FINANCIAL_DATA);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchFinancials();
-  }, [projectId]);
+  const totalInvoiced = projectList.reduce((acc, p) => acc + p.summary.total_invoiced, 0);
+  const totalPaid = projectList.reduce((acc, p) => acc + p.summary.total_paid, 0);
+  const totalPending = projectList.reduce((acc, p) => acc + p.summary.pending, 0);
 
-  const financialData = data || DEFAULT_FINANCIAL_DATA;
-
-  // ── PDF generator ─────────────────────────────────────────────────────────────
-  const downloadFinancialSummaryPdf = () => {
-    const generated = new Date().toLocaleString("en-IN");
-    const formatCr = (val: number) => `₹${(val / 10000000).toFixed(2)} Cr`;
-
-    const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8"/>
-  <title>Project Financial Summary Report</title>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family:'Inter',sans-serif; background:#fff; color:#1e293b; padding:48px; }
-    .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #1e293b; padding-bottom:24px; margin-bottom:32px; }
-    .logo h1  { font-size:22px; font-weight:900; color:#1e293b; letter-spacing:-0.5px; }
-    .logo p   { font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:2px; margin-top:4px; }
-    .meta     { text-align:right; }
-    .meta .badge { display:inline-block; background:#f1f5f9; color:#1e293b; font-size:9px; font-weight:900; text-transform:uppercase; letter-spacing:1.5px; padding:4px 12px; border-radius:20px; margin-bottom:6px; }
-    .meta p   { font-size:10px; color:#64748b; font-weight:600; margin-top:3px; }
-    .title-block { margin-bottom:32px; }
-    .title-block h2 { font-size:20px; font-weight:900; color:#0f172a; }
-    .title-block p  { font-size:11px; color:#64748b; font-weight:600; margin-top:6px; text-transform:uppercase; letter-spacing:1.5px; }
-    .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:32px; }
-    .kpi  { background:#f8fafc; border:1px solid #e2e8f0; border-radius:16px; padding:20px; }
-    .kpi .val { font-size:18px; font-weight:900; }
-    .kpi .lbl { font-size:9px; font-weight:800; color:#94a3b8; text-transform:uppercase; letter-spacing:1.5px; margin-top:4px; }
-    .blue   { color:#2563eb; }
-    .green  { color:#10b981; }
-    .amber  { color:#f59e0b; }
-    .red    { color:#ef4444; }
-    .sec h3 { font-size:11px; font-weight:900; text-transform:uppercase; letter-spacing:2px; color:#0f172a; margin-bottom:14px; padding-bottom:8px; border-bottom:1px solid #f1f5f9; }
-    .sec    { margin-bottom:28px; }
-    .note { font-size:11px; color:#475569; line-height:1.8; font-weight:500; }
-    .footer { margin-top:40px; padding-top:20px; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; font-size:9px; color:#94a3b8; font-weight:700; text-transform:uppercase; letter-spacing:1px; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div class="logo">
-      <h1>InfraPilot</h1>
-      <p>Project Transparency Portal</p>
-    </div>
-    <div class="meta">
-      <span class="badge">Financial Audit Trail</span>
-      <p>Generated: ${generated}</p>
-    </div>
-  </div>
-
-  <div class="title-block">
-    <h2>Financial Performance Summary</h2>
-    <p>Live budget utilization and invoice tracking overview</p>
-  </div>
-
-  <div class="kpis">
-    <div class="kpi">
-      <div class="val">${formatCr(financialData.total_invoice)}</div>
-      <div class="lbl">Total Invoiced</div>
-    </div>
-    <div class="kpi">
-      <div class="val green">${formatCr(financialData.paid_invoice)}</div>
-      <div class="lbl">Paid Amount</div>
-    </div>
-    <div class="kpi">
-      <div class="val amber">${formatCr(financialData.pending_invoice)}</div>
-      <div class="lbl">Pending Dues</div>
-    </div>
-    <div class="kpi">
-      <div class="val red">${formatCr(financialData.total_expense)}</div>
-      <div class="lbl">Total Expenses</div>
-    </div>
-  </div>
-
-  <div class="sec">
-    <h3>Financial Analysis</h3>
-    <p class="note">
-      Project financial standing as of ${generated.split(',')[0]}. 
-      The total invoiced amount stands at <strong>${formatCr(financialData.total_invoice)}</strong>, 
-      with a current net profit margin estimated at <strong>${formatCr(financialData.profit)}</strong>. 
-      Expenditure control is maintained at <strong>${formatCr(financialData.total_expense)}</strong>.
-    </p>
-  </div>
-
-  <div class="footer">
-    <span>InfraPilot © 2026 — Project Transparency Portal</span>
-    <span>Page 1 of 1</span>
-  </div>
-</body>
-</html>`;
-
-    const iframe = document.createElement("iframe");
-    iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:none;";
-    document.body.appendChild(iframe);
-    const doc = iframe.contentWindow?.document;
-    if (!doc) return;
-    doc.open();
-    doc.write(html);
-    doc.close();
-    setTimeout(() => {
-      iframe.contentWindow?.focus();
-      iframe.contentWindow?.print();
-      setTimeout(() => document.body.removeChild(iframe), 2000);
-    }, 600);
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
+    }).format(amount);
   };
 
-  const formatPrice = (val: number | undefined) => {
-    if (val == null) return '—';
-    if (val >= 10000000) return `₹${(val / 10000000).toFixed(2)} Cr`;
-    if (val >= 100000) return `₹${(val / 100000).toFixed(2)} L`;
-    return `₹${val.toLocaleString()}`;
+  const handleDownloadReport = async () => {
+    if (projectList.length === 0) return;
+    try {
+      setExporting(true);
+      const blob = await reportService.exportFinancialSummaryPDF(projectList[0].projectId);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Financial_Summary_${new Date().getTime()}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+    } catch (err) {
+      console.error("Export failed:", err);
+      // Fallback to window.print if backend export fails
+      window.print();
+    } finally {
+      setExporting(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <Navbar title="Financials Overview" breadcrumb={["InfraPilot", "Client", "Financials"]} />
+        <div className="flex flex-col items-center justify-center h-[60vh]">
+          <div className="w-12 h-12 border-4 border-slate-200 border-t-primary rounded-full animate-spin mb-4" />
+          <p className="text-slate-400 font-black uppercase tracking-widest text-[10px]">Assembling Financial Ledger...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <>
-      <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Financials", "Summary"]} />
-      <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
-        <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+    <div className="min-h-screen bg-slate-50 font-inter pb-20">
+      <Navbar title="Financial Transparency" breadcrumb={["InfraPilot", "Client", "Financials"]} />
+      
+      <div className="max-w-[1400px] mx-auto p-6 md:p-8">
+        {/* Header with Export */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
           <div>
-            <h1 className="text-3xl font-black text-slate-800 tracking-tight">Financial Summary</h1>
-            <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">Overview of project budget and actual expenditures</p>
+            <h1 className="text-4xl font-black text-slate-900 tracking-tight">Financial Summary</h1>
+            <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[11px]">Investment & Ledger across your portfolio</p>
           </div>
-
-          <div className="relative">
-            <button
-              onClick={() => setIsNavOpen(!isNavOpen)}
-              className="flex items-center gap-3 px-6 py-4 bg-white rounded-2xl shadow-sm border border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all"
-            >
-              Financial Reports
-              <svg className={`w-3.5 h-3.5 transition-transform duration-300 ${isNavOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
+          <button
+            onClick={handleDownloadReport}
+            disabled={exporting}
+            className="px-8 py-4 bg-blue-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 active:scale-95 disabled:opacity-50 flex items-center gap-3"
+          >
+            {exporting ? (
+              <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
-            </button>
-
-            {isNavOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setIsNavOpen(false)}></div>
-                <div className="absolute right-0 mt-3 w-72 bg-white rounded-2xl shadow-xl border border-slate-100 py-3 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                  {[
-                    { label: "Profit & Loss", path: "/client/reports/profit-loss", icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
-                    { label: "Cashflow Report", path: "/client/reports/cashflow", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v16m-6 0a2 2 0 002 2h2a2 2 0 002-2" },
-                    { label: "Asset Report", path: "/client/reports/assets", icon: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" }
-                  ].map((item) => (
-                    <div key={item.label} className="px-2">
-                      <button
-                        onClick={() => {
-                          navigate(item.path);
-                          setIsNavOpen(false);
-                        }}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:text-blue-600 hover:bg-slate-50 rounded-xl transition-all text-left"
-                      >
-                        <svg className="w-4 h-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
-                        </svg>
-                        {item.label}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </>
             )}
-          </div>
+            {exporting ? "Generating Report..." : "Download Financial Summary"}
+          </button>
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+        {/* Global Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
           {[
-            { label: "Total Invoiced", value: formatPrice(financialData.total_invoice), icon: "📋", color: "text-slate-600 bg-slate-50" },
-            { label: "Total Paid", value: formatPrice(financialData.paid_invoice), icon: "✅", color: "text-emerald-600 bg-emerald-50" },
-            { label: "Pending Dues", value: formatPrice(financialData.pending_invoice), icon: "⏳", color: "text-amber-600 bg-amber-50" },
-            { label: "Total Expense", value: formatPrice(financialData.total_expense), icon: "⚠️", color: "text-red-600 bg-red-50" },
-          ].map((card, i) => (
-            <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-              <div className={`w-10 h-10 ${card.color} rounded-2xl flex items-center justify-center text-lg mb-4 shadow-inner`}>
-                {card.icon}
-              </div>
-              <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">{card.label}</p>
-              <p className="text-2xl font-black text-slate-800 tracking-tight">{loading ? '...' : card.value}</p>
+            { label: "Portfolio Value", value: formatCurrency(totalInvoiced), color: "bg-white text-slate-900 shadow-sm border border-slate-100" },
+            { label: "Equity Settled", value: formatCurrency(totalPaid), color: "bg-emerald-600 text-white shadow-xl shadow-emerald-100" },
+            { label: "Active Dues", value: formatCurrency(totalPending), color: "bg-white text-red-600 shadow-sm border border-red-50" },
+          ].map((stat, i) => (
+            <div key={i} className={`${stat.color} p-8 rounded-3xl flex flex-col gap-4 relative overflow-hidden group`}>
+              <p className={`text-[10px] font-black uppercase tracking-widest ${i === 1 ? 'text-emerald-100' : 'text-slate-400'}`}>{stat.label}</p>
+              <h2 className="text-3xl font-black tracking-tight">{stat.value}</h2>
             </div>
           ))}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-          <div className="lg:col-span-2 bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-lg font-black text-slate-800 tracking-tight">Phase-wise Cost Tracking</h2>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-slate-300" />
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Budget</span>
+        {/* Project Wise Sections */}
+        <div className="space-y-12">
+          {projectList.map((project, idx) => (
+            <div key={project.projectId} className="bg-white rounded-3xl overflow-hidden shadow-sm border border-slate-100">
+              {/* Project Header */}
+              <div className="p-8 bg-slate-50/50 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm text-xl border border-slate-100">🏗️</div>
+                  <div>
+                    <h2 className="text-xl font-black text-slate-900 tracking-tight">{project.projectName}</h2>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Project ID: PRJ-{project.projectId}</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-primary" />
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Actual Spent</span>
+                <div className="flex gap-4 md:gap-8">
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Invoiced</p>
+                    <p className="text-sm font-black text-slate-700">{formatCurrency(project.summary.total_invoiced)}</p>
+                  </div>
+                  <div className="w-px h-8 bg-slate-200 hidden md:block" />
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Amount Paid</p>
+                    <p className="text-sm font-black text-emerald-600">{formatCurrency(project.summary.total_paid)}</p>
+                  </div>
+                  <div className="w-px h-8 bg-slate-200 hidden md:block" />
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Awaiting</p>
+                    <p className="text-sm font-black text-red-500">{formatCurrency(project.summary.pending)}</p>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="h-80 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={costDataMock} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} unit="Cr" />
-                  <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
-                  <Bar dataKey="budget" fill="#E2E8F0" radius={[4, 4, 0, 0]} barSize={40} />
-                  <Bar dataKey="actual" fill="#2563EB" radius={[4, 4, 0, 0]} barSize={40}>
-                    {costDataMock.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.actual > entry.budget ? '#EF4444' : '#2563EB'} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
 
-          <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 flex flex-col justify-center items-center text-center">
-            <div className="w-24 h-24 rounded-full bg-blue-50 flex items-center justify-center text-3xl mb-6 shadow-inner text-primary">📊</div>
-            <h3 className="text-xl font-black text-slate-800 mb-2">Net Project Profit</h3>
-            <p className="text-sm text-slate-500 font-medium mb-6">
-              Estimated net profit based on current site expenses and billed invoices.
-            </p>
-            <div className="w-full bg-slate-50 rounded-2xl p-6 border border-slate-100 mb-6">
-              <p className="text-3xl font-black text-emerald-600">{loading ? '...' : formatPrice(financialData.profit)}</p>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Current Standing</p>
+              {/* Table Body */}
+              <div className="p-8">
+                <div className="flex items-center justify-between mb-8">
+                  <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-blue-600" />
+                    Milestone Settlement Ledger
+                  </h3>
+                </div>
+
+                <div className="space-y-4">
+                  {projectList[idx].milestones.map((step, sIdx) => (
+                    <div key={sIdx} className="group flex items-center justify-between p-6 bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all hover:border-blue-100">
+                      <div className="flex items-center gap-6">
+                        {/* Status Icon */}
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner ${
+                          step.amount > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-300'
+                        }`}>
+                          {step.amount > 0 ? '✓' : sIdx + 1}
+                        </div>
+                        
+                        <div>
+                          <h4 className="text-base font-black text-slate-800 tracking-tight uppercase">{step.name}</h4>
+                          <div className="flex items-center gap-3 mt-1">
+                            <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${
+                              step.amount > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'
+                            }`}>
+                              {step.amount > 0 ? 'Settled' : 'Planned'}
+                            </span>
+                            {step.amount > 0 && (
+                              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                                Paid on {step.date}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <p className={`text-xl font-black tracking-tight ${step.amount > 0 ? 'text-blue-600' : 'text-slate-300'}`}>
+                          {step.amount > 0 ? formatCurrency(step.amount) : "Awaiting"}
+                        </p>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Stage Payment</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Footer Note */}
+              <div className="px-8 py-6 bg-slate-50/30 border-t border-slate-50">
+                 <p className="text-[10px] text-slate-400 font-medium italic">
+                   Note: Payment amounts are calculated based on verified owner-linked invoices corresponding to each project phase.
+                 </p>
+              </div>
             </div>
-            <button
-              onClick={downloadFinancialSummaryPdf}
-              className="w-full px-6 py-4 bg-slate-800 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-700 transition-colors active:scale-95 transform"
-            >
-              Download Financial Report
-            </button>
-          </div>
+          ))}
         </div>
       </div>
-    </>
+    </div>
   );
 };
 

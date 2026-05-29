@@ -410,16 +410,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     { label: "Dashboard", path: "/client", icon: "grid" },
     { label: "Project Overview", path: "/client/overview", icon: "info" },
     { label: "Work Progress", path: "/client/progress", icon: "bar-chart" },
-    {
-      label: "Financials",
-      path: "/client/financials",
-      icon: "dollar-sign",
-      subNav: [
-        { label: "Summary", path: "/client/financials/summary", icon: "bar-chart" },
-        { label: "Invoices", path: "/client/financials/invoices", icon: "file-text" },
-        { label: "Payments", path: "/client/financials/payments", icon: "credit-card" },
-      ],
-    },
+
     {
       label: "Site Updates",
       path: "/client/site-updates",
