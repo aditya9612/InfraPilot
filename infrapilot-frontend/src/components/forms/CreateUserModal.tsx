@@ -18,6 +18,8 @@ const ROLES: { value: UserRole; label: string }[] = [
   { value: "Client", label: "Client" },
 ];
 
+import { Eye, EyeOff, ShieldCheck, ShieldAlert, Shield } from "lucide-react";
+
 const CreateUserModal: React.FC<CreateUserModalProps> = ({
   isOpen,
   onClose,
@@ -41,9 +43,24 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [photo, setPhoto] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [photoUrl, setPhotoUrl] = useState<string>("");
+
+  const getPasswordStrength = (pass: string) => {
+    if (!pass) return { score: 0, label: "Empty" };
+    let score = 0;
+    if (pass.length >= 8) score++;
+    if (/[a-z]/.test(pass)) score++;
+    if (/[A-Z]/.test(pass)) score++;
+    if (/[0-9]/.test(pass)) score++;
+    if (/[^A-Za-z0-9]/.test(pass)) score++;
+
+    if (score <= 2) return { score, label: "Weak", color: "text-rose-500", bg: "bg-rose-500" };
+    if (score <= 4) return { score, label: "Moderate", color: "text-amber-500", bg: "bg-amber-500" };
+    return { score, label: "Strong", color: "text-emerald-500", bg: "bg-emerald-500" };
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -60,6 +77,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
           aadhaar_number: initialData.aadhaar_number || "",
           address: initialData.address || "",
           is_active: initialData.is_active ?? true,
+          password: "",
         } as any);
         setPhotoUrl(initialData.profile_image || "");
       } else {
@@ -81,10 +99,10 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
       }
       setErrors({});
       setPhoto(null);
+      setShowPassword(false);
     }
   }, [isOpen, initialData]);
 
-  // Handle preview URL cleanup to prevent memory leaks
   useEffect(() => {
     let url = "";
     if (photo) {
@@ -113,8 +131,24 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     if (!formData.designation)
       newErrors.designation = "Designation is required.";
 
-    if (!initialData && formData.password && formData.password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters.";
+    if (!initialData) {
+      if (!formData.password) {
+        newErrors.password = "Password is required for new users.";
+      } else {
+        const pass = formData.password;
+        const requirements = [
+          { re: /.{8,}/, msg: "8+ characters" },
+          { re: /[A-Z]/, msg: "uppercase" },
+          { re: /[a-z]/, msg: "lowercase" },
+          { re: /[0-9]/, msg: "number" },
+          { re: /[^A-Za-z0-9]/, msg: "special character" }
+        ];
+
+        const failed = requirements.filter(req => !req.re.test(pass));
+        if (failed.length > 0) {
+          newErrors.password = `Must include: ${failed.map(f => f.msg).join(", ")}.`;
+        }
+      }
     }
 
     setErrors(newErrors);
@@ -313,20 +347,78 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
               )}
             </div>
             {!initialData && (
-              <div>
+              <div className="md:col-span-1">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Password
+                  Password <span className="text-rose-500">*</span>
                 </label>
-                <input
-                  type="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  placeholder="••••••••"
-                  className={`w-full px-4 py-2 bg-gray-50 border ${errors.password ? "border-rose-500 focus:ring-rose-100" : "border-gray-200 focus:ring-primary/20"} rounded-xl transition-all outline-none`}
-                />
+                <div className="relative group">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="••••••••"
+                    className={`w-full px-4 py-2 bg-gray-50 border ${errors.password ? "border-rose-500 focus:ring-rose-100" : "border-gray-200 focus:ring-primary/20"} rounded-xl transition-all outline-none pr-10`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-colors focus:outline-none"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+
+                {/* Password Strength Meter */}
+                {formData.password && (
+                  <div className="mt-2 space-y-1.5">
+                    <div className="flex justify-between items-center px-1">
+                      <div className="flex items-center gap-1.5">
+                        {getPasswordStrength(formData.password).score <= 2 ? (
+                          <ShieldAlert className="w-3 h-3 text-rose-500" />
+                        ) : getPasswordStrength(formData.password).score <= 4 ? (
+                          <Shield className="w-3 h-3 text-amber-500" />
+                        ) : (
+                          <ShieldCheck className="w-3 h-3 text-emerald-500" />
+                        )}
+                        <span className={`text-[10px] font-bold uppercase tracking-wider ${getPasswordStrength(formData.password).color}`}>
+                          {getPasswordStrength(formData.password).label} Security
+                        </span>
+                      </div>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <div
+                            key={s}
+                            className={`h-1 w-4 rounded-full transition-all duration-500 ${s <= getPasswordStrength(formData.password).score ? getPasswordStrength(formData.password).bg : 'bg-gray-200'}`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Requirements Checklist */}
+                    <div className="grid grid-cols-2 gap-x-2 gap-y-1 px-1 py-1 bg-white/50 rounded-lg border border-gray-100 items-center">
+                      {[
+                        { re: /.{8,}/, msg: "8+ chars" },
+                        { re: /[A-Z]/, msg: "Uppercase" },
+                        { re: /[a-z]/, msg: "Lowercase" },
+                        { re: /[0-9]/, msg: "Number" },
+                        { re: /[^A-Za-z0-9]/, msg: "Special" }
+                      ].map((req, idx) => (
+                        <div key={idx} className="flex items-center gap-1.5">
+                          <div className={`w-1.5 h-1.5 rounded-full transition-colors ${req.re.test(formData.password) ? 'bg-emerald-500 shadow-[0_0_4px_rgba(16,185,129,0.5)]' : 'bg-gray-300'}`} />
+                          <span className={`text-[9px] font-medium leading-none ${req.re.test(formData.password) ? 'text-gray-700' : 'text-gray-400'}`}>
+                            {req.msg}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {errors.password && (
-                  <p className="mt-1 text-xs text-rose-500">{errors.password}</p>
+                  <p className="mt-1 text-xs text-rose-500 animate-in fade-in slide-in-from-top-1">
+                    {errors.password}
+                  </p>
                 )}
               </div>
             )}

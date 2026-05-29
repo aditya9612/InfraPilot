@@ -55,8 +55,7 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
 
   useEffect(() => {
     const fetchNotifs = async () => {
-      const role = user?.role === "SiteEngineer" ? "SiteEngineer" : "All";
-      const data = await notificationService.getNotifications(role);
+      const data = await notificationService.getNotifications();
       setNotifications(data);
     };
     fetchNotifs();
@@ -69,14 +68,13 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
     setIsDetailOpen(true);
     setIsNotificationOpen(false);
     if (!notif.read) {
-      await notificationService.markAsRead(notif.id);
+      await notificationService.markAsRead(notif.id, notif.source);
       setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
     }
   };
 
   const markAllRead = async () => {
-    const role = user?.role === "SiteEngineer" ? "SiteEngineer" : "All";
-    await notificationService.markAllAsRead(role);
+    await notificationService.markAllAsRead("All", notifications);
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   };
 
