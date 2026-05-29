@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import { settingsService } from "../services/settingsService";
 import { projectService } from "../services/projectService";
 
 /**
@@ -17,12 +16,15 @@ export function useClientProjectId() {
 
   const resolve = useCallback(async () => {
     try {
-      // 1. Try user settings first
-      const settings = await settingsService.getSettings();
-      if (settings?.default_project_id) {
-        setProjectId(Number(settings.default_project_id));
-        setLoading(false);
-        return;
+      // 1. Try local cache first to avoid API call as requested
+      const localSettings = localStorage.getItem("mock_settings");
+      if (localSettings) {
+        const parsed = JSON.parse(localSettings);
+        if (parsed?.default_project_id) {
+          setProjectId(Number(parsed.default_project_id));
+          setLoading(false);
+          return;
+        }
       }
 
       // 2. Fallback: first available project
@@ -47,10 +49,10 @@ export function useClientProjectId() {
   useEffect(() => {
     resolve();
 
-    // Re-check when window regains focus (e.g. user changed project in settings)
+    // Re-check when window regains focus or user navigates
     window.addEventListener("focus", resolve);
     return () => window.removeEventListener("focus", resolve);
-  }, [resolve]);
+  }, [resolve, window.location.pathname]);
 
   return { projectId, loading };
 }

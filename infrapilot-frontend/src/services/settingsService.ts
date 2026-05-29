@@ -37,6 +37,7 @@ export const settingsService = {
     async getSettings(): Promise<UserSettings> {
         try {
             const response = await api.get("/settings");
+            localStorage.setItem("mock_settings", JSON.stringify(response.data));
             return response.data;
         } catch (error: any) {
             console.warn("Get Settings API Error, using virtual success fallback:", error.message);
@@ -78,6 +79,7 @@ export const settingsService = {
 
         try {
             const response = await api.put("/settings", payload);
+            localStorage.setItem("mock_settings", JSON.stringify(response.data));
             return response.data;
         } catch (error: any) {
             console.warn("Settings Update Failed, using virtual success fallback:", error.message);

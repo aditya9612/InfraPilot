@@ -63,6 +63,7 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
       combinedNotifs = [...systemNotifs];
 
       // 2. If client, fetch real project alerts/announcements
+      /* 
       if (user?.role === "Client") {
         try {
           const { alertService } = await import("../../services/alertService");
@@ -84,6 +85,7 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
           console.warn("Navbar: Failed to fetch alerts for client", e);
         }
       }
+      */
 
       // Sort by timestamp newest first
       combinedNotifs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());

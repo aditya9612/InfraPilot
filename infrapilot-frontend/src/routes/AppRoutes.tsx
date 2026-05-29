@@ -297,6 +297,15 @@ function AppRoutes() {
 
               {/* Site Updates */}
               <Route
+                path="/client/site-updates/photos"
+                element={<ClientPhotosPage />}
+              />
+              <Route
+                path="/client/site-updates/dsr"
+                element={<ClientDSRSummaryPage />}
+              />
+              {/* Legacy paths for backward compatibility */}
+              <Route
                 path="/client/photos"
                 element={<ClientPhotosPage />}
               />
@@ -333,6 +342,15 @@ function AppRoutes() {
 
               {/* Communication */}
               <Route
+                path="/client/communication/messages"
+                element={<ClientMessagesPage />}
+              />
+              <Route
+                path="/client/communication/announcements"
+                element={<ClientAnnouncementsPage />}
+              />
+              {/* Legacy paths for backward compatibility */}
+              <Route
                 path="/client/messages"
                 element={<ClientMessagesPage />}
               />
@@ -344,7 +362,7 @@ function AppRoutes() {
               {/* Reports Dashboard */}
               <Route path="/client/reports" element={<ClientReportsPage />} />
               <Route path="/client/reports/summary" element={<ClientReportsPage />} />
-              
+
               {/* Specific Report Pages */}
               <Route path="/client/reports/labour" element={<ClientLabourReportPage />} />
               <Route path="/client/reports/material" element={<ClientMaterialReportPage />} />
@@ -358,7 +376,7 @@ function AppRoutes() {
               <Route path="/client/reports/client-report" element={<ClientIndividualReportPage />} />
               <Route path="/client/reports/financial" element={<ClientFinancialDetailsPage />} />
               <Route path="/client/reports/work" element={<ClientTaskStatusPage />} />
-              
+
               {/* High Level Report Pages */}
               <Route path="/client/monthly-progress-report" element={<ClientMonthlyProgressPage />} />
               <Route path="/client/financial-report" element={<ClientFinancialDetailsPage />} />
