@@ -659,8 +659,8 @@ const QCInspectionPage = () => {
                                                 key={`page-${pageNum}`}
                                                 onClick={() => setCurrentPage(pageNum as number)}
                                                 className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
-                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
-                                                        : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                                    ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
+                                                    : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
                                                     }`}
                                             >
                                                 {pageNum}

@@ -268,6 +268,13 @@ const MaterialRequestPage = () => {
                     </div>
                     <div className="flex items-center gap-3">
                         <button
+                            onClick={fetchRequests}
+                            className="p-2 text-slate-400 hover:text-primary transition-colors bg-white rounded-xl border border-slate-200 shadow-sm font-inter active:scale-95"
+                            title="Refetch Intelligence"
+                        >
+                            <RotateCcw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+                        </button>
+                        <button
                             onClick={() => {
                                 setFormData({
                                     project_id: "",
@@ -282,13 +289,6 @@ const MaterialRequestPage = () => {
                         >
                             <Plus className="w-4 h-4" />
                             New Material Entry
-                        </button>
-                        <button
-                            onClick={fetchRequests}
-                            className="p-2 text-slate-400 hover:text-primary transition-colors bg-white rounded-xl border border-slate-200 shadow-sm font-inter active:scale-95"
-                            title="Refetch Intelligence"
-                        >
-                            <RotateCcw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
                         </button>
                     </div>
                 </div>

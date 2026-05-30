@@ -257,6 +257,13 @@ const WorkApprovalPage = () => {
                     </div>
                     <div className="flex items-center gap-3">
                         <button
+                            onClick={fetchApprovals}
+                            className="p-2 text-slate-400 hover:text-primary transition-colors bg-white rounded-xl border border-slate-200 shadow-sm font-inter active:scale-95"
+                            title="Refetch Authorizations"
+                        >
+                            <RotateCcw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+                        </button>
+                        <button
                             onClick={() => {
                                 setIsEditMode(false);
                                 setFormData({
@@ -273,13 +280,6 @@ const WorkApprovalPage = () => {
                         >
                             <Plus className="w-4 h-4" />
                             Log Request
-                        </button>
-                        <button
-                            onClick={fetchApprovals}
-                            className="p-2 text-slate-400 hover:text-primary transition-colors bg-white rounded-xl border border-slate-200 shadow-sm font-inter active:scale-95"
-                            title="Refetch Authorizations"
-                        >
-                            <RotateCcw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
                         </button>
                     </div>
                 </div>

@@ -188,13 +188,6 @@ const PaymentPage: React.FC = () => {
                         <p className="text-slate-500 text-sm font-inter">Secure wage distribution and advance request management with full audit trails.</p>
                     </div>
                     <div className="flex items-center gap-3 font-inter flex-wrap">
-                        <button
-                            onClick={() => setIsGenerateModalOpen(true)}
-                            className="bg-primary text-white border border-primary px-4 py-2 rounded-xl flex items-center gap-2 font-inter shadow-sm hover:bg-primary/90 transition-all text-sm font-bold"
-                        >
-                            <FileText className="w-4 h-4" />
-                            Generate Payroll
-                        </button>
                         <div className="bg-white border border-slate-200 px-4 py-2 rounded-xl flex items-center gap-3 font-inter shadow-sm">
                             <Calendar className="w-4 h-4 text-primary font-inter" />
                             <span className="text-xs font-bold text-slate-600 uppercase tracking-widest font-inter">{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
@@ -377,6 +370,12 @@ const PaymentPage: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-4 text-right font-inter">
                                                 <div className="flex items-center justify-end gap-2 font-inter">
+                                                    <button
+                                                        onClick={() => setAdvanceTarget(labour)}
+                                                        className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white text-[9px] font-bold uppercase tracking-widest rounded-xl hover:bg-amber-600 shadow-lg shadow-amber-500/20 transition-all active:scale-95 font-inter"
+                                                    >
+                                                        Advance
+                                                    </button>
                                                     <button
                                                         onClick={() => setPayTarget(labour)}
                                                         className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-[9px] font-bold uppercase tracking-widest rounded-xl hover:bg-blue-600 shadow-lg shadow-primary/20 transition-all active:scale-95 font-inter"
