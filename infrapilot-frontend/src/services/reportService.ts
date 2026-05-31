@@ -63,8 +63,8 @@ export const reportService = {
         return response.data;
     },
 
-    getAssetReport: async () => {
-        const response = await api.get(`/reports/assets`);
+    getAssetReport: async (projectId?: number) => {
+        const response = await api.get(`/reports/assets`, { params: { project_id: projectId } });
         return response.data;
     },
 
@@ -85,17 +85,17 @@ export const reportService = {
     },
 
     shareDailyEmail: async (data: any) => {
-        const response = await api.post(`/reports/share/daily-email`, data);
+        const response = await api.post(`/reports/daily/share/email`, data);
         return response.data;
     },
 
     shareCombinedEmail: async (data: any) => {
-        const response = await api.post(`/reports/share/combined-email`, data);
+        const response = await api.post(`/reports/combined/share/email`, data);
         return response.data;
     },
 
     shareCombinedWhatsapp: async (data: any) => {
-        const response = await api.post(`/reports/share/combined-whatsapp`, data);
+        const response = await api.post(`/reports/combined/share/whatsapp`, data);
         return response.data;
     },
 
@@ -181,6 +181,13 @@ export const reportService = {
         return response.data;
     },
 
+    getCombinedReportData: async (projectId: number, startDate: string, endDate: string) => {
+        const response = await api.get(`/reports/combined`, {
+            params: { project_id: projectId, start_date: startDate, end_date: endDate }
+        });
+        return response.data;
+    },
+
     downloadCombinedReport: async (projectId: number, startDate: string, endDate: string) => {
         const response = await api.get(`/reports/combined`, {
             params: { project_id: projectId, start_date: startDate, end_date: endDate },
@@ -235,8 +242,9 @@ export const reportService = {
         return response.data;
     },
 
-    exportAssetExcel: async () => {
-        const response = await api.get(`/reports/assets/export/excel`, {
+    exportAssetExcel: async (projectId?: number) => {
+        const response = await api.get(`/reports/fixed-assets/export/excel`, {
+            params: { project_id: projectId },
             responseType: 'blob'
         });
         return response.data;

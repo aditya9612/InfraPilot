@@ -7,6 +7,8 @@ interface ReportPreviewModalProps {
     reportName: string;
     data: any;
     onExport?: (format: "PDF" | "Excel") => void;
+    onShare?: () => void;
+    exportType?: "PDF" | "Excel" | "Both";
 }
 
 const ReportPreviewModal = ({
@@ -14,7 +16,9 @@ const ReportPreviewModal = ({
     onClose,
     reportName,
     data,
-    onExport
+    onExport,
+    onShare,
+    exportType = "Both"
 }: ReportPreviewModalProps) => {
     if (!data) return null;
 
@@ -83,21 +87,28 @@ const ReportPreviewModal = ({
             <div className="flex gap-3">
                 {onExport && (
                     <>
-                        <button
-                            onClick={() => onExport("PDF")}
-                            className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all flex items-center gap-2"
-                        >
-                            <Download size={14} /> PDF
-                        </button>
-                        <button
-                            onClick={() => onExport("Excel")}
-                            className="px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-bold hover:bg-emerald-100 transition-all flex items-center gap-2"
-                        >
-                            <FileText size={14} /> Excel
-                        </button>
+                        {(exportType === "PDF" || exportType === "Both") && (
+                            <button
+                                onClick={() => onExport("PDF")}
+                                className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all flex items-center gap-2"
+                            >
+                                <Download size={14} /> PDF
+                            </button>
+                        )}
+                        {(exportType === "Excel" || exportType === "Both") && (
+                            <button
+                                onClick={() => onExport("Excel")}
+                                className="px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-bold hover:bg-emerald-100 transition-all flex items-center gap-2"
+                            >
+                                <FileText size={14} /> Excel
+                            </button>
+                        )}
                     </>
                 )}
-                <button className="px-6 py-2 bg-primary text-white rounded-xl text-xs font-black shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2">
+                <button
+                    onClick={onShare}
+                    className="px-6 py-2 bg-primary text-white rounded-xl text-xs font-black shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2"
+                >
                     <Share2 size={14} /> Share Report
                 </button>
             </div>

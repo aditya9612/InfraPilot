@@ -37,30 +37,25 @@ export const settingsService = {
     async getSettings(): Promise<UserSettings> {
         try {
             const response = await api.get("/settings");
-            localStorage.setItem("mock_settings", JSON.stringify(response.data));
-            return response.data;
-        } catch (error: any) {
-            console.warn("Get Settings API Error, using virtual success fallback:", error.message);
-            const localSettings = localStorage.getItem("mock_settings");
-            if (localSettings) return JSON.parse(localSettings);
+            const apiSettings = response.data;
 
-            return {
-                default_project_id: 92,
-                unit: "metric",
-                notifications_enabled: true,
-                preferences: {
-                    language: "en",
-                    timezone: "Asia/Kolkata",
-                    dateFormat: "DD/MM/YYYY",
-                    unitSystem: "metric",
-                    massUnit: "kg"
-                },
-                financial_year: "2026",
-                currency: "INR",
-                tax_settings: {},
-                invoice_format: "standard",
-                payment_terms: "30 days"
-            } as any;
+            const lastSavedAt = localStorage.getItem("mock_settings_saved_at");
+            const localSettings = localStorage.getItem("mock_settings");
+            if (lastSavedAt && localSettings) {
+                const savedMs = parseInt(lastSavedAt, 10);
+                const ageSeconds = (Date.now() - savedMs) / 1000;
+                if (ageSeconds < 60) {
+                    console.log("getSettings: Using locally saved settings (saved", Math.round(ageSeconds), "s ago)");
+                    return JSON.parse(localSettings);
+                }
+            }
+
+            localStorage.setItem("mock_settings", JSON.stringify(apiSettings));
+            localStorage.removeItem("mock_settings_saved_at");
+            return apiSettings;
+        } catch (error: any) {
+            console.error("Get Settings API Error:", error.message);
+            throw error;
         }
     },
 
@@ -82,15 +77,8 @@ export const settingsService = {
             localStorage.setItem("mock_settings", JSON.stringify(response.data));
             return response.data;
         } catch (error: any) {
-            console.warn("Settings Update Failed, using virtual success fallback:", error.message);
-
-            // Merge with existing
-            const localSettingsStr = localStorage.getItem("mock_settings");
-            const localSettings = localSettingsStr ? JSON.parse(localSettingsStr) : {};
-            const updated = { ...localSettings, ...payload };
-
-            localStorage.setItem("mock_settings", JSON.stringify(updated));
-            return updated as any;
+            console.error("Settings Update Failed:", error.message);
+            throw error;
         }
     },
 
@@ -101,26 +89,29 @@ export const settingsService = {
     async getProfile(): Promise<UserProfile> {
         try {
             const response = await api.get("/settings/profile");
-            return response.data;
-        } catch (error: any) {
-            console.warn("Get Profile API Error, using virtual success fallback:", error.message);
-            const localProfile = localStorage.getItem("mock_profile");
-            if (localProfile) return JSON.parse(localProfile);
+            const apiProfile = response.data;
 
-            return {
-                user_id: 1,
-                full_name: "Admin User",
-                role: "Admin",
-                mobile_number: "9999999990",
-                email: "admin@test.com",
-                address: "Pune",
-                pan_number: "ABCDE1234F",
-                aadhaar_number: "123412341234",
-                profile_image: "/uploads/profile/c5229e6d-19bf-4a3a-a977-9f5e89a51011.png",
-                designation: "Admin",
-                joining_date: "2026-03-30",
-                is_active: true
-            } as any;
+            // Check if we saved a profile locally more recently than what the API returned.
+            // This handles the case where PUT succeeds but GET still returns stale data (backend caching).
+            const lastSavedAt = localStorage.getItem("mock_profile_saved_at");
+            const localProfile = localStorage.getItem("mock_profile");
+            if (lastSavedAt && localProfile) {
+                const savedMs = parseInt(lastSavedAt, 10);
+                const ageSeconds = (Date.now() - savedMs) / 1000;
+                if (ageSeconds < 60) {
+                    // Local save is fresh — prefer it and return early
+                    console.log("getProfile: Using locally saved profile (saved", Math.round(ageSeconds), "s ago)");
+                    return JSON.parse(localProfile);
+                }
+            }
+
+            // API data seems current — use it and clear our local override
+            localStorage.setItem("mock_profile", JSON.stringify(apiProfile));
+            localStorage.removeItem("mock_profile_saved_at");
+            return apiProfile;
+        } catch (error: any) {
+            console.error("Get Profile API Error:", error.message);
+            throw error;
         }
     },
 
@@ -130,53 +121,31 @@ export const settingsService = {
      */
     async updateProfile(data: UpdateProfileRequest): Promise<UserProfile> {
         try {
-            console.log("PUT /api/v1/settings/profile - Initiating Update", data);
+            const formData = new FormData();
 
-            let response;
             if (data.profile_image instanceof File) {
-                const formData = new FormData();
                 formData.append("profile_image", data.profile_image);
-
-                // Append all other fields
-                if (data.full_name) formData.append("full_name", data.full_name);
-                if (data.role) formData.append("role", data.role);
-                if (data.mobile_number) formData.append("mobile_number", data.mobile_number);
-                if (data.email) formData.append("email", data.email);
-                if (data.address) formData.append("address", data.address);
-                if (data.pan_number) formData.append("pan_number", data.pan_number);
-                if (data.aadhaar_number) formData.append("aadhaar_number", data.aadhaar_number);
-                if (data.designation) formData.append("designation", data.designation);
-                if (data.joining_date) formData.append("joining_date", data.joining_date);
-                if (data.is_active !== undefined) formData.append("is_active", String(data.is_active));
-
-                // Note: We don't manually set Content-Type header to let Axios handle the boundary correctly
-                response = await api.put("/settings/profile", formData);
-            } else {
-                // Standard JSON body. Keep string profile_image if it exists.
-                const bodyData = { ...data };
-                response = await api.put("/settings/profile", bodyData);
             }
+            // Backend endpoint specifically expects multipart/form-data. It ignores JSON entirely.
+            if (data.full_name !== undefined) formData.append("full_name", data.full_name);
+            if (data.address !== undefined) formData.append("address", data.address);
+            if (data.pan_number !== undefined) formData.append("pan_number", data.pan_number);
+            if (data.aadhaar_number !== undefined) formData.append("aadhaar_number", data.aadhaar_number);
+            if (data.designation !== undefined) formData.append("designation", data.designation);
+            if (data.joining_date !== undefined) formData.append("joining_date", data.joining_date);
+
+            console.log("PUT /api/v1/settings/profile - Using FormData");
+
+            const response = await api.put("/settings/profile", formData, {
+                headers: { "Content-Type": "multipart/form-data" }
+            });
 
             console.log("PUT /api/v1/settings/profile - SUCCESS:", response.data);
+            localStorage.setItem("mock_profile", JSON.stringify(response.data));
             return response.data;
         } catch (error: any) {
-            console.warn("Profile Update Failed, using virtual success fallback:", error.message);
-            const localProfileStr = localStorage.getItem("mock_profile");
-            const localProfile = localProfileStr ? JSON.parse(localProfileStr) : {};
-
-            if (data.full_name) localProfile.full_name = data.full_name;
-            if (data.role) localProfile.role = data.role;
-            if (data.mobile_number) localProfile.mobile_number = data.mobile_number;
-            if (data.email) localProfile.email = data.email;
-            if (data.address) localProfile.address = data.address;
-            if (data.pan_number) localProfile.pan_number = data.pan_number;
-            if (data.aadhaar_number) localProfile.aadhaar_number = data.aadhaar_number;
-            if (data.designation) localProfile.designation = data.designation;
-            if (data.joining_date) localProfile.joining_date = data.joining_date;
-            if (data.is_active !== undefined) localProfile.is_active = data.is_active;
-
-            localStorage.setItem("mock_profile", JSON.stringify(localProfile));
-            return localProfile as any;
+            console.error("Profile Update API Error:", error.response?.data || error.message);
+            throw error;
         }
     }
 };

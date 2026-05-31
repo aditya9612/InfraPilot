@@ -39,6 +39,7 @@ export interface UpdateSettingsRequest {
 }
 
 export interface UpdateProfileRequest {
+    user_id?: number;
     full_name: string;
     role: string;
     mobile_number: string;

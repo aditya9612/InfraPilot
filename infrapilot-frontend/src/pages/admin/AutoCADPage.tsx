@@ -160,7 +160,14 @@ export default function AutoCADPage() {
   const pagedLogs = cadLogs.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 
   useEffect(() => {
-    api.get("/cad/logs").then((r) => setCadLogs(r.data)).catch(() => { });
+    api.get("/cad/logs")
+      .then((r) => {
+        const sorted = Array.isArray(r.data)
+          ? [...r.data].sort((a, b) => (b.id - a.id) || new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          : r.data;
+        setCadLogs(sorted);
+      })
+      .catch(() => { });
 
     // Load persisted visualizations
     const saved = localStorage.getItem("infrapilot_cad_visualizations");
