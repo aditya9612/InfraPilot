@@ -1,5 +1,4 @@
 import Navbar from "../../components/common/Navbar";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Modal from "../../components/common/Modal";
@@ -8,11 +7,6 @@ import { projectService } from "../../services/projectService";
 import toast from "react-hot-toast";
 import { useClientProjectId } from "../../hooks/useClientProjectId";
 
-const costData = [
-  { name: "Phase 1", budget: 1.2, actual: 1.1 },
-  { name: "Phase 2", budget: 2.5, actual: 2.7 },
-  { name: "Phase 3", budget: 1.8, actual: 1.5 },
-];
 
 const updates = [
   { id: 1, text: "Slab reinforcement for Phase 3 completed", time: "Today's Work", icon: "🏗️" },
@@ -125,27 +119,47 @@ const ClientDashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
           {[
             { label: "Overall Progress", value: dashboardData ? `${dashboardData.progress_percent}%` : "—", sub: "Progress Percent" },
-            { label: "Budget Used", value: dashboardData ? `${dashboardData.budget_used_percent}%` : "—", sub: "Budget Used Percent" },
-            { label: "Budget / Expense", value: dashboardData ? `₹${dashboardData.budget_total.toLocaleString("en-IN")} / ₹${dashboardData.total_expense.toLocaleString("en-IN")}` : "—", sub: "Total vs Expense", smallText: true },
+            { label: "Total Expense", value: dashboardData ? `₹${dashboardData.total_expense.toLocaleString("en-IN")}` : "—", sub: "Total Spent" },
+            { label: "Total Budget", value: dashboardData ? `₹${dashboardData.budget_total.toLocaleString("en-IN")}` : "—", sub: "Project Budget", smallText: true },
             { label: "Remaining Budget", value: dashboardData ? `₹${dashboardData.remaining_budget.toLocaleString("en-IN")}` : "—", sub: "Remaining", smallText: true },
             { label: "Milestones", value: dashboardData ? `${dashboardData.milestones_completed} / ${dashboardData.milestones_total}` : "—", sub: "Completed / Total" },
             { label: "Tasks", value: dashboardData ? `${dashboardData.tasks_completed} / ${dashboardData.tasks_total}` : "—", sub: "Completed / Total" },
-            { label: "Project Dates", value: dashboardData ? `${formatDate(dashboardData.start_date)}\n${formatDate(dashboardData.end_date)}` : "—", sub: "Start / End Date", smallText: true },
+            { 
+              label: "Project Dates", 
+              value: dashboardData ? (
+                <div className="flex items-center gap-3 mt-2">
+                  <div className="flex flex-col">
+                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Start</span>
+                    <span className="text-[13px] font-black text-blue-600 uppercase tracking-tighter leading-none">{formatDate(dashboardData.start_date)}</span>
+                  </div>
+                  <div className="text-slate-300 font-bold text-sm">→</div>
+                  <div className="flex flex-col">
+                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">End</span>
+                    <span className="text-[13px] font-black text-blue-600 uppercase tracking-tighter leading-none">{formatDate(dashboardData.end_date)}</span>
+                  </div>
+                </div>
+              ) : "—", 
+              sub: "Project Duration" 
+            },
             { label: "Days Remaining", value: dashboardData ? `${dashboardData.days_remaining}` : "—", sub: "Days Remaining" },
-          ].map((card, i) => (
+          ].map((card: any, i) => (
             <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 transition-all hover:shadow-md group flex flex-col justify-between min-h-[140px]">
               <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">{card.label}</p>
               <div className="flex-1 flex flex-col justify-center py-2">
-                 <p className={`${card.smallText ? "text-lg" : "text-2xl"} font-black text-blue-600 tracking-tight leading-snug whitespace-pre-line break-words`}>{card.value}</p>
+                 {typeof card.value === "string" ? (
+                   <p className={`${card.smallText ? "text-lg" : "text-2xl"} font-black text-blue-600 tracking-tight leading-snug whitespace-pre-line break-words`}>{card.value}</p>
+                 ) : (
+                   card.value
+                 )}
               </div>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">{card.sub}</p>
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-          <div className="lg:col-span-2 space-y-10">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 items-stretch">
+          <div className="lg:col-span-2">
             {/* Project Progress Viz */}
-            <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 relative overflow-hidden">
+            <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 relative overflow-hidden h-full">
               <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/50 rounded-full blur-3xl -mr-32 -mt-32" />
               <div className="flex flex-col md:flex-row gap-12 items-center relative z-10">
                 <div className="relative w-40 h-40 flex items-center justify-center shrink-0">
@@ -181,47 +195,12 @@ const ClientDashboard = () => {
                 </div>
               </div>
             </div>
-            {/* Financial Status Bar Chart */}
-            <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
-              <div className="flex items-center justify-between mb-10">
-                <div>
-                  <h2 className="text-xl font-black text-slate-800 tracking-tight">Cost Management Audit</h2>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Projected Budget vs Actual Real-time Spent (₹ Cr)</p>
-                </div>
-                <div className="flex items-center gap-6">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-slate-200" />
-                    <span className="text-[10px] font-black text-slate-400 uppercase">Projected</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-primary" />
-                    <span className="text-[10px] font-black text-slate-400 uppercase">Actual</span>
-                  </div>
-                </div>
-              </div>
-              <div className="h-72 w-full">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                  <BarChart data={costData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} unit="Cr" />
-                    <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 20px 40px rgba(0,0,0,0.1)', padding: '16px' }} />
-                    <Bar dataKey="budget" fill="#F1F5F9" radius={[12, 12, 0, 0]} barSize={40} />
-                    <Bar dataKey="actual" fill="#2563EB" radius={[12, 12, 0, 0]} barSize={40}>
-                      {costData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.actual > entry.budget ? '#EF4444' : '#2563EB'} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
 
           </div>
           {/* Side Module: Alerts, Updates, and Actions */}
-          <div className="space-y-6">
+          <div className="lg:col-span-1">
             {/* Timeline Stream */}
-            <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
+            <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 h-full">
               <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-4 border-b border-slate-50 pb-4">Live Execution Feed</h2>
               <div className="space-y-10 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-px before:bg-slate-100">
                 {updates.map(update => (

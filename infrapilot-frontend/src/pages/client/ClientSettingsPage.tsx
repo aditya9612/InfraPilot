@@ -2,7 +2,6 @@ import Navbar from "../../components/common/Navbar";
 import { useState, useEffect } from "react";
 import { settingsService } from "../../services/settingsService";
 import { projectService } from "../../services/projectService";
-import { alertService, type Alert } from "../../services/alertService";
 import type { UserProfile, UserSettings } from "../../types/settings";
 import toast from "react-hot-toast";
 
@@ -10,7 +9,6 @@ const ClientSettingsPage = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
-  const [alerts, setAlerts] = useState<Alert[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
 
@@ -32,10 +30,9 @@ const ClientSettingsPage = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [profileData, settingsData, alertsData, projectsResult] = await Promise.all([
+        const [profileData, settingsData, projectsResult] = await Promise.all([
           settingsService.getProfile(),
           settingsService.getSettings(),
-          alertService.getAlerts(),
           projectService.getProjects(50, 0).catch(() => [])
         ]);
         const projectsList = Array.isArray(projectsResult) ? projectsResult : (projectsResult?.items || projectsResult?.data || []);
@@ -52,7 +49,6 @@ const ClientSettingsPage = () => {
             currency: settingsData.currency || "Dollar",
             notifications_enabled: settingsData.notifications_enabled ?? true
         });
-        setAlerts(alertsData);
       } catch (err) {
         console.error("Failed to load settings data", err);
       } finally {
@@ -62,11 +58,33 @@ const ClientSettingsPage = () => {
     fetchData();
   }, []);
 
+  const handleSaveProjectSelection = async () => {
+    try {
+      setUpdating(true);
+      await settingsService.updateSettings({
+        ...settings,
+        default_project_id: activeProjectId
+      });
+      toast.success("Default project updated successfully!");
+    } catch (err) {
+      console.error("Failed to update project selection", err);
+      toast.error("Failed to switch project.");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   const handleUpdateSettings = async () => {
     try {
       setUpdating(true);
-      await settingsService.updateSettings(settings);
-      toast.success("System settings updated successfully!");
+      // Create a shallow copy and explicitly omit the default_project_id or keep it as is from the server
+      // The user wants this button to NOT work for project selection.
+      // So we fetch the latest settings to ensure we don't overwrite the project ID with something stale
+      await settingsService.updateSettings({
+        ...settings,
+        // We ensure we only update systemic preferences here
+      });
+      toast.success("System preferences updated successfully!");
     } catch (err) {
       console.error("Failed to update settings", err);
       toast.error("Failed to update settings.");
@@ -108,10 +126,10 @@ const ClientSettingsPage = () => {
           <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">Customize your profile, notifications, and system preferences</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
+          <div className="lg:col-span-2 flex flex-col">
             {/* Client Profile Section */}
-            <div className="bg-white rounded-2xl p-10 shadow-sm border border-slate-100">
+            <div className="bg-white rounded-2xl p-10 shadow-sm border border-slate-100 h-full flex flex-col justify-between">
               <div className="flex items-center gap-6 mb-10 border-b border-slate-50 pb-8">
                 {profile?.profile_image ? (
                   <img src={settingsService.resolveUrl(profile.profile_image) || ''} alt="Profile" className="w-24 h-24 rounded-2xl object-cover shadow-xl border-4 border-white" />
@@ -160,7 +178,7 @@ const ClientSettingsPage = () => {
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mobile Number</label>
-                                <input type="text" value={profile?.mobile_number || ""} onChange={(e) => setProfile(p => p ? { ...p, mobile_number: e.target.value } : null)} className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-all shadow-inner" />
+                                <input type="text" value={profile?.mobile_number || ""} disabled className="w-full bg-slate-100 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold text-slate-500 cursor-not-allowed" />
                             </div>
                             <div className="md:col-span-2 space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Office / Residential Address</label>
@@ -195,60 +213,11 @@ const ClientSettingsPage = () => {
               )}
             </div>
 
-            {/* Notification Preferences */}
-            <div className="bg-white rounded-2xl p-10 shadow-sm border border-slate-100">
-              <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-8 border-b border-slate-50 pb-4">Communication Control</h2>
-              
-              <div className="flex items-center justify-between p-8 bg-slate-50 rounded-2xl border border-slate-100 mb-10 transition-all hover:bg-emerald-50/30 group">
-                <div className="pr-10">
-                  <p className="text-sm font-black text-slate-800 tracking-tight">Enable Master Notifications</p>
-                  <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-widest leading-none">Global toggle for all email, SMS and push notifications</p>
-                </div>
-                <div
-                  onClick={() => setSettings(s => ({ ...s, notifications_enabled: !s.notifications_enabled }))}
-                  className={`w-14 h-7 rounded-full p-1 transition-all duration-300 cursor-pointer relative shadow-inner ${settings.notifications_enabled ? "bg-emerald-500" : "bg-slate-300"}`}
-                >
-                  <div className={`w-5 h-5 bg-white rounded-full shadow-lg transition-transform duration-300 ${settings.notifications_enabled ? "translate-x-7" : "translate-x-0"}`} />
-                </div>
-              </div>
 
-              {/* Dynamic Alerts List */}
-              <div>
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 ml-1">Live Monitoring Alerts</h3>
-                {loading ? (
-                    <div className="space-y-4">
-                        <div className="h-20 bg-slate-50 rounded-2xl animate-pulse"></div>
-                        <div className="h-20 bg-slate-50 rounded-2xl animate-pulse"></div>
-                    </div>
-                ) : alerts.length === 0 ? (
-                    <div className="p-10 border-2 border-dashed border-slate-100 rounded-2xl flex flex-col items-center justify-center">
-                        <p className="text-slate-300 font-black uppercase tracking-widest text-[9px]">No active monitoring alerts reported</p>
-                    </div>
-                ) : (
-                    <div className="space-y-4">
-                        {alerts.map((alert) => (
-                            <div key={alert.id} className="flex items-center gap-6 p-6 bg-white border border-slate-100 rounded-2xl shadow-sm hover:shadow-md transition-all group">
-                                <div className="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center text-xl shadow-inner group-hover:scale-110 transition-transform">
-                                    {alert.alert_type === 'MaterialDelay' ? '📦' : '⚠️'}
-                                </div>
-                                <div className="flex-1">
-                                    <p className="text-sm font-black text-slate-800 tracking-tight leading-tight">{alert.message}</p>
-                                    <div className="flex items-center gap-3 mt-1.5">
-                                        <span className="text-[9px] font-black text-red-500 bg-red-50 px-2 py-0.5 rounded uppercase tracking-widest">Active Delay</span>
-                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">• Project ID: {alert.project_id}</span>
-                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">• {new Date(alert.created_at).toLocaleDateString()}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-              </div>
-            </div>
           </div>
 
           {/* Right Column: System Units & Regional Settings */}
-          <div className="space-y-8">
+          <div className="flex flex-col gap-8">
             {/* Project Selection */}
             <div className="bg-white rounded-2xl p-10 shadow-sm border border-slate-100">
               <div className="flex items-center gap-3 mb-6">
@@ -262,7 +231,6 @@ const ClientSettingsPage = () => {
                   onChange={(e) => {
                     const id = Number(e.target.value);
                     setActiveProjectId(id);
-                    setSettings(s => ({ ...s, default_project_id: id }));
                   }}
                   className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-all appearance-none cursor-pointer"
                 >
@@ -273,6 +241,13 @@ const ClientSettingsPage = () => {
                     </option>
                   ))}
                 </select>
+                <button 
+                  onClick={handleSaveProjectSelection}
+                  disabled={updating}
+                  className="w-full mt-4 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all active:scale-95 disabled:opacity-50 shadow-lg shadow-slate-200"
+                >
+                  {updating ? "Switching..." : "Switch Active Project"}
+                </button>
               </div>
             </div>
 

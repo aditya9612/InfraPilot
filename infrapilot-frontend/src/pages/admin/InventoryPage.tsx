@@ -13,6 +13,7 @@ import toast from "react-hot-toast";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import SortDropdown from "../../components/common/SortDropdown";
 import { materialService } from "../../services/materialService";
+import { projectService } from "../../services/projectService";
 import {
   mockInventory,
   mockSuppliers,
@@ -29,7 +30,6 @@ import {
 } from "lucide-react";
 import type {
   Material,
-  MaterialCreate,
   Supplier,
   PurchaseOrder,
   Transfer,
@@ -45,10 +45,10 @@ import TransferTable from "../../components/admin/inventory/TransferTable";
 import InventoryLogsTable from "../../components/admin/inventory/InventoryLogsTable";
 import EditPOModal from "../../components/admin/inventory/EditPOModal";
 
-const projects: Record<number, string> = {
-  1: "Site A - City Center Complex",
-  2: "Site B - Riverside Apartments",
-};
+interface Project {
+  id: number;
+  name: string;
+}
 
 const InventoryPage = () => {
   console.log("InventoryPage Rendered");
@@ -81,6 +81,7 @@ const InventoryPage = () => {
   const PAGE_SIZE = 10;
   const [isTransferModalOpen, setTransferModalOpen] = useState(false);
   const [isMaterialFormOpen, setMaterialFormOpen] = useState(false);
+  const [materialApiErrors, setMaterialApiErrors] = useState<Record<string, string>>({});
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   const [purchaseActionConfig, setPurchaseActionConfig] = useState<{
@@ -98,6 +99,8 @@ const InventoryPage = () => {
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
   const [isEditPOModalOpen, setIsEditPOModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [projectList, setProjectList] = useState<Project[]>([]);
+  const [projectMap, setProjectMap] = useState<Record<number, string>>({});
   const [itemToDelete, setItemToDelete] = useState<{
     id: any;
     type: "material" | "supplier" | "po";
@@ -106,22 +109,30 @@ const InventoryPage = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [invData, supData, poData, transferData, summaryData, logsData] = await Promise.all([
-        materialService.listMaterials(), // Fetch all materials across all sites
+      const [invData, supData, poData, transferData, summaryData, logsData, projData] = await Promise.all([
+        materialService.listMaterials(),
         materialService.getSuppliers(),
         materialService.listPurchaseOrders(),
         materialService.listTransfers(),
         materialService.getMaterialSummary(),
-        materialService.getLogs({}) // Fetch logs across all sites
+        materialService.getLogs({}),
+        projectService.getProjects(100)
       ]);
       setInventory(invData);
       setSuppliers(supData);
       setPos(Array.isArray(poData) ? poData : []);
-      // API returns { total, skip, limit, data: [...] }
       const transferItems = Array.isArray(transferData) ? transferData : (transferData?.data || []);
       setTransfers(transferItems);
       setSummary(summaryData);
       setLogs(Array.isArray(logsData) ? logsData : []);
+
+      const projs = Array.isArray(projData) ? projData : (projData.items || []);
+      setProjectList(projs);
+      const map: Record<number, string> = {};
+      projs.forEach((p: any) => {
+        map[p.id] = p.name || p.project_name;
+      });
+      setProjectMap(map);
     } catch (error) {
       console.error("Failed to fetch inventory data, falling back to mock data:", error);
       toast.error("Live Sync Failed: Showing mock data due to server error.");
@@ -256,29 +267,57 @@ const InventoryPage = () => {
         );
         toast.success("Material updated successfully!");
       } else {
-        const supplier = suppliers.find(s => s.name === data.supplier_name);
-        const payload: MaterialCreate = {
-          ...data,
+        const supplier = suppliers.find(s =>
+          s.name === data.supplier_name ||
+          s.contactPerson === data.supplier_name
+        );
+
+        // Strict payload construction based on user provided API spec
+        const payload = {
+          project_id: Number(data.project_id || 1),
+          material_name: data.material_name,
+          category: data.category,
+          unit: data.unit,
           supplier_id: supplier?.id || 0,
-          project_id: data.project_id || 1, // Default project
-          minimum_stock_level: data.minimum_stock_level || 10
+          purchase_rate: Number(data.purchase_rate),
+          rate_type: data.rate_type || "FIXED",
+          quantity_purchased: Number(data.quantity_purchased),
+          payment_given: Number(data.payment_given || 0),
+          minimum_stock_level: Number(data.minimum_stock_level || 200)
         };
 
-        const createdMaterial = await materialService.createMaterial(payload);
+        const createdMaterial = await materialService.createMaterial(payload as any);
 
-        // Ensure the UI has all necessary fields (some might be computed on server)
+        // Ensure the UI has all necessary fields
         const newMaterial: Material = {
           ...createdMaterial,
-          supplier_name: data.supplier_name, // Map back for UI display if server doesn't return it
-          alert_type: "IN_STOCK"
+          supplier_name: data.supplier_name,
+          alert_type: (createdMaterial as any).alert_type || "IN_STOCK"
         };
 
         setInventory((prev) => [...prev, newMaterial]);
         toast.success("Material created successfully!");
       }
       setMaterialFormOpen(false);
-    } catch (error) {
-      toast.error("Failed to save material");
+      setMaterialApiErrors({});
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail;
+      if (Array.isArray(detail)) {
+        const fieldErrors: Record<string, string> = {};
+        detail.forEach((err: any) => {
+          const field = err?.loc?.[err.loc.length - 1];
+          if (field) fieldErrors[field] = err.msg;
+        });
+        setMaterialApiErrors(fieldErrors);
+      } else if (typeof detail === "string") {
+        if (detail.toLowerCase().includes("already exists")) {
+          setMaterialApiErrors({ material_name: detail });
+        } else {
+          toast.error(detail);
+        }
+      } else {
+        toast.error("Failed to save material");
+      }
     }
   };
 
@@ -547,7 +586,7 @@ const InventoryPage = () => {
                             {lowItem.material_name}{" "}
                             <span className="text-rose-400 font-normal ml-1">
                               ({lowItem.remaining_stock} left @{" "}
-                              {projects[lowItem.project_id] || "Unknown Site"})
+                              {projectMap[lowItem.project_id] || "Unknown Site"})
                             </span>
                           </span>
                         ))}
@@ -635,7 +674,7 @@ const InventoryPage = () => {
                     <>
                       <InventoryTable
                         materials={paged}
-                        projects={projects}
+                        projects={projectMap}
                         onEdit={(m) => {
                           setSelectedMaterial(m);
                           setMaterialFormOpen(true);
@@ -870,17 +909,22 @@ const InventoryPage = () => {
       />
       <AddMaterialModal
         isOpen={isMaterialFormOpen}
-        onClose={() => setMaterialFormOpen(false)}
+        onClose={() => {
+          setMaterialFormOpen(false);
+          setMaterialApiErrors({});
+        }}
         onSubmit={handleCreateOrUpdateMaterial}
         initialData={selectedMaterial}
         suppliers={suppliers}
+        apiErrors={materialApiErrors}
+        projects={projectList}
       />
 
       <MaterialCostReportModal
         isOpen={isReportModalOpen}
         onClose={() => setIsReportModalOpen(false)}
         inventory={inventory}
-        projects={projects}
+        projects={projectMap}
       />
       <PurchaseActionModal
         isOpen={purchaseActionConfig.isOpen}

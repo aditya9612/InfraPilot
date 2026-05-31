@@ -41,8 +41,15 @@ export const reportService = {
         return response.data;
     },
 
-    getProjectReport: async (projectId: number) => {
-        const response = await api.get(`/reports/project-report`, { params: { project_id: projectId, _t: Date.now() } });
+    getProjectReport: async (projectId: number, type: string = "monthly", month?: number, year?: number) => {
+        const response = await api.get(`/reports/project`, {
+            params: {
+                project_id: projectId,
+                type,
+                month,
+                year
+            }
+        });
         return response.data;
     },
 
@@ -56,33 +63,39 @@ export const reportService = {
         return response.data;
     },
 
-    getAssetReport: async () => {
-        const response = await api.get(`/reports/assets`);
+    getAssetReport: async (projectId?: number) => {
+        const response = await api.get(`/reports/assets`, { params: { project_id: projectId } });
         return response.data;
     },
 
     getFinancialSummary: async (projectId: number) => {
-        const response = await api.get(`/invoices/project/${projectId}/summary`);
+        const response = await api.get(`/reports/financial-summary`, { params: { project_id: projectId } });
         return response.data;
     },
 
+    // Existing method retained for backward compatibility
     getQuarterlyAudit: async (projectId: number, year: number, quarter: number) => {
         const response = await api.get(`/reports/quarterly-audit`, { params: { project_id: projectId, year, quarter } });
         return response.data;
     },
+    // New method matching updated API endpoint
+    getQuarterlyAuditSummary: async (projectId: number, year: number, quarter: number) => {
+        const response = await api.get(`/reports/quarterly-audit-summary`, { params: { project_id: projectId, year, quarter } });
+        return response.data;
+    },
 
     shareDailyEmail: async (data: any) => {
-        const response = await api.post(`/reports/share/daily-email`, data);
+        const response = await api.post(`/reports/daily/share/email`, data);
         return response.data;
     },
 
     shareCombinedEmail: async (data: any) => {
-        const response = await api.post(`/reports/share/combined-email`, data);
+        const response = await api.post(`/reports/combined/share/email`, data);
         return response.data;
     },
 
     shareCombinedWhatsapp: async (data: any) => {
-        const response = await api.post(`/reports/share/combined-whatsapp`, data);
+        const response = await api.post(`/reports/combined/share/whatsapp`, data);
         return response.data;
     },
 
@@ -143,12 +156,14 @@ export const reportService = {
     },
 
     exportAuditPDF: async (projectId: number) => {
-        const response = await api.get(`/reports/audit/export/pdf`, {
+        const response = await api.get(`/reports/audit-pdf`, {
             params: { project_id: projectId },
             responseType: 'blob'
         });
         return response.data;
     },
+
+
 
     exportWorkSummaryPDF: async (projectId: number) => {
         const response = await api.get(`/reports/work-summary/export/pdf`, {
@@ -162,6 +177,13 @@ export const reportService = {
         const response = await api.get(`/reports/contractor-performance/export/pdf`, {
             params: { project_id: projectId },
             responseType: 'blob'
+        });
+        return response.data;
+    },
+
+    getCombinedReportData: async (projectId: number, startDate: string, endDate: string) => {
+        const response = await api.get(`/reports/combined`, {
+            params: { project_id: projectId, start_date: startDate, end_date: endDate }
         });
         return response.data;
     },
@@ -181,4 +203,73 @@ export const reportService = {
         });
         return response.data;
     },
+
+    getProjectReportDetails: async (projectId: number) => {
+        const response = await api.get(`/reports/project/${projectId}`);
+        return response.data;
+    },
+
+    exportProjectReportPDF: async (projectId: number, type: string = "monthly", month?: number, year?: number) => {
+        const response = await api.get(`/reports/project/export/pdf`, {
+            params: {
+                project_id: projectId,
+                type,
+                month,
+                year
+            },
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+
+    exportProjectReportExcel: async (projectId: number, type: string = "monthly", month?: number, year?: number) => {
+        const response = await api.get(`/reports/project/export/excel`, {
+            params: {
+                project_id: projectId,
+                type,
+                month,
+                year
+            },
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+
+    exportCashflowExcel: async () => {
+        const response = await api.get(`/reports/cashflow/export/excel`, {
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+
+    exportAssetExcel: async (projectId?: number) => {
+        const response = await api.get(`/reports/fixed-assets/export/excel`, {
+            params: { project_id: projectId },
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+
+    exportContractorExcel: async (projectId: number) => {
+        const response = await api.get(`/reports/contractor-performance/export/excel`, {
+            params: { project_id: projectId },
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+
+    exportProfitLossExcel: async () => {
+        const response = await api.get(`/reports/profit-loss/export/excel`, {
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+
+    exportFinancialSummaryPDF: async (projectId: number) => {
+        const response = await api.get(`/reports/financial-summary/export/pdf`, {
+            params: { project_id: projectId },
+            responseType: 'blob'
+        });
+        return response.data;
+    }
 };

@@ -83,14 +83,15 @@ export default function SupplierModal({
     if (!formData.name.trim()) newErrors.name = "Supplier name is required.";
     if (!formData.contactPerson.trim()) newErrors.contactPerson = "Contact person is required.";
 
-    if (!formData.phone.trim() && !formData.email.trim()) {
-      newErrors.phone = "Phone or email is required.";
-      newErrors.email = "Phone or email is required.";
-    } else if (formData.phone.trim() && formData.phone.length !== 10) {
+    if (!formData.phone.trim()) {
+      newErrors.phone = "Phone number is required.";
+    } else if (formData.phone.length !== 10) {
       newErrors.phone = "Phone must be 10 digits.";
     }
 
-    if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+    if (!formData.email.trim()) {
+      newErrors.email = "Email address is required.";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Invalid email format.";
     }
     if (!formData.gst.trim()) newErrors.gst = "GST Number is required.";
@@ -190,7 +191,7 @@ export default function SupplierModal({
 
               <div className="space-y-1">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Phone Number
+                  Phone Number <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="tel"
@@ -207,7 +208,7 @@ export default function SupplierModal({
               </div>
               <div className="space-y-1">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Email Address
+                  Email Address <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="email"

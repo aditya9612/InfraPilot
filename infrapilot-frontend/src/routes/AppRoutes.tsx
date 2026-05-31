@@ -47,9 +47,7 @@ import ManagerSettingsPage from "../pages/manager/ManagerSettingsPage";
 import ClientOverviewPage from "../pages/client/ClientOverviewPage";
 import ClientProjectOverviewPage from "../pages/client/ClientProjectOverviewPage";
 import ClientProgressPage from "../pages/client/ClientProgressPage";
-import ClientFinancialsSummaryPage from "../pages/client/financials/ClientFinancialsSummaryPage";
-import ClientInvoicesPage from "../pages/client/financials/ClientInvoicesPage";
-import ClientPaymentsPage from "../pages/client/financials/ClientPaymentsPage";
+
 import ClientPhotosPage from "../pages/client/site-updates/ClientPhotosPage";
 import ClientDSRSummaryPage from "../pages/client/site-updates/ClientDSRSummaryPage";
 import ClientIssuesPage from "../pages/client/ClientIssuesPage";
@@ -57,8 +55,19 @@ import ClientDocumentsPage from "../pages/client/ClientDocumentsPage";
 import ClientApprovalsPage from "../pages/client/ClientApprovalsPage";
 import ClientMessagesPage from "../pages/client/communication/ClientMessagesPage";
 import ClientAnnouncementsPage from "../pages/client/communication/ClientAnnouncementsPage";
-import ClientMonthlyProgressPage from "../pages/client/project-data/ClientMonthlyProgressPage";
+import ClientReportsPage from "../pages/client/ClientReportsPage";
+import ClientLabourReportPage from "../pages/client/project-data/ClientLabourReportPage";
+import ClientMaterialReportPage from "../pages/client/project-data/ClientMaterialReportPage";
+import ClientIssueReportPage from "../pages/client/project-data/ClientIssueReportPage";
+import ClientCombinedReportPage from "../pages/client/project-data/ClientCombinedReportPage";
+import ClientContractorPerformancePage from "../pages/client/project-data/ClientContractorPerformancePage";
+import ClientProjectReportPage from "../pages/client/project-data/ClientProjectReportPage";
+import ClientProfitLossPage from "../pages/client/project-data/ClientProfitLossPage";
+import ClientCashflowPage from "../pages/client/project-data/ClientCashflowPage";
+import ClientAssetReportPage from "../pages/client/project-data/ClientAssetReportPage";
+import ClientIndividualReportPage from "../pages/client/project-data/ClientIndividualReportPage";
 import ClientFinancialDetailsPage from "../pages/client/project-data/ClientFinancialDetailsPage";
+import ClientMonthlyProgressPage from "../pages/client/project-data/ClientMonthlyProgressPage";
 import ClientTaskStatusPage from "../pages/client/project-data/ClientTaskStatusPage";
 import ClientSettingsPage from "../pages/client/ClientSettingsPage";
 
@@ -282,25 +291,21 @@ function AppRoutes() {
 
               {/* Overview */}
               <Route path="/client/overview" element={<ClientOverviewPage />} />
+              <Route path="/client/project-overview" element={<ClientProjectOverviewPage />} />
 
               {/* Progress */}
               <Route path="/client/progress" element={<ClientProgressPage />} />
 
-              {/* Financials */}
-              <Route
-                path="/client/financial-summary"
-                element={<ClientFinancialsSummaryPage />}
-              />
-              <Route
-                path="/client/invoices"
-                element={<ClientInvoicesPage />}
-              />
-              <Route
-                path="/client/payments"
-                element={<ClientPaymentsPage />}
-              />
-
               {/* Site Updates */}
+              <Route
+                path="/client/site-updates/photos"
+                element={<ClientPhotosPage />}
+              />
+              <Route
+                path="/client/site-updates/dsr"
+                element={<ClientDSRSummaryPage />}
+              />
+              {/* Legacy paths for backward compatibility */}
               <Route
                 path="/client/photos"
                 element={<ClientPhotosPage />}
@@ -338,6 +343,15 @@ function AppRoutes() {
 
               {/* Communication */}
               <Route
+                path="/client/communication/messages"
+                element={<ClientMessagesPage />}
+              />
+              <Route
+                path="/client/communication/announcements"
+                element={<ClientAnnouncementsPage />}
+              />
+              {/* Legacy paths for backward compatibility */}
+              <Route
                 path="/client/messages"
                 element={<ClientMessagesPage />}
               />
@@ -346,20 +360,29 @@ function AppRoutes() {
                 element={<ClientAnnouncementsPage />}
               />
 
-              {/* Reports are mapped under /client/reports/... below */}
+              {/* Reports Dashboard */}
+              <Route path="/client/reports" element={<ClientReportsPage />} />
+              <Route path="/client/reports/summary" element={<ClientReportsPage />} />
 
-              <Route
-                path="/client/monthly-progress-report"
-                element={<ClientMonthlyProgressPage />}
-              />
-              <Route
-                path="/client/financial-report"
-                element={<ClientFinancialDetailsPage />}
-              />
-              <Route
-                path="/client/work-summary"
-                element={<ClientTaskStatusPage />}
-              />
+              {/* Specific Report Pages */}
+              <Route path="/client/reports/labour" element={<ClientLabourReportPage />} />
+              <Route path="/client/reports/material" element={<ClientMaterialReportPage />} />
+              <Route path="/client/reports/issues" element={<ClientIssueReportPage />} />
+              <Route path="/client/reports/combined" element={<ClientCombinedReportPage />} />
+              <Route path="/client/reports/contractor" element={<ClientContractorPerformancePage />} />
+              <Route path="/client/reports/project" element={<ClientProjectReportPage />} />
+              <Route path="/client/reports/profit-loss" element={<ClientProfitLossPage />} />
+              <Route path="/client/reports/cashflow" element={<ClientCashflowPage />} />
+              <Route path="/client/reports/assets" element={<ClientAssetReportPage />} />
+              <Route path="/client/reports/client-report" element={<ClientIndividualReportPage />} />
+              <Route path="/client/reports/financial" element={<ClientFinancialDetailsPage />} />
+              <Route path="/client/reports/work" element={<ClientTaskStatusPage />} />
+
+              {/* High Level Report Pages */}
+              <Route path="/client/monthly-progress-report" element={<ClientMonthlyProgressPage />} />
+              <Route path="/client/financial-report" element={<ClientFinancialDetailsPage />} />
+              <Route path="/client/work-summary" element={<ClientTaskStatusPage />} />
+
               {/* Settings */}
               <Route
                 path="/client/settings"
@@ -498,30 +521,7 @@ function AppRoutes() {
               />
             </Route>
 
-            {/* Client Routes */}
-            <Route element={<ProtectedRoute allowedRoles={["Client", "Admin"]} />}>
-              <Route path="/client" element={<ClientOverviewPage />} />
-              <Route path="/client/overview" element={<ClientOverviewPage />} />
-              <Route path="/client/project-overview" element={<ClientProjectOverviewPage />} />
-              <Route path="/client/progress" element={<ClientProgressPage />} />
-              <Route path="/client/financials" element={<Navigate to="/client/financials/summary" replace />} />
-              <Route path="/client/financials/summary" element={<ClientFinancialsSummaryPage />} />
-              <Route path="/client/financials/invoices" element={<ClientInvoicesPage />} />
-              <Route path="/client/financials/payments" element={<ClientPaymentsPage />} />
-              <Route path="/client/site-updates/photos" element={<ClientPhotosPage />} />
-              <Route path="/client/site-updates/dsr" element={<ClientDSRSummaryPage />} />
-              <Route path="/client/issues" element={<ClientIssuesPage />} />
-              <Route path="/client/documents" element={<ClientDocumentsPage />} />
-              <Route path="/client/approvals" element={<ClientApprovalsPage />} />
-              <Route path="/client/approvals/pending" element={<ClientApprovalsPage />} />
-              <Route path="/client/approvals/approved" element={<ClientApprovalsPage />} />
-              <Route path="/client/communication/messages" element={<ClientMessagesPage />} />
-              <Route path="/client/communication/announcements" element={<ClientAnnouncementsPage />} />
-              <Route path="/client/reports/summary" element={<ClientMonthlyProgressPage />} />
-              <Route path="/client/reports/financial" element={<ClientFinancialDetailsPage />} />
-              <Route path="/client/reports/work" element={<ClientTaskStatusPage />} />
-              <Route path="/client/settings" element={<ClientSettingsPage />} />
-            </Route>
+
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

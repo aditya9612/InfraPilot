@@ -109,12 +109,12 @@ export const generateEngineerReportPDF = (engineer: any) => {
         startY: 100,
         head: [['Intelligence Metric', 'Site Registry Value', 'Site Conditions / Status']],
         body: [
-            ['Current Status', engineer.status, 'Active Supervision'],
-            ['Labor Force Depth', `${engineer.laborCount} Personnel`, `${Math.round(engineer.laborCount * 0.6)} Skilled / ${Math.round(engineer.laborCount * 0.4)} Unskilled`],
-            ['Active Site Task', engineer.activeTask, 'Real-time Pulse Active'],
-            ['Site Temperature', engineer.weather.split(',')[1].trim(), 'Synchronized with Global Weather'],
-            ['Site Humidity', engineer.humidity, 'Environmental Monitoring Active'],
-            ['Wind Speed', engineer.windSpeed, 'Favorable for Site Activity']
+            ['Current Status', engineer.status || 'Unknown', 'Active Supervision'],
+            ['Labor Force Depth', `${engineer.laborCount || 0} Personnel`, `${Math.round((engineer.laborCount || 0) * 0.6)} Skilled / ${Math.round((engineer.laborCount || 0) * 0.4)} Unskilled`],
+            ['Active Site Task', engineer.activeTask || 'Supervision', 'Real-time Pulse Active'],
+            ['Site Temperature', engineer.weather ? (engineer.weather.split(',')[1]?.trim() || engineer.weather) : 'N/A', 'Synchronized with Global Weather'],
+            ['Site Humidity', engineer.humidity || 'N/A', 'Environmental Monitoring Active'],
+            ['Wind Speed', engineer.windSpeed || 'N/A', 'Favorable for Site Activity']
         ],
         headStyles: {
             fillColor: primaryColor,

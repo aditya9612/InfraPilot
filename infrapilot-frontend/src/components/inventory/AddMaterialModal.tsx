@@ -7,6 +7,8 @@ interface AddMaterialModalProps {
   onSubmit: (data: any) => void;
   initialData?: any | null;
   suppliers: any[];
+  apiErrors?: Record<string, string>;
+  projects: any[];
 }
 
 export default function AddMaterialModal({
@@ -15,6 +17,8 @@ export default function AddMaterialModal({
   onSubmit,
   initialData,
   suppliers,
+  apiErrors,
+  projects,
 }: AddMaterialModalProps) {
   const [formData, setFormData] = useState({
     project_id: 1, // Default mock project
@@ -26,6 +30,7 @@ export default function AddMaterialModal({
     rate_type: "",
     quantity_purchased: 0,
     payment_given: 0,
+    minimum_stock_level: 200,
   });
 
   useEffect(() => {
@@ -46,11 +51,18 @@ export default function AddMaterialModal({
         rate_type: "",
         quantity_purchased: 0,
         payment_given: 0,
+        minimum_stock_level: 200,
       });
     }
   }, [initialData, isOpen]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (apiErrors && Object.keys(apiErrors).length > 0) {
+      setErrors((prev) => ({ ...prev, ...apiErrors }));
+    }
+  }, [apiErrors]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
@@ -67,9 +79,9 @@ export default function AddMaterialModal({
       ...prev,
       [name]:
         name === "purchase_rate" ||
-        name === "quantity_purchased" ||
-        name === "payment_given" ||
-        name === "project_id"
+          name === "quantity_purchased" ||
+          name === "payment_given" ||
+          name === "project_id"
           ? Number(value)
           : value,
     }));
@@ -151,6 +163,24 @@ export default function AddMaterialModal({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2 space-y-1">
               <label className="block text-sm font-medium text-gray-600 mb-1">
+                Assigned Project <span className="text-rose-500">*</span>
+              </label>
+              <select
+                name="project_id"
+                value={formData.project_id}
+                onChange={handleChange}
+                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all appearance-none outline-none"
+              >
+                {projects.map((proj) => (
+                  <option key={proj.id} value={proj.id}>
+                    {proj.name || proj.project_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="md:col-span-2 space-y-1">
+              <label className="block text-sm font-medium text-gray-600 mb-1">
                 Material name <span className="text-rose-500">*</span>
               </label>
               <input
@@ -158,11 +188,10 @@ export default function AddMaterialModal({
                 name="material_name"
                 value={formData.material_name}
                 onChange={handleChange}
-                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none ${
-                  errors.material_name
-                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
-                    : "border-gray-200 focus:ring-primary/10 focus:border-primary"
-                }`}
+                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none ${errors.material_name
+                  ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                  : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                  }`}
                 placeholder="e.g. Premium Cement 53 Grade"
               />
               {errors.material_name && (
@@ -181,11 +210,10 @@ export default function AddMaterialModal({
                 name="category"
                 value={formData.category}
                 onChange={handleChange}
-                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none ${
-                  errors.category
-                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
-                    : "border-gray-200 focus:ring-primary/10 focus:border-primary"
-                }`}
+                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none ${errors.category
+                  ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                  : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                  }`}
                 placeholder="e.g. Masonry"
               />
               {errors.category && (
@@ -204,11 +232,10 @@ export default function AddMaterialModal({
                 name="unit"
                 value={formData.unit}
                 onChange={handleChange}
-                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none ${
-                  errors.unit
-                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
-                    : "border-gray-200 focus:ring-primary/10 focus:border-primary"
-                }`}
+                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none ${errors.unit
+                  ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                  : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                  }`}
                 placeholder="e.g. Bags, Liters"
               />
               {errors.unit && (
@@ -226,11 +253,10 @@ export default function AddMaterialModal({
                 name="supplier_name"
                 value={formData.supplier_name}
                 onChange={handleChange}
-                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none appearance-none ${
-                  errors.supplier_name
-                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
-                    : "border-gray-200 focus:ring-primary/10 focus:border-primary"
-                }`}
+                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none appearance-none ${errors.supplier_name
+                  ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                  : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                  }`}
               >
                 <option value="" disabled>
                   -- Select from Supplier DB --
@@ -265,11 +291,10 @@ export default function AddMaterialModal({
                   name="purchase_rate"
                   value={formData.purchase_rate || ""}
                   onChange={handleChange}
-                  className={`w-full pl-10 pr-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none ${
-                    errors.purchase_rate
-                      ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
-                      : "border-gray-200 focus:ring-primary/10 focus:border-primary"
-                  }`}
+                  className={`w-full pl-10 pr-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none ${errors.purchase_rate
+                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                    : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                    }`}
                   placeholder="0"
                 />
               </div>
@@ -289,11 +314,10 @@ export default function AddMaterialModal({
                 name="rate_type"
                 value={formData.rate_type}
                 onChange={handleChange}
-                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none ${
-                  errors.rate_type
-                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
-                    : "border-gray-200 focus:ring-primary/10 focus:border-primary"
-                }`}
+                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none ${errors.rate_type
+                  ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                  : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                  }`}
                 placeholder="e.g. per bag"
               />
               {errors.rate_type && (
@@ -301,6 +325,23 @@ export default function AddMaterialModal({
                   {errors.rate_type}
                 </p>
               )}
+            </div>
+
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Stock Alert Threshold
+              </label>
+              <input
+                type="text"
+                name="minimum_stock_level"
+                value={(formData as any).minimum_stock_level || ""}
+                onChange={handleChange}
+                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all outline-none"
+                placeholder="Alert at e.g. 200"
+              />
+              <p className="text-[10px] text-slate-400 font-medium mt-1 ml-1">
+                System will alert when stock falls below this level.
+              </p>
             </div>
 
             {!initialData && (
@@ -314,11 +355,10 @@ export default function AddMaterialModal({
                     name="quantity_purchased"
                     value={formData.quantity_purchased || ""}
                     onChange={handleChange}
-                    className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none ${
-                      errors.quantity_purchased
-                        ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
-                        : "border-gray-200 focus:ring-primary/10 focus:border-primary"
-                    }`}
+                    className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none ${errors.quantity_purchased
+                      ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                      : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                      }`}
                     placeholder="0"
                   />
                   {errors.quantity_purchased && (

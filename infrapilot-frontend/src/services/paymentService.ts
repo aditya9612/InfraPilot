@@ -1,6 +1,9 @@
 import api from "./api";
-import type { 
-    Payment
+import type {
+    AdvanceRequestPayload,
+    Payment,
+    AdvanceRequest,
+    PayrollReport
 } from "../types/payment";
 
 export const paymentService = {
@@ -36,7 +39,7 @@ export const paymentService = {
             params: { month, year },
             responseType: 'blob'
         });
-        
+
         // Create a download link for the blob
         const url = window.URL.createObjectURL(new Blob([response.data]));
         const link = document.createElement('a');
@@ -44,7 +47,7 @@ export const paymentService = {
         link.setAttribute('download', `Payroll_Report_${month}_${year}.xlsx`);
         document.body.appendChild(link);
         link.click();
-        
+
         // Cleanup
         link.parentNode?.removeChild(link);
         window.URL.revokeObjectURL(url);
@@ -72,7 +75,7 @@ export const paymentService = {
             };
             if (params?.limit) cleanParams.limit = Number(params.limit);
             if (params?.offset !== undefined) cleanParams.offset = Number(params.offset);
-            
+
             console.log("GET /api/v1/labour/payroll/disbursement-history Request Params:", cleanParams);
             const response = await api.get<Payment[]>("/labour/payroll/disbursement-history", { params: cleanParams });
             console.log("GET /api/v1/labour/payroll/disbursement-history Raw Response Body:", response.data);
@@ -239,9 +242,8 @@ export const paymentService = {
             params: filters,
             responseType: 'blob'
         });
-        console.log("Payroll PDF Export Success: 200 OK");
         return response.data;
-    }
+    },
 };
 
 export default paymentService;

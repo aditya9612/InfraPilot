@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import Navbar from "../../components/common/Navbar";
 import Modal from "../../components/common/Modal";
 import { drawingService } from "../../services/drawingService";
-import { approvalService } from "../../services/approvalService";
 import { useClientProjectId } from "../../hooks/useClientProjectId";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -144,6 +143,7 @@ const viewDocument = (doc: { name: string; type: string; version: string; upload
 const ClientDocumentsPage = () => {
   const [activeTab, setActiveTab] = useState("All");
   const [apiDrawings, setApiDrawings] = useState<DrawingDoc[]>([]);
+  const [apiDocs, setApiDocs] = useState<any[]>([]);
   const [latestDrawing, setLatestDrawing] = useState<DrawingDoc | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingLatest, setLoadingLatest] = useState(true);
@@ -155,8 +155,14 @@ const ClientDocumentsPage = () => {
       setLoading(true);
       const versions = await drawingService.getVersions(projectId);
       setApiDrawings(versions);
+      
+      // Fetch other documents (Agreements, Invoices) via documentService
+      const { documentService } = await import("../../services/documentService");
+      const docsResult = await documentService.listDocuments({ project_id: projectId });
+      const docs = Array.isArray(docsResult) ? docsResult : ((docsResult as any).items || (docsResult as any).data || []);
+      setApiDocs(docs);
     } catch (err: any) {
-      console.error(">>> Failed to fetch drawing repository:", err?.message);
+      console.error(">>> Failed to fetch document repository:", err?.message);
     } finally {
       setLoading(false);
     }
@@ -194,22 +200,6 @@ const ClientDocumentsPage = () => {
     }
   }, [projectId]);
 
-  const handleApprove = async (doc: any) => {
-    if (!doc.approval_id) {
-      alert("No active approval process found for this document.");
-      return;
-    }
-    const confirmApprove = window.confirm(`Authorize and approve blueprint: ${doc.name}?`);
-    if (!confirmApprove) return;
-    try {
-      await approvalService.approve(doc.approval_id, "Approved via Project Vault");
-      alert("Blueprint authorized successfully.");
-      fetchDrawingHistory();
-    } catch (err) {
-      console.error("Approval failed:", err);
-      alert("Failed to process approval.");
-    }
-  };
 
   const [selectedPreview, setSelectedPreview] = useState<any>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -218,7 +208,7 @@ const ClientDocumentsPage = () => {
   const handleDownload = async (doc: any) => {
     if (doc.id) {
       try {
-        await drawingService.downloadDocument(doc.id);
+        await drawingService.downloadDocument(doc.id, doc.name);
       } catch (err) {
         downloadDocument(doc);
       }
@@ -273,9 +263,23 @@ const ClientDocumentsPage = () => {
     approval_id: d.approval_id,
   }));
 
+  const otherDocs = apiDocs.map((d) => ({
+    id: d.id,
+    name: d.title || d.name,
+    type: (d.document_type || "Agreement") as any,
+    uploadDate: d.created_at ? new Date(d.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—",
+    version: d.version || "Original",
+    size: d.file_size ? `${(d.file_size / 1024).toFixed(0)} KB` : "—",
+    file_url: d.file_url || "",
+    approval_status: d.status || "Archived",
+    approval_id: null,
+  }));
+
+  const allVaultDocs = [...drawingDocs, ...otherDocs];
+
   const filteredDocs = activeTab === "All"
-    ? drawingDocs
-    : drawingDocs.filter((d) => d.type === activeTab);
+    ? allVaultDocs
+    : allVaultDocs.filter((d) => d.type.toLowerCase() === activeTab.toLowerCase());
 
   return (
     <>
@@ -286,34 +290,29 @@ const ClientDocumentsPage = () => {
         </div>
 
         {!loadingLatest && latestDrawing && (
-          <div className="mb-10 bg-slate-900 rounded-2xl p-8 text-white shadow-2xl shadow-slate-900/40 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-primary/20 rounded-full -mr-32 -mt-32 blur-3xl group-hover:scale-110 transition-transform duration-1000" />
+          <div className="mb-10 bg-white rounded-2xl p-8 shadow-sm border border-slate-100 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-blue-50 rounded-full -mr-32 -mt-32 blur-3xl group-hover:scale-110 transition-transform duration-1000" />
             <div className="relative flex flex-col md:flex-row items-center justify-between gap-8">
               <div className="flex items-center gap-6">
-                <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center text-3xl shadow-2xl backdrop-blur-md border border-white/10">📐</div>
+                <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-3xl shadow-inner border border-blue-100">📐</div>
                 <div>
-                  <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-2 block">Latest Engineering Schematic</span>
-                  <h2 className="text-2xl font-black tracking-tight">{latestDrawing.drawing_name}</h2>
+                  <span className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] mb-2 block">Latest Engineering Schematic</span>
+                  <h2 className="text-2xl font-black tracking-tight text-slate-800">{latestDrawing.drawing_name}</h2>
                   <div className="flex items-center gap-4 mt-2">
                     <span className="text-xs font-bold text-slate-400">Version {latestDrawing.version}</span>
-                    <span className="w-1 h-1 bg-slate-700 rounded-full" />
+                    <span className="w-1 h-1 bg-slate-200 rounded-full" />
                     <span className="text-xs font-bold text-slate-400">Released {latestDrawing.date ? new Date(latestDrawing.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}</span>
                   </div>
                 </div>
               </div>
               <div className="flex items-center gap-4">
                 <div className="text-right hidden md:block">
-                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Approval Matrix</p>
-                  <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg ${latestDrawing.approval_status === 'Approved' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'
-                    }`}>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Approval Matrix</p>
+                  <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg ${
+                    latestDrawing.approval_status === 'Approved' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-amber-50 text-amber-600 border border-amber-100'
+                  }`}>
                     {latestDrawing.approval_status}
                   </span>
-                </div>
-                <div className="flex gap-2">
-                  {latestDrawing.approval_status === 'Pending' && (
-                    <button onClick={() => handleApprove(latestDrawing)} className="px-6 py-4 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all">Authorize</button>
-                  )}
-                  <button onClick={() => handleView(latestDrawing)} className="px-8 py-4 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all">Examine</button>
                 </div>
               </div>
             </div>
@@ -371,9 +370,6 @@ const ClientDocumentsPage = () => {
                       <td className="p-6 text-center whitespace-nowrap"><p className="text-xs font-bold text-slate-500">{doc.uploadDate}</p></td>
                       <td className="p-6 pr-10">
                         <div className="flex items-center justify-end gap-2">
-                          {doc.approval_status === "Pending" && (
-                            <button onClick={() => handleApprove(doc)} className="p-2 text-emerald-500 hover:text-emerald-600 transition-colors active:scale-95 transform" title="Authorize Drawing"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg></button>
-                          )}
                           <button onClick={() => handleView(doc)} className="p-2 text-slate-400 hover:text-primary transition-colors active:scale-95 transform" title="View Document"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg></button>
                           <button onClick={() => handleDownload(doc)} className="p-2 text-slate-400 hover:text-primary transition-colors active:scale-95 transform" title="Download Document"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg></button>
                         </div>
