@@ -536,7 +536,7 @@ const DrawingsDocumentsPage = () => {
                                         if (page === '...') {
                                             return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
                                         }
-                                        const pageNum = page;
+                                        const pageNum = page as number;
                                         const isActive = currentPage === pageNum;
                                         return (
                                             <button
@@ -687,7 +687,7 @@ const DrawingsDocumentsPage = () => {
                             form="drawing-form"
                             type="submit"
                             disabled={isSubmitting}
-                            className="flex-[2] py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
+                            className="flex-1 py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
                         >
                             {isSubmitting ? "Syncing..." : (isEditMode ? "Update Asset" : "Register Asset")}
                         </button>

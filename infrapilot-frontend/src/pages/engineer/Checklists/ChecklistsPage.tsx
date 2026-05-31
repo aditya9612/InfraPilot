@@ -36,7 +36,7 @@ const ChecklistsPage = () => {
     // Core Data States
     const [checklists, setChecklists] = useState<ChecklistItem[]>([]);
     const [logs, setLogs] = useState<ChecklistLog[]>([]);
-    const [activeTab, setActiveTab] = useState<"Daily Checklist" | "Activity Checklist" | "Safety" | "Quality">("Daily Checklist");
+    const [activeTab, setActiveTab] = useState<"Daily Checklist" | "Activity Checklist">("Daily Checklist");
     const [projectId, setProjectId] = useState<number>(92);
 
     // UI States
@@ -57,7 +57,7 @@ const ChecklistsPage = () => {
     // Selection / Form States
     const [selectedChecklist, setSelectedChecklist] = useState<ChecklistItem | null>(null);
     const [newChecklistName, setNewChecklistName] = useState("");
-    const [newChecklistType, setNewChecklistType] = useState("Safety");
+    const [newChecklistType, setNewChecklistType] = useState("Daily Checklist");
     const [newChecklistProjectId, setNewChecklistProjectId] = useState("");
     const [projects, setProjects] = useState<any[]>([]);
     const [newChecklistItems, setNewChecklistItems] = useState<string[]>([]);
@@ -74,9 +74,12 @@ const ChecklistsPage = () => {
         if (userStr) {
             try {
                 const user = JSON.parse(userStr);
-                // Priority: default_project_id (set by Settings page) > project_id > user.project_id
-                const pId = user?.default_project_id || user?.project_id || user?.user?.project_id || user?.id;
-                if (pId) setProjectId(Number(pId));
+                const pId = user?.project_id || user?.user?.project_id;
+                if (pId) {
+                    setProjectId(Number(pId));
+                } else {
+                    setProjectId(92);
+                }
             } catch (e) {
                 console.error("Failed to resolve project ID", e);
             }
@@ -215,7 +218,7 @@ const ChecklistsPage = () => {
             const response = await checklistService.executeChecklist({
                 project_id: Number(projectId),
                 checklist_id: Number(selectedChecklist.id),
-                status: executeStatus === "Done" ? "DONE" : executeStatus,
+                status: executeStatus.toUpperCase(),
                 remarks: executeRemarks
             });
             toast.success("Checklist executed successfully!");
@@ -411,7 +414,7 @@ const ChecklistsPage = () => {
 
                 {/* â”€â”€ Tab Selector â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex items-center gap-4 md:gap-8 border-b border-slate-200 mb-6 md:mb-8 overflow-x-auto scrollbar-hide font-inter">
-                    {["Daily Checklist", "Activity Checklist", "Safety", "Quality"].map((tab) => (
+                    {["Daily Checklist", "Activity Checklist"].map((tab) => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab as any)}
@@ -728,8 +731,6 @@ const ChecklistsPage = () => {
                                     onChange={(e) => setNewChecklistType(e.target.value)}
                                     className={inputClasses}
                                 >
-                                    <option value="Safety">Safety</option>
-                                    <option value="Quality">Quality</option>
                                     <option value="Daily Checklist">Daily Checklist</option>
                                     <option value="Activity Checklist">Activity Checklist</option>
                                 </select>

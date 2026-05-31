@@ -62,27 +62,25 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
       const systemNotifs = await notificationService.getNotifications(role);
       combinedNotifs = [...systemNotifs];
 
-      // 2. If client, fetch real project alerts/announcements
-      if (user?.role === "Client") {
-        try {
-          const { alertService } = await import("../../services/alertService");
-          const alerts = await alertService.getAlerts();
-          
-          const alertNotifs: Notification[] = alerts.map(a => ({
-            id: a.id + 1000, // Offset IDs to avoid collision with mock system notifs
-            title: a.alert_type === 'Announcement' ? 'New Announcement' : 'Project Alert',
-            description: a.message,
-            details: `Official message from project team: ${a.message}. Type: ${a.alert_type}. Status: ${a.status}.`,
-            type: "Alert",
-            timestamp: a.created_at,
-            read: a.status === 'read',
-            role_target: "All"
-          }));
-          
-          combinedNotifs = [...alertNotifs, ...combinedNotifs];
-        } catch (e) {
-          console.warn("Navbar: Failed to fetch alerts for client", e);
-        }
+      // 2. Fetch real project alerts/announcements for ALL users
+      try {
+        const { alertService } = await import("../../services/alertService");
+        const alerts = await alertService.getAlerts();
+        
+        const alertNotifs: Notification[] = alerts.map(a => ({
+          id: a.id + 1000, // Offset IDs to avoid collision with mock system notifs
+          title: a.alert_type === 'Announcement' ? 'New Announcement' : 'Project Alert',
+          description: a.message,
+          details: `Official message from project team: ${a.message}. Type: ${a.alert_type}. Status: ${a.status}.`,
+          type: "Alert",
+          timestamp: a.created_at,
+          read: a.status === 'read',
+          role_target: "All"
+        }));
+        
+        combinedNotifs = [...alertNotifs, ...combinedNotifs];
+      } catch (e) {
+        console.warn("Navbar: Failed to fetch alerts", e);
       }
 
       // Sort by timestamp newest first

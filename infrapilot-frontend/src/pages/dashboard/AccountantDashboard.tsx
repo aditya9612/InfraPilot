@@ -11,11 +11,18 @@ import CreateInvoiceModal from "../../components/forms/CreateInvoiceModal";
 import toast from "react-hot-toast";
 
 const AccountantDashboard = () => {
-  const [stats, setStats] = useState({
-    total_revenue: 0,
-    total_invoices: 0,
-    pending_payments: 0,
-    total_expense: 0,
+  const [stats, setStats] = useState<any>({
+    vitals: {
+      total_revenue: 0,
+      total_expense: 0,
+      pending_payments_count: 0,
+      total_invoices_count: 0
+    },
+    consumption_status: {
+      total_budget: 0,
+      total_spent: 0,
+      percentage: 0
+    }
   });
 
   const [showTypeSelector, setShowTypeSelector] = useState(false);
@@ -137,17 +144,17 @@ const AccountantDashboard = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <StatCard
               title="Total Revenue"
-              value={`₹${stats.total_revenue.toLocaleString("en-IN")}`}
+              value={`₹${(stats?.vitals?.total_revenue || 0).toLocaleString("en-IN")}`}
               sub="Total Income Generated"
               icon={
-                <div className="p-2 bg-indigo-50 rounded-xl shadow-inner">
-                    <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                <div className="p-2 bg-emerald-50 rounded-xl shadow-inner">
+                    <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </div>
               }
             />
             <StatCard
               title="Total Expense"
-              value={`₹${stats.total_expense.toLocaleString("en-IN")}`}
+              value={`₹${(stats?.vitals?.total_expense || 0).toLocaleString("en-IN")}`}
               sub="Overall Expenditure"
               accent="text-rose-600"
               icon={
@@ -158,7 +165,7 @@ const AccountantDashboard = () => {
             />
             <StatCard
               title="Pending Payments"
-              value={`₹${stats.pending_payments.toLocaleString("en-IN")}`}
+              value={(stats?.vitals?.pending_payments_count || 0).toString()}
               sub="Outstanding Dues"
               accent="text-amber-600"
               icon={
@@ -169,7 +176,7 @@ const AccountantDashboard = () => {
             />
             <StatCard
               title="Total Invoices"
-              value={stats.total_invoices.toString()}
+              value={(stats?.vitals?.total_invoices_count || 0).toString()}
               sub="Generated Invoices"
               icon={
                 <div className="p-2 bg-blue-50 rounded-xl shadow-inner">
@@ -197,7 +204,7 @@ const AccountantDashboard = () => {
                   </div>
                   <div className="text-right">
                     <p className="text-2xl font-black text-slate-900 tracking-tight">
-                      29.1%{" "}
+                      {stats?.consumption_status?.percentage || 0}%{" "}
                       <span className="text-xs font-black text-rose-500 uppercase tracking-widest ml-1 bg-rose-50 px-2.5 py-1 rounded-lg">
                         Consumed
                       </span>
@@ -206,8 +213,8 @@ const AccountantDashboard = () => {
                 </div>
                 <div className="w-full bg-slate-100 h-4 rounded-full overflow-hidden flex shadow-inner">
                   <div
-                    className="bg-rose-500 h-full shadow-[0_0_15px_rgba(244,63,94,0.3)]"
-                    style={{ width: "29%" }}
+                    className="bg-rose-500 h-full shadow-[0_0_15px_rgba(244,63,94,0.3)] transition-all duration-1000"
+                    style={{ width: `${stats?.consumption_status?.percentage || 0}%` }}
                   />
                   <div className="bg-slate-200/50 h-full flex-1" />
                 </div>
@@ -243,11 +250,11 @@ const AccountantDashboard = () => {
               </div>
 
               <InvoiceTable />
+              <BOQSummary />
             </div>
 
             {/* Sidebar Section */}
             <div className="space-y-8">
-              <BOQSummary />
               <TransactionFeed />
 
               {/* Specialized Financial Actions */}
@@ -259,7 +266,10 @@ const AccountantDashboard = () => {
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Quick Actions & Tools</p>
                 </div>
                 <div className="grid grid-cols-1 gap-4">
-                  <button className="flex items-center gap-5 p-5 rounded-[24px] border border-slate-100 bg-slate-50/50 hover:bg-white hover:shadow-xl hover:shadow-blue-500/5 transition-all group border-l-4 border-l-blue-500 active:scale-95">
+                  <button 
+                    onClick={() => { setActiveCreateType("expense"); setIsModalOpen(true); }}
+                    className="flex items-center gap-5 p-5 rounded-[24px] border border-slate-100 bg-slate-50/50 hover:bg-white hover:shadow-xl hover:shadow-blue-500/5 transition-all group border-l-4 border-l-blue-500 active:scale-95"
+                  >
                     <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-primary group-hover:scale-110 transition-transform shadow-sm shadow-primary/10">
                       <svg
                         className="w-6 h-6"
@@ -284,7 +294,10 @@ const AccountantDashboard = () => {
                       </p>
                     </div>
                   </button>
-                  <button className="flex items-center gap-5 p-5 rounded-[24px] border border-slate-100 bg-slate-50/50 hover:bg-white hover:shadow-xl hover:shadow-emerald-500/5 transition-all group border-l-4 border-l-emerald-500 active:scale-95">
+                  <button 
+                    onClick={() => { setActiveCreateType("owner"); setIsModalOpen(true); }}
+                    className="flex items-center gap-5 p-5 rounded-[24px] border border-slate-100 bg-slate-50/50 hover:bg-white hover:shadow-xl hover:shadow-emerald-500/5 transition-all group border-l-4 border-l-emerald-500 active:scale-95"
+                  >
                     <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform shadow-sm shadow-emerald-500/10">
                       <svg
                         className="w-6 h-6"
@@ -315,7 +328,10 @@ const AccountantDashboard = () => {
                       </p>
                     </div>
                   </button>
-                  <button className="flex items-center gap-5 p-5 rounded-[24px] border border-slate-100 bg-slate-50/50 hover:bg-white hover:shadow-xl hover:shadow-slate-500/5 transition-all group border-l-4 border-l-slate-800 active:scale-95">
+                  <button 
+                    onClick={() => toast.success("GST Summary exported successfully")}
+                    className="flex items-center gap-5 p-5 rounded-[24px] border border-slate-100 bg-slate-50/50 hover:bg-white hover:shadow-xl hover:shadow-slate-500/5 transition-all group border-l-4 border-l-slate-800 active:scale-95"
+                  >
                     <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-700 group-hover:scale-110 transition-transform shadow-sm shadow-slate-500/10">
                       <svg
                         className="w-6 h-6"

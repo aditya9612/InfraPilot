@@ -12,6 +12,9 @@ import { workProgressService } from "../../services/workProgressService";
 import { materialService } from "../../services/materialService";
 import { issueService } from "../../services/issueService";
 import { reportService } from "../../services/reportService";
+import api from "../../services/api";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -574,6 +577,121 @@ const ReportsPage = () => {
         setLoadingId(`pdf-${report.id}`);
         toast.loading(`Fetching data for ${report.name}...`, { id: `pdf-${report.id}` });
         try {
+            if (report.id === "material") {
+                // Request PDF Blob from the backend, explicitly setting Accept header to prevent JSON content negotiation
+                const response = await api.get(`/materials/reports/materials/pdf?project_id=${projectId || 1}&_t=${Date.now()}`, {
+                    responseType: "blob",
+                    headers: {
+                        'Accept': 'application/pdf, application/octet-stream'
+                    }
+                });
+                
+                if (response.data.type === "application/json") {
+                    const errorText = await response.data.text();
+                    console.error("PDF Generate Error:", errorText);
+                    try {
+                        const errObj = JSON.parse(errorText);
+                        const msg = errObj.detail || errObj.message || errObj.error || "Could not generate PDF.";
+                        toast.error(`Server error: ${msg}`, { id: `pdf-${report.id}` });
+                    } catch (e) {
+                        toast.error("Server error: Could not generate PDF.", { id: `pdf-${report.id}` });
+                    }
+                    return;
+                }
+
+                // Download the received Blob
+                const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
+                const link = document.createElement("a");
+                link.href = url;
+                link.setAttribute("download", `Material_Consumption_Report_${new Date().toISOString().split("T")[0]}.pdf`);
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                window.URL.revokeObjectURL(url);
+                toast.success(`${report.name} PDF downloaded!`, { id: `pdf-${report.id}` });
+                return;
+            }
+
+            if (report.id === "daily") {
+                const response = await api.get(`/dsr/project/${projectId || 1}/export?start_date=${selectedDate}&end_date=${selectedDate}&_t=${Date.now()}`, {
+                    responseType: "blob",
+                    headers: { 'Accept': 'application/pdf, application/octet-stream' }
+                });
+                
+                if (response.data.type === "application/json") {
+                    const errorText = await response.data.text();
+                    console.error("DSR PDF Generate Error:", errorText);
+                    try {
+                        const errObj = JSON.parse(errorText);
+                        const msg = errObj.detail || errObj.message || errObj.error || "Could not generate DSR PDF.";
+                        toast.error(`Server error: ${msg}`, { id: `pdf-${report.id}` });
+                    } catch (e) {
+                        toast.error("Server error: Could not generate DSR PDF.", { id: `pdf-${report.id}` });
+                    }
+                    return;
+                }
+
+                const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
+                const link = document.createElement("a");
+                link.href = url;
+                link.setAttribute("download", `DSR_Report_${selectedDate}.pdf`);
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                window.URL.revokeObjectURL(url);
+                toast.success(`${report.name} PDF downloaded!`, { id: `pdf-${report.id}` });
+                return;
+            }
+
+            if (report.id === "labour") {
+                const response = await api.get(`/reports/labour?project_id=${projectId || 1}`);
+                const data = response.data;
+                const summary = data.labour_summary || data.data?.labour_summary || [];
+
+                const doc = new jsPDF();
+                const pageWidth = doc.internal.pageSize.getWidth();
+
+                // --- HEADER ---
+                doc.setFontSize(22);
+                doc.setTextColor(15, 23, 42);
+                doc.setFont("helvetica", "bold");
+                doc.text("InfraPilot", 14, 20);
+
+                doc.setFontSize(14);
+                doc.setTextColor(71, 85, 105);
+                doc.setFont("helvetica", "normal");
+                doc.text("Labour Attendance Report", 14, 30);
+
+                // --- ORANGE DIVIDER ---
+                doc.setDrawColor(249, 115, 22);
+                doc.setLineWidth(1);
+                doc.line(14, 35, pageWidth - 14, 35);
+
+                const tableBody = summary.map((item: any) => [item.skill_type || "-", item.count?.toString() || "0"]);
+                const totalCount = summary.reduce((acc: number, curr: any) => acc + (curr.count || 0), 0);
+                tableBody.push(["TOTAL", totalCount.toString()]);
+
+                autoTable(doc, {
+                    startY: 45,
+                    head: [["Skill Type", "Labour Count"]],
+                    body: tableBody,
+                    theme: "grid",
+                    headStyles: { fillColor: [241, 245, 249], textColor: [71, 85, 105], fontStyle: "bold", fontSize: 11 },
+                    bodyStyles: { textColor: [30, 58, 138], fontStyle: "bold", fontSize: 13 },
+                    margin: { left: 14, right: 14 }
+                });
+
+                const finalY = (doc as any).lastAutoTable.finalY + 30;
+                doc.setFontSize(10);
+                doc.setTextColor(148, 163, 184);
+                doc.setFont("helvetica", "normal");
+                doc.text("Generated by InfraPilot Operational Intelligence", pageWidth / 2, finalY, { align: "center" });
+
+                doc.save(`Labour_Report_${new Date().toISOString().split("T")[0]}.pdf`);
+                toast.success(`${report.name} PDF generated!`, { id: `pdf-${report.id}` });
+                return;
+            }
+
             const today = new Date();
             const month = (today.getMonth() + 1).toString().padStart(2, '0');
             const year = today.getFullYear().toString();
@@ -602,6 +720,98 @@ const ReportsPage = () => {
         setLoadingId(report.id);
         toast.loading(`Exporting ${report.name}...`, { id: `exp-${report.id}` });
         try {
+            if (report.id === "material") {
+                // Request Excel Blob from the backend
+                const response = await api.get(`/materials/reports/materials/excel?project_id=${projectId || 1}&_t=${Date.now()}`, {
+                    responseType: "blob",
+                    headers: {
+                        'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel, application/octet-stream'
+                    }
+                });
+
+                if (response.data.type === "application/json") {
+                    const errorText = await response.data.text();
+                    console.error("Excel Generate Error:", errorText);
+                    try {
+                        const errObj = JSON.parse(errorText);
+                        const msg = errObj.detail || errObj.message || errObj.error || "Could not generate Excel.";
+                        toast.error(`Server error: ${msg}`, { id: `exp-${report.id}` });
+                    } catch (e) {
+                        toast.error("Server error: Could not generate Excel.", { id: `exp-${report.id}` });
+                    }
+                    return;
+                }
+
+                const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+                const link = document.createElement("a");
+                link.href = url;
+                link.setAttribute("download", `Material_Consumption_Report_${new Date().toISOString().split("T")[0]}.xlsx`);
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                window.URL.revokeObjectURL(url);
+                toast.success(`${report.name} Excel downloaded!`, { id: `exp-${report.id}` });
+                return;
+            }
+
+            if (report.id === "daily") {
+                const response = await api.get(`/dsr/project/${projectId || 1}/export?start_date=${selectedDate}&end_date=${selectedDate}&_t=${Date.now()}`, {
+                    responseType: "blob",
+                    headers: { 'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel, application/octet-stream' }
+                });
+                
+                if (response.data.type === "application/json") {
+                    const errorText = await response.data.text();
+                    console.error("DSR Excel Generate Error:", errorText);
+                    try {
+                        const errObj = JSON.parse(errorText);
+                        const msg = errObj.detail || errObj.message || errObj.error || "Could not generate DSR Excel.";
+                        toast.error(`Server error: ${msg}`, { id: `exp-${report.id}` });
+                    } catch (e) {
+                        toast.error("Server error: Could not generate DSR Excel.", { id: `exp-${report.id}` });
+                    }
+                    return;
+                }
+
+                const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+                const link = document.createElement("a");
+                link.href = url;
+                link.setAttribute("download", `DSR_Report_${selectedDate}.xlsx`);
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                window.URL.revokeObjectURL(url);
+                toast.success(`${report.name} Excel downloaded!`, { id: `exp-${report.id}` });
+                return;
+            }
+
+            if (report.id === "labour") {
+                const response = await api.get(`/reports/labour?project_id=${projectId || 1}`);
+                const data = response.data;
+                const summary = data.labour_summary || data.data?.labour_summary || [];
+
+                const csvRows = [["Skill Type", "Count"]];
+                let total = 0;
+                summary.forEach((item: any) => {
+                    csvRows.push([item.skill_type || "-", item.count || 0]);
+                    total += item.count || 0;
+                });
+                csvRows.push(["TOTAL", total.toString()]);
+                
+                const csvContent = csvRows.map(row => row.join(",")).join("\n");
+                const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = url;
+                link.setAttribute("download", `Labour_Report_${new Date().toISOString().split("T")[0]}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                window.URL.revokeObjectURL(url);
+                toast.success(`${report.name} Excel (CSV) downloaded!`, { id: `exp-${report.id}` });
+                return;
+            }
+
             const today = new Date();
             const month = (today.getMonth() + 1).toString().padStart(2, '0');
             const year = today.getFullYear().toString();
