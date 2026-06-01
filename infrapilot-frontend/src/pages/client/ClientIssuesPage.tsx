@@ -15,7 +15,7 @@ const ClientIssuesPage = () => {
   const [newIssue, setNewIssue] = useState({
     title: "",
     description: "",
-    category: "Client Feedback",
+    category: "Delay",
     priority: "Medium",
     reported_date: new Date().toISOString().split('T')[0]
   });
@@ -80,7 +80,7 @@ const ClientIssuesPage = () => {
       setNewIssue({
         title: "",
         description: "",
-        category: "Client Feedback",
+        category: "Delay",
         priority: "Medium",
         reported_date: new Date().toISOString().split('T')[0]
       });
@@ -205,7 +205,8 @@ const ClientIssuesPage = () => {
                         </span>
                       </td>
                       <td className="py-8 text-center">
-                        <span className={`text-[10px] font-black uppercase tracking-widest ${issue.priority === 'High' ? 'text-red-500' :
+                        <span className={`text-[10px] font-black uppercase tracking-widest ${issue.priority === 'Critical' ? 'text-red-500' :
+                            issue.priority === 'High' ? 'text-red-500' : // Fallback for existing "High" data
                             issue.priority === 'Medium' ? 'text-amber-500' : 'text-blue-500'
                           }`}>
                           {issue.priority}
@@ -403,11 +404,9 @@ const ClientIssuesPage = () => {
                 onChange={(e) => setNewIssue({...newIssue, category: e.target.value})}
                 className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
-                <option value="Client Feedback">Client Feedback</option>
-                <option value="Quality Concern">Quality Concern</option>
-                <option value="Progress Delay">Progress Delay</option>
-                <option value="Safety Risk">Safety Risk</option>
-                <option value="Other">Other</option>
+                <option value="Material">Material</option>
+                <option value="Safety">Safety</option>
+                <option value="Delay">Delay</option>
               </select>
             </div>
             <div>
@@ -419,7 +418,7 @@ const ClientIssuesPage = () => {
               >
                 <option value="Low">Low</option>
                 <option value="Medium">Medium</option>
-                <option value="High">High</option>
+                <option value="Critical">Critical</option>
                 <option value="Urgent">Urgent</option>
               </select>
             </div>
