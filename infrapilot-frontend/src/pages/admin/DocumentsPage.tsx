@@ -131,11 +131,14 @@ const DocumentsPage = () => {
     // Normalize backslashes to forward slashes for web compatibility
     const normalizedUrl = file_url.replace(/\\/g, '/');
     if (normalizedUrl.startsWith('http')) return normalizedUrl;
+
     // Ensure leading slash for consistency
     const path = normalizedUrl.startsWith('/') ? normalizedUrl : `/${normalizedUrl}`;
-    // /uploads paths are proxied directly by vite — no API prefix needed
-    if (path.startsWith('/uploads')) return path;
-    return `${import.meta.env.VITE_API_URL}${path}`;
+
+    // Always use absolute API base URL for relative paths to ensure compatibility with static hosting (Netlify)
+    // Extract base domain from VITE_API_URL if it contains /api/v1
+    const baseUrl = import.meta.env.VITE_API_URL?.replace(/\/api\/v1\/?$/, '') || '';
+    return `${baseUrl}${path}`;
   };
 
   const handleDownload = async (doc: Document) => {
