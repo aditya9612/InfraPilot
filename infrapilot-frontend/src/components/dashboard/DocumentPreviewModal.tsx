@@ -15,6 +15,26 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
   document,
   onDownload,
 }) => {
+  const [isValidPdf, setIsValidPdf] = React.useState<boolean>(true);
+
+  React.useEffect(() => {
+    if (isOpen && document?.file_url && document.file_url.toLowerCase().endsWith('.pdf')) {
+      // Test if the URL actually exists and isn't falling back to the Vite React SPA intercept
+      fetch(document.file_url, { method: "HEAD" })
+        .then(res => {
+          const contentType = res.headers.get("content-type") || "";
+          if (!res.ok || contentType.includes("text/html")) {
+            setIsValidPdf(false);
+          } else {
+            setIsValidPdf(true);
+          }
+        })
+        .catch(() => setIsValidPdf(false));
+    } else {
+      setIsValidPdf(true); // reset
+    }
+  }, [isOpen, document?.file_url]);
+
   if (!document) return null;
 
   const footer = (
@@ -50,7 +70,7 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
       <div className="space-y-8 pb-4">
         {/* Dynamic Header */}
         <div className={`relative overflow-hidden rounded-2xl p-8 shadow-xl transition-all ${document.isFolder ? "bg-gradient-to-br from-amber-500 to-orange-500 text-white" :
-            "bg-gradient-to-br from-primary to-blue-600 text-white"
+          "bg-gradient-to-br from-primary to-blue-600 text-white"
           }`}>
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32" />
 
@@ -103,7 +123,7 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
                 </div>
               ) : (
                 <>
-                  {(document.file_url?.toLowerCase().endsWith('.pdf')) ? (
+                  {(document.file_url?.toLowerCase().endsWith('.pdf') && isValidPdf) ? (
                     <iframe
                       src={`${document.file_url}#toolbar=0`}
                       className="w-full h-full border-none rounded-2xl"
@@ -118,8 +138,12 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
                   ) : (
                     <div className="flex flex-col items-center justify-center p-6 text-center">
                       <FileText size={48} className="text-slate-300 mb-4 opacity-50" />
-                      <p className="font-bold text-slate-500">Preview not available for this file type.</p>
-                      <p className="text-sm mt-2">Please download the file to view its full contents securely on your local device.</p>
+                      <p className="font-bold text-slate-500">
+                        {!isValidPdf ? "Document file could not be found on the server." : "Preview not available for this file type."}
+                      </p>
+                      <p className="text-sm mt-2">
+                        {!isValidPdf ? "It might have been removed or uploaded using placeholder data." : "Please download the file to view its full contents securely on your local device."}
+                      </p>
                     </div>
                   )}
                 </>

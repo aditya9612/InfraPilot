@@ -157,11 +157,40 @@ const ReportsPage = () => {
 
   const generateCSV = (data: any, filename: string) => {
     const today = new Date().toISOString().split('T')[0];
-    const rows: any[] = Array.isArray(data) ? data : (data?.assets || data?.items || [data]);
-    const headers = rows.length > 0 ? Object.keys(rows[0]).join(",") : "";
+
+    // Detect the main data list if the response is a wrapper object
+    let rows: any[] = [];
+    if (Array.isArray(data)) {
+      rows = data;
+    } else {
+      const mainList = data?.assets || data?.items || data?.work_summary || data?.transactions;
+      if (Array.isArray(mainList)) {
+        // Flatten top-level metadata (like project_id) into each row for better Excel filtering
+        const { assets, items, work_summary, transactions, ...topLevel } = data;
+        rows = mainList.map((item: any) => ({
+          ...topLevel,
+          ...(typeof item === 'object' ? item : { value: item })
+        }));
+      } else {
+        rows = [data];
+      }
+    }
+
+    if (rows.length === 0) {
+      toast.error("No data available for export");
+      return;
+    }
+
+    const headers = Object.keys(rows[0]).join(",");
     const csvRows = rows.map((row: any) =>
-      Object.values(row).map((v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")
+      Object.values(row).map((v: any) => {
+        if (v === null || v === undefined) return '""';
+        // Handle nested objects/arrays gracefully instead of showing [object Object]
+        const strVal = typeof v === 'object' ? JSON.stringify(v) : String(v);
+        return `"${strVal.replace(/"/g, '""')}"`;
+      }).join(",")
     );
+
     const csvContent = [headers, ...csvRows].join("\n");
     const csvBlob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = window.URL.createObjectURL(csvBlob);

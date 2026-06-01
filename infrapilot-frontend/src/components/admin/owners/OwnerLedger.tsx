@@ -198,24 +198,27 @@ export default function OwnerLedger() {
       </div>
 
       {ledgerData && ledgerData.transactions.length > itemsPerPage && (
-        <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between mt-auto">
+        <div className="p-4 border-t border-slate-100 bg-slate-50/30 flex items-center justify-between mt-auto">
           <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
             Showing {(currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, ledgerData.transactions.length)} of {ledgerData.transactions.length}
           </span>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="px-4 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-500 hover:bg-slate-50 transition-all disabled:opacity-50"
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
             >
-              Previous
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
             </button>
+            <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700 font-inter">
+              {currentPage}
+            </div>
             <button
               onClick={() => setCurrentPage(p => Math.min(Math.ceil(ledgerData.transactions.length / itemsPerPage), p + 1))}
               disabled={currentPage === Math.ceil(ledgerData.transactions.length / itemsPerPage)}
-              className="px-4 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-500 hover:bg-slate-50 transition-all disabled:opacity-50"
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
             >
-              Next
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
             </button>
           </div>
         </div>
