@@ -330,7 +330,6 @@ const AdminDashboard = () => {
       end_date: p.end_date,
       status: p.status,
       completion: `${p.completion_percentage}%`,
-      efficiency_score: "92.4",
     }));
     exportToCSV(csvData, "master_projects_overview.csv", {
       project_name: "Site / Project",
@@ -338,7 +337,6 @@ const AdminDashboard = () => {
       end_date: "End Date",
       status: "Health",
       completion: "Total Progress",
-      efficiency_score: "Efficiency Score",
     });
   };
 
@@ -866,20 +864,19 @@ const AdminDashboard = () => {
                   <th className="px-6 py-4">Site/Project</th>
                   <th className="px-6 py-4">Dates</th>
                   <th className="px-6 py-4">Total Progress</th>
-                  <th className="px-6 py-4 text-center">Efficiency Score</th>
                   <th className="px-6 py-4">Health</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-slate-400 italic text-sm">
+                    <td colSpan={4} className="px-6 py-8 text-center text-slate-400 italic text-sm">
                       Loading projects...
                     </td>
                   </tr>
                 ) : projects.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-slate-400 italic text-sm">
+                    <td colSpan={4} className="px-6 py-8 text-center text-slate-400 italic text-sm">
                       No projects found.
                     </td>
                   </tr>
@@ -910,9 +907,6 @@ const AdminDashboard = () => {
                               {p.completion_percentage}%
                             </span>
                           </div>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className="text-slate-800 font-bold">92.4</span>
                         </td>
                         <td className="px-6 py-4">
                           <span className={`px-3 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${statusBadge[p.status] || "bg-slate-100 text-slate-500"}`}>

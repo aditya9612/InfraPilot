@@ -44,6 +44,7 @@ export const ownerService = {
         address: o.address,
         pan: o.pan,
         owner_code: o.owner_code,
+        created_at: o.created_at || o.createdAt,
       }));
     } catch (error: any) {
       console.error(
@@ -70,6 +71,7 @@ export const ownerService = {
         address: o.address,
         pan: o.pan,
         owner_code: o.owner_code,
+        created_at: o.created_at || o.createdAt,
       };
     } catch (error: any) {
       console.error(

@@ -374,9 +374,9 @@ const CreateInvoicePage = () => {
 
   const handleAddItem = () => {
     const newItem: InvoiceItem = {
-      id: "new_stone_work_" + Date.now().toString(),
-      description: "New Stone Work",
-      unit: "Brass",
+      id: "new_" + Date.now().toString(),
+      description: "",
+      unit: "",
       quantity: 0,
       rate: 0,
       amount: 0
@@ -964,11 +964,11 @@ const CreateInvoicePage = () => {
   const handleAddMaterialRow = async () => {
     if (isReadOnly) return;
     const newItem: any = {
-      material_name: "Cement",
-      category: "Construction Material",
-      unit: "Bags",
-      estimated_quantity: 1,
-      estimated_rate: 1,
+      material_name: "",
+      category: "",
+      unit: "",
+      estimated_quantity: 0,
+      estimated_rate: 0,
       notes: ""
     };
 
@@ -1045,7 +1045,7 @@ const CreateInvoicePage = () => {
     const newItem: any = {
       expense_type: "misc",
       description: "",
-      quantity: 1,
+      quantity: 0,
       rate: 0,
       amount: 0,
       notes: ""
@@ -1765,7 +1765,7 @@ const CreateInvoicePage = () => {
                                   value={item.material_name}
                                   onChange={(e) => handleMaterialFieldChange(idx, "material_name", e.target.value)}
                                   readOnly={isReadOnly}
-                                  className={`w-full bg-slate-50 border-none text-sm font-bold p-2 rounded-lg ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                                  className={`w-full bg-white border border-slate-200 text-sm font-bold p-2 rounded-lg outline-none ${isReadOnly ? 'cursor-not-allowed opacity-70' : 'focus:border-indigo-400'}`}
                                 />
                               </td>
                               <td className="py-3">
@@ -1774,7 +1774,7 @@ const CreateInvoicePage = () => {
                                   value={item.unit}
                                   onChange={(e) => handleMaterialFieldChange(idx, "unit", e.target.value)}
                                   readOnly={isReadOnly}
-                                  className={`w-20 bg-slate-50 border-none text-sm font-bold p-2 rounded-lg ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                                  className={`w-20 bg-white border border-slate-200 text-sm font-bold p-2 rounded-lg outline-none ${isReadOnly ? 'cursor-not-allowed opacity-70' : 'focus:border-indigo-400'}`}
                                 />
                               </td>
                               <td className="py-3">
@@ -1783,7 +1783,7 @@ const CreateInvoicePage = () => {
                                   value={item.estimated_quantity}
                                   onChange={(e) => handleMaterialFieldChange(idx, "estimated_quantity", parseFloat(e.target.value) || 0)}
                                   readOnly={isReadOnly}
-                                  className={`w-24 bg-slate-50 border-none text-sm font-bold p-2 rounded-lg ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                                  className={`w-24 bg-white border border-slate-200 text-sm font-bold p-2 rounded-lg outline-none ${isReadOnly ? 'cursor-not-allowed opacity-70' : 'focus:border-indigo-400'}`}
                                 />
                               </td>
                               <td className="py-3">
@@ -1792,7 +1792,7 @@ const CreateInvoicePage = () => {
                                   value={item.estimated_rate}
                                   onChange={(e) => handleMaterialFieldChange(idx, "estimated_rate", parseFloat(e.target.value) || 0)}
                                   readOnly={isReadOnly}
-                                  className={`w-24 bg-slate-50 border-none text-sm font-bold p-2 rounded-lg ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                                  className={`w-24 bg-white border border-slate-200 text-sm font-bold p-2 rounded-lg outline-none ${isReadOnly ? 'cursor-not-allowed opacity-70' : 'focus:border-indigo-400'}`}
                                 />
                               </td>
                               <td className="py-3">
@@ -1801,7 +1801,7 @@ const CreateInvoicePage = () => {
                                   value={item.category}
                                   onChange={(e) => handleMaterialFieldChange(idx, "category", e.target.value)}
                                   readOnly={isReadOnly}
-                                  className={`w-full bg-slate-50 border-none text-sm font-bold p-2 rounded-lg ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                                  className={`w-full bg-white border border-slate-200 text-sm font-bold p-2 rounded-lg outline-none ${isReadOnly ? 'cursor-not-allowed opacity-70' : 'focus:border-indigo-400'}`}
                                   placeholder="Category"
                                 />
                               </td>
@@ -1811,7 +1811,7 @@ const CreateInvoicePage = () => {
                                   value={item.notes || ""}
                                   onChange={(e) => handleMaterialFieldChange(idx, "notes", e.target.value)}
                                   readOnly={isReadOnly}
-                                  className={`w-full bg-slate-50 border-none text-sm font-bold p-2 rounded-lg ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                                  className={`w-full bg-white border border-slate-200 text-sm font-bold p-2 rounded-lg outline-none ${isReadOnly ? 'cursor-not-allowed opacity-70' : 'focus:border-indigo-400'}`}
                                   placeholder="Notes"
                                 />
                               </td>
@@ -1845,6 +1845,15 @@ const CreateInvoicePage = () => {
                       </button>
                     </div>
                     <div className="space-y-4">
+                      {extraChargeItems.length > 0 && (
+                        <div className="flex gap-4 items-center px-3 pb-1">
+                          <div className="w-32 text-[10px] font-black uppercase tracking-widest text-slate-400">Type</div>
+                          <div className="flex-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Description</div>
+                          <div className="w-20 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Qty</div>
+                          <div className="w-32 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Amount</div>
+                          <div className="w-8" />
+                        </div>
+                      )}
                       {extraChargeItems.map((item, idx) => (
                         <div key={idx} className="flex gap-4 items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
                           <div className="w-32">
