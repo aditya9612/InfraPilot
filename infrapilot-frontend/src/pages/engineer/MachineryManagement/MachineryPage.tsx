@@ -21,7 +21,9 @@ import {
   FileText,
   RotateCcw,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Clock,
+  ChevronDown
 } from "lucide-react";
 
 const conditionColors: Record<string, string> = {
@@ -44,6 +46,7 @@ const MachineryPage = () => {
     const [viewingEquipment, setViewingEquipment] = useState<Equipment | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
     const [conditionFilter, setConditionFilter] = useState("All");
+    const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<number | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
@@ -147,7 +150,7 @@ const MachineryPage = () => {
     };
 
     const filteredList = useMemo(() => {
-        return machineryList.filter(item => {
+        let result = machineryList.filter(item => {
             const term = searchTerm.toLowerCase();
             const matchesSearch = searchTerm === "" || 
                 item.equipment_name.toLowerCase().includes(term) ||
@@ -160,7 +163,17 @@ const MachineryPage = () => {
             
             return matchesSearch && matchesCondition && matchesStat;
         });
-    }, [machineryList, searchTerm, conditionFilter, activeStatFilter]);
+
+        result.sort((a, b) => {
+            if (sortOrder === "latest") {
+                return Number(b.id) - Number(a.id);
+            } else {
+                return Number(a.id) - Number(b.id);
+            }
+        });
+
+        return result;
+    }, [machineryList, searchTerm, conditionFilter, activeStatFilter, sortOrder]);
 
     const paginatedList = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
@@ -170,7 +183,7 @@ const MachineryPage = () => {
     // Reset page on filter change
     useEffect(() => {
         setCurrentPage(1);
-    }, [selectedProjectId, searchTerm, conditionFilter, activeStatFilter]);
+    }, [selectedProjectId, searchTerm, conditionFilter, activeStatFilter, sortOrder]);
 
     // Summary stats (always from the full list or filtered?) 
     // User said "calculate karke stat card mai dikhao", usually means total overview.
@@ -264,16 +277,36 @@ const MachineryPage = () => {
                             />
                         </div>
 
-                        <select
-                            value={conditionFilter}
-                            onChange={(e) => setConditionFilter(e.target.value)}
-                            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-primary/10 transition-all cursor-pointer"
-                        >
-                            <option value="All">All Conditions</option>
-                            <option value="GOOD">Good</option>
-                            <option value="REPAIR">Repair</option>
-                            <option value="DAMAGED">Damaged</option>
-                        </select>
+                        <div className="flex items-center gap-3">
+                            <select
+                                value={conditionFilter}
+                                onChange={(e) => setConditionFilter(e.target.value)}
+                                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-primary/10 transition-all cursor-pointer"
+                            >
+                                <option value="All">All Conditions</option>
+                                <option value="GOOD">Good</option>
+                                <option value="REPAIR">Repair</option>
+                                <option value="DAMAGED">Damaged</option>
+                            </select>
+
+                            {/* Sort Filter */}
+                            <div className="relative flex items-center">
+                                <div className="absolute left-3 text-slate-400 pointer-events-none">
+                                    <Clock className="w-4 h-4" />
+                                </div>
+                                <select
+                                    value={sortOrder}
+                                    onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
+                                    className="appearance-none bg-white border border-primary rounded-full text-sm font-bold text-primary shadow-sm pl-9 pr-8 py-1.5 outline-none cursor-pointer"
+                                >
+                                    <option value="latest">Latest First</option>
+                                    <option value="oldest">Oldest First</option>
+                                </select>
+                                <div className="absolute right-3 text-slate-400 pointer-events-none">
+                                    <ChevronDown className="w-4 h-4" />
+                                </div>
+                            </div>
+                        </div>
 
 
                     </div>

@@ -95,8 +95,17 @@ const LaborDetailsPage = () => {
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
-        if (!formData.aadhaar_number.trim()) newErrors.aadhaar_number = "Aadhaar number is required";
-        if (formData.aadhaar_number.replace(/-/g, "").length !== 12) newErrors.aadhaar_number = "Aadhaar must be exactly 12 digits";
+        const aadhaarDigits = formData.aadhaar_number.replace(/-/g, "");
+        
+        if (!formData.aadhaar_number.trim()) {
+            newErrors.aadhaar_number = "Aadhaar number is required";
+        } else if (aadhaarDigits.length !== 12) {
+            newErrors.aadhaar_number = "Aadhaar must be exactly 12 digits";
+        } else if (/^(\d)\1+$/.test(aadhaarDigits)) {
+            newErrors.aadhaar_number = "Aadhaar cannot consist of all identical digits";
+        } else if (aadhaarDigits.startsWith("0") || aadhaarDigits.startsWith("1")) {
+            newErrors.aadhaar_number = "Aadhaar number cannot start with 0 or 1";
+        }
 
         if (!formData.labour_name.trim()) {
             newErrors.labour_name = "Name is required";

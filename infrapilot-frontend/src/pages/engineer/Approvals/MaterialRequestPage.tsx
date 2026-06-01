@@ -44,6 +44,7 @@ const MaterialRequestPage = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [projectId, setProjectId] = useState<number | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
+    const [currentUserName, setCurrentUserName] = useState("Site Engineer");
     const [projects, setProjects] = useState<any[]>([]);
     const [itemsPerPage, setItemsPerPage] = useState(10);
 
@@ -63,6 +64,7 @@ const MaterialRequestPage = () => {
             try {
                 const user = JSON.parse(userStr);
                 const pId = user?.project_id || user?.user?.project_id;
+                setCurrentUserName(user?.user?.name || user?.name || "Site Engineer");
                 if (pId) {
                     setProjectId(Number(pId));
                 } else {
@@ -378,7 +380,6 @@ const MaterialRequestPage = () => {
                         <table className="w-full text-left font-inter min-w-[1200px]">
                             <thead>
                                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
-                                    <th className="px-6 py-4 font-inter">Requisition Identity</th>
                                     <th className="px-6 py-4 font-inter">Resource Requisition</th>
                                     <th className="px-6 py-4 font-inter">Operational Status</th>
                                     <th className="px-6 py-4 font-inter">Volume / Quantity</th>
@@ -388,7 +389,7 @@ const MaterialRequestPage = () => {
                             <tbody className="divide-y divide-slate-50 font-inter">
                                 {isLoading ? (
                                     <tr>
-                                        <td colSpan={5} className="px-6 py-20 text-center font-inter">
+                                        <td colSpan={4} className="px-6 py-20 text-center font-inter">
                                             <div className="flex flex-col items-center gap-3 font-inter">
                                                 <Loader2 className="w-8 h-8 text-primary animate-spin" />
                                                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing requisition intelligence...</p>
@@ -398,12 +399,6 @@ const MaterialRequestPage = () => {
                                 ) : paginatedRequests.length > 0 ? (
                                     paginatedRequests.map((request) => (
                                         <tr key={request.id} className="hover:bg-slate-50/50 transition-colors group font-inter border-b border-slate-50/50">
-                                            <td className="px-6 py-4 font-inter">
-                                                <div className="flex flex-col font-inter">
-                                                    <span className="text-sm font-bold text-slate-800 font-inter">Requisition</span>
-                                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter mt-0.5">Procurement Log</span>
-                                                </div>
-                                            </td>
                                             <td className="px-6 py-4 font-inter">
                                                 <div className="flex flex-col font-inter">
                                                     <span className="text-sm font-bold text-slate-800 font-inter uppercase tracking-tight">{request.request_type}</span>
@@ -459,7 +454,7 @@ const MaterialRequestPage = () => {
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={5} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
+                                        <td colSpan={4} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
                                             No procurement requisitions discovered in the project vault.
                                         </td>
                                     </tr>
@@ -589,7 +584,7 @@ const MaterialRequestPage = () => {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8 font-inter">
                                 <div className="font-inter">
                                     <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-1.5')}>Originating Engineer</p>
-                                    <p className="text-sm font-bold text-slate-800 font-inter uppercase tracking-widest">User #{selectedRequest.requested_by || "SYST"}</p>
+                                    <p className="text-sm font-bold text-slate-800 font-inter uppercase tracking-widest">{currentUserName}</p>
                                 </div>
                                 <div className="font-inter">
                                     <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-1.5')}>Approving Authority</p>
@@ -663,7 +658,6 @@ const MaterialRequestPage = () => {
                                     className={inputClasses(errors.request_type)}
                                 >
                                     <option value="Material">Material</option>
-                                    <option value="Labour">Labour</option>
                                     <option value="Equipment">Equipment</option>
                                 </select>
                                 {errors.request_type && <p className="mt-1.5 text-[9px] text-rose-500 font-black uppercase tracking-widest ml-1 font-inter">{errors.request_type}</p>}

@@ -65,6 +65,19 @@ const WorkApprovalPage = () => {
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [currentUserName, setCurrentUserName] = useState("Site Engineer");
+
+    useEffect(() => {
+        const userStr = localStorage.getItem("infrapilot_user");
+        if (userStr) {
+            try {
+                const user = JSON.parse(userStr);
+                setCurrentUserName(user?.user?.name || user?.name || "Site Engineer");
+            } catch (e) {
+                console.error("Failed to resolve user name", e);
+            }
+        }
+    }, []);
 
     // Filter state for StatCards
     const [activeFilter, setActiveFilter] = useState<"Select" | "Approved" | "Pending" | "Reject" | "Pending/Reject" | "Rate">("Select");
@@ -72,7 +85,7 @@ const WorkApprovalPage = () => {
 
     const [formData, setFormData] = useState({
         id: "" as number | string,
-        entity_type: "bill",
+        entity_type: "material",
         entity_id: "" as number | string,
         remarks: "",
         status: "Pending" as "Pending" | "Approved" | "Rejected" | string,
@@ -268,7 +281,7 @@ const WorkApprovalPage = () => {
                                 setIsEditMode(false);
                                 setFormData({
                                     id: "",
-                                    entity_type: "bill",
+                                    entity_type: "material",
                                     entity_id: "",
                                     remarks: "",
                                     status: "Pending"
@@ -618,7 +631,7 @@ const WorkApprovalPage = () => {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 sm:gap-x-12 gap-y-6 font-inter">
                                     <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Requested By</p>
-                                        <p className="text-sm font-bold text-blue-600 font-inter">User {selectedApproval.requested_by}</p>
+                                        <p className="text-sm font-bold text-blue-600 font-inter uppercase">{currentUserName}</p>
                                     </div>
                                     <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">System Sync</p>
@@ -671,7 +684,6 @@ const WorkApprovalPage = () => {
                             <div>
                                 <label className={labelClasses}>Entity Type <span className="text-rose-500">*</span></label>
                                 <select name="entity_type" value={formData.entity_type} onChange={handleInputChange} className={inputClasses(errors.entity_type)}>
-                                    <option value="bill">Bill</option>
                                     <option value="material">Material</option>
                                     <option value="labour">Labour</option>
                                     <option value="equipment">Equipment</option>

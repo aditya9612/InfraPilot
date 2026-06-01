@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import Navbar from '../../../components/common/Navbar';
 import PageTransition from '../../../components/common/PageTransition';
@@ -7,8 +7,10 @@ import {
     Filter, Search, Eye, Calendar, User, 
     CheckCircle, Clock, AlertCircle, XCircle, List, 
     Download, FileText, X, Mail, Briefcase, Phone,
-    Edit2, Trash2, RefreshCw, LayoutGrid, Camera
+    Edit2, Trash2, RefreshCw, LayoutGrid, Camera,
+    BarChart3
 } from 'lucide-react';
+import { labourService } from '../../../services/labourService';
 
 interface TaskItem {
     id: string;
@@ -23,6 +25,8 @@ interface TaskItem {
     hasHistory: boolean;
     startWorkImgUrl?: string;
     endWorkImgUrl?: string;
+    filterType: "My Tasks" | "Assigned";
+    department: "Engineering" | "Plumbing" | "Electrical";
 }
 
 const mockTasks: TaskItem[] = [
@@ -37,7 +41,9 @@ const mockTasks: TaskItem[] = [
         assignedDate: "May 19, 2026",
         status: "To Do",
         hasHistory: true,
-        startWorkImgUrl: "https://images.unsplash.com/photo-1504307651254-35680f356f27?w=100&h=100&fit=crop"
+        startWorkImgUrl: "https://images.unsplash.com/photo-1504307651254-35680f356f27?w=100&h=100&fit=crop",
+        filterType: "Assigned",
+        department: "Engineering"
     },
     {
         id: "2",
@@ -50,7 +56,9 @@ const mockTasks: TaskItem[] = [
         status: "To Do",
         hasHistory: true,
         startWorkImgUrl: "https://images.unsplash.com/photo-1541888086425-d81bb19240f5?w=100&h=100&fit=crop",
-        endWorkImgUrl: "https://images.unsplash.com/photo-1581092160562-40aa08e78837?w=100&h=100&fit=crop"
+        endWorkImgUrl: "https://images.unsplash.com/photo-1581092160562-40aa08e78837?w=100&h=100&fit=crop",
+        filterType: "My Tasks",
+        department: "Plumbing"
     },
     {
         id: "3",
@@ -61,7 +69,9 @@ const mockTasks: TaskItem[] = [
         priority: "MEDIUM",
         deadline: "Aug 12, 2026",
         status: "To Do",
-        hasHistory: false
+        hasHistory: false,
+        filterType: "Assigned",
+        department: "Electrical"
     }
 ];
 
@@ -83,9 +93,47 @@ const LabourTaskDetailPage = () => {
         setModalTab("Details");
     };
 
+    const [tasks, setTasks] = useState<TaskItem[]>(mockTasks);
+    
+    // Filters and View State
+    const [searchTerm, setSearchTerm] = useState("");
+    const [statusFilter, setStatusFilter] = useState("All Status");
+    const [typeFilter, setTypeFilter] = useState("All Tasks");
+    const [departmentFilter, setDepartmentFilter] = useState("All Departments");
+
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedEditTask, setSelectedEditTask] = useState<TaskItem | null>(null);
     const [previewImage, setPreviewImage] = useState<{ url: string, title: string } | null>(null);
+
+    const [weeklyReport, setWeeklyReport] = useState<any>(null);
+    const [monthlyReport, setMonthlyReport] = useState<any>(null);
+    const [isLoadingReports, setIsLoadingReports] = useState(false);
+
+    useEffect(() => {
+        const fetchReports = async () => {
+            if (!id) return;
+            setIsLoadingReports(true);
+            try {
+                const [weeklyData, monthlyData] = await Promise.all([
+                    labourService.getLabourWeeklyReport(id),
+                    labourService.getLabourMonthlyReport(id)
+                ]);
+                
+                if (weeklyData && weeklyData.length > 0) {
+                    setWeeklyReport(weeklyData[0]);
+                }
+                if (monthlyData && monthlyData.length > 0) {
+                    setMonthlyReport(monthlyData[0]);
+                }
+            } catch (error) {
+                console.error("Failed to fetch labour reports", error);
+            } finally {
+                setIsLoadingReports(false);
+            }
+        };
+
+        fetchReports();
+    }, [id]);
 
     const openEditModal = (task: TaskItem) => {
         setSelectedEditTask(task);
@@ -96,9 +144,46 @@ const LabourTaskDetailPage = () => {
 
     const handleEditFormSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        setIsEditModalOpen(false);
-        // Handle submit logic here
+        if (selectedEditTask) {
+            const form = e.target as HTMLFormElement;
+            const title = (form.elements.namedItem("title") as HTMLInputElement).value;
+            const description = (form.elements.namedItem("description") as HTMLTextAreaElement).value;
+            const deadline = (form.elements.namedItem("deadline") as HTMLInputElement).value;
+            
+            setTasks(prev => prev.map(t => t.id === selectedEditTask.id ? { 
+                ...t, 
+                title, 
+                subtitle: description, 
+                deadline 
+            } : t));
+            setIsEditModalOpen(false);
+            setSelectedEditTask(null);
+        }
     };
+
+    const handleDeleteTask = (taskId: string) => {
+        setTasks(prev => prev.filter(t => t.id !== taskId));
+    };
+
+    const handleStatusChange = (taskId: string, newStatus: string) => {
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus as TaskItem["status"] } : t));
+    };
+
+    const filteredTasks = tasks.filter(task => {
+        const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                              task.subtitle.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesStatus = statusFilter === "All Status" || task.status === statusFilter;
+        const matchesType = typeFilter === "All Tasks" || task.filterType === typeFilter;
+        const matchesDepartment = departmentFilter === "All Departments" || task.department === departmentFilter;
+        return matchesSearch && matchesStatus && matchesType && matchesDepartment;
+    });
+
+    // Stat counts
+    const totalTasks = tasks.length;
+    const inProgressTasks = tasks.filter(t => t.status === "In Progress").length;
+    const completedTasks = tasks.filter(t => t.status === "Completed").length;
+    const overdueTasks = tasks.filter(t => t.status === "Overdue").length;
+    const cancelledTasks = tasks.filter(t => t.status === "Cancelled").length;
 
     return (
         <>
@@ -138,7 +223,7 @@ const LabourTaskDetailPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between group hover:-translate-y-1 transition-transform">
                         <div>
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Tasks</p>
-                            <h3 className="text-2xl font-black text-slate-800">27</h3>
+                            <h3 className="text-2xl font-black text-slate-800">{totalTasks}</h3>
                         </div>
                         <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400">
                             <List className="w-5 h-5" />
@@ -147,7 +232,7 @@ const LabourTaskDetailPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between group hover:-translate-y-1 transition-transform">
                         <div>
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">In Progress</p>
-                            <h3 className="text-2xl font-black text-slate-800">0</h3>
+                            <h3 className="text-2xl font-black text-slate-800">{inProgressTasks}</h3>
                         </div>
                         <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-500">
                             <Clock className="w-5 h-5" />
@@ -156,7 +241,7 @@ const LabourTaskDetailPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between group hover:-translate-y-1 transition-transform">
                         <div>
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Completed</p>
-                            <h3 className="text-2xl font-black text-slate-800">6</h3>
+                            <h3 className="text-2xl font-black text-slate-800">{completedTasks}</h3>
                         </div>
                         <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-500">
                             <CheckCircle className="w-5 h-5" />
@@ -165,7 +250,7 @@ const LabourTaskDetailPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between group hover:-translate-y-1 transition-transform">
                         <div>
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Overdue</p>
-                            <h3 className="text-2xl font-black text-slate-800">14</h3>
+                            <h3 className="text-2xl font-black text-slate-800">{overdueTasks}</h3>
                         </div>
                         <div className="w-10 h-10 rounded-full bg-rose-50 flex items-center justify-center text-rose-500">
                             <AlertCircle className="w-5 h-5" />
@@ -174,7 +259,7 @@ const LabourTaskDetailPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between group hover:-translate-y-1 transition-transform">
                         <div>
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Cancelled</p>
-                            <h3 className="text-2xl font-black text-slate-800">4</h3>
+                            <h3 className="text-2xl font-black text-slate-800">{cancelledTasks}</h3>
                         </div>
                         <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400">
                             <XCircle className="w-5 h-5" />
@@ -201,6 +286,8 @@ const LabourTaskDetailPage = () => {
                                 </div>
                                 <input
                                     type="text"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
                                     placeholder="Search tasks..."
                                     className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all w-48 md:w-56"
                                 />
@@ -208,32 +295,44 @@ const LabourTaskDetailPage = () => {
 
                             <div className="flex flex-col">
                                 <span className="text-[10px] font-black text-slate-800 mb-1">Status</span>
-                                <select className="border border-slate-200 rounded-xl px-4 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer hover:border-slate-300 transition-colors">
-                                    <option>All Status</option>
-                                    <option>To Do</option>
-                                    <option>In Progress</option>
-                                    <option>Overdue</option>
-                                    <option>Completed</option>
-                                    <option>Cancelled</option>
+                                <select 
+                                    value={statusFilter}
+                                    onChange={(e) => setStatusFilter(e.target.value)}
+                                    className="border border-slate-200 rounded-xl px-4 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer hover:border-slate-300 transition-colors"
+                                >
+                                    <option value="All Status">All Status</option>
+                                    <option value="To Do">To Do</option>
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="Overdue">Overdue</option>
+                                    <option value="Completed">Completed</option>
+                                    <option value="Cancelled">Cancelled</option>
                                 </select>
                             </div>
 
                             <div className="flex flex-col">
                                 <span className="text-[10px] font-black text-slate-800 mb-1">Filter</span>
-                                <select className="border border-slate-200 rounded-xl px-4 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer hover:border-slate-300 transition-colors">
-                                    <option>All Tasks</option>
-                                    <option>My Tasks</option>
-                                    <option>Assigned</option>
+                                <select 
+                                    value={typeFilter}
+                                    onChange={(e) => setTypeFilter(e.target.value)}
+                                    className="border border-slate-200 rounded-xl px-4 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer hover:border-slate-300 transition-colors"
+                                >
+                                    <option value="All Tasks">All Tasks</option>
+                                    <option value="My Tasks">My Tasks</option>
+                                    <option value="Assigned">Assigned</option>
                                 </select>
                             </div>
 
                             <div className="flex flex-col">
                                 <span className="text-[10px] font-black text-slate-800 mb-1">Department</span>
-                                <select className="border border-slate-200 rounded-xl px-4 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer hover:border-slate-300 transition-colors">
-                                    <option>All Departments</option>
-                                    <option>Engineering</option>
-                                    <option>Plumbing</option>
-                                    <option>Electrical</option>
+                                <select 
+                                    value={departmentFilter}
+                                    onChange={(e) => setDepartmentFilter(e.target.value)}
+                                    className="border border-slate-200 rounded-xl px-4 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer hover:border-slate-300 transition-colors"
+                                >
+                                    <option value="All Departments">All Departments</option>
+                                    <option value="Engineering">Engineering</option>
+                                    <option value="Plumbing">Plumbing</option>
+                                    <option value="Electrical">Electrical</option>
                                 </select>
                             </div>
 
@@ -251,110 +350,169 @@ const LabourTaskDetailPage = () => {
                                     <LayoutGrid className="w-4 h-4" />
                                 </button>
                             </div>
-
-                            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-sm active:scale-95 mb-1">
-                                <Download className="w-4 h-4" />
-                                Export
-                            </button>
                         </div>
                     </div>
 
-                    {/* All Tasks Content (List view) */}
+                    {/* All Tasks Content */}
                     <div className="p-6 bg-slate-50 flex-1">
-                        <div className="overflow-x-auto bg-white rounded-xl border border-slate-200">
-                            <table className="w-full text-left border-collapse">
-                                <thead>
-                                    <tr className="border-b border-slate-200 bg-slate-50/50">
-                                        <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Task</th>
-                                        <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Assigned By</th>
-                                        <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Assigned To</th>
-                                        <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Priority</th>
-                                        <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Deadline</th>
-                                        <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Selfie</th>
-                                        <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Start Work Image</th>
-                                        <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">End Work Image</th>
-                                        <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Status</th>
-                                        <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {mockTasks.map((task) => (
-                                        <tr key={task.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
-                                            <td className="p-4">
-                                                <p className="text-sm font-bold text-slate-800">{task.title}</p>
-                                                <p className="text-xs text-slate-500 mt-1 truncate max-w-[200px]">{task.subtitle}</p>
-                                            </td>
-                                            <td className="p-4">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-6 h-6 rounded-full border border-slate-200 bg-slate-100 flex items-center justify-center text-slate-400">
-                                                        <User className="w-3 h-3" />
+                        {filteredTasks.length === 0 ? (
+                            <div className="py-20 text-center">
+                                <p className="text-slate-500">No tasks found matching your filters.</p>
+                            </div>
+                        ) : viewMode === 'list' ? (
+                            <div className="overflow-x-auto bg-white rounded-xl border border-slate-200">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="border-b border-slate-200 bg-slate-50/50">
+                                            <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Task</th>
+                                            <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Assigned By</th>
+                                            <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Assigned To</th>
+                                            <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Priority</th>
+                                            <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Deadline</th>
+                                            <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Selfie</th>
+                                            <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Start Work Image</th>
+                                            <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">End Work Image</th>
+                                            <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Status</th>
+                                            <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filteredTasks.map((task) => (
+                                            <tr key={task.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+                                                <td className="p-4">
+                                                    <p className="text-sm font-bold text-slate-800">{task.title}</p>
+                                                    <p className="text-xs text-slate-500 mt-1 truncate max-w-[200px]">{task.subtitle}</p>
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-6 h-6 rounded-full border border-slate-200 bg-slate-100 flex items-center justify-center text-slate-400">
+                                                            <User className="w-3 h-3" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-xs font-bold text-slate-800">{task.assignedBy.name}</p>
+                                                            <p className="text-[10px] text-slate-500">{task.assignedBy.role}</p>
+                                                        </div>
                                                     </div>
-                                                    <div>
-                                                        <p className="text-xs font-bold text-slate-800">{task.assignedBy.name}</p>
-                                                        <p className="text-[10px] text-slate-500">{task.assignedBy.role}</p>
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-6 h-6 rounded-full border border-slate-200 bg-slate-100 flex items-center justify-center text-slate-400">
+                                                            <User className="w-3 h-3" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-xs font-bold text-slate-800">{task.assignedTo.name}</p>
+                                                            <p className="text-[10px] text-slate-500">{task.assignedTo.role}</p>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </td>
-                                            <td className="p-4">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-6 h-6 rounded-full border border-slate-200 bg-slate-100 flex items-center justify-center text-slate-400">
-                                                        <User className="w-3 h-3" />
+                                                </td>
+                                                <td className="p-4 text-center">
+                                                    <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${priorityBadges[task.priority]}`}>
+                                                        {task.priority}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="flex items-center gap-2 text-sm text-slate-800 font-medium">
+                                                        <Calendar className="w-4 h-4 text-slate-400" />
+                                                        {task.deadline}
                                                     </div>
-                                                    <div>
-                                                        <p className="text-xs font-bold text-slate-800">{task.assignedTo.name}</p>
-                                                        <p className="text-[10px] text-slate-500">{task.assignedTo.role}</p>
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <div className="w-8 h-8 rounded-full border border-slate-200 bg-emerald-50 flex items-center justify-center shrink-0">
+                                                            <span className="text-[8px] font-bold text-emerald-600">IN</span>
+                                                        </div>
+                                                        <div className="w-8 h-8 rounded-full border border-slate-200 bg-rose-50 flex items-center justify-center shrink-0">
+                                                            <span className="text-[8px] font-bold text-rose-500">OUT</span>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </td>
-                                            <td className="p-4 text-center">
-                                                <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${priorityBadges[task.priority]}`}>
-                                                    {task.priority}
-                                                </span>
-                                            </td>
-                                            <td className="p-4">
-                                                <div className="flex items-center gap-2 text-sm text-slate-800 font-medium">
-                                                    <Calendar className="w-4 h-4 text-slate-400" />
-                                                    {task.deadline}
-                                                </div>
-                                            </td>
-                                            <td className="p-4">
-                                                <div className="flex items-center justify-center gap-2">
-                                                    <div className="w-8 h-8 rounded-full border border-slate-200 bg-emerald-50 flex items-center justify-center shrink-0">
-                                                        <span className="text-[8px] font-bold text-emerald-600">IN</span>
-                                                    </div>
-                                                    <div className="w-8 h-8 rounded-full border border-slate-200 bg-rose-50 flex items-center justify-center shrink-0">
-                                                        <span className="text-[8px] font-bold text-rose-500">OUT</span>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="p-4 text-center">
-                                                {task.startWorkImgUrl ? (
-                                                    <div 
-                                                        onClick={() => setPreviewImage({ url: task.startWorkImgUrl!, title: "Start Work Image - " + task.title })}
-                                                        className="w-10 h-10 rounded-lg border-2 border-blue-400 overflow-hidden bg-blue-50 mx-auto cursor-pointer hover:scale-110 transition-transform shadow-sm"
+                                                </td>
+                                                <td className="p-4 text-center">
+                                                    {task.startWorkImgUrl ? (
+                                                        <div 
+                                                            onClick={() => setPreviewImage({ url: task.startWorkImgUrl!, title: "Start Work Image - " + task.title })}
+                                                            className="w-10 h-10 rounded-lg border-2 border-blue-400 overflow-hidden bg-blue-50 mx-auto cursor-pointer hover:scale-110 transition-transform shadow-sm"
+                                                        >
+                                                            <img src={task.startWorkImgUrl} alt="Start Work" className="w-full h-full object-cover" />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="w-10 h-10 rounded-lg bg-slate-50 border-2 border-dashed border-slate-200 mx-auto flex items-center justify-center text-slate-400"><Camera className="w-3 h-3" /></div>
+                                                    )}
+                                                </td>
+                                                <td className="p-4 text-center">
+                                                    {task.endWorkImgUrl ? (
+                                                        <div 
+                                                            onClick={() => setPreviewImage({ url: task.endWorkImgUrl!, title: "End Work Image - " + task.title })}
+                                                            className="w-10 h-10 rounded-lg border-2 border-orange-400 overflow-hidden bg-orange-50 mx-auto cursor-pointer hover:scale-110 transition-transform shadow-sm"
+                                                        >
+                                                            <img src={task.endWorkImgUrl} alt="End Work" className="w-full h-full object-cover" />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="w-10 h-10 rounded-lg bg-slate-50 border-2 border-dashed border-slate-200 mx-auto flex items-center justify-center text-slate-400"><Camera className="w-3 h-3" /></div>
+                                                    )}
+                                                </td>
+                                                <td className="p-4">
+                                                    <select 
+                                                        value={task.status}
+                                                        onChange={(e) => handleStatusChange(task.id, e.target.value)}
+                                                        className="w-full min-w-[130px] px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-white shadow-sm outline-none cursor-pointer focus:border-indigo-500"
                                                     >
-                                                        <img src={task.startWorkImgUrl} alt="Start Work" className="w-full h-full object-cover" />
+                                                        <option value="To Do">To Do</option>
+                                                        <option value="In Progress">In Progress</option>
+                                                        <option value="Completed">Completed</option>
+                                                        <option value="Overdue">Overdue</option>
+                                                        <option value="Cancelled">Cancelled</option>
+                                                    </select>
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="flex items-center justify-center gap-1.5">
+                                                        <button onClick={() => openTaskModal(task)} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter" title="View Details">
+                                                            <Eye className="w-4 h-4" />
+                                                        </button>
+                                                        <button onClick={() => openEditModal(task)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit Task">
+                                                            <Edit2 className="w-4 h-4" />
+                                                        </button>
+                                                        <button onClick={() => handleDeleteTask(task.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors" title="Delete Task">
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                        {task.status === 'Overdue' && (
+                                                            <button className="px-2 py-1 ml-1 bg-rose-50 text-rose-600 border border-rose-200 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-rose-100 transition-colors flex items-center gap-1">
+                                                                <RefreshCw className="w-3 h-3" /> Reassign
+                                                            </button>
+                                                        )}
                                                     </div>
-                                                ) : (
-                                                    <div className="w-10 h-10 rounded-lg bg-slate-50 border-2 border-dashed border-slate-200 mx-auto flex items-center justify-center text-slate-400"><Camera className="w-3 h-3" /></div>
-                                                )}
-                                            </td>
-                                            <td className="p-4 text-center">
-                                                {task.endWorkImgUrl ? (
-                                                    <div 
-                                                        onClick={() => setPreviewImage({ url: task.endWorkImgUrl!, title: "End Work Image - " + task.title })}
-                                                        className="w-10 h-10 rounded-lg border-2 border-orange-400 overflow-hidden bg-orange-50 mx-auto cursor-pointer hover:scale-110 transition-transform shadow-sm"
-                                                    >
-                                                        <img src={task.endWorkImgUrl} alt="End Work" className="w-full h-full object-cover" />
-                                                    </div>
-                                                ) : (
-                                                    <div className="w-10 h-10 rounded-lg bg-slate-50 border-2 border-dashed border-slate-200 mx-auto flex items-center justify-center text-slate-400"><Camera className="w-3 h-3" /></div>
-                                                )}
-                                            </td>
-                                            <td className="p-4">
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {filteredTasks.map(task => (
+                                    <div key={task.id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col transition-all hover:shadow-md hover:border-slate-300">
+                                        <div className="flex justify-between items-start mb-3">
+                                            <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${priorityBadges[task.priority]}`}>
+                                                {task.priority}
+                                            </span>
+                                            <div className="flex gap-1">
+                                                <button onClick={() => openEditModal(task)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                                    <Edit2 className="w-4 h-4" />
+                                                </button>
+                                                <button onClick={() => handleDeleteTask(task.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <h4 className="text-base font-bold text-slate-800 mb-1">{task.title}</h4>
+                                        <p className="text-xs text-slate-500 mb-4 line-clamp-2 min-h-[32px]">{task.subtitle}</p>
+                                        
+                                        <div className="mt-auto pt-4 border-t border-slate-100 grid grid-cols-2 gap-4">
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Status</span>
                                                 <select 
-                                                    defaultValue={task.status}
-                                                    className="w-full min-w-[130px] px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-white shadow-sm outline-none cursor-pointer focus:border-indigo-500"
+                                                    value={task.status}
+                                                    onChange={(e) => handleStatusChange(task.id, e.target.value)}
+                                                    className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 bg-slate-50 outline-none cursor-pointer"
                                                 >
                                                     <option value="To Do">To Do</option>
                                                     <option value="In Progress">In Progress</option>
@@ -362,30 +520,19 @@ const LabourTaskDetailPage = () => {
                                                     <option value="Overdue">Overdue</option>
                                                     <option value="Cancelled">Cancelled</option>
                                                 </select>
-                                            </td>
-                                            <td className="p-4">
-                                                <div className="flex items-center justify-center gap-1.5">
-                                                    <button onClick={() => openTaskModal(task)} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter" title="View Details">
-                                                        <Eye className="w-4 h-4" />
-                                                    </button>
-                                                    <button onClick={() => openEditModal(task)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit Task">
-                                                        <Edit2 className="w-4 h-4" />
-                                                    </button>
-                                                    <button className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors" title="Delete Task">
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                    {task.status === 'Overdue' && (
-                                                        <button className="px-2 py-1 ml-1 bg-rose-50 text-rose-600 border border-rose-200 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-rose-100 transition-colors flex items-center gap-1">
-                                                            <RefreshCw className="w-3 h-3" /> Reassign
-                                                        </button>
-                                                    )}
+                                            </div>
+                                            <div className="flex flex-col justify-end">
+                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Deadline</span>
+                                                <div className="flex items-center gap-1.5 text-sm text-slate-800 font-medium">
+                                                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                                                    {task.deadline}
                                                 </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
                 </>
@@ -481,6 +628,79 @@ const LabourTaskDetailPage = () => {
                                         <p className="text-sm font-black text-emerald-500 font-inter italic-none">High Consistency</p>
                                     </div>
                                 </div>
+                            </div>
+
+                            {/* Reports style section */}
+                            <div className="font-inter">
+                                <div className="flex items-center gap-2 mb-6 font-inter">
+                                    <div className="p-2 bg-indigo-50 rounded-lg font-inter">
+                                        <BarChart3 className="w-4 h-4 text-indigo-500" />
+                                    </div>
+                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] font-inter">Attendance & Performance Reports</p>
+                                </div>
+                                
+                                {isLoadingReports ? (
+                                    <div className="p-8 text-center text-slate-400">
+                                        <div className="inline-block w-6 h-6 border-2 border-indigo-200 border-t-indigo-500 rounded-full animate-spin mb-2" />
+                                        <p className="text-[10px] font-bold uppercase tracking-widest">Loading Reports...</p>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
+                                        {/* Weekly Report Card */}
+                                        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                                            <h4 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Weekly Summary</h4>
+                                            {weeklyReport ? (
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div>
+                                                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">Present Days</p>
+                                                        <p className="text-lg font-black text-emerald-500">{weeklyReport.present_days || 0} / {weeklyReport.total_days || 0}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">Absent Days</p>
+                                                        <p className="text-lg font-black text-rose-500">{weeklyReport.absent_days || 0}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">Total Hours</p>
+                                                        <p className="text-lg font-black text-slate-800">{weeklyReport.total_hours || 0}h</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">Total Wage</p>
+                                                        <p className="text-lg font-black text-blue-500">₹{weeklyReport.total_wage || 0}</p>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <p className="text-xs text-slate-500 italic py-4">No weekly data available</p>
+                                            )}
+                                        </div>
+
+                                        {/* Monthly Report Card */}
+                                        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                                            <h4 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Monthly Summary (Month: {monthlyReport?.month || '-'})</h4>
+                                            {monthlyReport ? (
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div>
+                                                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">Present Days</p>
+                                                        <p className="text-lg font-black text-emerald-500">{monthlyReport.present_days || 0} / {monthlyReport.total_days || 0}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">Absent Days</p>
+                                                        <p className="text-lg font-black text-rose-500">{monthlyReport.absent_days || 0}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">Total Hours</p>
+                                                        <p className="text-lg font-black text-slate-800">{monthlyReport.total_hours || 0}h</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">Total Wage</p>
+                                                        <p className="text-lg font-black text-indigo-500">₹{monthlyReport.total_wage || 0}</p>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <p className="text-xs text-slate-500 italic py-4">No monthly data available</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

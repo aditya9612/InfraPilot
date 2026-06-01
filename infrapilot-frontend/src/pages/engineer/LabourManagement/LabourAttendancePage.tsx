@@ -28,12 +28,12 @@ const LabourAttendancePage: React.FC = () => {
     const [currentDateTime, setCurrentDateTime] = useState<Date>(new Date());
 
     // Geolocation state
-    const [locationAddress, setLocationAddress] = useState<string>("Fetching location...");
+    const [, setLocationAddress] = useState<string>("Fetching location...");
 
     // Attendance Flow State
-    const [attendanceState, setAttendanceState] = useState<AttendanceState>("NOT_CHECKED_IN");
-    const [checkInTime, setCheckInTime] = useState<Date | null>(null);
-    const [checkOutTime, setCheckOutTime] = useState<Date | null>(null);
+    const [, setAttendanceState] = useState<AttendanceState>("NOT_CHECKED_IN");
+    const [, setCheckInTime] = useState<Date | null>(null);
+    const [, setCheckOutTime] = useState<Date | null>(null);
 
     // Modals State
     const [isCheckInModalOpen] = useState(false);
@@ -61,25 +61,18 @@ const LabourAttendancePage: React.FC = () => {
 
     // Labour Check-In Form State
     const [isLabourCheckInFormOpen, setIsLabourCheckInFormOpen] = useState(false);
-    const [labourCheckInForm] = useState({
-        projectId: '1',
-        taskId: '',
-        taskDescription: ''
-    });
+
 
     // Labour Check-Out Form State
     const [isLabourCheckOutFormOpen, setIsLabourCheckOutFormOpen] = useState(false);
-    const [labourCheckOutForm] = useState({
-        overtimeHours: '',
-        overtimeRate: '200'
-    });
+
 
     // Self Check-Out Form State
 
     // Self Check-In Form State
     const [isSelfCheckInFormOpen, setIsSelfCheckInFormOpen] = useState(false);
 
-    const [coordinates, setCoordinates] = useState({ lat: 0, lng: 0 });
+    const [, setCoordinates] = useState({ lat: 0, lng: 0 });
 
     // Image Preview State
     const [previewImage, setPreviewImage] = useState<{ url: string, title: string } | null>(null);
@@ -96,9 +89,9 @@ const LabourAttendancePage: React.FC = () => {
     const [historyFilter] = useState<"Today" | "Yesterday" | "All" | "Date">("Today");
     const [historyDateInput] = useState("");
 
-    const [selfAttendances, setSelfAttendances] = useState<any[]>([]);
+    const [labourAttendances, setLabourAttendances] = useState<any[]>([]);
 
-    const fetchSelfAttendances = async () => {
+    const fetchLabourAttendances = async () => {
         try {
             const getActiveProjectId = () => {
                 try {
@@ -112,7 +105,6 @@ const LabourAttendancePage: React.FC = () => {
             };
 
             const activeProjectId = getActiveProjectId();
-            // Assuming project_id=1 as per user request
             let fromDate = "";
             let toDate = "";
             const today = new Date().toISOString().split('T')[0];
@@ -132,22 +124,94 @@ const LabourAttendancePage: React.FC = () => {
             }
 
             const data = await labourService.getAttendanceList(activeProjectId, fromDate || undefined, toDate || undefined);
-            setSelfAttendances(data.items || []);
+            setLabourAttendances(data?.items || []);
         } catch (error) {
-            console.error("Failed to fetch self attendances", error);
+            console.error("Failed to fetch labour attendances", error);
         }
     };
 
     useEffect(() => {
-
-        fetchSelfAttendances();
-
+        fetchLabourAttendances();
     }, [historyFilter, historyDateInput]);
+
+    const handleExport = async () => {
+        try {
+            const getActiveProjectId = () => {
+                try {
+                    const userStr = localStorage.getItem("infrapilot_user");
+                    if (userStr) {
+                        const parsed = JSON.parse(userStr);
+                        return parsed.user?.project_id || parsed.project_id || 92;
+                    }
+                } catch (e) { }
+                return 92;
+            };
+
+            const activeProjectId = getActiveProjectId();
+            let fromDate = "";
+            let toDate = "";
+            const today = new Date().toISOString().split('T')[0];
+
+            if (historyFilter === 'Today') {
+                fromDate = today;
+                toDate = today;
+            } else if (historyFilter === 'Yesterday') {
+                const y = new Date();
+                y.setDate(y.getDate() - 1);
+                const yStr = y.toISOString().split('T')[0];
+                fromDate = yStr;
+                toDate = yStr;
+            } else if (historyFilter === 'Date' && historyDateInput) {
+                fromDate = historyDateInput;
+                toDate = historyDateInput;
+            }
+
+            const toastId = toast.loading("Generating Export...");
+            const blob = await labourService.exportAttendanceExcel(activeProjectId, fromDate || undefined, toDate || undefined);
+            
+            const url = window.URL.createObjectURL(new Blob([blob]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Attendance_Report_${fromDate || today}_to_${toDate || today}.xlsx`);
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode?.removeChild(link);
+            toast.dismiss(toastId);
+            toast.success("Attendance report downloaded successfully!");
+        } catch (error) {
+            console.error("Failed to export attendance report", error);
+            toast.dismiss();
+            toast.error("Failed to export attendance report.");
+        }
+    };
 
     useEffect(() => {
         const timer = setInterval(() => setCurrentDateTime(new Date()), 60000);
         return () => clearInterval(timer);
     }, []);
+
+    const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+
+    const handleViewDetails = async (lab: any) => {
+        setIsLoadingDetails(true);
+        try {
+            const dateStr = lab.attendance_date;
+            const details = await labourService.getLabourAttendance(lab.labour_id, dateStr, dateStr);
+            if (details && details.length > 0) {
+                // Merge list row data with detailed fetched data
+                setSelectedLabour({ ...lab, ...details[0] });
+            } else {
+                setSelectedLabour(lab);
+            }
+            setIsViewModalOpen(true);
+        } catch (err) {
+            console.error("Failed to load labour attendance details", err);
+            setSelectedLabour(lab);
+            setIsViewModalOpen(true);
+        } finally {
+            setIsLoadingDetails(false);
+        }
+    };
 
     useEffect(() => {
 
@@ -273,95 +337,16 @@ const LabourAttendancePage: React.FC = () => {
 
 
 
-    const mockLabourAttendances = [
-        {
-            id: "LAB-001",
-            name: "Rahul Sharma",
-            contractor: "ABC Builders",
-            department: "Engineering",
-            workLocation: "Work from Office",
-            status: "Online",
-            checkIn: "09:30 AM",
-            checkOut: "-",
-            hours: "-",
-            imgInUrl: "https://randomuser.me/api/portraits/men/32.jpg",
-            imgOutUrl: "",
-            startWorkImgUrl: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?q=80&w=100&auto=format&fit=crop",
-            endWorkImgUrl: "",
-            attendanceStatus: "On Time"
-        },
-        {
-            id: "LAB-002",
-            name: "Priya Singh",
-            contractor: "XYZ Constructions",
-            department: "Engineering",
-            workLocation: "Work from Home",
-            status: "Checked Out",
-            checkIn: "10:15 AM",
-            checkOut: "07:00 PM",
-            hours: "08:45",
-            imgInUrl: "https://randomuser.me/api/portraits/women/44.jpg",
-            imgOutUrl: "https://randomuser.me/api/portraits/women/44.jpg",
-            startWorkImgUrl: "https://images.unsplash.com/photo-1541888086425-d81bb19240f5?q=80&w=100&auto=format&fit=crop",
-            endWorkImgUrl: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?q=80&w=100&auto=format&fit=crop",
-            attendanceStatus: "Late"
-        },
-        {
-            id: "LAB-003",
-            name: "Amit Patel",
-            contractor: "ABC Builders",
-            department: "Plumbing",
-            workLocation: "Site A",
-            status: "Checked Out",
-            checkIn: "08:00 AM",
-            checkOut: "05:00 PM",
-            hours: "09:00",
-            imgInUrl: "https://randomuser.me/api/portraits/men/67.jpg",
-            imgOutUrl: "https://randomuser.me/api/portraits/men/67.jpg",
-            startWorkImgUrl: "https://images.unsplash.com/photo-1581092921461-eab62e97a780?q=80&w=100&auto=format&fit=crop",
-            endWorkImgUrl: "https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?q=80&w=100&auto=format&fit=crop",
-            attendanceStatus: "On Time"
-        },
-        {
-            id: "LAB-004",
-            name: "Sneha Roy",
-            contractor: "XYZ Constructions",
-            department: "Electrical",
-            workLocation: "Site B",
-            status: "Online",
-            checkIn: "09:45 AM",
-            checkOut: "-",
-            hours: "-",
-            imgInUrl: "https://randomuser.me/api/portraits/women/68.jpg",
-            imgOutUrl: "",
-            startWorkImgUrl: "https://images.unsplash.com/photo-1581092160562-40aa08e78837?q=80&w=100&auto=format&fit=crop",
-            endWorkImgUrl: "",
-            attendanceStatus: "Late"
-        },
-        {
-            id: "LAB-005",
-            name: "Vikas Verma",
-            contractor: "ABC Builders",
-            department: "Engineering",
-            workLocation: "Site B",
-            status: "Pending",
-            checkIn: "-",
-            checkOut: "-",
-            hours: "-",
-            imgInUrl: "",
-            imgOutUrl: "",
-            startWorkImgUrl: "",
-            endWorkImgUrl: "",
-            attendanceStatus: "-"
-        }
-    ];
-
-    const filteredLabourAttendances = mockLabourAttendances.filter(lab => {
-        if (empStatusFilter !== "All Status" && lab.attendanceStatus !== empStatusFilter) return false;
-        if (empContractorFilter !== "All Contractors" && lab.contractor !== empContractorFilter) return false;
+    const filteredLabourAttendances = labourAttendances.filter(lab => {
+        const attendanceStatus = "On Time"; // Calculate later if needed
+        const contractor = lab.contractor || "-";
+        if (empStatusFilter !== "All Status" && attendanceStatus !== empStatusFilter) return false;
+        if (empContractorFilter !== "All Contractors" && contractor !== empContractorFilter) return false;
         if (empSearch) {
             const searchLower = empSearch.toLowerCase();
-            return lab.name.toLowerCase().includes(searchLower) || lab.id.toLowerCase().includes(searchLower) || lab.department.toLowerCase().includes(searchLower);
+            const name = lab.labour_name || "";
+            const id = lab.worker_code || "";
+            return name.toLowerCase().includes(searchLower) || id.toLowerCase().includes(searchLower);
         }
         return true;
     });
@@ -386,7 +371,10 @@ const LabourAttendancePage: React.FC = () => {
                             </div>
                         </div>
                     </div>
-                    <button className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">
+                    <button 
+                        onClick={handleExport}
+                        className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+                    >
                         <Download className="w-4 h-4" />
                         Export Report
                     </button>
@@ -498,18 +486,25 @@ const LabourAttendancePage: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {filteredLabourAttendances.map((lab, index) => (
+                                {filteredLabourAttendances.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={11} className="px-6 py-12 text-center">
+                                            <p className="text-xs text-slate-500 font-medium">No attendance records found</p>
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    filteredLabourAttendances.map((lab, index) => (
                                     <tr key={index} className="hover:bg-slate-50/50 transition-colors">
-                                        <td className="px-6 py-4"><span className="text-xs font-bold text-slate-800">21 May 2026</span></td>
-                                        <td className="px-6 py-4"><span className="text-xs font-bold text-slate-800">{lab.contractor}</span></td>
-                                        <td className="px-6 py-4"><span className="px-3 py-1 border border-slate-200 rounded-full text-[10px] font-bold text-slate-600">{lab.department}</span></td>
+                                        <td className="px-6 py-4"><span className="text-xs font-bold text-slate-800">{lab.attendance_date || "-"}</span><br/><span className="text-[10px] text-slate-500 font-bold">{lab.labour_name} ({lab.worker_code})</span></td>
+                                        <td className="px-6 py-4"><span className="text-xs font-bold text-slate-800">{lab.contractor_name || lab.contractor || "-"}</span></td>
+                                        <td className="px-6 py-4"><span className="px-3 py-1 border border-slate-200 rounded-full text-[10px] font-bold text-slate-600">{lab.department_name || lab.department || "-"}</span></td>
                                         <td className="px-6 py-4 text-center">
                                             <div className="flex flex-col items-center">
-                                                {lab.status === "Online" ? (
+                                                {lab.status === "present" && !lab.out_time ? (
                                                     <span className="text-[10px] font-bold text-slate-800 flex items-center gap-1 mb-1">
                                                         <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div> Online
                                                     </span>
-                                                ) : lab.status === "Pending" ? (
+                                                ) : lab.status === "absent" || !lab.in_time ? (
                                                     <span className="text-[10px] font-bold text-slate-400 mb-1">Not Checked In</span>
                                                 ) : (
                                                     <span className="text-[10px] font-bold text-slate-600 mb-1">Checked Out</span>
@@ -518,35 +513,35 @@ const LabourAttendancePage: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             <div className="flex flex-col items-center justify-center gap-1.5">
-                                                {lab.checkIn !== '-' && lab.imgInUrl ? (
+                                                {lab.in_time && lab.check_in_image ? (
                                                     <div
                                                         className="w-8 h-8 rounded-full border-2 border-emerald-400 overflow-hidden bg-emerald-50 cursor-pointer hover:scale-110 transition-transform shadow-sm"
-                                                        onClick={() => setPreviewImage({ url: lab.imgInUrl, title: "Check-In Image - " + lab.name })}
+                                                        onClick={() => setPreviewImage({ url: lab.check_in_image, title: "Check-In Image - " + lab.labour_name })}
                                                     >
-                                                        <img src={lab.imgInUrl} alt="Check-In" className="w-full h-full object-cover" />
+                                                        <img src={lab.check_in_image} alt="Check-In" className="w-full h-full object-cover" />
                                                     </div>
                                                 ) : (
                                                     <div className="w-8 h-8 rounded-full bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400"><Camera className="w-3 h-3" /></div>
                                                 )}
-                                                <span className={`text-[10px] font-bold ${lab.checkIn !== '-' ? 'text-emerald-600' : 'text-slate-400'} flex items-center gap-1 justify-center`}><LogIn className="w-3 h-3" /> {lab.checkIn}</span>
+                                                <span className={`text-[10px] font-bold ${lab.in_time ? 'text-emerald-600' : 'text-slate-400'} flex items-center gap-1 justify-center`}><LogIn className="w-3 h-3" /> {lab.in_time || "-"}</span>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             <div className="flex flex-col items-center justify-center gap-1.5">
-                                                {lab.checkOut !== '-' && lab.imgOutUrl ? (
+                                                {lab.out_time && lab.check_out_image ? (
                                                     <div
                                                         className="w-8 h-8 rounded-full border-2 border-rose-400 overflow-hidden bg-rose-50 cursor-pointer hover:scale-110 transition-transform shadow-sm"
-                                                        onClick={() => setPreviewImage({ url: lab.imgOutUrl, title: "Check-Out Image - " + lab.name })}
+                                                        onClick={() => setPreviewImage({ url: lab.check_out_image, title: "Check-Out Image - " + lab.labour_name })}
                                                     >
-                                                        <img src={lab.imgOutUrl} alt="Check-Out" className="w-full h-full object-cover" />
+                                                        <img src={lab.check_out_image} alt="Check-Out" className="w-full h-full object-cover" />
                                                     </div>
                                                 ) : (
                                                     <div className="w-8 h-8 rounded-full bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400"><Camera className="w-3 h-3" /></div>
                                                 )}
-                                                <span className={`text-[10px] font-bold ${lab.checkOut !== '-' ? 'text-rose-600' : 'text-slate-400'} flex items-center gap-1 justify-center`}><LogOut className="w-3 h-3" /> {lab.checkOut}</span>
+                                                <span className={`text-[10px] font-bold ${lab.out_time ? 'text-rose-600' : 'text-slate-400'} flex items-center gap-1 justify-center`}><LogOut className="w-3 h-3" /> {lab.out_time || "-"}</span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-center"><span className="text-xs font-bold text-slate-800">{lab.hours}</span></td>
+                                        <td className="px-6 py-4 text-center"><span className="text-xs font-bold text-slate-800">{lab.working_hours ? `${lab.working_hours} hrs` : "-"}</span></td>
                                         <td className="px-6 py-4">
                                             <span
                                                 className="text-[10px] font-bold text-blue-500 flex items-center gap-1 cursor-pointer hover:underline"
@@ -558,11 +553,11 @@ const LabourAttendancePage: React.FC = () => {
                                                 <MapPin className="w-3 h-3" /> View
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-center"><span className={`px-2 py-0.5 ${lab.attendanceStatus === 'Late' ? 'bg-rose-50 text-rose-500 border-rose-200' : 'bg-emerald-50 text-emerald-500 border-emerald-200'} border rounded-full text-[9px] font-bold`}>{lab.attendanceStatus}</span></td>
+                                        <td className="px-6 py-4 text-center"><span className={`px-2 py-0.5 bg-slate-50 text-slate-500 border border-slate-200 rounded-full text-[9px] font-bold uppercase`}>{lab.status || "-"}</span></td>
                                         <td className="px-6 py-4 text-center text-xs text-slate-400 font-bold">-</td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex items-center justify-end gap-2 font-inter">
-                                                {lab.checkIn === '-' ? (
+                                                {!lab.in_time ? (
                                                     <button
                                                         onClick={() => {
                                                             setSelectedLabour(lab);
@@ -573,7 +568,7 @@ const LabourAttendancePage: React.FC = () => {
                                                     >
                                                         <LogIn className="w-4 h-4" />
                                                     </button>
-                                                ) : lab.checkOut === '-' ? (
+                                                ) : !lab.out_time ? (
                                                     <button
                                                         onClick={() => {
                                                             setSelectedLabour(lab);
@@ -586,17 +581,15 @@ const LabourAttendancePage: React.FC = () => {
                                                     </button>
                                                 ) : null}
                                                 <button
-                                                    onClick={() => {
-                                                        setSelectedLabour(lab);
-                                                        setIsViewModalOpen(true);
-                                                    }}
+                                                    onClick={() => handleViewDetails(lab)}
                                                     className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
                                                     title="View Details"
+                                                    disabled={isLoadingDetails}
                                                 >
                                                     <Eye className="w-4 h-4" />
                                                 </button>
                                                 <button
-                                                    onClick={() => navigate(`/engineer/labor/${lab.id}`)}
+                                                    onClick={() => navigate(`/engineer/labor/${lab.labour_id}`)}
                                                     className="px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-all active:scale-95 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest"
                                                     title="View Full Detail"
                                                 >
@@ -605,7 +598,7 @@ const LabourAttendancePage: React.FC = () => {
                                             </div>
                                         </td>
                                     </tr>
-                                ))}
+                                )))}
                             </tbody>
                         </table>
                     </div>
@@ -677,12 +670,16 @@ const LabourAttendancePage: React.FC = () => {
                             <div className="absolute bottom-[-40px] left-[-40px] w-40 h-40 bg-white/5 rounded-full blur-xl pointer-events-none" />
                             <div className="relative z-10 flex items-center gap-5">
                                 <div className="w-16 h-16 bg-blue-400/30 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 relative shadow-inner flex-shrink-0 overflow-hidden">
-                                    <img src={selectedLabour.imgInUrl} alt={selectedLabour.name} className="w-full h-full object-cover" />
-                                    <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-4 border-primary z-20 ${selectedLabour.status === 'Online' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                                    {selectedLabour.check_in_image ? (
+                                        <img src={selectedLabour.check_in_image} alt={selectedLabour.labour_name} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="w-full h-full bg-slate-200 flex items-center justify-center text-slate-400 font-bold text-xl">{selectedLabour.labour_name?.charAt(0)}</div>
+                                    )}
+                                    <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-4 border-primary z-20 ${selectedLabour.status === 'present' && !selectedLabour.out_time ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <h3 className="text-xl font-black tracking-tight truncate">{selectedLabour.name}</h3>
-                                    <p className="text-white/70 text-xs font-medium mt-1">{selectedLabour.department}</p>
+                                    <h3 className="text-xl font-black tracking-tight truncate">{selectedLabour.labour_name} ({selectedLabour.worker_code})</h3>
+                                    <p className="text-white/70 text-xs font-medium mt-1">-</p>
                                 </div>
                             </div>
                         </div>
@@ -691,21 +688,21 @@ const LabourAttendancePage: React.FC = () => {
                         <div className="px-6 py-5 grid grid-cols-2 gap-x-6 gap-y-4 border-b border-slate-100">
                             <div>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Date</p>
-                                <p className="text-xs font-bold text-slate-800">21 May 2026</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.attendance_date || '-'}</p>
                             </div>
                             <div>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Contractor Name</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.contractor}</p>
+                                <p className="text-xs font-bold text-slate-800">-</p>
                             </div>
                             <div>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Department</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.department}</p>
+                                <p className="text-xs font-bold text-slate-800">-</p>
                             </div>
                             <div>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Online Status</p>
                                 <div className="flex items-center gap-1.5">
-                                    <div className={`w-2 h-2 rounded-full ${selectedLabour.status === 'Online' ? 'bg-emerald-500' : selectedLabour.status === 'Pending' ? 'bg-amber-400' : 'bg-slate-400'}`} />
-                                    <span className="text-xs font-bold text-slate-800">{selectedLabour.status === 'Online' ? 'Online' : selectedLabour.status === 'Pending' ? 'Not Checked In' : 'Checked Out'}</span>
+                                    <div className={`w-2 h-2 rounded-full ${selectedLabour.status === 'present' && !selectedLabour.out_time ? 'bg-emerald-500' : selectedLabour.status === 'absent' || !selectedLabour.in_time ? 'bg-amber-400' : 'bg-slate-400'}`} />
+                                    <span className="text-xs font-bold text-slate-800">{selectedLabour.status === 'present' && !selectedLabour.out_time ? 'Online' : selectedLabour.status === 'absent' || !selectedLabour.in_time ? 'Not Checked In' : 'Checked Out'}</span>
                                 </div>
                             </div>
                         </div>
@@ -715,31 +712,31 @@ const LabourAttendancePage: React.FC = () => {
                             <div className="grid grid-cols-2 gap-6">
                                 <div className="flex flex-col items-center gap-2">
                                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Check In</p>
-                                    {selectedLabour.checkIn !== '-' && selectedLabour.imgInUrl ? (
+                                    {selectedLabour.in_time && selectedLabour.check_in_image ? (
                                         <div
                                             className="w-12 h-12 rounded-full border-2 border-emerald-400 overflow-hidden bg-emerald-50 cursor-pointer hover:scale-110 transition-transform shadow-sm"
-                                            onClick={() => setPreviewImage({ url: selectedLabour.imgInUrl, title: "Check-In Image - " + selectedLabour.name })}
+                                            onClick={() => setPreviewImage({ url: selectedLabour.check_in_image, title: "Check-In Image - " + selectedLabour.labour_name })}
                                         >
-                                            <img src={selectedLabour.imgInUrl} alt="Check-In" className="w-full h-full object-cover" />
+                                            <img src={selectedLabour.check_in_image} alt="Check-In" className="w-full h-full object-cover" />
                                         </div>
                                     ) : (
                                         <div className="w-12 h-12 rounded-full bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400"><Camera className="w-4 h-4" /></div>
                                     )}
-                                    <span className={`text-xs font-bold ${selectedLabour.checkIn !== '-' ? 'text-emerald-600' : 'text-slate-400'} flex items-center gap-1`}><LogIn className="w-3 h-3" /> {selectedLabour.checkIn}</span>
+                                    <span className={`text-xs font-bold ${selectedLabour.in_time ? 'text-emerald-600' : 'text-slate-400'} flex items-center gap-1`}><LogIn className="w-3 h-3" /> {selectedLabour.in_time || '-'}</span>
                                 </div>
                                 <div className="flex flex-col items-center gap-2">
                                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Check Out</p>
-                                    {selectedLabour.checkOut !== '-' && selectedLabour.imgOutUrl ? (
+                                    {selectedLabour.out_time && selectedLabour.check_out_image ? (
                                         <div
                                             className="w-12 h-12 rounded-full border-2 border-rose-400 overflow-hidden bg-rose-50 cursor-pointer hover:scale-110 transition-transform shadow-sm"
-                                            onClick={() => setPreviewImage({ url: selectedLabour.imgOutUrl, title: "Check-Out Image - " + selectedLabour.name })}
+                                            onClick={() => setPreviewImage({ url: selectedLabour.check_out_image, title: "Check-Out Image - " + selectedLabour.labour_name })}
                                         >
-                                            <img src={selectedLabour.imgOutUrl} alt="Check-Out" className="w-full h-full object-cover" />
+                                            <img src={selectedLabour.check_out_image} alt="Check-Out" className="w-full h-full object-cover" />
                                         </div>
                                     ) : (
                                         <div className="w-12 h-12 rounded-full bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400"><Camera className="w-4 h-4" /></div>
                                     )}
-                                    <span className={`text-xs font-bold ${selectedLabour.checkOut !== '-' ? 'text-rose-600' : 'text-slate-400'} flex items-center gap-1`}><LogOut className="w-3 h-3" /> {selectedLabour.checkOut}</span>
+                                    <span className={`text-xs font-bold ${selectedLabour.out_time ? 'text-rose-600' : 'text-slate-400'} flex items-center gap-1`}><LogOut className="w-3 h-3" /> {selectedLabour.out_time || '-'}</span>
                                 </div>
                             </div>
                         </div>
@@ -747,22 +744,30 @@ const LabourAttendancePage: React.FC = () => {
                         {/* Remaining Details */}
                         <div className="px-6 py-5 grid grid-cols-2 gap-x-6 gap-y-4 border-b border-slate-100">
                             <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Hours</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.hours || '-'}</p>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Working Hours</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.working_hours ? `${selectedLabour.working_hours} hrs` : '-'}</p>
                             </div>
                             <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Location</p>
-                                <p className="text-xs font-bold text-blue-500 flex items-center gap-1"><MapPin className="w-3 h-3" /> {selectedLabour.workLocation}</p>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Overtime</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.overtime_hours ? `${selectedLabour.overtime_hours} hrs` : '-'}</p>
+                            </div>
+                            <div>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Wage</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.total_wage ? `₹${selectedLabour.total_wage}` : '-'}</p>
+                            </div>
+                            <div>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Check-in Location</p>
+                                <p className="text-xs font-bold text-blue-500 flex items-center gap-1"><MapPin className="w-3 h-3" /> {selectedLabour.check_in_address || '-'}</p>
                             </div>
                             <div>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Status</p>
-                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${selectedLabour.attendanceStatus === 'Late' ? 'bg-rose-50 text-rose-500 border border-rose-200' : 'bg-emerald-50 text-emerald-600 border border-emerald-200'}`}>
-                                    {selectedLabour.attendanceStatus || 'On Time'}
+                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-50 text-slate-500 border border-slate-200 uppercase`}>
+                                    {selectedLabour.status || '-'}
                                 </span>
                             </div>
                             <div>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Work Summary</p>
-                                <p className="text-xs font-bold text-slate-400">-</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.task_description || '-'}</p>
                             </div>
                         </div>
 

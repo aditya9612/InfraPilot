@@ -186,7 +186,9 @@ const EngineerDashboard = () => {
                 }));
 
                 // 3. Process Labour Data
-                const skilledLabours = labours.filter((l: any) => l.category === "Skilled" || l.type === "Skilled").length;
+                const skilledLabours = labours.filter((l: any) => 
+                    l.skill_type === "Skilled" || l.skill_type === "Semi-Skilled" || l.category === "Skilled" || l.type === "Skilled" || l.skill === "Skilled"
+                ).length;
                 const unskilledLabours = labours.length - skilledLabours;
 
                 // 4. Process Material Data

@@ -13,6 +13,7 @@ import {
   ChevronDown
 } from "lucide-react";
 import { materialService, type MaterialLog } from "../../../services/materialService";
+import { projectService } from "../../../services/projectService";
 
 const MaterialHistoryPage = () => {
   const formatINR = (amount: number | string | undefined | null) => {
@@ -33,6 +34,7 @@ const MaterialHistoryPage = () => {
   const [endDate, setEndDate] = useState("");
   const [projectId, setProjectId] = useState<number | null>(null);
   const [materialsMap, setMaterialsMap] = useState<Record<number, string>>({});
+  const [projectsMap, setProjectsMap] = useState<Record<number, string>>({});
 
   // Pagination States
   const [currentPage, setCurrentPage] = useState(1);
@@ -52,6 +54,18 @@ const MaterialHistoryPage = () => {
         map[m.id] = m.material_name;
       });
       setMaterialsMap(map);
+
+      let pMap: Record<number, string> = {};
+      try {
+        const projectsData = await projectService.getProjects(100, 0, "", "All");
+        const items = Array.isArray(projectsData) ? projectsData : (projectsData.items || []);
+        items.forEach((p: any) => {
+            pMap[p.id || p.project_id] = p.project_name || p.name || `Project #${p.id || p.project_id}`;
+        });
+      } catch (e) {
+          console.warn("Could not fetch projects map", e);
+      }
+      setProjectsMap(pMap);
     } catch (error) {
       console.error("Failed to load logs", error);
       toast.error("Failed to sync audit history");
@@ -259,6 +273,7 @@ const MaterialHistoryPage = () => {
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
                   <th className="px-6 py-4 font-inter">type</th>
+                  <th className="px-6 py-4 font-inter">project</th>
                   <th className="px-6 py-4 font-inter">material</th>
                   <th className="px-6 py-4 font-inter text-center">quantity</th>
                   <th className="px-6 py-4 font-inter text-right">rate</th>
@@ -273,7 +288,7 @@ const MaterialHistoryPage = () => {
               <tbody className="divide-y divide-slate-50 font-inter">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={10} className="px-6 py-20 text-center font-inter">
+                    <td colSpan={11} className="px-6 py-20 text-center font-inter">
                       <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin font-inter mb-4" />
                       <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing ledger...</p>
                     </td>
@@ -285,6 +300,9 @@ const MaterialHistoryPage = () => {
                         <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest font-inter border shadow-sm ${logBadge(log.type)}`}>
                           {log.type}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 text-xs font-bold text-slate-800 font-inter">
+                        {log.project_id ? (projectsMap[log.project_id] || `Project #${log.project_id}`) : "-"}
                       </td>
                       <td className="px-6 py-4 text-xs font-bold text-slate-800 font-inter">
                         {materialsMap[log.material_id] || `Material #${log.material_id}`}
@@ -311,7 +329,7 @@ const MaterialHistoryPage = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={10} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">No transactions found for the selected criteria.</td>
+                    <td colSpan={11} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">No transactions found for the selected criteria.</td>
                   </tr>
                 )}
               </tbody>
