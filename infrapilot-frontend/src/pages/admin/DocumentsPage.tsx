@@ -135,9 +135,16 @@ const DocumentsPage = () => {
     // Ensure leading slash for consistency
     const path = normalizedUrl.startsWith('/') ? normalizedUrl : `/${normalizedUrl}`;
 
-    // Always use absolute API base URL for relative paths to ensure compatibility with static hosting (Netlify)
-    // Extract base domain from VITE_API_URL if it contains /api/v1
-    const baseUrl = import.meta.env.VITE_API_URL?.replace(/\/api\/v1\/?$/, '') || '';
+    // Robust absolute URL selection:
+    // 1. If VITE_API_URL is absolute, use it (removing /api/v1 suffix if present)
+    // 2. If VITE_API_URL is relative or missing, fallback to the known production domain
+    let baseUrl = import.meta.env.VITE_API_URL || '';
+    if (baseUrl.startsWith('http')) {
+      baseUrl = baseUrl.replace(/\/api\/v1\/?$/, '');
+    } else {
+      baseUrl = 'https://infrapilot.in';
+    }
+
     return `${baseUrl}${path}`;
   };
 
