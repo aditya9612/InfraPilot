@@ -221,11 +221,11 @@ const ClientReportsPage = () => {
             </div>
             <div className="relative">
               <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest absolute -top-2.5 left-4 bg-white px-1.5 z-10">Report Date</label>
-              <input 
-                type="date" 
-                value={reportDate} 
+              <input
+                type="date"
+                value={reportDate}
                 onChange={(e) => setReportDate(e.target.value)}
-                className="w-full bg-slate-50/50 border border-slate-100 rounded-2xl px-5 py-4 text-xs font-bold text-slate-700 focus:outline-none" 
+                className="w-full bg-slate-50/50 border border-slate-100 rounded-2xl px-5 py-4 text-xs font-bold text-slate-700 focus:outline-none"
               />
             </div>
             <div className="relative">
