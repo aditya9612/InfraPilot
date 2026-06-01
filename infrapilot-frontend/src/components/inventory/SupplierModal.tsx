@@ -18,23 +18,18 @@ export default function SupplierModal({
   const [formData, setFormData] = useState({
     name: "",
     contactPerson: "",
-    phone: "",
-    email: "",
+    contact: "",
     gst: "",
     address: "",
   });
 
   useEffect(() => {
     if (initialData) {
-      const contactStr = initialData.contact || "";
-      const phoneMatch = contactStr.match(/\d{10}/);
-      const emailMatch = contactStr.match(/[^\s@]+@[^\s@]+\.[^\s@]+/);
-
+      const contactStr = initialData.contact || initialData.phone || initialData.email || "";
       setFormData({
         name: initialData.name || "",
         contactPerson: initialData.contactPerson || "",
-        phone: phoneMatch ? phoneMatch[0] : "",
-        email: emailMatch ? emailMatch[0] : "",
+        contact: contactStr,
         gst: initialData.gst || "",
         address: initialData.address || "",
       });
@@ -42,8 +37,7 @@ export default function SupplierModal({
       setFormData({
         name: "",
         contactPerson: "",
-        phone: "",
-        email: "",
+        contact: "",
         gst: "",
         address: "",
       });
@@ -67,8 +61,6 @@ export default function SupplierModal({
     let { name, value } = e.target;
     if (name === "contactPerson") {
       value = value.replace(/[^a-zA-Z\s]/g, "");
-    } else if (name === "phone") {
-      value = value.replace(/[^\d]/g, "").slice(0, 10);
     } else if (name === "gst") {
       value = value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 15);
     }
@@ -83,16 +75,17 @@ export default function SupplierModal({
     if (!formData.name.trim()) newErrors.name = "Supplier name is required.";
     if (!formData.contactPerson.trim()) newErrors.contactPerson = "Contact person is required.";
 
-    if (!formData.phone.trim() && !formData.email.trim()) {
-      newErrors.phone = "Phone or email is required.";
-      newErrors.email = "Phone or email is required.";
-    } else if (formData.phone.trim() && formData.phone.length !== 10) {
-      newErrors.phone = "Phone must be 10 digits.";
+    const val = formData.contact.trim();
+    if (!val) {
+      newErrors.contact = "Phone number or email address is required.";
+    } else {
+      const isPhone = /^\d{10}$/.test(val);
+      const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+      if (!isPhone && !isEmail) {
+        newErrors.contact = "Enter a valid 10-digit phone number or email address.";
+      }
     }
 
-    if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = "Invalid email format.";
-    }
     if (!formData.gst.trim()) newErrors.gst = "GST Number is required.";
     else if (formData.gst.length !== 15) newErrors.gst = "GST Number must be 15 characters.";
 
@@ -102,7 +95,11 @@ export default function SupplierModal({
     }
 
     setErrors({});
-    onSubmit(formData);
+    onSubmit({
+      ...formData,
+      phone: /^\d{10}$/.test(formData.contact.trim()) ? formData.contact.trim() : "",
+      email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contact.trim()) ? formData.contact.trim() : "",
+    });
   };
 
   return (
@@ -188,39 +185,25 @@ export default function SupplierModal({
                 {errors.contactPerson && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.contactPerson}</p>}
               </div>
 
-              <div className="space-y-1">
+              <div className="md:col-span-2 space-y-1">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Phone Number
+                  Phone Number or Email <span className="text-rose-500">*</span>
                 </label>
                 <input
-                  type="tel"
-                  name="phone"
-                  value={formData.phone}
+                  type="text"
+                  name="contact"
+                  value={formData.contact}
                   onChange={handleChange}
-                  className={`w-full px-4 py-2 bg-gray-50 border rounded-xl focus:ring-4 transition-all text-sm outline-none ${errors.phone
+                  className={`w-full px-4 py-2 bg-gray-50 border rounded-xl focus:ring-4 transition-all text-sm outline-none ${errors.contact
                     ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
                     : "border-gray-200 focus:ring-primary/10 focus:border-primary"
                     }`}
-                  placeholder="9876543210"
+                  placeholder="e.g. 9876543210 or contact@supplier.com"
                 />
-                {errors.phone && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.phone}</p>}
-              </div>
-              <div className="space-y-1">
-                <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-2 bg-gray-50 border rounded-xl focus:ring-4 transition-all text-sm outline-none ${errors.email
-                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
-                    : "border-gray-200 focus:ring-primary/10 focus:border-primary"
-                    }`}
-                  placeholder="e.g. contact@supplier.com"
-                />
-                {errors.email && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.email}</p>}
+                {!errors.contact && (
+                  <p className="text-[10px] text-gray-400 font-medium ml-1 mt-1">Enter either a 10-digit phone number or a valid email address.</p>
+                )}
+                {errors.contact && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.contact}</p>}
               </div>
 
               <div className="md:col-span-2 space-y-1">

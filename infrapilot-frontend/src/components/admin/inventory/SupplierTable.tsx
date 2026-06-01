@@ -36,7 +36,14 @@ const SupplierTable: React.FC<SupplierTableProps> = ({
                 {sup.contactPerson || "N/A"}
               </td>
               <td className="px-6 py-4 text-sm font-semibold text-slate-600">
-                <p className="text-slate-700">{sup.contact}</p>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-slate-700 block">
+                    {sup.contact?.match(/\d{10}/)?.[0] || (sup.contact?.includes("@") ? "" : sup.contact)}
+                  </span>
+                  <span className="text-slate-400 text-[11px] font-medium block">
+                    {sup.contact?.match(/[^\s@]+@[^\s@]+\.[^\s@]+/)?.[0] || ""}
+                  </span>
+                </div>
               </td>
               <td className="px-6 py-4 text-right">
                 <div className="flex items-center justify-end gap-3">

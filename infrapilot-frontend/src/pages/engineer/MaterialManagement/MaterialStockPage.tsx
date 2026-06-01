@@ -12,7 +12,10 @@ import {
   Clock,
   ChevronDown
 } from "lucide-react";
-import { materialService, type MaterialReport } from "../../../services/materialService";
+import { materialService } from "../../../services/materialService";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 
 
 
@@ -28,7 +31,7 @@ const MaterialStockPage = () => {
     }).format(Number(amount));
   };
 
-  const [report, setReport] = useState<MaterialReport[]>([]);
+  const [report, setReport] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
   const [projectId, setProjectId] = useState<number | null>(null);
@@ -43,7 +46,7 @@ const MaterialStockPage = () => {
     if (!projectId) return;
     setIsLoading(true);
     try {
-      let data = await materialService.getMaterialReport(projectId);
+      let data = await materialService.getInventory(projectId);
       
       setReport(data);
 
@@ -81,9 +84,9 @@ const MaterialStockPage = () => {
     const projectReport = report.filter(i => i.project_id === undefined || i.project_id === projectId);
     return {
       totalItems: projectReport.length,
-      totalValue: projectReport.reduce((acc, curr) => acc + (curr.total_cost || 0), 0),
+      totalValue: projectReport.reduce((acc, curr) => acc + (curr.total_value || curr.total_cost || 0), 0),
       criticalCount: projectReport.filter(i => i.remaining_stock < 10).length, // Mock logic for critical
-      highValueCount: projectReport.filter(i => (i.total_cost || 0) > 10000).length
+      highValueCount: projectReport.filter(i => (i.total_value || i.total_cost || 0) > 10000).length
     };
   }, [report, projectId]);
 
@@ -94,7 +97,7 @@ const MaterialStockPage = () => {
     if (activeStatFilter === "Critical") {
       data = data.filter(i => i.remaining_stock < 10);
     } else if (activeStatFilter === "HighValue") {
-      data = data.filter(i => (i.total_cost || 0) > 10000);
+      data = data.filter(i => (i.total_value || i.total_cost || 0) > 10000);
     } else if (activeStatFilter === "InStock") {
       data = data.filter(i => i.remaining_stock > 0);
     }
@@ -127,14 +130,212 @@ const MaterialStockPage = () => {
 
 
 
-  const handleExportPdf = async () => {
+  const handleExportPdf = () => {
     setIsExporting(true);
     const loadToast = toast.loading("Generating Strategic PDF report...");
 
-    // Trigger background API call to show in browser's Network Tab
     try {
-      await materialService.exportPdf(projectId ?? undefined);
-      toast.success("Successful (Status 200) - PDF Exported!", { id: loadToast });
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      
+      const pdfFormatNum = (amount: number) => amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+      // --- HEADER ---
+      doc.setFontSize(22);
+      doc.setTextColor(30, 58, 138); // Dark blue text
+      doc.setFont("helvetica", "bold");
+      const title = "Material Inventory Report";
+      doc.text(title, pageWidth / 2, 20, { align: "center" });
+      
+      doc.setFontSize(10);
+      doc.setTextColor(100, 116, 139);
+      doc.setFont("helvetica", "normal");
+      const dateStr = new Date().toLocaleDateString("en-GB", { day: '2-digit', month: 'short', year: 'numeric' });
+      doc.text(`Pune, Maharashtra | ${dateStr}`, pageWidth / 2, 26, { align: "center" });
+
+      // Orange Divider
+      doc.setDrawColor(249, 115, 22); // Orange
+      doc.setLineWidth(0.5);
+      doc.line(14, 30, pageWidth - 14, 30);
+
+      // --- INFO BLOCK ---
+      autoTable(doc, {
+        startY: 35,
+        head: [["Company / Project", "Contact", "Email", "Website"]],
+        body: [["Pune, Maharashtra", "+91 9999999999", "info@infrapilot.com", "www.infrapilot.com"]],
+        theme: "grid",
+        headStyles: { fillColor: [241, 245, 249], textColor: [71, 85, 105], fontStyle: "bold", halign: "center", fontSize: 9 },
+        bodyStyles: { halign: "center", fontSize: 9, textColor: [30, 58, 138], fontStyle: "bold" },
+        margin: { left: 14, right: 14 }
+      });
+
+      // --- SUMMARY SECTION ---
+      let finalY = (doc as any).lastAutoTable.finalY + 10;
+      doc.setFontSize(11);
+      doc.setTextColor(30, 58, 138);
+      doc.setFont("helvetica", "bold");
+      doc.text("SUMMARY", 14, finalY);
+
+      // We calculate mock values for the 1st image's requested columns
+      const totalMaterials = stats.totalItems;
+      const totalPurchased = filteredReport.reduce((acc: number, curr: any) => acc + (curr.total_purchased || curr.remaining_stock || 0), 0);
+      const totalUsed = filteredReport.reduce((acc: number, curr: any) => acc + (curr.total_used || 0), 0);
+      const stockValue = stats.totalValue;
+      const pending = filteredReport.reduce((acc: number, curr: any) => acc + (curr.payment_pending || 0), 0);
+
+      // Summary Table
+      autoTable(doc, {
+        startY: finalY + 4,
+        head: [["Total Materials", "Total Purchased", "Total Used", "Stock Value", "Pending"]],
+        body: [[
+          totalMaterials.toString(),
+          totalPurchased.toLocaleString('en-IN'),
+          totalUsed.toLocaleString('en-IN'),
+          `Rs. ${stockValue.toLocaleString('en-IN')}`,
+          `Rs. ${pending.toLocaleString('en-IN')}`
+        ]],
+        theme: "grid",
+        headStyles: { 
+          fillColor: [255, 255, 255], 
+          textColor: [148, 163, 184], 
+          fontStyle: "normal", 
+          fontSize: 9, 
+          lineWidth: 0,
+          lineColor: [249, 115, 22] // We'll manually draw the orange top border
+        },
+        bodyStyles: { 
+          fillColor: [255, 255, 255], 
+          textColor: [30, 58, 138], 
+          fontStyle: "bold", 
+          fontSize: 14,
+          halign: "left"
+        },
+        styles: { lineColor: [226, 232, 240], lineWidth: 0.1 },
+        didDrawPage: (data) => {
+          // Draw orange top border for summary table
+          doc.setDrawColor(249, 115, 22);
+          doc.setLineWidth(1);
+          doc.line(data.settings.margin.left, finalY + 4, pageWidth - 14, finalY + 4);
+        }
+      });
+
+      // --- MATERIAL DETAILS SECTION ---
+      finalY = (doc as any).lastAutoTable.finalY + 15;
+      doc.setFontSize(11);
+      doc.setTextColor(30, 58, 138);
+      doc.setFont("helvetica", "bold");
+      doc.text("MATERIAL DETAILS", 14, finalY);
+
+      const tableData = filteredReport.map((m: any, index: number) => [
+        (index + 1).toString(),
+        m.material_name || "-",
+        m.remaining_stock?.toLocaleString('en-IN') || "0",
+        m.unit || "-",
+        pdfFormatNum(m.avg_rate || 0),
+        pdfFormatNum(m.total_value || m.total_cost || 0)
+      ]);
+
+      // Calculate totals
+      const totalRemaining = filteredReport.reduce((acc: number, curr: any) => acc + (curr.remaining_stock || 0), 0);
+      const totalValue = filteredReport.reduce((acc: number, curr: any) => acc + (curr.total_value || curr.total_cost || 0), 0);
+
+      tableData.push([
+        "",
+        "TOTAL",
+        totalRemaining.toLocaleString('en-IN'),
+        "",
+        "",
+        pdfFormatNum(totalValue)
+      ]);
+
+      autoTable(doc, {
+        startY: finalY + 4,
+        head: [["#", "Material Name", "Remaining Stock", "Unit", "Avg Rate", "Total Value"]],
+        body: tableData,
+        theme: "grid",
+        headStyles: { 
+          fillColor: [21, 51, 95], // Darker Blue matching 2nd image
+          textColor: 255, 
+          fontStyle: 'bold',
+          fontSize: 9,
+          halign: "left"
+        },
+        bodyStyles: { 
+          fontSize: 8, 
+          textColor: [51, 65, 85],
+          halign: "left"
+        },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        styles: { lineColor: [203, 213, 225], lineWidth: 0.1 },
+        columnStyles: {
+          0: { halign: "center", cellWidth: 10 },
+          2: { halign: "right" },
+          4: { halign: "right" },
+          5: { halign: "right", fontStyle: "bold", textColor: [21, 51, 95] }
+        },
+        didParseCell: (data) => {
+          // Style the TOTAL row
+          if (data.row.index === tableData.length - 1) {
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.textColor = [21, 51, 95];
+            data.cell.styles.fillColor = [241, 245, 249];
+          }
+        },
+        didDrawPage: (data) => {
+          const pageHeight = doc.internal.pageSize.getHeight();
+          const pageWidth = doc.internal.pageSize.getWidth();
+
+          // Page numbers above the footer
+          const str = "Page " + (doc as any).internal.getNumberOfPages();
+          doc.setFontSize(8);
+          doc.setTextColor(148, 163, 184);
+          doc.setFont("helvetica", "normal");
+          doc.text("Generated by Infra Pilot System • Confidential", 14, pageHeight - 34);
+          doc.text(str, pageWidth - 14, pageHeight - 34, { align: "right" });
+
+          // --- BOTTOM FOOTER (2nd Image Style) ---
+          // Orange Top Border for footer
+          doc.setDrawColor(249, 115, 22);
+          doc.setLineWidth(1.5);
+          doc.line(0, pageHeight - 30, pageWidth, pageHeight - 30);
+
+          // Dark blue background
+          doc.setFillColor(21, 51, 95); 
+          doc.rect(0, pageHeight - 30, pageWidth, 30, 'F');
+          
+          // Logo text
+          doc.setFontSize(16);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(255, 255, 255);
+          doc.text("INFRA", 14, pageHeight - 16);
+          const infraWidth = doc.getTextWidth("INFRA");
+          doc.setTextColor(249, 115, 22); // Orange
+          doc.text("PILOT", 14 + infraWidth, pageHeight - 16);
+          
+          // Subtitle
+          doc.setFontSize(8);
+          doc.setTextColor(200, 200, 200);
+          doc.setFont("helvetica", "normal");
+          doc.text("Construction Billing Software", 14, pageHeight - 10);
+          
+          // REPORT Badge
+          doc.setFillColor(249, 115, 22);
+          doc.roundedRect(pageWidth - 46, pageHeight - 22, 32, 8, 1, 1, 'F');
+          doc.setTextColor(255, 255, 255);
+          doc.setFont("helvetica", "bold");
+          doc.text("REPORT", pageWidth - 30, pageHeight - 16, { align: "center" });
+          
+          // Generated Date
+          doc.setFontSize(7);
+          doc.setTextColor(200, 200, 200);
+          doc.setFont("helvetica", "normal");
+          const dateStr = new Date().toLocaleString("en-GB", { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + " UTC";
+          doc.text(`Generated: ${dateStr}`, pageWidth - 30, pageHeight - 10, { align: "center" });
+        }
+      });
+
+      doc.save(`Material_Stock_Summary_${new Date().toLocaleDateString("en-IN").replace(/\//g, '-')}.pdf`);
+      toast.success("PDF Exported Successfully!", { id: loadToast });
     } catch (error) {
       console.error("PDF Export Error:", error);
       toast.error("Generation Failed", { id: loadToast });
@@ -143,13 +344,35 @@ const MaterialStockPage = () => {
     }
   };
 
-  const handleExportExcel = async () => {
+  const handleExportExcel = () => {
     setIsExporting(true);
     const loadToast = toast.loading("Processing Strategic Excel ledger...");
 
     try {
-      await materialService.exportExcel(projectId ?? undefined);
-      toast.success("Successful (Status 200) - Excel Exported!", { id: loadToast });
+      const exportData = filteredReport.map((m: any) => ({
+        "Material Name": m.material_name || "-",
+        "Remaining Stock": m.remaining_stock || 0,
+        "Unit": m.unit || "-",
+        "Avg Rate": m.avg_rate || 0,
+        "Total Value": m.total_value || m.total_cost || 0
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      
+      const wscols = [
+        { wch: 25 }, // Material Name
+        { wch: 15 }, // Remaining Stock
+        { wch: 10 }, // Unit
+        { wch: 15 }, // Avg Rate
+        { wch: 20 }, // Total Value
+      ];
+      worksheet['!cols'] = wscols;
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Stock_Summary");
+      XLSX.writeFile(workbook, `Material_Stock_Summary_${new Date().toLocaleDateString("en-IN").replace(/\//g, '-')}.xlsx`);
+
+      toast.success("Excel Exported Successfully!", { id: loadToast });
     } catch (error) {
       console.error("Export Failed:", error);
       toast.error("Export Failed", { id: loadToast });
@@ -274,18 +497,17 @@ const MaterialStockPage = () => {
             <table className="w-full text-left font-inter min-w-[1000px]">
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
-                  <th className="px-6 py-4 font-inter">Material Name</th>
-                  <th className="px-6 py-4 font-inter text-right">Total Purchased</th>
-                  <th className="px-6 py-4 font-inter text-right">Total Used</th>
-                  <th className="px-6 py-4 font-inter text-right text-emerald-600">Remaining Stock</th>
-                  <th className="px-6 py-4 font-inter text-right">Total Cost</th>
-                  <th className="px-6 py-4 font-inter text-right">Payment Pending</th>
+                  <th className="px-6 py-4 font-inter">material_name</th>
+                  <th className="px-6 py-4 font-inter text-right text-emerald-600">remaining_stock</th>
+                  <th className="px-6 py-4 font-inter text-center">unit</th>
+                  <th className="px-6 py-4 font-inter text-right">avg_rate</th>
+                  <th className="px-6 py-4 font-inter text-right">total_value</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 font-inter">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-20 text-center font-inter">
+                    <td colSpan={5} className="px-6 py-20 text-center font-inter">
                       <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin font-inter mb-4" />
                       <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing inventory...</p>
                     </td>
@@ -297,27 +519,24 @@ const MaterialStockPage = () => {
                         <span className="text-sm font-bold text-slate-800 font-inter">{rep.material_name}</span>
                       </td>
                       <td className="px-6 py-4 text-right font-inter">
-                        <span className="text-xs font-bold text-slate-500 font-inter">{rep.total_purchased?.toLocaleString()}</span>
-                      </td>
-                      <td className="px-6 py-4 text-right font-inter">
-                        <span className="text-xs font-bold text-slate-500 font-inter">{rep.total_used?.toLocaleString()}</span>
-                      </td>
-                      <td className="px-6 py-4 text-right font-inter">
                         <span className={`text-sm font-bold font-inter ${rep.remaining_stock > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
                           {rep.remaining_stock?.toLocaleString()}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right font-inter">
-                        <span className="text-sm font-bold text-slate-800 font-inter">{formatINR(rep.total_cost)}</span>
+                      <td className="px-6 py-4 text-center font-inter">
+                        <span className="text-sm font-bold text-slate-500 font-inter">{rep.unit}</span>
                       </td>
                       <td className="px-6 py-4 text-right font-inter">
-                        <span className="text-sm font-bold text-rose-500 font-inter">{formatINR(rep.payment_pending)}</span>
+                        <span className="text-sm font-bold text-slate-800 font-inter">{formatINR(rep.avg_rate)}</span>
+                      </td>
+                      <td className="px-6 py-4 text-right font-inter">
+                        <span className="text-sm font-bold text-slate-800 font-inter">{formatINR(rep.total_value || rep.total_cost)}</span>
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="px-6 py-32 text-center bg-slate-50/50 font-inter">
+                    <td colSpan={5} className="px-6 py-32 text-center bg-slate-50/50 font-inter">
                       <div className="py-12 border-2 border-dashed border-slate-200 rounded-[3rem] max-w-lg mx-auto font-inter">
                         <Package className="w-16 h-16 text-slate-200 mx-auto mb-6" />
                         <h3 className="text-xl font-bold text-slate-400 tracking-tight uppercase font-inter">Registry Exhausted</h3>

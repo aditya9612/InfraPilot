@@ -135,6 +135,9 @@ const SettingsPage = () => {
                 if (prefs.compactView !== undefined) setPreferences(p => ({ ...p, compactView: prefs.compactView }));
                 if (prefs.showWeather !== undefined) setPreferences(p => ({ ...p, showWeather: prefs.showWeather }));
                 if (prefs.showGPS !== undefined) setPreferences(p => ({ ...p, showGPS: prefs.showGPS }));
+                if (prefs.notifications) {
+                    setNotifications(n => ({ ...n, ...prefs.notifications }));
+                }
             }
             // Map Profile
             setProfileImage(profileRes.profile_image);
@@ -229,7 +232,8 @@ const SettingsPage = () => {
                     timezone,
                     dateFormat,
                     unitSystem,
-                    massUnit
+                    massUnit,
+                    notifications
                 },
                 financial_year: financialYear,
                 currency: currency,
@@ -238,19 +242,19 @@ const SettingsPage = () => {
                 payment_terms: settings.payment_terms || "30 days"
             };
 
-            // 2. Prepare Profile Update (with sanitization)
+            // 2. Prepare Profile Update - matching the same pattern as engineer SettingsPage
             const profileData: any = {
                 full_name: profile.full_name,
                 role: profile.role,
-                mobile_number: profile.mobile_number.replace(/\D/g, ""),
+                mobile_number: (profile.mobile_number || "").replace(/\D/g, ""),
                 email: profile.email,
                 address: profile.address,
-                pan_number: profile.pan_number.toUpperCase(),
-                aadhaar_number: profile.aadhaar_number.replace(/\D/g, ""),
+                pan_number: (profile.pan_number || "").toUpperCase(),
+                aadhaar_number: (profile.aadhaar_number || "").replace(/\D/g, ""),
                 designation: profile.designation,
                 joining_date: profile.joining_date,
                 is_active: profile.is_active,
-                // Include the actual file if selected
+                // Only include file if selected; undefined means "don't change"
                 profile_image: selectedFile || undefined
             };
 
@@ -261,19 +265,71 @@ const SettingsPage = () => {
                 settingsService.updateProfile(profileData)
             ]);
 
-            console.log("Profile Update Success - Response Image:", updatedProfile.profile_image);
+            console.log("Profile Update - API Response:", updatedProfile);
+            console.log("Profile Update - Submitted Data:", profileData);
 
-            // Update local state immediately with returned data from API
-            setSettings(updatedSettings);
-            setProfile(updatedProfile);
-            setProfileImage(settingsService.resolveUrl(updatedProfile.profile_image));
+            // Optimistic update: merge submitted data into state.
+            // Backend sometimes returns old data in response (known backend latency/caching issue),
+            // so we trust what we submitted and merge it over the response.
+            const mergedProfile = {
+                ...updatedProfile,
+                full_name: profileData.full_name ?? updatedProfile.full_name,
+                role: profileData.role ?? updatedProfile.role,
+                mobile_number: profileData.mobile_number ?? updatedProfile.mobile_number,
+                email: profileData.email ?? updatedProfile.email,
+                address: profileData.address ?? updatedProfile.address,
+                pan_number: profileData.pan_number ?? updatedProfile.pan_number,
+                aadhaar_number: profileData.aadhaar_number ?? updatedProfile.aadhaar_number,
+                designation: profileData.designation ?? updatedProfile.designation,
+                joining_date: profileData.joining_date ?? updatedProfile.joining_date,
+                is_active: profileData.is_active ?? updatedProfile.is_active,
+            };
+            // Optimistic update for Settings (same backend caching issue)
+            const mergedSettings = {
+                ...updatedSettings,
+                default_project_id: settingsData.default_project_id ?? updatedSettings.default_project_id,
+                unit: settingsData.unit ?? updatedSettings.unit,
+                notifications_enabled: settingsData.notifications_enabled ?? updatedSettings.notifications_enabled,
+                financial_year: settingsData.financial_year ?? updatedSettings.financial_year,
+                currency: settingsData.currency ?? updatedSettings.currency,
+                preferences: {
+                    ...(updatedSettings.preferences || {}),
+                    ...(settingsData.preferences || {})
+                }
+            };
+
+            setSettings(mergedSettings);
+            // Persist merged state to localStorage so refresh shows correct data
+            localStorage.setItem("mock_settings", JSON.stringify(mergedSettings));
+            localStorage.setItem("mock_settings_saved_at", Date.now().toString());
+            setProfile(mergedProfile);
+            localStorage.setItem("mock_profile", JSON.stringify(mergedProfile));
+            localStorage.setItem("mock_profile_saved_at", Date.now().toString());
+            setProfileImage(settingsService.resolveUrl(
+                selectedFile ? updatedProfile.profile_image : mergedProfile.profile_image
+            ));
             setSelectedFile(null);
-
-            // Refetch fresh configurations from backend to keep everything fully synced
-            await fetchData();
+            try {
+                const userStr = localStorage.getItem("infrapilot_user");
+                if (userStr) {
+                    const parsed = JSON.parse(userStr);
+                    // Update user name in session so sidebar and navbar reflect changes immediately
+                    if (parsed.user && profileData.full_name) {
+                        parsed.user.full_name = profileData.full_name;
+                        parsed.user.name = profileData.full_name;
+                    }
+                    if (profileData.full_name) {
+                        parsed.full_name = profileData.full_name; // Sometimes stored at root layer
+                        parsed.name = profileData.full_name;
+                    }
+                    localStorage.setItem("infrapilot_user", JSON.stringify(parsed));
+                    window.dispatchEvent(new Event('storage')); // Force other components like Navbar/Sidebar to re-render
+                }
+            } catch (e) {
+                console.error("Failed to update user session with new profile details", e);
+            }
 
             toast.success("Account settings synchronized!", { id: toastId });
-            console.log("Settings synchronization complete.");
         } catch (error: any) {
             console.error("Save Settings Error:", error);
             const errorMsg = error.response?.data?.message || "Failed to sync changes. Please try again.";

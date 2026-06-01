@@ -10,6 +10,7 @@ import {
 import toast from "react-hot-toast";
 import { userService } from "../../services/userService";
 import { documentService } from "../../services/documentService";
+import { financeService } from "../../services/financeService";
 import type { Document } from "../../types/document";
 
 
@@ -237,14 +238,32 @@ function DocumentsTab({ client }: { client: any }) {
     const handleDownload = async (doc: Document) => {
         const toastId = toast.loading(`Preparing ${doc.title}...`);
         try {
-            const { file_url } = await documentService.getDownloadUrl(doc.id);
+            // Use the file_url already present in the document object (same logic as previews)
+            let file_url = doc.file_url;
+
+            // Fallback only if missing
+            if (!file_url) {
+                const data = await documentService.getDownloadUrl(doc.id);
+                file_url = typeof data === 'string' ? data : (data as any)?.file_url;
+            }
+
+            if (!file_url) throw new Error("File path not available");
+
+            // Normalize path for web compatibility
+            const normalizedPath = file_url.replace(/\\/g, '/');
 
             // Build full URL
-            let fullUrl = file_url;
-            if (!file_url.startsWith('http')) {
-                const path = file_url.startsWith('/') ? file_url : `/${file_url}`;
+            let fullUrl = normalizedPath;
+            if (!normalizedPath.startsWith('http')) {
+                const path = normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`;
                 fullUrl = path.startsWith('/uploads') ? path : `${import.meta.env.VITE_API_URL}${path}`;
             }
+
+            // Extract extension from the path
+            const extension = normalizedPath.split('.').pop()?.split('?')[0] || '';
+            const downloadName = doc.title.toLowerCase().endsWith(`.${extension.toLowerCase()}`)
+                ? doc.title
+                : `${doc.title}.${extension}`;
 
             const userString = localStorage.getItem("infrapilot_user");
             const token = userString ? JSON.parse(userString)?.token?.access_token || JSON.parse(userString)?.token : null;
@@ -258,7 +277,7 @@ function DocumentsTab({ client }: { client: any }) {
             const objectUrl = URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.href = objectUrl;
-            link.download = doc.title;
+            link.download = downloadName;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -447,6 +466,8 @@ const ClientDetailPage = () => {
             try {
                 setIsLoading(true);
                 const u = await userService.getUserById(parseInt(id));
+                const allInvoices = await financeService.getInvoices(100).catch(() => []);
+                const clientInvoices = allInvoices.filter((i: any) => i.owner_id === parseInt(id));
 
                 // Map API user to the expected client structure
                 const mappedClient = {
@@ -461,7 +482,13 @@ const ClientDetailPage = () => {
                     gst: u.pan_number || "—", // Using PAN as placeholder for GST if not available
                     notes: "VIP client. Prefers WhatsApp updates.", // Keep original mock notes or set to empty
                     portalEnabled: u.is_active,
-                    invoices: [], // These would normally come from a different service
+                    invoices: clientInvoices.map((inv: any) => ({
+                        id: inv.invoice_number || inv.id,
+                        actualId: inv.id,
+                        date: new Date(inv.created_at).toLocaleDateString(),
+                        amount: inv.total_amount,
+                        status: inv.status === 'paid' ? 'Paid' : inv.status === 'overdue' ? 'Overdue' : 'Pending'
+                    })),
                     documents: [],
                     communications: [],
                 };

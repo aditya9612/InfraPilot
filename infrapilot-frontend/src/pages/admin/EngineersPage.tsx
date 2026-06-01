@@ -10,6 +10,8 @@ import { Eye, Edit2, Trash2, X } from "lucide-react";
 import { userService } from "../../services/userService";
 import { dsrService } from "../../services/dsrService";
 import { projectService } from "../../services/projectService";
+import { labourService } from "../../services/labourService";
+import { workProgressService } from "../../services/workProgressService";
 import type { DsrItem } from "../../types/dsr";
 import SortDropdown from "../../components/common/SortDropdown";
 
@@ -35,34 +37,110 @@ const EngineersPage = () => {
       try {
         setIsLoading(true);
         const res = await userService.getAllUsers(100, 0);
-
-        // Robust extraction logic: handles direct array or nested items/data/users property
         const userList = Array.isArray(res) ? res : (res.items || res.data || res.users || []);
 
-        // Filter for Site Engineers with robust checks for strings or objects
-        const engineerList = userList.filter((u: any) => {
-          const role = typeof u.role === "string" ? u.role : u.role?.name || "";
+        const projectsRes = await projectService.getProjects(100, 0);
+        const projectList = Array.isArray(projectsRes) ? projectsRes : (projectsRes.items || projectsRes.data || []);
+        setAllProjects(projectList);
 
-          // Case-insensitive match for SiteEngineer or Engineer roles
+        const engineerRecords = userList.filter((u: any) => {
+          const role = typeof u.role === "string" ? u.role : u.role?.name || "";
           const normalizedRole = role.toLowerCase().replace(/\s/g, "");
           return normalizedRole === "siteengineer" || normalizedRole === "engineer";
         });
 
-        // Map to UI structure
-        const mapped = engineerList.map((u: any) => ({
-          id: u.user_id,
-          name: u.full_name,
-          email: u.email,
-          mobile: u.mobile_number,
-          projects: u.address || "Main Site",
-          experience: "5 Years", // Mock
-          status: u.is_active ? "On Site" : "Leave",
-          specialization: u.designation || "Civil Engineer",
-          joiningDate: u.joining_date,
-          lastDsr: new Date().toISOString(),
-          weather: "Sunny, 32°C",
-          laborCount: 0,
-          activeTask: "General Supervision"
+        // 1. Pre-fetch all project memberships to build an efficient lookup map
+        const userProjectMap = new Map<number, any[]>();
+
+        // Process projects in batches to avoid overwhelming the concurrent request limit
+        const BATCH_SIZE = 10;
+        for (let i = 0; i < projectList.length; i += BATCH_SIZE) {
+          const batch = projectList.slice(i, i + BATCH_SIZE);
+          await Promise.all(batch.map(async (p: any) => {
+            try {
+              const membersRes = await projectService.getProjectMembers(p.id);
+              const members = Array.isArray(membersRes) ? membersRes : (membersRes.items || []);
+              members.forEach((m: any) => {
+                const uid = m.user_id || m.user?.id || m.id;
+                if (uid) {
+                  const existing = userProjectMap.get(uid) || [];
+                  userProjectMap.set(uid, [...existing, p]);
+                }
+              });
+            } catch (e) { console.warn(`Failed to fetch members for project ${p.id}`, e); }
+          }));
+        }
+
+        // Enrichment Cache for site vitals (Attendance, Weather, Activity)
+        const projectVitalsCache = new Map<number, any>();
+
+        const mapped = await Promise.all(engineerRecords.map(async (u: any) => {
+          // Find projects from either membership map or address field
+          const assigned = userProjectMap.get(u.user_id) || [];
+          if (u.address) {
+            const byAddr = projectList.filter((p: any) => p.project_name === u.address);
+            byAddr.forEach((pa: any) => {
+              if (!assigned.find((a: any) => a.id === pa.id)) assigned.push(pa);
+            });
+          }
+
+          const primaryProject = assigned[0];
+          let vitals = { laborCount: 0, weather: "Syncing...", activeTask: "General Supervision", lastDsr: u.updated_at };
+
+          if (primaryProject) {
+            if (projectVitalsCache.has(primaryProject.id)) {
+              vitals = projectVitalsCache.get(primaryProject.id);
+            } else {
+              try {
+                // Fetch today's attendance for active labour count vs total registry
+                const today = new Date().toISOString().split('T')[0];
+                const [attendanceRes, registryRes, activitiesRes, dsrsRes] = await Promise.all([
+                  labourService.getAttendanceList(primaryProject.id, today, today).catch(() => ({ items: [] })),
+                  labourService.getLabours(primaryProject.id, { limit: 1 }).catch(() => ({ meta: { total: 0 } })),
+                  workProgressService.listActivities(primaryProject.id, u.user_id).catch(() => []),
+                  dsrService.getDsrByProject(primaryProject.id).catch(() => ({ items: [] }))
+                ]);
+
+                const attendanceItems = (attendanceRes as any)?.items || (Array.isArray(attendanceRes) ? attendanceRes : []);
+                const registryTotal = (registryRes as any)?.meta?.total || (registryRes as any)?.total || 0;
+                const activities = activitiesRes as any[];
+                const dsrs = ((dsrsRes as any)?.items || []) as any[];
+                // Sort DSRs by report_date descending to ensure we get the latest one
+                const sortedDsrs = [...dsrs].sort((a, b) => new Date(b.report_date).getTime() - new Date(a.report_date).getTime());
+                const latestDsr = sortedDsrs[0];
+
+                // Prioritize Attendance count, fallback to Registry if 0
+                const activeLabour = attendanceItems.length > 0 ? attendanceItems.length : registryTotal;
+
+                const weatherStr = latestDsr?.weather ? (latestDsr.weather_temp ? `${latestDsr.weather}, ${latestDsr.weather_temp}°C` : latestDsr.weather) : "Cloudy, 28°C";
+
+                vitals = {
+                  laborCount: activeLabour,
+                  weather: weatherStr,
+                  activeTask: activities.find(a => a.status !== "COMPLETED")?.activity_name || latestDsr?.work_done?.split('.')[0] || "Supervision",
+                  lastDsr: latestDsr?.report_date || null
+                };
+                projectVitalsCache.set(primaryProject.id, vitals);
+              } catch (e) {
+                console.warn(`Vitals fetch failed for project ${primaryProject.id}`, e);
+              }
+            }
+          }
+
+          return {
+            id: u.user_id,
+            name: u.full_name,
+            email: u.email,
+            mobile: u.mobile_number,
+            projects: assigned.length > 0 ? assigned.map(p => p.project_name).join(", ") : (u.address || "Unassigned"),
+            status: u.is_active ? "On Site" : "Leave",
+            specialization: u.designation || "Site Engineer",
+            designation: u.designation || "Site Engineer",
+            pan_number: u.pan_number || "",
+            aadhaar_number: u.aadhaar_number || "",
+            joiningDate: u.joining_date,
+            ...vitals
+          };
         }));
 
         setEngineers(mapped);
@@ -74,18 +152,7 @@ const EngineersPage = () => {
       }
     };
 
-    const fetchProjects = async () => {
-      try {
-        const res = await projectService.getProjects(100, 0);
-        const projectList = Array.isArray(res) ? res : (res.items || res.data || []);
-        setAllProjects(projectList);
-      } catch (error) {
-        console.error("Failed to fetch projects:", error);
-      }
-    };
-
     fetchEngineers();
-    fetchProjects();
   }, []);
 
   const fetchDsrLogs = useCallback(async () => {
@@ -128,6 +195,17 @@ const EngineersPage = () => {
     }
   }, []);
 
+  const getWeatherIcon = (weather: string) => {
+    const w = weather?.toLowerCase() || "";
+    if (w.includes("sun") || w.includes("clear")) return "☀️";
+    if (w.includes("rain") || w.includes("drizzle") || w.includes("shower")) return "🌧️";
+    if (w.includes("cloud") || w.includes("overcast")) return "☁️";
+    if (w.includes("thunder")) return "⛈️";
+    if (w.includes("fog") || w.includes("mist")) return "🌫️";
+    if (w.includes("snow")) return "❄️";
+    return "⛅";
+  };
+
   const filteredEngineers = useMemo(() => {
     const list = engineers.filter((e) =>
       e.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -148,12 +226,13 @@ const EngineersPage = () => {
 
   const handleCreateOrUpdate = async (data: any) => {
     try {
-      // Map modal fields to backend user schema
       const payload: any = {
         full_name: data.full_name,
         email: data.email,
         mobile_number: data.mobile_number,
-        designation: data.specialization,
+        designation: data.designation,
+        pan_number: data.pan_number,
+        aadhaar_number: data.aadhaar_number,
         address: data.address,
         joining_date: data.joining_date || null,
         role: "SiteEngineer",
@@ -165,8 +244,8 @@ const EngineersPage = () => {
         await userService.updateUser(editingEngineer.id, payload);
         toast.success("Engineer details updated successfully.");
       } else {
-        // Password required for new user creation - use mobile as default
-        payload.password = data.mobile || "Welcome@123";
+        // Password is now provided by the modal or falls back to mobile
+        payload.password = data.password || data.mobile_number || "Welcome@123";
         await userService.createUser(payload);
         toast.success("New engineer deployed successfully!");
       }
@@ -179,20 +258,51 @@ const EngineersPage = () => {
         const normalizedRole = role.toLowerCase().replace(/\s/g, "");
         return normalizedRole === "siteengineer" || normalizedRole === "engineer";
       });
-      const mapped = engineerList.map((u: any) => ({
-        id: u.user_id,
-        name: u.full_name,
-        email: u.email,
-        mobile: u.mobile_number,
-        projects: u.address || "Main Site",
-        experience: "5 Years",
-        status: u.is_active ? "On Site" : "Leave",
-        specialization: u.designation || "Civil Engineer",
-        joiningDate: u.joining_date,
-        lastDsr: new Date().toISOString(),
-        weather: "Sunny, 32°C",
-        laborCount: 0,
-        activeTask: "General Supervision"
+      const mapped = await Promise.all(engineerList.map(async (u: any) => {
+        const assigned: any[] = [];
+        if (u.address) {
+          const b = allProjects.filter(p => p.project_name === u.address);
+          if (b.length > 0) assigned.push(...b);
+        }
+
+        const primaryProject = assigned[0];
+        let vitals = { laborCount: 0, weather: "Syncing...", activeTask: "General Supervision", lastDsr: u.updated_at };
+
+        if (primaryProject) {
+          try {
+            const [laboursRes, activitiesRes, dsrsRes] = await Promise.all([
+              labourService.getLabours(primaryProject.id, { limit: 1 }).catch(() => ({ meta: { total: 0 } })),
+              workProgressService.listActivities(primaryProject.id, u.user_id).catch(() => []),
+              dsrService.getDsrByProject(primaryProject.id).catch(() => ({ items: [] }))
+            ]);
+            const totalLabour = (laboursRes as any)?.meta?.total || (laboursRes as any)?.total || 0;
+            const activities = activitiesRes as any[];
+            const dsrs = ((dsrsRes as any)?.items || []) as any[];
+            const sortedDsrs = [...dsrs].sort((a, b) => new Date(b.report_date).getTime() - new Date(a.report_date).getTime());
+            const latestDsr = sortedDsrs[0];
+            vitals = {
+              laborCount: totalLabour,
+              weather: latestDsr?.weather || "Cloudy, 28°C",
+              activeTask: activities.find(a => a.status !== "COMPLETED")?.activity_name || latestDsr?.work_done?.split('.')[0] || "Supervision",
+              lastDsr: latestDsr?.report_date || null
+            };
+          } catch (e) { /* fallback */ }
+        }
+
+        return {
+          id: u.user_id,
+          name: u.full_name,
+          email: u.email,
+          mobile: u.mobile_number,
+          projects: assigned.length > 0 ? assigned.map(p => p.project_name).join(", ") : (u.address || "Unassigned"),
+          status: u.is_active ? "On Site" : "Leave",
+          specialization: u.designation || "Site Engineer",
+          designation: u.designation || "Site Engineer",
+          pan_number: u.pan_number || "",
+          aadhaar_number: u.aadhaar_number || "",
+          joiningDate: u.joining_date,
+          ...vitals
+        };
       }));
       setEngineers(mapped);
     } catch (error: any) {
@@ -268,13 +378,13 @@ const EngineersPage = () => {
           />
           <StatCard
             title="DSR Compliance"
-            value={`${Math.round((engineers.filter(e => new Date(e.lastDsr).toDateString() === new Date().toDateString()).length / engineers.length) * 100)}%`}
+            value={`${engineers.length > 0 ? Math.round((engineers.filter(e => e.lastDsr && e.lastDsr.split('T')[0] === new Date().toISOString().split('T')[0]).length / engineers.length) * 100) : 0}%`}
             sub="Based on today's submissions"
             accent="text-emerald-500"
           />
           <StatCard
             title="Pending Reviews"
-            value={engineers.filter(e => e.status === "On Site" && new Date(e.lastDsr).toDateString() !== new Date().toDateString()).length.toString()}
+            value={engineers.filter(e => e.status === "On Site" && (!e.lastDsr || e.lastDsr.split('T')[0] !== new Date().toISOString().split('T')[0])).length.toString()}
             sub="Missing reports for today"
             accent="text-violet-500"
           />
@@ -332,7 +442,8 @@ const EngineersPage = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {pagedEngineers.map((e) => {
-                    const isDsrToday = new Date(e.lastDsr).toDateString() === new Date().toDateString();
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    const isDsrToday = !!(e.lastDsr && e.lastDsr.split('T')[0] === todayStr);
                     return (
                       <tr
                         key={e.id}
@@ -355,9 +466,9 @@ const EngineersPage = () => {
                         </td>
                         <td className="px-6 py-4">
                           <div>
-                            <p className="text-xs text-slate-600 font-bold">{e.projects}</p>
+                            <p className="text-xs text-slate-600 font-bold truncate max-w-[180px]" title={e.projects}>{e.projects}</p>
                             <div className="flex items-center gap-1.5 mt-1 text-slate-400">
-                              <span className="text-[10px]">{e.weather === "Sunny, 32°C" ? "☀️" : "☁️"}</span>
+                              <span className="text-[10px]">{getWeatherIcon(e.weather)}</span>
                               <span className="text-[10px] font-medium">{e.weather || "Syncing..."}</span>
                             </div>
                           </div>
@@ -374,8 +485,10 @@ const EngineersPage = () => {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                            <p className="text-xs font-bold text-slate-700">{e.activeTask || "None"}</p>
+                            <div className={`w-1.5 h-1.5 rounded-full ${e.status === "On Site" ? 'bg-blue-500 animate-pulse' : 'bg-slate-300'}`} />
+                            <p className="text-xs font-bold text-slate-700 truncate max-w-[140px]" title={e.activeTask}>
+                              {e.activeTask || "None"}
+                            </p>
                           </div>
                         </td>
 

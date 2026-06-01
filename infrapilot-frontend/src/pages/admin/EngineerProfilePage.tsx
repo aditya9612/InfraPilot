@@ -7,12 +7,18 @@ import PageTransition from "../../components/common/PageTransition";
 import {
     Camera, Package, Wind, Droplets,
     Thermometer, Users, ChevronLeft, Calendar,
-    TrendingUp, MapPin, Phone, Mail
+    TrendingUp, MapPin, Phone, Mail,
+    CreditCard, Fingerprint, FileDown, FileText
 } from "lucide-react";
 import { userService } from "../../services/userService";
 import { dsrService } from "../../services/dsrService";
 import { projectService } from "../../services/projectService";
 import { materialService } from "../../services/materialService";
+import { sitePhotoService } from "../../services/sitePhotoService";
+import { labourService } from "../../services/labourService";
+import { workProgressService } from "../../services/workProgressService";
+import { issueService } from "../../services/issueService";
+import { expenseService } from "../../services/expenseService";
 
 const EngineerProfilePage: React.FC = () => {
     const { id } = useParams();
@@ -22,109 +28,226 @@ const EngineerProfilePage: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [dsrData, setDsrData] = useState<any[]>([]);
     const [materialLogs, setMaterialLogs] = useState<any[]>([]);
-    const [labourTrend, setLabourTrend] = useState<any>(null);
-    const [projectId, setProjectId] = useState<number | null>(null);
+    const [assignedProjects, setAssignedProjects] = useState<any[]>([]);
+    const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
+    const [engineerData, setEngineerData] = useState<any>(null);
+    const [sitePhotos, setSitePhotos] = useState<any[]>([]);
+    const [vitals, setVitals] = useState<any>({
+        total_labour_today: 0,
+        skilled_labour: 0,
+        unskilled_labour: 0,
+        active_activities: 0,
+        open_issues: { total: 0, high_priority: 0 },
+        total_expenses: 0,
+        progress: 0
+    });
+    const [liveWeather, setLiveWeather] = useState({
+        condition: "Clear", temperature: 32, humidity: 54, windSpeed: 12
+    });
 
+    // Live weather from Open-Meteo (same as EngineerDashboard)
     useEffect(() => {
-        const fetchEngineer = async () => {
+        const fetchWeather = async (lat: number, lon: number) => {
+            try {
+                const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
+                const data = await res.json();
+                if (data.current_weather) {
+                    const temp = Math.round(data.current_weather.temperature);
+                    const wind = Math.round(data.current_weather.windspeed);
+                    const code = data.current_weather.weathercode;
+                    let cond = "Clear";
+                    if ([1, 2, 3].includes(code)) cond = "Partly Cloudy";
+                    else if ([45, 48].includes(code)) cond = "Foggy";
+                    else if ([51, 53, 55, 56, 57].includes(code)) cond = "Drizzle";
+                    else if ([61, 63, 65, 66, 67].includes(code)) cond = "Rainy";
+                    else if ([71, 73, 75, 77].includes(code)) cond = "Snowy";
+                    else if ([80, 81, 82].includes(code)) cond = "Showers";
+                    else if ([95, 96, 99].includes(code)) cond = "Thunderstorm";
+                    setLiveWeather(prev => ({ ...prev, condition: cond, temperature: temp, windSpeed: wind }));
+                }
+            } catch (err) {
+                console.warn("Weather fetch failed, using defaults", err);
+            }
+        };
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                pos => fetchWeather(pos.coords.latitude, pos.coords.longitude),
+                () => console.warn("Geolocation denied, using fallback weather")
+            );
+        }
+    }, []);
+
+    // 1. Resolve assigned projects
+    useEffect(() => {
+        const resolveProjects = async () => {
             if (!id) return;
             try {
                 setIsLoading(true);
                 const u = await userService.getUserById(parseInt(id));
+                setEngineerData(u);
 
-                // Find project where user is a member
                 const projectsRes = await projectService.getProjects(100, 0);
                 const allProjects = Array.isArray(projectsRes) ? projectsRes : (projectsRes.items || projectsRes.data || []);
 
-                let foundProjectId = null;
-                // Brute force check for now: find a project where this user is listed as a member
-                // Or if address matches a project name
-                const projectMatchesAddress = allProjects.find((p: any) => p.project_name === u.address);
-                if (projectMatchesAddress) {
-                    foundProjectId = projectMatchesAddress.id;
-                } else {
-                    // Try checking members for recent projects
-                    const recentProjects = allProjects.slice(0, 10);
-                    const membersLists = await Promise.all(recentProjects.map((p: any) => projectService.getProjectMembers(p.id).catch(() => [])));
-                    const foundIndex = membersLists.findIndex(list => {
-                        const items = Array.isArray(list) ? list : (list.items || list.data || []);
-                        return items.some((m: any) => (m.user_id || m.user?.id || m.id) === u.user_id);
+                const targetProjects: any[] = [];
+                if (u.address) {
+                    const byAddr = allProjects.filter((p: any) => p.project_name === u.address);
+                    byAddr.forEach((pa: any) => {
+                        if (!targetProjects.find(a => a.id === pa.id)) targetProjects.push(pa);
                     });
-                    if (foundIndex !== -1) {
-                        foundProjectId = recentProjects[foundIndex].id;
-                    }
                 }
 
-                setProjectId(foundProjectId);
+                // Membership check (Limit to first 30 projects for performance on single profile, or optimize)
+                const BATCH_SIZE = 15;
+                for (let i = 0; i < allProjects.length; i += BATCH_SIZE) {
+                    if (targetProjects.length >= 5) break; // If we found enough, stop
+                    const batch = allProjects.slice(i, i + BATCH_SIZE);
+                    const results = await Promise.all(batch.map((p: any) => projectService.getProjectMembers(p.id).catch(() => [])));
+                    results.forEach((list, idx) => {
+                        const items = Array.isArray(list) ? list : (list.items || list.data || []);
+                        if (items.some((m: any) => (m.user_id || m.user?.id || m.id) === u.user_id)) {
+                            if (!targetProjects.find(tp => tp.id === batch[idx].id)) targetProjects.push(batch[idx]);
+                        }
+                    });
+                }
 
-                if (foundProjectId) {
-                    const [dsrs, logs, trend] = await Promise.all([
-                        dsrService.getDsrByProject(foundProjectId).catch(() => ({ items: [] })),
-                        materialService.getLogs({ project_id: foundProjectId, limit: 10 }).catch(() => []),
-                        dsrService.getLabourTrend(foundProjectId).catch(() => [])
-                    ]);
-
-                    const latestDsr = dsrs.items?.[0];
-                    const activeTrend = trend[trend.length - 1] || null;
-
-                    setDsrData(dsrs.items || []);
-                    setMaterialLogs(logs);
-                    setLabourTrend(activeTrend);
-
-                    // Map to UI structure with real data
-                    const mapped = {
-                        id: u.user_id,
-                        name: u.full_name,
-                        email: u.email,
-                        mobile: u.mobile_number,
-                        projects: u.address || (foundProjectId ? allProjects.find((p: any) => p.id === foundProjectId)?.project_name : "Not Assigned"),
-                        experience: u.joining_date ? `${Math.floor((new Date().getTime() - new Date(u.joining_date).getTime()) / (1000 * 60 * 60 * 24 * 365))} Years` : "5 Years",
-                        performance: "Outstanding",
-                        status: u.is_active ? "On Site" : "Leave",
-                        specialization: u.designation || "Site Engineer",
-                        lastDsr: latestDsr?.report_date || u.updated_at || new Date().toISOString(),
-                        weather: latestDsr?.weather || "Sunny, 32°C",
-                        laborCount: latestDsr?.total_labour || 0,
-                        activeTask: latestDsr?.work_done ? latestDsr?.work_done.split('.')[0] : "Site Supervision",
-                        joiningDate: u.joining_date || "2024-01-01",
-                        humidity: "54%",
-                        windSpeed: "12 km/h",
-                        photos: []
-                    };
-                    setEngineer(mapped);
+                console.log(`Resolve projects for ${u.full_name}: Found ${targetProjects.length} matches.`);
+                setAssignedProjects(targetProjects);
+                if (targetProjects.length > 0) {
+                    const firstId = targetProjects[0].id;
+                    console.log(`Setting active project to ${firstId}`);
+                    setActiveProjectId(firstId);
                 } else {
-                    // Mapping for user with no project
-                    const mappedFallback = {
-                        id: u.user_id,
-                        name: u.full_name,
-                        email: u.email,
-                        mobile: u.mobile_number,
-                        projects: u.address || "Not Assigned",
-                        experience: u.joining_date ? `${Math.floor((new Date().getTime() - new Date(u.joining_date).getTime()) / (1000 * 60 * 60 * 24 * 365))} Years` : "5 Years",
-                        performance: "Outstanding",
-                        status: u.is_active ? "On Site" : "Leave",
-                        specialization: u.designation || "Site Engineer",
-                        lastDsr: "N/A",
-                        weather: "N/A",
-                        laborCount: 0,
-                        activeTask: "Unassigned",
-                        joiningDate: u.joining_date || "2024-01-01",
-                        humidity: "N/A",
-                        windSpeed: "N/A",
-                        photos: []
-                    };
-                    setEngineer(mappedFallback);
+                    console.warn(`No projects resolved for engineer ${u.user_id}`);
+                    setIsLoading(false);
                 }
             } catch (error) {
-                console.error("Failed to fetch engineer:", error);
-                toast.error("Failed to load engineer profile.");
+                console.error("Resolve projects failed:", error);
+                setIsLoading(false);
+            }
+        };
+        resolveProjects();
+    }, [id]);
+
+    // 2. Fetch project intelligence for the active project
+    useEffect(() => {
+        const fetchProjectData = async () => {
+            if (!activeProjectId || !engineerData) return;
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                const [activities, attendanceRes, issuesRes, expensesRes, dsrsRes, photos] = await Promise.all([
+                    workProgressService.listActivities(activeProjectId, engineerData.user_id).catch(() => []),
+                    labourService.getAttendanceList(activeProjectId, today, today).catch(() => ({ items: [] })),
+                    issueService.listIssuesByProject(activeProjectId, { limit: 1000 }).catch(() => ({ items: [] })),
+                    expenseService.getExpensesByProject(activeProjectId).catch(() => []),
+                    dsrService.getDsrByProject(activeProjectId).catch(() => ({ items: [] as any[] })),
+                    sitePhotoService.getPhotos({ project_id: activeProjectId, limit: 20 }).catch(() => ({ items: [] as any[] }))
+                ]);
+
+                const dsrsList = (dsrsRes as any)?.items || [];
+                const latestDsr = dsrsList[0];
+
+                const attendance = (attendanceRes as any)?.items || (Array.isArray(attendanceRes) ? attendanceRes : []);
+
+                let skilledCount = 0;
+                let unskilledCount = 0;
+                let totalCount = 0;
+
+                // Skill normalization helper
+                const normalizeSkill = (l: any) => (l.skill_type || l.skill || l.category || "General").toLowerCase();
+
+                if (attendance.length > 0) {
+                    totalCount = attendance.length;
+                    skilledCount = attendance.filter((l: any) => normalizeSkill(l).includes("skilled") && !normalizeSkill(l).includes("unskilled")).length;
+                    unskilledCount = totalCount - skilledCount;
+                } else {
+                    // Fallback to registry details for breakdown
+                    const regDetails = await labourService.getLabours(activeProjectId, { limit: 100 }).catch(() => ({ items: [] }));
+                    const regItems = (regDetails as any)?.items || [];
+                    totalCount = (regDetails as any)?.meta?.total || regItems.length;
+                    skilledCount = regItems.filter((l: any) => normalizeSkill(l).includes("skilled") && !normalizeSkill(l).includes("unskilled")).length;
+                    unskilledCount = totalCount - skilledCount;
+                }
+
+                const activeLabourCount = totalCount;
+
+                const allIssues = (issuesRes as any)?.items || [];
+                const openIssues = allIssues.filter((i: any) => (i.status || i.state) !== "Resolved" && (i.status || i.state) !== "Closed");
+                const highPriorityIssues = openIssues.filter((i: any) => i.priority === "High" || i.priority === "Critical");
+
+                const activeActivities = (activities as any[]).filter((a: any) => a.status !== "COMPLETED" && a.completion_percentage < 100);
+                const progress = (activities as any[]).length > 0 ? Math.round((activities as any[]).reduce((sum: number, a: any) => sum + (a.completion_percentage || 0), 0) / (activities as any[]).length) : 0;
+                const expenses = Array.isArray(expensesRes) ? expensesRes : ((expensesRes as any)?.items || []);
+                const totalExpenses = (expenses as any[]).reduce((sum: number, e: any) => sum + (e.amount || e.total_amount || 0), 0);
+
+                const mlRes = await materialService.getLogs({ project_id: activeProjectId, limit: 10 }).catch(() => []);
+                setMaterialLogs(Array.isArray(mlRes) ? mlRes : []);
+
+                setVitals({
+                    total_labour_today: activeLabourCount,
+                    skilled_labour: skilledCount,
+                    unskilled_labour: unskilledCount,
+                    active_activities: activeActivities.length,
+                    open_issues: { total: openIssues.length, high_priority: highPriorityIssues.length },
+                    total_expenses: totalExpenses,
+                    progress
+                });
+
+                // Update Live Weather from DSR if available
+                if (latestDsr?.weather) {
+                    setLiveWeather({
+                        condition: latestDsr.weather,
+                        temperature: parseInt(latestDsr.weather_temp) || 28,
+                        humidity: 54, // Default fallback
+                        windSpeed: 12 // Default fallback
+                    });
+                } else {
+                    // Mismatch fix: use the same fallback as EngineersPage
+                    setLiveWeather(prev => ({ ...prev, condition: "Cloudy", temperature: 28 }));
+                }
+
+                // Using dsrsList directly for data state
+                setDsrData(dsrsList);
+                setSitePhotos((photos as any)?.items || []);
+
+                const u = engineerData;
+                const activeProject = assignedProjects.find(p => p.id === activeProjectId);
+                const activeTask = activeActivities[0]?.activity_name || dsrsList[0]?.work_done?.split('.')[0] || "Site Supervision";
+
+                setEngineer({
+                    id: u.user_id,
+                    name: u.full_name,
+                    email: u.email,
+                    mobile: u.mobile_number,
+                    projects: assignedProjects.map(p => p.project_name).join(", "),
+                    activeProjectName: activeProject?.project_name || "Unknown",
+                    experience: u.joining_date
+                        ? (() => {
+                            const years = Math.floor((new Date().getTime() - new Date(u.joining_date).getTime()) / (1000 * 60 * 60 * 24 * 365));
+                            return years > 0 ? `${years} Years` : null;
+                        })()
+                        : "5 Years",
+                    performance: "Outstanding",
+                    status: u.is_active ? "On Site" : "Leave",
+                    specialization: u.designation || "Site Engineer",
+                    pan_number: u.pan_number || "NOT_SET",
+                    aadhaar_number: u.aadhaar_number || "NOT_SET",
+                    lastDsr: latestDsr?.report_date || u.updated_at || new Date().toISOString(),
+                    laborCount: activeLabourCount,
+                    activeTask,
+                    joiningDate: u.joining_date || "2024-01-01",
+                    weather: `${liveWeather.condition}, ${liveWeather.temperature}°C`,
+                    humidity: `${liveWeather.humidity}%`,
+                    windSpeed: `${liveWeather.windSpeed} km/h`
+                });
+            } catch (error) {
+                console.error("Fetch project intelligence failed:", error);
             } finally {
                 setIsLoading(false);
             }
         };
-
-        fetchEngineer();
-    }, [id]);
+        fetchProjectData();
+    }, [activeProjectId, engineerData, assignedProjects]);
 
     if (isLoading) {
         return (
@@ -160,8 +283,21 @@ const EngineerProfilePage: React.FC = () => {
         );
     };
 
-    const handleContact = () => {
-        window.location.href = `mailto:${engineer.email}?subject=Site Intelligence Inquiry: ${engineer.projects}&body=Hello ${engineer.name},%0D%0A%0D%0AI am reaching out regarding the current status at ${engineer.projects}.`;
+
+
+    const handleExportProjectDsrExcel = () => {
+        if (!activeProjectId) return;
+        const toastId = toast.loading("Compiling DSR Registry Excel...");
+        dsrService.exportDsrExcel(activeProjectId)
+            .then(() => toast.success("DSR Registry Exported!", { id: toastId }))
+            .catch(() => toast.error("Excel Export Failed", { id: toastId }));
+    };
+
+    const handleExportIndividualDsrPdf = (dsrId: number) => {
+        const toastId = toast.loading("Generating DSR PDF...");
+        dsrService.exportDsrPdf(dsrId)
+            .then(() => toast.success("DSR Report Downloaded!", { id: toastId }))
+            .catch(() => toast.error("PDF Export Failed", { id: toastId }));
     };
 
     return (
@@ -188,12 +324,7 @@ const EngineerProfilePage: React.FC = () => {
                         >
                             Export Site Report
                         </button>
-                        <button
-                            onClick={handleContact}
-                            className="px-5 py-2 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
-                        >
-                            Contact Engineer
-                        </button>
+
                     </div>
                 </div>
 
@@ -217,9 +348,11 @@ const EngineerProfilePage: React.FC = () => {
                                     <span className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-100">
                                         {engineer.status}
                                     </span>
-                                    <span className="px-3 py-1 bg-slate-50 text-slate-500 rounded-full text-[10px] font-black uppercase tracking-widest border border-slate-100">
-                                        {engineer.experience} Exp
-                                    </span>
+                                    {engineer.experience && (
+                                        <span className="px-3 py-1 bg-slate-50 text-slate-500 rounded-full text-[10px] font-black uppercase tracking-widest border border-slate-100">
+                                            {engineer.experience} Exp
+                                        </span>
+                                    )}
                                 </div>
                             </div>
 
@@ -227,9 +360,13 @@ const EngineerProfilePage: React.FC = () => {
                             <div className="mt-8 space-y-4 pt-8 border-t border-slate-50">
                                 <ContactItem icon={<Phone className="w-4 h-4" />} label="Mobile" value={engineer.mobile} />
                                 <ContactItem icon={<Mail className="w-4 h-4" />} label="Official Email" value={engineer.email} />
-                                <div className="flex items-center justify-between group cursor-pointer" onClick={() => projectId && window.open(`/admin/projects/${projectId}`, '_blank')}>
-                                    <ContactItem icon={<MapPin className="w-4 h-4" />} label="Current Deployment" value={engineer.projects} />
-                                    {projectId && <div className="text-[9px] font-bold text-primary group-hover:underline">View Project</div>}
+                                <div className="flex items-center justify-between group cursor-pointer" onClick={() => activeProjectId && window.open(`/admin/projects/${activeProjectId}`, '_blank')}>
+                                    <ContactItem icon={<MapPin className="w-4 h-4" />} label="Deployment(s)" value={engineer.projects} />
+                                    {activeProjectId && <div className="text-[9px] font-bold text-primary group-hover:underline">View Active</div>}
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <ContactItem icon={<CreditCard className="w-4 h-4" />} label="PAN ID" value={engineer.pan_number} />
+                                    <ContactItem icon={<Fingerprint className="w-4 h-4" />} label="Aadhaar" value={engineer.aadhaar_number} />
                                 </div>
                                 <ContactItem icon={<Calendar className="w-4 h-4" />} label="Joining Date" value={engineer.joiningDate} />
                             </div>
@@ -246,14 +383,14 @@ const EngineerProfilePage: React.FC = () => {
                                         <Thermometer className="w-4 h-4" />
                                         <span className="text-[10px] font-black uppercase tracking-widest">Temperature</span>
                                     </div>
-                                    <p className="text-3xl font-black">{engineer.weather.includes(',') ? engineer.weather.split(',')[1].trim() : engineer.weather}</p>
+                                    <p className="text-3xl font-black">{liveWeather.temperature}°C</p>
                                 </div>
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-2 text-blue-400">
                                         <Droplets className="w-4 h-4" />
                                         <span className="text-[10px] font-black uppercase tracking-widest">Humidity</span>
                                     </div>
-                                    <p className="text-3xl font-black">{engineer.humidity}</p>
+                                    <p className="text-3xl font-black">{liveWeather.humidity}%</p>
                                 </div>
                             </div>
 
@@ -262,7 +399,7 @@ const EngineerProfilePage: React.FC = () => {
                                     <Wind className="w-5 h-5 text-slate-400" />
                                     <div>
                                         <p className="text-[9px] font-black text-white/40 uppercase tracking-tighter">Wind Speed</p>
-                                        <p className="text-sm font-bold">{engineer.windSpeed}</p>
+                                        <p className="text-sm font-bold">{liveWeather.windSpeed} km/h</p>
                                     </div>
                                 </div>
                                 <div className="text-right">
@@ -284,19 +421,19 @@ const EngineerProfilePage: React.FC = () => {
                                     </div>
                                     <div>
                                         <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Labour Density</h4>
-                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Total: {engineer.laborCount} Staff</p>
+                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Total: {vitals.total_labour_today} Staff</p>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="p-4 bg-slate-50 rounded-2xl text-center">
                                         <p className="text-xl font-black text-primary">
-                                            {labourTrend ? labourTrend.labour : Math.round(engineer.laborCount * 0.6)}
+                                            {vitals.skilled_labour}
                                         </p>
                                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Skilled Staff</p>
                                     </div>
                                     <div className="p-4 bg-slate-50 rounded-2xl text-center">
                                         <p className="text-xl font-black text-slate-600">
-                                            {engineer.laborCount ? Math.max(0, engineer.laborCount - (labourTrend?.labour || Math.round(engineer.laborCount * 0.6))) : 0}
+                                            {vitals.unskilled_labour}
                                         </p>
                                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Helpers</p>
                                     </div>
@@ -323,55 +460,97 @@ const EngineerProfilePage: React.FC = () => {
                         <div className="flex-1 bg-white rounded-[3rem] shadow-sm border border-slate-100 flex flex-col overflow-hidden min-h-[600px]">
                             {/* Mirror Navigation */}
                             <div className="px-8 pt-8 flex items-center justify-between border-b border-slate-50 pb-6 shrink-0">
-                                <div className="flex gap-8">
-                                    <MirrorTab
-                                        active={mirrorFilter === "photos"}
-                                        onClick={() => setMirrorFilter("photos")}
-                                        label="Site Photos"
-                                        count={dsrData.filter(d => d.dsr_image).length}
-                                    />
-                                    <MirrorTab
-                                        active={mirrorFilter === "materials"}
-                                        onClick={() => setMirrorFilter("materials")}
-                                        label="Material Log"
-                                    />
-                                    <MirrorTab
-                                        active={mirrorFilter === "dsr"}
-                                        onClick={() => setMirrorFilter("dsr")}
-                                        label="Daily Reports"
-                                    />
+                                <div className="flex items-center gap-6">
+                                    <div className="flex gap-8">
+                                        <MirrorTab
+                                            active={mirrorFilter === "photos"}
+                                            onClick={() => setMirrorFilter("photos")}
+                                            label="Site Photos"
+                                            count={sitePhotos.length + dsrData.filter(d => d.dsr_image).length}
+                                        />
+                                        <MirrorTab
+                                            active={mirrorFilter === "materials"}
+                                            onClick={() => setMirrorFilter("materials")}
+                                            label="Material Log"
+                                        />
+                                        <MirrorTab
+                                            active={mirrorFilter === "dsr"}
+                                            onClick={() => setMirrorFilter("dsr")}
+                                            label="Daily Reports"
+                                        />
+                                    </div>
+
+                                    {mirrorFilter === "dsr" && (
+                                        <button
+                                            onClick={handleExportProjectDsrExcel}
+                                            className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ml-4"
+                                            title="Export Excel Registry"
+                                        >
+                                            <FileDown className="w-3.5 h-3.5" />
+                                            Export Registry
+                                        </button>
+                                    )}
+
+                                    {assignedProjects.length > 1 && (
+                                        <div className="flex items-center gap-2 pl-8 border-l border-slate-100">
+                                            <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Active Site:</span>
+                                            <select
+                                                className="bg-slate-50 border-none text-[10px] font-black text-primary uppercase tracking-tight rounded-lg px-2 py-1 outline-none cursor-pointer hover:bg-slate-100 transition-colors"
+                                                value={activeProjectId || ""}
+                                                onChange={(e) => setActiveProjectId(Number(e.target.value))}
+                                            >
+                                                {assignedProjects.map(p => (
+                                                    <option key={p.id} value={p.id}>{p.project_name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
                                 </div>
                                 <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">
-                                    Live Site Mirror
+                                    {assignedProjects.length > 1 ? "Multi-Project Sync" : "Live Site Mirror"}
                                 </span>
                             </div>
 
                             <div className="flex-1 overflow-y-auto p-10 custom-scrollbar">
-                                {mirrorFilter === "photos" && (
-                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                                        {dsrData.filter(d => d.dsr_image).length > 0 ? (
-                                            dsrData.filter(d => d.dsr_image).map((item: any, i: number) => (
-                                                <div key={i} className="group relative aspect-square bg-slate-50 rounded-[2rem] overflow-hidden border border-slate-100 hover:border-primary/30 transition-all cursor-zoom-in">
-                                                    <img src={item.dsr_image} alt="Site activity" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                                                    <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-all translate-y-4 group-hover:translate-y-0">
-                                                        <p className="text-[10px] text-white font-black uppercase tracking-widest">{item.report_date} • Live Feed</p>
-                                                        <p className="text-[9px] text-white/60 font-medium mt-1 truncate">
-                                                            {item.work_done}
-                                                        </p>
+                                {mirrorFilter === "photos" && (() => {
+                                    // Merge sitePhotoService photos + DSR images
+                                    const dsrPhotos = dsrData
+                                        .filter(d => d.dsr_image)
+                                        .map((d: any) => ({
+                                            url: sitePhotoService.resolveUrl(d.dsr_image),
+                                            caption: d.report_date,
+                                            sub: d.work_done
+                                        }));
+                                    const spPhotos = sitePhotos.map((p: any) => ({
+                                        url: sitePhotoService.resolveUrl(p.url || p.photo_url),
+                                        caption: p.date || p.activity_tag || "Site Photo",
+                                        sub: p.description || p.location_tag || ""
+                                    }));
+                                    const allPhotos = [...spPhotos, ...dsrPhotos];
+                                    return (
+                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                                            {allPhotos.length > 0 ? (
+                                                allPhotos.map((item: any, i: number) => (
+                                                    <div key={i} className="group relative aspect-square bg-slate-50 rounded-[2rem] overflow-hidden border border-slate-100 hover:border-primary/30 transition-all cursor-zoom-in">
+                                                        <img src={item.url} alt="Site activity" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                                                        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-all translate-y-4 group-hover:translate-y-0">
+                                                            <p className="text-[10px] text-white font-black uppercase tracking-widest">{item.caption} • Live Feed</p>
+                                                            <p className="text-[9px] text-white/60 font-medium mt-1 truncate">{item.sub}</p>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ))
-                                        ) : (
-                                            [1, 2, 3, 4, 5, 6].map((_, i) => (
-                                                <div key={i} className="group relative aspect-square bg-slate-50 rounded-[2rem] overflow-hidden border border-slate-100 hover:border-primary/30 transition-all cursor-zoom-in">
-                                                    <div className="absolute inset-0 flex items-center justify-center text-slate-200">
-                                                        <Camera className="w-12 h-12 opacity-10" />
+                                                ))
+                                            ) : (
+                                                [1, 2, 3, 4, 5, 6].map((_, i) => (
+                                                    <div key={i} className="group relative aspect-square bg-slate-50 rounded-[2rem] overflow-hidden border border-slate-100 hover:border-primary/30 transition-all cursor-zoom-in">
+                                                        <div className="absolute inset-0 flex items-center justify-center text-slate-200">
+                                                            <Camera className="w-12 h-12 opacity-10" />
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
-                                )}
+                                                ))
+                                            )}
+                                        </div>
+                                    );
+                                })()}
 
                                 {mirrorFilter === "materials" && (
                                     <div className="space-y-4">
@@ -406,7 +585,17 @@ const EngineerProfilePage: React.FC = () => {
                                                     <div className="flex justify-between items-start mb-4">
                                                         <div>
                                                             <h5 className="text-lg font-black text-slate-800 tracking-tight">{dsr.work_done?.split('.')[0] || "Site Activity"}</h5>
-                                                            <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">{dsr.status || "Submitted"}</span>
+                                                            <div className="flex items-center gap-3 mt-1">
+                                                                <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">{dsr.status || "Submitted"}</span>
+                                                                <button
+                                                                    onClick={() => handleExportIndividualDsrPdf(dsr.id)}
+                                                                    className="flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-rose-500 transition-colors px-2 py-0.5 bg-slate-50 rounded border border-slate-100"
+                                                                    title="Download PDF Report"
+                                                                >
+                                                                    <FileText className="w-3 h-3" />
+                                                                    PDF
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                         <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{new Date(dsr.report_date).toLocaleDateString()}</span>
                                                     </div>

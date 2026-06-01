@@ -38,22 +38,22 @@ interface ReportType {
 }
 
 const REPORT_TYPES: ReportType[] = [
-  { id: "daily", name: "Daily Progress Report", category: "Operations", description: "Comprehensive summary of daily site activities, issues, and planned work.", icon: <FileText size={18} />, exportType: "PDF", requiresDate: true },
-  { id: "weekly", name: "Weekly Progress Summary", category: "Operations", description: "Aggregated progress percentage and task completion metrics for the week.", icon: <BarChart3 size={18} />, exportType: "PDF" },
+  { id: "daily", name: "Daily Progress Report", category: "Operations", description: "Comprehensive summary of daily site activities, issues, and planned work.", icon: <FileText size={18} />, exportType: "Both", requiresDate: true },
+  { id: "weekly", name: "Weekly Progress Summary", category: "Operations", description: "Aggregated progress percentage and task completion metrics for the week.", icon: <BarChart3 size={18} />, exportType: "Both" },
   { id: "work-summary", name: "Work Category Summary", category: "Operations", description: "Efficiency analysis and status breakdown by work category.", icon: <TrendingUp size={18} />, exportType: "Both" },
-  { id: "issues", name: "Site Issues Report", category: "Operations", description: "Critical analysis of open vs closed site issues and bottlenecks.", icon: <AlertCircle size={18} />, exportType: "Excel" },
+  { id: "issues", name: "Site Issues Report", category: "Operations", description: "Critical analysis of open vs closed site issues and bottlenecks.", icon: <AlertCircle size={18} />, exportType: "Both" },
 
-  { id: "labour", name: "Labour Distribution", category: "Resources", description: "Statistical breakdown of skilled and unskilled manpower allocation.", icon: <PieChart size={18} />, exportType: "Excel" },
-  { id: "material", name: "Material Consumption", category: "Resources", description: "Tracking purchased vs used materials and remaining stock levels.", icon: <Building2 size={18} />, exportType: "Excel" },
-  { id: "assets", name: "Fixed Assets Report", category: "Financials", description: "Valuation and depreciation tracking of project machinery and equipment.", icon: <Building2 size={18} />, exportType: "Excel" },
+  { id: "labour", name: "Labour Distribution", category: "Resources", description: "Statistical breakdown of skilled and unskilled manpower allocation.", icon: <PieChart size={18} />, exportType: "Both" },
+  { id: "material", name: "Material Consumption", category: "Resources", description: "Tracking purchased vs used materials and remaining stock levels.", icon: <Building2 size={18} />, exportType: "Both" },
+  { id: "assets", name: "Fixed Assets Report", category: "Financials", description: "Valuation and depreciation tracking of project machinery and equipment.", icon: <Building2 size={18} />, exportType: "Both" },
 
-  { id: "financial-summary", name: "Financial Health Summary", category: "Financials", description: "Overview of revenue, expenses, and pending invoices.", icon: <TrendingUp size={18} />, exportType: "PDF" },
-  { id: "profit-loss", name: "Profit & Loss Statement", category: "Financials", description: "Global financial performance analysis across the organization.", icon: <BarChart3 size={18} />, exportType: "PDF" },
-  { id: "cashflow", name: "Cash Inflow/Outflow", category: "Financials", description: "Monitoring liquidity and currency movement within the system.", icon: <TrendingUp size={18} />, exportType: "PDF" },
+  { id: "financial-summary", name: "Financial Health Summary", category: "Financials", description: "Overview of revenue, expenses, and pending invoices.", icon: <TrendingUp size={18} />, exportType: "Both" },
+  { id: "profit-loss", name: "Profit & Loss Statement", category: "Financials", description: "Global financial performance analysis across the organization.", icon: <BarChart3 size={18} />, exportType: "Both" },
+  { id: "cashflow", name: "Cash Inflow/Outflow", category: "Financials", description: "Monitoring liquidity and currency movement within the system.", icon: <TrendingUp size={18} />, exportType: "Both" },
   { id: "quarterly-audit", name: "Quarterly Audit Summary", category: "Financials", description: "Regulatory compliance and internal audit trail for the quarter.", icon: <FileText size={18} />, exportType: "PDF", requiresRange: true },
 
   { id: "contractor-performance", name: "Contractor Efficiency", category: "Performance", description: "Evaluating contractor progress against payments and task timelines.", icon: <PieChart size={18} />, exportType: "Both" },
-  { id: "project-report", name: "Consolidated Project Report", category: "Performance", description: "A high-level project health report including revenue and profit.", icon: <FileText size={18} />, exportType: "PDF" },
+  { id: "project-report", name: "Consolidated Project Report", category: "Performance", description: "A high-level project health report including revenue and profit.", icon: <FileText size={18} />, exportType: "Both" },
 ];
 
 const ReportsPage = () => {
@@ -86,7 +86,7 @@ const ReportsPage = () => {
 
   // Preview modal state
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [viewingReport, setViewingReport] = useState<{ id: string, name: string, data: any } | null>(null);
+  const [viewingReport, setViewingReport] = useState<{ id: string, name: string, data: any, exportType: "PDF" | "Excel" | "Both" } | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [reportToShare, setReportToShare] = useState<{ id: string, name: string } | null>(null);
 
@@ -155,45 +155,234 @@ const ReportsPage = () => {
     updateStatsForProject();
   }, [selectedProjectId]);
 
+  const generateCSV = (data: any, filename: string) => {
+    const today = new Date().toISOString().split('T')[0];
+
+    // Detect the main data list if the response is a wrapper object
+    let rows: any[] = [];
+    if (Array.isArray(data)) {
+      rows = data;
+    } else {
+      const mainList = data?.assets || data?.items || data?.work_summary || data?.transactions;
+      if (Array.isArray(mainList)) {
+        // Flatten top-level metadata (like project_id) into each row for better Excel filtering
+        const { assets, items, work_summary, transactions, ...topLevel } = data;
+        rows = mainList.map((item: any) => ({
+          ...topLevel,
+          ...(typeof item === 'object' ? item : { value: item })
+        }));
+      } else {
+        rows = [data];
+      }
+    }
+
+    if (rows.length === 0) {
+      toast.error("No data available for export");
+      return;
+    }
+
+    const headers = Object.keys(rows[0]).join(",");
+    const csvRows = rows.map((row: any) =>
+      Object.values(row).map((v: any) => {
+        if (v === null || v === undefined) return '""';
+        // Handle nested objects/arrays gracefully instead of showing [object Object]
+        const strVal = typeof v === 'object' ? JSON.stringify(v) : String(v);
+        return `"${strVal.replace(/"/g, '""')}"`;
+      }).join(",")
+    );
+
+    const csvContent = [headers, ...csvRows].join("\n");
+    const csvBlob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = window.URL.createObjectURL(csvBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${filename}_${today}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  };
+
   const handleExport = async (reportId: string, format: "PDF" | "Excel") => {
     const toastId = toast.loading(`Generating ${format} report...`);
     try {
-      let blob: Blob;
       const pid = parseInt(selectedProjectId);
       const today = new Date().toISOString().split('T')[0];
+      const globalReports = ["profit-loss", "cashflow"];
+
+      if (!globalReports.includes(reportId) && isNaN(pid)) {
+        toast.error("Please select a project first", { id: toastId });
+        return;
+      }
+
+      let blob: any = null;
 
       switch (reportId) {
         case "daily":
           blob = await reportService.exportDailyPDF(pid, today);
           break;
+        case "weekly": {
+          if (format === "PDF") {
+            blob = await reportService.downloadCombinedReport(pid, "2026-01-01", today);
+          } else {
+            const data = await reportService.getWeeklyProgress(pid);
+            generateCSV(data, "weekly_progress");
+            return;
+          }
+          break;
+        }
         case "labour":
-          blob = await reportService.exportLabourExcel(pid);
+          blob = format === "PDF"
+            ? await reportService.downloadCombinedReport(pid, "2026-01-01", today)
+            : await reportService.exportLabourExcel(pid);
           break;
         case "material":
-          blob = await reportService.exportMaterialExcel(pid);
+          blob = format === "PDF"
+            ? await reportService.downloadCombinedReport(pid, "2026-01-01", today)
+            : await reportService.exportMaterialExcel(pid);
           break;
+        case "assets": {
+          if (format === "PDF") {
+            blob = await reportService.downloadCombinedReport(pid, "2026-01-01", today);
+          } else {
+            const data = await reportService.getAssetReport(pid);
+            generateCSV(data, "assets_report");
+            return;
+          }
+          break;
+        }
         case "issues":
-          blob = await reportService.exportIssueExcel(pid);
+          blob = format === "PDF"
+            ? await reportService.downloadCombinedReport(pid, "2026-01-01", today)
+            : await reportService.exportIssueExcel(pid);
+          break;
+        case "work-summary": {
+          if (format === "PDF") {
+            blob = await reportService.downloadCombinedReport(pid, "2026-01-01", today);
+          } else {
+            const data = await reportService.getWorkSummary(pid);
+            generateCSV(data, "work_summary");
+            return;
+          }
+          break;
+        }
+        case "financial-summary": {
+          if (format === "PDF") {
+            blob = await reportService.downloadCombinedReport(pid, "2026-01-01", today);
+          } else {
+            const data = await reportService.getFinancialSummary(pid);
+            generateCSV(data, "financial_summary");
+            return;
+          }
+          break;
+        }
+        case "profit-loss": {
+          if (format === "PDF") {
+            blob = await reportService.downloadCombinedReport(pid, "2026-01-01", today);
+          } else {
+            const data = await reportService.getProfitLoss();
+            generateCSV(data, "profit_loss");
+            return;
+          }
+          break;
+        }
+        case "cashflow": {
+          if (format === "PDF") {
+            blob = await reportService.downloadCombinedReport(pid, "2026-01-01", today);
+          } else {
+            const data = await reportService.getCashflow();
+            generateCSV(data, "cashflow");
+            return;
+          }
+          break;
+        }
+        case "contractor-performance": {
+          if (format === "PDF") {
+            blob = await reportService.downloadCombinedReport(pid, "2026-01-01", today);
+          } else {
+            const data = await reportService.getContractorPerformance(pid);
+            generateCSV(data, "contractor_performance");
+            return;
+          }
+          break;
+        }
+        case "project-report":
+          blob = format === "PDF"
+            ? await reportService.exportProjectReportPDF(pid)
+            : await reportService.exportProjectReportExcel(pid);
           break;
         case "audit-pdf":
         case "quarterly-audit":
           blob = await reportService.exportAuditPDF(pid);
           break;
         default:
-          // Fallback generic combined report for others
           blob = await reportService.downloadCombinedReport(pid, "2026-01-01", today);
       }
 
-      const url = window.URL.createObjectURL(blob);
+      // Validate that blob is actually a file and not an error JSON response
+      if (blob!.type.includes('application/json') || blob!.type.includes('text/plain')) {
+        const text = await blob!.text();
+        let errorMsg = "Export failed";
+        try { errorMsg = JSON.parse(text)?.detail || JSON.parse(text)?.message || errorMsg; } catch { }
+        toast.error(errorMsg, { id: toastId });
+        return;
+      }
+
+      const url = window.URL.createObjectURL(blob!);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `${reportId}_report_${today}.${format.toLowerCase() === 'pdf' ? 'pdf' : 'xlsx'}`);
+
+      // Ensure extension matches the actual blob type
+      let extension = format.toLowerCase() === 'pdf' ? 'pdf' : 'xlsx';
+      if (blob!.type === 'text/csv' || blob!.type.includes('text/csv')) {
+        extension = 'csv';
+      } else if (blob!.type === 'application/pdf') {
+        extension = 'pdf';
+      } else if (blob!.type.includes('spreadsheet') || blob!.type.includes('excel')) {
+        extension = 'xlsx';
+      }
+
+      link.setAttribute('download', `${reportId}_report_${today}.${extension}`);
       document.body.appendChild(link);
       link.click();
       link.remove();
+      window.URL.revokeObjectURL(url);
       toast.success("Report exported successfully", { id: toastId });
     } catch (error) {
-      toast.error("Failed to export report", { id: toastId });
+      toast.error("Export failed", { id: toastId });
+    }
+  };
+
+  const handleExportCombined = async (format: "PDF" | "Excel") => {
+    const pid = parseInt(selectedProjectId);
+    if (isNaN(pid)) {
+      toast.error("Please select a project first");
+      return;
+    }
+
+    const toastId = toast.loading(`Preparing Combined ${format}...`);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const startDate = "2026-01-01"; // Fixed or dynamic start date
+
+      if (format === "PDF") {
+        const blob = await reportService.downloadCombinedReport(pid, startDate, today);
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `Combined_Project_Report_${today}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+      } else {
+        const data = await reportService.getCombinedReportData(pid, startDate, today);
+        generateCSV(data, "Combined_Project_Intelligence");
+      }
+
+      toast.success(`Combined ${format} exported`, { id: toastId });
+    } catch (error) {
+      toast.error("Combined export failed", { id: toastId });
     }
   };
 
@@ -228,6 +417,14 @@ const ReportsPage = () => {
     try {
       let data: any;
       const pid = parseInt(selectedProjectId);
+
+      // Guard: financial reports require a project selection
+      const projectRequiredReports = ["financial-summary", "daily", "weekly", "labour", "material", "issues", "work-summary", "contractor-performance", "project-report", "assets", "quarterly-audit"];
+      if (projectRequiredReports.includes(report.id) && isNaN(pid)) {
+        toast.error("Please select a project first", { id: toastId });
+        return;
+      }
+
       const today = new Date().toISOString().split('T')[0];
 
       switch (report.id) {
@@ -241,13 +438,19 @@ const ReportsPage = () => {
         case "profit-loss": data = await reportService.getProfitLoss(); break;
         case "project-report": data = await reportService.getProjectReport(pid); break;
         case "cashflow": data = await reportService.getCashflow(); break;
-        case "assets": data = await reportService.getAssetReport(); break;
+        case "assets": data = await reportService.getAssetReport(pid); break;
         case "financial-summary": data = await reportService.getFinancialSummary(pid); break;
-        case "quarterly-audit": data = await reportService.getQuarterlyAudit(pid, 2026, 2); break;
+        case "quarterly-audit": {
+          const now = new Date();
+          const currentYear = now.getFullYear();
+          const currentQuarter = Math.ceil((now.getMonth() + 1) / 3);
+          data = await reportService.getQuarterlyAuditSummary(pid, currentYear, currentQuarter);
+          break;
+        }
         default: data = { message: "Detailed summary view coming soon for this report type." };
       }
 
-      setViewingReport({ name: report.name, data, id: report.id });
+      setViewingReport({ name: report.name, data, id: report.id, exportType: report.exportType });
       setIsPreviewOpen(true);
       toast.success("Summary loaded", { id: toastId });
     } catch (error) {
@@ -278,6 +481,20 @@ const ReportsPage = () => {
 
           <div className="flex flex-wrap items-center gap-2">
             <button
+              onClick={() => handleExportCombined("PDF")}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all active:scale-95"
+            >
+              <Download size={18} className="text-secondary" />
+              Combined PDF
+            </button>
+            <button
+              onClick={() => handleExportCombined("Excel")}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all active:scale-95"
+            >
+              <FileText size={18} className="text-emerald-500" />
+              Combined Excel
+            </button>
+            <button
               onClick={() => {
                 if (!selectedProjectId || selectedProjectId === "all") {
                   toast.error("Please select a specific project to share combined intelligence.");
@@ -286,7 +503,7 @@ const ReportsPage = () => {
                 setReportToShare({ id: "combined", name: "Combined Project Intelligence" });
                 setIsShareModalOpen(true);
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all active:scale-95"
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-black shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
             >
               <Share2 size={18} strokeWidth={2.5} />
               Share Combined
@@ -449,11 +666,19 @@ const ReportsPage = () => {
       </PageTransition>
 
       <ReportPreviewModal
+        key={viewingReport?.id || "preview-modal"}
         isOpen={isPreviewOpen}
         onClose={() => setIsPreviewOpen(false)}
         reportName={viewingReport?.name || ""}
         data={viewingReport?.data}
+        exportType={viewingReport?.exportType || "Excel"}
         onExport={(format: "PDF" | "Excel") => viewingReport && handleExport(viewingReport.id, format)}
+        onShare={() => {
+          if (viewingReport) {
+            setReportToShare({ id: viewingReport.id, name: viewingReport.name });
+            setIsShareModalOpen(true);
+          }
+        }}
       />
 
       <ShareReportModal

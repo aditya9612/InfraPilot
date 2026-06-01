@@ -59,12 +59,23 @@ export default function AgreementUploadPage() {
 
   const buildFileUrl = (file_url: string) => {
     if (!file_url) return "";
-    if (file_url.startsWith('http')) return file_url;
-    // Ensure leading slash for consistency
-    const path = file_url.startsWith('/') ? file_url : `/${file_url}`;
+    // Normalize backslashes to forward slashes for web compatibility
+    const normalizedUrl = file_url.replace(/\\/g, '/');
+    if (normalizedUrl.startsWith('http')) return normalizedUrl;
 
-    // Always use absolute URL for downloads to avoid proxy issues in some environments
-    const baseUrl = import.meta.env.VITE_API_URL?.replace(/\/api\/v1\/?$/, '') || '';
+    // Ensure leading slash for consistency
+    const path = normalizedUrl.startsWith('/') ? normalizedUrl : `/${normalizedUrl}`;
+
+    // Robust absolute URL selection:
+    // 1. If VITE_API_URL is absolute, use it (removing /api/v1 suffix if present)
+    // 2. If VITE_API_URL is relative or missing, fallback to the known production domain
+    let baseUrl = import.meta.env.VITE_API_URL || '';
+    if (baseUrl.startsWith('http')) {
+      baseUrl = baseUrl.replace(/\/api\/v1\/?$/, '');
+    } else {
+      baseUrl = 'https://infrapilot.in';
+    }
+
     return `${baseUrl}${path}`;
   };
 

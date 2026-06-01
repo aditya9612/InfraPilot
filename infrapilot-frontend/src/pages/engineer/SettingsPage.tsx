@@ -287,8 +287,18 @@ const SettingsPage = () => {
                         if (parsed.user) {
                             parsed.user.project_id = selectedProject;
                             parsed.user.project_name = selectedProjObj.project_name || selectedProjObj.name;
+                            
+                            // Update global user profile details
+                            parsed.user.full_name = updatedProfile.full_name || parsed.user.full_name;
+                            parsed.user.email = updatedProfile.email || parsed.user.email;
+                            if (updatedProfile.profile_image) {
+                                parsed.user.profile_image = updatedProfile.profile_image;
+                            }
                         }
                         localStorage.setItem("infrapilot_user", JSON.stringify(parsed));
+                        
+                        // Dispatch storage event so Navbar can pick up the new name/image instantly
+                        window.dispatchEvent(new Event('storage'));
                     }
                 }
             } catch (e) {

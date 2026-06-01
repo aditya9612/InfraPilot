@@ -9,76 +9,146 @@ export interface Notification {
     timestamp: string;
     read: boolean;
     role_target: "SiteEngineer" | "Admin" | "All";
+    source?: "general" | "project" | "task";
 }
 
-let mockNotifications: Notification[] = [
-    {
-        id: 1,
-        title: "Material Request Approved",
-        description: "Your request for 500 Bags of Cement has been approved.",
-        details: "The Project Manager has approved your material requisition MR-1042 for 500 Bags of Grade 53 Cement. The logistics team has been notified and the dispatch is scheduled for tomorrow morning. Please ensure the store is ready to receive the inventory and log the receipt in the system.",
-        type: "Approval",
-        timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString(), // 15 mins ago
-        read: false,
-        role_target: "SiteEngineer"
-    },
-    {
-        id: 2,
-        title: "QC Audit Scheduled",
-        description: "A quality control audit is scheduled for Block B.",
-        details: "An external Quality Control auditor will visit Block B tomorrow at 10:00 AM for the scheduled reinforcement and concrete grade inspection. Please keep all the relevant checklists, material test reports, and drawings ready for verification.",
-        type: "Info",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
-        read: false,
-        role_target: "SiteEngineer"
-    },
-    {
-        id: 3,
-        title: "Safety Incident Logged",
-        description: "A minor incident was logged at the North Wing.",
-        details: "A safety violation (Missing PPE) was recorded at the North Wing today. No injuries were reported, but the worker has been warned and the contractor notified. Please review the Incident Report LOG-#4052 for more details and ensure strict compliance going forward.",
-        type: "Alert",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
-        read: true,
-        role_target: "SiteEngineer"
-    },
-    {
-        id: 4,
-        title: "DSR Rejected",
-        description: "Yesterday's DSR was rejected by the Manager.",
-        details: "The Daily Site Report (DSR-005) submitted yesterday has been rejected. Remark: 'Please provide more details on the concrete pouring volume and attach the batching plant slip'. Kindly update the draft in the DSR Vault and resubmit for approval.",
-        type: "System",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(), // 2 days ago
-        read: true,
-        role_target: "SiteEngineer"
-    }
-];
-
 export const notificationService = {
-    getNotifications: async (role: string = "SiteEngineer"): Promise<Notification[]> => {
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 300));
-        return mockNotifications.filter(n => n.role_target === role || n.role_target === "All").sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    /**
+     * Get aggregated notifications for a specific role
+     * Combines general alerts, project alerts, and task alerts
+     */
+    getAllNotifications: async (): Promise<Notification[]> => {
+        try {
+            const [genRes, pRes, tRes] = await Promise.all([
+                api.get('/alerts').catch(() => ({ data: [] })),
+                api.get('/projects/alerts/projects').catch(() => ({ data: [] })),
+                api.get('/projects/alerts/tasks').catch(() => ({ data: [] }))
+            ]);
+
+            const extractData = (res: any) => {
+                const data = res.data;
+                if (Array.isArray(data)) return data;
+                return data?.items || data?.data || data?.alerts || [];
+            };
+
+            const genAlerts = extractData(genRes);
+            const pAlerts = extractData(pRes);
+            const tAlerts = extractData(tRes);
+
+            const normalizeTimestamp = (ts: string) => {
+                if (!ts) return new Date().toISOString();
+                if (!ts.endsWith('Z') && !ts.includes('+') && !ts.includes('-')) {
+                    return ts.replace(' ', 'T') + 'Z';
+                }
+                return ts;
+            };
+
+            const generateVirtualId = (prefix: string, item: any) => {
+                const uniqueStr = `${prefix}-${item.project_id || item.task_id || ''}-${item.status || ''}-${item.created_at || item.timestamp || ''}`;
+                let hash = 0;
+                for (let i = 0; i < uniqueStr.length; i++) {
+                    hash = ((hash << 5) - hash) + uniqueStr.charCodeAt(i);
+                    hash = hash & hash;
+                }
+                return `${prefix}-${Math.abs(hash)}`;
+            };
+
+            const readIdsStr = localStorage.getItem('infrapilot_alerts_read_ids');
+            const readIds = readIdsStr ? JSON.parse(readIdsStr) : [];
+            const isVirtuallyRead = (id: string | number) => readIds.includes(String(id));
+
+            const normalized: any[] = [
+                ...genAlerts.map((a: any) => ({
+                    ...a,
+                    id: a.id || a.uuid || a.alert_id || Math.random(),
+                    title: "System Alert",
+                    description: a.message || a.description || "New general alert",
+                    details: a.message || a.details || "",
+                    type: "Alert" as const,
+                    timestamp: normalizeTimestamp(a.created_at || a.timestamp),
+                    read: !!(a.is_read || a.read || a.isRead || a.status === 'read'),
+                    is_read: !!(a.is_read || a.read || a.isRead || a.status === 'read'),
+                    role_target: "All" as const,
+                    source: "general" as const,
+                    status: (a.alert_type && typeof a.alert_type === 'string' && a.alert_type.includes('||')) ? a.alert_type.split('||')[0] : a.status,
+                    alert_type: (a.alert_type && typeof a.alert_type === 'string' && a.alert_type.includes('||')) ? a.alert_type.split('||')[1] : a.alert_type
+                })),
+                ...pAlerts.map((a: any) => ({
+                    ...a,
+                    id: a.id || a.uuid || generateVirtualId('proj', a),
+                    title: "Project Alert",
+                    description: `${a.project_name || 'Project'}: ${a.status || 'Updated'}`,
+                    details: `Project "${a.project_name}" has reported a status change to ${a.status}. Due Date: ${a.end_date || 'N/A'}.`,
+                    type: "Alert" as const,
+                    timestamp: normalizeTimestamp(a.created_at || a.timestamp),
+                    read: isVirtuallyRead(a.id || a.uuid || generateVirtualId('proj', a)) || !!(a.is_read || a.read || a.isRead || a.status === 'read'),
+                    is_read: isVirtuallyRead(a.id || a.uuid || generateVirtualId('proj', a)) || !!(a.is_read || a.read || a.isRead || a.status === 'read'),
+                    role_target: "All" as const,
+                    source: "project" as const,
+                    status: (a.alert_type && typeof a.alert_type === 'string' && a.alert_type.includes('||')) ? a.alert_type.split('||')[0] : a.status,
+                    alert_type: (a.alert_type && typeof a.alert_type === 'string' && a.alert_type.includes('||')) ? a.alert_type.split('||')[1] : a.alert_type
+                })),
+                ...tAlerts.map((a: any) => ({
+                    ...a,
+                    id: a.id || a.uuid || generateVirtualId('task', a),
+                    title: "Task Update",
+                    description: `${a.title || 'Task'}: ${a.status || 'Updated'}`,
+                    details: `Task "${a.title}" is ${a.status}. Deadline: ${a.end_date || 'N/A'}.`,
+                    type: "Info" as const,
+                    timestamp: normalizeTimestamp(a.created_at || a.timestamp),
+                    read: isVirtuallyRead(a.id || a.uuid || generateVirtualId('task', a)) || !!(a.is_read || a.read || a.isRead || a.status === 'read'),
+                    is_read: isVirtuallyRead(a.id || a.uuid || generateVirtualId('task', a)) || !!(a.is_read || a.read || a.isRead || a.status === 'read'),
+                    role_target: "All" as const,
+                    source: "task" as const,
+                    status: (a.alert_type && typeof a.alert_type === 'string' && a.alert_type.includes('||')) ? a.alert_type.split('||')[0] : a.status,
+                    alert_type: (a.alert_type && typeof a.alert_type === 'string' && a.alert_type.includes('||')) ? a.alert_type.split('||')[1] : a.alert_type
+                }))
+            ];
+
+            return normalized.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        } catch (error) {
+            console.error("Failed to fetch notifications:", error);
+            return [];
+        }
     },
-    markAsRead: async (id: number): Promise<void> => {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        const notif = mockNotifications.find(n => n.id === id);
-        if (notif) notif.read = true;
+
+    getNotifications: async function () { return this.getAllNotifications(); },
+
+    markAsRead: async (id: number | string, source = "general"): Promise<void> => {
+        try {
+            if (source === "general" && !String(id).includes('proj-') && !String(id).includes('task-') && !String(id).includes('.')) {
+                await api.put(`/alerts/${id}/read`);
+            } else {
+                const readIdsStr = localStorage.getItem('infrapilot_alerts_read_ids');
+                const readIds = readIdsStr ? JSON.parse(readIdsStr) : [];
+                if (!readIds.includes(String(id))) {
+                    readIds.push(String(id));
+                    if (readIds.length > 500) readIds.shift(); // Keep bounded
+                    localStorage.setItem('infrapilot_alerts_read_ids', JSON.stringify(readIds));
+                }
+            }
+        } catch (error) {
+            console.error(`Failed to mark notification ${id} as read:`, error);
+        }
     },
-    markAllAsRead: async (role: string): Promise<void> => {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        mockNotifications.forEach(n => {
-            if (n.role_target === role || n.role_target === "All") n.read = true;
-        });
+
+    markAllAsRead: async (_role: string, notifications: Notification[]): Promise<void> => {
+        try {
+            const unread = notifications.filter(n => !n.read);
+            await Promise.all(unread.map(n =>
+                notificationService.markAsRead(n.id, n.source)
+            ));
+        } catch (error) {
+            console.error("Failed to mark all notifications as read:", error);
+        }
     },
 
     /**
-     * Get all general alerts
-     * GET /api/v1/alerts
+     * Get all aggregated alerts (alias for getAllNotifications)
      */
-    async listAlerts(): Promise<any[]> {
-        const response = await api.get('/alerts');
-        return response.data;
+    async listAlerts(limit = 100, offset = 0): Promise<any[]> {
+        const all = await this.getAllNotifications();
+        return all.slice(offset, offset + limit);
     },
 
     /**
@@ -90,13 +160,8 @@ export const notificationService = {
         return response.data;
     },
 
-    /**
-     * Mark alert as read
-     * PUT /api/v1/alerts/{id}/read
-     */
-    async markAlertRead(id: number): Promise<any> {
-        const response = await api.put(`/alerts/${id}/read`);
-        return response.data;
+    async markAlertRead(id: number | string, source = "general"): Promise<any> {
+        return this.markAsRead(id, source);
     },
 
     /**

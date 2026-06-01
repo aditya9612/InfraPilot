@@ -2,12 +2,12 @@ import api from "./api";
 
 export const reportService = {
     getDailyReport: async (projectId: number, reportDate: string) => {
-        const response = await api.get(`/reports/daily`, { params: { project_id: projectId, report_date: reportDate } });
+        const response = await api.get(`/reports/daily`, { params: { project_id: projectId, report_date: reportDate, _t: Date.now() } });
         return response.data;
     },
 
     getWeeklyProgress: async (projectId: number) => {
-        const response = await api.get(`/reports/weekly`, { params: { project_id: projectId } });
+        const response = await api.get(`/reports/weekly`, { params: { project_id: projectId, _t: Date.now() } });
         return response.data;
     },
 
@@ -17,17 +17,17 @@ export const reportService = {
     },
 
     getMaterialReport: async (projectId: number) => {
-        const response = await api.get(`/reports/material`, { params: { project_id: projectId } });
+        const response = await api.get(`/reports/material`, { params: { project_id: projectId, _t: Date.now() } });
         return response.data;
     },
 
     getIssueReport: async (projectId: number) => {
-        const response = await api.get(`/reports/issues`, { params: { project_id: projectId } });
+        const response = await api.get(`/reports/issues`, { params: { project_id: projectId, _t: Date.now() } });
         return response.data;
     },
 
     getWorkSummary: async (projectId: number) => {
-        const response = await api.get(`/reports/work-summary`, { params: { project_id: projectId } });
+        const response = await api.get(`/reports/work-summary`, { params: { project_id: projectId, _t: Date.now() } });
         return response.data;
     },
 
@@ -54,7 +54,7 @@ export const reportService = {
     },
 
     getProjectReportData: async (projectId: number, type: string, month: string, year: string) => {
-        const response = await api.get(`/reports/project`, { params: { project_id: projectId, type, month, year } });
+        const response = await api.get(`/reports/project`, { params: { project_id: projectId, type, month, year, _t: Date.now() } });
         return response.data;
     },
 
@@ -63,8 +63,8 @@ export const reportService = {
         return response.data;
     },
 
-    getAssetReport: async () => {
-        const response = await api.get(`/reports/assets`);
+    getAssetReport: async (projectId?: number) => {
+        const response = await api.get(`/reports/assets`, { params: { project_id: projectId } });
         return response.data;
     },
 
@@ -85,17 +85,17 @@ export const reportService = {
     },
 
     shareDailyEmail: async (data: any) => {
-        const response = await api.post(`/reports/share/daily-email`, data);
+        const response = await api.post(`/reports/daily/share/email`, data);
         return response.data;
     },
 
     shareCombinedEmail: async (data: any) => {
-        const response = await api.post(`/reports/share/combined-email`, data);
+        const response = await api.post(`/reports/combined/share/email`, data);
         return response.data;
     },
 
     shareCombinedWhatsapp: async (data: any) => {
-        const response = await api.post(`/reports/share/combined-whatsapp`, data);
+        const response = await api.post(`/reports/combined/share/whatsapp`, data);
         return response.data;
     },
 
@@ -181,6 +181,13 @@ export const reportService = {
         return response.data;
     },
 
+    getCombinedReportData: async (projectId: number, startDate: string, endDate: string) => {
+        const response = await api.get(`/reports/combined`, {
+            params: { project_id: projectId, start_date: startDate, end_date: endDate }
+        });
+        return response.data;
+    },
+
     downloadCombinedReport: async (projectId: number, startDate: string, endDate: string) => {
         const response = await api.get(`/reports/combined`, {
             params: { project_id: projectId, start_date: startDate, end_date: endDate },
@@ -235,8 +242,9 @@ export const reportService = {
         return response.data;
     },
 
-    exportAssetExcel: async () => {
-        const response = await api.get(`/reports/assets/export/excel`, {
+    exportAssetExcel: async (projectId?: number) => {
+        const response = await api.get(`/reports/fixed-assets/export/excel`, {
+            params: { project_id: projectId },
             responseType: 'blob'
         });
         return response.data;

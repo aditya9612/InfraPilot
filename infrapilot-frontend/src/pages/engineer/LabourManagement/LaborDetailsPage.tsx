@@ -244,6 +244,22 @@ const LaborDetailsPage = () => {
                 // Update local state immediately with real data
                 setLaborers(prev => prev.map(l => l.id === editId ? { ...l, ...updatedLaborer } : l));
 
+                // Sync the update to localStorage to prevent old data from reappearing
+                try {
+                    const localKey = `created_labourers_${projectId || 92}`;
+                    const localSaved = localStorage.getItem(localKey);
+                    if (localSaved) {
+                        const localItems = JSON.parse(localSaved);
+                        const itemIndex = localItems.findIndex((l: any) => l.id === editId);
+                        if (itemIndex !== -1) {
+                            localItems[itemIndex] = { ...localItems[itemIndex], ...updatedLaborer };
+                            localStorage.setItem(localKey, JSON.stringify(localItems));
+                        }
+                    }
+                } catch (e) {
+                    console.error("Failed to update localStorage", e);
+                }
+
                 toast.success("Profile updated successfully");
             } else {
                 const createPayload = {

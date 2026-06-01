@@ -160,7 +160,14 @@ export default function AutoCADPage() {
   const pagedLogs = cadLogs.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 
   useEffect(() => {
-    api.get("/cad/logs").then((r) => setCadLogs(r.data)).catch(() => { });
+    api.get("/cad/logs")
+      .then((r) => {
+        const sorted = Array.isArray(r.data)
+          ? [...r.data].sort((a, b) => (b.id - a.id) || new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          : r.data;
+        setCadLogs(sorted);
+      })
+      .catch(() => { });
 
     // Load persisted visualizations
     const saved = localStorage.getItem("infrapilot_cad_visualizations");
@@ -175,7 +182,15 @@ export default function AutoCADPage() {
 
   // Persist visualizations whenever they change
   useEffect(() => {
-    localStorage.setItem("infrapilot_cad_visualizations", JSON.stringify(visualizations));
+    try {
+      localStorage.setItem("infrapilot_cad_visualizations", JSON.stringify(visualizations));
+    } catch (e) {
+      console.error("Failed to persist AutoCAD visualizations to localStorage", e);
+      // If we hit the limit even with capped entries, try removing the oldest one
+      if (visualizations.length > 0) {
+        setVisualizations(prev => prev.slice(0, -1));
+      }
+    }
   }, [visualizations]);
 
   const handleDeleteSnapshot = () => {
@@ -231,7 +246,7 @@ export default function AutoCADPage() {
           date: new Date().toISOString(),
           points: viewPoints.length
         };
-        setVisualizations(prev => [newViz, ...prev]);
+        setVisualizations(prev => [newViz, ...prev].slice(0, 5));
         resolve(newViz);
       }, 2000);
     });

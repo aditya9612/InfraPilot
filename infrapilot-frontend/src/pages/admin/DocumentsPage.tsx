@@ -128,19 +128,50 @@ const DocumentsPage = () => {
 
   const buildFileUrl = (file_url: string) => {
     if (!file_url) return "";
-    if (file_url.startsWith('http')) return file_url;
+    // Normalize backslashes to forward slashes for web compatibility
+    const normalizedUrl = file_url.replace(/\\/g, '/');
+    if (normalizedUrl.startsWith('http')) return normalizedUrl;
+
     // Ensure leading slash for consistency
-    const path = file_url.startsWith('/') ? file_url : `/${file_url}`;
-    // /uploads paths are proxied directly by vite — no API prefix needed
-    if (path.startsWith('/uploads')) return path;
-    return `${import.meta.env.VITE_API_URL}${path}`;
+    const path = normalizedUrl.startsWith('/') ? normalizedUrl : `/${normalizedUrl}`;
+
+    // Robust absolute URL selection:
+    // 1. If VITE_API_URL is absolute, use it (removing /api/v1 suffix if present)
+    // 2. If VITE_API_URL is relative or missing, fallback to the known production domain
+    let baseUrl = import.meta.env.VITE_API_URL || '';
+    if (baseUrl.startsWith('http')) {
+      baseUrl = baseUrl.replace(/\/api\/v1\/?$/, '');
+    } else {
+      baseUrl = 'https://infrapilot.in';
+    }
+
+    return `${baseUrl}${path}`;
   };
 
   const handleDownload = async (doc: Document) => {
     const toastId = toast.loading(`Preparing ${doc.title}...`);
     try {
-      const { file_url } = await documentService.getDownloadUrl(doc.id);
-      const fullUrl = buildFileUrl(file_url);
+      // Prioritize the file_url already in the document (the one that works in previews)
+      let file_url = doc.file_url;
+
+      // Fallback only if missing
+      if (!file_url) {
+        const data = await documentService.getDownloadUrl(doc.id);
+        file_url = typeof data === 'string' ? data : (data as any)?.file_url;
+      }
+
+      if (!file_url) throw new Error("File path not available");
+
+      // Normalize path
+      const normalizedPath = file_url.replace(/\\/g, '/');
+      const fullUrl = buildFileUrl(normalizedPath);
+
+      // Extract extension from file_url
+      const extension = normalizedPath.split('.').pop()?.split('?')[0] || '';
+      const downloadName = doc.title.toLowerCase().endsWith(`.${extension.toLowerCase()}`)
+        ? doc.title
+        : `${doc.title}.${extension}`;
+
       const userString = localStorage.getItem("infrapilot_user");
       const token = userString ? JSON.parse(userString)?.token?.access_token || JSON.parse(userString)?.token : null;
       const response = await fetch(fullUrl, {
@@ -151,7 +182,7 @@ const DocumentsPage = () => {
       const objectUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = objectUrl;
-      link.download = doc.title;
+      link.download = downloadName;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

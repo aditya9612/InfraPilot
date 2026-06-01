@@ -97,13 +97,23 @@ const BOQPage = () => {
       setIsLoading(true);
       try {
         // Fetch projects first for the mapping
-        const projectsRes = await projectService.getProjects(100); // Fetch up to 100 projects
-        const items = projectsRes.items || projectsRes;
-        setProjectsList(items);
+        const projectsRes = await projectService.getProjects(100);
+        console.log("BOQ Page: Fetching projects...", projectsRes);
+        const rawItems = (projectsRes as any)?.items || (Array.isArray(projectsRes) ? projectsRes : []);
+        console.log(`BOQ Page: Found ${rawItems.length} projects.`);
+
+        const sortedItems = [...rawItems].sort((a: any, b: any) => {
+          const idA = a.id || a.project_id || 0;
+          const idB = b.id || b.project_id || 0;
+          return Number(idB) - Number(idA);
+        });
+
+        setProjectsList(sortedItems);
 
         const map: Record<number, string> = {};
-        items.forEach((p: Project) => {
-          map[p.id] = p.project_name;
+        sortedItems.forEach((p: any) => {
+          const pid = p.id || p.project_id;
+          if (pid) map[pid] = p.project_name;
         });
         setProjectMap(map);
 
@@ -536,9 +546,9 @@ const BOQPage = () => {
                 }`}
             >
               <option value="all">📁 All Projects View</option>
-              {Object.entries(projectMap).map(([id, name]) => (
-                <option key={id} value={id}>
-                  {name}
+              {projectsList.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.project_name}
                 </option>
               ))}
             </select>

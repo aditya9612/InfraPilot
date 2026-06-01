@@ -195,6 +195,7 @@ const EngineerDashboard = () => {
                 const remainingStock = materials.reduce((sum: number, m: any) => sum + (Number(m.remaining_stock) || Number(m.quantity) || 0), 0);
                 
                 const material_stock_status = {
+                    added_materials: materials.length,
                     purchased: totalPurchased,
                     used: totalUsed,
                     stock: remainingStock
@@ -335,7 +336,7 @@ const EngineerDashboard = () => {
                     {/* â”€â”€ Site Vitals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                     <div className="mb-6">
                         <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Site Vitals</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
                             <StatCard
                                 title="Total Labor Today"
                                 value={(dashboardData.vitals?.total_labour_today || 0).toString()}
@@ -353,8 +354,8 @@ const EngineerDashboard = () => {
                                 accent="text-rose-500" />
                             <StatCard
                                 title="Material Stock Status"
-                                value={`${dashboardData.vitals?.material_stock_status?.stock || 0} Add Material`}
-                                sub={`${dashboardData.vitals?.material_stock_status?.purchased || 0} Purchase · ${dashboardData.vitals?.material_stock_status?.used || 0} Usage`}
+                                value={(dashboardData.vitals?.material_stock_status?.added_materials || 0).toString()}
+                                sub={`${dashboardData.vitals?.material_stock_status?.purchased || 0} Purchased · ${dashboardData.vitals?.material_stock_status?.used || 0} Used`}
                                 accent="text-emerald-500" />
                         </div>
                     </div>

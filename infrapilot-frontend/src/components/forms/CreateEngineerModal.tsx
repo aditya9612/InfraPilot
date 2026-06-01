@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import Modal from "../common/Modal";
-import { UserCheck, Mail, Phone, Award, Briefcase, Tag, Calendar } from "lucide-react";
+import { Eye, EyeOff, ShieldCheck, ShieldAlert, Shield, MapPin } from "lucide-react";
 
 interface CreateEngineerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: any) => void;
+  onSubmit: (userData: any) => void;
   initialData?: any;
   projectsList?: any[];
 }
@@ -25,39 +25,54 @@ const CreateEngineerModal: React.FC<CreateEngineerModalProps> = ({
     email: "",
     role: "SiteEngineer",
     designation: "Site Engineer",
-    experience: "",
-    specialization: "Structural Engineering",
     joining_date: new Date().toISOString().split('T')[0],
-    address: "", // Current Assignment
+    pan_number: "",
+    aadhaar_number: "",
+    address: "", // Stores project assignment
     is_active: true,
     password: "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [photo, setPhoto] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [photoUrl, setPhotoUrl] = useState<string>("");
   const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
   const [projectSearch, setProjectSearch] = useState("");
 
+  const getPasswordStrength = (pass: string) => {
+    if (!pass) return { score: 0, label: "Empty" };
+    let score = 0;
+    if (pass.length >= 8) score++;
+    if (/[a-z]/.test(pass)) score++;
+    if (/[A-Z]/.test(pass)) score++;
+    if (/[0-9]/.test(pass)) score++;
+    if (/[^A-Za-z0-9]/.test(pass)) score++;
+
+    if (score <= 2) return { score, label: "Weak", color: "text-rose-500", bg: "bg-rose-500" };
+    if (score <= 4) return { score, label: "Moderate", color: "text-amber-500", bg: "bg-amber-500" };
+    return { score, label: "Strong", color: "text-emerald-500", bg: "bg-emerald-500" };
+  };
+
   useEffect(() => {
     if (isOpen) {
       if (initialData) {
         setFormData({
-          user_id: initialData.id || 0,
-          full_name: initialData.name || "",
-          mobile_number: initialData.mobile || "",
+          user_id: initialData.user_id || initialData.id || 0,
+          full_name: initialData.full_name || initialData.name || "",
+          mobile_number: initialData.mobile_number || initialData.mobile || "",
           email: initialData.email || "",
           role: "SiteEngineer",
-          designation: initialData.specialization || "Site Engineer",
-          experience: initialData.experience || "",
-          specialization: initialData.specialization || "Structural Engineering",
-          joining_date: initialData.joiningDate || new Date().toISOString().split('T')[0],
-          address: initialData.projects || "",
-          is_active: initialData.status === "On Site",
+          designation: initialData.designation || initialData.specialization || "Site Engineer",
+          joining_date: initialData.joining_date || initialData.joiningDate || new Date().toISOString().split('T')[0],
+          pan_number: initialData.pan_number || "",
+          aadhaar_number: initialData.aadhaar_number || "",
+          address: initialData.address || initialData.projects || "",
+          is_active: initialData.is_active ?? (initialData.status === "On Site"),
           password: "",
-        });
+        } as any);
         setPhotoUrl(initialData.profile_image || "");
       } else {
         setFormData({
@@ -67,9 +82,9 @@ const CreateEngineerModal: React.FC<CreateEngineerModalProps> = ({
           email: "",
           role: "SiteEngineer",
           designation: "Site Engineer",
-          experience: "",
-          specialization: "Structural Engineering",
           joining_date: new Date().toISOString().split('T')[0],
+          pan_number: "",
+          aadhaar_number: "",
           address: "",
           is_active: true,
           password: "",
@@ -78,6 +93,7 @@ const CreateEngineerModal: React.FC<CreateEngineerModalProps> = ({
       }
       setErrors({});
       setPhoto(null);
+      setShowPassword(false);
     }
   }, [isOpen, initialData]);
 
@@ -89,6 +105,7 @@ const CreateEngineerModal: React.FC<CreateEngineerModalProps> = ({
     } else {
       setPreviewUrl("");
     }
+
     return () => {
       if (url) URL.revokeObjectURL(url);
     };
@@ -98,18 +115,33 @@ const CreateEngineerModal: React.FC<CreateEngineerModalProps> = ({
     const newErrors: Record<string, string> = {};
     if (!formData.full_name || formData.full_name.length < 3)
       newErrors.full_name = "Full Name must be at least 3 characters.";
+    const cleanMobile = formData.mobile_number.replace(/\D/g, "").replace(/^91/, "");
+    if (!cleanMobile || cleanMobile.length !== 10)
+      newErrors.mobile_number = "Enter a valid 10-digit mobile number.";
     if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
       newErrors.email = "Enter a valid email address.";
 
-    const cleanMobile = formData.mobile_number.replace(/\D/g, "");
-    if (!cleanMobile || cleanMobile.length < 10)
-      newErrors.mobile_number = "Enter a valid mobile number.";
+    if (!formData.designation)
+      newErrors.designation = "Designation is required.";
 
-    if (!formData.experience) newErrors.experience = "Experience is required.";
-    if (!formData.address) newErrors.address = "Current Assignment is required.";
+    if (!initialData) {
+      if (!formData.password) {
+        newErrors.password = "Password is required for new users.";
+      } else {
+        const pass = formData.password;
+        const requirements = [
+          { re: /.{8,}/, msg: "8+ characters" },
+          { re: /[A-Z]/, msg: "uppercase" },
+          { re: /[a-z]/, msg: "lowercase" },
+          { re: /[0-9]/, msg: "number" },
+          { re: /[^A-Za-z0-9]/, msg: "special character" }
+        ];
 
-    if (!initialData && formData.password && formData.password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters.";
+        const failed = requirements.filter(req => !req.re.test(pass));
+        if (failed.length > 0) {
+          newErrors.password = `Must include: ${failed.map(f => f.msg).join(", ")}.`;
+        }
+      }
     }
 
     setErrors(newErrors);
@@ -117,11 +149,34 @@ const CreateEngineerModal: React.FC<CreateEngineerModalProps> = ({
   };
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
   ) => {
-    const { name, value } = e.target;
-    if (name === "full_name" && /\d/.test(value)) {
-      return;
+    let { name, value } = e.target;
+    if (name === "pan_number") {
+      const val = value.toUpperCase();
+      let filtered = "";
+      for (let i = 0; i < Math.min(val.length, 10); i++) {
+        const char = val[i];
+        if (i < 5 && /[A-Z]/.test(char)) filtered += char;
+        else if (i >= 5 && i < 9 && /[0-9]/.test(char)) filtered += char;
+        else if (i === 9 && /[A-Z]/.test(char)) filtered += char;
+      }
+      value = filtered;
+    } else if (name === "full_name" || name === "designation") {
+      value = value.replace(/[^a-zA-Z\s]/g, "");
+    } else if (name === "mobile_number") {
+      let digits = value.replace(/\D/g, "");
+      if (digits.startsWith("91")) {
+        digits = digits.slice(2);
+      }
+      digits = digits.slice(0, 10);
+      value = digits ? `+91 ${digits}` : "";
+    } else if (name === "aadhaar_number") {
+      const numeric = value.replace(/\D/g, "").slice(0, 12);
+      const parts = numeric.match(/.{1,4}/g);
+      value = parts ? parts.join("-") : numeric;
     }
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
@@ -139,9 +194,27 @@ const CreateEngineerModal: React.FC<CreateEngineerModalProps> = ({
       setIsLoading(true);
       try {
         const payload: any = {
-          ...formData,
-          profile_image: photo,
+          user_id: formData.user_id,
+          full_name: formData.full_name,
+          mobile_number: formData.mobile_number,
+          email: formData.email,
+          role: "SiteEngineer",
+          address: formData.address,
+          pan_number: formData.pan_number,
+          aadhaar_number: formData.aadhaar_number.replace(/-/g, ""),
+          designation: formData.designation,
+          joining_date: formData.joining_date || null,
+          is_active: formData.is_active,
         };
+
+        if (!initialData && formData.password) {
+          payload.password = formData.password;
+        }
+
+        if (photo) {
+          payload.profile_image = photo;
+        }
+
         await onSubmit(payload);
         onClose();
       } catch (error) {
@@ -161,17 +234,42 @@ const CreateEngineerModal: React.FC<CreateEngineerModalProps> = ({
         disabled={isLoading}
         className="px-6 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors disabled:opacity-50"
       >
-        Discard
+        Cancel
       </button>
       <button
         form="engineer-form"
         type="submit"
         disabled={isLoading}
-        className={`px-8 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 ${isLoading ? "opacity-70 cursor-not-allowed" : "active:scale-95"}`}
+        className={`px-8 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center gap-2 ${isLoading ? "opacity-70 cursor-not-allowed" : "active:scale-95"}`}
       >
         {isLoading ? (
-          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-        ) : initialData ? "Update Record" : "Deploy Staff"}
+          <>
+            <svg
+              className="animate-spin h-4 w-4 text-white"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              ></circle>
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              ></path>
+            </svg>
+            Processing...
+          </>
+        ) : initialData ? (
+          "Update Engineer"
+        ) : (
+          "Create Engineer"
+        )}
       </button>
     </>
   );
@@ -180,7 +278,7 @@ const CreateEngineerModal: React.FC<CreateEngineerModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={initialData ? "Refine Engineer Info" : "Engineer Onboarding"}
+      title={initialData ? "Edit Engineer Details" : "Create New Engineer"}
       footer={modalFooter}
       maxWidth="max-w-3xl"
     >
@@ -188,252 +286,316 @@ const CreateEngineerModal: React.FC<CreateEngineerModalProps> = ({
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-4">
             <div className="w-1 h-6 bg-primary rounded-full"></div>
-            <h3 className="font-semibold text-gray-700">Staff Intelligence Records</h3>
+            <h3 className="font-semibold text-gray-700">Basic Information</h3>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Full Name */}
-            <div className="md:col-span-2">
+            <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">
                 Full Name <span className="text-rose-500">*</span>
               </label>
-              <div className="relative">
-                <UserCheck size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  name="full_name"
-                  value={formData.full_name}
-                  onChange={handleChange}
-                  placeholder="e.g. Arjun Mehta"
-                  className={`w-full pl-11 pr-4 py-2.5 bg-slate-50 border ${errors.full_name ? "border-rose-500 focus:ring-rose-100" : "border-slate-200 focus:ring-primary/10"} rounded-xl text-sm transition-all outline-none`}
-                />
-              </div>
-              {errors.full_name && <p className="mt-1 text-xs text-rose-500">{errors.full_name}</p>}
+              <input
+                type="text"
+                name="full_name"
+                value={formData.full_name}
+                onChange={handleChange}
+                placeholder="John Doe"
+                className={`w-full px-4 py-2 bg-gray-50 border ${errors.full_name ? "border-rose-500 focus:ring-rose-100" : "border-gray-200 focus:ring-primary/20"} rounded-xl transition-all outline-none`}
+              />
+              {errors.full_name && (
+                <p className="mt-1 text-xs text-rose-500">{errors.full_name}</p>
+              )}
             </div>
-
-            {/* Email Address */}
-            <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-600 mb-1">
-                Email Address <span className="text-rose-500">*</span>
-              </label>
-              <div className="relative">
-                <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  placeholder="name@infrapilot.com"
-                  className={`w-full pl-11 pr-4 py-2.5 bg-slate-50 border ${errors.email ? "border-rose-500 focus:ring-rose-100" : "border-slate-200 focus:ring-primary/10"} rounded-xl text-sm transition-all outline-none`}
-                />
-              </div>
-              {errors.email && <p className="mt-1 text-xs text-rose-500">{errors.email}</p>}
-            </div>
-
-            {/* Mobile Number */}
-            <div className="space-y-1">
+            <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">
                 Mobile Number <span className="text-rose-500">*</span>
               </label>
-              <div className="relative">
-                <Phone size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  name="mobile_number"
-                  value={formData.mobile_number}
-                  onChange={handleChange}
-                  placeholder="9876543210"
-                  className={`w-full pl-11 pr-4 py-2.5 bg-slate-50 border ${errors.mobile_number ? "border-rose-500 focus:ring-rose-100" : "border-slate-200 focus:ring-primary/10"} rounded-xl text-sm transition-all outline-none`}
-                />
-              </div>
-              {errors.mobile_number && <p className="mt-1 text-xs text-rose-500">{errors.mobile_number}</p>}
+              <input
+                type="text"
+                name="mobile_number"
+                value={formData.mobile_number}
+                onChange={handleChange}
+                placeholder="+91 9876543210"
+                className={`w-full px-4 py-2 bg-gray-50 border ${errors.mobile_number ? "border-rose-500 focus:ring-rose-100" : "border-gray-200 focus:ring-primary/20"} rounded-xl transition-all outline-none`}
+              />
+              {errors.mobile_number && (
+                <p className="mt-1 text-xs text-rose-500">
+                  {errors.mobile_number}
+                </p>
+              )}
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Email <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="john@example.com"
+                className={`w-full px-4 py-2 bg-gray-50 border ${errors.email ? "border-rose-500 focus:ring-rose-100" : "border-gray-200 focus:ring-primary/20"} rounded-xl transition-all outline-none`}
+              />
+              {errors.email && (
+                <p className="mt-1 text-xs text-rose-500">{errors.email}</p>
+              )}
+            </div>
+            {!initialData && (
+              <div className="md:col-span-1">
+                <label className="block text-sm font-medium text-gray-600 mb-1">
+                  Password <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative group">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="••••••••"
+                    className={`w-full px-4 py-2 bg-gray-50 border ${errors.password ? "border-rose-500 focus:ring-rose-100" : "border-gray-200 focus:ring-primary/20"} rounded-xl transition-all outline-none pr-10`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-colors focus:outline-none"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
 
-            {/* Role - Disabled */}
-            <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-600 mb-1">System Role</label>
+                {/* Password Strength Meter */}
+                {formData.password && (
+                  <div className="mt-2 space-y-1.5">
+                    <div className="flex justify-between items-center px-1">
+                      <div className="flex items-center gap-1.5">
+                        {getPasswordStrength(formData.password).score <= 2 ? (
+                          <ShieldAlert className="w-3 h-3 text-rose-500" />
+                        ) : getPasswordStrength(formData.password).score <= 4 ? (
+                          <Shield className="w-3 h-3 text-amber-500" />
+                        ) : (
+                          <ShieldCheck className="w-3 h-3 text-emerald-500" />
+                        )}
+                        <span className={`text-[10px] font-bold uppercase tracking-wider ${getPasswordStrength(formData.password).color}`}>
+                          {getPasswordStrength(formData.password).label} Security
+                        </span>
+                      </div>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <div
+                            key={s}
+                            className={`h-1 w-4 rounded-full transition-all duration-500 ${s <= getPasswordStrength(formData.password).score ? getPasswordStrength(formData.password).bg : 'bg-gray-200'}`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Requirements Checklist */}
+                    <div className="grid grid-cols-2 gap-x-2 gap-y-1 px-1 py-1 bg-white/50 rounded-lg border border-gray-100 items-center">
+                      {[
+                        { re: /.{8,}/, msg: "8+ chars" },
+                        { re: /[A-Z]/, msg: "Uppercase" },
+                        { re: /[a-z]/, msg: "Lowercase" },
+                        { re: /[0-9]/, msg: "Number" },
+                        { re: /[^A-Za-z0-9]/, msg: "Special" }
+                      ].map((req, idx) => (
+                        <div key={idx} className="flex items-center gap-1.5">
+                          <div className={`w-1.5 h-1.5 rounded-full transition-colors ${req.re.test(formData.password) ? 'bg-emerald-500 shadow-[0_0_4px_rgba(16,185,129,0.5)]' : 'bg-gray-300'}`} />
+                          <span className={`text-[9px] font-medium leading-none ${req.re.test(formData.password) ? 'text-gray-700' : 'text-gray-400'}`}>
+                            {req.msg}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {errors.password && (
+                  <p className="mt-1 text-xs text-rose-500 animate-in fade-in slide-in-from-top-1">
+                    {errors.password}
+                  </p>
+                )}
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Role <span className="text-rose-500">*</span>
+              </label>
               <div className="relative">
-                <Tag size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
                   value="Site Engineer"
                   disabled
-                  className="w-full pl-11 pr-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed outline-none"
+                  className="w-full px-4 py-2 bg-gray-100 border border-gray-200 rounded-xl text-gray-500 cursor-not-allowed outline-none font-medium"
                 />
+                <ShieldCheck className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
               </div>
             </div>
-
-            {/* Experience */}
-            <div className="space-y-1">
+            <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">
-                Exp (Years) <span className="text-rose-500">*</span>
+                Designation <span className="text-rose-500">*</span>
               </label>
-              <div className="relative">
-                <Award size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  name="experience"
-                  value={formData.experience}
-                  onChange={handleChange}
-                  placeholder="e.g. 5"
-                  className={`w-full pl-11 pr-4 py-2.5 bg-slate-50 border ${errors.experience ? "border-rose-500 focus:ring-rose-100" : "border-slate-200 focus:ring-primary/10"} rounded-xl text-sm transition-all outline-none`}
-                />
-              </div>
-              {errors.experience && <p className="mt-1 text-xs text-rose-500">{errors.experience}</p>}
+              <input
+                type="text"
+                name="designation"
+                value={formData.designation}
+                onChange={handleChange}
+                placeholder="Structural Engineer"
+                className={`w-full px-4 py-2 bg-gray-50 border ${errors.designation ? "border-rose-500 focus:ring-rose-100" : "border-gray-200 focus:ring-primary/20"} rounded-xl transition-all outline-none`}
+              />
+              {errors.designation && (
+                <p className="mt-1 text-xs text-rose-500">
+                  {errors.designation}
+                </p>
+              )}
             </div>
-
-            {/* Joining Date */}
-            <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-600 mb-1">Joining Date</label>
-              <div className="relative">
-                <Calendar size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="date"
-                  name="joining_date"
-                  value={formData.joining_date}
-                  onChange={handleChange}
-                  className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-4 focus:ring-primary/10 outline-none"
-                />
-              </div>
-            </div>
-
-            {/* Specialization */}
-            <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-600 mb-1">Specialization</label>
-              <div className="relative">
-                <Tag size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                <select
-                  name="specialization"
-                  value={formData.specialization}
-                  onChange={handleChange}
-                  className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-4 focus:ring-primary/10 outline-none appearance-none"
-                >
-                  <option value="Structural Engineering">Structural</option>
-                  <option value="Civil & Infrastructure">Civil & Infra</option>
-                  <option value="Electrical & MEP">Electrical & MEP</option>
-                  <option value="Quality Control">Quality Control</option>
-                  <option value="Safety & Compliance">Safety Officer</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Current Assignment */}
-            <div className="md:col-span-2 space-y-1">
+            <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">
-                Current Assignment <span className="text-rose-500">*</span>
+                PAN Number
               </label>
-              <div className="relative group/dropdown">
-                <div
-                  onClick={() => setIsProjectDropdownOpen(!isProjectDropdownOpen)}
-                  className={`w-full pl-11 pr-10 py-2 bg-slate-50 border ${errors.address ? "border-rose-500 focus:ring-rose-100" : "border-slate-200 focus:ring-primary/10"} rounded-xl text-xs transition-all outline-none cursor-pointer flex items-center min-h-[38px]`}
-                >
-                  <Briefcase size={14} className={`absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 ${isProjectDropdownOpen ? "text-primary" : ""}`} />
-                  <span className={formData.address ? "text-slate-700 font-medium" : "text-slate-400"}>
-                    {formData.address || "Select Project Assignment"}
+              <input
+                type="text"
+                name="pan_number"
+                value={formData.pan_number}
+                onChange={handleChange}
+                placeholder="ABCDE1234F"
+                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 focus:ring-primary/20 rounded-xl outline-none uppercase"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Aadhaar Number
+              </label>
+              <input
+                type="text"
+                name="aadhaar_number"
+                value={formData.aadhaar_number}
+                onChange={handleChange}
+                placeholder="1234-1234-1234"
+                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 focus:ring-primary/20 rounded-xl outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Joining Date
+              </label>
+              <input
+                type="date"
+                name="joining_date"
+                value={formData.joining_date}
+                onChange={handleChange}
+                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 focus:ring-primary/20 rounded-xl outline-none text-gray-600"
+              />
+            </div>
+            <div className="md:col-span-2 relative">
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Assigned Project <span className="text-rose-500">*</span>
+              </label>
+              <div
+                onClick={() => setIsProjectDropdownOpen(!isProjectDropdownOpen)}
+                className={`w-full px-4 py-2 bg-gray-50 border ${errors.address ? "border-rose-500" : "border-gray-200 focus:ring-primary/20"} rounded-xl outline-none cursor-pointer flex items-center justify-between min-h-[42px]`}
+              >
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-slate-400" />
+                  <span className={formData.address ? "text-gray-700 font-medium" : "text-gray-400"}>
+                    {formData.address || "Select Project for Deployment"}
                   </span>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                    <svg className={`w-4 h-4 transition-transform ${isProjectDropdownOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
                 </div>
+                <svg className={`w-4 h-4 text-gray-400 transition-transform ${isProjectDropdownOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
 
-                {isProjectDropdownOpen && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-[110]"
-                      onClick={() => setIsProjectDropdownOpen(false)}
+              {isProjectDropdownOpen && (
+                <div className="absolute top-[calc(100%+4px)] left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-xl z-[120] overflow-hidden animate-in fade-in slide-in-from-top-1">
+                  <div className="p-2 border-b border-gray-100 bg-gray-50/50">
+                    <input
+                      type="text"
+                      autoFocus
+                      placeholder="Search projects..."
+                      value={projectSearch}
+                      onChange={(e) => setProjectSearch(e.target.value)}
+                      className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary/10"
                     />
-                    <div className="absolute top-[calc(100%+4px)] left-0 right-0 bg-white border border-slate-100 rounded-xl shadow-xl z-[120] overflow-hidden animate-in slide-in-from-top-2 duration-200">
-                      <div className="p-2 border-b border-slate-50 bg-slate-50/50">
-                        <div className="relative">
-                          <input
-                            type="text"
-                            autoFocus
-                            placeholder="Search projects..."
-                            value={projectSearch}
-                            onChange={(e) => setProjectSearch(e.target.value)}
-                            className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] outline-none focus:ring-2 focus:ring-primary/10 transition-all"
-                          />
-                        </div>
-                      </div>
-                      <div className="max-h-48 overflow-y-auto custom-scrollbar">
+                  </div>
+                  <div className="max-h-60 overflow-y-auto">
+                    <div
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, address: "Global Unassigned" }));
+                        setIsProjectDropdownOpen(false);
+                        setProjectSearch("");
+                      }}
+                      className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 cursor-pointer border-b border-gray-50 font-medium"
+                    >
+                      Global Unassigned
+                    </div>
+                    {projectsList
+                      .filter((p: any) => (p.project_name || p.name || "").toLowerCase().includes(projectSearch.toLowerCase()))
+                      .map((project: any) => (
                         <div
+                          key={project.id}
                           onClick={() => {
-                            setFormData(prev => ({ ...prev, address: "Main Site" }));
+                            setFormData(prev => ({ ...prev, address: project.project_name || project.name }));
                             setIsProjectDropdownOpen(false);
                             setProjectSearch("");
                           }}
-                          className="px-4 py-2 text-xs text-slate-600 hover:bg-slate-50 cursor-pointer font-medium border-b border-slate-50"
+                          className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0 font-medium"
                         >
-                          Main Site (Default)
+                          {project.project_name || project.name}
                         </div>
-                        {projectsList
-                          .filter((p: any) => (p.project_name || p.name || "").toLowerCase().includes(projectSearch.toLowerCase()))
-                          .map((project: any) => (
-                            <div
-                              key={project.id}
-                              onClick={() => {
-                                setFormData(prev => ({ ...prev, address: project.project_name || project.name }));
-                                setIsProjectDropdownOpen(false);
-                                setProjectSearch("");
-                              }}
-                              className="px-4 py-2 text-xs text-slate-600 hover:bg-slate-50 cursor-pointer transition-colors border-b border-slate-50 last:border-0"
-                            >
-                              {project.project_name || project.name}
-                            </div>
-                          ))}
-                        {projectsList.filter((p: any) => (p.project_name || p.name || "").toLowerCase().includes(projectSearch.toLowerCase())).length === 0 && (
-                          <div className="px-4 py-3 text-[10px] text-slate-400 text-center italic">
-                            No projects found
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-              {errors.address && <p className="mt-1 text-xs text-rose-500">{errors.address}</p>}
+                      ))}
+                  </div>
+                </div>
+              )}
             </div>
-
-            {/* Password - only for new users */}
-            {!initialData && (
-              <div className="md:col-span-2 space-y-1">
-                <label className="block text-sm font-medium text-gray-600 mb-1">Login Password</label>
-                <input
-                  type="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  placeholder="••••••••"
-                  className={`w-full px-4 py-2.5 bg-slate-50 border ${errors.password ? "border-rose-500 focus:ring-rose-100" : "border-slate-200 focus:ring-primary/10"} rounded-xl text-sm transition-all outline-none`}
-                />
-                {errors.password && <p className="mt-1 text-xs text-rose-500">{errors.password}</p>}
-              </div>
-            )}
           </div>
         </div>
 
-        {/* Photo and Status */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-            <label className="block text-sm font-medium text-gray-600 mb-3">Profile Photo</label>
+            <label className="block text-sm font-medium text-gray-600 mb-3">
+              Profile Photo
+            </label>
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-full bg-slate-200 overflow-hidden flex-shrink-0 border-2 border-white shadow-sm">
                 {previewUrl ? (
-                  <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                  <img
+                    src={previewUrl}
+                    alt="Preview"
+                    className="w-full h-full object-cover"
+                  />
                 ) : photoUrl ? (
-                  <img src={photoUrl} alt="Profile" className="w-full h-full object-cover" />
+                  <img
+                    src={photoUrl}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-slate-400">
-                    <UserCheck size={32} />
+                    <svg
+                      className="w-8 h-8"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                      />
+                    </svg>
                   </div>
                 )}
               </div>
-              <input type="file" id="engineer-photo-upload" className="hidden" accept="image/*" onChange={handlePhotoChange} />
+              <input
+                type="file"
+                id="photo-upload"
+                className="hidden"
+                accept="image/*"
+                onChange={handlePhotoChange}
+              />
               <button
                 type="button"
-                onClick={() => document.getElementById("engineer-photo-upload")?.click()}
+                onClick={() => document.getElementById("photo-upload")?.click()}
                 className="px-4 py-2 text-xs font-bold text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-all"
               >
                 {photoUrl || photo ? "Change Photo" : "Upload Photo"}
@@ -443,17 +605,21 @@ const CreateEngineerModal: React.FC<CreateEngineerModalProps> = ({
 
           <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 h-full">
             <div>
-              <p className="font-bold text-slate-700 text-sm">Deployment Status</p>
-              <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest">
-                {formData.is_active ? "Currently On Site" : "On Leave / Inactive"}
+              <p className="font-semibold text-gray-700">Account Status</p>
+              <p className="text-[10px] text-gray-500 uppercase font-black tracking-tighter">
+                Site Access Enabled
               </p>
             </div>
             <button
               type="button"
-              onClick={() => setFormData((p) => ({ ...p, is_active: !p.is_active }))}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${formData.is_active ? "bg-emerald-500" : "bg-slate-300"}`}
+              onClick={() =>
+                setFormData((p) => ({ ...p, is_active: !p.is_active }))
+              }
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${formData.is_active ? "bg-emerald-500" : "bg-gray-300"}`}
             >
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${formData.is_active ? "translate-x-6" : "translate-x-1"}`} />
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${formData.is_active ? "translate-x-6" : "translate-x-1"}`}
+              />
             </button>
           </div>
         </div>
