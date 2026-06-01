@@ -59,9 +59,12 @@ export default function AgreementUploadPage() {
 
   const buildFileUrl = (file_url: string) => {
     if (!file_url) return "";
-    if (file_url.startsWith('http')) return file_url;
+    // Normalize backslashes to forward slashes for web compatibility
+    const normalizedUrl = file_url.replace(/\\/g, '/');
+    if (normalizedUrl.startsWith('http')) return normalizedUrl;
+
     // Ensure leading slash for consistency
-    const path = file_url.startsWith('/') ? file_url : `/${file_url}`;
+    const path = normalizedUrl.startsWith('/') ? normalizedUrl : `/${normalizedUrl}`;
 
     // Always use absolute URL for downloads to avoid proxy issues in some environments
     const baseUrl = import.meta.env.VITE_API_URL?.replace(/\/api\/v1\/?$/, '') || '';
