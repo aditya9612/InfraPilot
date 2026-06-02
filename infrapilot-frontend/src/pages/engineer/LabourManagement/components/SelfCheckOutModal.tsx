@@ -107,18 +107,18 @@ const SelfCheckOutModal: React.FC<SelfCheckOutModalProps> = ({ isOpen, onClose, 
         const formData = new FormData();
         const idToUse = attendanceId ? attendanceId.toString() : "2"; // Use passed ID or mock 2
         formData.append("attendance_id", idToUse);
-        formData.append("latitude", coordinates.lat.toString());
-        formData.append("longitude", coordinates.lng.toString());
-        formData.append("location_address", locationAddress);
-        formData.append("overtime_hours", overtimeHours);
-        formData.append("overtime_rate", overtimeRate);
+        if (coordinates.lat) formData.append("latitude", coordinates.lat.toString());
+        if (coordinates.lng) formData.append("longitude", coordinates.lng.toString());
+        if (locationAddress) formData.append("location_address", locationAddress);
+        if (overtimeHours) formData.append("overtime_hours", overtimeHours);
+        if (overtimeRate) formData.append("overtime_rate", overtimeRate);
         
         try {
             const response = await fetch(capturedImage);
             const blob = await response.blob();
             formData.append("check_out_image", blob, "checkout.jpg");
             
-            await api.put(`/api/v1/labour/attendance/${idToUse}/check-out`, formData, {
+            await api.put(`/labour/attendance/${idToUse}/check-out`, formData, {
                 headers: { "Content-Type": "multipart/form-data" }
             });
             

@@ -425,47 +425,7 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSubmit, projectId }: EditDSRModa
           </div>
         </div>
 
-        {/* Labour Statistics */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
-            Labour Statistics
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className={labelClasses}>Total Labour</label>
-              <input
-                type="number"
-                name="total_labour"
-                value={formData.total_labour || ""}
-                onChange={handleLabourChange}
-                className={inputClasses()}
-                placeholder="0"
-              />
-            </div>
-            <div>
-              <label className={labelClasses}>Skilled Labour</label>
-              <input
-                type="number"
-                name="skilled_labour"
-                value={formData.skilled_labour || ""}
-                onChange={handleLabourChange}
-                className={inputClasses()}
-                placeholder="0"
-              />
-            </div>
-            <div>
-              <label className={labelClasses}>Unskilled Labour</label>
-              <input
-                type="number"
-                name="unskilled_labour"
-                value={formData.unskilled_labour || ""}
-                onChange={handleLabourChange}
-                className={inputClasses()}
-                placeholder="0"
-              />
-            </div>
-          </div>
-        </div>
+
 
         {/* Issues & Observations */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">

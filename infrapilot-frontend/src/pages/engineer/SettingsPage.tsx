@@ -275,31 +275,37 @@ const SettingsPage = () => {
             await fetchData();
 
             // UPDATE LOCAL STORAGE WITH NEW ACTIVE PROJECT
+            // UPDATE LOCAL STORAGE WITH NEW ACTIVE PROJECT
             try {
                 const userStr = localStorage.getItem("infrapilot_user");
                 if (userStr && selectedProject) {
                     const parsed = JSON.parse(userStr);
-                    const selectedProjObj = projects.find(p => p.id === selectedProject);
+                    const selectedProjObj = projects.find(p => Number(p.id) === Number(selectedProject));
+                    
+                    parsed.project_id = Number(selectedProject);
+                    parsed.default_project_id = Number(selectedProject);  // used by all pages for priority resolution
+                    
                     if (selectedProjObj) {
-                        parsed.project_id = selectedProject;
-                        parsed.default_project_id = selectedProject;  // used by all pages for priority resolution
                         parsed.project_name = selectedProjObj.project_name || selectedProjObj.name;
-                        if (parsed.user) {
-                            parsed.user.project_id = selectedProject;
-                            parsed.user.project_name = selectedProjObj.project_name || selectedProjObj.name;
-                            
-                            // Update global user profile details
-                            parsed.user.full_name = updatedProfile.full_name || parsed.user.full_name;
-                            parsed.user.email = updatedProfile.email || parsed.user.email;
-                            if (updatedProfile.profile_image) {
-                                parsed.user.profile_image = updatedProfile.profile_image;
-                            }
-                        }
-                        localStorage.setItem("infrapilot_user", JSON.stringify(parsed));
-                        
-                        // Dispatch storage event so Navbar can pick up the new name/image instantly
-                        window.dispatchEvent(new Event('storage'));
                     }
+
+                    if (parsed.user) {
+                        parsed.user.project_id = Number(selectedProject);
+                        if (selectedProjObj) {
+                            parsed.user.project_name = selectedProjObj.project_name || selectedProjObj.name;
+                        }
+                        
+                        // Update global user profile details
+                        parsed.user.full_name = updatedProfile.full_name || parsed.user.full_name;
+                        parsed.user.email = updatedProfile.email || parsed.user.email;
+                        if (updatedProfile.profile_image) {
+                            parsed.user.profile_image = updatedProfile.profile_image;
+                        }
+                    }
+                    localStorage.setItem("infrapilot_user", JSON.stringify(parsed));
+                    
+                    // Dispatch storage event so Navbar can pick up the new name/image instantly
+                    window.dispatchEvent(new Event('storage'));
                 }
             } catch (e) {
                 console.error("Failed to update user session with new project", e);

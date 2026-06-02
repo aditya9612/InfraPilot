@@ -70,9 +70,30 @@ const WorkApprovalPage = () => {
     const [activeFilter, setActiveFilter] = useState<"Select" | "Approved" | "Pending" | "Reject" | "Pending/Reject" | "Rate">("Select");
     const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
 
+    const [currentUserName, setCurrentUserName] = useState("Engineer");
+
+    useEffect(() => {
+        const userStr = localStorage.getItem("infrapilot_user");
+        if (userStr) {
+            try {
+                const user = JSON.parse(userStr);
+                setCurrentUserName(user?.name || user?.user?.name || "Engineer");
+            } catch (e) {
+                console.error("Failed to parse user data", e);
+            }
+        }
+    }, []);
+
+    const resolveUserName = (id: string | number | null) => {
+        if (!id) return null;
+        if (Number(id) === 1) return "Admin";
+        // Fallback to the current user's name for any other ID since this is the engineer's dashboard
+        return currentUserName !== "Engineer" ? currentUserName : "Site Engineer";
+    };
+
     const [formData, setFormData] = useState({
         id: "" as number | string,
-        entity_type: "bill",
+        entity_type: "material",
         entity_id: "" as number | string,
         remarks: "",
         status: "Pending" as "Pending" | "Approved" | "Rejected" | string,
@@ -224,8 +245,6 @@ const WorkApprovalPage = () => {
         return filteredApprovals.slice(startIndex, startIndex + itemsPerPage);
     }, [filteredApprovals, currentPage, itemsPerPage]);
 
-    const totalPages = Math.ceil(filteredApprovals.length / itemsPerPage);
-
     useEffect(() => {
         setCurrentPage(1);
     }, [searchTerm, activeFilter]);
@@ -268,7 +287,7 @@ const WorkApprovalPage = () => {
                                 setIsEditMode(false);
                                 setFormData({
                                     id: "",
-                                    entity_type: "bill",
+                                    entity_type: "material",
                                     entity_id: "",
                                     remarks: "",
                                     status: "Pending"
@@ -618,7 +637,7 @@ const WorkApprovalPage = () => {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 sm:gap-x-12 gap-y-6 font-inter">
                                     <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Requested By</p>
-                                        <p className="text-sm font-bold text-blue-600 font-inter">User {selectedApproval.requested_by}</p>
+                                        <p className="text-sm font-bold text-blue-600 font-inter">{resolveUserName(selectedApproval.requested_by)}</p>
                                     </div>
                                     <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">System Sync</p>
@@ -671,7 +690,6 @@ const WorkApprovalPage = () => {
                             <div>
                                 <label className={labelClasses}>Entity Type <span className="text-rose-500">*</span></label>
                                 <select name="entity_type" value={formData.entity_type} onChange={handleInputChange} className={inputClasses(errors.entity_type)}>
-                                    <option value="bill">Bill</option>
                                     <option value="material">Material</option>
                                     <option value="labour">Labour</option>
                                     <option value="equipment">Equipment</option>

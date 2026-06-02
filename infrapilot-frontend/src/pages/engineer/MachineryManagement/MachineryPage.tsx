@@ -21,7 +21,9 @@ import {
   FileText,
   RotateCcw,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Clock,
+  ChevronDown
 } from "lucide-react";
 
 const conditionColors: Record<string, string> = {
@@ -49,6 +51,7 @@ const MachineryPage = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "GOOD" | "REPAIR" | "DAMAGED" | "MAINTENANCE">("All");
+    const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
 
     // Project ID resolved once from localStorage (Settings page) — never changes during session
     const selectedProjectId = (() => {
@@ -147,7 +150,7 @@ const MachineryPage = () => {
     };
 
     const filteredList = useMemo(() => {
-        return machineryList.filter(item => {
+        let list = machineryList.filter(item => {
             const term = searchTerm.toLowerCase();
             const matchesSearch = searchTerm === "" || 
                 item.equipment_name.toLowerCase().includes(term) ||
@@ -160,7 +163,17 @@ const MachineryPage = () => {
             
             return matchesSearch && matchesCondition && matchesStat;
         });
-    }, [machineryList, searchTerm, conditionFilter, activeStatFilter]);
+
+        list.sort((a, b) => {
+            if (sortOrder === "latest") {
+                return b.id - a.id;
+            } else {
+                return a.id - b.id;
+            }
+        });
+
+        return list;
+    }, [machineryList, searchTerm, conditionFilter, activeStatFilter, sortOrder]);
 
     const paginatedList = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
@@ -170,7 +183,7 @@ const MachineryPage = () => {
     // Reset page on filter change
     useEffect(() => {
         setCurrentPage(1);
-    }, [selectedProjectId, searchTerm, conditionFilter, activeStatFilter]);
+    }, [selectedProjectId, searchTerm, conditionFilter, activeStatFilter, sortOrder]);
 
     // Summary stats (always from the full list or filtered?) 
     // User said "calculate karke stat card mai dikhao", usually means total overview.
@@ -275,7 +288,22 @@ const MachineryPage = () => {
                             <option value="DAMAGED">Damaged</option>
                         </select>
 
-
+                        <div className="relative flex items-center">
+                            <div className="absolute left-3 text-slate-400 pointer-events-none">
+                                <Clock className="w-4 h-4" />
+                            </div>
+                            <select
+                                value={sortOrder}
+                                onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
+                                className="appearance-none bg-white border border-primary rounded-full text-sm font-bold text-primary shadow-sm pl-9 pr-8 py-1.5 outline-none cursor-pointer"
+                            >
+                                <option value="latest">Latest First</option>
+                                <option value="oldest">Oldest First</option>
+                            </select>
+                            <div className="absolute right-3 text-slate-400 pointer-events-none">
+                                <ChevronDown className="w-4 h-4" />
+                            </div>
+                        </div>
                     </div>
 
                     <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">

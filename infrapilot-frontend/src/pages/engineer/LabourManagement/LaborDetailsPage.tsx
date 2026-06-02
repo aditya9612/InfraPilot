@@ -95,17 +95,36 @@ const LaborDetailsPage = () => {
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
-        if (!formData.aadhaar_number.trim()) newErrors.aadhaar_number = "Aadhaar number is required";
-        if (formData.aadhaar_number.replace(/-/g, "").length !== 12) newErrors.aadhaar_number = "Aadhaar must be exactly 12 digits";
+        const aadhaarDigits = formData.aadhaar_number.replace(/-/g, "");
+        
+        if (!formData.aadhaar_number.trim()) {
+            newErrors.aadhaar_number = "Aadhaar number is required";
+        } else if (aadhaarDigits.length !== 12) {
+            newErrors.aadhaar_number = "Aadhaar must be exactly 12 digits";
+        } else if (/^(\d)\1+$/.test(aadhaarDigits)) {
+            newErrors.aadhaar_number = "Aadhaar cannot consist of all identical digits";
+        } else if (aadhaarDigits.startsWith("0") || aadhaarDigits.startsWith("1")) {
+            newErrors.aadhaar_number = "Aadhaar number cannot start with 0 or 1";
+        }
 
         if (!formData.labour_name.trim()) {
             newErrors.labour_name = "Name is required";
         } else if (!/^[a-zA-Z\s]+$/.test(formData.labour_name)) {
             newErrors.labour_name = "Name must contain only alphabets";
         }
+        
         if (!formData.skill_type.trim()) newErrors.skill_type = "Skill type is required";
-        if (!formData.daily_wage_rate || Number(formData.daily_wage_rate) <= 0)
-            newErrors.daily_wage_rate = "Valid wage rate is required";
+        
+        if (!formData.daily_wage_rate) {
+            newErrors.daily_wage_rate = "Wage rate is required";
+        } else if (isNaN(Number(formData.daily_wage_rate)) || Number(formData.daily_wage_rate) <= 0) {
+            newErrors.daily_wage_rate = "Wage rate must be greater than 0";
+        } else if (!/^\d+(\.\d{1,2})?$/.test(String(formData.daily_wage_rate))) {
+            newErrors.daily_wage_rate = "Wage rate can have up to 2 decimal places";
+        } else if (Number(formData.daily_wage_rate) > 50000) {
+            newErrors.daily_wage_rate = "Wage rate exceeds maximum allowed limit";
+        }
+
         if (!formData.contractor_id) newErrors.contractor_id = "Contractor ID is required";
         if (!formData.status.trim()) newErrors.status = "Status is required";
 

@@ -1,15 +1,16 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Navbar from '../../../components/common/Navbar';
 import PageTransition from '../../../components/common/PageTransition';
 import toast from 'react-hot-toast';
-import { 
-    Filter, Search, Plus, Eye, Calendar, User, 
-    CheckCircle, Clock, AlertCircle, XCircle, List, Grid, 
-    Download, Share2, ChevronDown, ChevronUp, Folder,
-    Paperclip, Send, X, FileText, Edit2, Trash2, Play
+import {
+    Filter, Search, Plus, Eye, Calendar, User,
+    CheckCircle, Clock, AlertCircle, XCircle, List, Grid,
+    Share2, ChevronDown, ChevronUp, Folder,
+    Paperclip, Send, X, FileText, Edit2, Trash2, Play, Mic, TrendingUp, Forward
 } from 'lucide-react';
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import CreateTaskDrawer from './CreateTaskDrawer';
+import AudioRecordModal from './AudioRecordModal';
 import Modal from '../../../components/common/Modal';
 import { projectService } from '../../../services/projectService';
 import type { Task, ProjectMember, ProjectStatus } from '../../../types/project';
@@ -40,7 +41,7 @@ const mapPriority = (priority: number | string): "LOW" | "MEDIUM" | "HIGH" => {
 const TaskManagementPage = () => {
     const [projectId, setProjectId] = useState<number | null>(null);
     const [tasks, setTasks] = useState<FrontendTask[]>([]);
-    
+
     // Delete Modal State
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -54,10 +55,10 @@ const TaskManagementPage = () => {
 
     const [activeTab, setActiveTab] = useState("All Tasks");
     const [viewMode, setViewMode] = useState<"list" | "grid">("list");
-    
+
     // Project Accordion State
     const [expandedProjects, setExpandedProjects] = useState<number[]>([]);
-    
+
     // Modal State
     const [selectedTask, setSelectedTask] = useState<FrontendTask | null>(null);
     const [modalTab, setModalTab] = useState<"Details" | "Activity" | "Comments">("Details");
@@ -67,6 +68,79 @@ const TaskManagementPage = () => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedEditTask, setSelectedEditTask] = useState<FrontendTask | null>(null);
 
+    // Audio recording for existing task
+    const [recordingTaskId, setRecordingTaskId] = useState<number | null>(null);
+
+    // Detail Modal states
+    const [taskComments, setTaskComments] = useState<any[]>([]);
+    const [taskActivity, setTaskActivity] = useState<any[]>([]);
+    const [isFetchingDetails, setIsFetchingDetails] = useState(false);
+    const [newComment, setNewComment] = useState("");
+    const [commentAttachment, setCommentAttachment] = useState<File | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Progress Modal State
+    const [isProgressModalOpen, setIsProgressModalOpen] = useState(false);
+    const [selectedProgressTask, setSelectedProgressTask] = useState<FrontendTask | null>(null);
+    const [progressPercentage, setProgressPercentage] = useState(0);
+    const [progressRemark, setProgressRemark] = useState("");
+
+    // Pass Task Modal State
+    const [isPassModalOpen, setIsPassModalOpen] = useState(false);
+    const [selectedPassTask, setSelectedPassTask] = useState<FrontendTask | null>(null);
+    const [passNewUserId, setPassNewUserId] = useState<number | "">("");
+    const [passRemark, setPassRemark] = useState("");
+    const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
+
+    useEffect(() => {
+        if (projectId) {
+            projectService.getProjectMembers(projectId).then(res => {
+                setProjectMembers(Array.isArray(res) ? res : (res.items || res.data || []));
+            }).catch(() => { });
+        }
+    }, [projectId]);
+
+    useEffect(() => {
+        if (!selectedTask || !projectId) return;
+        const fetchDetails = async () => {
+            setIsFetchingDetails(true);
+            try {
+                if (modalTab === "Comments") {
+                    const res = await projectService.getTaskComments(selectedTask.project_id || projectId, selectedTask.id);
+                    setTaskComments(Array.isArray(res) ? res : (res.items || res.data || []));
+                } else if (modalTab === "Activity") {
+                    const res = await projectService.getTaskProgressHistory(selectedTask.project_id || projectId, selectedTask.id);
+                    setTaskActivity(Array.isArray(res) ? res : (res.items || res.data || []));
+                }
+            } catch (error) {
+                console.error("Failed to fetch details", error);
+            } finally {
+                setIsFetchingDetails(false);
+            }
+        };
+        fetchDetails();
+    }, [selectedTask, modalTab, projectId]);
+
+    const handleAddComment = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if ((!newComment.trim() && !commentAttachment) || !selectedTask || !projectId) return;
+
+        let finalContent = newComment;
+        if (commentAttachment) {
+            finalContent += finalContent.trim() ? `\n\n[Attached: ${commentAttachment.name}]` : `[Attached: ${commentAttachment.name}]`;
+        }
+
+        try {
+            await projectService.createTaskComment(selectedTask.project_id || projectId, selectedTask.id, { content: finalContent });
+            setNewComment("");
+            setCommentAttachment(null);
+            const res = await projectService.getTaskComments(selectedTask.project_id || projectId, selectedTask.id);
+            setTaskComments(Array.isArray(res) ? res : (res.items || res.data || []));
+        } catch (error) {
+            toast.error("Failed to add comment");
+        }
+    };
+
     const fetchData = useCallback(async () => {
         if (!projectId) return;
         try {
@@ -74,7 +148,7 @@ const TaskManagementPage = () => {
                 projectService.getTasks(projectId),
                 projectService.getProjectMembers(projectId)
             ]);
-            
+
             const membersList: ProjectMember[] = Array.isArray(fetchedMembers) ? fetchedMembers : (fetchedMembers.items || fetchedMembers.data || []);
 
             const userStr = localStorage.getItem("infrapilot_user");
@@ -88,19 +162,25 @@ const TaskManagementPage = () => {
 
             const mappedTasks: FrontendTask[] = (Array.isArray(fetchedTasks) ? fetchedTasks : (fetchedTasks.items || fetchedTasks.data || [])).map((t: Task & { audio_data?: string }) => {
                 const assignee = membersList.find(m => m.user_id === t.assigned_user_id);
-                // Hardcoding assigner to Admin for now or if we had a created_by field
                 const assigner = { name: "System / Admin", role: "Manager" };
-                
+
+                // Map the exact project name
+                let taskProjectName = pName;
+                if (t.project_id) {
+                    const matched = (userStr ? JSON.parse(userStr).assigned_projects || [] : []).find((p: any) => p.id === t.project_id);
+                    if (matched) taskProjectName = matched.name;
+                }
+
                 return {
                     ...t,
                     priority: mapPriority(t.priority),
                     assignedBy: assigner,
-                    assignedTo: { 
-                        name: assignee?.full_name || "Unassigned", 
-                        role: assignee?.role || "Engineer" 
+                    assignedTo: {
+                        name: assignee?.full_name || "Unassigned",
+                        role: assignee?.role || "Engineer"
                     },
                     hasHistory: false,
-                    projectName: pName,
+                    projectName: taskProjectName,
                     audio_data: t.audio_data
                 };
             });
@@ -133,7 +213,7 @@ const TaskManagementPage = () => {
         if (projectId) {
             fetchData();
         }
-    }, [projectId, fetchData]);
+    }, [projectId, activeTab, fetchData]);
 
     const openEditModal = (task: FrontendTask) => {
         setSelectedEditTask(task);
@@ -144,8 +224,10 @@ const TaskManagementPage = () => {
         e.preventDefault();
         if (!projectId || !selectedEditTask) return;
         const formData = new FormData(e.currentTarget);
-        
+
         try {
+            const targetProjectId = Number(formData.get('project_id')) || projectId;
+
             const updatedTaskData = {
                 title: formData.get('title') as string,
                 description: formData.get('description') as string,
@@ -153,11 +235,12 @@ const TaskManagementPage = () => {
                 status: formData.get('status') as string,
                 start_date: formData.get('start_date') as string,
                 end_date: formData.get('end_date') as string,
-                assigned_user_ids: [parseInt(formData.get('assigned_user_id') as string) || 1]
+                assigned_user_ids: [parseInt(formData.get('assigned_user_id') as string) || 1],
+                project_id: targetProjectId
             };
 
-            const updatedTaskResponse = await projectService.updateTask(projectId, selectedEditTask.id, updatedTaskData);
-            
+            const updatedTaskResponse = await projectService.updateTask(targetProjectId, selectedEditTask.id, updatedTaskData);
+
             // Optimistic UI Update
             setTasks(prevTasks => prevTasks.map(t => {
                 if (t.id === selectedEditTask.id) {
@@ -190,7 +273,7 @@ const TaskManagementPage = () => {
 
 
     const toggleProject = (id: number) => {
-        setExpandedProjects(prev => 
+        setExpandedProjects(prev =>
             prev.includes(id) ? prev.filter(pId => pId !== id) : [...prev, id]
         );
     };
@@ -233,23 +316,108 @@ const TaskManagementPage = () => {
 
     const handleStatusChange = async (taskId: number, newStatus: string) => {
         if (!projectId) return;
-        
+
+        // Optimistic UI Update for instant feedback
+        const previousTasks = [...tasks];
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus as any } : t));
+
         try {
             await projectService.updateTaskStatus(projectId, taskId, newStatus);
-            toast.success("Status updated");
+            toast.success(`Task status updated to ${newStatus}`);
             fetchData();
         } catch (error) {
-            toast.error("Failed to update status");
+            setTasks(previousTasks);
+            toast.error("Failed to update status on server");
+        }
+    };
+
+    const handleUpdateProgress = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedProgressTask || !projectId) return;
+
+        try {
+            await projectService.updateTaskProgress(projectId, selectedProgressTask.id, {
+                percentage: progressPercentage,
+                remarks: progressRemark
+            });
+            toast.success("Progress updated successfully!");
+            setIsProgressModalOpen(false);
+            fetchData();
+        } catch (error) {
+            toast.error("Failed to update progress.");
+        }
+    };
+
+    const handlePassTask = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedPassTask || !projectId || !passNewUserId) return;
+
+        try {
+            await projectService.passTask(projectId, selectedPassTask.id, {
+                new_user_id: passNewUserId,
+                remark: passRemark
+            });
+            toast.success("Task passed successfully!");
+            setIsPassModalOpen(false);
+            fetchData();
+        } catch (error) {
+            toast.error("Failed to pass task.");
+        }
+    };
+
+    const handleSaveAudio = async (audioBase64: string) => {
+        if (!projectId || !recordingTaskId) return;
+
+        try {
+            // Find task to get other fields, as updateTask usually requires full body. 
+            // If the API supports partial updates, we could just send audio_data. 
+            // We'll send it as a partial update, assuming the backend can handle it, or we fetch the full task.
+            const task = tasks.find(t => t.id === recordingTaskId);
+            if (!task) return;
+
+            const updatedTaskData = {
+                title: task.title,
+                description: task.description,
+                priority: task.priority,
+                status: task.status,
+                start_date: task.start_date,
+                end_date: task.end_date,
+                assigned_user_ids: [task.assigned_user_id],
+                project_id: task.project_id || projectId,
+                audio_data: audioBase64
+            };
+
+            await projectService.updateTask(task.project_id || projectId, recordingTaskId, updatedTaskData);
+            toast.success("Audio added successfully!");
+            fetchData();
+        } catch (error) {
+            console.error("Failed to save audio", error);
+            throw error; // Let the modal catch it
         }
     };
 
     const filteredTasks = useMemo(() => {
+        const userStr = localStorage.getItem("infrapilot_user");
+        let currentUserId = null;
+        if (userStr) {
+            try { currentUserId = JSON.parse(userStr).id || JSON.parse(userStr).user?.id; } catch (e) { }
+        }
+
         return tasks.filter(t => {
             let match = true;
             if (searchQuery && !t.title.toLowerCase().includes(searchQuery.toLowerCase())) match = false;
             if (statusFilter !== "All Status" && t.status !== statusFilter) match = false;
-            if (ownershipFilter === "My Projects" && t.assignedTo.name === "Unassigned") match = false; 
-            // Add departmentFilter logic if needed later
+
+            // Ownership filter fixed: "My Projects" should filter for tasks where current user is assigned
+            if (ownershipFilter === "My Projects") {
+                if (t.assigned_user_id !== currentUserId) match = false;
+            }
+
+            // Department logic (mocking, since we don't have department data directly)
+            if (departmentFilter !== "All Departments") {
+                // Example: if engineering, we might check role
+                if (t.assignedTo.role !== "Engineer") match = false;
+            }
             return match;
         });
     }, [tasks, searchQuery, statusFilter, ownershipFilter]);
@@ -259,7 +427,7 @@ const TaskManagementPage = () => {
             <Navbar title="Task Management" breadcrumb={["Engineer", "Task Management"]} />
 
             <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter flex flex-col">
-                
+
                 {/* ─── Header Section ──────────────────────────────────────────────────────── */}
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
@@ -268,7 +436,7 @@ const TaskManagementPage = () => {
                     </div>
                     <div className="flex items-center gap-3">
                         {activeTab !== "Project Tasks" && (
-                            <button 
+                            <button
                                 onClick={() => setIsCreateDrawerOpen(true)}
                                 className="flex items-center gap-2 px-6 py-2.5 bg-indigo-500 text-white font-bold rounded-xl text-sm shadow-sm hover:bg-indigo-600 transition-colors whitespace-nowrap"
                             >
@@ -281,23 +449,21 @@ const TaskManagementPage = () => {
 
                 {/* ─── Tabs Section ──────────────────────────────────────────────────────── */}
                 <div className="bg-slate-100 p-1.5 rounded-xl flex gap-1 mb-6 border border-slate-200">
-                    <button 
+                    <button
                         onClick={() => setActiveTab("All Tasks")}
-                        className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${
-                            activeTab === "All Tasks" 
-                                ? "bg-indigo-500 text-white shadow-sm" 
-                                : "text-slate-500 hover:bg-slate-200"
-                        }`}
+                        className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "All Tasks"
+                            ? "bg-indigo-500 text-white shadow-sm"
+                            : "text-slate-500 hover:bg-slate-200"
+                            }`}
                     >
                         All Tasks
                     </button>
-                    <button 
+                    <button
                         onClick={() => setActiveTab("Project Tasks")}
-                        className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${
-                            activeTab === "Project Tasks" 
-                                ? "bg-indigo-500 text-white shadow-sm" 
-                                : "text-slate-500 hover:bg-slate-200"
-                        }`}
+                        className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "Project Tasks"
+                            ? "bg-indigo-500 text-white shadow-sm"
+                            : "text-slate-500 hover:bg-slate-200"
+                            }`}
                     >
                         Project Tasks
                     </button>
@@ -404,7 +570,7 @@ const TaskManagementPage = () => {
 
                 {/* ─── Filters Section ──────────────────────────────────────────────────────── */}
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex-1 flex flex-col">
-                    
+
                     {activeTab === "All Tasks" ? (
                         <>
                             {/* All Tasks Filters Toolbar */}
@@ -434,7 +600,7 @@ const TaskManagementPage = () => {
                                 <div className="flex flex-wrap items-end gap-4">
                                     <div className="flex flex-col">
                                         <span className="text-[10px] font-black text-slate-800 mb-1">Status</span>
-                                        <select 
+                                        <select
                                             value={statusFilter}
                                             onChange={(e) => setStatusFilter(e.target.value)}
                                             className="border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer bg-slate-50 hover:bg-white transition-colors"
@@ -458,7 +624,7 @@ const TaskManagementPage = () => {
 
                                     <div className="flex flex-col">
                                         <span className="text-[10px] font-black text-slate-800 mb-1">Department</span>
-                                        <select 
+                                        <select
                                             value={departmentFilter}
                                             onChange={(e) => setDepartmentFilter(e.target.value)}
                                             className="border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer bg-slate-50 hover:bg-white transition-colors"
@@ -469,24 +635,19 @@ const TaskManagementPage = () => {
                                     </div>
 
                                     <div className="flex items-center gap-1">
-                                        <button 
+                                        <button
                                             onClick={() => setViewMode('list')}
                                             className={`p-2 rounded-xl transition-colors border ${viewMode === 'list' ? 'bg-indigo-500 text-white border-indigo-500 shadow-sm' : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50'}`}
                                         >
                                             <List className="w-4 h-4" />
                                         </button>
-                                        <button 
+                                        <button
                                             onClick={() => setViewMode('grid')}
                                             className={`p-2 rounded-xl transition-colors border ${viewMode === 'grid' ? 'bg-indigo-500 text-white border-indigo-500 shadow-sm' : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50'}`}
                                         >
                                             <Grid className="w-4 h-4" />
                                         </button>
                                     </div>
-
-                                    <button className="flex items-center gap-2 px-4 py-2 bg-slate-800 border border-slate-800 text-white rounded-xl text-sm font-bold hover:bg-slate-700 transition-colors shadow-sm">
-                                        <Download className="w-4 h-4" />
-                                        Export
-                                    </button>
                                 </div>
                             </div>
 
@@ -514,6 +675,31 @@ const TaskManagementPage = () => {
                                                     <h3 className="text-base font-bold text-slate-800 mb-1">{task.title}</h3>
                                                     <p className="text-xs text-slate-500 mb-5 min-h-[32px] line-clamp-2">{task.description}</p>
 
+                                                    {task.audio_data ? (
+                                                        <div className="mb-4 flex items-center gap-2 max-w-[160px] bg-slate-100/80 rounded-full p-1 pr-3 border border-slate-200/50">
+                                                            <div className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm cursor-pointer" onClick={(e) => {
+                                                                const audio = e.currentTarget.parentElement?.querySelector('audio');
+                                                                if (audio) { audio.paused ? audio.play() : audio.pause(); }
+                                                            }}>
+                                                                <Play className="w-3 h-3 ml-0.5" />
+                                                            </div>
+                                                            <div className="flex-1 h-1 bg-slate-300 rounded-full overflow-hidden flex items-center">
+                                                                <div className="h-full bg-emerald-500 w-1/3"></div>
+                                                            </div>
+                                                            <audio src={task.audio_data} className="hidden" />
+                                                            <span className="text-[10px] font-bold text-slate-400">0:00</span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="mb-4">
+                                                            <button
+                                                                onClick={() => setRecordingTaskId(task.id)}
+                                                                className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-lg text-[10px] font-bold transition-colors"
+                                                            >
+                                                                <Mic className="w-3 h-3" /> Add Audio
+                                                            </button>
+                                                        </div>
+                                                    )}
+
                                                     <div className="space-y-4">
                                                         <div className="flex items-center justify-between">
                                                             <div className="flex items-center gap-2">
@@ -525,7 +711,7 @@ const TaskManagementPage = () => {
                                                                 <p className="text-[10px] text-slate-500">{task.assignedTo.role}</p>
                                                             </div>
                                                         </div>
-                                                        
+
                                                         <div className="flex items-center justify-between">
                                                             <div className="flex items-center gap-2">
                                                                 <User className="w-4 h-4 text-slate-400" />
@@ -546,21 +732,47 @@ const TaskManagementPage = () => {
                                                         </div>
                                                     </div>
                                                 </div>
-                                                
+
                                                 <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                                                    <button className="flex items-center gap-1.5 text-xs font-bold text-indigo-500 hover:text-indigo-600 transition-colors">
-                                                        <Share2 className="w-3.5 h-3.5" />
-                                                        View History
-                                                    </button>
-                                                    <button onClick={() => openEditModal(task)} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all">
-                                                        <Edit2 className="w-4 h-4" />
-                                                    </button>
-                                                    <button onClick={() => handleDeleteTask(task.id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all">
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                    <button onClick={() => openTaskModal(task)} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all" title="View Details">
-                                                        <Eye className="w-4 h-4" />
-                                                    </button>
+                                                    <div className="flex items-center gap-1">
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedProgressTask(task);
+                                                                setProgressPercentage(task.completion_percentage || 0);
+                                                                setProgressRemark("");
+                                                                setIsProgressModalOpen(true);
+                                                            }}
+                                                            className="flex items-center gap-1.5 px-2 py-1.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors"
+                                                            title="Update Progress"
+                                                        >
+                                                            <TrendingUp className="w-3.5 h-3.5" />
+                                                            Progress
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedPassTask(task);
+                                                                setPassNewUserId("");
+                                                                setPassRemark("");
+                                                                setIsPassModalOpen(true);
+                                                            }}
+                                                            className="flex items-center gap-1.5 px-2 py-1.5 text-[10px] font-bold text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors"
+                                                            title="Pass/Delegate Task"
+                                                        >
+                                                            <Forward className="w-3.5 h-3.5" />
+                                                            Pass
+                                                        </button>
+                                                    </div>
+                                                    <div className="flex items-center">
+                                                        <button onClick={() => openEditModal(task)} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all">
+                                                            <Edit2 className="w-4 h-4" />
+                                                        </button>
+                                                        <button onClick={() => handleDeleteTask(task.id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all">
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                        <button onClick={() => openTaskModal(task)} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all" title="View Details">
+                                                            <Eye className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         ))}
@@ -587,7 +799,7 @@ const TaskManagementPage = () => {
                                                         <td className="p-4 block md:table-cell">
                                                             <p className="text-sm font-bold text-slate-800">{task.title}</p>
                                                             <p className="text-xs text-slate-500 mt-1 truncate max-w-[200px]">{task.description}</p>
-                                                            {task.audio_data && (
+                                                            {task.audio_data ? (
                                                                 <div className="mt-2 flex items-center gap-2 max-w-[160px] bg-slate-100/80 rounded-full p-1 pr-3 border border-slate-200/50">
                                                                     <div className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm cursor-pointer" onClick={(e) => {
                                                                         const audio = e.currentTarget.parentElement?.querySelector('audio');
@@ -601,6 +813,13 @@ const TaskManagementPage = () => {
                                                                     <audio src={task.audio_data} className="hidden" />
                                                                     <span className="text-[10px] font-bold text-slate-400">0:00</span>
                                                                 </div>
+                                                            ) : (
+                                                                <button
+                                                                    onClick={() => setRecordingTaskId(task.id)}
+                                                                    className="mt-2 flex items-center gap-1.5 px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-lg text-[10px] font-bold transition-colors w-max"
+                                                                >
+                                                                    <Mic className="w-3 h-3" /> Add Audio
+                                                                </button>
                                                             )}
                                                         </td>
                                                         <td className="p-4 block md:table-cell">
@@ -648,7 +867,7 @@ const TaskManagementPage = () => {
                                                         </td>
                                                         <td className="p-4 block md:table-cell">
                                                             <div className="relative inline-block w-full min-w-[130px]">
-                                                                <select 
+                                                                <select
                                                                     value={task.status}
                                                                     onChange={(e) => handleStatusChange(task.id, e.target.value)}
                                                                     className="w-full appearance-none bg-white border border-slate-200 rounded-xl px-3 py-1.5 pl-8 text-xs font-bold text-slate-700 outline-none cursor-pointer focus:ring-2 focus:ring-indigo-500/20"
@@ -659,12 +878,11 @@ const TaskManagementPage = () => {
                                                                     <option value="Cancelled">Cancelled</option>
                                                                 </select>
                                                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                                    <div className={`w-2 h-2 rounded-full ${
-                                                                        task.status === 'Cancelled' ? 'bg-rose-500' : 
-                                                                        task.status === 'Completed' ? 'bg-emerald-500' : 
-                                                                        task.status === 'In Progress' ? 'bg-blue-500' : 
-                                                                        'bg-slate-400'
-                                                                    }`}></div>
+                                                                    <div className={`w-2 h-2 rounded-full ${task.status === 'Cancelled' ? 'bg-rose-500' :
+                                                                        task.status === 'Completed' ? 'bg-emerald-500' :
+                                                                            task.status === 'In Progress' ? 'bg-blue-500' :
+                                                                                'bg-slate-400'
+                                                                        }`}></div>
                                                                 </div>
                                                                 <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none text-slate-400">
                                                                     <ChevronDown className="w-4 h-4" />
@@ -673,6 +891,30 @@ const TaskManagementPage = () => {
                                                         </td>
                                                         <td className="p-4 text-center block md:table-cell">
                                                             <div className="flex items-center justify-center gap-1">
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setSelectedProgressTask(task);
+                                                                        setProgressPercentage(task.completion_percentage || 0);
+                                                                        setProgressRemark("");
+                                                                        setIsProgressModalOpen(true);
+                                                                    }}
+                                                                    className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
+                                                                    title="Update Progress"
+                                                                >
+                                                                    <TrendingUp className="w-4 h-4" />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setSelectedPassTask(task);
+                                                                        setPassNewUserId("");
+                                                                        setPassRemark("");
+                                                                        setIsPassModalOpen(true);
+                                                                    }}
+                                                                    className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all"
+                                                                    title="Pass/Delegate Task"
+                                                                >
+                                                                    <Forward className="w-4 h-4" />
+                                                                </button>
                                                                 <button onClick={() => openTaskModal(task)} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all" title="View Details">
                                                                     <Eye className="w-4 h-4" />
                                                                 </button>
@@ -721,7 +963,7 @@ const TaskManagementPage = () => {
                                 <div className="flex flex-wrap items-end gap-4">
                                     <div className="flex flex-col">
                                         <span className="text-[10px] font-black text-slate-800 mb-1">Status</span>
-                                        <select 
+                                        <select
                                             value={statusFilter}
                                             onChange={(e) => setStatusFilter(e.target.value)}
                                             className="border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer bg-slate-50 hover:bg-white transition-colors"
@@ -736,7 +978,7 @@ const TaskManagementPage = () => {
 
                                     <div className="flex flex-col">
                                         <span className="text-[10px] font-black text-slate-800 mb-1">Ownership</span>
-                                        <select 
+                                        <select
                                             value={ownershipFilter}
                                             onChange={(e) => setOwnershipFilter(e.target.value)}
                                             className="border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer bg-slate-50 hover:bg-white transition-colors"
@@ -754,7 +996,7 @@ const TaskManagementPage = () => {
                                     const isExpanded = expandedProjects.includes(project.id);
                                     return (
                                         <div key={project.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                                            <div 
+                                            <div
                                                 onClick={() => toggleProject(project.id)}
                                                 className={`p-4 flex items-center justify-between cursor-pointer transition-colors ${isExpanded ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}
                                             >
@@ -769,9 +1011,8 @@ const TaskManagementPage = () => {
                                                                 <Calendar className="w-3 h-3" />
                                                                 {project.tasksCount} Tasks
                                                             </div>
-                                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                                                                project.status === 'Planned' ? 'border-slate-200 text-slate-500' : 'border-emerald-200 text-emerald-500 bg-emerald-50'
-                                                            }`}>
+                                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${project.status === 'Planned' ? 'border-slate-200 text-slate-500' : 'border-emerald-200 text-emerald-500 bg-emerald-50'
+                                                                }`}>
                                                                 {project.status}
                                                             </span>
                                                         </div>
@@ -781,7 +1022,7 @@ const TaskManagementPage = () => {
                                                     {isExpanded ? <ChevronUp className="w-5 h-5 text-indigo-500" /> : <ChevronDown className="w-5 h-5" />}
                                                 </div>
                                             </div>
-                                            
+
                                             {isExpanded && (
                                                 <div className="border-t border-slate-200">
                                                     <div className="overflow-x-auto custom-scrollbar">
@@ -799,17 +1040,85 @@ const TaskManagementPage = () => {
                                                             <tbody className="block md:table-row-group">
                                                                 {project.tasks.length > 0 ? (
                                                                     project.tasks.map((task) => (
-                                                                        <tr key={task.id} className="block md:table-row border-b border-slate-200 md:border-none p-4 md:p-0">
-                                                                            <td className="p-2 md:p-4 block md:table-cell before:content-['Task:'] md:before:content-none before:font-bold before:mr-2 before:text-[10px] before:uppercase before:text-slate-500">{task.title}</td>
-                                                                            <td className="p-2 md:p-4 block md:table-cell before:content-['Assigned:'] md:before:content-none before:font-bold before:mr-2 before:text-[10px] before:uppercase before:text-slate-500">{task.assignedTo.name}</td>
-                                                                            <td className="p-2 md:p-4 block md:table-cell before:content-['Deadline:'] md:before:content-none before:font-bold before:mr-2 before:text-[10px] before:uppercase before:text-slate-500">{new Date(task.end_date).toLocaleDateString()}</td>
-                                                                            <td className="p-2 md:p-4 block md:table-cell before:content-['Status:'] md:before:content-none before:font-bold before:mr-2 before:text-[10px] before:uppercase before:text-slate-500">{task.status}</td>
-                                                                            <td className="p-2 md:p-4 block md:table-cell before:content-['Priority:'] md:before:content-none before:font-bold before:mr-2 before:text-[10px] before:uppercase before:text-slate-500">{task.priority}</td>
-                                                                            <td className="p-2 md:p-4 block md:table-cell md:text-center mt-2 md:mt-0 border-t md:border-none border-slate-100 pt-3 md:pt-4">
-                                                                                <button onClick={() => openTaskModal(task)} className="p-2 bg-indigo-50 md:bg-transparent text-indigo-600 md:text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl md:rounded-lg transition-colors flex items-center justify-center gap-2 w-full md:w-auto" title="View Details">
-                                                                                    <Eye className="w-4 h-4 md:mx-auto" />
-                                                                                    <span className="md:hidden text-xs font-bold">View Task</span>
-                                                                                </button>
+                                                                        <tr key={task.id} className="block md:table-row border-b border-slate-100 hover:bg-slate-50/50 transition-colors p-4 md:p-0">
+                                                                            <td className="p-4 block md:table-cell">
+                                                                                <p className="text-sm font-bold text-slate-800">{task.title}</p>
+                                                                                <p className="text-xs text-slate-500 mt-1 truncate max-w-[200px]">{task.description}</p>
+                                                                                {task.audio_data ? (
+                                                                                    <div className="mt-2 flex items-center gap-2 max-w-[160px] bg-slate-100/80 rounded-full p-1 pr-3 border border-slate-200/50">
+                                                                                        <div className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm cursor-pointer" onClick={(e) => {
+                                                                                            const audio = e.currentTarget.parentElement?.querySelector('audio');
+                                                                                            if (audio) { audio.paused ? audio.play() : audio.pause(); }
+                                                                                        }}>
+                                                                                            <Play className="w-3 h-3 ml-0.5" />
+                                                                                        </div>
+                                                                                        <div className="flex-1 h-1 bg-slate-300 rounded-full overflow-hidden flex items-center">
+                                                                                            <div className="h-full bg-emerald-500 w-1/3"></div>
+                                                                                        </div>
+                                                                                        <audio src={task.audio_data} className="hidden" />
+                                                                                        <span className="text-[10px] font-bold text-slate-400">0:00</span>
+                                                                                    </div>
+                                                                                ) : (
+                                                                                    <button
+                                                                                        onClick={() => setRecordingTaskId(task.id)}
+                                                                                        className="mt-2 flex items-center gap-1.5 px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-lg text-[10px] font-bold transition-colors w-max"
+                                                                                    >
+                                                                                        <Mic className="w-3 h-3" /> Add Audio
+                                                                                    </button>
+                                                                                )}
+                                                                            </td>
+                                                                            <td className="p-4 block md:table-cell">
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <div className="w-6 h-6 rounded-full border border-slate-200 bg-white flex items-center justify-center text-slate-400 shadow-sm">
+                                                                                        <User className="w-3 h-3" />
+                                                                                    </div>
+                                                                                    <div>
+                                                                                        <p className="text-xs font-bold text-slate-800">{task.assignedTo.name}</p>
+                                                                                        <p className="text-[10px] text-slate-500">{task.assignedTo.role}</p>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </td>
+                                                                            <td className="p-4 block md:table-cell">
+                                                                                <div className="flex items-center gap-2 text-sm text-slate-800 font-medium">
+                                                                                    <Calendar className="w-4 h-4 text-slate-400" />
+                                                                                    {new Date(task.end_date).toLocaleDateString()}
+                                                                                </div>
+                                                                            </td>
+                                                                            <td className="p-4 block md:table-cell">
+                                                                                <div className="relative inline-block w-full min-w-[130px]">
+                                                                                    <select
+                                                                                        value={task.status}
+                                                                                        onChange={(e) => handleStatusChange(task.id, e.target.value)}
+                                                                                        className="w-full appearance-none bg-white border border-slate-200 rounded-xl px-3 py-1.5 pl-8 text-xs font-bold text-slate-700 outline-none cursor-pointer focus:ring-2 focus:ring-indigo-500/20"
+                                                                                    >
+                                                                                        <option value="Planned">Planned</option>
+                                                                                        <option value="In Progress">In Progress</option>
+                                                                                        <option value="Completed">Completed</option>
+                                                                                        <option value="Cancelled">Cancelled</option>
+                                                                                    </select>
+                                                                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                                                        <div className={`w-2 h-2 rounded-full ${task.status === 'Cancelled' ? 'bg-rose-500' :
+                                                                                            task.status === 'Completed' ? 'bg-emerald-500' :
+                                                                                                task.status === 'In Progress' ? 'bg-blue-500' :
+                                                                                                    'bg-slate-400'
+                                                                                            }`}></div>
+                                                                                    </div>
+                                                                                    <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none text-slate-400">
+                                                                                        <ChevronDown className="w-4 h-4" />
+                                                                                    </div>
+                                                                                </div>
+                                                                            </td>
+                                                                            <td className="p-4 block md:table-cell">
+                                                                                <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${priorityBadges[task.priority]}`}>
+                                                                                    {task.priority}
+                                                                                </span>
+                                                                            </td>
+                                                                            <td className="p-4 text-center block md:table-cell">
+                                                                                <div className="flex items-center justify-center gap-1">
+                                                                                    <button onClick={() => openTaskModal(task)} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all" title="View Details">
+                                                                                        <Eye className="w-4 h-4" />
+                                                                                    </button>
+                                                                                </div>
                                                                             </td>
                                                                         </tr>
                                                                     ))
@@ -844,7 +1153,7 @@ const TaskManagementPage = () => {
                                 <h2 className="text-2xl font-bold text-slate-800 tracking-tight">{selectedTask.title}</h2>
                                 <p className="text-slate-600 text-sm mt-1">Detailed view of task assignments and progress</p>
                             </div>
-                            <button 
+                            <button
                                 onClick={() => setSelectedTask(null)}
                                 className="p-2 text-slate-500 hover:text-slate-800 hover:bg-black/5 rounded-full transition-colors"
                             >
@@ -854,19 +1163,19 @@ const TaskManagementPage = () => {
 
                         {/* Modal Tabs */}
                         <div className="flex bg-white border-b border-slate-200 px-6 pt-4 gap-4 overflow-x-auto custom-scrollbar">
-                            <button 
+                            <button
                                 onClick={() => setModalTab("Details")}
                                 className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors ${modalTab === 'Details' ? 'border-slate-800 text-slate-800 bg-slate-100 rounded-t-lg' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
                             >
                                 Details
                             </button>
-                            <button 
+                            <button
                                 onClick={() => setModalTab("Activity")}
                                 className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors ${modalTab === 'Activity' ? 'border-slate-800 text-slate-800 bg-slate-100 rounded-t-lg' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
                             >
                                 Activity
                             </button>
-                            <button 
+                            <button
                                 onClick={() => setModalTab("Comments")}
                                 className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors ${modalTab === 'Comments' ? 'border-slate-800 text-slate-800 bg-slate-100 rounded-t-lg' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
                             >
@@ -886,7 +1195,7 @@ const TaskManagementPage = () => {
                                             <span className="text-sm font-bold text-slate-800">Description</span>
                                         </div>
                                         <p className="text-sm text-slate-600 pl-8">{selectedTask.description || "No description provided."}</p>
-                                        
+
                                         {selectedTask.audio_data && (
                                             <div className="mt-4 ml-8 flex items-center gap-3 max-w-sm bg-slate-50 rounded-full p-2 pr-4 border border-slate-200 shadow-sm">
                                                 <div className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm cursor-pointer hover:bg-emerald-600 transition-colors" onClick={(e) => {
@@ -985,44 +1294,147 @@ const TaskManagementPage = () => {
                                         <p className="text-xs text-slate-500 mt-1">Chat with team members about this task</p>
                                     </div>
 
-                                    <div className="flex-1 bg-[#F4F1E9] rounded-xl border border-slate-200 flex flex-col justify-center items-center p-8 mb-4">
-                                        <div className="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center mb-4 text-purple-500">
-                                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
-                                        </div>
-                                        <h3 className="text-lg font-bold text-slate-800 mb-1">No comments yet</h3>
-                                        <p className="text-sm text-slate-500">Start the conversation!</p>
+                                    <div className="flex-1 bg-[#F4F1E9] rounded-xl border border-slate-200 flex flex-col p-4 mb-4 overflow-y-auto custom-scrollbar">
+                                        {isFetchingDetails ? (
+                                            <div className="flex-1 flex items-center justify-center">
+                                                <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                                            </div>
+                                        ) : taskComments.length === 0 ? (
+                                            <div className="flex-1 flex flex-col justify-center items-center">
+                                                <div className="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center mb-4 text-purple-500">
+                                                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
+                                                </div>
+                                                <h3 className="text-lg font-bold text-slate-800 mb-1">No comments yet</h3>
+                                                <p className="text-sm text-slate-500">Start the conversation!</p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-4">
+                                                {taskComments.map((c: any, i) => {
+                                                    const messageContent = c.content || c.comment || c.text || "";
+
+                                                    // Basic parsing to extract the attachment if we added it via text
+                                                    const attachmentMatch = messageContent.match(/\[Attached:\s*(.*?)\]/);
+                                                    const attachmentName = attachmentMatch ? attachmentMatch[1] : null;
+                                                    const cleanText = messageContent.replace(/\[Attached:\s*(.*?)\]/g, '').trim();
+
+                                                    return (
+                                                        <div key={i} className="bg-white p-3 rounded-lg shadow-sm border border-slate-100 w-max max-w-[80%]">
+                                                            <p className="text-xs font-bold text-slate-700 mb-1">{c.author_name || "User"}</p>
+
+                                                            {cleanText && (
+                                                                <p className="text-sm text-slate-600 whitespace-pre-wrap">{cleanText}</p>
+                                                            )}
+
+                                                            {attachmentName && (
+                                                                <div className="mt-2 flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
+                                                                    <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-500 flex items-center justify-center shrink-0">
+                                                                        <Paperclip className="w-4 h-4" />
+                                                                    </div>
+                                                                    <div className="overflow-hidden">
+                                                                        <p className="text-xs font-bold text-slate-700 truncate">{attachmentName}</p>
+                                                                        <p className="text-[10px] text-slate-400">Attached File</p>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            <p className="text-[10px] text-slate-400 mt-2">
+                                                                {c.created_at ? new Date(c.created_at).toLocaleString() : "Just now"}
+                                                            </p>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
                                     </div>
 
-                                    <div className="flex items-center gap-3">
-                                        <button className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
-                                            <Paperclip className="w-5 h-5" />
-                                        </button>
-                                        <input 
-                                            type="text" 
-                                            placeholder="Type a message" 
-                                            className="flex-1 bg-white border border-slate-300 rounded-full px-5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
-                                        />
-                                        <button className="w-10 h-10 rounded-full bg-purple-400 hover:bg-purple-500 text-white flex items-center justify-center transition-colors shadow-sm">
-                                            <Send className="w-4 h-4" />
-                                        </button>
-                                    </div>
+                                    <form onSubmit={handleAddComment} className="flex flex-col gap-2 relative">
+                                        {commentAttachment && (
+                                            <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-100 px-3 py-1.5 rounded-lg w-max mb-1">
+                                                <Paperclip className="w-3.5 h-3.5 text-indigo-500" />
+                                                <span className="text-xs font-bold text-indigo-700">{commentAttachment.name}</span>
+                                                <button type="button" onClick={() => setCommentAttachment(null)} className="ml-2 text-indigo-400 hover:text-indigo-600">
+                                                    <X className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                        )}
+                                        <div className="flex items-center gap-3 w-full">
+                                            <button
+                                                type="button"
+                                                onClick={() => fileInputRef.current?.click()}
+                                                className="p-2 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-full transition-colors"
+                                                title="Attach a file"
+                                            >
+                                                <Paperclip className="w-5 h-5" />
+                                            </button>
+                                            <input
+                                                type="file"
+                                                className="hidden"
+                                                ref={fileInputRef}
+                                                onChange={(e) => {
+                                                    if (e.target.files && e.target.files.length > 0) {
+                                                        setCommentAttachment(e.target.files[0]);
+                                                    }
+                                                    e.target.value = ''; // Reset input
+                                                }}
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="Type a message..."
+                                                value={newComment}
+                                                onChange={(e) => setNewComment(e.target.value)}
+                                                className="flex-1 bg-white border border-slate-300 rounded-full px-5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all"
+                                            />
+                                            <button
+                                                type="submit"
+                                                disabled={!newComment.trim() && !commentAttachment}
+                                                className="w-10 h-10 rounded-full bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white flex items-center justify-center transition-all shadow-sm active:scale-95"
+                                            >
+                                                <Send className="w-4 h-4 ml-0.5" />
+                                            </button>
+                                        </div>
+                                    </form>
                                 </div>
                             )}
 
                             {modalTab === "Activity" && (
-                                <div className="flex flex-col h-full min-h-[300px] items-center justify-center">
-                                    <div className="text-slate-400 mb-2">
-                                        <Clock className="w-10 h-10" />
-                                    </div>
-                                    <h3 className="text-lg font-bold text-slate-800 mb-1">No activity yet</h3>
-                                    <p className="text-sm text-slate-500">History and audit logs will appear here.</p>
+                                <div className="flex flex-col h-full min-h-[300px]">
+                                    {isFetchingDetails ? (
+                                        <div className="flex-1 flex items-center justify-center">
+                                            <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                                        </div>
+                                    ) : taskActivity.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center flex-1">
+                                            <div className="text-slate-400 mb-2">
+                                                <Clock className="w-10 h-10" />
+                                            </div>
+                                            <h3 className="text-lg font-bold text-slate-800 mb-1">No activity yet</h3>
+                                            <p className="text-sm text-slate-500">History and audit logs will appear here.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            {taskActivity.map((activity: any, i) => (
+                                                <div key={i} className="flex gap-4 items-start relative before:absolute before:left-[19px] before:top-10 before:bottom-[-20px] before:w-0.5 before:bg-slate-200 last:before:hidden">
+                                                    <div className="w-10 h-10 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0 text-indigo-500 z-10">
+                                                        <Clock className="w-5 h-5" />
+                                                    </div>
+                                                    <div className="bg-white border border-slate-200 rounded-xl p-4 flex-1 shadow-sm">
+                                                        <div className="flex justify-between items-start mb-2">
+                                                            <h4 className="text-sm font-bold text-slate-800">{activity.action || "Progress Updated"}</h4>
+                                                            <span className="text-[10px] font-bold text-slate-400">{new Date(activity.created_at).toLocaleString()}</span>
+                                                        </div>
+                                                        <p className="text-sm text-slate-600">{activity.description || `Progress moved to ${activity.progress_percentage || 0}%`}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
                     </div>
                 </div>
             )}
-            
+
             {/* Edit Task Modal */}
             <Modal
                 isOpen={isEditModalOpen}
@@ -1053,13 +1465,13 @@ const TaskManagementPage = () => {
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
                             Basic Information
                         </h3>
-                        
+
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
                                     Task Title <span className="text-rose-500">*</span>
                                 </label>
-                                <input 
+                                <input
                                     type="text"
                                     name="title"
                                     defaultValue={selectedEditTask?.title}
@@ -1072,7 +1484,7 @@ const TaskManagementPage = () => {
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
                                     Description <span className="text-rose-500">*</span>
                                 </label>
-                                <textarea 
+                                <textarea
                                     name="description"
                                     rows={4}
                                     defaultValue={selectedEditTask?.description}
@@ -1086,7 +1498,7 @@ const TaskManagementPage = () => {
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
                                         Assign To <span className="text-rose-500">*</span>
                                     </label>
-                                    <select 
+                                    <select
                                         name="assigned_user_id"
                                         className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
                                         required
@@ -1102,7 +1514,7 @@ const TaskManagementPage = () => {
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
                                         Priority <span className="text-rose-500">*</span>
                                     </label>
-                                    <select 
+                                    <select
                                         name="priority"
                                         defaultValue={selectedEditTask?.priority}
                                         className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
@@ -1116,9 +1528,29 @@ const TaskManagementPage = () => {
 
                                 <div>
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                                        Project <span className="text-rose-500">*</span>
+                                    </label>
+                                    <select
+                                        name="project_id"
+                                        defaultValue={selectedEditTask?.project_id || projectId || 1}
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
+                                        required
+                                    >
+                                        {(() => {
+                                            const userStr = localStorage.getItem("infrapilot_user");
+                                            const projects = userStr ? (JSON.parse(userStr).assigned_projects || []) : [];
+                                            return projects.map((p: any) => (
+                                                <option key={p.id} value={p.id}>{p.name}</option>
+                                            ));
+                                        })()}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
                                         Status <span className="text-rose-500">*</span>
                                     </label>
-                                    <select 
+                                    <select
                                         name="status"
                                         defaultValue={selectedEditTask?.status}
                                         className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
@@ -1135,7 +1567,7 @@ const TaskManagementPage = () => {
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
                                         Start Date <span className="text-rose-500">*</span>
                                     </label>
-                                    <input 
+                                    <input
                                         type="date"
                                         name="start_date"
                                         defaultValue={selectedEditTask?.start_date ? new Date(selectedEditTask.start_date).toISOString().split('T')[0] : ''}
@@ -1148,7 +1580,7 @@ const TaskManagementPage = () => {
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
                                         Deadline <span className="text-rose-500">*</span>
                                     </label>
-                                    <input 
+                                    <input
                                         type="date"
                                         name="end_date"
                                         defaultValue={selectedEditTask?.end_date ? new Date(selectedEditTask.end_date).toISOString().split('T')[0] : ''}
@@ -1163,8 +1595,8 @@ const TaskManagementPage = () => {
             </Modal>
 
             {/* Create Task Drawer */}
-            <CreateTaskDrawer 
-                isOpen={isCreateDrawerOpen} 
+            <CreateTaskDrawer
+                isOpen={isCreateDrawerOpen}
                 onClose={() => setIsCreateDrawerOpen(false)}
                 projectId={projectId}
                 onSuccess={() => {
@@ -1183,6 +1615,129 @@ const TaskManagementPage = () => {
                 type="danger"
                 isLoading={isSubmitting}
             />
+
+            <AudioRecordModal
+                isOpen={recordingTaskId !== null}
+                onClose={() => setRecordingTaskId(null)}
+                onSave={handleSaveAudio}
+            />
+
+            {/* Update Progress Modal */}
+            <Modal
+                isOpen={isProgressModalOpen}
+                onClose={() => setIsProgressModalOpen(false)}
+                title="Update Progress"
+                maxWidth="max-w-md"
+                footer={
+                    <>
+                        <button
+                            type="button"
+                            onClick={() => setIsProgressModalOpen(false)}
+                            className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleUpdateProgress}
+                            disabled={!progressRemark.trim()}
+                            className="px-6 py-2.5 bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all disabled:opacity-50"
+                        >
+                            Save Progress
+                        </button>
+                    </>
+                }
+            >
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-bold text-slate-800 mb-2">
+                            Completion Percentage: {progressPercentage}%
+                        </label>
+                        <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={progressPercentage}
+                            onChange={(e) => setProgressPercentage(Number(e.target.value))}
+                            className="w-full accent-emerald-500"
+                        />
+                        <div className="flex justify-between text-xs text-slate-500 mt-1 font-medium">
+                            <span>0%</span>
+                            <span>50%</span>
+                            <span>100%</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-bold text-slate-800 mb-2">Remarks <span className="text-rose-500">*</span></label>
+                        <textarea
+                            value={progressRemark}
+                            onChange={(e) => setProgressRemark(e.target.value)}
+                            placeholder="e.g. 10 percent remaining"
+                            rows={3}
+                            className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-emerald-500/20 focus:border-emerald-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 resize-none"
+                            required
+                        />
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Pass Task Modal */}
+            <Modal
+                isOpen={isPassModalOpen}
+                onClose={() => setIsPassModalOpen(false)}
+                title="Pass Task"
+                maxWidth="max-w-md"
+                footer={
+                    <>
+                        <button
+                            type="button"
+                            onClick={() => setIsPassModalOpen(false)}
+                            className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handlePassTask}
+                            disabled={!passNewUserId || !passRemark.trim()}
+                            className="px-6 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all disabled:opacity-50"
+                        >
+                            Pass Task
+                        </button>
+                    </>
+                }
+            >
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-bold text-slate-800 mb-2">Select New User <span className="text-rose-500">*</span></label>
+                        <div className="relative">
+                            <select
+                                value={passNewUserId}
+                                onChange={(e) => setPassNewUserId(Number(e.target.value))}
+                                className="w-full appearance-none bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 outline-none cursor-pointer focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                                required
+                            >
+                                <option value="">-- Select Team Member --</option>
+                                {projectMembers.map(m => (
+                                    <option key={m.user_id} value={m.user_id}>{m.full_name} ({m.role})</option>
+                                ))}
+                            </select>
+                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
+                                <ChevronDown className="w-4 h-4" />
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-bold text-slate-800 mb-2">Reason / Remarks <span className="text-rose-500">*</span></label>
+                        <textarea
+                            value={passRemark}
+                            onChange={(e) => setPassRemark(e.target.value)}
+                            placeholder="e.g. passed to user 2 due to shift end"
+                            rows={3}
+                            className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-amber-500/20 focus:border-amber-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 resize-none"
+                            required
+                        />
+                    </div>
+                </div>
+            </Modal>
         </>
     );
 };

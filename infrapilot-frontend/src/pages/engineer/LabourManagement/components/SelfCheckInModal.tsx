@@ -138,18 +138,16 @@ const SelfCheckInModal: React.FC<SelfCheckInModalProps> = ({ isOpen, onClose, on
         const formData = new FormData();
         formData.append("labour_id", labourId.toString());
         formData.append("project_id", selectedProjectId);
-        formData.append("task_id", "");
-        formData.append("latitude", coordinates.lat.toString());
-        formData.append("longitude", coordinates.lng.toString());
-        formData.append("location_address", locationAddress);
-        formData.append("task_description", "");
+        if (coordinates.lat) formData.append("latitude", coordinates.lat.toString());
+        if (coordinates.lng) formData.append("longitude", coordinates.lng.toString());
+        if (locationAddress) formData.append("location_address", locationAddress);
 
         try {
             const response = await fetch(capturedImage);
             const blob = await response.blob();
             formData.append("check_in_image", blob, "checkin.jpg");
 
-            await api.post(`/api/v1/labour/${labourId}/attendance/check-in`, formData, {
+            await api.post(`/labour/${labourId}/attendance/check-in`, formData, {
                 headers: { "Content-Type": "multipart/form-data" }
             });
 

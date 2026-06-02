@@ -38,8 +38,8 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
     const [assignedProjects, setAssignedProjects] = useState<any[]>([]);
 
     useEffect(() => {
-        const userStr = localStorage.getItem('infrapilot_user');
         let localProjects: any[] = [];
+        const userStr = localStorage.getItem('infrapilot_user');
         if (userStr) {
             try {
                 const user = JSON.parse(userStr);
@@ -48,6 +48,19 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
         }
 
         if (isOpen) {
+            // Reset form state
+            setTitle('');
+            setDescription('');
+            setPriority('Medium');
+            setStartDate('');
+            setDeadline('');
+            setProject('None');
+            setFilterRole('All Roles');
+            setFilterDepartment('All Departments');
+            setSearchEmployee('');
+            setSelectedEmployees([]);
+            deleteRecording();
+
             projectService.getProjects(100, 0)
                 .then(data => {
                     const apiProjects = Array.isArray(data) ? data : (data.items || []);
@@ -173,7 +186,12 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!projectId) return;
+        
+        const targetProjectId = project !== 'None' ? Number(project) : projectId;
+        if (!targetProjectId) {
+            toast.error("Please select a project");
+            return;
+        }
 
         try {
             const priorityMap: Record<string, number> = { 'Low': 3, 'Medium': 2, 'High': 1 };
@@ -183,7 +201,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                 audio_data = await blobToBase64(audioBlob);
             }
             
-            await projectService.createTask(projectId, {
+            await projectService.createTask(targetProjectId, {
                 title,
                 description,
                 priority: priorityMap[priority],
@@ -357,7 +375,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                             >
                                 <option value="None">None</option>
                                 {assignedProjects.map((p: any) => (
-                                    <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
+                                    <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.project_name || p.name}</option>
                                 ))}
                             </select>
                         </div>

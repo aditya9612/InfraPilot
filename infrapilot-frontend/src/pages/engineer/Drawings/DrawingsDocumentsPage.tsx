@@ -23,7 +23,8 @@ import {
     Download,
     History,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    Trash2
 } from "lucide-react";
 import { drawingService } from "../../../services/drawingService";
 import { projectService } from "../../../services/projectService";
@@ -74,6 +75,9 @@ const DrawingsDocumentsPage = () => {
 
     const [latestDrawing, setLatestDrawing] = useState<any>(null);
 
+    const [approvalHistory, setApprovalHistory] = useState<any[]>([]);
+    const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+
     const [projectId, setProjectId] = useState<number>(92);
 
     // Interactive StatCard Filter
@@ -87,12 +91,15 @@ const DrawingsDocumentsPage = () => {
         if (userStr) {
             try {
                 const user = JSON.parse(userStr);
-                const pId = user?.project_id || user?.user?.project_id || user?.id;
+                const pId = user?.default_project_id || user?.project_id || user?.user?.project_id;
                 if (pId) {
                     setProjectId(Number(pId));
+                } else {
+                    setProjectId(92);
                 }
             } catch (e) {
                 console.error("Failed to resolve project ID", e);
+                setProjectId(92);
             }
         }
 
@@ -286,6 +293,44 @@ const DrawingsDocumentsPage = () => {
         setIsFormModalOpen(true);
     };
 
+    const handleDownloadDocument = async (drawing: DrawingRecord) => {
+        const toastId = toast.loading(`Downloading ${drawing.drawing_name}...`);
+        try {
+            const originalUrl = drawing.file_url || drawing.upload_file;
+            await drawingService.downloadDocument(drawing.id, drawing.drawing_name, originalUrl);
+            toast.success("Download successful", { id: toastId });
+        } catch (error) {
+            toast.error("Failed to download document", { id: toastId });
+        }
+    };
+
+    const handleViewHistory = async (drawing: DrawingRecord) => {
+        const toastId = toast.loading("Fetching approval history...");
+        try {
+            const history = await drawingService.getApprovalHistory(drawing.id);
+            setApprovalHistory(history);
+            setSelectedDrawing(drawing);
+            setIsHistoryModalOpen(true);
+            toast.dismiss(toastId);
+        } catch (error) {
+            toast.error("Failed to fetch history", { id: toastId });
+        }
+    };
+
+    const handleDeleteDocument = async (drawing: DrawingRecord) => {
+        if (!window.confirm("Are you sure you want to delete this drawing? This action cannot be undone.")) {
+            return;
+        }
+        const toastId = toast.loading(`Deleting ${drawing.drawing_name}...`);
+        try {
+            await drawingService.deleteDrawing(drawing.id);
+            setDrawingData(prev => prev.filter(d => d.id !== drawing.id));
+            toast.success("Drawing deleted successfully", { id: toastId });
+        } catch (error) {
+            toast.error("Failed to delete drawing", { id: toastId });
+        }
+    };
+
     const filteredDrawings = useMemo(() => {
         let data = drawingData;
 
@@ -312,7 +357,11 @@ const DrawingsDocumentsPage = () => {
     const stats = {
         total: drawingData.length,
         verified: drawingData.length,
-        latestVersion: latestDrawing?.version || drawingData[0]?.version || "V1.0"
+        latestVersion: (() => {
+            if (latestDrawing?.version && latestDrawing.version.toLowerCase() !== "string") return latestDrawing.version;
+            const valid = drawingData.find(d => d.version && d.version.toLowerCase() !== "string");
+            return valid?.version || "V1.0";
+        })()
     };
 
     const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
@@ -454,17 +503,14 @@ const DrawingsDocumentsPage = () => {
                                                     <button onClick={() => handleEditClick(drawing)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter" title="Edit Asset">
                                                         <Edit2 className="w-4 h-4" />
                                                     </button>
-                                                    <button onClick={() => toast.success("Download initiated")} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all font-inter" title="Download File">
+                                                    <button onClick={() => handleDownloadDocument(drawing)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all font-inter" title="Download File">
                                                         <Download className="w-4 h-4" />
                                                     </button>
+                                                    <button onClick={() => handleDeleteDocument(drawing)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter" title="Delete Asset">
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
                                                     <div className="flex items-center gap-1 border-l border-slate-100 pl-2 ml-1">
-                                                        <button onClick={() => toast.success("Approved successfully")} className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all" title="Approve document">
-                                                            <CheckCircle className="w-4 h-4" />
-                                                        </button>
-                                                        <button onClick={() => toast.success("Rejected successfully")} className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-all" title="Reject document">
-                                                            <XCircle className="w-4 h-4" />
-                                                        </button>
-                                                        <button onClick={() => toast.success("History fetched")} className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all font-inter" title="View approval history">
+                                                        <button onClick={() => handleViewHistory(drawing)} className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all font-inter" title="View approval history">
                                                             <History className="w-4 h-4" />
                                                         </button>
                                                     </div>
@@ -489,8 +535,8 @@ const DrawingsDocumentsPage = () => {
                             {/* Left: Items per page */}
                             <div className="flex items-center gap-2">
                                 <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
-                                <select 
-                                    value={itemsPerPage} 
+                                <select
+                                    value={itemsPerPage}
                                     onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
                                     className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
                                 >
@@ -515,7 +561,7 @@ const DrawingsDocumentsPage = () => {
                                 >
                                     <ChevronLeft className="w-4 h-4" />
                                 </button>
-                                
+
                                 {(() => {
                                     const totalItems = filteredDrawings.length;
                                     const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
@@ -542,11 +588,10 @@ const DrawingsDocumentsPage = () => {
                                             <button
                                                 key={`page-${pageNum}`}
                                                 onClick={() => setCurrentPage(pageNum)}
-                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
-                                                    isActive 
-                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' 
+                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
+                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
                                                         : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
-                                                }`}
+                                                    }`}
                                             >
                                                 {pageNum}
                                             </button>
@@ -568,7 +613,7 @@ const DrawingsDocumentsPage = () => {
             </PageTransition>
 
             {/* â”€â”€ Detail Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-            <Modal isOpen={!!selectedDrawing} onClose={() => setSelectedDrawing(null)} title="Engineering Asset Intelligence" maxWidth="max-w-xl">
+            <Modal isOpen={!!selectedDrawing && !isHistoryModalOpen} onClose={() => setSelectedDrawing(null)} title="Engineering Asset Intelligence" maxWidth="max-w-xl">
                 {selectedDrawing && (
                     <div className="p-6 font-inter text-inter">
                         <div className="bg-primary rounded-2xl p-8 mb-8 text-white shadow-2xl relative overflow-hidden font-inter">
@@ -820,6 +865,50 @@ const DrawingsDocumentsPage = () => {
                 </form>
             </Modal>
 
+            {/* ── History Modal ────────────────────────────────────────────────────────── */}
+            <Modal isOpen={isHistoryModalOpen} onClose={() => { setIsHistoryModalOpen(false); setSelectedDrawing(null); }} title="Approval History" maxWidth="max-w-2xl">
+                <div className="bg-slate-50 rounded-xl border border-slate-100 overflow-hidden font-inter">
+                    <div className="p-4 bg-white border-b border-slate-100 flex items-center justify-between font-inter">
+                        <div>
+                            <h4 className="text-sm font-bold text-slate-800 font-inter">{selectedDrawing?.drawing_name}</h4>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-inter">Version: {selectedDrawing?.version}</p>
+                        </div>
+                    </div>
+                    <div className="p-4 max-h-[60vh] overflow-y-auto font-inter">
+                        {approvalHistory.length > 0 ? (
+                            <div className="space-y-4 font-inter relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
+                                {approvalHistory.map((historyItem: any, index: number) => (
+                                    <div key={index} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active font-inter">
+                                        <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-100 group-[.is-active]:bg-primary text-slate-500 group-[.is-active]:text-emerald-50 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 font-inter z-10">
+                                            <CheckCircle className="w-4 h-4" />
+                                        </div>
+                                        <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-slate-100 bg-white shadow-sm font-inter">
+                                            <div className="flex items-center justify-between mb-1 font-inter">
+                                                <div className="font-bold text-slate-800 text-sm font-inter">{historyItem.status || "Status Updated"}</div>
+                                                <div className="text-[10px] font-bold text-slate-400 font-inter">
+                                                    {new Date(historyItem.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                </div>
+                                            </div>
+                                            <div className="text-xs text-slate-600 font-inter">
+                                                {historyItem.remarks || "No remarks provided."}
+                                            </div>
+                                            {(historyItem.requested_by || historyItem.approved_by) && (
+                                                <div className="mt-2 text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">
+                                                    By: User ID {historyItem.approved_by || historyItem.requested_by}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-8 font-inter">
+                                <p className="text-sm font-bold text-slate-500 font-inter">No approval history found for this document.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </Modal>
         </>
     );
 };

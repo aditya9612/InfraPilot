@@ -33,6 +33,8 @@ const MaterialHistoryPage = () => {
   const [endDate, setEndDate] = useState("");
   const [projectId, setProjectId] = useState<number | null>(null);
   const [materialsMap, setMaterialsMap] = useState<Record<number, string>>({});
+  const [projectsMap, setProjectsMap] = useState<Record<number, string>>({});
+  const [fallbackProjectName, setFallbackProjectName] = useState<string>("");
 
   // Pagination States
   const [currentPage, setCurrentPage] = useState(1);
@@ -42,9 +44,11 @@ const MaterialHistoryPage = () => {
     if (!projectId) return;
     setIsLoading(true);
     try {
-      const [data, materials] = await Promise.all([
+      const [data, materials, projectData, allProjects] = await Promise.all([
         materialService.getLogs({ project_id: projectId }),
-        materialService.listMaterials(projectId)
+        materialService.listMaterials(projectId),
+        import('../../../services/projectService').then(m => m.projectService.getProjectById(projectId).catch(() => null)),
+        import('../../../services/projectService').then(m => m.projectService.getProjects(100).catch(() => []))
       ]);
       setLogs(data || []);
       const map: Record<number, string> = {};
@@ -52,6 +56,26 @@ const MaterialHistoryPage = () => {
         map[m.id] = m.material_name;
       });
       setMaterialsMap(map);
+
+      setProjectsMap(prev => {
+        const newMap = { ...prev };
+        
+        // Populate from allProjects
+        const projectsList = Array.isArray(allProjects) ? allProjects : (allProjects?.items || allProjects?.data || []);
+        projectsList.forEach((p: any) => {
+          const id = p.id || p.project_id;
+          const name = p.name || p.project_name;
+          if (id && name) newMap[id] = name;
+        });
+
+        // Specific project overrides
+        if (projectData) {
+          const id = projectData.id || projectData.project_id;
+          const name = projectData.name || projectData.project_name;
+          if (id && name) newMap[id] = name;
+        }
+        return newMap;
+      });
     } catch (error) {
       console.error("Failed to load logs", error);
       toast.error("Failed to sync audit history");
@@ -66,11 +90,31 @@ const MaterialHistoryPage = () => {
       try {
         const user = JSON.parse(userStr);
         const pId = user?.project_id || user?.user?.project_id;
+        const pName = user?.project_name || user?.user?.project_name || user?.projectName || "Current Project";
         if (pId) {
           setProjectId(Number(pId));
         } else {
           setProjectId(92);
         }
+        setFallbackProjectName(pName);
+
+        // Optional: Pre-populate map from localStorage until API finishes
+        const assignedProjects = user?.assigned_projects || user?.user?.assigned_projects || [];
+        const map: Record<number, string> = {};
+        assignedProjects.forEach((p: any) => {
+          const id = p.id || p.project_id;
+          const name = p.name || p.project_name;
+          if (id) {
+            map[id] = name;
+          }
+        });
+        
+        // Ensure the current project is in the map if we have its name
+        if (pId && pName && !map[Number(pId)]) {
+           map[Number(pId)] = pName;
+        }
+        
+        setProjectsMap(map);
       } catch (e) {
         console.error("Failed to resolve project ID", e);
         setProjectId(92);
@@ -266,6 +310,7 @@ const MaterialHistoryPage = () => {
                   <th className="px-6 py-4 font-inter text-right">total_amount</th>
                   <th className="px-6 py-4 font-inter text-right">amount_paid</th>
                   <th className="px-6 py-4 font-inter text-right">payment_pending</th>
+                  <th className="px-6 py-4 font-inter">project</th>
                   <th className="px-6 py-4 font-inter">issue_type</th>
                   <th className="px-6 py-4 font-inter">created_at</th>
                 </tr>
@@ -273,7 +318,7 @@ const MaterialHistoryPage = () => {
               <tbody className="divide-y divide-slate-50 font-inter">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={10} className="px-6 py-20 text-center font-inter">
+                    <td colSpan={11} className="px-6 py-20 text-center font-inter">
                       <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin font-inter mb-4" />
                       <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing ledger...</p>
                     </td>
@@ -305,13 +350,23 @@ const MaterialHistoryPage = () => {
                       <td className="px-6 py-4 text-right font-inter">
                         <span className="text-sm font-bold text-rose-500 font-inter tabular-nums">{formatINR(log.payment_pending)}</span>
                       </td>
+                      <td className="px-6 py-4 text-xs font-bold text-slate-500 font-inter whitespace-nowrap">
+                        <span className="px-2 py-1 bg-slate-100 rounded-md">
+                          {projectsMap[log.project_id] || 
+                           (log as any).project_name || 
+                           (log.project_id === 1 ? "Aditya Infra" : 
+                            log.project_id === 92 ? "Aditya Infra" : 
+                            fallbackProjectName !== "Current Project" ? fallbackProjectName : 
+                            `Project #${log.project_id}`)}
+                        </span>
+                      </td>
                       <td className="px-6 py-4 text-xs font-bold text-slate-500 font-inter">{log.issue_type}</td>
                       <td className="px-6 py-4 text-xs font-bold text-slate-500 font-inter">{formatDate(log.created_at)}</td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={10} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">No transactions found for the selected criteria.</td>
+                    <td colSpan={11} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">No transactions found for the selected criteria.</td>
                   </tr>
                 )}
               </tbody>

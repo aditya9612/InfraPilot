@@ -288,10 +288,7 @@ const AttendancePage: React.FC = () => {
                             </div>
                         </div>
                     </div>
-                    <button className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">
-                        <Download className="w-4 h-4" />
-                        Export Report
-                    </button>
+
                 </div>
 
                 {/* Tabs Navigation */}

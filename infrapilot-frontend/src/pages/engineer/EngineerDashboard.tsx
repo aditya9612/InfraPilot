@@ -186,7 +186,7 @@ const EngineerDashboard = () => {
                 }));
 
                 // 3. Process Labour Data
-                const skilledLabours = labours.filter((l: any) => l.category === "Skilled" || l.type === "Skilled").length;
+                const skilledLabours = labours.filter((l: any) => l.category === "Skilled" || l.type === "Skilled" || l.skill_type === "Skilled").length;
                 const unskilledLabours = labours.length - skilledLabours;
 
                 // 4. Process Material Data
@@ -247,6 +247,7 @@ const EngineerDashboard = () => {
                         total_labour_today: labours.length,
                         skilled_labour: skilledLabours,
                         unskilled_labour: unskilledLabours,
+                        labour_list: labours,
                         active_activities: activeActivities.length,
                         open_issues: {
                             total: openIssues.length,
@@ -338,7 +339,7 @@ const EngineerDashboard = () => {
                         <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Site Vitals</h2>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
                             <StatCard
-                                title="Total Labor Today"
+                                title="Total Labour"
                                 value={(dashboardData.vitals?.total_labour_today || 0).toString()}
                                 sub={`${dashboardData.vitals?.skilled_labour || 0} Skilled · ${dashboardData.vitals?.unskilled_labour || 0} Unskilled`}
                                 accent="text-primary" />
