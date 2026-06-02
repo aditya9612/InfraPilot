@@ -284,7 +284,7 @@ export const quotationService = {
      */
     async addMaterialItem(quotationId: number, data: any): Promise<any> {
         try {
-            const response = await api.post(`/api/v1/quotations/${quotationId}/materials`, data);
+            const response = await api.post(`/quotations/${quotationId}/materials`, data);
             return response.data;
         } catch (error: any) {
             const detail = error.response?.data?.detail;
@@ -303,7 +303,7 @@ export const quotationService = {
      */
     async updateMaterialItem(itemId: number, data: any): Promise<any> {
         try {
-            const response = await api.put(`/api/v1/quotations/quotation-materials/${itemId}`, data);
+            const response = await api.put(`/quotations/quotation-materials/${itemId}`, data);
             return response.data;
         } catch (error: any) {
             const detail = error.response?.data?.detail;
@@ -322,7 +322,7 @@ export const quotationService = {
      */
     async deleteMaterialItem(itemId: number): Promise<void> {
         try {
-            await api.delete(`/api/v1/quotations/quotation-materials/${itemId}`);
+            await api.delete(`/quotations/quotation-materials/${itemId}`);
         } catch (error: any) {
             console.error(`Delete Quotation Material Item ${itemId} Error:`, error.response?.data || error.message);
             throw error;
@@ -335,7 +335,7 @@ export const quotationService = {
      */
     async addExtraCharge(quotationId: number, data: any): Promise<any> {
         try {
-            const response = await api.post(`/api/v1/quotations/${quotationId}/extra-charges`, data);
+            const response = await api.post(`/quotations/${quotationId}/extra-charges`, data);
             return response.data;
         } catch (error: any) {
             const detail = error.response?.data?.detail;
@@ -354,7 +354,7 @@ export const quotationService = {
      */
     async updateExtraCharge(itemId: number, data: any): Promise<any> {
         try {
-            const response = await api.put(`/api/v1/quotations/quotation-extra-charges/${itemId}`, data);
+            const response = await api.put(`/quotations/quotation-extra-charges/${itemId}`, data);
             return response.data;
         } catch (error: any) {
             const detail = error.response?.data?.detail;
@@ -373,7 +373,7 @@ export const quotationService = {
      */
     async deleteExtraCharge(itemId: number): Promise<void> {
         try {
-            await api.delete(`/api/v1/quotations/quotation-extra-charges/${itemId}`);
+            await api.delete(`/quotations/quotation-extra-charges/${itemId}`);
         } catch (error: any) {
             console.error(`Delete Quotation Extra Charge ${itemId} Error:`, error.response?.data || error.message);
             throw error;

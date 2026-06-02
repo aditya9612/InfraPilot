@@ -38,6 +38,8 @@ const statusStyle = (status: string) => {
 const ClientTaskStatusPage = () => {
   const [data, setData] = useState<WorkSummaryData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const { projectId } = useClientProjectId();
   const navigate = useNavigate();
 
@@ -63,6 +65,32 @@ const ClientTaskStatusPage = () => {
   }, [fetchData, projectId]);
 
   const items: WorkSummaryItem[] = data?.work_summary ?? [];
+  const totalItems = items.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const paginatedItems = items.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Helper to generate page numbers
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisible = 5;
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push("...");
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+      for (let i = start; i <= end; i++) {
+        if (!pages.includes(i)) pages.push(i);
+      }
+      if (currentPage < totalPages - 2) pages.push("...");
+      pages.push(totalPages);
+    }
+    return pages;
+  };
 
   return (
     <>
@@ -72,7 +100,7 @@ const ClientTaskStatusPage = () => {
       />
       <div className="p-6 bg-slate-50 min-h-screen pb-12">
         {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-8 flex items-center justify-between mx-auto max-w-[1440px]">
           <div className="flex items-center gap-4">
             <button
               onClick={() => navigate("/client/reports/summary")}
@@ -100,8 +128,8 @@ const ClientTaskStatusPage = () => {
           )}
         </div>
 
-        {/* Table */}
-        <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100">
+        {/* Table Container */}
+        <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 mx-auto max-w-[1440px]">
           <div className="px-10 py-6 overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[800px]">
               <thead>
@@ -125,7 +153,7 @@ const ClientTaskStatusPage = () => {
                       </span>
                     </td>
                   </tr>
-                ) : items.length === 0 ? (
+                ) : paginatedItems.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="py-16 text-center">
                       <p className="text-slate-400 font-black uppercase tracking-widest text-xs">
@@ -134,7 +162,7 @@ const ClientTaskStatusPage = () => {
                     </td>
                   </tr>
                 ) : (
-                  items.map((work) => {
+                  paginatedItems.map((work) => {
                     const actualVal = Number(work.actual_percentage) || 0;
                     const planVal = Number(work.plan_percentage) || 0;
 
@@ -174,6 +202,72 @@ const ClientTaskStatusPage = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Section */}
+          {!loading && items.length > 0 && (
+            <div className="px-10 py-6 border-t border-slate-50 flex flex-col md:flex-row items-center justify-between gap-6 bg-slate-50/10">
+              <div className="flex items-center gap-8">
+                <div className="flex items-center gap-3">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Records per page:</p>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => {
+                      setItemsPerPage(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-black text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all cursor-pointer"
+                  >
+                    {[5, 10, 20, 50].map(v => (
+                      <option key={v} value={v}>{v}</option>
+                    ))}
+                  </select>
+                </div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  Showing <span className="text-slate-800 font-black">{(currentPage - 1) * itemsPerPage + 1}</span> - <span className="text-slate-800 font-black">{Math.min(currentPage * itemsPerPage, totalItems)}</span> of <span className="text-slate-800 font-black">{totalItems}</span> records
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(p => p - 1)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95 flex items-center gap-2"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Prev
+                </button>
+
+                <div className="flex items-center gap-1.5 mx-2">
+                  {getPageNumbers().map((p, i) => (
+                    typeof p === "number" ? (
+                      <button
+                        key={i}
+                        onClick={() => setCurrentPage(p)}
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black transition-all active:scale-90 ${currentPage === p ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 border-transparent' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                      >
+                        {p}
+                      </button>
+                    ) : (
+                      <span key={i} className="text-slate-300 font-black px-1 text-xs">{p}</span>
+                    )
+                  ))}
+                </div>
+
+                <button
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(p => p + 1)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95 flex items-center gap-2"
+                >
+                  Next
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </>

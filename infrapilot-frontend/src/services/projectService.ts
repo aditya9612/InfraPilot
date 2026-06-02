@@ -398,7 +398,7 @@ export const projectService = {
    * Get work progress activities for a project and engineer
    * GET /api/v1/projects/work-progress/activities
    */
-  async getWorkProgressActivities(projectId: number, engineerId: number) {
+  async getWorkProgressActivities(projectId: number, engineerId?: number) {
     try {
       const response = await api.get('/work-progress/activities', {
         params: { project_id: projectId, engineer_id: engineerId }

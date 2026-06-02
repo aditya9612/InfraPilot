@@ -283,9 +283,7 @@ const EngineerProfilePage: React.FC = () => {
         );
     };
 
-    const handleContact = () => {
-        window.location.href = `mailto:${engineer.email}?subject=Site Intelligence Inquiry: ${engineer.projects}&body=Hello ${engineer.name},%0D%0A%0D%0AI am reaching out regarding the current status at ${engineer.projects}.`;
-    };
+
 
     const handleExportProjectDsrExcel = () => {
         if (!activeProjectId) return;
@@ -326,12 +324,7 @@ const EngineerProfilePage: React.FC = () => {
                         >
                             Export Site Report
                         </button>
-                        <button
-                            onClick={handleContact}
-                            className="px-5 py-2 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
-                        >
-                            Contact Engineer
-                        </button>
+
                     </div>
                 </div>
 

@@ -54,6 +54,10 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
   const notifRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Only fetch notifications if not a Client (or handle client filtering if needed later)
+    // For now, removing to avoid cross-project ID leakage as requested.
+    if (!user || user.role === "Client") return;
+
     const fetchNotifs = async () => {
       const data = await notificationService.getNotifications();
       setNotifications(data);

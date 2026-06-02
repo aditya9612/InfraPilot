@@ -43,8 +43,23 @@ export const notificationService = {
                 return ts;
             };
 
+            const generateVirtualId = (prefix: string, item: any) => {
+                const uniqueStr = `${prefix}-${item.project_id || item.task_id || ''}-${item.status || ''}-${item.created_at || item.timestamp || ''}`;
+                let hash = 0;
+                for (let i = 0; i < uniqueStr.length; i++) {
+                    hash = ((hash << 5) - hash) + uniqueStr.charCodeAt(i);
+                    hash = hash & hash;
+                }
+                return `${prefix}-${Math.abs(hash)}`;
+            };
+
+            const readIdsStr = localStorage.getItem('infrapilot_alerts_read_ids');
+            const readIds = readIdsStr ? JSON.parse(readIdsStr) : [];
+            const isVirtuallyRead = (id: string | number) => readIds.includes(String(id));
+
             const normalized: any[] = [
                 ...genAlerts.map((a: any) => ({
+                    ...a,
                     id: a.id || a.uuid || a.alert_id || Math.random(),
                     title: "System Alert",
                     description: a.message || a.description || "New general alert",
@@ -54,31 +69,39 @@ export const notificationService = {
                     read: !!(a.is_read || a.read || a.isRead || a.status === 'read'),
                     is_read: !!(a.is_read || a.read || a.isRead || a.status === 'read'),
                     role_target: "All" as const,
-                    source: "general" as const
+                    source: "general" as const,
+                    status: (a.alert_type && typeof a.alert_type === 'string' && a.alert_type.includes('||')) ? a.alert_type.split('||')[0] : a.status,
+                    alert_type: (a.alert_type && typeof a.alert_type === 'string' && a.alert_type.includes('||')) ? a.alert_type.split('||')[1] : a.alert_type
                 })),
                 ...pAlerts.map((a: any) => ({
-                    id: a.id || a.uuid || Math.random(),
+                    ...a,
+                    id: a.id || a.uuid || generateVirtualId('proj', a),
                     title: "Project Alert",
                     description: `${a.project_name || 'Project'}: ${a.status || 'Updated'}`,
                     details: `Project "${a.project_name}" has reported a status change to ${a.status}. Due Date: ${a.end_date || 'N/A'}.`,
                     type: "Alert" as const,
                     timestamp: normalizeTimestamp(a.created_at || a.timestamp),
-                    read: !!(a.is_read || a.read || a.isRead || a.status === 'read'),
-                    is_read: !!(a.is_read || a.read || a.isRead || a.status === 'read'),
+                    read: isVirtuallyRead(a.id || a.uuid || generateVirtualId('proj', a)) || !!(a.is_read || a.read || a.isRead || a.status === 'read'),
+                    is_read: isVirtuallyRead(a.id || a.uuid || generateVirtualId('proj', a)) || !!(a.is_read || a.read || a.isRead || a.status === 'read'),
                     role_target: "All" as const,
-                    source: "project" as const
+                    source: "project" as const,
+                    status: (a.alert_type && typeof a.alert_type === 'string' && a.alert_type.includes('||')) ? a.alert_type.split('||')[0] : a.status,
+                    alert_type: (a.alert_type && typeof a.alert_type === 'string' && a.alert_type.includes('||')) ? a.alert_type.split('||')[1] : a.alert_type
                 })),
                 ...tAlerts.map((a: any) => ({
-                    id: a.id || a.uuid || Math.random(),
+                    ...a,
+                    id: a.id || a.uuid || generateVirtualId('task', a),
                     title: "Task Update",
                     description: `${a.title || 'Task'}: ${a.status || 'Updated'}`,
                     details: `Task "${a.title}" is ${a.status}. Deadline: ${a.end_date || 'N/A'}.`,
                     type: "Info" as const,
                     timestamp: normalizeTimestamp(a.created_at || a.timestamp),
-                    read: !!(a.is_read || a.read || a.isRead || a.status === 'read'),
-                    is_read: !!(a.is_read || a.read || a.isRead || a.status === 'read'),
+                    read: isVirtuallyRead(a.id || a.uuid || generateVirtualId('task', a)) || !!(a.is_read || a.read || a.isRead || a.status === 'read'),
+                    is_read: isVirtuallyRead(a.id || a.uuid || generateVirtualId('task', a)) || !!(a.is_read || a.read || a.isRead || a.status === 'read'),
                     role_target: "All" as const,
-                    source: "task" as const
+                    source: "task" as const,
+                    status: (a.alert_type && typeof a.alert_type === 'string' && a.alert_type.includes('||')) ? a.alert_type.split('||')[0] : a.status,
+                    alert_type: (a.alert_type && typeof a.alert_type === 'string' && a.alert_type.includes('||')) ? a.alert_type.split('||')[1] : a.alert_type
                 }))
             ];
 
@@ -93,7 +116,17 @@ export const notificationService = {
 
     markAsRead: async (id: number | string, source = "general"): Promise<void> => {
         try {
-            await api.put(`/alerts/${id}/read`);
+            if (source === "general" && !String(id).includes('proj-') && !String(id).includes('task-') && !String(id).includes('.')) {
+                await api.put(`/alerts/${id}/read`);
+            } else {
+                const readIdsStr = localStorage.getItem('infrapilot_alerts_read_ids');
+                const readIds = readIdsStr ? JSON.parse(readIdsStr) : [];
+                if (!readIds.includes(String(id))) {
+                    readIds.push(String(id));
+                    if (readIds.length > 500) readIds.shift(); // Keep bounded
+                    localStorage.setItem('infrapilot_alerts_read_ids', JSON.stringify(readIds));
+                }
+            }
         } catch (error) {
             console.error(`Failed to mark notification ${id} as read:`, error);
         }

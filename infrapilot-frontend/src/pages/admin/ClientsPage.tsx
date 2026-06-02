@@ -84,15 +84,23 @@ const ClientsPage = () => {
 
   const handleCreateOrUpdate = async (data: any) => {
     try {
+      // Strip "+91 " prefix so it doesn't corrupt the query param (+ becomes space in URL encoding)
+      const rawMobile = (data.mobile_number || data.mobile || "").replace(/^\+91\s*/, "").replace(/\D/g, "");
+
       const userData: Partial<User> = {
-        full_name: data.name,
+        full_name: data.full_name || data.name,
         email: data.email,
-        mobile_number: data.mobile,
-        designation: data.company,
-        address: data.project,
+        mobile_number: rawMobile,
+        designation: data.designation || data.company,
+        address: data.address || data.project,
+        pan_number: data.pan_number,
+        aadhaar_number: data.aadhaar_number,
+        joining_date: data.joining_date,
         role: "Client" as UserRole,
-        is_active: data.status === "Active",
+        is_active: data.is_active,
       };
+
+      if (!editingClient && data.password) (userData as any).password = data.password;
 
       if (editingClient) {
         await userService.updateUser(editingClient.id, userData);
@@ -153,7 +161,7 @@ const ClientsPage = () => {
         </div>
 
         {/* Stats Summary */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <StatCard
             title="Total Clients"
             value={clients.length.toString()}
@@ -165,6 +173,12 @@ const ClientsPage = () => {
             value={clients.filter(c => c.status === 'Active').length.toString()}
             sub="Currently active relationships"
             accent="text-emerald-500"
+          />
+          <StatCard
+            title="Inactive Clients"
+            value={clients.filter(c => c.status === 'Inactive').length.toString()}
+            sub="Deactivated or on hold"
+            accent="text-rose-500"
           />
         </div>
 

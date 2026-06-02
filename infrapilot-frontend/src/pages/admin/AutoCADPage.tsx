@@ -182,7 +182,15 @@ export default function AutoCADPage() {
 
   // Persist visualizations whenever they change
   useEffect(() => {
-    localStorage.setItem("infrapilot_cad_visualizations", JSON.stringify(visualizations));
+    try {
+      localStorage.setItem("infrapilot_cad_visualizations", JSON.stringify(visualizations));
+    } catch (e) {
+      console.error("Failed to persist AutoCAD visualizations to localStorage", e);
+      // If we hit the limit even with capped entries, try removing the oldest one
+      if (visualizations.length > 0) {
+        setVisualizations(prev => prev.slice(0, -1));
+      }
+    }
   }, [visualizations]);
 
   const handleDeleteSnapshot = () => {
@@ -238,7 +246,7 @@ export default function AutoCADPage() {
           date: new Date().toISOString(),
           points: viewPoints.length
         };
-        setVisualizations(prev => [newViz, ...prev]);
+        setVisualizations(prev => [newViz, ...prev].slice(0, 5));
         resolve(newViz);
       }, 2000);
     });

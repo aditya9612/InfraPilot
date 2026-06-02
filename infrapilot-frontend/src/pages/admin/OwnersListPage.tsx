@@ -238,9 +238,17 @@ export default function OwnersListPage() {
 
   const sortedOwners = useMemo(() => {
     return [...owners].sort((a, b) => {
-      const aTime = new Date(a.created_at || 0).getTime();
-      const bTime = new Date(b.created_at || 0).getTime();
-      return sortOrder === "latest" ? bTime - aTime : aTime - bTime;
+      const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+
+      if (aTime !== bTime) {
+        return sortOrder === "latest" ? bTime - aTime : aTime - bTime;
+      }
+
+      // Fallback to numeric ID if timestamps are missing or identical
+      const aId = parseInt(a.id) || 0;
+      const bId = parseInt(b.id) || 0;
+      return sortOrder === "latest" ? bId - aId : aId - bId;
     });
   }, [owners, sortOrder]);
 
