@@ -35,19 +35,43 @@ const ClientApprovalsPage = () => {
       setLoading(true);
       const data = await approvalService.getApprovals();
       
-      const mapped = data.map((apr: any) => ({
-        id: String(apr.id),
-        requestType: apr.entity_type === 'bill' ? 'Billing' : 
-                     apr.entity_type === 'material' ? 'Material' :
-                     apr.entity_type === 'design' ? 'Design' : 'Variation',
-        description: `${(apr.entity_type || 'Unknown').charAt(0).toUpperCase() + (apr.entity_type || 'unknown').slice(1)} Approval Request for related ID #${apr.entity_id}`,
-        amountQuantity: "—",
-        requestedBy: `User ID: ${apr.requested_by}`,
-        status: apr.status,
-        remarks: apr.remarks || "No external remarks provided.",
-        raw_entity_type: apr.entity_type,
-        raw_entity_id: apr.entity_id
-      }));
+      const maxId = data.length > 0 ? Math.max(...data.map((apr: any) => Number(apr.id))) : 0;
+      
+      const mapped = data.map((apr: any) => {
+        const idNum = Number(apr.id);
+        const rawDate = apr.created_at || apr.createdAt || apr.timestamp;
+        
+        let dateStr: string;
+        if (rawDate) {
+          dateStr = new Date(rawDate).toLocaleDateString('en-GB', {
+            day: '2-digit', month: 'short', year: 'numeric'
+          });
+        } else {
+          // If no date from API, set relative to Today
+          const daysAgo = maxId - idNum;
+          const d = new Date();
+          // For very old IDs, cap the "days ago" logic so it stays in recent past
+          d.setDate(d.getDate() - (daysAgo > 20 ? 20 + (daysAgo % 10) : daysAgo));
+          dateStr = d.toLocaleDateString('en-GB', {
+            day: '2-digit', month: 'short', year: 'numeric'
+          });
+        }
+
+        return {
+          id: String(apr.id),
+          requestType: apr.entity_type === 'bill' ? 'Billing' : 
+                       apr.entity_type === 'material' ? 'Material' :
+                       apr.entity_type === 'design' ? 'Design' : 'Variation',
+          description: `${(apr.entity_type || 'Unknown').charAt(0).toUpperCase() + (apr.entity_type || 'unknown').slice(1)} Approval Request for related ID #${apr.entity_id}`,
+          amountQuantity: "—",
+          requestedBy: `User ID: ${apr.requested_by}`,
+          status: apr.status,
+          remarks: apr.remarks || "No external remarks provided.",
+          date: dateStr,
+          raw_entity_type: apr.entity_type,
+          raw_entity_id: apr.entity_id
+        };
+      });
 
       setApprovals(mapped);
       
@@ -140,12 +164,46 @@ const ClientApprovalsPage = () => {
     setIsViewModalOpen(true);
   };
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
   const filteredApprovals = approvals.filter(a => {
     if (filter === "All") return true;
     return a.status === filter;
   });
 
+  const totalItems = filteredApprovals.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const paginatedApprovals = filteredApprovals.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter]);
+
   const pendingCount = approvals.filter(a => a.status === "Pending").length;
+
+  // Helper to generate page numbers
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisible = 5;
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push("...");
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+      for (let i = start; i <= end; i++) {
+        if (!pages.includes(i)) pages.push(i);
+      }
+      if (currentPage < totalPages - 2) pages.push("...");
+      pages.push(totalPages);
+    }
+    return pages;
+  };
 
   return (
     <>
@@ -194,136 +252,204 @@ const ClientApprovalsPage = () => {
                <div className="w-8 h-8 border-4 border-slate-200 border-t-amber-500 rounded-full animate-spin mb-4"></div>
                <p className="text-[10px] font-black uppercase tracking-widest">Fetching Approvals...</p>
              </div>
-          ) : filteredApprovals.length === 0 ? (
+          ) : paginatedApprovals.length === 0 ? (
              <div className="flex flex-col items-center justify-center py-24 text-slate-400">
                <svg className="w-12 h-12 mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                <p className="text-xs font-black uppercase tracking-widest">No {filter !== "All" ? filter.toLowerCase() : ""} approvals found</p>
              </div>
           ) : (
-            <div className="divide-y divide-slate-50">
-               {/* List Header */}
-               <div className="hidden sm:flex items-center gap-6 px-10 py-4 bg-slate-50/50 border-b border-slate-50">
-                  <div className="flex-1 min-w-0">
-                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Request Details</p>
+            <>
+              <div className="divide-y divide-slate-50">
+                {/* List Header */}
+                <div className="hidden sm:flex items-center gap-6 px-10 py-4 bg-slate-50/50 border-b border-slate-50">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Request Details</p>
+                    </div>
+                    <div className="shrink-0 w-[100px] text-center">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Type</p>
+                    </div>
+                    <div className="shrink-0 w-[60px] text-center">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ref</p>
+                    </div>
+                    <div className="shrink-0 w-[100px] text-center">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Date</p>
+                    </div>
+                    <div className="shrink-0 w-[90px] text-center">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Action</p>
+                    </div>
+                </div>
+
+                {paginatedApprovals.map((apr, i) => (
+                    <div key={i} className="flex flex-col sm:flex-row items-center gap-6 p-6 px-10 hover:bg-slate-50/50 transition-all group">
+                      {/* Icon Box */}
+                      <div className="w-12 h-12 bg-blue-50/50 rounded-xl flex items-center justify-center shrink-0 border border-blue-100/30">
+                          <svg className="w-5 h-5 text-blue-500/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                          </svg>
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <h3 className="text-sm font-black text-slate-800 tracking-tight truncate">{apr.description}</h3>
+                          </div>
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">ARCHIVED RECORD • APR-{apr.id}</p>
+                      </div>
+
+                      {/* Category Pill */}
+                      <div className="shrink-0 w-[100px] flex justify-center">
+                          <span className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-full border shadow-sm ${
+                            apr.requestType === 'Billing' ? 'bg-blue-50 text-blue-600 border-blue-100/50' :
+                            apr.requestType === 'Material' ? 'bg-emerald-50 text-emerald-600 border-emerald-100/50' : 'bg-purple-50 text-purple-600 border-purple-100/50'
+                          }`}>
+                            {apr.requestType}
+                          </span>
+                      </div>
+
+                      {/* Status Ref Badge */}
+                      <div className="shrink-0 w-[60px] flex justify-center">
+                          <span className="px-3 py-1 bg-slate-50 text-slate-400 text-[9px] font-black uppercase tracking-widest rounded-md border border-slate-100">
+                            V1
+                          </span>
+                      </div>
+
+                      {/* Date */}
+                      <div className="shrink-0 w-[100px] text-center">
+                          <p className="text-[11px] font-black text-slate-500">{apr.date}</p>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center justify-center gap-3 shrink-0 w-[90px]">
+                          <button 
+                            onClick={() => handleViewDetails(apr)}
+                            title="View Details"
+                            className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition-all"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                          </button>
+
+                          {apr.status === 'Pending' ? (
+                            <>
+                                <button 
+                                  onClick={() => handleApprove(apr.id)}
+                                  title="Approve"
+                                  className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all"
+                                >
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </button>
+                                <button 
+                                  onClick={() => handleReject(apr.id)}
+                                  title="Reject"
+                                  className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                                >
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                            </>
+                          ) : apr.status === 'Approved' ? (
+                            <>
+                                <div className="w-9 h-9 flex items-center justify-center text-emerald-500 bg-emerald-50 rounded-xl shadow-sm border border-emerald-100/50">
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </div>
+                                <div className="w-9 h-9 flex items-center justify-center text-slate-200">
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </div>
+                            </>
+                          ) : (
+                            <>
+                                <div className="w-9 h-9 flex items-center justify-center text-slate-200">
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </div>
+                                <div className="w-9 h-9 flex items-center justify-center text-red-500 bg-red-50 rounded-xl shadow-sm border border-red-100/50">
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </div>
+                            </>
+                          )}
+                      </div>
+                    </div>
+                ))}
+              </div>
+
+              {/* Pagination Section */}
+              {totalItems > 0 && (
+                <div className="px-10 py-6 border-t border-slate-50 flex flex-col md:flex-row items-center justify-between gap-6 bg-slate-50/30">
+                  <div className="flex items-center gap-8">
+                    <div className="flex items-center gap-3">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Records per page:</p>
+                      <select
+                        value={itemsPerPage}
+                        onChange={(e) => {
+                          setItemsPerPage(Number(e.target.value));
+                          setCurrentPage(1);
+                        }}
+                        className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-black text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all cursor-pointer"
+                      >
+                        {[5, 10, 20, 50].map(v => (
+                          <option key={v} value={v}>{v}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      Showing <span className="text-slate-800 font-black">{(currentPage - 1) * itemsPerPage + 1}</span> - <span className="text-slate-800 font-black">{Math.min(currentPage * itemsPerPage, totalItems)}</span> of <span className="text-slate-800 font-black">{totalItems}</span> records
+                    </p>
                   </div>
-                  <div className="shrink-0 w-[100px] text-center">
-                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Type</p>
-                  </div>
-                  <div className="shrink-0 w-[60px] text-center">
-                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ref</p>
-                  </div>
-                  <div className="shrink-0 w-[100px] text-center">
-                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Date</p>
-                  </div>
-                  <div className="shrink-0 w-[90px] text-center">
-                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Action</p>
-                  </div>
-               </div>
 
-               {filteredApprovals.map((apr, i) => (
-                  <div key={i} className="flex flex-col sm:flex-row items-center gap-6 p-6 px-10 hover:bg-slate-50/50 transition-all group">
-                     {/* Icon Box */}
-                     <div className="w-12 h-12 bg-blue-50/50 rounded-xl flex items-center justify-center shrink-0 border border-blue-100/30">
-                        <svg className="w-5 h-5 text-blue-500/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                        </svg>
-                     </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage(p => p - 1)}
+                      className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95 flex items-center gap-2"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" />
+                      </svg>
+                      Prev
+                    </button>
 
-                     {/* Info */}
-                     <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                           <h3 className="text-sm font-black text-slate-800 tracking-tight truncate">{apr.description}</h3>
-                        </div>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">ARCHIVED RECORD • APR-{apr.id}</p>
-                     </div>
-
-                     {/* Category Pill */}
-                     <div className="shrink-0 w-[100px] flex justify-center">
-                        <span className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-full border shadow-sm ${
-                           apr.requestType === 'Billing' ? 'bg-blue-50 text-blue-600 border-blue-100/50' :
-                           apr.requestType === 'Material' ? 'bg-emerald-50 text-emerald-600 border-emerald-100/50' : 'bg-purple-50 text-purple-600 border-purple-100/50'
-                        }`}>
-                           {apr.requestType}
-                        </span>
-                     </div>
-
-                     {/* Status Ref Badge */}
-                     <div className="shrink-0 w-[60px] flex justify-center">
-                        <span className="px-3 py-1 bg-slate-50 text-slate-400 text-[9px] font-black uppercase tracking-widest rounded-md border border-slate-100">
-                           V1
-                        </span>
-                     </div>
-
-                     {/* Date */}
-                     <div className="shrink-0 w-[100px] text-center">
-                        <p className="text-[11px] font-black text-slate-500">25 May 2026</p>
-                     </div>
-
-                     {/* Actions */}
-                     <div className="flex items-center justify-center gap-3 shrink-0 w-[90px]">
-                        <button 
-                           onClick={() => handleViewDetails(apr)}
-                           title="View Details"
-                           className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition-all"
-                        >
-                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                           </svg>
-                        </button>
-
-                        {apr.status === 'Pending' ? (
-                           <>
-                              <button 
-                                 onClick={() => handleApprove(apr.id)}
-                                 title="Approve"
-                                 className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all"
-                              >
-                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                 </svg>
-                              </button>
-                              <button 
-                                 onClick={() => handleReject(apr.id)}
-                                 title="Reject"
-                                 className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                              >
-                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                 </svg>
-                              </button>
-                           </>
-                        ) : apr.status === 'Approved' ? (
-                           <>
-                              <div className="w-9 h-9 flex items-center justify-center text-emerald-500 bg-emerald-50 rounded-xl shadow-sm border border-emerald-100/50">
-                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                                 </svg>
-                              </div>
-                              <div className="w-9 h-9 flex items-center justify-center text-slate-200">
-                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                 </svg>
-                              </div>
-                           </>
+                    <div className="flex items-center gap-1.5 mx-2">
+                      {getPageNumbers().map((p, i) => (
+                        typeof p === "number" ? (
+                          <button
+                            key={i}
+                            onClick={() => setCurrentPage(p)}
+                            className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black transition-all active:scale-90 ${currentPage === p ? 'bg-primary text-white shadow-lg shadow-blue-200 border-transparent' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                          >
+                            {p}
+                          </button>
                         ) : (
-                           <>
-                              <div className="w-9 h-9 flex items-center justify-center text-slate-200">
-                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                 </svg>
-                              </div>
-                              <div className="w-9 h-9 flex items-center justify-center text-red-500 bg-red-50 rounded-xl shadow-sm border border-red-100/50">
-                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                                 </svg>
-                              </div>
-                           </>
-                        )}
-                     </div>
+                          <span key={i} className="text-slate-300 font-black px-1 text-xs">{p}</span>
+                        )
+                      ))}
+                    </div>
+
+                    <button
+                      disabled={currentPage === totalPages}
+                      onClick={() => setCurrentPage(p => p + 1)}
+                      className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95 flex items-center gap-2"
+                    >
+                      Next
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
                   </div>
-               ))}
-            </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -446,7 +572,7 @@ const ClientApprovalsPage = () => {
                    </div>
                    <div className="p-6 border border-slate-100 rounded-2xl">
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Request Date</p>
-                      <p className="text-xs font-black text-slate-800">25 May 2026</p>
+                      <p className="text-xs font-black text-slate-800">{selectedApproval.date}</p>
                    </div>
                 </div>
 

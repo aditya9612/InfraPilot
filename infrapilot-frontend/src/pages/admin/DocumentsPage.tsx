@@ -131,11 +131,21 @@ const DocumentsPage = () => {
     // Normalize backslashes to forward slashes for web compatibility
     const normalizedUrl = file_url.replace(/\\/g, '/');
     if (normalizedUrl.startsWith('http')) return normalizedUrl;
+
     // Ensure leading slash for consistency
     const path = normalizedUrl.startsWith('/') ? normalizedUrl : `/${normalizedUrl}`;
-    // /uploads paths are proxied directly by vite — no API prefix needed
-    if (path.startsWith('/uploads')) return path;
-    return `${import.meta.env.VITE_API_URL}${path}`;
+
+    // Robust absolute URL selection:
+    // 1. If VITE_API_URL is absolute, use it (removing /api/v1 suffix if present)
+    // 2. If VITE_API_URL is relative or missing, fallback to the known production domain
+    let baseUrl = import.meta.env.VITE_API_URL || '';
+    if (baseUrl.startsWith('http')) {
+      baseUrl = baseUrl.replace(/\/api\/v1\/?$/, '');
+    } else {
+      baseUrl = 'https://infrapilot.in';
+    }
+
+    return `${baseUrl}${path}`;
   };
 
   const handleDownload = async (doc: Document) => {

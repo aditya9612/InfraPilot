@@ -104,9 +104,10 @@ const EngineersPage = () => {
                 const attendanceItems = (attendanceRes as any)?.items || (Array.isArray(attendanceRes) ? attendanceRes : []);
                 const registryTotal = (registryRes as any)?.meta?.total || (registryRes as any)?.total || 0;
                 const activities = activitiesRes as any[];
-                const dsrs = (dsrsRes as any)?.items || [];
-                // Cleanup: removed redundant dsrItems declaration as we now use dsrsList directly
-                const latestDsr = dsrs[0];
+                const dsrs = ((dsrsRes as any)?.items || []) as any[];
+                // Sort DSRs by report_date descending to ensure we get the latest one
+                const sortedDsrs = [...dsrs].sort((a, b) => new Date(b.report_date).getTime() - new Date(a.report_date).getTime());
+                const latestDsr = sortedDsrs[0];
 
                 // Prioritize Attendance count, fallback to Registry if 0
                 const activeLabour = attendanceItems.length > 0 ? attendanceItems.length : registryTotal;
@@ -117,7 +118,7 @@ const EngineersPage = () => {
                   laborCount: activeLabour,
                   weather: weatherStr,
                   activeTask: activities.find(a => a.status !== "COMPLETED")?.activity_name || latestDsr?.work_done?.split('.')[0] || "Supervision",
-                  lastDsr: latestDsr?.report_date || u.updated_at
+                  lastDsr: latestDsr?.report_date || null
                 };
                 projectVitalsCache.set(primaryProject.id, vitals);
               } catch (e) {
@@ -276,13 +277,14 @@ const EngineersPage = () => {
             ]);
             const totalLabour = (laboursRes as any)?.meta?.total || (laboursRes as any)?.total || 0;
             const activities = activitiesRes as any[];
-            const dsrs = (dsrsRes as any)?.items || [];
-            const latestDsr = dsrs[0];
+            const dsrs = ((dsrsRes as any)?.items || []) as any[];
+            const sortedDsrs = [...dsrs].sort((a, b) => new Date(b.report_date).getTime() - new Date(a.report_date).getTime());
+            const latestDsr = sortedDsrs[0];
             vitals = {
               laborCount: totalLabour,
               weather: latestDsr?.weather || "Cloudy, 28°C",
               activeTask: activities.find(a => a.status !== "COMPLETED")?.activity_name || latestDsr?.work_done?.split('.')[0] || "Supervision",
-              lastDsr: latestDsr?.report_date || u.updated_at
+              lastDsr: latestDsr?.report_date || null
             };
           } catch (e) { /* fallback */ }
         }
@@ -376,13 +378,13 @@ const EngineersPage = () => {
           />
           <StatCard
             title="DSR Compliance"
-            value={`${Math.round((engineers.filter(e => new Date(e.lastDsr).toDateString() === new Date().toDateString()).length / engineers.length) * 100)}%`}
+            value={`${engineers.length > 0 ? Math.round((engineers.filter(e => e.lastDsr && e.lastDsr.split('T')[0] === new Date().toISOString().split('T')[0]).length / engineers.length) * 100) : 0}%`}
             sub="Based on today's submissions"
             accent="text-emerald-500"
           />
           <StatCard
             title="Pending Reviews"
-            value={engineers.filter(e => e.status === "On Site" && new Date(e.lastDsr).toDateString() !== new Date().toDateString()).length.toString()}
+            value={engineers.filter(e => e.status === "On Site" && (!e.lastDsr || e.lastDsr.split('T')[0] !== new Date().toISOString().split('T')[0])).length.toString()}
             sub="Missing reports for today"
             accent="text-violet-500"
           />
@@ -440,7 +442,8 @@ const EngineersPage = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {pagedEngineers.map((e) => {
-                    const isDsrToday = new Date(e.lastDsr).toDateString() === new Date().toDateString();
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    const isDsrToday = !!(e.lastDsr && e.lastDsr.split('T')[0] === todayStr);
                     return (
                       <tr
                         key={e.id}

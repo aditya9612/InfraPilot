@@ -4,7 +4,7 @@ import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
 import CreateAlertModal from "../../components/forms/CreateAlertModal";
 import toast from "react-hot-toast";
-import { Eye, Trash2 } from "lucide-react";
+import { Eye, Trash2, CheckSquare } from "lucide-react";
 import AlertDetailsModal from "../../components/dashboard/AlertDetailsModal";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import SortDropdown from "../../components/common/SortDropdown";
@@ -24,6 +24,7 @@ const NotificationsPage = () => {
   const [alertToDelete, setAlertToDelete] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const PAGE_SIZE = 10;
 
   const fetchAlerts = async () => {
@@ -59,6 +60,7 @@ const NotificationsPage = () => {
 
   useEffect(() => {
     setCurrentPage(0);
+    setSelectedIds(new Set());
   }, [searchTerm, sortOrder]);
 
   const totalPages = Math.max(1, Math.ceil(filteredAlerts.length / PAGE_SIZE));
@@ -82,6 +84,40 @@ const NotificationsPage = () => {
     setAlerts(prev => prev.map(a => ({ ...a, is_read: true })));
   };
 
+  const handleMarkSelectedRead = async () => {
+    if (selectedIds.size === 0) return;
+    const toMark = alerts.filter(a => selectedIds.has(a.id) && !a.is_read);
+    if (toMark.length === 0) {
+      toast("All selected alerts are already read.");
+      return;
+    }
+    try {
+      await Promise.all(toMark.map(a => notificationService.markAlertRead(a.id, a.source || 'general')));
+      setAlerts(prev => prev.map(a => selectedIds.has(a.id) ? { ...a, is_read: true } : a));
+      setSelectedIds(new Set());
+      toast.success(`${toMark.length} alert(s) marked as read.`);
+    } catch {
+      toast.error("Failed to mark selected alerts as read.");
+    }
+  };
+
+  const handleToggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.size === pagedAlerts.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(pagedAlerts.map(a => a.id)));
+    }
+  };
+
   const handleSendAlert = async (data: any) => {
     if (!user) {
       toast.error("User session not found");
@@ -89,13 +125,27 @@ const NotificationsPage = () => {
     }
 
     try {
-      await notificationService.createAlert({
-        project_id: data.project_id || 1, // Default to 1 if not provided
-        alert_type: data.type || "System",
+      const newAlert = await notificationService.createAlert({
+        project_id: data.project_id || 1,
+        alert_type: `${data.status || "Normal"}||${data.type || "System"}`,
         message: data.message,
         user_id: Number(user.id) || 1
       });
       toast.success("Alert broadcasted successfully!");
+
+      // Optimistic update
+      setAlerts(prev => [{
+        ...newAlert,
+        id: newAlert.id || Date.now(),
+        status: data.status || "Normal",
+        alert_type: data.type || "System",
+        message: data.message,
+        created_at: new Date().toISOString(),
+        is_read: false,
+        source: "general",
+        project_id: data.project_id
+      }, ...prev]);
+
       fetchAlerts();
       setIsModalOpen(false);
     } catch (error: any) {
@@ -119,7 +169,7 @@ const NotificationsPage = () => {
     }
   };
 
-
+  const allPageSelected = pagedAlerts.length > 0 && pagedAlerts.every(a => selectedIds.has(a.id));
 
   return (
     <>
@@ -132,6 +182,15 @@ const NotificationsPage = () => {
             <p className="text-slate-500 text-sm">Monitor critical project signals, budget overruns, and safety compliance.</p>
           </div>
           <div className="flex gap-2">
+            {selectedIds.size > 0 && (
+              <button
+                onClick={handleMarkSelectedRead}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 shadow-sm transition-all"
+              >
+                <CheckSquare className="w-4 h-4" />
+                Mark {selectedIds.size} as Read
+              </button>
+            )}
             <button
               onClick={handleMarkAllRead}
               className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
@@ -179,37 +238,58 @@ const NotificationsPage = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-                  <th className="px-6 py-4">Alert Type</th>
-                  <th className="px-6 py-4">Message</th>
-                  <th className="px-6 py-4">Date</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
+                  <th className="px-4 py-4">
+                    <input
+                      type="checkbox"
+                      checked={allPageSelected}
+                      onChange={handleSelectAll}
+                      className="w-4 h-4 rounded accent-primary cursor-pointer"
+                    />
+                  </th>
+                  <th className="px-4 py-4">Alert Type</th>
+                  <th className="px-4 py-4">Project ID</th>
+                  <th className="px-4 py-4">Message</th>
+                  <th className="px-4 py-4">Date & Time</th>
+                  <th className="px-4 py-4">Status</th>
+                  <th className="px-4 py-4">Read</th>
+                  <th className="px-4 py-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {isLoading ? (
                   Array(5).fill(0).map((_, i) => (
                     <tr key={i} className="animate-pulse">
-                      <td colSpan={5} className="px-6 py-8">
+                      <td colSpan={8} className="px-6 py-8">
                         <div className="h-4 bg-slate-100 rounded w-full"></div>
                       </td>
                     </tr>
                   ))
                 ) : filteredAlerts.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic text-sm">
+                    <td colSpan={8} className="px-6 py-12 text-center text-slate-400 italic text-sm">
                       No alerts found.
                     </td>
                   </tr>
                 ) : (
                   pagedAlerts.map((alert) => (
                     <tr key={alert.id} className={`hover:bg-slate-50/50 transition-colors group ${!alert.is_read ? "bg-primary/[0.02]" : ""}`}>
-                      <td className="px-6 py-4">
+                      {/* Checkbox */}
+                      <td className="px-4 py-4">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(alert.id)}
+                          onChange={() => handleToggleSelect(alert.id)}
+                          className="w-4 h-4 rounded accent-primary cursor-pointer"
+                        />
+                      </td>
+
+                      {/* Alert Type */}
+                      <td className="px-4 py-4">
                         <div className="flex items-center gap-3">
                           <div className="relative">
                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${alert.source === "project" ? "bg-rose-50 text-rose-600" :
-                                alert.source === "task" ? "bg-emerald-50 text-emerald-600" :
-                                  "bg-blue-50 text-blue-600"
+                              alert.source === "task" ? "bg-emerald-50 text-emerald-600" :
+                                "bg-blue-50 text-blue-600"
                               }`}>
                               {alert.source === "project" ? (
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
@@ -225,25 +305,56 @@ const NotificationsPage = () => {
                           </div>
                           <div className="flex flex-col">
                             <span className={`font-bold text-xs transition-colors group-hover:text-primary ${!alert.is_read ? "text-slate-900" : "text-slate-500"}`}>
-                              {alert.source === "project" ? "Project" : alert.source === "task" ? "Task" : "System"}
+                              {alert.alert_type || alert.type || "System"}
                             </span>
-                            <span className="text-[10px] text-slate-400 font-medium">{alert.alert_type || alert.type || "Update"}</span>
+                            <span className="text-[10px] text-slate-400 font-medium capitalize">{alert.source || "general"}</span>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <p className={`text-sm max-w-sm line-clamp-1 group-hover:text-primary transition-colors ${!alert.is_read ? "text-slate-800 font-semibold" : "text-slate-500 font-medium"}`}>{alert.message}</p>
+
+                      {/* Project ID */}
+                      <td className="px-4 py-4 text-xs font-bold text-slate-500">
+                        {alert.project_id ? (
+                          <span className="px-2 py-1 bg-slate-100 rounded-lg text-slate-600">#{alert.project_id}</span>
+                        ) : (
+                          <span className="text-slate-300">—</span>
+                        )}
                       </td>
-                      <td className="px-6 py-4 text-xs font-bold text-slate-400">
-                        {alert.created_at ? new Date(alert.created_at).toLocaleDateString() : "N/A"}
+
+                      {/* Message */}
+                      <td className="px-4 py-4">
+                        <p className={`text-sm max-w-xs line-clamp-2 group-hover:text-primary transition-colors ${!alert.is_read ? "text-slate-800 font-semibold" : "text-slate-500 font-medium"}`}>
+                          {alert.message || "—"}
+                        </p>
                       </td>
-                      <td className="px-6 py-4">
+
+                      {/* Date & Time */}
+                      <td className="px-4 py-4 text-xs font-bold text-slate-400 whitespace-nowrap">
+                        {alert.created_at ? (
+                          <>
+                            <div>{new Date(alert.created_at).toLocaleDateString("en-IN")}</div>
+                            <div className="text-slate-300 font-normal">{new Date(alert.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</div>
+                          </>
+                        ) : "N/A"}
+                      </td>
+
+                      {/* Status */}
+                      <td className="px-4 py-4">
                         <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${alert.status === "Critical" ? "bg-rose-100 text-rose-600" : alert.status === "Warning" ? "bg-amber-100 text-amber-600" : "bg-emerald-100 text-emerald-600"
                           }`}>
                           {alert.status || "Normal"}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right">
+
+                      {/* Read Status */}
+                      <td className="px-4 py-4">
+                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${alert.is_read ? "bg-slate-100 text-slate-500" : "bg-blue-50 text-blue-600"}`}>
+                          {alert.is_read ? "Read" : "Unread"}
+                        </span>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="px-4 py-4 text-right">
                         <div className="flex items-center justify-end gap-3">
                           <button
                             onClick={() => {
@@ -299,12 +410,6 @@ const NotificationsPage = () => {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
                 </button>
               </div>
-            </div>
-          )}
-
-          {filteredAlerts.length === 0 && (
-            <div className="p-20 text-center">
-              <p className="text-slate-400 font-medium">No alerts matching your search.</p>
             </div>
           )}
         </div>

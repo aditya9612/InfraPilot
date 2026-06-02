@@ -44,7 +44,7 @@ export const settingsService = {
             if (lastSavedAt && localSettings) {
                 const savedMs = parseInt(lastSavedAt, 10);
                 const ageSeconds = (Date.now() - savedMs) / 1000;
-                if (ageSeconds < 60) {
+                if (ageSeconds < 5) {
                     console.log("getSettings: Using locally saved settings (saved", Math.round(ageSeconds), "s ago)");
                     return JSON.parse(localSettings);
                 }
@@ -74,8 +74,14 @@ export const settingsService = {
 
         try {
             const response = await api.put("/settings", payload);
-            localStorage.setItem("mock_settings", JSON.stringify(response.data));
-            return response.data;
+            if (payload.default_project_id) {
+                localStorage.setItem("client_selected_project_id", payload.default_project_id.toString());
+            }
+            // Ensure we save the user's choice locally immediately with high priority
+            const finalData = { ...response.data, default_project_id: payload.default_project_id };
+            localStorage.setItem("mock_settings", JSON.stringify(finalData));
+            localStorage.setItem("mock_settings_saved_at", Date.now().toString());
+            return finalData;
         } catch (error: any) {
             console.error("Settings Update Failed:", error.message);
             throw error;

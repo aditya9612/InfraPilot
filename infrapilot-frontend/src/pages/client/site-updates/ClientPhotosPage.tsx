@@ -3,11 +3,11 @@ import Navbar from "../../../components/common/Navbar";
 import { sitePhotoService } from "../../../services/sitePhotoService";
 import { useClientProjectId } from "../../../hooks/useClientProjectId";
 
-const tags = ["All", "Structure", "Foundation", "Masonry", "Equipment", "Safety"];
+const tags = ["All", "Structure", "Foundation", "Masonry", "Equipment", "Safety", "Quality", "Inspection"];
 
 const ClientPhotosPage = () => {
   const [activeTag, setActiveTag] = useState("All");
-  const [photos, setPhotos] = useState<any[]>([]);
+  const [allPhotos, setAllPhotos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
@@ -20,12 +20,8 @@ const ClientPhotosPage = () => {
     const fetchPhotos = async () => {
       try {
         setLoading(true);
-        const params: any = { project_id: projectId };
-        if (activeTag !== "All") {
-          params.activity_tag = activeTag;
-        }
-
-        const response = await sitePhotoService.getPhotos(params);
+        // Fetch all photos to allow flexible client-side filtering
+        const response = await sitePhotoService.getPhotos({ project_id: projectId });
         const fetchedItems = response.items || [];
 
         // Resolve URLs
@@ -35,7 +31,7 @@ const ClientPhotosPage = () => {
           displayDate: p.date ? new Date(p.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : "N/A"
         })).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-        setPhotos(sorted);
+        setAllPhotos(sorted);
       } catch (error) {
         console.error("Failed to fetch gallery:", error);
       } finally {
@@ -44,7 +40,16 @@ const ClientPhotosPage = () => {
     };
 
     fetchPhotos();
-  }, [activeTag, projectId]);
+  }, [projectId]); // Remove activeTag from dependency to avoid redundant fetches
+
+  const photos = activeTag === "All" 
+    ? allPhotos 
+    : allPhotos.filter(p => {
+        const tag = (p.activity_tag || p.tag || "").toLowerCase();
+        const active = activeTag.toLowerCase();
+        // Fuzzy match: checks if "Masonry" is inside "BRICKWORK / MASONRY"
+        return tag.includes(active);
+      });
 
   const openModal = (photo: any, index: number) => {
     setSelectedPhoto(photo);

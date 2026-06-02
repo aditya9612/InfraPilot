@@ -66,6 +66,10 @@ const ClientSettingsPage = () => {
         default_project_id: activeProjectId
       });
       toast.success("Default project updated successfully!");
+      // Force reload to ensure all contexts (Dashboard, Progress, etc) re-sync with the new project ID
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
     } catch (err) {
       console.error("Failed to update project selection", err);
       toast.error("Failed to switch project.");

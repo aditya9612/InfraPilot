@@ -40,11 +40,11 @@ const ClientOverviewPage = () => {
         // Fallback for UI if it fails
         if (!projectData) {
           setProjectData({
-            project_name: "SARA CITY",
-            start_date: "2026-04-02",
-            end_date: "2026-04-02",
-            status: "Planned",
-            description: "Wing A Construction"
+            project_name: "Project Details Unvailable",
+            start_date: "—",
+            end_date: "—",
+            status: "Unknown",
+            description: "Please check your internet connection or project assignment."
           });
         }
       } finally {
