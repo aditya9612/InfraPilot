@@ -14,8 +14,6 @@ interface CreateBOQModalProps {
   initialData?: BoqItem | null;
 }
 
-// Shared constants now imported from config/constants.ts
-
 const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubmit, projects, initialData }) => {
   const [formData, setFormData] = React.useState({
     project_id: '',
@@ -26,6 +24,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
     unit: '',
     unit_cost: '',
     status: 'Active',
+    activity_type_id: '',
   });
 
   React.useEffect(() => {
@@ -39,6 +38,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
         unit: initialData.unit || '',
         unit_cost: initialData.unit_cost?.toString() || '',
         status: initialData.status || 'Active',
+        activity_type_id: (initialData as any).activity_type_id?.toString() || '',
       });
     } else {
       setFormData({
@@ -50,6 +50,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
         unit: '',
         unit_cost: '',
         status: 'Active',
+        activity_type_id: '',
       });
     }
   }, [initialData, isOpen]);
@@ -66,7 +67,6 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
       case 'item_name':
         if (!value.trim()) error = 'Item name is required.';
         else if (value.trim().length < 2) error = 'Item name must be at least 2 characters.';
-        else if (!/^[a-zA-Z\s]+$/.test(value)) error = 'Item name can only contain letters and spaces.';
         break;
       case 'category':
         if (!value) error = 'Please select a category.';
@@ -96,10 +96,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     let { name, value } = e.target;
 
-    // Restriction: Only alphabets and spaces for item_name
-    if (name === 'item_name') {
-      value = value.replace(/[^a-zA-Z\s]/g, '');
-    } else if (name === 'quantity' || name === 'unit_cost') {
+    if (name === 'quantity' || name === 'unit_cost') {
       value = value.replace(/[^\d]/g, '');
     }
 
@@ -124,13 +121,17 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
       setIsLoading(true);
       try {
         const submissionData = {
-          ...formData,
           project_id: Number(formData.project_id),
+          item_name: formData.item_name,
+          category: formData.category,
+          description: formData.description,
           quantity: Number(formData.quantity),
+          unit: formData.unit,
           unit_cost: Number(formData.unit_cost),
+          status: formData.status,
+          activity_type_id: formData.activity_type_id ? Number(formData.activity_type_id) : undefined,
         };
         await onSubmit(submissionData);
-        // Successful toast is handled by parent, but we can clean up here
         setFormData({
           project_id: '',
           item_name: '',
@@ -140,9 +141,10 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
           unit: '',
           unit_cost: '',
           status: 'Active',
+          activity_type_id: '',
         });
       } catch (error) {
-        // Error handling is mostly in parent via toast, but we stop loading here
+        // Error handling is mostly in parent via toast
       } finally {
         setIsLoading(false);
       }
@@ -213,7 +215,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
               name="item_name"
               value={formData.item_name}
               onChange={handleChange}
-              placeholder="e.g. Cement"
+              placeholder="e.g. Cement Bags"
               className={`w-full px-4 py-2.5 bg-white border ${errors.item_name ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all`}
             />
             {errors.item_name && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.item_name}</p>}
@@ -296,6 +298,18 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
             >
               {BOQ_STATUSES?.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Activity Type ID (Optional)</label>
+            <input
+              type="text"
+              name="activity_type_id"
+              value={formData.activity_type_id}
+              onChange={handleChange}
+              placeholder="e.g. 0"
+              className={`w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all`}
+            />
           </div>
 
           <div className="md:col-span-2 p-4 bg-primary/5 rounded-2xl border border-primary/10 flex items-center justify-between">
