@@ -45,11 +45,9 @@ const MaterialRequestPage = () => {
     const [projectId, setProjectId] = useState<number | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [currentUserName, setCurrentUserName] = useState("Site Engineer");
+    const [currentUserId, setCurrentUserId] = useState<number | null>(null);
     const [projects, setProjects] = useState<any[]>([]);
     const [itemsPerPage, setItemsPerPage] = useState(10);
-    
-    const [currentUserName, setCurrentUserName] = useState("Engineer");
-    const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
     const [activeFilter, setActiveFilter] = useState<"Select" | "Approved" | "Pending" | "Reject">("Select");
     const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");

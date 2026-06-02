@@ -643,7 +643,6 @@ const LabourAttendancePage: React.FC = () => {
                                                     }}
                                                     className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
                                                     title="View Details"
-                                                    disabled={isLoadingDetails}
                                                 >
                                                     <Eye className="w-4 h-4" />
                                                 </button>

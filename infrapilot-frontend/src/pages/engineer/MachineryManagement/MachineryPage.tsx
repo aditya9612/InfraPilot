@@ -52,7 +52,6 @@ const MachineryPage = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "GOOD" | "REPAIR" | "DAMAGED" | "MAINTENANCE">("All");
-    const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
 
     // Project ID resolved once from localStorage (Settings page) — never changes during session
     const selectedProjectId = (() => {
@@ -306,23 +305,6 @@ const MachineryPage = () => {
                                 <div className="absolute right-3 text-slate-400 pointer-events-none">
                                     <ChevronDown className="w-4 h-4" />
                                 </div>
-                            </div>
-                        </div>
-
-                        <div className="relative flex items-center">
-                            <div className="absolute left-3 text-slate-400 pointer-events-none">
-                                <Clock className="w-4 h-4" />
-                            </div>
-                            <select
-                                value={sortOrder}
-                                onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
-                                className="appearance-none bg-white border border-primary rounded-full text-sm font-bold text-primary shadow-sm pl-9 pr-8 py-1.5 outline-none cursor-pointer"
-                            >
-                                <option value="latest">Latest First</option>
-                                <option value="oldest">Oldest First</option>
-                            </select>
-                            <div className="absolute right-3 text-slate-400 pointer-events-none">
-                                <ChevronDown className="w-4 h-4" />
                             </div>
                         </div>
                     </div>

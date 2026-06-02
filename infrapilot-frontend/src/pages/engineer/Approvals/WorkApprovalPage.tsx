@@ -83,20 +83,6 @@ const WorkApprovalPage = () => {
     const [activeFilter, setActiveFilter] = useState<"Select" | "Approved" | "Pending" | "Reject" | "Pending/Reject" | "Rate">("Select");
     const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
 
-    const [currentUserName, setCurrentUserName] = useState("Engineer");
-
-    useEffect(() => {
-        const userStr = localStorage.getItem("infrapilot_user");
-        if (userStr) {
-            try {
-                const user = JSON.parse(userStr);
-                setCurrentUserName(user?.name || user?.user?.name || "Engineer");
-            } catch (e) {
-                console.error("Failed to parse user data", e);
-            }
-        }
-    }, []);
-
     const resolveUserName = (id: string | number | null) => {
         if (!id) return null;
         if (Number(id) === 1) return "Admin";
