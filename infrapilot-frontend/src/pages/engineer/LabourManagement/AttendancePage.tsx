@@ -6,7 +6,6 @@ import { useNavigate } from 'react-router-dom';
 import {
     Clock,
     MapPin,
-    Download,
     Calendar,
     Camera,
     CheckCircle2,
@@ -288,7 +287,6 @@ const AttendancePage: React.FC = () => {
                             </div>
                         </div>
                     </div>
-
                 </div>
 
                 {/* Tabs Navigation */}

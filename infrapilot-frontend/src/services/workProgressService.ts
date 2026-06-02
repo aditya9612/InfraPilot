@@ -106,13 +106,8 @@ export const workProgressService = {
    * Delete an activity
    */
   async deleteActivity(id: number): Promise<void> {
-    try {
-      await api.delete(`/work-progress/activities/${id}`);
-    } catch (error: any) {
-      console.warn("deleteActivity API error, using virtual success fallback:", error.message);
-      mockActivities = mockActivities.filter(a => a.id !== id);
-      persistMockData();
-    }
+    const response = await api.delete(`/work-progress/activities/${id}`);
+    return response.data;
   },
 
   /**

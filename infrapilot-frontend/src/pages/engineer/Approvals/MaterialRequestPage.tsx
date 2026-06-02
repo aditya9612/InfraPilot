@@ -44,6 +44,7 @@ const MaterialRequestPage = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [projectId, setProjectId] = useState<number | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
+    const [currentUserName, setCurrentUserName] = useState("Site Engineer");
     const [projects, setProjects] = useState<any[]>([]);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     

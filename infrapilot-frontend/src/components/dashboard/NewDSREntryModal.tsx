@@ -149,10 +149,7 @@ const NewDSREntryModal = ({
     if (!formData.safety_observations || !formData.safety_observations.trim()) errs.safety_observations = "Required";
     if (!formData.remarks || !formData.remarks.trim()) errs.remarks = "Required";
 
-    // Labour numeric validation
-    if (isNaN(Number(formData.total_labour)) || Number(formData.total_labour) < 0) errs.total_labour = "Must be a valid number";
-    if (isNaN(Number(formData.skilled_labour)) || Number(formData.skilled_labour) < 0) errs.skilled_labour = "Must be a valid number";
-    if (isNaN(Number(formData.unskilled_labour)) || Number(formData.unskilled_labour) < 0) errs.unskilled_labour = "Must be a valid number";
+
 
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -171,25 +168,7 @@ const NewDSREntryModal = ({
     }
   };
 
-  const handleLabourChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
 
-    // Prevent non-numeric characters
-    if (/[^0-9]/.test(value) && value !== "") {
-      setErrors(prev => ({ ...prev, [name]: "Only numbers are allowed" }));
-      return;
-    }
-
-    const numValue = value === "" ? 0 : Number(value);
-    setFormData((prev: any) => ({ ...prev, [name]: numValue }));
-
-    if (errors[name]) {
-      setErrors(prev => {
-        const { [name]: _, ...rest } = prev;
-        return rest;
-      });
-    }
-  };
 
   const modalFooter = (
     <>

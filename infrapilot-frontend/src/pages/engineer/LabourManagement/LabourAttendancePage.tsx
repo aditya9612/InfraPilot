@@ -187,6 +187,57 @@ const LabourAttendancePage: React.FC = () => {
         fetchLabourAttendances();
     }, [empDurationFilter]);
 
+    const handleExport = async () => {
+        try {
+            const getActiveProjectId = () => {
+                try {
+                    const userStr = localStorage.getItem("infrapilot_user");
+                    if (userStr) {
+                        const parsed = JSON.parse(userStr);
+                        return parsed.user?.project_id || parsed.project_id || 92;
+                    }
+                } catch (e) { }
+                return 92;
+            };
+
+            const activeProjectId = getActiveProjectId();
+            let fromDate = "";
+            let toDate = "";
+            const today = new Date().toISOString().split('T')[0];
+
+            if (historyFilter === 'Today') {
+                fromDate = today;
+                toDate = today;
+            } else if (historyFilter === 'Yesterday') {
+                const y = new Date();
+                y.setDate(y.getDate() - 1);
+                const yStr = y.toISOString().split('T')[0];
+                fromDate = yStr;
+                toDate = yStr;
+            } else if (historyFilter === 'Date' && historyDateInput) {
+                fromDate = historyDateInput;
+                toDate = historyDateInput;
+            }
+
+            const toastId = toast.loading("Generating Export...");
+            const blob = await labourService.exportAttendanceExcel(activeProjectId, fromDate || undefined, toDate || undefined);
+            
+            const url = window.URL.createObjectURL(new Blob([blob]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Attendance_Report_${fromDate || today}_to_${toDate || today}.xlsx`);
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode?.removeChild(link);
+            toast.dismiss(toastId);
+            toast.success("Attendance report downloaded successfully!");
+        } catch (error) {
+            console.error("Failed to export attendance report", error);
+            toast.dismiss();
+            toast.error("Failed to export attendance report.");
+        }
+    };
+
     useEffect(() => {
         const timer = setInterval(() => setCurrentDateTime(new Date()), 60000);
         return () => clearInterval(timer);
@@ -471,7 +522,14 @@ const LabourAttendancePage: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {filteredLabourAttendances.map((lab, index) => (
+                                {filteredLabourAttendances.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={11} className="px-6 py-12 text-center">
+                                            <p className="text-xs text-slate-500 font-medium">No attendance records found</p>
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    filteredLabourAttendances.map((lab, index) => (
                                     <tr key={index} className="hover:bg-slate-50/50 transition-colors">
                                         <td className="px-6 py-4"><span className="text-xs font-bold text-slate-800">{lab.attendance_date || "N/A"}</span></td>
                                         <td className="px-6 py-4">
@@ -585,6 +643,7 @@ const LabourAttendancePage: React.FC = () => {
                                                     }}
                                                     className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
                                                     title="View Details"
+                                                    disabled={isLoadingDetails}
                                                 >
                                                     <Eye className="w-4 h-4" />
                                                 </button>
@@ -598,7 +657,7 @@ const LabourAttendancePage: React.FC = () => {
                                             </div>
                                         </td>
                                     </tr>
-                                ))}
+                                )))}
                             </tbody>
                         </table>
                     </div>
@@ -744,22 +803,30 @@ const LabourAttendancePage: React.FC = () => {
                         {/* Remaining Details */}
                         <div className="px-6 py-5 grid grid-cols-2 gap-x-6 gap-y-4 border-b border-slate-100">
                             <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Hours</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.hours || '-'}</p>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Working Hours</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.working_hours ? `${selectedLabour.working_hours} hrs` : '-'}</p>
                             </div>
                             <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Location</p>
-                                <p className="text-xs font-bold text-blue-500 flex items-center gap-1"><MapPin className="w-3 h-3" /> {selectedLabour.workLocation}</p>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Overtime</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.overtime_hours ? `${selectedLabour.overtime_hours} hrs` : '-'}</p>
+                            </div>
+                            <div>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Wage</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.total_wage ? `₹${selectedLabour.total_wage}` : '-'}</p>
+                            </div>
+                            <div>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Check-in Location</p>
+                                <p className="text-xs font-bold text-blue-500 flex items-center gap-1"><MapPin className="w-3 h-3" /> {selectedLabour.check_in_address || '-'}</p>
                             </div>
                             <div>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Status</p>
-                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${selectedLabour.attendanceStatus === 'Late' ? 'bg-rose-50 text-rose-500 border border-rose-200' : 'bg-emerald-50 text-emerald-600 border border-emerald-200'}`}>
-                                    {selectedLabour.attendanceStatus || 'On Time'}
+                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-50 text-slate-500 border border-slate-200 uppercase`}>
+                                    {selectedLabour.status || '-'}
                                 </span>
                             </div>
                             <div>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Work Summary</p>
-                                <p className="text-xs font-bold text-slate-400">-</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.task_description || '-'}</p>
                             </div>
                         </div>
 

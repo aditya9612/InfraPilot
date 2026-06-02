@@ -65,6 +65,19 @@ const WorkApprovalPage = () => {
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [currentUserName, setCurrentUserName] = useState("Site Engineer");
+
+    useEffect(() => {
+        const userStr = localStorage.getItem("infrapilot_user");
+        if (userStr) {
+            try {
+                const user = JSON.parse(userStr);
+                setCurrentUserName(user?.user?.name || user?.name || "Site Engineer");
+            } catch (e) {
+                console.error("Failed to resolve user name", e);
+            }
+        }
+    }, []);
 
     // Filter state for StatCards
     const [activeFilter, setActiveFilter] = useState<"Select" | "Approved" | "Pending" | "Reject" | "Pending/Reject" | "Rate">("Select");

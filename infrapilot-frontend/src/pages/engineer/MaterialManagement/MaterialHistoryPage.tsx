@@ -13,6 +13,7 @@ import {
   ChevronDown
 } from "lucide-react";
 import { materialService, type MaterialLog } from "../../../services/materialService";
+import { projectService } from "../../../services/projectService";
 
 const MaterialHistoryPage = () => {
   const formatINR = (amount: number | string | undefined | null) => {
@@ -303,6 +304,7 @@ const MaterialHistoryPage = () => {
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
                   <th className="px-6 py-4 font-inter">type</th>
+                  <th className="px-6 py-4 font-inter">project</th>
                   <th className="px-6 py-4 font-inter">material</th>
                   <th className="px-6 py-4 font-inter text-center">quantity</th>
                   <th className="px-6 py-4 font-inter text-right">rate</th>
@@ -330,6 +332,9 @@ const MaterialHistoryPage = () => {
                         <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest font-inter border shadow-sm ${logBadge(log.type)}`}>
                           {log.type}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 text-xs font-bold text-slate-800 font-inter">
+                        {log.project_id ? (projectsMap[log.project_id] || `Project #${log.project_id}`) : "-"}
                       </td>
                       <td className="px-6 py-4 text-xs font-bold text-slate-800 font-inter">
                         {materialsMap[log.material_id] || `Material #${log.material_id}`}
