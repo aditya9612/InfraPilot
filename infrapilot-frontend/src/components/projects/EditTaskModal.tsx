@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import Modal from "../common/Modal";
 import toast from "react-hot-toast";
+import { boqService } from "../../services/boqService";
+import type { BoqItem } from "../../types/boq";
 import type { Task, TaskStatus, ProjectMember } from "../../types/project";
 
 interface EditTaskModalProps {
@@ -27,7 +29,9 @@ const EditTaskModal = ({
     end_date: "",
     assigned_user_id: 0,
     completion_percentage: 0,
+    boq_id: "" as string | number,
   });
+  const [boqItems, setBoqItems] = useState<BoqItem[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
 
@@ -42,9 +46,25 @@ const EditTaskModal = ({
         end_date: task.end_date,
         assigned_user_id: task.assigned_user_id,
         completion_percentage: task.completion_percentage,
+        boq_id: task.boq_id || "",
       });
     }
   }, [task]);
+
+  useEffect(() => {
+    const fetchBoqItems = async () => {
+      if (!task) return;
+      try {
+        const response = await boqService.getBoqs({ project_id: task.project_id });
+        setBoqItems(response.items || []);
+      } catch (error) {
+        console.error("Failed to fetch BOQ items for task editing:", error);
+      }
+    };
+    if (isOpen && task) {
+      fetchBoqItems();
+    }
+  }, [isOpen, task]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -54,7 +74,7 @@ const EditTaskModal = ({
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: ["priority", "assigned_user_id", "completion_percentage"].includes(name)
+      [name]: ["priority", "assigned_user_id", "completion_percentage", "boq_id"].includes(name)
         ? (value ? parseInt(value) : "")
         : value,
     }));
@@ -86,6 +106,7 @@ const EditTaskModal = ({
     try {
       const requestBody = {
         ...formData,
+        boq_id: formData.boq_id || null,
         task_id: task.id,
         project_id: task.project_id,
         // The backend expects 'percentage' for progress updates
@@ -214,6 +235,18 @@ const EditTaskModal = ({
                   <option value={1}>High Priority</option>
                   <option value={2}>Medium Priority</option>
                   <option value={3}>Low Priority</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Link to BOQ Activity</label>
+                <select
+                  name="boq_id" value={formData.boq_id || ""} onChange={handleChange}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary outline-none transition-all"
+                >
+                  <option value="">Select BOQ Item (Optional)</option>
+                  {boqItems.map(item => (
+                    <option key={item.id} value={item.id}>{item.item_name} ({item.category})</option>
+                  ))}
                 </select>
               </div>
             </div>

@@ -4,7 +4,10 @@ import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import toast from "react-hot-toast";
 import { boqService } from "../../services/boqService";
+import { approvalService } from "../../services/approvalService";
 import { projectService } from "../../services/projectService";
+import workProgressService from "../../services/workProgressService";
+import type { ActivityItem } from "../../types/workProgress";
 import type { BoqItem, BoqSummary } from "../../types/boq";
 import type { Project } from "../../types/project";
 import {
@@ -27,6 +30,7 @@ import {
     Sparkles,
     Pencil,
     Trash2,
+    FileCheck,
 } from "lucide-react";
 import UpdateActualsModal from "../../components/forms/UpdateActualsModal";
 import BOQHistoryModal from "../../components/dashboard/BOQHistoryModal";
@@ -38,6 +42,7 @@ import CreateBOQModal from "../../components/forms/CreateBOQModal";
 const TABS = [
     { id: "overview", label: "Fiscal Overview", icon: LayoutDashboard },
     { id: "ledger", label: "BOQ Ledger", icon: TableIcon },
+    { id: "tasks", label: "Work Tasks", icon: CheckCircle2 },
     { id: "versions", label: "Version History", icon: Clock },
     { id: "optimization", label: "AI Optimization", icon: Sparkles },
 ];
@@ -53,6 +58,7 @@ const BOQDetailPage = () => {
     const [summary, setSummary] = useState<BoqSummary | null>(null);
     const [versions, setVersions] = useState<number[]>([]);
     const [comparison, setComparison] = useState<any[]>([]);
+    const [activities, setActivities] = useState<ActivityItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     // Pagination States
@@ -104,25 +110,23 @@ const BOQDetailPage = () => {
             setBoqItems(activeItems);
             setTotalItems(res.total || activeItems.length);
 
-            // Fetch versions gracefully using various IDs based on Swagger: /boq/{id}/versions
-            try {
-                // Try project ID first as it's the primary handle in this view
-                const boqVersions = await boqService.getBoqVersions(projectId);
-                setVersions(boqVersions);
-            } catch (vErr) {
-                // Fallback to item-based group ID if project ID fails
-                if (res.items.length > 0) {
-                    try {
-                        const boqIdFromItems = res.items[0].boq_group_id || res.items[0].id;
-                        const v2 = await boqService.getBoqVersions(boqIdFromItems);
-                        setVersions(v2);
-                    } catch (v2Err) {
-                        console.warn("Versions not available for this BOQ yet");
+            // Fetch versions only if we have active items to derive a BOQ handle from
+            if (activeItems.length > 0) {
+                try {
+                    // USER FEEDBACK: Favor item.id over boq_group_id as the primary version handle
+                    const boqHandle = activeItems[0].id || activeItems[0].boq_group_id;
+                    if (boqHandle) {
+                        const boqVersions = await boqService.getBoqVersions(boqHandle);
+                        setVersions(boqVersions);
+                    } else {
                         setVersions([]);
                     }
-                } else {
+                } catch (vErr) {
+                    console.warn("Versions not available for this BOQ yet (ID:", activeItems[0].id, ")");
                     setVersions([]);
                 }
+            } else {
+                setVersions([]);
             }
         } catch (error) {
             console.error("Failed to fetch BOQ data", error);
@@ -159,6 +163,21 @@ const BOQDetailPage = () => {
         }
     };
 
+    const handleRequestApproval = async (item: BoqItem) => {
+        try {
+            await approvalService.createApproval({
+                entity_type: "boq",
+                entity_id: item.id,
+                remarks: `Requesting approval for BOQ item: ${item.item_name}`,
+            });
+            toast.success("Approval request sent successfully!");
+            fetchData();
+        } catch (error) {
+            toast.error("Failed to send approval request");
+            console.error("Approval Request Error:", error);
+        }
+    };
+
     const handleGenerateTasks = async () => {
         setIsGeneratingTasks(true);
         try {
@@ -177,6 +196,9 @@ const BOQDetailPage = () => {
                 const response = await boqService.generateTasksFromBoq(targetId);
                 const taskId = response?.task_id || "Success";
                 toast.success(`Tasks generated! (Ref: ${taskId})`);
+                // Auto-switch to tasks tab to show results
+                setActiveTab("tasks");
+                fetchActivities();
             } catch (err: any) {
                 const msg = err.response?.data?.detail || "Failed to generate tasks. Verify if BOQ items are added.";
                 toast.error(msg);
@@ -195,14 +217,44 @@ const BOQDetailPage = () => {
         }
         try {
             const boqId = boqItems[0].boq_group_id || boqItems[0].id;
-            await boqService.addBoqItem(boqId, data);
+            const newItem = await boqService.addBoqItem(boqId, data);
             toast.success("Item added to BOQ");
+
+            // Automatically request approval for new line items
+            try {
+                await approvalService.createApproval({
+                    entity_type: "boq",
+                    entity_id: newItem.id,
+                    remarks: `Initial approval request for ${newItem.item_name}`,
+                });
+                toast.success("Approval request initiated!");
+            } catch (approveErr) {
+                console.error("Auto-approval error:", approveErr);
+                toast.error("Failed to auto-initiate approval. Use manual action.");
+            }
+
             setIsCreateModalOpen(false);
             fetchData();
         } catch (error) {
             toast.error("Failed to add item");
         }
     };
+
+    const fetchActivities = useCallback(async () => {
+        if (!projectId) return;
+        try {
+            const data = await workProgressService.listActivities(projectId);
+            setActivities(data);
+        } catch (error) {
+            console.error("Failed to fetch activities:", error);
+        }
+    }, [projectId]);
+
+    useEffect(() => {
+        if (activeTab === "tasks") {
+            fetchActivities();
+        }
+    }, [activeTab, fetchActivities]);
 
     const handleUpdateItem = async (data: any) => {
         if (!activeItem) return;
@@ -482,6 +534,7 @@ const BOQDetailPage = () => {
                                             <th className="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-widest text-[#2d5f9e]">Actual Cost</th>
                                             <th className="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-widest text-[#2d5f9e]">Variance</th>
                                             <th className="px-6 py-4 text-center text-[10px] font-bold uppercase tracking-widest text-[#2d5f9e]">Status</th>
+                                            <th className="px-6 py-4 text-center text-[10px] font-bold uppercase tracking-widest text-[#2d5f9e]">Approval</th>
                                             <th className="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-widest text-[#2d5f9e]">Actions</th>
                                         </tr>
                                     </thead>
@@ -494,8 +547,13 @@ const BOQDetailPage = () => {
                                                         #{item.id}
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        <p className="font-bold text-slate-800 group-hover:text-primary transition-all uppercase tracking-tight">{item.item_name}</p>
-                                                        <p className="text-[10px] font-medium text-slate-400 line-clamp-1">{item.description}</p>
+                                                        <div className="flex flex-col">
+                                                            <p className="font-bold text-slate-800 group-hover:text-primary transition-all uppercase tracking-tight">{item.item_name}</p>
+                                                            {item.boq_group_id && (
+                                                                <span className="text-[9px] font-bold text-primary/60 uppercase tracking-wider">Group: #{item.boq_group_id}</span>
+                                                            )}
+                                                            <p className="text-[10px] font-medium text-slate-400 line-clamp-1">{item.description}</p>
+                                                        </div>
                                                     </td>
                                                     <td className="px-6 py-4"><span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md text-[10px] font-black uppercase tracking-tighter">{item.category}</span></td>
                                                     <td className="px-6 py-4 text-right font-bold text-slate-600">{item.quantity} <span className="text-[10px] text-slate-300">{item.unit}</span></td>
@@ -511,8 +569,28 @@ const BOQDetailPage = () => {
                                                             {item.status || (item.is_completed ? "Finished" : "Pending")}
                                                         </span>
                                                     </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${item.approval_status === 'APPROVED' ? 'bg-green-100 text-green-600' :
+                                                            item.approval_status === 'REJECTED' ? 'bg-rose-100 text-rose-600' :
+                                                                item.approval_status === 'UNDER_REVIEW' ? 'bg-amber-100 text-amber-600' :
+                                                                    'bg-slate-100 text-slate-500 border border-slate-200'
+                                                            }`}>
+                                                            {item.approval_status || 'PENDING'}
+                                                        </span>
+                                                    </td>
                                                     <td className="px-6 py-4 text-right">
                                                         <div className="flex items-center justify-end gap-1">
+                                                            {(item.approval_status === "PENDING" ||
+                                                                item.approval_status === "DRAFT" ||
+                                                                !item.approval_status) && (
+                                                                    <button
+                                                                        onClick={() => handleRequestApproval(item)}
+                                                                        className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition-all"
+                                                                        title="Request Approval"
+                                                                    >
+                                                                        <FileCheck className="w-4 h-4" />
+                                                                    </button>
+                                                                )}
                                                             <button onClick={() => { setActiveItem(item); setIsActualsModalOpen(true); }} className="p-2 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all" title="Update Actuals"><TrendingUp className="w-4 h-4" /></button>
                                                             <button onClick={() => { setActiveItem(item); setIsHistoryModalOpen(true); }} className="p-2 text-slate-400 hover:text-violet-500 hover:bg-violet-50 rounded-xl transition-all" title="History"><History className="w-4 h-4" /></button>
                                                             <button onClick={() => { setActiveItem(item); setIsCreateModalOpen(true); }} className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition-all" title="Edit Item"><Pencil className="w-4 h-4" /></button>
@@ -565,6 +643,74 @@ const BOQDetailPage = () => {
                                         </svg>
                                     </button>
                                 </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === "tasks" && (
+                        <div className="bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <div className="p-4 border-b border-slate-50 flex items-center justify-between">
+                                <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest px-2">Work Execution Tasks</h3>
+                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1 rounded-lg">
+                                    {activities.length} Total Tasks
+                                </div>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left">
+                                    <thead>
+                                        <tr className="bg-slate-50/50 text-[10px] font-bold uppercase tracking-widest text-[#2d5f9e]">
+                                            <th className="px-6 py-4">ID</th>
+                                            <th className="px-6 py-4">Task Name</th>
+                                            <th className="px-6 py-4">Quantity</th>
+                                            <th className="px-6 py-4">Progress</th>
+                                            <th className="px-6 py-4">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-50">
+                                        {activities.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={5} className="px-6 py-12 text-center text-slate-400 font-medium">
+                                                    No activities found. Generate tasks from BOQ to start.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            activities.map(act => (
+                                                <tr key={act.id} className="hover:bg-blue-50/30 transition-colors">
+                                                    <td className="px-6 py-4 text-xs font-bold text-[#4a90e2]">#{act.id}</td>
+                                                    <td className="px-6 py-4">
+                                                        <p className="font-bold text-slate-800 text-xs">{act.activity_name}</p>
+                                                        <p className="text-[9px] font-medium text-slate-400">{act.boq_code || "No code"}</p>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-xs font-bold text-slate-600">
+                                                        {act.planned_quantity} {act.unit}
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex flex-col gap-1.5 w-full max-w-[120px]">
+                                                            <div className="flex justify-between text-[8px] font-bold uppercase tracking-tighter">
+                                                                <span className="text-slate-400">Completion</span>
+                                                                <span className="text-primary">{Math.round(act.completion_percentage || 0)}%</span>
+                                                            </div>
+                                                            <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
+                                                                <div
+                                                                    className="h-full bg-primary transition-all duration-500"
+                                                                    style={{ width: `${act.completion_percentage || 0}%` }}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest ${act.status === "Completed" ? "bg-emerald-100 text-emerald-600" :
+                                                            act.status === "On Track" ? "bg-blue-100 text-blue-600" :
+                                                                "bg-amber-100 text-amber-600"
+                                                            }`}>
+                                                            {act.status}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     )}

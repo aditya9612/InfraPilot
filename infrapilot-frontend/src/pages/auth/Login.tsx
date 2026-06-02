@@ -14,6 +14,7 @@ const ROLE_PATHS: Record<Role, string> = {
   SiteEngineer: "/engineer",
   Accountant: "/accountant",
   Client: "/client",
+  Labour: "/labour",
 };
 
 const Login = () => {
@@ -118,11 +119,17 @@ const Login = () => {
 
       const profile = await authService.getMe();
 
+      // Robust role mapping to handle potential case differences from backend/mock
+      const rawRole = profile.role || "Admin";
+      const normalizedRole = (Object.keys(ROLE_PATHS).find(
+        (r) => r.toLowerCase() === rawRole.toLowerCase()
+      ) as Role) || "Admin";
+
       fullUser = {
         id: String(verifyData.user_id),
         name: profile.full_name || "User",
         mobile: mobile,
-        role: (profile.role as Role) || "Admin",
+        role: normalizedRole,
         token: verifyData.token,
       };
 
