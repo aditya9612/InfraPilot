@@ -42,9 +42,16 @@ const ClientMaterialReportPage = () => {
       
       if (materialRes.status === 'fulfilled') {
         const mData = materialRes.value;
-        // Handle array, or wrapped array in data/items property
-        const actualItems = Array.isArray(mData) ? mData : (mData?.data || mData?.items || []);
-        setMaterialData(actualItems);
+        const rawItems = Array.isArray(mData) ? mData : (mData?.materials || mData?.data || mData?.items || []);
+        const normalizedItems = rawItems.map((item: any) => ({
+          ...item,
+          material_name: item.material_name || item.material_code || "Unknown Material",
+          total_purchased: item.total_purchased ?? item.quantity_purchased ?? 0,
+          total_used: item.total_used ?? item.quantity_used ?? 0,
+          remaining_stock: item.remaining_stock ?? item.remaining_quantity ?? item.current_stock ?? 0,
+          total_cost: item.total_cost ?? item.total_valuation ?? ((item.purchase_rate || 0) * (item.remaining_quantity || 0))
+        }));
+        setMaterialData(normalizedItems);
       }
     } catch (err) {
       console.error("Error fetching material report:", err);

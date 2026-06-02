@@ -108,9 +108,46 @@ export const reportService = {
         });
         return response.data;
     },
-
     exportWeeklyPDF: async (projectId: number) => {
-        const response = await api.get(`/reports/weekly/export/pdf`, {
+        const url = `/reports/project/export/pdf`;
+        console.log(`Calling Weekly Report Export: GET ${url} with project_id=${projectId}`);
+        const response = await api.get(url, {
+            params: { project_id: projectId, type: 'weekly' },
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+    exportWeeklyExcel: async (projectId: number) => {
+        const url = `/reports/weekly/export/excel`;
+        console.log(`Calling Report Export: GET ${url} with project_id=${projectId}`);
+        const response = await api.get(url, {
+            params: { project_id: projectId },
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+    exportLabourPDF: async (projectId: number) => {
+        const url = `/reports/labour/export/pdf`;
+        console.log(`Calling Report Export: GET ${url} with project_id=${projectId}`);
+        const response = await api.get(url, {
+            params: { project_id: projectId },
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+    exportMaterialPDF: async (projectId: number) => {
+        const url = `/materials/reports/materials/pdf`;
+        console.log(`Calling Material Export: GET ${url} with project_id=${projectId}`);
+        const response = await api.get(url, {
+            params: { project_id: projectId, _t: Date.now() },
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+    exportIssuePDF: async (projectId: number) => {
+        const url = `/reports/issues/export/pdf`;
+        console.log(`Calling Report Export: GET ${url} with project_id=${projectId}`);
+        const response = await api.get(url, {
             params: { project_id: projectId },
             responseType: 'blob'
         });

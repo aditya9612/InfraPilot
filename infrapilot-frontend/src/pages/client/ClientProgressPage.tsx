@@ -138,17 +138,14 @@ const ClientProgressPage = () => {
                 ) : (
                   paginatedActivities.map((act, i) => {
                     const statusColor =
-                      act.status === "COMPLETED" || act.status === "Completed" || act.status === "ON TRACK" || act.status === "On Track" ? "bg-emerald-500" :
-                        act.status === "IN_PROGRESS" || act.status === "In Progress" ? "bg-blue-500" :
-                          act.status === "DELAYED" || act.status === "Delayed" || act.status === "NOT STARTED" || act.status === "Not Started" ? "bg-red-500" :
-                            "bg-slate-300";
-                    const statusBg =
-                      act.status === "DELAYED" || act.status === "Delayed" || act.status === "NOT STARTED" || act.status === "Not Started" ? "bg-red-50 text-red-600" :
-                        act.status === "IN_PROGRESS" || act.status === "In Progress" ? "bg-blue-50 text-blue-600" :
-                          act.status === "COMPLETED" || act.status === "Completed" || act.status === "ON TRACK" || act.status === "On Track" ? "bg-emerald-50 text-emerald-600" :
-                            "bg-slate-50 text-slate-500";
+                      ["COMPLETED", "Completed", "ON TRACK", "ON_TRACK", "On Track"].includes(act.status) ? "bg-green-500" :
+                        ["IN_PROGRESS", "In Progress", "IN PROGRESS"].includes(act.status) ? "bg-blue-500" :
+                          ["DELAY", "DELAYED", "Delayed", "DELAY_ONGOING"].includes(act.status) ? "bg-red-500" :
+                            ["NOT_STARTED", "NOT STARTED", "Not Started"].includes(act.status) ? "bg-amber-500" :
+                              "bg-slate-300";
+                    const statusBg = "bg-slate-50 text-slate-500";
                     const barColor =
-                      act.status === "DELAYED" || act.status === "Delayed" ? "bg-red-500" : "bg-blue-600";
+                      ["DELAY", "DELAYED", "Delayed", "DELAY_ONGOING"].includes(act.status) ? "bg-red-500" : "bg-blue-600";
 
                     return (
                       <tr key={act.id || i} className="hover:bg-slate-50/50 transition-colors group">

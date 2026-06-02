@@ -25,21 +25,46 @@ const ClientDashboard = () => {
   useEffect(() => {
     if (!projectId) return;
 
+    let active = true;
+
     const fetchDashboardContent = async () => {
       try {
         setLoading(true);
 
-        // 1. Fetch project data for title and details
+        // 1. Fetch project data (The only reliable source)
         const activeProject = await projectService.getProjectById(projectId);
+        if (!active) return;
         setProjectData(activeProject);
 
-        // 2. Fetch dashboard data for that project
-        const data = await dashboardService.getClientDashboard(projectId);
-        setDashboardData(data);
+        // 2. Fetch dashboard stats for that project
+        const statsData = await dashboardService.getClientDashboard(projectId);
+        if (!active) return;
+
+        // Sync and Sanitize: Use stats but prioritize project details if they disagree
+        const getProgress = () => {
+          if (activeProject.completion_percentage !== undefined) return activeProject.completion_percentage;
+          if (activeProject.progress_percent !== undefined) return activeProject.progress_percent;
+          if (activeProject.progress !== undefined) return activeProject.progress;
+          return statsData.progress_percent || 0;
+        };
+
+        const syncedDashboardData: ClientDashboardData = {
+          ...statsData,
+          project_id: projectId,
+          status: activeProject.status || statsData.status,
+          progress_percent: getProgress(),
+          start_date: activeProject.start_date || statsData.start_date,
+          end_date: activeProject.end_date || statsData.end_date,
+          // Calculate remaining budget locally for precision
+          remaining_budget: (activeProject.budget_total || statsData.budget_total || 0) - (statsData.total_expense || 0),
+        };
+
+        setDashboardData(syncedDashboardData);
       } catch (error: any) {
+        if (!active) return;
         console.error("Dashboard Fetch Error:", error);
         toast.error(error.message || "Failed to load dashboard data");
-        // Fallback data
+        // Fallback
         setDashboardData({
           project_id: projectId,
           status: "PLANNED",
@@ -57,11 +82,12 @@ const ClientDashboard = () => {
           days_remaining: 0,
         });
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
 
     fetchDashboardContent();
+    return () => { active = false; };
   }, [projectId]);
 
   const botMessages = [

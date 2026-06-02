@@ -100,6 +100,20 @@ const ClientFinancialDetailsPage = () => {
           </div>
         </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+          {[
+            { label: "Total Invoiced", value: data?.total_invoice, color: "text-slate-800" },
+            { label: "Amount Paid", value: data?.paid_invoice, color: "text-emerald-600" },
+            { label: "Pending Dues", value: data?.pending_invoice, color: "text-amber-600" },
+            { label: "Project Expense", value: data?.total_expense, color: "text-red-500" },
+          ].map((stat, i) => (
+            <div key={i} className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">{stat.label}</p>
+              <p className={`text-2xl font-black ${stat.color} tracking-tight`}>{fmt(stat.value ?? 0)}</p>
+            </div>
+          ))}
+        </div>
+
         <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
           {loading ? (
             <div className="flex flex-col items-center justify-center p-20 space-y-4">
@@ -111,70 +125,61 @@ const ClientFinancialDetailsPage = () => {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-100">
-                    <th className="py-6 px-8 text-[10px] font-black text-slate-500 uppercase tracking-widest">Project Name</th>
-                    <th className="py-6 px-8 text-[10px] font-black text-slate-500 uppercase tracking-widest">Payment Date</th>
-                    <th className="py-6 px-8 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Payment Amount</th>
-                    <th className="py-6 px-8 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Settlement Status</th>
+                    <th className="py-6 px-8 text-[10px] font-black text-slate-500 uppercase tracking-widest">Transaction Detail</th>
+                    <th className="py-6 px-8 text-[10px] font-black text-slate-500 uppercase tracking-widest">Payment Status</th>
+                    <th className="py-6 px-8 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Settlement Amount</th>
+                    <th className="py-6 px-8 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Reference</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {/* Mapping real data if available, or providing the requested format if empty */}
-                  {(data && data.paid_invoice > 0) ? (
-                    <tr className="hover:bg-slate-50 transition-colors">
-                      <td className="py-6 px-8">
-                        <p className="text-sm font-black text-slate-800 tracking-tight">New Sara Project</p>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Ref: PRJ-92</p>
-                      </td>
-                      <td className="py-6 px-8">
-                        <p className="text-sm font-bold text-slate-600">{new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
-                      </td>
-                      <td className="py-6 px-8 text-right">
-                        <p className="text-lg font-black text-blue-600">{fmt(data.paid_invoice)}</p>
-                      </td>
-                      <td className="py-6 px-8 text-center">
-                        <span className="px-4 py-1.5 bg-emerald-50 text-emerald-600 text-[10px] font-black rounded-full uppercase tracking-widest">
-                          Settled
-                        </span>
+                  {(!data || (data.paid_invoice === 0 && data.pending_invoice === 0)) ? (
+                    <tr>
+                      <td colSpan={4} className="py-20 text-center">
+                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">No financial logs identified for this project archive.</p>
                       </td>
                     </tr>
-                  ) : null}
-                  
-                  {/* Example Dues/History */}
-                  <tr className="hover:bg-slate-50 transition-colors bg-white">
-                    <td className="py-6 px-8">
-                      <p className="text-sm font-black text-slate-800 tracking-tight">New Sara Project</p>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Phase: Foundation</p>
-                    </td>
-                    <td className="py-6 px-8">
-                      <p className="text-sm font-bold text-slate-600">24 May 2026</p>
-                    </td>
-                    <td className="py-6 px-8 text-right">
-                      <p className="text-lg font-black text-amber-600">₹1,50,000</p>
-                    </td>
-                    <td className="py-6 px-8 text-center">
-                      <span className="px-4 py-1.5 bg-amber-50 text-amber-600 text-[10px] font-black rounded-full uppercase tracking-widest">
-                        Due
-                      </span>
-                    </td>
-                  </tr>
-
-                  <tr className="hover:bg-slate-50 transition-colors">
-                    <td className="py-6 px-8">
-                      <p className="text-sm font-black text-slate-800 tracking-tight">New Sara Project</p>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Phase: Site Prep</p>
-                    </td>
-                    <td className="py-6 px-8">
-                      <p className="text-sm font-bold text-slate-600">12 May 2026</p>
-                    </td>
-                    <td className="py-6 px-8 text-right">
-                      <p className="text-lg font-black text-emerald-600">₹75,000</p>
-                    </td>
-                    <td className="py-6 px-8 text-center">
-                      <span className="px-4 py-1.5 bg-emerald-50 text-emerald-600 text-[10px] font-black rounded-full uppercase tracking-widest">
-                        Settled
-                      </span>
-                    </td>
-                  </tr>
+                  ) : (
+                    <>
+                      {data.paid_invoice > 0 && (
+                        <tr className="hover:bg-slate-50 transition-colors">
+                          <td className="py-8 px-8">
+                            <p className="text-sm font-black text-slate-800 tracking-tight">Consolidated Payments</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Verified Site Receipts</p>
+                          </td>
+                          <td className="py-8 px-8">
+                            <span className="px-4 py-2 bg-emerald-50 text-emerald-600 text-[9px] font-black rounded-xl uppercase tracking-widest border border-emerald-100">
+                              Settled
+                            </span>
+                          </td>
+                          <td className="py-8 px-8 text-right">
+                            <p className="text-lg font-black text-emerald-600">{fmt(data.paid_invoice)}</p>
+                          </td>
+                          <td className="py-8 px-8 text-center text-[10px] font-bold text-slate-400">
+                            TRX-{projectId}-S
+                          </td>
+                        </tr>
+                      )}
+                      {data.pending_invoice > 0 && (
+                        <tr className="hover:bg-slate-50 transition-colors">
+                          <td className="py-8 px-8">
+                            <p className="text-sm font-black text-slate-800 tracking-tight">Outstanding Balance</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Pending Invoiced amount</p>
+                          </td>
+                          <td className="py-8 px-8">
+                            <span className="px-4 py-2 bg-amber-50 text-amber-600 text-[9px] font-black rounded-xl uppercase tracking-widest border border-amber-100">
+                              Pending
+                            </span>
+                          </td>
+                          <td className="py-8 px-8 text-right">
+                            <p className="text-lg font-black text-amber-600">{fmt(data.pending_invoice)}</p>
+                          </td>
+                          <td className="py-8 px-8 text-center text-[10px] font-bold text-slate-400">
+                            TRX-{projectId}-P
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  )}
                 </tbody>
               </table>
             </div>

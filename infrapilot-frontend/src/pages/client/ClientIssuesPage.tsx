@@ -419,7 +419,6 @@ const ClientIssuesPage = () => {
                 <option value="Low">Low</option>
                 <option value="Medium">Medium</option>
                 <option value="Critical">Critical</option>
-                <option value="Urgent">Urgent</option>
               </select>
             </div>
             <div className="md:col-span-2">
