@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
-import { X, Camera, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
+import { X, Camera, CheckCircle2, AlertCircle, Clock, Mic, MessageSquare, Play, Pause, BarChart2, Calendar, CheckCircle } from 'lucide-react';
+import VoiceSubmission from './VoiceSubmission';
 
 interface Task {
     id: string;
     name: string;
     project: string;
     description: string;
-    status: string;
-    priority: string;
+    status: 'Pending' | 'In Progress' | 'Completed' | 'Hold';
+    priority: 'High' | 'Medium' | 'Low';
+    startDate: string;
+    endDate: string;
+    progress: number;
 }
 
 interface TaskDetailModalProps {
@@ -18,16 +22,21 @@ interface TaskDetailModalProps {
 }
 
 const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose, onUpdateStatus }) => {
-    const [progress, setProgress] = useState(0);
+    const [isRecordingMode, setIsRecordingMode] = useState(false);
 
     if (!isOpen || !task) return null;
+
+    const handleVoiceSend = (blob: Blob) => {
+        console.log("Audio blob received:", blob);
+        setIsRecordingMode(false);
+    };
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
             <div className="bg-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
                 <div className="p-6 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
                     <div>
-                        <span className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] mb-1 block">Work Update</span>
+                        <span className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] mb-1 block">Task Details</span>
                         <h2 className="text-xl font-bold text-slate-800">{task.name}</h2>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-white rounded-full transition-colors border border-transparent hover:border-slate-100">
@@ -40,50 +49,57 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                     <section>
                         <div className="flex justify-between items-center mb-3">
                             <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                                <Clock className="w-4 h-4 text-indigo-500" />
+                                <BarChart2 className="w-4 h-4 text-indigo-500" />
                                 Work Progress
                             </label>
-                            <span className="text-lg font-black text-indigo-600">{progress}%</span>
+                            <span className="text-lg font-black text-indigo-600">{task.progress}%</span>
                         </div>
-                        <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            value={progress}
-                            onChange={(e) => setProgress(parseInt(e.target.value))}
-                            className="w-full h-3 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                        />
-                    </section>
-
-                    {/* Photo Upload */}
-                    <section>
-                        <label className="text-sm font-bold text-slate-700 flex items-center gap-2 mb-4">
-                            <Camera className="w-4 h-4 text-indigo-500" />
-                            Before/After Work Images
-                        </label>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="aspect-video rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer group">
-                                <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm mb-2 group-hover:scale-110 transition-transform">
-                                    <Camera className="w-5 h-5 text-indigo-500" />
-                                </div>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Before Work</span>
-                            </div>
-                            <div className="aspect-video rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer group">
-                                <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm mb-2 group-hover:scale-110 transition-transform">
-                                    <Camera className="w-5 h-5 text-indigo-500" />
-                                </div>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">After Work</span>
-                            </div>
+                        <div className="w-full h-3 bg-slate-100 rounded-lg overflow-hidden">
+                            <div className="h-full bg-indigo-600 transition-all duration-500" style={{ width: `${task.progress}%` }} />
                         </div>
                     </section>
 
-                    {/* Guidelines */}
-                    <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100 flex gap-3">
-                        <AlertCircle className="w-5 h-5 text-indigo-500 shrink-0" />
-                        <p className="text-[11px] text-indigo-700 font-medium leading-relaxed">
-                            Ensure regular progress updates. Quality photography is required for payment verification.
-                        </p>
-                    </div>
+                    {/* Voice Update Section */}
+                    <section className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                <MessageSquare className="w-3.5 h-3.5" />
+                                Status Updates
+                            </span>
+                            {!isRecordingMode && (
+                                <button
+                                    onClick={() => setIsRecordingMode(true)}
+                                    className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 uppercase tracking-widest"
+                                >
+                                    <Mic className="w-3 h-3" />
+                                    Add Voice Note
+                                </button>
+                            )}
+                        </div>
+
+                        {isRecordingMode ? (
+                            <VoiceSubmission onSend={handleVoiceSend} />
+                        ) : (
+                            <div className="grid grid-cols-4 gap-3">
+                                <button onClick={() => onUpdateStatus(task.id, 'In Progress')} className="flex flex-col items-center justify-center p-3 rounded-xl border border-blue-100 bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors gap-1.5">
+                                    <Play className="w-4 h-4 fill-current" />
+                                    <span className="text-[10px] font-bold uppercase tracking-tight">Start</span>
+                                </button>
+                                <button onClick={() => onUpdateStatus(task.id, 'Completed')} className="flex flex-col items-center justify-center p-3 rounded-xl border border-green-100 bg-green-50 text-green-600 hover:bg-green-100 transition-colors gap-1.5">
+                                    <CheckCircle className="w-4 h-4" />
+                                    <span className="text-[10px] font-bold uppercase tracking-tight">Finish</span>
+                                </button>
+                                <button onClick={() => onUpdateStatus(task.id, 'Hold')} className="flex flex-col items-center justify-center p-3 rounded-xl border border-amber-100 bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors gap-1.5">
+                                    <Pause className="w-4 h-4" />
+                                    <span className="text-[10px] font-bold uppercase tracking-tight">Pause</span>
+                                </button>
+                                <button onClick={() => onUpdateStatus(task.id, 'Pending')} className="flex flex-col items-center justify-center p-3 rounded-xl border border-slate-200 bg-white text-slate-400 hover:bg-slate-50 transition-colors gap-1.5">
+                                    <AlertCircle className="w-4 h-4" />
+                                    <span className="text-[10px] font-bold uppercase tracking-tight">Reset</span>
+                                </button>
+                            </div>
+                        )}
+                    </section>
                 </div>
 
                 <div className="p-6 bg-slate-50/50 border-t border-slate-100 flex gap-4">
@@ -91,14 +107,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                         onClick={onClose}
                         className="flex-1 py-3 px-4 bg-white border border-slate-200 text-slate-600 rounded-2xl font-bold text-sm hover:bg-slate-100 transition-colors"
                     >
-                        Cancel
-                    </button>
-                    <button
-                        onClick={() => onUpdateStatus(task.id, progress === 100 ? 'Completed' : 'In Progress')}
-                        className="flex-1 py-3 px-4 bg-indigo-600 text-white rounded-2xl font-bold text-sm hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2"
-                    >
-                        <CheckCircle2 className="w-4 h-4" />
-                        Save Status
+                        Close
                     </button>
                 </div>
             </div>

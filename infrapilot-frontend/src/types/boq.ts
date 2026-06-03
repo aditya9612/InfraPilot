@@ -16,6 +16,7 @@ export interface BoqItem {
   variance_cost?: number | string;
   is_completed?: boolean;
   status: string;
+  approval_status?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -60,7 +61,8 @@ export interface CreateBoqRequest {
   quantity: number;
   unit: string;
   unit_cost: number;
-  status: string;
+  status?: string;
+  activity_type_id?: number;
 }
 
 export interface UpdateBoqRequest {
@@ -71,6 +73,7 @@ export interface UpdateBoqRequest {
   unit?: string;
   unit_cost?: number;
   status?: string;
+  activity_type_id?: number;
   is_completed?: boolean;
 }
 

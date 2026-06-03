@@ -3,6 +3,8 @@ interface Project {
   name: string;
   progress: number;
   status: "On Track" | "At Risk" | "Delayed";
+  type: string;
+  city: string;
   startDate: string;
   endDate: string;
   budgetUsed: number;
@@ -15,6 +17,8 @@ const projects: Project[] = [
     name: "Skyline Residency Phase 1",
     progress: 75,
     status: "On Track",
+    type: "Construction",
+    city: "Pune",
     startDate: "Jan 12, 2024",
     endDate: "Dec 15, 2025",
     budgetUsed: 12000000,
@@ -25,6 +29,8 @@ const projects: Project[] = [
     name: "Metropolis Commercial Hub",
     progress: 40,
     status: "Delayed",
+    type: "Infrastructure",
+    city: "Mumbai",
     startDate: "Mar 05, 2024",
     endDate: "Oct 20, 2026",
     budgetUsed: 8000000,
@@ -35,6 +41,8 @@ const projects: Project[] = [
     name: "Green Valley Smart City",
     progress: 60,
     status: "At Risk",
+    type: "Construction",
+    city: "Bangalore",
     startDate: "Feb 20, 2024",
     endDate: "Jun 30, 2026",
     budgetUsed: 15000000,
@@ -45,6 +53,8 @@ const projects: Project[] = [
     name: "Coastal Bridge Project",
     progress: 25,
     status: "On Track",
+    type: "Infrastructure",
+    city: "Goa",
     startDate: "May 10, 2024",
     endDate: "Dec 20, 2027",
     budgetUsed: 4500000,
@@ -73,10 +83,10 @@ const ProjectTable = () => {
           <thead>
             <tr className="bg-slate-50/50">
               <th className="px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Project Name
+                Project & Type
               </th>
               <th className="px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Progress
+                Location
               </th>
               <th className="px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">
                 Status
@@ -99,38 +109,26 @@ const ProjectTable = () => {
                   <p className="text-sm font-semibold text-slate-700">
                     {project.name}
                   </p>
-                  <p className="text-xs text-slate-400">
-                    ID: INF-{project.id}092
-                  </p>
-                </td>
-                <td className="px-5 py-4 w-48">
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1 bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          project.status === "On Track"
-                            ? "bg-emerald-500"
-                            : project.status === "At Risk"
-                              ? "bg-amber-500"
-                              : "bg-rose-500"
-                        }`}
-                        style={{ width: `${project.progress}%` }}
-                      />
-                    </div>
-                    <span className="text-xs font-bold text-slate-600">
-                      {project.progress}%
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-bold uppercase tracking-wider">
+                      {project.type}
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      ID: INF-{project.id}092
                     </span>
                   </div>
                 </td>
                 <td className="px-5 py-4">
+                  <p className="text-sm font-medium text-slate-600">{project.city}</p>
+                </td>
+                <td className="px-5 py-4">
                   <span
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                      project.status === "On Track"
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${project.status === "On Track"
                         ? "bg-emerald-50 text-emerald-600 border border-emerald-100"
                         : project.status === "At Risk"
                           ? "bg-amber-50 text-amber-600 border border-amber-100"
                           : "bg-rose-50 text-rose-600 border border-rose-100"
-                    }`}
+                      }`}
                   >
                     {project.status}
                   </span>

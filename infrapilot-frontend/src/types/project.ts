@@ -9,16 +9,46 @@ export type ProjectStatus =
 export type TaskStatus = "Planned" | "In Progress" | "Completed" | "Cancelled";
 export type MilestoneStatus = "Pending" | "In Progress" | "Completed";
 
+export type ProjectCategory =
+  | 'RESIDENTIAL'
+  | 'COMMERCIAL'
+  | 'INDUSTRIAL'
+  | 'ROAD'
+  | 'BRIDGE'
+  | 'INTERIOR'
+  | 'VILLA'
+  | 'APARTMENT'
+  | 'TOWNSHIP'
+  | 'RENOVATION';
+
+export type LocationCategory =
+  | 'URBAN'
+  | 'RURAL'
+  | 'SEMI_URBAN'
+  | 'HIGHWAY'
+  | 'REMOTE'
+  | 'INDUSTRIAL_ZONE';
+
 export interface Project {
   id: number;
   project_name: string;
   owner_id: number;
   description: string;
+  type: ProjectCategory;
+  location_type: LocationCategory;
+  site_address: string;
+  city: string;
+  state: string;
+  country: string;
+  pincode: string;
+  latitude?: number;
+  longitude?: number;
   start_date: string;
   end_date: string;
   status: ProjectStatus;
   completion_percentage: number;
   budget?: number;
+  checklist_logs?: any[]; // For storing project-specific checklist activity
 }
 
 export interface ProjectMember {
@@ -50,6 +80,7 @@ export interface Task {
   assigned_user_id: number;
   completion_percentage: number;
   is_delayed: boolean;
+  boq_id?: number | null;
 }
 
 export interface TaskProgress {

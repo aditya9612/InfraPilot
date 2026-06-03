@@ -121,6 +121,9 @@ import AccountantReportsPage from "../pages/accountant/AccountantReportsPage";
 import AccountantSettingsPage from "../pages/accountant/AccountantSettingsPage";
 import ClientDashboard from "../pages/dashboard/ClientDashboard";
 import LabourDashboard from "../pages/labour/LabourDashboard";
+import MyTasksPage from "../pages/labour/MyTasksPage";
+import PaymentsPage from "../pages/labour/PaymentsPage";
+import LabourSettingsPage from "../pages/labour/LabourSettingsPage";
 
 const RootRedirect = () => {
   const { user, isAuthenticated } = useAuth();
@@ -426,9 +429,9 @@ function AppRoutes() {
             {/* Labour Routes */}
             <Route element={<ProtectedRoute allowedRoles={["Labour"]} />}>
               <Route path="/labour" element={<LabourDashboard />} />
-              <Route path="/labour/tasks" element={<LabourDashboard />} />
-              <Route path="/labour/payments" element={<LabourDashboard />} />
-              <Route path="/labour/settings" element={<LabourDashboard />} />
+              <Route path="/labour/tasks" element={<MyTasksPage />} />
+              <Route path="/labour/payments" element={<PaymentsPage />} />
+              <Route path="/labour/settings" element={<LabourSettingsPage />} />
             </Route>
 
             {/* Contractor Routes - Temporarily commented out as Contractor is not in UserRole type */}

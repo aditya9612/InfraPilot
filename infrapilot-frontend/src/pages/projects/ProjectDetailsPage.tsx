@@ -62,12 +62,23 @@ const ProjectDetailsPage = () => {
     if (!projectId) return;
     try {
       setLoading(true);
-      const [pData, mData, msData, tData, sData, prData, plData] =
-        await Promise.all([
-          projectService.getProjectById(projectId).catch((err) => {
-            console.error("Project Meta Load Failure:", err);
-            return null;
-          }),
+
+      // Stage 1: Load essential project metadata first
+      const pData = await projectService.getProjectById(projectId).catch((err) => {
+        console.error("Critical Project Meta Load Failure:", err);
+        return null;
+      });
+
+      if (pData) {
+        setProject(pData);
+        // Important: Stop the global loading state as soon as we have core data
+        setLoading(false);
+      }
+
+      // Stage 2: Load secondary data modules in parallel
+      // We don't await this entire block before showing the page
+      const loadSecondaryData = async () => {
+        const [mData, msData, tData, sData, prData, plData] = await Promise.all([
           projectService.getProjectMembers(projectId).catch((err) => {
             console.warn("Members Load Failure:", err);
             return [];
@@ -85,29 +96,35 @@ const ProjectDetailsPage = () => {
           projectService.getProjectProfitLoss(projectId).catch(() => null),
         ]);
 
-      setProject(pData);
-      setSchedule(sData);
-      setProgress(prData);
-      const rawMembers = Array.isArray(mData) ? mData : mData.items || mData.data || [];
-      const mappedMembers = rawMembers.map((m: any) => ({
-        user_id: m.user_id || m.user?.id || m.user?.user_id || m.id,
-        full_name: m.full_name || m.user?.full_name || m.user?.name || `User ${m.user_id || m.id || "Unknown"}`,
-        email: m.email || m.user?.email || "",
-        role: m.role || m.user?.role || "Member"
-      }));
-      setMembers(mappedMembers);
-      setMilestones(
-        Array.isArray(msData) ? msData : msData.items || msData.data || [],
-      );
-      setTasks(Array.isArray(tData) ? tData : tData.items || tData.data || []);
-      setProfitLoss(plData);
+        // Process Members
+        const rawMembers = Array.isArray(mData) ? mData : mData.items || mData.data || [];
+        const mappedMembers = rawMembers.map((m: any) => ({
+          user_id: m.user_id || m.user?.id || m.user?.user_id || m.id,
+          full_name: m.full_name || m.user?.full_name || m.user?.name || `User ${m.user_id || m.id || "Unknown"}`,
+          email: m.email || m.user?.email || "",
+          role: m.role || m.user?.role || "Member"
+        }));
+        setMembers(mappedMembers);
 
-      // Expenses could be fetched from finance API if available,
-      // but for now we'll rely on the project data or separate logs
+        // Process Milestones
+        setMilestones(Array.isArray(msData) ? msData : msData.items || msData.data || []);
+
+        // Process Tasks
+        setTasks(Array.isArray(tData) ? tData : tData.items || tData.data || []);
+
+        // Process Schedule, Progress & Finance
+        setSchedule(sData);
+        setProgress(prData);
+        setProfitLoss(plData);
+      };
+
+      loadSecondaryData();
+
     } catch (error) {
-      console.error("Failed to fetch project details:", error);
-      toast.error("Failed to load project data");
+      console.error("Unexpected fetch error:", error);
+      toast.error("Failed to load project details");
     } finally {
+      // Ensure loading state is off if Stage 1 failed or caught an error
       setLoading(false);
     }
   }, [projectId]);
@@ -636,6 +653,68 @@ const ProjectDetailsPage = () => {
                         className="absolute top-0 left-0 h-full bg-primary transition-all duration-1000 shadow-[0_0_10px_rgba(37,99,235,0.4)]"
                         style={{ width: `${displayProgress}%` }}
                       />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Project Identity & Location Details */}
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                  <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" /></svg>
+                    Project Identity & Location
+                  </h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Project Type</p>
+                      <p className="text-sm font-semibold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100/50 inline-block w-full text-center">
+                        {project.type || "N/A"}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Location Category</p>
+                      <p className="text-sm font-semibold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100/50 inline-block w-full text-center">
+                        {project.location_type || "N/A"}
+                      </p>
+                    </div>
+                    <div className="md:col-span-2 space-y-1">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Site Address</p>
+                      <p className="text-sm font-medium text-slate-600 italic">
+                        {project.site_address ? `${project.site_address}, ${project.city}, ${project.pincode}` : "Address not provided"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 pt-6 border-t border-slate-50 grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="flex items-start gap-4">
+                      <div className="p-3 bg-blue-50 rounded-xl border border-blue-100">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><line x1="12" y1="2" x2="12" y2="22" /><path d="m16.24 7.76-8.48 8.48" /><path d="m7.76 7.76 8.48 8.48" /></svg>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">GPS Navigation</p>
+                        <div className="flex gap-4 mt-1">
+                          <div>
+                            <span className="text-[9px] font-bold text-slate-300 uppercase block">Lat</span>
+                            <span className="text-sm font-mono font-bold text-slate-800">{project.latitude || "—"}</span>
+                          </div>
+                          <div>
+                            <span className="text-[9px] font-bold text-slate-300 uppercase block">Long</span>
+                            <span className="text-sm font-mono font-bold text-slate-800">{project.longitude || "—"}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-4">
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Region</p>
+                        <p className="text-sm font-bold text-slate-700 mt-1">
+                          {project.state}, {project.country}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -8,6 +8,7 @@ const ROLE_PATHS: Record<Role, string> = {
   SiteEngineer: "/engineer",
   Accountant: "/accountant",
   Client: "/client",
+  Labour: "/labour",
 };
 
 const Unauthorized = () => {

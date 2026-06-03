@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import Modal from "../common/Modal";
 import toast from "react-hot-toast";
+import { boqService } from "../../services/boqService";
+import type { BoqItem } from "../../types/boq";
 import type { TaskStatus, ProjectMember } from "../../types/project";
 
 interface CreateTaskModalProps {
@@ -26,7 +28,9 @@ const CreateTaskModal = ({
     start_date: "",
     end_date: "",
     assigned_user_id: members[0]?.user_id || "",
+    boq_id: "",
   });
+  const [boqItems, setBoqItems] = useState<BoqItem[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
 
@@ -37,6 +41,20 @@ const CreateTaskModal = ({
     }
   }, [members, formData.assigned_user_id]);
 
+  useEffect(() => {
+    const fetchBoqItems = async () => {
+      try {
+        const response = await boqService.getBoqs({ project_id: projectId });
+        setBoqItems(response.items || []);
+      } catch (error) {
+        console.error("Failed to fetch BOQ items for task creation:", error);
+      }
+    };
+    if (isOpen && projectId) {
+      fetchBoqItems();
+    }
+  }, [isOpen, projectId]);
+
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
@@ -45,7 +63,7 @@ const CreateTaskModal = ({
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: (name === "priority" || name === "assigned_user_id")
+      [name]: (name === "priority" || name === "assigned_user_id" || name === "boq_id")
         ? (value ? parseInt(value) : "")
         : value,
     }));
@@ -78,6 +96,7 @@ const CreateTaskModal = ({
       const requestBody = {
         project_id: projectId,
         ...formData,
+        boq_id: formData.boq_id || null,
         // Send redundant fields for backend compatibility (Tasks and Activities)
         activity_name: formData.title,
         engineer_id: formData.assigned_user_id,
@@ -113,6 +132,7 @@ const CreateTaskModal = ({
         start_date: "",
         end_date: "",
         assigned_user_id: members[0]?.user_id || "",
+        boq_id: "",
       });
     } catch (error) {
       // Error is handled by the parent's toast
@@ -198,6 +218,18 @@ const CreateTaskModal = ({
                   type="number" name="priority" min="1" max="5" value={formData.priority} onChange={handleChange}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
                 />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Link to BOQ Activity</label>
+                <select
+                  name="boq_id" value={formData.boq_id || ""} onChange={handleChange}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+                >
+                  <option value="">Select BOQ Item (Optional)</option>
+                  {boqItems.map(item => (
+                    <option key={item.id} value={item.id}>{item.item_name} ({item.category})</option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>
