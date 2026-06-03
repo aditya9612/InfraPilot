@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   User,
   Briefcase,
@@ -28,6 +28,7 @@ import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import { projectService } from "../../services/projectService";
 import { quotationService } from "../../services/quotationService";
+import { userService } from "../../services/userService";
 import type { LabourItem, MaterialItem, ExtraChargeItem } from "../../types/quotation";
 import type { Project } from "../../types/project";
 import toast from "react-hot-toast";
@@ -52,7 +53,14 @@ interface InvoiceItem {
 const CreateInvoicePage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Extract clientId from query params
+  const queryParams = new URLSearchParams(location.search);
+  const clientIdFromUrl = queryParams.get("clientId");
+
   const [projects, setProjects] = useState<Project[]>([]);
+
   const [selectedProjectId, setSelectedProjectId] = useState<number>(0);
   const [activeTab, setActiveTab] = useState("measurements");
   const [isSaving, setIsSaving] = useState(false);
@@ -245,6 +253,30 @@ const CreateInvoicePage = () => {
     };
     fetchProjects();
   }, []);
+
+  // Pre-populate client details if clientId is provided in URL
+  useEffect(() => {
+    if (clientIdFromUrl && !id) {
+      const fetchClient = async () => {
+        try {
+          const u = await userService.getUserById(Number(clientIdFromUrl));
+          if (u) {
+            setClientDetails({
+              name: u.full_name || "",
+              company: u.designation || "", // Using designation as company placeholder
+              mobile: u.mobile_number || "",
+              email: u.email || "",
+              address: u.address || "",
+              gst: u.pan_number || "" // Using PAN as GST placeholder if not available
+            });
+          }
+        } catch (error) {
+          console.error("Failed to pre-populate client details", error);
+        }
+      };
+      fetchClient();
+    }
+  }, [clientIdFromUrl, id]);
 
   // Fetch Quotation by ID if provided
   useEffect(() => {
@@ -1388,12 +1420,17 @@ const CreateInvoicePage = () => {
                           />
                         </td>
                         <td className="px-6 py-4">
-                          <input
-                            type="text"
+                          <select
                             value={item.unit}
                             onChange={(e) => updateItem(item.id, "unit", e.target.value)}
-                            className="w-full bg-transparent border-none text-sm font-semibold text-slate-600 outline-none"
-                          />
+                            disabled={isReadOnly}
+                            className={`w-full bg-transparent border-none text-sm font-semibold text-slate-600 outline-none appearance-none cursor-pointer ${isReadOnly ? 'cursor-not-allowed' : ''}`}
+                          >
+                            <option value="">Select Unit</option>
+                            {["Cum", "Sqm", "Rm", "Nos", "Kg", "Ton", "Sqft", "Brass", "Litre", "LS"].map(u => (
+                              <option key={u} value={u}>{u}</option>
+                            ))}
+                          </select>
                         </td>
                         <td className="px-6 py-4">
                           <input
@@ -1649,13 +1686,17 @@ const CreateInvoicePage = () => {
                           {labourItems.map((item, idx) => (
                             <tr key={idx}>
                               <td className="py-3">
-                                <input
-                                  type="text"
+                                <select
                                   value={item.skill_type}
                                   onChange={(e) => handleLabourFieldChange(idx, "skill_type", e.target.value)}
-                                  readOnly={isReadOnly}
-                                  className={`w-full bg-slate-50 border-none text-sm font-bold p-2 rounded-lg ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                                />
+                                  disabled={isReadOnly}
+                                  className={`w-full bg-slate-50 border-none text-sm font-bold p-2 rounded-lg outline-none appearance-none cursor-pointer ${isReadOnly ? 'cursor-not-allowed opacity-70' : 'focus:ring-2 focus:ring-indigo-100'}`}
+                                >
+                                  <option value="">Select Type</option>
+                                  {["Skilled", "Unskilled", "Semi-skilled", "Supervisor", "Operator", "Security", "Other"].map(s => (
+                                    <option key={s} value={s}>{s}</option>
+                                  ))}
+                                </select>
                               </td>
                               <td className="py-3">
                                 <input
@@ -1769,13 +1810,17 @@ const CreateInvoicePage = () => {
                                 />
                               </td>
                               <td className="py-3">
-                                <input
-                                  type="text"
+                                <select
                                   value={item.unit}
                                   onChange={(e) => handleMaterialFieldChange(idx, "unit", e.target.value)}
-                                  readOnly={isReadOnly}
-                                  className={`w-20 bg-white border border-slate-200 text-sm font-bold p-2 rounded-lg outline-none ${isReadOnly ? 'cursor-not-allowed opacity-70' : 'focus:border-indigo-400'}`}
-                                />
+                                  disabled={isReadOnly}
+                                  className={`w-24 bg-white border border-slate-200 text-sm font-bold p-2 rounded-lg outline-none appearance-none cursor-pointer ${isReadOnly ? 'cursor-not-allowed opacity-70' : 'focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50'}`}
+                                >
+                                  <option value="">Unit</option>
+                                  {["Cum", "Sqm", "Rm", "Nos", "Kg", "Ton", "Sqft", "Brass", "Litre", "LS"].map(u => (
+                                    <option key={u} value={u}>{u}</option>
+                                  ))}
+                                </select>
                               </td>
                               <td className="py-3">
                                 <input
@@ -1796,14 +1841,17 @@ const CreateInvoicePage = () => {
                                 />
                               </td>
                               <td className="py-3">
-                                <input
-                                  type="text"
+                                <select
                                   value={item.category}
                                   onChange={(e) => handleMaterialFieldChange(idx, "category", e.target.value)}
-                                  readOnly={isReadOnly}
-                                  className={`w-full bg-white border border-slate-200 text-sm font-bold p-2 rounded-lg outline-none ${isReadOnly ? 'cursor-not-allowed opacity-70' : 'focus:border-indigo-400'}`}
-                                  placeholder="Category"
-                                />
+                                  disabled={isReadOnly}
+                                  className={`w-full bg-white border border-slate-200 text-sm font-bold p-2 rounded-lg outline-none appearance-none cursor-pointer ${isReadOnly ? 'cursor-not-allowed opacity-70' : 'focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50'}`}
+                                >
+                                  <option value="">Select Category</option>
+                                  {["Cement", "Sand", "Aggregate", "Steel", "Bricks", "Blocks", "Pipes", "Cables", "Paint", "Hardware", "Electrical", "Plumbing", "Other"].map(c => (
+                                    <option key={c} value={c}>{c}</option>
+                                  ))}
+                                </select>
                               </td>
                               <td className="py-3">
                                 <input
