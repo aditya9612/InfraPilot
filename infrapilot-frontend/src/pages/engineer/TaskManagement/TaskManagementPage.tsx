@@ -5,8 +5,8 @@ import toast from 'react-hot-toast';
 import {
     Filter, Search, Plus, Eye, Calendar, User,
     CheckCircle, Clock, AlertCircle, XCircle, List, Grid,
-    Share2, ChevronDown, ChevronUp, Folder,
-    Paperclip, Send, X, FileText, Edit2, Trash2, Play, Mic, TrendingUp, Forward
+    ChevronDown, ChevronUp, Folder,
+    Paperclip, Send, X, FileText, Edit2, Trash2, Play, Pause, Mic, TrendingUp, Forward
 } from 'lucide-react';
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import CreateTaskDrawer from './CreateTaskDrawer';
@@ -36,6 +36,40 @@ const mapPriority = (priority: number | string): "LOW" | "MEDIUM" | "HIGH" => {
     if (priority === 1 || priority === "High" || priority === "HIGH") return "HIGH";
     if (priority === 2 || priority === "Medium" || priority === "MEDIUM") return "MEDIUM";
     return "LOW";
+};
+const AudioButton = ({ audioData }: { audioData: string }) => {
+    const [isPlaying, setIsPlaying] = useState(false);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+
+    const togglePlay = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!audioRef.current) return;
+        if (isPlaying) {
+            audioRef.current.pause();
+            setIsPlaying(false);
+        } else {
+            audioRef.current.play().catch(err => console.error('Audio play failed:', err));
+            setIsPlaying(true);
+        }
+    };
+
+    return (
+        <button 
+            onClick={togglePlay} 
+            className={`p-2 rounded-xl transition-all ${isPlaying ? 'text-emerald-600 bg-emerald-100 ring-2 ring-emerald-500/20' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'}`} 
+            title={isPlaying ? "Pause Audio" : "Play Audio"}
+        >
+            {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+            <audio 
+                ref={audioRef} 
+                src={audioData} 
+                className="hidden" 
+                onEnded={() => setIsPlaying(false)}
+                onPause={() => setIsPlaying(false)}
+                onPlay={() => setIsPlaying(true)}
+            />
+        </button>
+    );
 };
 
 const TaskManagementPage = () => {
@@ -675,30 +709,7 @@ const TaskManagementPage = () => {
                                                     <h3 className="text-base font-bold text-slate-800 mb-1">{task.title}</h3>
                                                     <p className="text-xs text-slate-500 mb-5 min-h-[32px] line-clamp-2">{task.description}</p>
 
-                                                    {task.audio_data ? (
-                                                        <div className="mb-4 flex items-center gap-2 max-w-[160px] bg-slate-100/80 rounded-full p-1 pr-3 border border-slate-200/50">
-                                                            <div className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm cursor-pointer" onClick={(e) => {
-                                                                const audio = e.currentTarget.parentElement?.querySelector('audio');
-                                                                if (audio) { audio.paused ? audio.play() : audio.pause(); }
-                                                            }}>
-                                                                <Play className="w-3 h-3 ml-0.5" />
-                                                            </div>
-                                                            <div className="flex-1 h-1 bg-slate-300 rounded-full overflow-hidden flex items-center">
-                                                                <div className="h-full bg-emerald-500 w-1/3"></div>
-                                                            </div>
-                                                            <audio src={task.audio_data} className="hidden" />
-                                                            <span className="text-[10px] font-bold text-slate-400">0:00</span>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="mb-4">
-                                                            <button
-                                                                onClick={() => setRecordingTaskId(task.id)}
-                                                                className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-lg text-[10px] font-bold transition-colors"
-                                                            >
-                                                                <Mic className="w-3 h-3" /> Add Audio
-                                                            </button>
-                                                        </div>
-                                                    )}
+
 
                                                     <div className="space-y-4">
                                                         <div className="flex items-center justify-between">
@@ -763,6 +774,13 @@ const TaskManagementPage = () => {
                                                         </button>
                                                     </div>
                                                     <div className="flex items-center">
+                                                        {task.audio_data ? (
+                                                            <AudioButton audioData={task.audio_data} />
+                                                        ) : (
+                                                            <button onClick={() => setRecordingTaskId(task.id)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all" title="Add Audio">
+                                                                <Mic className="w-4 h-4" />
+                                                            </button>
+                                                        )}
                                                         <button onClick={() => openEditModal(task)} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all">
                                                             <Edit2 className="w-4 h-4" />
                                                         </button>
@@ -799,28 +817,7 @@ const TaskManagementPage = () => {
                                                         <td className="p-4 block md:table-cell">
                                                             <p className="text-sm font-bold text-slate-800">{task.title}</p>
                                                             <p className="text-xs text-slate-500 mt-1 truncate max-w-[200px]">{task.description}</p>
-                                                            {task.audio_data ? (
-                                                                <div className="mt-2 flex items-center gap-2 max-w-[160px] bg-slate-100/80 rounded-full p-1 pr-3 border border-slate-200/50">
-                                                                    <div className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm cursor-pointer" onClick={(e) => {
-                                                                        const audio = e.currentTarget.parentElement?.querySelector('audio');
-                                                                        if (audio) { audio.paused ? audio.play() : audio.pause(); }
-                                                                    }}>
-                                                                        <Play className="w-3 h-3 ml-0.5" />
-                                                                    </div>
-                                                                    <div className="flex-1 h-1 bg-slate-300 rounded-full overflow-hidden flex items-center">
-                                                                        <div className="h-full bg-emerald-500 w-1/3"></div>
-                                                                    </div>
-                                                                    <audio src={task.audio_data} className="hidden" />
-                                                                    <span className="text-[10px] font-bold text-slate-400">0:00</span>
-                                                                </div>
-                                                            ) : (
-                                                                <button
-                                                                    onClick={() => setRecordingTaskId(task.id)}
-                                                                    className="mt-2 flex items-center gap-1.5 px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-lg text-[10px] font-bold transition-colors w-max"
-                                                                >
-                                                                    <Mic className="w-3 h-3" /> Add Audio
-                                                                </button>
-                                                            )}
+
                                                         </td>
                                                         <td className="p-4 block md:table-cell">
                                                             <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100 whitespace-nowrap">
@@ -891,6 +888,13 @@ const TaskManagementPage = () => {
                                                         </td>
                                                         <td className="p-4 text-center block md:table-cell">
                                                             <div className="flex items-center justify-center gap-1">
+                                                                {task.audio_data ? (
+                                                                    <AudioButton audioData={task.audio_data} />
+                                                                ) : (
+                                                                    <button onClick={() => setRecordingTaskId(task.id)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all" title="Add Audio">
+                                                                        <Mic className="w-4 h-4" />
+                                                                    </button>
+                                                                )}
                                                                 <button
                                                                     onClick={() => {
                                                                         setSelectedProgressTask(task);

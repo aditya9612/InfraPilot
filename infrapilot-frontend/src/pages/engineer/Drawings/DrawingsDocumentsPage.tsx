@@ -19,12 +19,10 @@ import {
     RotateCcw,
     Edit2,
     CheckCircle,
-    XCircle,
     Download,
     History,
     ChevronLeft,
-    ChevronRight,
-    Trash2
+    ChevronRight
 } from "lucide-react";
 import { drawingService } from "../../../services/drawingService";
 import { projectService } from "../../../services/projectService";
@@ -317,20 +315,6 @@ const DrawingsDocumentsPage = () => {
         }
     };
 
-    const handleDeleteDocument = async (drawing: DrawingRecord) => {
-        if (!window.confirm("Are you sure you want to delete this drawing? This action cannot be undone.")) {
-            return;
-        }
-        const toastId = toast.loading(`Deleting ${drawing.drawing_name}...`);
-        try {
-            await drawingService.deleteDrawing(drawing.id);
-            setDrawingData(prev => prev.filter(d => d.id !== drawing.id));
-            toast.success("Drawing deleted successfully", { id: toastId });
-        } catch (error) {
-            toast.error("Failed to delete drawing", { id: toastId });
-        }
-    };
-
     const filteredDrawings = useMemo(() => {
         let data = drawingData;
 
@@ -446,7 +430,7 @@ const DrawingsDocumentsPage = () => {
                                     <th className="px-6 py-4 font-inter">Asset</th>
                                     <th className="px-6 py-4 font-inter">Engineering Asset</th>
                                     <th className="px-6 py-4 font-inter">Version Profile</th>
-                                    <th className="px-6 py-4 font-inter">Approving Authority</th>
+                                    <th className="px-6 py-4 font-inter">Approval Status</th>
                                     <th className="px-6 py-4 font-inter">Vault Date</th>
                                     <th className="px-6 py-4 text-right font-inter">Actions</th>
                                 </tr>
@@ -490,7 +474,15 @@ const DrawingsDocumentsPage = () => {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 font-inter">
-                                                <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest font-inter">{drawing.approved_by}</span>
+                                                <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-widest border w-fit font-inter ${
+                                                    drawing.approval_status === "Approved"
+                                                        ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                                                        : drawing.approval_status === "Pending"
+                                                        ? "bg-amber-50 text-amber-600 border-amber-200"
+                                                        : "bg-slate-50 text-slate-500 border-slate-200"
+                                                }`}>
+                                                    {drawing.approval_status || "Pending"}
+                                                </span>
                                             </td>
                                             <td className="px-6 py-4 font-inter">
                                                 <span className="text-xs font-bold text-slate-500 font-inter">{drawing.date}</span>
@@ -505,9 +497,6 @@ const DrawingsDocumentsPage = () => {
                                                     </button>
                                                     <button onClick={() => handleDownloadDocument(drawing)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all font-inter" title="Download File">
                                                         <Download className="w-4 h-4" />
-                                                    </button>
-                                                    <button onClick={() => handleDeleteDocument(drawing)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter" title="Delete Asset">
-                                                        <Trash2 className="w-4 h-4" />
                                                     </button>
                                                     <div className="flex items-center gap-1 border-l border-slate-100 pl-2 ml-1">
                                                         <button onClick={() => handleViewHistory(drawing)} className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all font-inter" title="View approval history">

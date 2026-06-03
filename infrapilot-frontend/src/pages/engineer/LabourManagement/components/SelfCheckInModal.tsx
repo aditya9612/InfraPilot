@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Modal from '../../../../components/common/Modal';
 import { Camera, RefreshCw, Check, MapPin, Building2 } from "lucide-react";
 import toast from 'react-hot-toast';
-import api from '../../../../services/api';
 import { projectService } from '../../../../services/projectService';
+import { labourService } from '../../../../services/labourService';
 
 interface SelfCheckInModalProps {
     isOpen: boolean;
@@ -20,7 +20,8 @@ const SelfCheckInModal: React.FC<SelfCheckInModalProps> = ({ isOpen, onClose, on
     const [stream, setStream] = useState<MediaStream | null>(null);
     const [projects, setProjects] = useState<any[]>([]);
     const [selectedProjectId, setSelectedProjectId] = useState<string>('');
-    
+    const [taskDescription, setTaskDescription] = useState<string>('');
+
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -89,7 +90,7 @@ const SelfCheckInModal: React.FC<SelfCheckInModalProps> = ({ isOpen, onClose, on
                         setSelectedProjectId(activeProjId.toString());
                     }
                 }
-            } catch (e) {}
+            } catch (e) { }
         } else {
             stopCamera();
             setCapturedImage(null);
@@ -134,6 +135,10 @@ const SelfCheckInModal: React.FC<SelfCheckInModalProps> = ({ isOpen, onClose, on
             toast.error("Please capture check-in photo.");
             return;
         }
+        if (!taskDescription.trim()) {
+            toast.error("Please enter task description.");
+            return;
+        }
 
         const formData = new FormData();
         formData.append("labour_id", labourId.toString());
@@ -141,18 +146,17 @@ const SelfCheckInModal: React.FC<SelfCheckInModalProps> = ({ isOpen, onClose, on
         if (coordinates.lat) formData.append("latitude", coordinates.lat.toString());
         if (coordinates.lng) formData.append("longitude", coordinates.lng.toString());
         if (locationAddress) formData.append("location_address", locationAddress);
+        formData.append("task_description", taskDescription);
 
         try {
             const response = await fetch(capturedImage);
             const blob = await response.blob();
             formData.append("check_in_image", blob, "checkin.jpg");
 
-            await api.post(`/labour/${labourId}/attendance/check-in`, formData, {
-                headers: { "Content-Type": "multipart/form-data" }
-            });
+            await labourService.checkIn(labourId, formData);
 
             console.log("Self Check-In API Request payload generated.");
-            
+
             toast.success("Successfully Checked In!");
             onSuccess(new Date());
             onClose();
@@ -195,13 +199,24 @@ const SelfCheckInModal: React.FC<SelfCheckInModalProps> = ({ isOpen, onClose, on
                     </div>
 
                     <div className="col-span-2">
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Task Description *</label>
+                        <textarea
+                            value={taskDescription}
+                            onChange={(e) => setTaskDescription(e.target.value)}
+                            placeholder="Describe your work..."
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none transition-all focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 min-h-[80px] resize-none font-medium"
+                            required
+                        />
+                    </div>
+
+                    <div className="col-span-2">
                         <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Location Address</label>
                         <div className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-600 flex items-center gap-2">
                             <MapPin className="w-4 h-4 text-slate-400" />
                             {locationAddress}
                         </div>
                     </div>
-                    
+
                     <div className="col-span-2">
                         <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Check In Image</label>
                         <div className="bg-black rounded-xl overflow-hidden aspect-video relative flex items-center justify-center border border-slate-200">

@@ -105,13 +105,14 @@ const CheckInModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess, pro
 
         setIsSubmitting(true);
         try {
-            console.log("Executing Check-In API: POST /labour/" + labour.id + "/attendance/check-in");
+            const labourId = labour.labour_id || labour.id;
+            console.log("Executing Check-In API: POST /labour/" + labourId + "/attendance/check-in");
             console.log("Payload (FormData):", formData);
-            await labourService.checkIn(labour.id, formData);
+            await labourService.checkIn(labourId, formData);
             console.log("Check-In Success! Triggering Registry Refetch...");
             onSuccess();
             onClose();
-            toast.success(`${labour.labour_name} check-in confirmed for Project ${formData.project_id}`);
+            toast.success(`${labour.labour_name || 'Labour'} check-in confirmed for Project ${formData.project_id}`);
         } catch (error) {
             toast.error('Check-in failed');
         } finally {

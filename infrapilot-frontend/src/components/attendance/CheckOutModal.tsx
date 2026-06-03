@@ -26,6 +26,7 @@ const CheckOutModal: React.FC<Props> = ({ isOpen, onClose, attendance, onSuccess
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLocating, setIsLocating] = useState(false);
+    const [realAttendanceId, setRealAttendanceId] = useState<number | null>(null);
 
     useEffect(() => {
         if (isOpen) {
@@ -40,9 +41,37 @@ const CheckOutModal: React.FC<Props> = ({ isOpen, onClose, attendance, onSuccess
                 check_out_image: null,
                 task_description: ''
             });
+            setRealAttendanceId(null);
             captureGPS();
+
+            // Dynamic API-based lookup of today's attendance record ID
+            const labourId = attendance?.labour_id || attendance?.id;
+            if (labourId) {
+                console.log(`CheckOutModal: Attempting dynamic ID lookup for labourId ${labourId}`);
+                labourService.getLabourAttendance(labourId)
+                    .then((records) => {
+                        if (records && Array.isArray(records) && records.length > 0) {
+                            const todayStr = new Date().toISOString().split('T')[0];
+                            // Find record matching today with no out_time (or placeholder/uncompleted)
+                            const activeRecord = records.find((r: any) => 
+                                r.attendance_date === todayStr && 
+                                (!r.out_time || r.out_time === "--:--" || r.out_time === null)
+                            ) || records.find((r: any) => 
+                                !r.out_time || r.out_time === "--:--" || r.out_time === null
+                            ) || records[0];
+
+                            if (activeRecord && activeRecord.id) {
+                                console.log("CheckOutModal: Dynamically resolved attendance ID:", activeRecord.id);
+                                setRealAttendanceId(activeRecord.id);
+                            }
+                        }
+                    })
+                    .catch((err) => {
+                        console.error("CheckOutModal: Failed to resolve real attendance ID:", err);
+                    });
+            }
         }
-    }, [isOpen]);
+    }, [isOpen, attendance]);
 
     const captureGPS = () => {
         setIsLocating(true);
@@ -111,8 +140,12 @@ const CheckOutModal: React.FC<Props> = ({ isOpen, onClose, attendance, onSuccess
             if (formData.check_out_image) payload.append("check_out_image", formData.check_out_image);
             
             // Extremely aggressive ID discovery
-            console.log("Check-Out Diagnostic - Attendance Object:", attendance);
-            const attendanceId = attendance.id || attendance.attendance_id || attendance.labour_id;
+            console.log("Check-Out Diagnostic - Attendance Object:", attendance, "Resolved Dynamic ID:", realAttendanceId);
+            const attendanceId = realAttendanceId ||
+                                 attendance.attendance_id || 
+                                 (attendance.id && attendance.labour_id && String(attendance.id) !== String(attendance.labour_id) ? attendance.id : null) || 
+                                 attendance.id || 
+                                 attendance.labour_id;
             
             if (!attendanceId) {
                 console.error("CRITICAL: Missing all ID variants (id, attendance_id, labour_id). Object:", attendance);

@@ -182,18 +182,34 @@ const ReportsPage = () => {
             try {
                 const dailyRes = await dsrService.getDsrByProject(projectId, { start_date: selectedDate, end_date: selectedDate });
                 const dailyIdx = updatedReports.findIndex(r => r.id === "daily");
-                if (dailyIdx !== -1 && dailyRes && dailyRes.items && dailyRes.items.length > 0) {
-                    // Get the most recent DSR
-                    const latestDsr = dailyRes.items.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
-                    updatedReports[dailyIdx] = {
-                        ...updatedReports[dailyIdx],
-                        metrics: [
-                            { label: "Total Labour", value: `${latestDsr.total_labour || 0} Labour`, accent: "text-blue-600" },
-                            { label: "Skilled", value: latestDsr.skilled_labour?.toString() || "0" },
-                            { label: "Weather", value: latestDsr.weather || "Clear" },
-                            { label: "Location", value: latestDsr.site_location || "Site" },
-                        ]
-                    };
+                if (dailyIdx !== -1) {
+                    if (dailyRes && dailyRes.items && dailyRes.items.length > 0) {
+                        // Get the most recent DSR
+                        const latestDsr = dailyRes.items.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+                        updatedReports[dailyIdx] = {
+                            ...updatedReports[dailyIdx],
+                            size: "1.2 MB",
+                            lastGenerated: latestDsr.created_at ? `Generated: ${new Date(latestDsr.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : "Generated Today",
+                            metrics: [
+                                { label: "Total Labour", value: `${latestDsr.total_labour || 0} Labour`, accent: "text-blue-600" },
+                                { label: "Skilled", value: latestDsr.skilled_labour?.toString() || "0" },
+                                { label: "Weather", value: latestDsr.weather || "Clear" },
+                                { label: "Location", value: latestDsr.site_location || "Site" },
+                            ]
+                        };
+                    } else {
+                        updatedReports[dailyIdx] = {
+                            ...updatedReports[dailyIdx],
+                            size: "—",
+                            lastGenerated: "Not Generated",
+                            metrics: [
+                                { label: "Total Labour", value: "No Report", accent: "text-slate-400" },
+                                { label: "Skilled", value: "—" },
+                                { label: "Weather", value: "—" },
+                                { label: "Location", value: "—" },
+                            ]
+                        };
+                    }
                 }
             } catch (err) {
                 console.warn("Failed to fetch DSR report metrics", err);
@@ -601,7 +617,7 @@ const ReportsPage = () => {
         try {
             if (report.id === "material") {
                 // Request PDF Blob from the backend, explicitly setting Accept header to prevent JSON content negotiation
-                const response = await api.get(`/materials/reports/materials/pdf?project_id=${projectId || 1}&_t=${Date.now()}`, {
+                const response = await api.get(`/materials/reports/materials/pdf?project_id=${projectId || 92}&_t=${Date.now()}`, {
                     responseType: "blob",
                     headers: {
                         'Accept': 'application/pdf, application/octet-stream'
@@ -635,7 +651,12 @@ const ReportsPage = () => {
             }
 
             if (report.id === "daily") {
-                const response = await api.get(`/dsr/project/${projectId || 1}/export?start_date=${selectedDate}&end_date=${selectedDate}&_t=${Date.now()}`, {
+                if (report.lastGenerated === "Not Generated") {
+                    toast.error("No daily report has been generated for this date.", { id: `pdf-${report.id}` });
+                    return;
+                }
+
+                const response = await api.get(`/reports/daily/export/pdf?project_id=${projectId || 92}&report_date=${selectedDate}&_t=${Date.now()}`, {
                     responseType: "blob",
                     headers: { 'Accept': 'application/pdf, application/octet-stream' }
                 });
@@ -656,7 +677,7 @@ const ReportsPage = () => {
                 const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
                 const link = document.createElement("a");
                 link.href = url;
-                link.setAttribute("download", `DSR_Report_${selectedDate}.pdf`);
+                link.setAttribute("download", `Daily_Report_${selectedDate}.pdf`);
                 document.body.appendChild(link);
                 link.click();
                 link.remove();
@@ -666,7 +687,7 @@ const ReportsPage = () => {
             }
 
             if (report.id === "labour") {
-                const response = await api.get(`/reports/labour?project_id=${projectId || 1}`);
+                const response = await api.get(`/reports/labour?project_id=${projectId || 92}`);
                 const data = response.data;
                 const summary = data.labour_summary || data.data?.labour_summary || [];
 
@@ -723,16 +744,20 @@ const ReportsPage = () => {
             if (report.id === "daily") mappedType = "daily";
             if (report.id === "weekly") mappedType = "weekly";
 
-            const reportData = await reportService.getProjectReportData(projectId || 1, mappedType, month, year);
+            const reportData = await reportService.getProjectReportData(projectId || 92, mappedType, month, year);
 
             // Usually we'd pass this data to a PDF generator, but for now we fallback to our generic print
             console.log("Successfully fetched report data for PDF:", reportData);
             toast.dismiss(`pdf-${report.id}`);
             handleExportPDF();
 
-        } catch (err) {
+        } catch (err: any) {
             console.error("Failed to fetch report data", err);
-            toast.error("Failed to fetch report data", { id: `pdf-${report.id}` });
+            if (err.response?.status === 404) {
+                toast.error("No report data has been generated for this date.", { id: `pdf-${report.id}` });
+            } else {
+                toast.error("Failed to fetch report data", { id: `pdf-${report.id}` });
+            }
         } finally {
             setLoadingId(null);
         }
@@ -744,7 +769,7 @@ const ReportsPage = () => {
         try {
             if (report.id === "material") {
                 // Request Excel Blob from the backend
-                const response = await api.get(`/materials/reports/materials/excel?project_id=${projectId || 1}&_t=${Date.now()}`, {
+                const response = await api.get(`/materials/reports/materials/excel?project_id=${projectId || 92}&_t=${Date.now()}`, {
                     responseType: "blob",
                     headers: {
                         'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel, application/octet-stream'
@@ -777,7 +802,12 @@ const ReportsPage = () => {
             }
 
             if (report.id === "daily") {
-                const response = await api.get(`/dsr/project/${projectId || 1}/export?start_date=${selectedDate}&end_date=${selectedDate}&_t=${Date.now()}`, {
+                if (report.lastGenerated === "Not Generated") {
+                    toast.error("No daily report has been generated for this date.", { id: `exp-${report.id}` });
+                    return;
+                }
+
+                const response = await api.get(`/dsr/project/${projectId || 92}/export?start_date=${selectedDate}&end_date=${selectedDate}&contractor_name=&_t=${Date.now()}`, {
                     responseType: "blob",
                     headers: { 'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel, application/octet-stream' }
                 });
@@ -798,7 +828,38 @@ const ReportsPage = () => {
                 const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
                 const link = document.createElement("a");
                 link.href = url;
-                link.setAttribute("download", `DSR_Report_${selectedDate}.xlsx`);
+                link.setAttribute("download", `Daily_Report_${selectedDate}.xlsx`);
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                window.URL.revokeObjectURL(url);
+                toast.success(`${report.name} Excel downloaded!`, { id: `exp-${report.id}` });
+                return;
+            }
+
+            if (report.id === "issue") {
+                const response = await api.get(`/reports/issues/export/excel?project_id=${projectId || 92}&_t=${Date.now()}`, {
+                    responseType: "blob",
+                    headers: { 'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel, application/octet-stream' }
+                });
+
+                if (response.data.type === "application/json") {
+                    const errorText = await response.data.text();
+                    console.error("Issue Excel Generate Error:", errorText);
+                    try {
+                        const errObj = JSON.parse(errorText);
+                        const msg = errObj.detail || errObj.message || errObj.error || "Could not generate Issue Excel.";
+                        toast.error(`Server error: ${msg}`, { id: `exp-${report.id}` });
+                    } catch (e) {
+                        toast.error("Server error: Could not generate Issue Excel.", { id: `exp-${report.id}` });
+                    }
+                    return;
+                }
+
+                const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+                const link = document.createElement("a");
+                link.href = url;
+                link.setAttribute("download", `Issues_Report_${new Date().toISOString().split("T")[0]}.xlsx`);
                 document.body.appendChild(link);
                 link.click();
                 link.remove();
@@ -808,7 +869,7 @@ const ReportsPage = () => {
             }
 
             if (report.id === "labour") {
-                const response = await api.get(`/reports/labour?project_id=${projectId || 1}`);
+                const response = await api.get(`/reports/labour?project_id=${projectId || 92}`);
                 const data = response.data;
                 const summary = data.labour_summary || data.data?.labour_summary || [];
 
@@ -842,7 +903,7 @@ const ReportsPage = () => {
             if (report.id === "daily") mappedType = "daily";
             if (report.id === "weekly") mappedType = "weekly";
 
-            const reportData = await reportService.getProjectReportData(projectId || 1, mappedType, month, year);
+            const reportData = await reportService.getProjectReportData(projectId || 92, mappedType, month, year);
 
             // Dump the JSON to an excel/text file for now as a placeholder for actual excel generation
             const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
@@ -856,11 +917,14 @@ const ReportsPage = () => {
             link.click();
             link.remove();
             window.URL.revokeObjectURL(url);
-
             toast.success(`${report.name} exported!`, { id: `exp-${report.id}` });
-        } catch (e) {
+        } catch (e: any) {
             console.error("Export failed", e);
-            toast.error("Export failed", { id: `exp-${report.id}` });
+            if (e.response?.status === 404) {
+                toast.error("No report data has been generated for this date.", { id: `exp-${report.id}` });
+            } else {
+                toast.error("Export failed", { id: `exp-${report.id}` });
+            }
         } finally {
             setLoadingId(null);
         }

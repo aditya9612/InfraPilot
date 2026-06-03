@@ -327,7 +327,7 @@ const ActivityListPage = () => {
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
                   <th className="px-6 py-4 font-inter">Activity Description</th>
                   <th className="px-6 py-4 font-inter">Logistics</th>
-                  <th className="px-6 py-4 min-w-[200px] font-inter">% Intensity</th>
+
                   <th className="px-6 py-4 font-inter">Timeline</th>
                   <th className="px-6 py-4 font-inter">Status</th>
                   <th className="px-6 py-4 text-right font-inter">Actions</th>
@@ -352,11 +352,7 @@ const ActivityListPage = () => {
                         <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest font-inter">{a.remaining_quantity} Remaining</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 font-inter">
-                      <div className="flex items-center font-inter">
-                        <span className="text-sm font-bold text-slate-800 font-inter">{a.completion_percentage.toFixed(1)}%</span>
-                      </div>
-                    </td>
+
                     <td className="px-6 py-4 font-inter">
                       <div className="flex flex-col font-inter">
                         <span className="text-xs font-bold text-slate-600 font-inter">{formatDate(a.start_date)}</span>

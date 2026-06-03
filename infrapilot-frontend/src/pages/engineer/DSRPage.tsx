@@ -70,12 +70,12 @@ const DSRPage = () => {
                     setProjectId(Number(pId));
                 } else {
                     // Default fallback for Site Engineer context
-                    setProjectId(36);
+                    setProjectId(92);
                 }
             }
         } catch (err) {
             console.error("Failed to resolve project context", err);
-            setProjectId(36);
+            setProjectId(92);
         }
     }, []);
 
@@ -317,9 +317,16 @@ const DSRPage = () => {
                         <button
                             onClick={() => {
                                 const toastId = toast.loading("Generating Excel report...");
-                                dsrService.exportDsrExcel(projectId || 36, {})
+                                dsrService.exportDsrExcel(projectId || 92, {})
                                     .then(() => toast.success("Excel report exported!", { id: toastId }))
-                                    .catch(() => toast.error("Export failed", { id: toastId }));
+                                    .catch((err: any) => {
+                                        console.error("DSR Export failed:", err);
+                                        if (err.response?.status === 404) {
+                                            toast.error("No daily site reports found for this project.", { id: toastId });
+                                        } else {
+                                            toast.error("Export failed", { id: toastId });
+                                        }
+                                    });
                             }}
                             className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95 font-inter"
                         >

@@ -53,19 +53,19 @@ const AttendancePage: React.FC = () => {
     const [selectedLabour, setSelectedLabour] = useState<any>(null);
 
     // Labour Check-In Form State
-            
+
     // Labour Check-Out Form State
-            
+
     // Self Check-Out Form State
-    
+
     // Self Check-In Form State
     const [isSelfCheckInFormOpen, setIsSelfCheckInFormOpen] = useState(false);
     // Image Preview State
     const [previewImage, setPreviewImage] = useState<{ url: string, title: string } | null>(null);
 
-    
+
     // Labour Attendance Filters
-                
+
     // History Quick Filter & Pagination
     const [historyFilter, setHistoryFilter] = useState<"Today" | "Yesterday" | "All" | "Date">("Today");
     const [historyPage, setHistoryPage] = useState(1);
@@ -83,7 +83,7 @@ const AttendancePage: React.FC = () => {
                         const parsed = JSON.parse(userStr);
                         return parsed.user?.project_id || parsed.project_id || 92;
                     }
-                } catch (e) {}
+                } catch (e) { }
                 return 92;
             };
 
@@ -92,7 +92,7 @@ const AttendancePage: React.FC = () => {
             let fromDate = "";
             let toDate = "";
             const today = new Date().toISOString().split('T')[0];
-            
+
             if (historyFilter === 'Today') {
                 fromDate = today;
                 toDate = today;
@@ -106,7 +106,7 @@ const AttendancePage: React.FC = () => {
                 fromDate = historyDateInput;
                 toDate = historyDateInput;
             }
-            
+
             const data = await labourService.getAttendanceList(activeProjectId, fromDate || undefined, toDate || undefined);
             setSelfAttendances(data.items || []);
         } catch (error) {
@@ -115,9 +115,9 @@ const AttendancePage: React.FC = () => {
     };
 
     useEffect(() => {
-        
-            fetchSelfAttendances();
-        
+
+        fetchSelfAttendances();
+
     }, [historyFilter, historyDateInput]);
 
     const paginatedHistory = selfAttendances.slice((historyPage - 1) * itemsPerPage, historyPage * itemsPerPage);
@@ -127,9 +127,9 @@ const AttendancePage: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        
-            captureGPS();
-        
+
+        captureGPS();
+
     }, []);
 
     const captureGPS = () => {
@@ -243,8 +243,8 @@ const AttendancePage: React.FC = () => {
         }
     }, [isCheckOutModalOpen]);
 
-    
-    
+
+
     // Labour View / Delete Logic
 
 
@@ -266,7 +266,7 @@ const AttendancePage: React.FC = () => {
     };
 
 
-    
+
     return (
         <>
             <Navbar title="Attendance Management" breadcrumb={["Engineer", "Human Resources", "Attendance Management"]} />
@@ -308,275 +308,275 @@ const AttendancePage: React.FC = () => {
                 </div>
 
                 {/* Self Attendance Content */}
-                
-                    <div className="flex flex-col gap-6">
-                        {/* Today's Status Card */}
-                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden p-6">
-                            <h3 className="text-sm font-bold text-slate-800">Today's Status</h3>
-                            <p className="text-xs text-slate-500 mt-1 mb-6">Your attendance status for today</p>
 
-                            <div className="flex items-start gap-2 text-xs font-medium text-slate-600 mb-8">
-                                <MapPin className="w-4 h-4 flex-shrink-0 text-slate-400 mt-0.5" />
-                                <span>{locationAddress}</span>
-                            </div>
+                <div className="flex flex-col gap-6">
+                    {/* Today's Status Card */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden p-6">
+                        <h3 className="text-sm font-bold text-slate-800">Today's Status</h3>
+                        <p className="text-xs text-slate-500 mt-1 mb-6">Your attendance status for today</p>
 
-                            {attendanceState === "NOT_CHECKED_IN" && (
-                                <div className="flex flex-col items-center justify-center py-10">
-                                    <div className="w-12 h-12 rounded-full border-2 border-slate-300 flex items-center justify-center text-slate-400 mb-3">
-                                        <span className="text-xl font-bold">!</span>
-                                    </div>
-                                    <p className="text-xs font-medium text-slate-500 mb-10">Not Checked in Yet.</p>
-                                    <button
-                                        onClick={() => setIsSelfCheckInFormOpen(true)}
-                                        className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20"
-                                    >
-                                        <LogIn className="w-4 h-4" /> Check In
-                                    </button>
+                        <div className="flex items-start gap-2 text-xs font-medium text-slate-600 mb-8">
+                            <MapPin className="w-4 h-4 flex-shrink-0 text-slate-400 mt-0.5" />
+                            <span>{locationAddress}</span>
+                        </div>
+
+                        {attendanceState === "NOT_CHECKED_IN" && (
+                            <div className="flex flex-col items-center justify-center py-10">
+                                <div className="w-12 h-12 rounded-full border-2 border-slate-300 flex items-center justify-center text-slate-400 mb-3">
+                                    <span className="text-xl font-bold">!</span>
                                 </div>
-                            )}
+                                <p className="text-xs font-medium text-slate-500 mb-10">Not Checked in Yet.</p>
+                                <button
+                                    onClick={() => setIsSelfCheckInFormOpen(true)}
+                                    className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20"
+                                >
+                                    <LogIn className="w-4 h-4" /> Check In
+                                </button>
+                            </div>
+                        )}
 
-                            {attendanceState !== "NOT_CHECKED_IN" && (
-                                <div className="flex flex-col gap-6">
-                                    <div className="flex items-start justify-between">
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <LogIn className="w-4 h-4 text-emerald-500" />
-                                                <span className="text-xs font-bold text-slate-800">Check-In Time</span>
-                                                <span className="px-2 py-0.5 bg-rose-500 text-white rounded-full text-[10px] font-bold">Late</span>
-                                                <span className="px-2 py-0.5 bg-blue-50 text-blue-500 border border-blue-200 rounded-full text-[10px] font-bold flex items-center gap-1">
-                                                    <MapPin className="w-3 h-3" />
-                                                    Work From Office
-                                                </span>
-                                            </div>
-                                            <p className="text-sm font-bold text-slate-800">{checkInTime ? formatTime(checkInTime) : "-"}</p>
+                        {attendanceState !== "NOT_CHECKED_IN" && (
+                            <div className="flex flex-col gap-6">
+                                <div className="flex items-start justify-between">
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <LogIn className="w-4 h-4 text-emerald-500" />
+                                            <span className="text-xs font-bold text-slate-800">Check-In Time</span>
+                                            <span className="px-2 py-0.5 bg-rose-500 text-white rounded-full text-[10px] font-bold">Late</span>
+                                            <span className="px-2 py-0.5 bg-blue-50 text-blue-500 border border-blue-200 rounded-full text-[10px] font-bold flex items-center gap-1">
+                                                <MapPin className="w-3 h-3" />
+                                                Work From Office
+                                            </span>
                                         </div>
-
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <LogOut className="w-4 h-4 text-rose-500" />
-                                                <span className="text-xs font-bold text-slate-800">Check-out Time</span>
-                                                {attendanceState === "CHECKED_OUT" && (
-                                                    <span className="px-2 py-0.5 bg-orange-50 text-orange-500 border border-orange-200 rounded-full text-[10px] font-bold">Early</span>
-                                                )}
-                                            </div>
-                                            <p className="text-sm font-bold text-slate-800">{checkOutTime ? formatTime(checkOutTime) : "-"}</p>
-                                        </div>
+                                        <p className="text-sm font-bold text-slate-800">{checkInTime ? formatTime(checkInTime) : "-"}</p>
                                     </div>
 
                                     <div>
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <Clock className="w-4 h-4 text-blue-500" />
-                                            <span className="text-xs font-bold text-slate-800">Total Work Hours</span>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <LogOut className="w-4 h-4 text-rose-500" />
+                                            <span className="text-xs font-bold text-slate-800">Check-out Time</span>
+                                            {attendanceState === "CHECKED_OUT" && (
+                                                <span className="px-2 py-0.5 bg-orange-50 text-orange-500 border border-orange-200 rounded-full text-[10px] font-bold">Early</span>
+                                            )}
                                         </div>
-                                        <p className="text-sm font-bold text-slate-800">{calculateHours()}</p>
+                                        <p className="text-sm font-bold text-slate-800">{checkOutTime ? formatTime(checkOutTime) : "-"}</p>
                                     </div>
-
-                                    {attendanceState === "CHECKED_IN" && (
-                                        <>
-                                            <div className="flex items-center gap-2 mt-4">
-                                                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                                <span className="text-xs font-bold text-emerald-500">Live tracking - updates in real-time</span>
-                                            </div>
-                                            <button
-                                                onClick={() => setIsCheckOutModalOpen(true)}
-                                                className="w-full mt-2 py-3.5 bg-rose-500 hover:bg-rose-600 text-white text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-rose-500/20"
-                                            >
-                                                <LogOut className="w-4 h-4" /> Check Out
-                                            </button>
-                                        </>
-                                    )}
-
-                                    {attendanceState === "CHECKED_OUT" && (
-                                        <div className="w-full mt-6 py-3 border border-slate-200 bg-slate-50 text-slate-500 text-xs font-bold rounded-xl flex items-center justify-center gap-2">
-                                            <CheckCircle2 className="w-4 h-4" /> Attendance Completed for Today
-                                        </div>
-                                    )}
                                 </div>
-                            )}
-                        </div>
 
-                        {/* Attendance History Card */}
-                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                            <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                                 <div>
-                                    <h3 className="text-sm font-bold text-slate-800">Attendance History</h3>
-                                    <p className="text-xs text-slate-500 mt-1 mb-4">Your Attendance Records</p>
-
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="text-[10px] font-bold text-slate-800 mr-2">Quick Filters</span>
-                                        {(["Today", "Yesterday", "All", "Date"] as const).map(f => (
-                                            <button
-                                                key={f}
-                                                onClick={() => { setHistoryFilter(f); setHistoryPage(1); }}
-                                                className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${historyFilter === f
-                                                    ? 'bg-blue-500 text-white shadow-sm'
-                                                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-                                                    }`}
-                                            >
-                                                {f === 'Date' && <Calendar className="w-3 h-3" />} {f}
-                                            </button>
-                                        ))}
-                                        {historyFilter === 'Date' && (
-                                            <input
-                                                type="date"
-                                                value={historyDateInput}
-                                                onChange={e => { setHistoryDateInput(e.target.value); setHistoryPage(1); }}
-                                                className="border border-slate-200 rounded-lg px-3 py-1 text-xs text-slate-600 outline-none focus:ring-2 focus:ring-blue-200"
-                                            />
-                                        )}
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <Clock className="w-4 h-4 text-blue-500" />
+                                        <span className="text-xs font-bold text-slate-800">Total Work Hours</span>
                                     </div>
+                                    <p className="text-sm font-bold text-slate-800">{calculateHours()}</p>
                                 </div>
-                                <div className="px-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600">
-                                    Showing {historyFilter === 'Today' ? (attendanceState !== 'NOT_CHECKED_IN' ? '1' : '0') : selfAttendances.length} records
-                                </div>
-                            </div>
 
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left whitespace-nowrap">
-                                    <thead>
-                                        <tr className="bg-slate-50/50 text-slate-800 text-[10px] font-bold tracking-widest border-b border-slate-100">
-                                            <th className="px-6 py-4">labour_id</th>
-                                            <th className="px-6 py-4">labour_name</th>
-                                            <th className="px-6 py-4">worker_code</th>
-                                            <th className="px-6 py-4">attendance_date</th>
-                                            <th className="px-6 py-4">in_time</th>
-                                            <th className="px-6 py-4">out_time</th>
-                                            <th className="px-6 py-4">working_hours</th>
-                                            <th className="px-6 py-4">overtime_hours</th>
-                                            <th className="px-6 py-4">task_id</th>
-                                            <th className="px-6 py-4">check_in_address</th>
-                                            <th className="px-6 py-4">check_out_address</th>
-                                            <th className="px-6 py-4">check_in_image</th>
-                                            <th className="px-6 py-4">check_out_image</th>
-                                            <th className="px-6 py-4">status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                        {paginatedHistory.length === 0 ? (
-                                            <tr><td colSpan={14} className="px-6 py-12 text-center"><p className="text-xs text-slate-500 font-medium">{historyFilter === 'Date' && !historyDateInput ? 'Select a date to view records' : 'No records found'}</p></td></tr>
-                                        ) : (
-                                            paginatedHistory.map((rec, idx) => (
-                                                <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-800">{rec.labour_id ?? '-'}</span></td>
-                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.labour_name ?? '-'}</span></td>
-                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.worker_code ?? '-'}</span></td>
-                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.attendance_date ?? '-'}</span></td>
-                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.in_time ?? '-'}</span></td>
-                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.out_time ?? '-'}</span></td>
-                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.working_hours ?? '-'}</span></td>
-                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.overtime_hours ?? '-'}</span></td>
-                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.task_id ?? '-'}</span></td>
-                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.check_in_address ?? '-'}</span></td>
-                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.check_out_address ?? '-'}</span></td>
-                                                    <td className="px-6 py-4">
-                                                        {rec.check_in_image ? (
-                                                            <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-emerald-400">
-                                                                <img src={rec.check_in_image} alt="Check In" className="w-full h-full object-cover" />
-                                                            </div>
-                                                        ) : <span className="text-[10px] text-slate-400">-</span>}
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        {rec.check_out_image ? (
-                                                            <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-rose-400">
-                                                                <img src={rec.check_out_image} alt="Check Out" className="w-full h-full object-cover" />
-                                                            </div>
-                                                        ) : <span className="text-[10px] text-slate-400">-</span>}
-                                                    </td>
-                                                    <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.status ?? '-'}</span></td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            {/* Pagination footer - only for Yesterday / All / Date */}
-                            {historyFilter !== 'Today' && selfAttendances.length > 0 && (
-                                <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
-                                    {/* Left: Items per page */}
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
-                                        <select
-                                            value={itemsPerPage}
-                                            onChange={(e) => { setItemsPerPage(Number(e.target.value)); setHistoryPage(1); }}
-                                            className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
-                                        >
-                                            <option value={10}>10</option>
-                                            <option value={20}>20</option>
-                                            <option value={50}>50</option>
-                                            <option value={100}>100</option>
-                                        </select>
-                                    </div>
-
-                                    {/* Center: Showing info */}
-                                    <div className="text-[11px] font-medium text-slate-500 hidden md:block">
-                                        Showing {(historyPage - 1) * itemsPerPage + 1} - {Math.min(historyPage * itemsPerPage, selfAttendances.length)} of {selfAttendances.length} records
-                                    </div>
-
-                                    {/* Right: Pagination */}
-                                    <div className="flex items-center gap-1.5">
+                                {attendanceState === "CHECKED_IN" && (
+                                    <>
+                                        <div className="flex items-center gap-2 mt-4">
+                                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                            <span className="text-xs font-bold text-emerald-500">Live tracking - updates in real-time</span>
+                                        </div>
                                         <button
-                                            onClick={() => setHistoryPage(prev => Math.max(1, prev - 1))}
-                                            disabled={historyPage === 1}
-                                            className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                            onClick={() => setIsCheckOutModalOpen(true)}
+                                            className="w-full mt-2 py-3.5 bg-rose-500 hover:bg-rose-600 text-white text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-rose-500/20"
                                         >
-                                            <ChevronLeft className="w-4 h-4" />
+                                            <LogOut className="w-4 h-4" /> Check Out
                                         </button>
+                                    </>
+                                )}
 
-                                        {(() => {
-                                            const totalItems = selfAttendances.length;
-                                            const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
-                                            const pages = [];
-                                            if (totalPages <= 5) {
-                                                for (let i = 1; i <= totalPages; i++) pages.push(i);
-                                            } else {
-                                                if (historyPage <= 3) {
-                                                    pages.push(1, 2, 3, 4, '...', totalPages);
-                                                } else if (historyPage >= totalPages - 2) {
-                                                    pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
-                                                } else {
-                                                    pages.push(1, '...', historyPage - 1, historyPage, historyPage + 1, '...', totalPages);
-                                                }
-                                            }
-
-                                            return pages.map((page, index) => {
-                                                if (page === '...') {
-                                                    return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
-                                                }
-                                                const pageNum = page as number;
-                                                const isActive = historyPage === pageNum;
-                                                return (
-                                                    <button
-                                                        key={`page-${pageNum}`}
-                                                        onClick={() => setHistoryPage(pageNum)}
-                                                        className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
-                                                            ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
-                                                            : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
-                                                            }`}
-                                                    >
-                                                        {pageNum}
-                                                    </button>
-                                                );
-                                            });
-                                        })()}
-
-                                        <button
-                                            onClick={() => setHistoryPage(prev => Math.min(Math.ceil(selfAttendances.length / itemsPerPage), prev + 1))}
-                                            disabled={historyPage === Math.max(1, Math.ceil(selfAttendances.length / itemsPerPage)) || selfAttendances.length === 0}
-                                            className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
-                                        >
-                                            <ChevronRight className="w-4 h-4" />
-                                        </button>
+                                {attendanceState === "CHECKED_OUT" && (
+                                    <div className="w-full mt-6 py-3 border border-slate-200 bg-slate-50 text-slate-500 text-xs font-bold rounded-xl flex items-center justify-center gap-2">
+                                        <CheckCircle2 className="w-4 h-4" /> Attendance Completed for Today
                                     </div>
-                                </div>
-                            )}
-                            {historyFilter === 'Today' && attendanceState !== 'NOT_CHECKED_IN' && (
-                                <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between">
-                                    <span className="text-[10px] font-bold text-slate-500">Showing 1 to 1 of 1 entries</span>
-                                </div>
-                            )}
-                        </div>
+                                )}
+                            </div>
+                        )}
                     </div>
+
+                    {/* Attendance History Card */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                            <div>
+                                <h3 className="text-sm font-bold text-slate-800">Attendance History</h3>
+                                <p className="text-xs text-slate-500 mt-1 mb-4">Your Attendance Records</p>
+
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-[10px] font-bold text-slate-800 mr-2">Quick Filters</span>
+                                    {(["Today", "Yesterday", "All", "Date"] as const).map(f => (
+                                        <button
+                                            key={f}
+                                            onClick={() => { setHistoryFilter(f); setHistoryPage(1); }}
+                                            className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${historyFilter === f
+                                                ? 'bg-blue-500 text-white shadow-sm'
+                                                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                                                }`}
+                                        >
+                                            {f === 'Date' && <Calendar className="w-3 h-3" />} {f}
+                                        </button>
+                                    ))}
+                                    {historyFilter === 'Date' && (
+                                        <input
+                                            type="date"
+                                            value={historyDateInput}
+                                            onChange={e => { setHistoryDateInput(e.target.value); setHistoryPage(1); }}
+                                            className="border border-slate-200 rounded-lg px-3 py-1 text-xs text-slate-600 outline-none focus:ring-2 focus:ring-blue-200"
+                                        />
+                                    )}
+                                </div>
+                            </div>
+                            <div className="px-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600">
+                                Showing {historyFilter === 'Today' ? (attendanceState !== 'NOT_CHECKED_IN' ? '1' : '0') : selfAttendances.length} records
+                            </div>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left whitespace-nowrap">
+                                <thead>
+                                    <tr className="bg-slate-50/50 text-slate-800 text-[10px] font-bold tracking-widest border-b border-slate-100">
+                                        <th className="px-6 py-4">labour_id</th>
+                                        <th className="px-6 py-4">labour_name</th>
+                                        <th className="px-6 py-4">worker_code</th>
+                                        <th className="px-6 py-4">attendance_date</th>
+                                        <th className="px-6 py-4">in_time</th>
+                                        <th className="px-6 py-4">out_time</th>
+                                        <th className="px-6 py-4">working_hours</th>
+                                        <th className="px-6 py-4">overtime_hours</th>
+                                        <th className="px-6 py-4">task_id</th>
+                                        <th className="px-6 py-4">check_in_address</th>
+                                        <th className="px-6 py-4">check_out_address</th>
+                                        <th className="px-6 py-4">check_in_image</th>
+                                        <th className="px-6 py-4">check_out_image</th>
+                                        <th className="px-6 py-4">status</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {paginatedHistory.length === 0 ? (
+                                        <tr><td colSpan={14} className="px-6 py-12 text-center"><p className="text-xs text-slate-500 font-medium">{historyFilter === 'Date' && !historyDateInput ? 'Select a date to view records' : 'No records found'}</p></td></tr>
+                                    ) : (
+                                        paginatedHistory.map((rec, idx) => (
+                                            <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-800">{rec.labour_id ?? '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.labour_name ?? '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.worker_code ?? '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.attendance_date ?? '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.in_time ?? '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.out_time ?? '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.working_hours ?? '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.overtime_hours ?? '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.task_id ?? '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.check_in_address ?? '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.check_out_address ?? '-'}</span></td>
+                                                <td className="px-6 py-4">
+                                                    {rec.check_in_image ? (
+                                                        <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-emerald-400">
+                                                            <img src={rec.check_in_image} alt="Check In" className="w-full h-full object-cover" />
+                                                        </div>
+                                                    ) : <span className="text-[10px] text-slate-400">-</span>}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    {rec.check_out_image ? (
+                                                        <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-rose-400">
+                                                            <img src={rec.check_out_image} alt="Check Out" className="w-full h-full object-cover" />
+                                                        </div>
+                                                    ) : <span className="text-[10px] text-slate-400">-</span>}
+                                                </td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.status ?? '-'}</span></td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Pagination footer - only for Yesterday / All / Date */}
+                        {historyFilter !== 'Today' && selfAttendances.length > 0 && (
+                            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                                {/* Left: Items per page */}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                                    <select
+                                        value={itemsPerPage}
+                                        onChange={(e) => { setItemsPerPage(Number(e.target.value)); setHistoryPage(1); }}
+                                        className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                                    >
+                                        <option value={10}>10</option>
+                                        <option value={20}>20</option>
+                                        <option value={50}>50</option>
+                                        <option value={100}>100</option>
+                                    </select>
+                                </div>
+
+                                {/* Center: Showing info */}
+                                <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+                                    Showing {(historyPage - 1) * itemsPerPage + 1} - {Math.min(historyPage * itemsPerPage, selfAttendances.length)} of {selfAttendances.length} records
+                                </div>
+
+                                {/* Right: Pagination */}
+                                <div className="flex items-center gap-1.5">
+                                    <button
+                                        onClick={() => setHistoryPage(prev => Math.max(1, prev - 1))}
+                                        disabled={historyPage === 1}
+                                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                    >
+                                        <ChevronLeft className="w-4 h-4" />
+                                    </button>
+
+                                    {(() => {
+                                        const totalItems = selfAttendances.length;
+                                        const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+                                        const pages = [];
+                                        if (totalPages <= 5) {
+                                            for (let i = 1; i <= totalPages; i++) pages.push(i);
+                                        } else {
+                                            if (historyPage <= 3) {
+                                                pages.push(1, 2, 3, 4, '...', totalPages);
+                                            } else if (historyPage >= totalPages - 2) {
+                                                pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                                            } else {
+                                                pages.push(1, '...', historyPage - 1, historyPage, historyPage + 1, '...', totalPages);
+                                            }
+                                        }
+
+                                        return pages.map((page, index) => {
+                                            if (page === '...') {
+                                                return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                                            }
+                                            const pageNum = page as number;
+                                            const isActive = historyPage === pageNum;
+                                            return (
+                                                <button
+                                                    key={`page-${pageNum}`}
+                                                    onClick={() => setHistoryPage(pageNum)}
+                                                    className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
+                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
+                                                        : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                                        }`}
+                                                >
+                                                    {pageNum}
+                                                </button>
+                                            );
+                                        });
+                                    })()}
+
+                                    <button
+                                        onClick={() => setHistoryPage(prev => Math.min(Math.ceil(selfAttendances.length / itemsPerPage), prev + 1))}
+                                        disabled={historyPage === Math.max(1, Math.ceil(selfAttendances.length / itemsPerPage)) || selfAttendances.length === 0}
+                                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                    >
+                                        <ChevronRight className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                        {historyFilter === 'Today' && attendanceState !== 'NOT_CHECKED_IN' && (
+                            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-slate-500">Showing 1 to 1 of 1 entries</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
             </PageTransition>
 
             {isSelfCheckInFormOpen && selectedLabour && (
@@ -607,6 +607,7 @@ const AttendancePage: React.FC = () => {
                         setSelectedLabour(null);
                     }}
                     attendanceId={selectedLabour.id}
+                    labourId={selectedLabour.labour_id || selectedLabour.id}
                     title={`Check-Out: ${selectedLabour.name || 'Labour'}`}
                 />
             )}
