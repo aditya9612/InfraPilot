@@ -314,18 +314,18 @@ const ChecklistsPage = () => {
         let cls = checklists;
 
         return cls.filter(cl => {
-            const latestLog = [...logs].sort((a,b) => b.id - a.id).find(l => l.checklist_id === cl.id);
+            const latestLog = [...logs].sort((a, b) => b.id - a.id).find(l => l.checklist_id === cl.id);
             const isDone = latestLog?.status === 'Done' || latestLog?.status === 'DONE' || latestLog?.status === 'Passed';
 
             if (searchTerm) {
                 const term = searchTerm.toLowerCase();
                 const statusText = isDone ? 'done' : 'pending';
                 const remarksText = (latestLog?.remarks || '').toLowerCase();
-                
+
                 const matchesName = cl.name.toLowerCase().includes(term);
                 const matchesStatus = statusText.includes(term);
                 const matchesRemarks = remarksText.includes(term);
-                
+
                 if (!matchesName && !matchesStatus && !matchesRemarks) {
                     return false;
                 }
@@ -541,7 +541,7 @@ const ChecklistsPage = () => {
                                 <tbody className="divide-y divide-slate-50 font-inter">
                                     {paginatedChecklists.length > 0 ? (
                                         paginatedChecklists.map((cl) => {
-                                            const latestLog = [...logs].sort((a,b) => b.id - a.id).find(l => l.checklist_id === cl.id);
+                                            const latestLog = [...logs].sort((a, b) => b.id - a.id).find(l => l.checklist_id === cl.id);
                                             const isDone = latestLog?.status === 'Done' || latestLog?.status === 'DONE' || latestLog?.status === 'Passed';
                                             return (
                                                 <tr key={cl.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
@@ -593,8 +593,8 @@ const ChecklistsPage = () => {
                             {/* Left: Items per page */}
                             <div className="flex items-center gap-2">
                                 <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
-                                <select 
-                                    value={itemsPerPage} 
+                                <select
+                                    value={itemsPerPage}
                                     onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
                                     className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
                                 >
@@ -619,7 +619,7 @@ const ChecklistsPage = () => {
                                 >
                                     <ChevronLeft className="w-4 h-4" />
                                 </button>
-                                
+
                                 {(() => {
                                     const totalItems = filteredChecklists.length;
                                     const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
@@ -646,11 +646,10 @@ const ChecklistsPage = () => {
                                             <button
                                                 key={`page-${pageNum}`}
                                                 onClick={() => setCurrentPage(pageNum)}
-                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
-                                                    isActive 
-                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' 
+                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
+                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
                                                         : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
-                                                }`}
+                                                    }`}
                                             >
                                                 {pageNum}
                                             </button>
@@ -853,8 +852,8 @@ const ChecklistsPage = () => {
                                     type="button"
                                     onClick={() => setExecuteStatus(s as any)}
                                     className={`flex-1 py-4 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border font-inter ${executeStatus === s
-                                            ? (s === "Done" ? "bg-emerald-600 border-emerald-600 text-white shadow-xl shadow-emerald-200 scale-[1.02]" : "bg-amber-500 border-yellow-500 text-white shadow-xl shadow-yellow-200 scale-[1.02]")
-                                            : "bg-white border-slate-200 text-slate-400 hover:bg-slate-50"
+                                        ? (s === "Done" ? "bg-emerald-600 border-emerald-600 text-white shadow-xl shadow-emerald-200 scale-[1.02]" : "bg-amber-500 border-yellow-500 text-white shadow-xl shadow-yellow-200 scale-[1.02]")
+                                        : "bg-white border-slate-200 text-slate-400 hover:bg-slate-50"
                                         }`}
                                 >
                                     {s}
@@ -872,7 +871,7 @@ const ChecklistsPage = () => {
                             value={executeRemarks}
                             onChange={(e) => {
                                 setExecuteRemarks(e.target.value);
-                                if(e.target.value.trim()) setExecuteError(false);
+                                if (e.target.value.trim()) setExecuteError(false);
                             }}
                             placeholder="Describe technical observations, deviations, or site confirmations..."
                             className={`${inputClasses} resize-none font-bold ${executeError ? 'border-rose-500 focus:ring-rose-500/20 focus:border-rose-500' : ''}`}

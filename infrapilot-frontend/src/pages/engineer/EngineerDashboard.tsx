@@ -91,7 +91,7 @@ const EngineerDashboard = () => {
                     const temp = Math.round(data.current_weather.temperature);
                     const wind = Math.round(data.current_weather.windspeed);
                     const code = data.current_weather.weathercode;
-                    
+
                     let cond = "Clear";
                     if ([1, 2, 3].includes(code)) cond = "Partly Cloudy";
                     else if ([45, 48].includes(code)) cond = "Foggy";
@@ -193,7 +193,7 @@ const EngineerDashboard = () => {
                 const totalPurchased = materials.reduce((sum: number, m: any) => sum + (Number(m.total_purchased) || Number(m.quantity_purchased) || 0), 0);
                 const totalUsed = materials.reduce((sum: number, m: any) => sum + (Number(m.total_used) || Number(m.quantity_used) || 0), 0);
                 const remainingStock = materials.reduce((sum: number, m: any) => sum + (Number(m.remaining_stock) || Number(m.quantity) || 0), 0);
-                
+
                 const material_stock_status = {
                     added_materials: materials.length,
                     purchased: totalPurchased,

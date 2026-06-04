@@ -55,8 +55,8 @@ const InvoiceTable = () => {
                 <td className="px-5 py-4 text-sm font-bold text-slate-700">{formatCurrency(inv.amount)}</td>
                 <td className="px-5 py-4">
                   <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${inv.status === "Paid" ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
-                      inv.status === "Pending" ? "bg-amber-50 text-amber-600 border border-amber-100" :
-                        "bg-rose-50 text-rose-600 border border-rose-100"
+                    inv.status === "Pending" ? "bg-amber-50 text-amber-600 border border-amber-100" :
+                      "bg-rose-50 text-rose-600 border border-rose-100"
                     }`}>
                     {inv.status}
                   </span>

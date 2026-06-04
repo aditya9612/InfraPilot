@@ -131,93 +131,86 @@ const BankingPage = () => {
     <>
       <Navbar title="Bank & Cash" breadcrumb={["Accountant", "Finance", "Banking"]} />
       
-      <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8 mt-2">
+      <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
           <div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight">
-                {formatTitle(activeTab)}
-            </h1>
-            <p className="text-slate-500 text-sm font-medium mt-1">Manage institutional bank accounts, site petty cash, and automated reconciliation statements.</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">Accountant · Finance</p>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight uppercase">{formatTitle(activeTab)}</h1>
+            <p className="text-slate-500 text-sm mt-1">Manage institutional bank accounts, site petty cash, and automated reconciliation statements.</p>
           </div>
-          <button 
-            onClick={() => {
-                setSelectedRecord(null);
-                setIsModalOpen(true);
-            }}
-            className="px-8 py-3 bg-primary text-white rounded-2xl text-sm font-bold shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 flex items-center gap-2"
+          <button
+            onClick={() => { setSelectedRecord(null); setIsModalOpen(true); }}
+            className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95"
           >
-            <span className="text-xl">+</span> Add Asset/Account
+            <span className="text-base leading-none">+</span> Add Asset/Account
           </button>
         </div>
 
-        <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="p-6 border-b border-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-bold text-slate-800">{formatTitle(activeTab)}</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Bank accounts, petty cash and reconciliation records</p>
+            </div>
+            <button
+              onClick={() => {
+                const rows = filtered.map(r => [r.account_name, r.bank_name, r.account_number, r.ifsc, r.opening_balance, r.current_balance, r.last_transaction].join(','));
+                const csv = ['Account,Bank,Account No,IFSC,Opening Bal,Current Bal,Last Transaction', ...rows].join('\n');
+                const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+                a.download = `Banking_${new Date().toISOString().split('T')[0]}.csv`; a.click();
+              }}
+              className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-xs font-bold px-4 py-2 rounded-xl shadow-sm hover:border-primary/30 hover:text-primary transition-all"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+              Download
+            </button>
+          </div>
             <div className="overflow-x-auto">
-                <table className="w-full text-left">
+                <table className="w-full text-left border-collapse">
                     <thead>
-                        <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
-                            <th className="px-8 py-6">Account & Category</th>
-                            <th className="px-8 py-6">Institution Details</th>
-                            <th className="px-8 py-6 text-right">Opening Bal.</th>
-                            <th className="px-8 py-6 text-right font-black text-slate-900">{activeTab === 'reconciliation' ? 'Statement Bal.' : 'Current Liquidity'}</th>
-                            <th className="px-8 py-6">Status / Last Event</th>
-                            <th className="px-8 py-6 text-right">Actions</th>
+                        <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] border-b border-slate-50 whitespace-nowrap">
+                          <th className="px-6 py-4">Account Name</th>
+                          <th className="px-6 py-4">Bank Name</th>
+                          <th className="px-6 py-4">Account Number</th>
+                          <th className="px-6 py-4">IFSC Code</th>
+                          <th className="px-6 py-4 text-right">Opening Balance</th>
+                          <th className="px-6 py-4">Transaction History</th>
+                          <th className="px-6 py-4 text-right sticky right-0 bg-slate-50/50 shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.05)]">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
                         {filtered.map(record => (
-                            <tr key={record.id} className="hover:bg-slate-50/30 transition-colors group">
-                                <td className="px-8 py-6">
-                                    <div className="flex items-center gap-4">
+                            <tr key={record.id} className="hover:bg-slate-50/70 transition-colors whitespace-nowrap">
+                                <td className="px-6 py-4">
+                                    <div className="flex items-center gap-3">
                                         {renderAccountIcon(record.type)}
-                                        <div>
-                                            <p className="text-sm font-black text-slate-800 tracking-tight">{record.account_name}</p>
-                                            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-lg border inline-block mt-1 ${record.type === "cash" ? "bg-amber-50 text-amber-600 border-amber-100" : "bg-blue-50 text-blue-600 border-blue-100"}`}>
-                                                {record.type === "cash" ? "Petty Cash" : record.type === "reconciliation" ? "Recon Target" : "Commercial Bank"}
-                                            </span>
-                                        </div>
+                                        <p className="text-sm font-black text-slate-800">{record.account_name}</p>
                                     </div>
                                 </td>
-                                <td className="px-8 py-6">
+                                <td className="px-6 py-4">
                                     <p className="text-sm font-bold text-slate-700">{record.bank_name}</p>
-                                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1 font-mono">
-                                        {record.account_number !== "-" ? `${record.account_number} • ${record.ifsc}` : "INTERNAL CASH BOX"}
-                                    </p>
                                 </td>
-                                <td className="px-8 py-6 text-right">
-                                    <p className="text-sm font-bold text-slate-500">₹{record.opening_balance.toLocaleString("en-IN")}</p>
+                                <td className="px-6 py-4">
+                                    <p className="text-sm text-slate-600 font-mono tracking-wider">{record.account_number}</p>
                                 </td>
-                                <td className="px-8 py-6 text-right">
-                                    <p className="text-lg font-black text-slate-900 tracking-tight">₹{record.current_balance.toLocaleString("en-IN")}</p>
+                                <td className="px-6 py-4">
+                                    <p className="text-sm text-slate-600 font-mono tracking-wider">{record.ifsc}</p>
                                 </td>
-                                <td className="px-8 py-6">
-                                    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${activeTab === 'reconciliation' ? 'bg-rose-50 text-rose-500' : 'bg-emerald-50 text-emerald-600'}`}>
+                                <td className="px-6 py-4 text-right">
+                                    <p className="text-sm font-bold text-slate-700 tabular-nums">₹{record.opening_balance.toLocaleString("en-IN")}</p>
+                                </td>
+                                <td className="px-6 py-4">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-0.5">Bal: ₹{record.current_balance.toLocaleString("en-IN")}</p>
+                                    <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${activeTab === 'reconciliation' ? 'bg-rose-50 text-rose-500' : 'bg-emerald-50 text-emerald-600'}`}>
                                         <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${activeTab === 'reconciliation' ? 'bg-rose-500' : 'bg-emerald-500'}`} />
                                         {record.last_transaction}
                                     </div>
                                 </td>
-                                <td className="px-8 py-6 text-right">
-                                    <div className="flex items-center justify-end gap-1">
-                                        <button 
-                                          onClick={() => handleViewRecord(record)}
-                                          className="p-2.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-2xl transition-all active:scale-90"
-                                          title="View Ledger"
-                                        >
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                                        </button>
-                                        <button 
-                                          onClick={() => handleEditRecord(record)}
-                                          className="p-2.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-2xl transition-all active:scale-90"
-                                          title="Update Info"
-                                        >
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                        </button>
-                                        <button 
-                                          onClick={() => handleDeleteRecord(record.id)}
-                                          className="p-2.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-2xl transition-all active:scale-90"
-                                          title="Close Account"
-                                        >
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                        </button>
+                                <td className="px-6 py-4 text-right sticky right-0 bg-white/80 backdrop-blur-sm shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.05)] group-hover:bg-slate-50/90 transition-colors">
+                                    <div className="flex items-center justify-end gap-2">
+                                        <button onClick={() => handleViewRecord(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-blue-50 rounded-lg transition-all" title="View"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg></button>
+                                        <button onClick={() => handleEditRecord(record)} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all" title="Edit"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg></button>
+                                        <button onClick={() => handleDeleteRecord(record.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Delete"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
                                     </div>
                                 </td>
                             </tr>

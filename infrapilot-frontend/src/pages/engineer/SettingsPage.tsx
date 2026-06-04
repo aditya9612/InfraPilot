@@ -281,10 +281,10 @@ const SettingsPage = () => {
                 if (userStr && selectedProject) {
                     const parsed = JSON.parse(userStr);
                     const selectedProjObj = projects.find(p => Number(p.id) === Number(selectedProject));
-                    
+
                     parsed.project_id = Number(selectedProject);
                     parsed.default_project_id = Number(selectedProject);  // used by all pages for priority resolution
-                    
+
                     if (selectedProjObj) {
                         parsed.project_name = selectedProjObj.project_name || selectedProjObj.name;
                     }
@@ -294,7 +294,7 @@ const SettingsPage = () => {
                         if (selectedProjObj) {
                             parsed.user.project_name = selectedProjObj.project_name || selectedProjObj.name;
                         }
-                        
+
                         // Update global user profile details
                         parsed.user.full_name = updatedProfile.full_name || parsed.user.full_name;
                         parsed.user.email = updatedProfile.email || parsed.user.email;
@@ -303,7 +303,7 @@ const SettingsPage = () => {
                         }
                     }
                     localStorage.setItem("infrapilot_user", JSON.stringify(parsed));
-                    
+
                     // Dispatch storage event so Navbar can pick up the new name/image instantly
                     window.dispatchEvent(new Event('storage'));
                 }

@@ -474,13 +474,12 @@ const DrawingsDocumentsPage = () => {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 font-inter">
-                                                <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-widest border w-fit font-inter ${
-                                                    drawing.approval_status === "Approved"
+                                                <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-widest border w-fit font-inter ${drawing.approval_status === "Approved"
                                                         ? "bg-emerald-50 text-emerald-600 border-emerald-200"
                                                         : drawing.approval_status === "Pending"
-                                                        ? "bg-amber-50 text-amber-600 border-amber-200"
-                                                        : "bg-slate-50 text-slate-500 border-slate-200"
-                                                }`}>
+                                                            ? "bg-amber-50 text-amber-600 border-amber-200"
+                                                            : "bg-slate-50 text-slate-500 border-slate-200"
+                                                    }`}>
                                                     {drawing.approval_status || "Pending"}
                                                 </span>
                                             </td>
@@ -578,8 +577,8 @@ const DrawingsDocumentsPage = () => {
                                                 key={`page-${pageNum}`}
                                                 onClick={() => setCurrentPage(pageNum)}
                                                 className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
-                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
-                                                        : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                                    ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
+                                                    : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
                                                     }`}
                                             >
                                                 {pageNum}

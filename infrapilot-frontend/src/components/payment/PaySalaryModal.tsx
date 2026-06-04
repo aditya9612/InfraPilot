@@ -23,12 +23,12 @@ const PaySalaryModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess })
 
     useEffect(() => {
         if (isOpen && labour) {
-            const pId = labour.project_id || 92; 
+            const pId = labour.project_id || 92;
 
             setFormData({
                 labour_id: labour.id,
                 project_id: pId,
-                month: new Date().getMonth() + 1, 
+                month: new Date().getMonth() + 1,
                 year: new Date().getFullYear(),
                 amount: 0
             });
@@ -45,12 +45,12 @@ const PaySalaryModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess })
                 year: formData.year,
                 amount: formData.amount
             };
-            
+
             console.log("POST /api/v1/labour/payroll/pay Payload:", finalPayload);
             await paymentService.paySalary(finalPayload);
-            
+
             toast.success(`Disbursement for ${labour.labour_name} confirmed successfully!`);
-            
+
             // Trigger immediate background refetch to update UI
             await onSuccess();
             onClose();
@@ -63,15 +63,15 @@ const PaySalaryModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess })
     };
 
     return (
-        <Modal 
-            isOpen={isOpen} 
-            onClose={onClose} 
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
             title={`Pay Salary: ${labour?.labour_name}`}
             maxWidth="max-w-xl"
             footer={
                 <div className="flex gap-4">
                     <button onClick={onClose} className="px-6 py-2 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-all">Cancel</button>
-                    <button 
+                    <button
                         onClick={handlePay}
                         disabled={isSubmitting}
                         className="px-8 py-2 bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-50"
@@ -86,7 +86,7 @@ const PaySalaryModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess })
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Payment Month</label>
-                            <select 
+                            <select
                                 value={formData.month}
                                 onChange={(e) => setFormData({ ...formData, month: parseInt(e.target.value) })}
                                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary transition-all font-bold"
@@ -98,8 +98,8 @@ const PaySalaryModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess })
                         </div>
                         <div>
                             <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Payment Year</label>
-                            <input 
-                                type="number" 
+                            <input
+                                type="number"
                                 min="2020"
                                 max="2100"
                                 value={formData.year}
@@ -113,8 +113,8 @@ const PaySalaryModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess })
                         <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Disbursement Amount</label>
                         <div className="relative">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</span>
-                            <input 
-                                type="number" 
+                            <input
+                                type="number"
                                 min="0"
                                 value={formData.amount || ''}
                                 onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}

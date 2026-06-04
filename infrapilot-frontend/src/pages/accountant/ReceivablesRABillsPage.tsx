@@ -89,100 +89,125 @@ const ReceivablesRABillsPage = () => {
 
   return (
     <>
-      <Navbar 
-        title="Running Account (RA) Bills" 
-        breadcrumb={["Accountant", "Receivables", "RA Bills"]} 
+      <Navbar
+        title="Running Account (RA) Bills"
+        breadcrumb={["Accountant", "Receivables", "RA Bills"]}
       />
-      <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8 mt-2">
+      <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
           <div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight">RA Bills (Progress Billing)</h1>
-            <p className="text-slate-500 text-sm font-medium mt-1">Manage cumulative bills based on site work measurements and certifications.</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">Accountant · Receivables</p>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight uppercase">RA Bills (Progress Billing)</h1>
+            <p className="text-slate-500 text-sm mt-1">Cumulative bills based on site work measurements and certifications.</p>
           </div>
-          <button 
-            onClick={() => {
-                setSelectedRecord(null);
-                setIsModalOpen(true);
-            }}
-            className="px-8 py-3 bg-primary text-white rounded-2xl text-sm font-bold shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 text-nowrap"
+          <button
+            onClick={() => { setSelectedRecord(null); setIsModalOpen(true); }}
+            className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95"
           >
-            + New RA Bill
+            <span className="text-base leading-none">+</span> New RA Bill
           </button>
         </div>
 
-        <div className="bg-white rounded-[32px] shadow-sm border border-slate-100 overflow-hidden">
-            <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                    <thead>
-                        <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
-                            <th className="px-6 py-5">Bill Details</th>
-                            <th className="px-6 py-5">Project & Client</th>
-                            <th className="px-6 py-5">Certification</th>
-                            <th className="px-6 py-5 text-right">Bill Amount</th>
-                            <th className="px-6 py-5">Status</th>
-                            <th className="px-6 py-5 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50">
-                        {records.map(record => (
-                            <tr key={record.id} className="hover:bg-slate-50/50 transition-colors group">
-                                <td className="px-6 py-5">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-xl bg-blue-50 text-primary border border-blue-100 flex items-center justify-center font-black text-[10px] shadow-sm">RA</div>
-                                        <div>
-                                            <p className="text-sm font-black text-slate-700">{record.bill_no}</p>
-                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Date: {record.date}</p>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className="px-6 py-5">
-                                    <p className="text-sm font-bold text-slate-700">{record.project}</p>
-                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{record.client}</p>
-                                </td>
-                                <td className="px-6 py-5">
-                                    <p className="text-xs font-bold text-slate-600 italic">"{record.certified_by}"</p>
-                                </td>
-                                <td className="px-6 py-5 text-right">
-                                    <p className="text-sm font-black text-slate-800">₹{record.amount.toLocaleString()}</p>
-                                </td>
-                                <td className="px-6 py-5">
-                                    <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${
-                                        record.status === "Certified" ? "bg-emerald-100 text-emerald-600" :
-                                        record.status === "Pending" ? "bg-amber-100 text-amber-600" : "bg-blue-100 text-blue-600"
-                                    }`}>
-                                        {record.status}
-                                    </span>
-                                </td>
-                                <td className="px-6 py-5 text-right">
-                                    <div className="flex items-center justify-end gap-2">
-                                        <button 
-                                          onClick={() => handleViewRecord(record)}
-                                          className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-xl transition-all"
-                                          title="View Details"
-                                        >
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                                        </button>
-                                        <button 
-                                          onClick={() => handleEditRecord(record)}
-                                          className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-xl transition-all"
-                                          title="Edit Record"
-                                        >
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                        </button>
-                                        <button 
-                                          onClick={() => handleDelete(record.id)}
-                                          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
-                                          title="Delete Record"
-                                        >
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+
+          {/* Card Header */}
+          <div className="p-6 border-b border-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-bold text-slate-800">Running Account Bills</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Progress billing records certified by PMC / internal audit</p>
             </div>
+            <button
+              onClick={() => {
+                const rows = records.map(r => [
+                  r.bill_no, `"${r.project}"`, `"${r.client}"`, r.date, r.amount, `"${r.certified_by}"`, r.status
+                ].join(','));
+                const csv = ['Bill No,Project,Client,Date,Amount (INR),Certified By,Status', ...rows].join('\n');
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+                a.download = `RA_Bills_${new Date().toISOString().split('T')[0]}.csv`;
+                a.click();
+              }}
+              className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-xs font-bold px-4 py-2 rounded-xl shadow-sm hover:border-primary/30 hover:text-primary transition-all"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+              Download
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] border-b border-slate-50 whitespace-nowrap">
+                  <th className="px-6 py-4">Invoice Number</th>
+                  <th className="px-6 py-4">Client Name</th>
+                  <th className="px-6 py-4">Project Name</th>
+                  <th className="px-6 py-4">Billing Date</th>
+                  <th className="px-6 py-4">Work Description</th>
+                  <th className="px-6 py-4 text-right">Quantity</th>
+                  <th className="px-6 py-4 text-right">Rate</th>
+                  <th className="px-6 py-4 text-right">Total Amount</th>
+                  <th className="px-6 py-4 text-right">GST (%)</th>
+                  <th className="px-6 py-4 text-right font-bold text-slate-800">Total with GST</th>
+                  <th className="px-6 py-4">Payment Status</th>
+                  <th className="px-6 py-4">Due Date</th>
+                  <th className="px-6 py-4 text-center">Attachment</th>
+                  <th className="px-6 py-4 text-right sticky right-0 bg-slate-50/50 shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.05)]">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {records.map((record) => {
+                  // Fallback values since standard mock data for RA Bills lacks some of these fields
+                  const workDesc = record.certified_by || "Progress Billing";
+                  const quantity = 1;
+                  const rate = record.amount;
+                  const gstPercent = 18;
+                  const totalWithGst = record.amount * 1.18;
+                  const status = record.status === "Certified" ? "paid" : record.status === "Pending" ? "pending" : "partial";
+                  const dueDate = record.date; // fallback
+
+                  return (
+                    <tr key={record.id} className="hover:bg-slate-50/70 transition-colors whitespace-nowrap">
+                      <td className="px-6 py-4 text-sm font-bold text-slate-800">{record.bill_no}</td>
+                      <td className="px-6 py-4 text-sm font-bold text-slate-700">{record.client}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600">{record.project}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600">{record.date}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600 max-w-[200px] truncate" title={workDesc}>{workDesc}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600 text-right">{quantity}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600 text-right">₹{rate.toLocaleString("en-IN")}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600 text-right">₹{record.amount.toLocaleString("en-IN")}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600 text-right">{gstPercent}%</td>
+                      <td className="px-6 py-4 text-sm font-black text-slate-800 text-right">₹{totalWithGst.toLocaleString("en-IN")}</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2 py-1 text-[10px] font-black rounded-lg uppercase tracking-widest ${
+                          status === "paid" ? "bg-emerald-100 text-emerald-700" :
+                          status === "partial" ? "bg-amber-100 text-amber-700" : "bg-rose-100 text-rose-700"
+                        }`}>{record.status}</span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600">{dueDate}</td>
+                      <td className="px-6 py-4 text-center">
+                          <button className="text-primary hover:text-blue-700 hover:bg-blue-50 p-1.5 rounded-lg transition-all mx-auto block" title="View Attachment">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                          </button>
+                      </td>
+                      <td className="px-6 py-4 text-right sticky right-0 bg-white/80 backdrop-blur-sm shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.05)] group-hover:bg-slate-50/90 transition-colors">
+                        <div className="flex items-center justify-end gap-1">
+                          <button onClick={() => handleViewRecord(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-blue-50 rounded-lg transition-all" title="View">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                          </button>
+                          <button onClick={() => handleEditRecord(record)} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all" title="Edit">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                          </button>
+                          <button onClick={() => handleDelete(record.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Delete">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       </PageTransition>
 

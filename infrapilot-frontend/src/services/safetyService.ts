@@ -81,10 +81,10 @@ export const safetyService = {
         try {
             const response = await api.get('/safety', { params });
             // Respect empty list if items field is present, otherwise fallback to defaults for demo
-            let items = response.data && Array.isArray(response.data.items) 
-                ? response.data.items 
+            let items = response.data && Array.isArray(response.data.items)
+                ? response.data.items
                 : defaultItems;
-            
+
             // Client side filter fallback for backend issues
             if (project_id) {
                 items = items.filter((i: IncidentItem) => i.project_id === project_id);

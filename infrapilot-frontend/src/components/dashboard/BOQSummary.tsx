@@ -16,7 +16,7 @@ const items: BOQItem[] = [
 
 const BOQSummary = () => {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 h-full">
+    <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
       <div className="flex justify-between items-center mb-5">
         <h3 className="font-bold text-slate-800">BOQ Cost Summary</h3>
         <button className="text-xs text-primary font-semibold hover:underline">View BOQ</button>

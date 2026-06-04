@@ -47,7 +47,7 @@ const MaterialStockPage = () => {
     setIsLoading(true);
     try {
       let data = await materialService.getInventory(projectId);
-      
+
       setReport(data);
 
     } catch (error) {
@@ -93,7 +93,7 @@ const MaterialStockPage = () => {
   const filteredReport = useMemo(() => {
     // Only include items that belong to the currently selected project (or if the API doesn't return project_id, include them as fallback)
     let data = report.filter(i => i.project_id === undefined || i.project_id === projectId);
-    
+
     if (activeStatFilter === "Critical") {
       data = data.filter(i => i.remaining_stock < 10);
     } else if (activeStatFilter === "HighValue") {
@@ -109,11 +109,11 @@ const MaterialStockPage = () => {
     );
 
     data.sort((a, b) => {
-        if (sortOrder === "latest") {
-            return Number(b.material_id) - Number(a.material_id);
-        } else {
-            return Number(a.material_id) - Number(b.material_id);
-        }
+      if (sortOrder === "latest") {
+        return Number(b.material_id) - Number(a.material_id);
+      } else {
+        return Number(a.material_id) - Number(b.material_id);
+      }
     });
 
     return data;
@@ -137,7 +137,7 @@ const MaterialStockPage = () => {
     try {
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
-      
+
       const pdfFormatNum = (amount: number) => amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
       // --- HEADER ---
@@ -146,7 +146,7 @@ const MaterialStockPage = () => {
       doc.setFont("helvetica", "bold");
       const title = "Material Inventory Report";
       doc.text(title, pageWidth / 2, 20, { align: "center" });
-      
+
       doc.setFontSize(10);
       doc.setTextColor(100, 116, 139);
       doc.setFont("helvetica", "normal");
@@ -195,18 +195,18 @@ const MaterialStockPage = () => {
           `Rs. ${pending.toLocaleString('en-IN')}`
         ]],
         theme: "grid",
-        headStyles: { 
-          fillColor: [255, 255, 255], 
-          textColor: [148, 163, 184], 
-          fontStyle: "normal", 
-          fontSize: 9, 
+        headStyles: {
+          fillColor: [255, 255, 255],
+          textColor: [148, 163, 184],
+          fontStyle: "normal",
+          fontSize: 9,
           lineWidth: 0,
           lineColor: [249, 115, 22] // We'll manually draw the orange top border
         },
-        bodyStyles: { 
-          fillColor: [255, 255, 255], 
-          textColor: [30, 58, 138], 
-          fontStyle: "bold", 
+        bodyStyles: {
+          fillColor: [255, 255, 255],
+          textColor: [30, 58, 138],
+          fontStyle: "bold",
           fontSize: 14,
           halign: "left"
         },
@@ -253,15 +253,15 @@ const MaterialStockPage = () => {
         head: [["#", "Material Name", "Remaining Stock", "Unit", "Avg Rate", "Total Value"]],
         body: tableData,
         theme: "grid",
-        headStyles: { 
+        headStyles: {
           fillColor: [21, 51, 95], // Darker Blue matching 2nd image
-          textColor: 255, 
+          textColor: 255,
           fontStyle: 'bold',
           fontSize: 9,
           halign: "left"
         },
-        bodyStyles: { 
-          fontSize: 8, 
+        bodyStyles: {
+          fontSize: 8,
           textColor: [51, 65, 85],
           halign: "left"
         },
@@ -300,9 +300,9 @@ const MaterialStockPage = () => {
           doc.line(0, pageHeight - 30, pageWidth, pageHeight - 30);
 
           // Dark blue background
-          doc.setFillColor(21, 51, 95); 
+          doc.setFillColor(21, 51, 95);
           doc.rect(0, pageHeight - 30, pageWidth, 30, 'F');
-          
+
           // Logo text
           doc.setFontSize(16);
           doc.setFont("helvetica", "bold");
@@ -311,20 +311,20 @@ const MaterialStockPage = () => {
           const infraWidth = doc.getTextWidth("INFRA");
           doc.setTextColor(249, 115, 22); // Orange
           doc.text("PILOT", 14 + infraWidth, pageHeight - 16);
-          
+
           // Subtitle
           doc.setFontSize(8);
           doc.setTextColor(200, 200, 200);
           doc.setFont("helvetica", "normal");
           doc.text("Construction Billing Software", 14, pageHeight - 10);
-          
+
           // REPORT Badge
           doc.setFillColor(249, 115, 22);
           doc.roundedRect(pageWidth - 46, pageHeight - 22, 32, 8, 1, 1, 'F');
           doc.setTextColor(255, 255, 255);
           doc.setFont("helvetica", "bold");
           doc.text("REPORT", pageWidth - 30, pageHeight - 16, { align: "center" });
-          
+
           // Generated Date
           doc.setFontSize(7);
           doc.setTextColor(200, 200, 200);
@@ -358,7 +358,7 @@ const MaterialStockPage = () => {
       }));
 
       const worksheet = XLSX.utils.json_to_sheet(exportData);
-      
+
       const wscols = [
         { wch: 25 }, // Material Name
         { wch: 15 }, // Remaining Stock
@@ -476,20 +476,20 @@ const MaterialStockPage = () => {
             )}
 
             <div className="relative flex items-center font-inter">
-                <div className="absolute left-3 text-slate-400 pointer-events-none">
-                    <Clock className="w-4 h-4" />
-                </div>
-                <select
-                    value={sortOrder}
-                    onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
-                    className="appearance-none bg-white border border-primary rounded-full text-sm font-bold text-primary shadow-sm pl-9 pr-8 py-1.5 outline-none cursor-pointer"
-                >
-                    <option value="latest">Latest First</option>
-                    <option value="oldest">Oldest First</option>
-                </select>
-                <div className="absolute right-3 text-slate-400 pointer-events-none">
-                    <ChevronDown className="w-4 h-4" />
-                </div>
+              <div className="absolute left-3 text-slate-400 pointer-events-none">
+                <Clock className="w-4 h-4" />
+              </div>
+              <select
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
+                className="appearance-none bg-white border border-primary rounded-full text-sm font-bold text-primary shadow-sm pl-9 pr-8 py-1.5 outline-none cursor-pointer"
+              >
+                <option value="latest">Latest First</option>
+                <option value="oldest">Oldest First</option>
+              </select>
+              <div className="absolute right-3 text-slate-400 pointer-events-none">
+                <ChevronDown className="w-4 h-4" />
+              </div>
             </div>
           </div>
 
@@ -551,84 +551,83 @@ const MaterialStockPage = () => {
 
           {/* Pagination Controls */}
           {filteredReport.length > 0 && (
-          <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
               {/* Left: Items per page */}
               <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
-                  <select 
-                      value={itemsPerPage} 
-                      onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                      className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
-                  >
-                      <option value={10}>10</option>
-                      <option value={20}>20</option>
-                      <option value={50}>50</option>
-                      <option value={100}>100</option>
-                  </select>
+                <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                  className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
               </div>
 
               {/* Center: Showing info */}
               <div className="text-[11px] font-medium text-slate-500 hidden md:block">
-                  Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredReport.length)} of {filteredReport.length} records
+                Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredReport.length)} of {filteredReport.length} records
               </div>
 
               {/* Right: Pagination */}
               <div className="flex items-center gap-1.5">
-                  <button
-                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                      className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
-                  >
-                      <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  
-                  {(() => {
-                      const totalItems = filteredReport.length;
-                      const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
-                      const pages = [];
-                      if (totalPages <= 5) {
-                          for (let i = 1; i <= totalPages; i++) pages.push(i);
-                      } else {
-                          if (currentPage <= 3) {
-                              pages.push(1, 2, 3, 4, '...', totalPages);
-                          } else if (currentPage >= totalPages - 2) {
-                              pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
-                          } else {
-                              pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
-                          }
-                      }
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
 
-                      return pages.map((page, index) => {
-                          if (page === '...') {
-                              return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
-                          }
-                          const pageNum = page as number;
-                          const isActive = currentPage === pageNum;
-                          return (
-                              <button
-                                  key={`page-${pageNum}`}
-                                  onClick={() => setCurrentPage(pageNum)}
-                                  className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
-                                      isActive 
-                                          ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' 
-                                          : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
-                                  }`}
-                              >
-                                  {pageNum}
-                              </button>
-                          );
-                      });
-                  })()}
+                {(() => {
+                  const totalItems = filteredReport.length;
+                  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+                  const pages = [];
+                  if (totalPages <= 5) {
+                    for (let i = 1; i <= totalPages; i++) pages.push(i);
+                  } else {
+                    if (currentPage <= 3) {
+                      pages.push(1, 2, 3, 4, '...', totalPages);
+                    } else if (currentPage >= totalPages - 2) {
+                      pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                    } else {
+                      pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                    }
+                  }
 
-                  <button
-                      onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredReport.length / itemsPerPage), prev + 1))}
-                      disabled={currentPage === Math.max(1, Math.ceil(filteredReport.length / itemsPerPage)) || filteredReport.length === 0}
-                      className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
-                  >
-                      <ChevronRight className="w-4 h-4" />
-                  </button>
+                  return pages.map((page, index) => {
+                    if (page === '...') {
+                      return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                    }
+                    const pageNum = page as number;
+                    const isActive = currentPage === pageNum;
+                    return (
+                      <button
+                        key={`page-${pageNum}`}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
+                            ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
+                            : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                          }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  });
+                })()}
+
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredReport.length / itemsPerPage), prev + 1))}
+                  disabled={currentPage === Math.max(1, Math.ceil(filteredReport.length / itemsPerPage)) || filteredReport.length === 0}
+                  className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
-          </div>
+            </div>
           )}
         </div>
 

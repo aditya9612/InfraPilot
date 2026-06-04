@@ -60,7 +60,7 @@ const MaterialHistoryPage = () => {
 
       setProjectsMap(prev => {
         const newMap = { ...prev };
-        
+
         // Populate from allProjects
         const projectsList = Array.isArray(allProjects) ? allProjects : (allProjects?.items || allProjects?.data || []);
         projectsList.forEach((p: any) => {
@@ -109,12 +109,12 @@ const MaterialHistoryPage = () => {
             map[id] = name;
           }
         });
-        
+
         // Ensure the current project is in the map if we have its name
         if (pId && pName && !map[Number(pId)]) {
-           map[Number(pId)] = pName;
+          map[Number(pId)] = pName;
         }
-        
+
         setProjectsMap(map);
       } catch (e) {
         console.error("Failed to resolve project ID", e);
@@ -129,7 +129,7 @@ const MaterialHistoryPage = () => {
 
   const filteredLogs = useMemo(() => {
     let data = [...logs];
-    
+
     data = data.filter(l => {
       // Operation type filter
       let typeMatch = true;
@@ -146,7 +146,7 @@ const MaterialHistoryPage = () => {
       if (startDate || endDate) {
         const logDate = new Date(l.created_at);
         logDate.setHours(0, 0, 0, 0);
-        
+
         if (startDate) {
           const sDate = new Date(startDate);
           sDate.setHours(0, 0, 0, 0);
@@ -163,11 +163,11 @@ const MaterialHistoryPage = () => {
     });
 
     data.sort((a, b) => {
-        if (sortOrder === "latest") {
-            return Number(b.id) - Number(a.id);
-        } else {
-            return Number(a.id) - Number(b.id);
-        }
+      if (sortOrder === "latest") {
+        return Number(b.id) - Number(a.id);
+      } else {
+        return Number(a.id) - Number(b.id);
+      }
     });
 
     return data;
@@ -213,7 +213,7 @@ const MaterialHistoryPage = () => {
     <>
       <Navbar title="Material History" breadcrumb={["Engineer", "Logistics", "Material History"]} />
       <PageTransition className="p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter flex flex-col pb-8">
-        
+
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
           <div className="font-inter">
@@ -238,13 +238,13 @@ const MaterialHistoryPage = () => {
               <History className="w-5 h-5 text-slate-400 font-inter" />
               <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest font-inter">Historical Audit Ledger</h3>
             </div>
-            
+
             <div className="flex flex-wrap items-center gap-3 font-inter">
               {/* Date Filters */}
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl font-inter shadow-sm">
                   <Calendar className="w-4 h-4 text-slate-400" />
-                  <input 
+                  <input
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
@@ -254,7 +254,7 @@ const MaterialHistoryPage = () => {
                 <span className="text-slate-300 font-bold">-</span>
                 <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl font-inter shadow-sm">
                   <Calendar className="w-4 h-4 text-slate-400" />
-                  <input 
+                  <input
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
@@ -279,26 +279,26 @@ const MaterialHistoryPage = () => {
                   <option value="ADJUSTMENT">ADJUSTMENT</option>
                 </select>
               </div>
-              
+
               <div className="relative flex items-center font-inter">
                 <div className="absolute left-3 text-slate-400 pointer-events-none">
-                    <Clock className="w-4 h-4" />
+                  <Clock className="w-4 h-4" />
                 </div>
                 <select
-                    value={sortOrder}
-                    onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
-                    className="appearance-none bg-white border border-primary rounded-full text-sm font-bold text-primary shadow-sm pl-9 pr-8 py-1.5 outline-none cursor-pointer"
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
+                  className="appearance-none bg-white border border-primary rounded-full text-sm font-bold text-primary shadow-sm pl-9 pr-8 py-1.5 outline-none cursor-pointer"
                 >
-                    <option value="latest">Latest First</option>
-                    <option value="oldest">Oldest First</option>
+                  <option value="latest">Latest First</option>
+                  <option value="oldest">Oldest First</option>
                 </select>
                 <div className="absolute right-3 text-slate-400 pointer-events-none">
-                    <ChevronDown className="w-4 h-4" />
+                  <ChevronDown className="w-4 h-4" />
                 </div>
               </div>
             </div>
           </div>
-          
+
           <div className="overflow-x-auto font-inter scrollbar-thin scrollbar-thumb-slate-200 min-h-[300px]">
             <table className="w-full text-left font-inter min-w-[1000px]">
               <thead>
@@ -357,12 +357,12 @@ const MaterialHistoryPage = () => {
                       </td>
                       <td className="px-6 py-4 text-xs font-bold text-slate-500 font-inter whitespace-nowrap">
                         <span className="px-2 py-1 bg-slate-100 rounded-md">
-                          {projectsMap[log.project_id] || 
-                           (log as any).project_name || 
-                           (log.project_id === 1 ? "Aditya Infra" : 
-                            log.project_id === 92 ? "Aditya Infra" : 
-                            fallbackProjectName !== "Current Project" ? fallbackProjectName : 
-                            `Project #${log.project_id}`)}
+                          {projectsMap[log.project_id] ||
+                            (log as any).project_name ||
+                            (log.project_id === 1 ? "Aditya Infra" :
+                              log.project_id === 92 ? "Aditya Infra" :
+                                fallbackProjectName !== "Current Project" ? fallbackProjectName :
+                                  `Project #${log.project_id}`)}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-xs font-bold text-slate-500 font-inter">{log.issue_type}</td>
@@ -380,83 +380,82 @@ const MaterialHistoryPage = () => {
 
           {/* Logs Pagination */}
           <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
-                            {/* Left: Items per page */}
-                            <div className="flex items-center gap-2">
-                                <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
-                                <select 
-                                    value={itemsPerPage} 
-                                    onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                                    className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
-                                >
-                                    <option value={10}>10</option>
-                                    <option value={20}>20</option>
-                                    <option value={50}>50</option>
-                                    <option value={100}>100</option>
-                                </select>
-                            </div>
+            {/* Left: Items per page */}
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
 
-                            {/* Center: Showing info */}
-                            <div className="text-[11px] font-medium text-slate-500 hidden md:block">
-                                Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredLogs.length)} of {filteredLogs.length} records
-                            </div>
+            {/* Center: Showing info */}
+            <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+              Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredLogs.length)} of {filteredLogs.length} records
+            </div>
 
-                            {/* Right: Pagination */}
-                            <div className="flex items-center gap-1.5">
-                                <button
-                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                    disabled={currentPage === 1}
-                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
-                                >
-                                    <ChevronLeft className="w-4 h-4" />
-                                </button>
-                                
-                                {(() => {
-                                    const totalItems = filteredLogs.length;
-                                    const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
-                                    const pages = [];
-                                    if (totalPages <= 5) {
-                                        for (let i = 1; i <= totalPages; i++) pages.push(i);
-                                    } else {
-                                        if (currentPage <= 3) {
-                                            pages.push(1, 2, 3, 4, '...', totalPages);
-                                        } else if (currentPage >= totalPages - 2) {
-                                            pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
-                                        } else {
-                                            pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
-                                        }
-                                    }
+            {/* Right: Pagination */}
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
 
-                                    return pages.map((page, index) => {
-                                        if (page === '...') {
-                                            return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
-                                        }
-                                        const pageNum = page as number;
-                                        const isActive = currentPage === pageNum;
-                                        return (
-                                            <button
-                                                key={`page-${pageNum}`}
-                                                onClick={() => setCurrentPage(pageNum)}
-                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
-                                                    isActive 
-                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' 
-                                                        : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
-                                                }`}
-                                            >
-                                                {pageNum}
-                                            </button>
-                                        );
-                                    });
-                                })()}
+              {(() => {
+                const totalItems = filteredLogs.length;
+                const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+                const pages = [];
+                if (totalPages <= 5) {
+                  for (let i = 1; i <= totalPages; i++) pages.push(i);
+                } else {
+                  if (currentPage <= 3) {
+                    pages.push(1, 2, 3, 4, '...', totalPages);
+                  } else if (currentPage >= totalPages - 2) {
+                    pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                  } else {
+                    pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                  }
+                }
 
-                                <button
-                                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredLogs.length / itemsPerPage), prev + 1))}
-                                    disabled={currentPage === Math.max(1, Math.ceil(filteredLogs.length / itemsPerPage)) || filteredLogs.length === 0}
-                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
-                                >
-                                    <ChevronRight className="w-4 h-4" />
-                                </button>
-                            </div>
-                        </div>
+                return pages.map((page, index) => {
+                  if (page === '...') {
+                    return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                  }
+                  const pageNum = page as number;
+                  const isActive = currentPage === pageNum;
+                  return (
+                    <button
+                      key={`page-${pageNum}`}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
+                          ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
+                          : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                        }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                });
+              })()}
+
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredLogs.length / itemsPerPage), prev + 1))}
+                disabled={currentPage === Math.max(1, Math.ceil(filteredLogs.length / itemsPerPage)) || filteredLogs.length === 0}
+                className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
         </div>
       </PageTransition>
     </>

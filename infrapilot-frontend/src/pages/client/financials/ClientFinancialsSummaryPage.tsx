@@ -36,29 +36,29 @@ const ClientFinancialsSummaryPage = () => {
 
       // If no projects found via list, try fetching current specific project as fallback
       if (projects.length === 0) {
-          const singleProject = await projectService.getProjectById(92); // Trying known ID if list fails
-          if (singleProject) projects = [singleProject];
+        const singleProject = await projectService.getProjectById(92); // Trying known ID if list fails
+        if (singleProject) projects = [singleProject];
       }
 
       // 2. Fetch specific financials for each project
       const combinedData = await Promise.all(projects.map(async (p: any) => {
         const pid = p.id || p.project_id;
-        
+
         try {
           // Wrap sub-calls in individual try-catch to prevent a single failure from blocking the project
           let summary: any = {};
           let milestones: any[] = [];
           let invoices: any[] = [];
 
-          try { summary = await reportService.getFinancialSummary(pid); } catch(e) { console.warn("Summary fail", e); }
-          try { milestones = await projectService.getMilestones(pid); } catch(e) { console.warn("Milestone fail", e); milestones = []; }
-          try { invoices = await financeService.getInvoicesByType("owner"); } catch(e) { console.warn("Invoice fail", e); invoices = []; }
+          try { summary = await reportService.getFinancialSummary(pid); } catch (e) { console.warn("Summary fail", e); }
+          try { milestones = await projectService.getMilestones(pid); } catch (e) { console.warn("Milestone fail", e); milestones = []; }
+          try { invoices = await financeService.getInvoicesByType("owner"); } catch (e) { console.warn("Invoice fail", e); invoices = []; }
 
           // Filter invoices for this project
           const projectInvoices = invoices.filter((inv: any) => String(inv.project_id) === String(pid));
 
           const ledger: MilestonePayment[] = milestones.map((m: any) => {
-            const matchingInvoice = projectInvoices.find((inv: any) => 
+            const matchingInvoice = projectInvoices.find((inv: any) =>
               inv.description?.toLowerCase().includes(m.name.toLowerCase()) ||
               inv.milestone_id === m.id
             );
@@ -157,7 +157,7 @@ const ClientFinancialsSummaryPage = () => {
   return (
     <div className="min-h-screen bg-slate-50 font-inter pb-20">
       <Navbar title="Financial Transparency" breadcrumb={["InfraPilot", "Client", "Financials"]} />
-      
+
       <div className="max-w-[1400px] mx-auto p-6 md:p-8">
         {/* Header with Export */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
@@ -240,18 +240,16 @@ const ClientFinancialsSummaryPage = () => {
                     <div key={sIdx} className="group flex items-center justify-between p-6 bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all hover:border-blue-100">
                       <div className="flex items-center gap-6">
                         {/* Status Icon */}
-                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner ${
-                          step.amount > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-300'
-                        }`}>
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner ${step.amount > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-300'
+                          }`}>
                           {step.amount > 0 ? '✓' : sIdx + 1}
                         </div>
-                        
+
                         <div>
                           <h4 className="text-base font-black text-slate-800 tracking-tight uppercase">{step.name}</h4>
                           <div className="flex items-center gap-3 mt-1">
-                            <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${
-                              step.amount > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'
-                            }`}>
+                            <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${step.amount > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'
+                              }`}>
                               {step.amount > 0 ? 'Settled' : 'Planned'}
                             </span>
                             {step.amount > 0 && (
@@ -276,9 +274,9 @@ const ClientFinancialsSummaryPage = () => {
 
               {/* Footer Note */}
               <div className="px-8 py-6 bg-slate-50/30 border-t border-slate-50">
-                 <p className="text-[10px] text-slate-400 font-medium italic">
-                   Note: Payment amounts are calculated based on verified owner-linked invoices corresponding to each project phase.
-                 </p>
+                <p className="text-[10px] text-slate-400 font-medium italic">
+                  Note: Payment amounts are calculated based on verified owner-linked invoices corresponding to each project phase.
+                </p>
               </div>
             </div>
           ))}

@@ -130,13 +130,13 @@ const SitePhotosPage = () => {
         try {
             await sitePhotoService.deletePhoto(Number(photoToDelete));
             toast.success("Evidence record removed", { id: toastId });
-            
+
             // Optimistic update
             setPhotos(prev => prev.filter(p => p.id !== photoToDelete));
-            
+
             // Explicit refetch to ensure server sync
             fetchPhotos();
-            
+
             setIsDeleteModalOpen(false);
             setPhotoToDelete(null);
         } catch (error) {
@@ -149,7 +149,7 @@ const SitePhotosPage = () => {
             const desc = p.description || "";
             const actTag = p.activity_tag || "";
             const locTag = p.location_tag || "";
-            
+
             const matchesSearch = desc.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 String(p.id).includes(searchQuery);
             const matchesActivity = filterActivity === "All Activities" || actTag === filterActivity;
@@ -420,9 +420,9 @@ const SitePhotosPage = () => {
                                                     <tr key={photo.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                                         <td className="px-6 py-4 font-inter">
                                                             <div className="w-16 h-12 rounded-xl bg-slate-100 overflow-hidden border border-slate-200 shadow-sm group-hover:scale-105 transition-transform font-inter">
-                                                                <img 
-                                                                    src={sitePhotoService.resolveUrl(photo.url || null) || ""} 
-                                                                    alt="Audit" 
+                                                                <img
+                                                                    src={sitePhotoService.resolveUrl(photo.url || null) || ""}
+                                                                    alt="Audit"
                                                                     className="w-full h-full object-cover font-inter"
                                                                 />
                                                             </div>
@@ -459,7 +459,7 @@ const SitePhotosPage = () => {
                                                                 >
                                                                     <Eye className="w-4 h-4" />
                                                                 </button>
-                                                                <button 
+                                                                <button
                                                                     onClick={() => { setPhotoToDelete(photo.id); setIsDeleteModalOpen(true); }}
                                                                     className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all font-inter"
                                                                     title="Discard Evidence"
@@ -489,8 +489,8 @@ const SitePhotosPage = () => {
                             {/* Left: Items per page */}
                             <div className="flex items-center gap-2">
                                 <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
-                                <select 
-                                    value={itemsPerPage} 
+                                <select
+                                    value={itemsPerPage}
                                     onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
                                     className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
                                 >
@@ -515,7 +515,7 @@ const SitePhotosPage = () => {
                                 >
                                     <ChevronLeft className="w-4 h-4" />
                                 </button>
-                                
+
                                 {(() => {
                                     const totalItems = filteredPhotos.length;
                                     const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
@@ -542,11 +542,10 @@ const SitePhotosPage = () => {
                                             <button
                                                 key={`page-${pageNum}`}
                                                 onClick={() => setCurrentPage(pageNum)}
-                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
-                                                    isActive 
-                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' 
+                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
+                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
                                                         : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
-                                                }`}
+                                                    }`}
                                             >
                                                 {pageNum}
                                             </button>
