@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import { toast } from "react-hot-toast";
 import { User, Settings as SettingsIcon, Bell, Globe, Upload, Trash2 } from "lucide-react";
-import Navbar from "../../components/common/Navbar";
+import { Navbar, PageTransition, Toggle } from "../../components/common";
 import { settingsService } from "../../services/settingsService";
 import { projectService } from "../../services/projectService";
 import type { UserSettings, CompanySettings } from "../../types/settings";
-import PageTransition from "../../components/common/PageTransition";
-import Toggle from "../../components/common/Toggle";
 import { useAuth } from "../../context/AuthContext";
 
 const SectionHeader = ({ title, icon }: { title: string; icon: React.ReactNode }) => (
