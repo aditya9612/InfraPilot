@@ -19,6 +19,7 @@ import { labourService } from "../../services/labourService";
 import { workProgressService } from "../../services/workProgressService";
 import { issueService } from "../../services/issueService";
 import { expenseService } from "../../services/expenseService";
+import { getFullImageUrl } from "../../utils/imageUtils";
 
 const EngineerProfilePage: React.FC = () => {
     const { id } = useParams();
@@ -336,8 +337,12 @@ const EngineerProfilePage: React.FC = () => {
                             <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700" />
 
                             <div className="flex flex-col items-center text-center space-y-4 relative z-10">
-                                <div className="w-32 h-32 rounded-[2.5rem] bg-slate-900 flex items-center justify-center text-white text-4xl font-black shadow-2xl border-4 border-white">
-                                    {engineer.name.charAt(0)}
+                                <div className="w-32 h-32 rounded-[2.5rem] bg-slate-900 flex items-center justify-center text-white text-4xl font-black shadow-2xl border-4 border-white overflow-hidden">
+                                    {engineerData?.profile_image ? (
+                                        <img src={getFullImageUrl(engineerData.profile_image)} alt={engineer.name} className="w-full h-full object-cover" />
+                                    ) : (
+                                        engineer.name.charAt(0)
+                                    )}
                                 </div>
                                 <div>
                                     <h2 className="text-2xl font-black text-slate-800 tracking-tight">{engineer.name}</h2>

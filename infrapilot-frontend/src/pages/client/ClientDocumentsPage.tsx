@@ -147,6 +147,8 @@ const ClientDocumentsPage = () => {
   const [latestDrawing, setLatestDrawing] = useState<DrawingDoc | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingLatest, setLoadingLatest] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const { projectId } = useClientProjectId();
 
   const fetchDrawingHistory = async () => {
@@ -159,7 +161,15 @@ const ClientDocumentsPage = () => {
       // Fetch other documents (Agreements, Invoices) via documentService
       const { documentService } = await import("../../services/documentService");
       const docsResult = await documentService.listDocuments({ project_id: projectId });
-      const docs = Array.isArray(docsResult) ? docsResult : ((docsResult as any).items || (docsResult as any).data || []);
+      
+      // Robust extraction of document array
+      let docs: any[] = [];
+      if (Array.isArray(docsResult)) {
+        docs = docsResult;
+      } else if (docsResult && typeof docsResult === 'object') {
+        docs = (docsResult as any).items || (docsResult as any).data || (docsResult as any).documents || [];
+      }
+      
       setApiDocs(docs);
     } catch (err: any) {
       console.error(">>> Failed to fetch document repository:", err?.message);
@@ -172,14 +182,17 @@ const ClientDocumentsPage = () => {
     if (!projectId) return;
     try {
       setLoadingLatest(true);
-      const latest = await drawingService.getLatest(projectId);
+      const latestData = await drawingService.getLatest(projectId);
+      // Handle both single object and array responses
+      const latest = Array.isArray(latestData) ? latestData[0] : latestData;
+      
       if (latest) {
         setLatestDrawing({
           id: latest.id,
           project_id: latest.project_id,
           drawing_name: latest.drawing_name,
-          version: latest.version,
-          date: latest.date || "",
+          version: latest.version || "—",
+          date: latest.date || latest.created_at || "",
           remarks: latest.remarks || "",
           file_url: latest.file_url || "",
           approval_status: latest.approval_status || "Pending",
@@ -197,8 +210,13 @@ const ClientDocumentsPage = () => {
     if (projectId) {
       fetchDrawingHistory();
       fetchLatestDrawing();
+      setCurrentPage(1); // Reset page on project change
     }
   }, [projectId]);
+
+  useEffect(() => {
+    setCurrentPage(1); // Reset page on tab change
+  }, [activeTab]);
 
 
   const [selectedPreview, setSelectedPreview] = useState<any>(null);
@@ -263,23 +281,36 @@ const ClientDocumentsPage = () => {
     approval_id: d.approval_id,
   }));
 
-  const otherDocs = apiDocs.map((d) => ({
-    id: d.id,
-    name: d.title || d.name,
-    type: (d.document_type || "Agreement") as any,
-    uploadDate: d.created_at ? new Date(d.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—",
-    version: d.version || "Original",
-    size: d.file_size ? `${(d.file_size / 1024).toFixed(0)} KB` : "—",
-    file_url: d.file_url || "",
-    approval_status: d.status || "Archived",
-    approval_id: null,
-  }));
+  const otherDocs = apiDocs.map((d) => {
+    // Sanitize type and name
+    const rawType = d.document_type || d.type || "Agreement";
+    const formattedType = rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase();
+
+    return {
+      id: d.id,
+      name: d.title || d.name || "Untitled Document",
+      type: formattedType as any,
+      uploadDate: d.created_at || d.uploaded_at ? new Date(d.created_at || d.uploaded_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—",
+      version: d.version || "Original",
+      size: d.file_size ? `${(d.file_size / 1024).toFixed(0)} KB` : "—",
+      file_url: d.file_url || "",
+      approval_status: d.status || d.approval_status || "Archived",
+      approval_id: null,
+    };
+  });
 
   const allVaultDocs = [...drawingDocs, ...otherDocs];
 
   const filteredDocs = activeTab === "All"
     ? allVaultDocs
     : allVaultDocs.filter((d) => d.type.toLowerCase() === activeTab.toLowerCase());
+
+  // Pagination Logic
+  const totalPages = Math.ceil(filteredDocs.length / itemsPerPage);
+  const paginatedDocs = filteredDocs.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   return (
     <>
@@ -305,16 +336,6 @@ const ClientDocumentsPage = () => {
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
-                <div className="text-right hidden md:block">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Approval Matrix</p>
-                  <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg ${
-                    latestDrawing.approval_status === 'Approved' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-amber-50 text-amber-600 border border-amber-100'
-                  }`}>
-                    {latestDrawing.approval_status}
-                  </span>
-                </div>
-              </div>
             </div>
           </div>
         )}
@@ -335,7 +356,7 @@ const ClientDocumentsPage = () => {
                 <div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin mb-4"></div>
                 <p className="text-sm font-black uppercase tracking-widest">Auditing Vault Contents...</p>
               </div>
-            ) : filteredDocs.length === 0 ? (
+            ) : paginatedDocs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-24 text-slate-400">
                 <svg className="w-14 h-14 mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                 <p className="text-sm font-black uppercase tracking-widest">No documents in this category yet</p>
@@ -348,18 +369,18 @@ const ClientDocumentsPage = () => {
                     <th className="p-6 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Type</th>
                     <th className="p-6 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Version</th>
                     <th className="p-6 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Upload Date</th>
+                    <th className="p-6 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
                     <th className="p-6 pr-10 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {filteredDocs.map((doc, i) => (
+                  {paginatedDocs.map((doc, i) => (
                     <tr key={i} className="group hover:bg-slate-50 transition-colors">
                       <td className="p-6 pl-10">
                         <div className="flex items-center gap-4">
                           <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-primary text-lg shadow-inner">{doc.type === "Drawing" ? "📐" : "🧾"}</div>
                           <div>
                             <p className="text-sm font-black text-slate-800 leading-tight">{doc.name}</p>
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{doc.approval_status ? `Status: ${doc.approval_status}` : "Archived Record"}</p>
                           </div>
                         </div>
                       </td>
@@ -368,6 +389,17 @@ const ClientDocumentsPage = () => {
                       </td>
                       <td className="p-6 text-center whitespace-nowrap"><span className="text-xs font-black text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-100">{doc.version}</span></td>
                       <td className="p-6 text-center whitespace-nowrap"><p className="text-xs font-bold text-slate-500">{doc.uploadDate}</p></td>
+                      <td className="p-6 text-center">
+                        <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg whitespace-nowrap ${
+                          (doc.approval_status === 'Approved' || doc.approval_status === 'Active') 
+                            ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' 
+                            : (doc.approval_status === 'Pending' || doc.approval_status === 'Under Review' || doc.approval_status === 'UNDER_REVIEW')
+                            ? 'bg-amber-50 text-amber-600 border border-amber-100'
+                            : 'bg-slate-50 text-slate-500 border border-slate-100'
+                        }`}>
+                          {doc.approval_status?.replace(/_/g, ' ') || 'Archived'}
+                        </span>
+                      </td>
                       <td className="p-6 pr-10">
                         <div className="flex items-center justify-end gap-2">
                           <button onClick={() => handleView(doc)} className="p-2 text-slate-400 hover:text-primary transition-colors active:scale-95 transform" title="View Document"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg></button>
@@ -380,6 +412,73 @@ const ClientDocumentsPage = () => {
               </table>
             )}
           </div>
+
+          {!loading && totalPages > 1 && (
+            <div className="p-6 border-t border-slate-50 bg-white flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="flex items-center gap-8">
+                <div className="flex items-center gap-3">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Records Per Page:</p>
+                  <select 
+                    value={itemsPerPage}
+                    onChange={(e) => {
+                      setItemsPerPage(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    className="bg-white border border-slate-100 rounded-xl px-3 py-1.5 text-[10px] font-black text-slate-700 outline-none focus:border-blue-500 transition-all cursor-pointer shadow-sm"
+                  >
+                    {[10, 20, 50].map(v => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                </div>
+                
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
+                  Showing <span className="text-slate-700">{(currentPage - 1) * itemsPerPage + 1} - {Math.min(filteredDocs.length, currentPage * itemsPerPage)}</span> Of <span className="text-slate-700">{filteredDocs.length}</span> Records
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(prev => prev - 1)}
+                  className="flex items-center gap-2 px-4 py-2 border border-slate-50 rounded-2xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 hover:text-slate-800 disabled:opacity-30 transition-all active:scale-95"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" /></svg>
+                  Prev
+                </button>
+                
+                <div className="flex items-center gap-1.5 px-2">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => {
+                    // Simple page numbers for now, can add dots logic if pages > 5
+                    if (totalPages > 5 && p > 2 && p < totalPages) {
+                      if (p === 3) return <span key={p} className="text-slate-300 px-1">...</span>;
+                      return null;
+                    }
+                    return (
+                      <button
+                        key={p}
+                        onClick={() => setCurrentPage(p)}
+                        className={`w-9 h-9 rounded-xl text-[10px] font-black transition-all active:scale-90 ${
+                          currentPage === p 
+                            ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30 ring-4 ring-blue-600/10" 
+                            : "text-slate-400 hover:bg-slate-50 hover:text-slate-600 border border-transparent hover:border-slate-100"
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(prev => prev + 1)}
+                  className="flex items-center gap-2 px-4 py-2 border border-slate-50 rounded-2xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 hover:text-slate-800 disabled:opacity-30 transition-all active:scale-95"
+                >
+                  Next
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

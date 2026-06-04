@@ -11,6 +11,7 @@ import toast from "react-hot-toast";
 import { userService } from "../../services/userService";
 import { documentService } from "../../services/documentService";
 import { financeService } from "../../services/financeService";
+import { quotationService } from "../../services/quotationService";
 import type { Document } from "../../types/document";
 
 
@@ -87,7 +88,7 @@ function LedgerTab({ client, navigate }: any) {
                 <div className="p-4 border-b border-slate-50 flex items-center justify-between">
                     <h3 className="text-sm font-black text-slate-700">Invoice History</h3>
                     <button
-                        onClick={() => navigate("/admin/invoices/create")}
+                        onClick={() => navigate(`/admin/invoices/create?clientId=${client.id}`)}
                         className="flex items-center gap-2 px-3 py-1.5 bg-primary text-white rounded-xl text-xs font-bold hover:bg-blue-600 transition-all"
                     >
                         <PlusCircle className="w-3.5 h-3.5" /> Create Invoice
@@ -465,11 +466,57 @@ const ClientDetailPage = () => {
             if (!id) return;
             try {
                 setIsLoading(true);
-                const u = await userService.getUserById(parseInt(id));
-                const allInvoices = await financeService.getInvoices(100).catch(() => []);
-                const clientInvoices = allInvoices.filter((i: any) => i.owner_id === parseInt(id));
+                const clientId = parseInt(id);
+                const u = await userService.getUserById(clientId);
+                const clientNameLower = (u.full_name || "").toLowerCase().trim();
 
-                // Map API user to the expected client structure
+                // Fetch finance invoices for this client (by owner_id)
+                const allInvoices = await financeService.getInvoices(500, 0, clientId).catch(() => []) as any[];
+
+                // Also fetch quotations (created via CreateInvoicePage) and filter by client name
+                const allQuotations = await quotationService.getQuotations(500, 0).catch(() => []) as any[];
+                const matchingQuotations = allQuotations.filter((q: any) => {
+                    const qName = (q.client_name || "").toLowerCase().trim();
+                    return qName && clientNameLower && (
+                        qName.includes(clientNameLower) || clientNameLower.includes(qName)
+                    );
+                });
+
+                // Filter finance invoices by owner_id or name match
+                const clientInvoices = allInvoices.filter((inv: any) => {
+                    const invOwnerId = inv.owner_id || inv.user_id || inv.client_id;
+                    const matchesId = invOwnerId && Number(invOwnerId) === clientId;
+                    const invClientName = (inv.client_name || inv.owner_name || inv.user_name || inv.full_name || "").toLowerCase().trim();
+                    const matchesName = invClientName && clientNameLower && (
+                        invClientName.includes(clientNameLower) || clientNameLower.includes(invClientName)
+                    );
+                    return matchesId || matchesName;
+                });
+
+                // Map finance invoices
+                const mappedFinanceInvoices = clientInvoices.map((inv: any) => ({
+                    id: inv.invoice_number || `INV-${inv.id}`,
+                    actualId: inv.id,
+                    type: "invoice",
+                    date: new Date(inv.created_at || inv.invoice_date).toLocaleDateString(),
+                    amount: inv.total_amount || inv.amount || 0,
+                    status: inv.status === 'paid' ? 'Paid' : inv.status === 'overdue' ? 'Overdue' : 'Pending'
+                }));
+
+                // Map quotations as invoice-like records
+                const mappedQuotations = matchingQuotations.map((q: any) => ({
+                    id: q.quotation_no || `QUO-${q.id}`,
+                    actualId: q.id,
+                    type: "quotation",
+                    date: new Date(q.created_at || Date.now()).toLocaleDateString(),
+                    amount: q.grand_total || q.subtotal || 0,
+                    status: q.status === 'approved' ? 'Paid' : q.status === 'sent' ? 'Pending' : 'Pending'
+                }));
+
+                // Deduplicate by actualId+type and merge
+                const allLedgerRows = [...mappedFinanceInvoices, ...mappedQuotations];
+                console.log(`[ClientDetail] Finance invoices: ${mappedFinanceInvoices.length}, Quotations: ${mappedQuotations.length}, Total: ${allLedgerRows.length}`);
+
                 const mappedClient = {
                     id: u.user_id,
                     name: u.full_name,
@@ -479,16 +526,10 @@ const ClientDetailPage = () => {
                     project: u.address || "No Project Linked",
                     status: u.is_active ? "Active" : "Inactive",
                     address: u.address || "No Address Provided",
-                    gst: u.pan_number || "—", // Using PAN as placeholder for GST if not available
-                    notes: "VIP client. Prefers WhatsApp updates.", // Keep original mock notes or set to empty
+                    gst: u.pan_number || "—",
+                    notes: "VIP client. Prefers WhatsApp updates.",
                     portalEnabled: u.is_active,
-                    invoices: clientInvoices.map((inv: any) => ({
-                        id: inv.invoice_number || inv.id,
-                        actualId: inv.id,
-                        date: new Date(inv.created_at).toLocaleDateString(),
-                        amount: inv.total_amount,
-                        status: inv.status === 'paid' ? 'Paid' : inv.status === 'overdue' ? 'Overdue' : 'Pending'
-                    })),
+                    invoices: allLedgerRows,
                     documents: [],
                     communications: [],
                 };

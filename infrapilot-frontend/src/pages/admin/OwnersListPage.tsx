@@ -7,6 +7,7 @@ import { ownerService } from "../../services/ownerService";
 import type { Owner } from "../../types/owner";
 import toast from "react-hot-toast";
 import SortDropdown from "../../components/common/SortDropdown";
+import { getFullImageUrl } from "../../utils/imageUtils";
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 const validate = (form: Omit<Owner, "id">) => {
@@ -85,7 +86,7 @@ const Field = ({
 );
 
 // ─── Avatar initials ──────────────────────────────────────────────────────────
-const Avatar = ({ name }: { name: string }) => {
+const Avatar = ({ name, imageUrl }: { name: string; imageUrl?: string }) => {
   const initials = (name || "O")
     .split(" ")
     .map((n) => n[0])
@@ -94,7 +95,11 @@ const Avatar = ({ name }: { name: string }) => {
     .slice(0, 2);
   return (
     <div className="w-10 h-10 rounded-full bg-blue-50 text-primary border border-blue-100 flex items-center justify-center font-bold text-xs shadow-sm overflow-hidden shrink-0">
-      {initials}
+      {imageUrl ? (
+        <img src={getFullImageUrl(imageUrl)} alt={name} className="w-full h-full object-cover" />
+      ) : (
+        initials
+      )}
     </div>
   );
 };
@@ -321,7 +326,6 @@ export default function OwnersListPage() {
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-50">
                   <th className="px-8 py-5">Stakeholder Details</th>
-                  <th className="px-8 py-5 text-center">Reference Code</th>
                   <th className="px-8 py-5">Document Identity</th>
                   <th className="px-8 py-5">Permanent Address</th>
                   <th className="px-8 py-5 text-center">Actions</th>
@@ -349,7 +353,7 @@ export default function OwnersListPage() {
                       {/* Owner Details */}
                       <td className="px-8 py-5">
                         <div className="flex items-center gap-4">
-                          <Avatar name={o.name} />
+                          <Avatar name={o.name} imageUrl={o.profile_image} />
                           <div>
                             <p className="font-black text-slate-700 group-hover:text-primary transition-colors tracking-tight leading-none mb-1.5">
                               {o.name}
@@ -362,12 +366,6 @@ export default function OwnersListPage() {
                             </p>
                           </div>
                         </div>
-                      </td>
-                      {/* Reference Code */}
-                      <td className="px-8 py-5 text-center">
-                        <span className="px-2.5 py-0.5 bg-white border border-slate-200 text-slate-500 rounded-md text-[9px] font-black uppercase tracking-widest font-mono shadow-sm">
-                          {o.owner_code || "GEN-01"}
-                        </span>
                       </td>
                       {/* Document Identity */}
                       <td className="px-8 py-5">

@@ -17,7 +17,7 @@ import {
   Search,
   Edit3
 } from "lucide-react";
-import { formatCurrency } from "../../utils/currencyUtils";
+import { formatCurrency, formatCompactCurrency } from "../../utils/currencyUtils";
 
 const MeasurementPage = () => {
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
@@ -192,19 +192,19 @@ const MeasurementPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           <StatCard
             title="Total Certified"
-            value={formatCurrency(totalFinal + totalExtra)}
+            value={formatCompactCurrency(totalFinal + totalExtra)}
             sub="Combined aggregate value"
             accent="text-primary"
           />
           <StatCard
             title="Standard Area"
-            value={formatCurrency(totalFinal)}
+            value={formatCompactCurrency(totalFinal)}
             sub="Based on approved rates"
             accent="text-emerald-500"
           />
           <StatCard
             title="Extra Deviation"
-            value={formatCurrency(totalExtra)}
+            value={formatCompactCurrency(totalExtra)}
             sub="Non-standard work value"
             accent="text-amber-500"
           />

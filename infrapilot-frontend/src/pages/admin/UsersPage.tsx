@@ -8,6 +8,7 @@ import ConfirmModal from "../../components/common/ConfirmModal";
 import { userService } from "../../services/userService";
 import type { User } from "../../types/user";
 import SortDropdown from "../../components/common/SortDropdown";
+import { getFullImageUrl } from "../../utils/imageUtils";
 
 const UsersPage = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -256,18 +257,21 @@ const UsersPage = () => {
                       <td className="px-6 py-4 text-sm">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-blue-50 text-primary border border-blue-100 flex items-center justify-center font-bold text-xs shadow-sm overflow-hidden">
-                            {user.profile_image && !user.profile_image.startsWith('blob:') ? (
+                            {user.profile_image ? (
                               <img
-                                src={user.profile_image}
-                                alt={user.full_name}
+                                src={getFullImageUrl(user.profile_image)}
+                                alt={user.full_name || "Unknown"}
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display = 'none';
-                                  (e.target as HTMLImageElement).parentElement!.innerHTML = (user.full_name || "Unknown")
-                                    .split(" ")
-                                    .map((n) => n[0])
-                                    .join("")
-                                    .toUpperCase();
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                  if (target.parentElement) {
+                                    target.parentElement.innerHTML = (user.full_name || "Unknown")
+                                      .split(" ")
+                                      .map((n) => n[0])
+                                      .join("")
+                                      .toUpperCase();
+                                  }
                                 }}
                               />
                             ) : (

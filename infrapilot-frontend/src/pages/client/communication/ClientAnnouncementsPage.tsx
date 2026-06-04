@@ -15,7 +15,7 @@ const ClientAnnouncementsPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [newAlert, setNewAlert] = useState({
     message: "",
-    alert_type: "Announcement"
+    alert_type: ""
   });
   const [errors, setErrors] = useState({
     message: ""
@@ -55,6 +55,11 @@ const ClientAnnouncementsPage = () => {
       hasError = true;
     }
     
+    if (!newAlert.alert_type) {
+      toast.error("Please select a notification priority");
+      return;
+    }
+    
     setErrors(newErrors);
     if (hasError) return;
 
@@ -85,7 +90,7 @@ const ClientAnnouncementsPage = () => {
       
       toast.success("Alert broadcasted successfully");
       setIsModalOpen(false);
-      setNewAlert({ message: "", alert_type: "Announcement" });
+      setNewAlert({ message: "", alert_type: "" });
       setErrors({ message: "" });
       fetchAlerts();
     } catch (err: any) {
@@ -275,10 +280,10 @@ const ClientAnnouncementsPage = () => {
               onChange={(e) => setNewAlert(prev => ({ ...prev, alert_type: e.target.value }))}
               className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-all appearance-none cursor-pointer"
             >
+              <option value="" disabled>Select Notification</option>
               <option value="Announcement">General Announcement</option>
               <option value="MaterialDelay">Material Constraint / Delay</option>
               <option value="Safety">Safety Protocol Update</option>
-              <option value="Warning">Critical Warning</option>
             </select>
           </div>
 

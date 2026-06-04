@@ -100,91 +100,131 @@ const ClientOverviewPage = () => {
         </div>
 
         {/* Main Grid: Core Specs (2 cols) + Project Team (1 col) */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-          {/* Core Project Specifications */}
-          <div className="lg:col-span-2 bg-white rounded-2xl p-8 shadow-sm border border-slate-100 h-full">
-            <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.2em] mb-8">Core Project Specifications</h2>
+        <div className="flex flex-col gap-8 mb-8">
+          {/* Core Project Specifications - Expanded Layout */}
+          <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
+            <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.2em] mb-10 border-b border-slate-50 pb-4">Core Project Specifications</h2>
+            
             {loading ? (
-              <div className="text-slate-400 text-sm font-bold animate-pulse">Loading core details...</div>
+              <div className="flex items-center justify-center p-20">
+                <div className="w-8 h-8 border-4 border-slate-100 border-t-primary rounded-full animate-spin" />
+              </div>
             ) : (
-              <div className="grid grid-cols-2 gap-y-8 gap-x-12">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-10">
                 {/* Project Name */}
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-lg">🏢</div>
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-lg shrink-0">🏢</div>
                   <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project Name</p>
-                    <p className="text-sm font-bold text-slate-800">{projectData?.project_name || "—"}</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Project Name</p>
+                    <p className="text-sm font-bold text-slate-800 leading-tight">{projectData?.project_name || "—"}</p>
+                    <p className="text-[9px] font-black text-blue-500 uppercase mt-1 tracking-tight">Ref: PRJ-{projectId}</p>
                   </div>
                 </div>
-                {/* Location */}
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center text-lg">📍</div>
+
+                {/* Project Status & Type */}
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center text-lg shrink-0">🟢</div>
                   <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Location</p>
-                    <p className="text-sm font-bold text-slate-800">Worli, Mumbai South Central</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Status & Type</p>
+                    <p className="text-sm font-bold text-slate-800">
+                      {projectData?.status || "—"} 
+                      <span className="text-slate-400 font-medium ml-1">
+                        ({projectData?.type || "General Construction"})
+                      </span>
+                    </p>
                   </div>
                 </div>
-                {/* Project Type */}
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-lg">🏗️</div>
+
+                {/* Project Duration */}
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-sky-50 flex items-center justify-center text-lg shrink-0">📅</div>
                   <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Description</p>
-                    <p className="text-sm font-bold text-blue-600">{projectData?.description || "—"}</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Duration</p>
+                    <p className="text-sm font-bold text-slate-800">
+                      {projectData?.start_date || "—"} 
+                      <span className="mx-2 text-slate-300">→</span>
+                      <span className="text-blue-600">{projectData?.end_date || "—"}</span>
+                    </p>
                   </div>
                 </div>
+
                 {/* Total Budget */}
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-lg">💰</div>
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-lg shrink-0">💰</div>
                   <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Budget</p>
-                    <p className="text-sm font-bold text-blue-600">₹22,20,00,000.00 (Incl. GST)</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Budget</p>
+                    <p className="text-sm font-bold text-emerald-600">₹{(projectData?.budget_total || 700000).toLocaleString("en-IN")}</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">Project Valuation</p>
                   </div>
                 </div>
-                {/* Start Date */}
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-sky-50 flex items-center justify-center text-lg">📅</div>
+
+                {/* Site Address */}
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center text-lg shrink-0">📍</div>
                   <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Start Date</p>
-                    <p className="text-sm font-bold text-slate-800">{projectData?.start_date || "—"}</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Site Address</p>
+                    <p className="text-sm font-bold text-slate-800 leading-tight">
+                      {projectData?.site_address || "Pune Station"}
+                    </p>
                   </div>
                 </div>
-                {/* End Date (Est) */}
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-lg">📆</div>
+
+                {/* Location Details */}
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-lg shrink-0">🏘️</div>
                   <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">End Date (Est)</p>
-                    <p className="text-sm font-bold text-slate-800">{projectData?.end_date || "—"}</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Location Details</p>
+                    <p className="text-sm font-bold text-slate-800 leading-tight">
+                      {[projectData?.city, projectData?.state, projectData?.country, projectData?.pincode].filter(Boolean).join(", ") || "Pune, Maharashtra, India, 444236"}
+                      {projectData?.location_type && (
+                        <span className="text-slate-400 font-medium ml-1">
+                          ({projectData.location_type})
+                        </span>
+                      )}
+                    </p>
                   </div>
                 </div>
-                {/* Project Status */}
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center text-lg">🟢</div>
+
+                {/* Project Description */}
+                <div className="flex items-start gap-4 lg:col-span-3 border-t border-slate-50 pt-8 mt-2">
+                  <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-lg shrink-0">🏗️</div>
                   <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project Status</p>
-                    <p className={`text-sm font-bold ${projectData?.status === "Planned" ? "text-emerald-500" : "text-red-500"}`}>{projectData?.status || "—"}</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Project Description</p>
+                    <p className="text-xs font-medium text-slate-500 leading-relaxed max-w-4xl">
+                      {projectData?.description || "A premium high-rise development focused on sustainable infrastructure and modern urban living standards."}
+                    </p>
                   </div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Project Team */}
-          <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 h-full">
-            <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.2em] mb-8">Project Team</h2>
+          {/* Project Team - Shifted Downside */}
+          <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
+            <div className="flex items-center justify-between mb-8 border-b border-slate-50 pb-4">
+              <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.2em]">Primary Project Team</h2>
+              <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-black rounded-lg uppercase tracking-widest">
+                {team.length} Active Members
+              </span>
+            </div>
+            
             {loadingTeam ? (
-              <div className="text-slate-400 text-sm font-bold animate-pulse">Loading team...</div>
+              <div className="flex items-center gap-4 animate-pulse">
+                <div className="w-10 h-10 rounded-full bg-slate-100" />
+                <div className="h-4 w-32 bg-slate-100 rounded" />
+              </div>
             ) : team.length === 0 ? (
-              <div className="text-slate-400 text-sm font-bold">No members assigned.</div>
+              <div className="text-slate-400 text-xs font-bold py-4 tracking-widest uppercase">No specialized members assigned yet.</div>
             ) : (
-              <div className="space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                 {team.map((member, i) => (
-                  <div key={member.user_id || i} className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-full ${getRoleColor(member.role)} text-white flex items-center justify-center text-xs font-black shadow-sm`}>
+                  <div key={member.user_id || i} className="flex items-center gap-4 bg-slate-50/50 p-4 rounded-2xl border border-transparent hover:border-slate-100 transition-all group">
+                    <div className={`w-12 h-12 rounded-2xl ${getRoleColor(member.role)} text-white flex items-center justify-center text-sm font-black shadow-lg shadow-slate-100 group-hover:scale-110 transition-transform`}>
                       {getInitials(member.full_name)}
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-slate-800">{member.full_name}</p>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">{member.role}</p>
+                      <p className="text-sm font-black text-slate-800 tracking-tight">{member.full_name}</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{member.role}</p>
                     </div>
                   </div>
                 ))}

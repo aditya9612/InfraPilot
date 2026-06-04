@@ -144,7 +144,7 @@ const ClientDashboard = () => {
         {/* Vital Metrics Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
           {[
-            { label: "Overall Progress", value: dashboardData ? `${dashboardData.progress_percent}%` : "—", sub: "Progress Percent" },
+            { label: "Overall Progress", value: dashboardData ? `${Number(dashboardData.progress_percent).toFixed(2)}%` : "—", sub: "Progress Percent" },
             { label: "Total Expense", value: dashboardData ? `₹${dashboardData.total_expense.toLocaleString("en-IN")}` : "—", sub: "Total Spent" },
             { label: "Total Budget", value: dashboardData ? `₹${dashboardData.budget_total.toLocaleString("en-IN")}` : "—", sub: "Project Budget", smallText: true },
             { label: "Remaining Budget", value: dashboardData ? `₹${dashboardData.remaining_budget.toLocaleString("en-IN")}` : "—", sub: "Remaining", smallText: true },
@@ -199,7 +199,7 @@ const ClientDashboard = () => {
                     />
                   </svg>
                   <div className="absolute flex flex-col items-center">
-                    <span className="text-3xl font-black text-blue-600 tracking-tighter leading-none">{dashboardData ? `${dashboardData.progress_percent}%` : "0%"}</span>
+                    <span className="text-3xl font-black text-blue-600 tracking-tighter leading-none">{dashboardData ? `${Number(dashboardData.progress_percent).toFixed(2)}%` : "0%"}</span>
                     <span className="text-[7px] font-black text-slate-400 tracking-[0.15em] uppercase mt-1">Project Progress</span>
                   </div>
                 </div>

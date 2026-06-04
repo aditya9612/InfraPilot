@@ -1,4 +1,6 @@
+console.log("BOQ Service Loaded - Version FIX_V1");
 import api from "./api";
+
 import type {
   BoqFilters,
   BoqItem,
@@ -380,13 +382,20 @@ export const boqService = {
    * Bulk add items to a BOQ document
    * POST /api/v1/boq/{boq_id}/items/bulk
    */
-  async bulkAddItems(boqId: number, items: CreateBoqRequest[]): Promise<any> {
+  async bulkAddItems(_boqId: number, items: CreateBoqRequest[]): Promise<any[]> {
+    console.log("bulkAddItems called with:", { _boqId, itemCount: items.length });
     try {
-      const response = await api.post(`/boq/${boqId}/items/bulk`, { items });
-      return response.data;
+      // Backend does not support bulk endpoints for items.
+      // We iterate and save each item individually.
+      const results = [];
+      for (const item of items) {
+        const response = await api.post("/boq", item);
+        results.push(response.data);
+      }
+      return results;
     } catch (error: any) {
       console.error(
-        `Bulk Add Items to Boq ${boqId} Error:`,
+        `Bulk Add Items to Boq ${_boqId} Error:`,
         error.response?.data || error.message,
       );
       throw error;

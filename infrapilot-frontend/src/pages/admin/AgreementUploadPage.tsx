@@ -8,6 +8,7 @@ import toast from "react-hot-toast";
 import { agreementService } from "../../services/agreementService";
 import type { Agreement, AgreementStats } from "../../types/agreement";
 import SortDropdown from "../../components/common/SortDropdown";
+import { Plus, X } from "lucide-react";
 
 export default function AgreementUploadPage() {
   const [agreements, setAgreements] = useState<Agreement[]>([]);
@@ -19,6 +20,7 @@ export default function AgreementUploadPage() {
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const PAGE_SIZE = 10;
 
   const fetchAgreements = useCallback(async (query = "") => {
@@ -188,6 +190,13 @@ export default function AgreementUploadPage() {
               Securely upload and manage official agreement papers for site owners.
             </p>
           </div>
+          <button
+            onClick={() => setIsUploadModalOpen(true)}
+            className="px-6 py-3 bg-primary text-white rounded-2xl text-sm font-black shadow-xl shadow-primary/25 hover:bg-blue-600 transition-all active:scale-[0.98] flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" strokeWidth={3} />
+            Upload Agreement
+          </button>
         </div>
 
         {/* Stats Row */}
@@ -212,16 +221,9 @@ export default function AgreementUploadPage() {
           />
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 mb-10">
-          {/* Upload Section */}
-          <div className="xl:col-span-1">
-            <AgreementUpload onUploadSuccess={() => {
-              fetchAgreements(searchTerm);
-            }} />
-          </div>
-
-          {/* Registry Table Section */}
-          <div className="xl:col-span-2">
+        <div className="grid grid-cols-1 gap-8 mb-10">
+          {/* Registry Table Section - Now Full Width */}
+          <div className="w-full">
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden h-full flex flex-col min-h-[500px]">
               <div className="px-6 py-5 border-b border-slate-50 flex items-center justify-between bg-white sticky top-0 z-10">
                 <div>
@@ -254,7 +256,8 @@ export default function AgreementUploadPage() {
                   <thead>
                     <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] border-b border-slate-50">
                       <th className="px-6 py-4">Ref ID</th>
-                      <th className="px-6 py-4">Owner / Project</th>
+                      <th className="px-6 py-4">Owner Name</th>
+                      <th className="px-6 py-4">Linked Project</th>
                       <th className="px-6 py-4">Status</th>
                       <th className="px-6 py-4">Type</th>
                       <th className="px-6 py-4 text-center">Action</th>
@@ -273,8 +276,10 @@ export default function AgreementUploadPage() {
                             <p className="text-xs font-bold text-slate-700 truncate max-w-[200px]">
                               {agr.owner_name || "Assigned Owner"}
                             </p>
+                          </td>
+                          <td className="px-6 py-4">
                             <p className="text-[10px] font-bold text-slate-400 uppercase">
-                              Project: {agr.project_name || "General Site"}
+                              {agr.project_name || "General Site"}
                             </p>
                           </td>
                           <td className="px-6 py-4">
@@ -315,7 +320,7 @@ export default function AgreementUploadPage() {
                       ))
                     ) : !isLoading ? (
                       <tr>
-                        <td colSpan={5} className="py-20 text-center">
+                        <td colSpan={6} className="py-20 text-center">
                           <div className="flex flex-col items-center">
                             <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
                               <svg className="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -372,6 +377,51 @@ export default function AgreementUploadPage() {
             </div>
           </div>
         </div>
+
+        {/* Upload Modal */}
+        <AnimatePresence>
+          {isUploadModalOpen && (
+            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsUploadModalOpen(false)}
+                className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="relative w-full max-w-xl bg-white rounded-[2rem] shadow-2xl overflow-hidden flex flex-col border border-slate-100"
+              >
+                <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                      <Plus className="w-6 h-6" strokeWidth={2.5} />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-slate-800 tracking-tight">Upload Agreement</h3>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Secure Document Archive</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setIsUploadModalOpen(false)}
+                    className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-all"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+                <div className="p-6">
+                  <AgreementUpload onUploadSuccess={() => {
+                    fetchAgreements(searchTerm);
+                    setIsUploadModalOpen(false);
+                  }} />
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </PageTransition>
 
       {/* Document Preview Modal */}

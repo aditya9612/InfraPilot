@@ -11,8 +11,7 @@ import {
     ArrowDownRight,
     Briefcase,
     ChevronLeft,
-    ChevronRight,
-    FileText
+    ChevronRight
 } from "lucide-react";
 import { paymentService } from '../../../services/paymentService';
 import PaySalaryModal from '../../../components/payment/PaySalaryModal';
