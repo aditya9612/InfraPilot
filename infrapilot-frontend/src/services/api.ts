@@ -43,7 +43,9 @@ api.interceptors.response.use(
       const url = error.config?.url ?? '';
       const isIgnored =
         url.includes('/invoices') ||
-        url.includes('/communication');
+        url.includes('/communication') ||
+        url.includes('/alerts') ||
+        url.includes('/projects/alerts');
 
       if (isIgnored) {
         console.warn("Auth Interceptor: Ignoring 401 from endpoint to prevent logout:", url);

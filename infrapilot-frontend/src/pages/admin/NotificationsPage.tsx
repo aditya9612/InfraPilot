@@ -9,6 +9,7 @@ import AlertDetailsModal from "../../components/dashboard/AlertDetailsModal";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import SortDropdown from "../../components/common/SortDropdown";
 import { notificationService } from "../../services/notificationService";
+import { projectService } from "../../services/projectService";
 import { useAuth } from "../../context/AuthContext";
 
 
@@ -25,6 +26,7 @@ const NotificationsPage = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [projectMap, setProjectMap] = useState<Record<number, string>>({});
   const PAGE_SIZE = 10;
 
   const fetchAlerts = async () => {
@@ -42,6 +44,13 @@ const NotificationsPage = () => {
 
   useEffect(() => {
     fetchAlerts();
+    // Fetch projects to build a name lookup map
+    projectService.getProjects(100, 0).then((res: any) => {
+      const list = Array.isArray(res) ? res : (res.items || res.data || []);
+      const map: Record<number, string> = {};
+      list.forEach((p: any) => { map[p.id || p.project_id] = p.name || p.project_name || `#${p.id}`; });
+      setProjectMap(map);
+    }).catch(() => { });
   }, []);
 
   const filteredAlerts = useMemo(() => {
@@ -247,7 +256,7 @@ const NotificationsPage = () => {
                     />
                   </th>
                   <th className="px-4 py-4">Alert Type</th>
-                  <th className="px-4 py-4">Project ID</th>
+                  <th className="px-4 py-4">Project</th>
                   <th className="px-4 py-4">Message</th>
                   <th className="px-4 py-4">Date & Time</th>
                   <th className="px-4 py-4">Status</th>
@@ -312,10 +321,12 @@ const NotificationsPage = () => {
                         </div>
                       </td>
 
-                      {/* Project ID */}
+                      {/* Project */}
                       <td className="px-4 py-4 text-xs font-bold text-slate-500">
                         {alert.project_id ? (
-                          <span className="px-2 py-1 bg-slate-100 rounded-lg text-slate-600">#{alert.project_id}</span>
+                          <span className="px-2 py-1 bg-slate-100 rounded-lg text-slate-600">
+                            {projectMap[alert.project_id] || `#${alert.project_id}`}
+                          </span>
                         ) : (
                           <span className="text-slate-300">—</span>
                         )}

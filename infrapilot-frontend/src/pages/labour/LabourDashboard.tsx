@@ -36,7 +36,6 @@ const LabourDashboard: React.FC = () => {
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
 
-    // Mock Tasks - Exact match to Image 1
     const [tasks, setTasks] = useState<Task[]>([
         { id: 'T-001', name: 'FOUNDATION REINFORCEMENT', project: 'Urban Heights', description: 'Reinforcing foundation columns', status: 'In Progress', priority: 'High', startDate: '2026-05-27', endDate: '2026-05-30', progress: 65 },
         { id: 'T-002', name: 'CONCRETING SECTION B', project: 'Urban Heights', description: 'Pouring concrete for section B', status: 'Pending', priority: 'Medium', startDate: '2026-05-28', endDate: '2026-06-02', progress: 0 },
@@ -75,14 +74,13 @@ const LabourDashboard: React.FC = () => {
     ];
 
     return (
-        <PageTransition className="min-h-screen bg-slate-50 font-inter">
+        <>
             <Navbar
                 title="Labour Overview"
                 breadcrumb={['InfraPilot', 'Dashboard', 'Labour']}
             />
-
-            <div className="p-6 max-w-[1600px] mx-auto">
-                {/* Header Section */}
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
+                {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
                         <div className="flex items-center gap-3">
@@ -92,48 +90,36 @@ const LabourDashboard: React.FC = () => {
                             <button
                                 onClick={() => speak(`Namaste, ${user?.name || 'Gopal Yadav'}`)}
                                 className="p-1 px-2 rounded-full hover:bg-white text-slate-300 transition-colors"
-                                title="Speak greeting"
                             >
                                 <Volume2 className="w-5 h-5" />
                             </button>
                         </div>
                         <p className="text-slate-500 text-sm">Track your work and payments here</p>
                     </div>
-
-                    <div className="flex items-center gap-4">
-                        <AttendanceCard
-                            isCheckedIn={isCheckedIn}
-                            onCheckIn={handleCheckIn}
-                            onCheckOut={handleCheckOut}
-                        />
-                    </div>
+                    <AttendanceCard
+                        isCheckedIn={isCheckedIn}
+                        onCheckIn={handleCheckIn}
+                        onCheckOut={handleCheckOut}
+                    />
                 </div>
 
-                {/* Top Feature Stats - Aligned with Admin's StatCard grid */}
-                <div className="mb-6">
-                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">
-                        Work Snapshot
-                    </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {stats.map((stat, i) => (
-                            <div key={i} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between h-[140px] transition-transform hover:scale-[1.01]">
-                                <div>
-                                    <div className="inline-flex p-2 rounded-xl bg-slate-50">
-                                        <stat.icon className={`w-5 h-5 ${stat.color}`} />
-                                    </div>
-                                </div>
-                                <div className="mt-4">
-                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-1">{stat.label}</span>
-                                    <span className="text-2xl font-bold text-slate-800">{stat.value}</span>
-                                </div>
+                {/* Stats */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    {stats.map((stat, i) => (
+                        <div key={i} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between h-[140px] transition-transform hover:scale-[1.01]">
+                            <div className="inline-flex p-2 rounded-xl bg-slate-50">
+                                <stat.icon className={`w-5 h-5 ${stat.color}`} />
                             </div>
-                        ))}
-                    </div>
+                            <div>
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-1">{stat.label}</span>
+                                <span className="text-2xl font-bold text-slate-800">{stat.value}</span>
+                            </div>
+                        </div>
+                    ))}
                 </div>
 
-                {/* Main Content Grid - Balanced spacing */}
+                {/* Main Content Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Assigned Tasks Section */}
                     <div className="lg:col-span-2 space-y-6">
                         <div className="flex justify-between items-center px-1">
                             <div className="flex items-center gap-3">
@@ -150,7 +136,6 @@ const LabourDashboard: React.FC = () => {
                                 Self-Assign
                             </button>
                         </div>
-
                         <TaskList
                             tasks={tasks}
                             onSelectTask={(t) => { setSelectedTask(t as any); setIsTaskModalOpen(true); }}
@@ -158,7 +143,6 @@ const LabourDashboard: React.FC = () => {
                         />
                     </div>
 
-                    {/* Payment Status Section */}
                     <div className="space-y-6">
                         <div className="flex items-center gap-3 px-1">
                             <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Payment Status</h2>
@@ -166,19 +150,18 @@ const LabourDashboard: React.FC = () => {
                                 <Volume2 className="w-4 h-4" />
                             </button>
                         </div>
-
                         <PaymentTracker />
                     </div>
                 </div>
-            </div>
 
-            <TaskDetailModal
-                isOpen={isTaskModalOpen}
-                task={selectedTask}
-                onClose={() => setIsTaskModalOpen(false)}
-                onUpdateStatus={handleUpdateTask}
-            />
-        </PageTransition>
+                <TaskDetailModal
+                    isOpen={isTaskModalOpen}
+                    task={selectedTask}
+                    onClose={() => setIsTaskModalOpen(false)}
+                    onUpdateStatus={handleUpdateTask}
+                />
+            </PageTransition>
+        </>
     );
 };
 

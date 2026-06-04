@@ -23,6 +23,7 @@ import type { IssueItem } from "../../../types/issue";
 
 
 const PRIORITY_COLORS: Record<string, string> = {
+    Critical: "bg-rose-600 text-white border-rose-600 shadow-sm shadow-rose-600/10 font-bold",
     High: "bg-rose-50 text-rose-600 border-rose-100",
     Medium: "bg-amber-50 text-amber-600 border-amber-100",
     Low: "bg-emerald-50 text-emerald-600 border-emerald-100",
@@ -178,7 +179,7 @@ const IssueTrackerPage = () => {
         if (activeStatFilter === "Pending") {
             data = data.filter(i => i.status === "Open" || i.status === "In Progress");
         } else if (activeStatFilter === "High") {
-            data = data.filter(i => i.priority === "High");
+            data = data.filter(i => i.priority === "High" || i.priority === "Critical");
         } else if (activeStatFilter === "Resolved") {
             data = data.filter(i => i.status === "Closed" || i.status === "Resolved");
         }
@@ -201,7 +202,7 @@ const IssueTrackerPage = () => {
     const stats = {
         total: issueData.length,
         open: issueData.filter(i => i.status === "Open" || i.status === "In Progress").length,
-        high: issueData.filter(i => i.priority === "High").length,
+        high: issueData.filter(i => i.priority === "High" || i.priority === "Critical").length,
         closed: issueData.filter(i => i.status === "Closed" || i.status === "Resolved").length,
     };
 
@@ -297,6 +298,7 @@ const IssueTrackerPage = () => {
                             </div>
                             <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter">
                                 <option value="All">All Priority</option>
+                                <option value="Critical">Critical</option>
                                 <option value="High">High</option>
                                 <option value="Medium">Medium</option>
                                 <option value="Low">Low</option>
@@ -439,7 +441,7 @@ const IssueTrackerPage = () => {
                                         if (page === '...') {
                                             return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
                                         }
-                                        const pageNum = page;
+                                        const pageNum = page as number;
                                         const isActive = currentPage === pageNum;
                                         return (
                                             <button
@@ -600,6 +602,7 @@ const IssueTrackerPage = () => {
                                     <option value="Low">Low</option>
                                     <option value="Medium">Medium</option>
                                     <option value="High">High</option>
+                                    <option value="Critical">Critical</option>
                                 </select>
                                 {errors.priority && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.priority}</p>}
                             </div>

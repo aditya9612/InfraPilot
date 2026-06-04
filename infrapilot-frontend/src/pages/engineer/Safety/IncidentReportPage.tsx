@@ -67,6 +67,11 @@ const IncidentReportPage = () => {
     const [endDate, setEndDate] = useState("");
     const [projectId, setProjectId] = useState<number | null>(null);
     const [projects, setProjects] = useState<any[]>([]);
+
+    const getProjectName = (projId: number) => {
+        const project = projects.find(p => Number(p.id || p.project_id) === Number(projId));
+        return project ? (project.name || project.project_name) : `Project #${projId}`;
+    };
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Month" | "Critical" | "Compliance">("All");
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -473,6 +478,7 @@ const IncidentReportPage = () => {
                                 <thead>
                                     <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
                                         <th className="px-6 py-4 font-inter">Incident Details</th>
+                                        <th className="px-6 py-4 font-inter">Project Name</th>
                                         <th className="px-6 py-4 font-inter">Incident Summary</th>
                                         <th className="px-6 py-4 font-inter">Violation Type</th>
                                         <th className="px-6 py-4 font-inter">Resources</th>
@@ -487,6 +493,11 @@ const IncidentReportPage = () => {
                                                     <div className="flex flex-col font-inter">
                                                         <span className="text-sm font-bold text-slate-800 font-inter">{item.date}</span>
                                                     </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className="text-xs font-semibold text-slate-600 font-inter">
+                                                        {getProjectName(item.project_id)}
+                                                    </span>
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex flex-col max-w-xs font-inter">
@@ -530,7 +541,7 @@ const IncidentReportPage = () => {
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan={5} className="px-6 py-20 text-center text-slate-400 font-inter">
+                                            <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-inter">
                                                 No incident reports found in the project vault.
                                             </td>
                                         </tr>

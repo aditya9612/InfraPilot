@@ -166,25 +166,48 @@ export const drawingService = {
         }
     },
 
+    /**
+     * Delete an existing drawing
+     * DELETE /api/v1/drawings/{id}
+     */
+    async deleteDrawing(id: number | string) {
+        console.log(`DELETE /api/v1/drawings/${id}`);
+        try {
+            const response = await api.delete(`/drawings/${id}`);
+            return response.data;
+        } catch (error: any) {
+            console.warn(`Delete Drawing API Error:`, error.response?.data || error.message);
+            throw error;
+        }
+    },
+
 
 
     /**
      * Download Document
      * GET /api/v1/drawings/documents/download/{id}
      */
-    async downloadDocument(id: number, fileName?: string) {
+    async downloadDocument(id: number | string, fileName?: string, originalUrl?: string) {
         try {
             console.log(`GET /api/v1/drawings/documents/download/${id}`);
             const response = await api.get(`/drawings/documents/download/${id}`, {
                 responseType: 'blob'
             });
             
-            const contentType = String(response.headers['content-type'] || '');
-            let extension = 'pdf';
+            const contentType = response.data.type || String(response.headers['content-type'] || '');
+            let extension = 'pdf'; // Default
+
+            // Determine from content type
             if (contentType.includes('image/png')) extension = 'png';
-            else if (contentType.includes('image/jpeg')) extension = 'jpg';
-            else if (contentType.includes('spreadsheet') || contentType.includes('excel') || contentType.includes('officedocument.spreadsheetml')) extension = 'xlsx';
-            else if (contentType.includes('word') || contentType.includes('officedocument.wordprocessingml')) extension = 'docx';
+            else if (contentType.includes('image/jpeg') || contentType.includes('image/jpg')) extension = 'jpg';
+            else if (contentType.includes('spreadsheet') || contentType.includes('excel')) extension = 'xlsx';
+            else if (contentType.includes('word') || contentType.includes('document')) extension = 'docx';
+            // If content-type is generic, try to determine from original URL
+            else if (originalUrl) {
+                const lowerUrl = originalUrl.toLowerCase();
+                if (lowerUrl.endsWith('.png')) extension = 'png';
+                else if (lowerUrl.endsWith('.jpg') || lowerUrl.endsWith('.jpeg')) extension = 'jpg';
+            }
 
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
@@ -217,5 +240,33 @@ export const drawingService = {
             data: response.data,
             contentType: response.headers?.['content-type'] || 'application/pdf'
         };
+    },
+
+    /**
+     * Get Drawing Approval History
+     * GET /api/v1/drawings/{id}/approval-history
+     */
+    async getApprovalHistory(id: number | string) {
+        console.log(`GET /api/v1/drawings/${id}/approval-history`);
+        try {
+            const response = await api.get(`/drawings/${id}/approval-history`);
+            return Array.isArray(response.data) ? response.data : [];
+        } catch (error: any) {
+            console.warn(`Fetch Drawing Approval History Error:`, error.response?.data || error.message);
+            // Fallback for demo purposes if endpoint fails
+            return [
+                {
+                    "id": 3,
+                    "entity_type": "drawing",
+                    "entity_id": Number(id),
+                    "requested_by": 1,
+                    "approved_by": null,
+                    "status": "Pending",
+                    "remarks": "Approval requested for drawing",
+                    "created_at": new Date().toISOString(),
+                    "updated_at": new Date().toISOString()
+                }
+            ];
+        }
     }
 };

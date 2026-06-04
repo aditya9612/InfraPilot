@@ -2,24 +2,25 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Modal from '../../../../components/common/Modal';
 import { Camera, RefreshCw, Check, MapPin } from "lucide-react";
 import toast from 'react-hot-toast';
-import api from '../../../../services/api';
+import { labourService } from '../../../../services/labourService';
 
 interface SelfCheckOutModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess: (checkOutTime: Date) => void;
     attendanceId?: number | string;
+    labourId?: number | string;
     title?: string;
 }
 
-const SelfCheckOutModal: React.FC<SelfCheckOutModalProps> = ({ isOpen, onClose, onSuccess, attendanceId, title = "Self Check-Out" }) => {
+const SelfCheckOutModal: React.FC<SelfCheckOutModalProps> = ({ isOpen, onClose, onSuccess, attendanceId, labourId, title = "Self Check-Out" }) => {
     const [coordinates, setCoordinates] = useState({ lat: 0, lng: 0 });
     const [locationAddress, setLocationAddress] = useState("Fetching location...");
     const [capturedImage, setCapturedImage] = useState<string | null>(null);
     const [stream, setStream] = useState<MediaStream | null>(null);
     const [overtimeHours, setOvertimeHours] = useState('');
     const [overtimeRate, setOvertimeRate] = useState('200');
-    
+
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -107,23 +108,22 @@ const SelfCheckOutModal: React.FC<SelfCheckOutModalProps> = ({ isOpen, onClose, 
         const formData = new FormData();
         const idToUse = attendanceId ? attendanceId.toString() : "2"; // Use passed ID or mock 2
         formData.append("attendance_id", idToUse);
-        formData.append("latitude", coordinates.lat.toString());
-        formData.append("longitude", coordinates.lng.toString());
-        formData.append("location_address", locationAddress);
-        formData.append("overtime_hours", overtimeHours);
-        formData.append("overtime_rate", overtimeRate);
-        
+        if (labourId) formData.append("labour_id", labourId.toString());
+        if (coordinates.lat) formData.append("latitude", coordinates.lat.toString());
+        if (coordinates.lng) formData.append("longitude", coordinates.lng.toString());
+        if (locationAddress) formData.append("location_address", locationAddress);
+        if (overtimeHours) formData.append("overtime_hours", overtimeHours);
+        if (overtimeRate) formData.append("overtime_rate", overtimeRate);
+
         try {
             const response = await fetch(capturedImage);
             const blob = await response.blob();
             formData.append("check_out_image", blob, "checkout.jpg");
-            
-            await api.put(`/api/v1/labour/attendance/${idToUse}/check-out`, formData, {
-                headers: { "Content-Type": "multipart/form-data" }
-            });
-            
+
+            await labourService.checkOut(idToUse, formData);
+
             console.log("Self Check-Out API Request payload generated.");
-            
+
             toast.success("Successfully Checked Out!");
             onSuccess(new Date());
             onClose();
@@ -157,7 +157,7 @@ const SelfCheckOutModal: React.FC<SelfCheckOutModalProps> = ({ isOpen, onClose, 
                         <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Overtime Rate</label>
                         <input type="number" value={overtimeRate} onChange={e => setOvertimeRate(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500" />
                     </div>
-                    
+
                     <div className="col-span-2">
                         <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">Check Out Image</label>
                         <div className="bg-black rounded-xl overflow-hidden aspect-video relative flex items-center justify-center border border-slate-200">

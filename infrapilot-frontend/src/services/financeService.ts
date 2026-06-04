@@ -9,10 +9,11 @@ export const financeService = {
   async getInvoices(
     limit: number = 100,
     offset: number = 0,
+    owner_id?: number,
   ): Promise<Invoice[]> {
     try {
       const response = await api.get("/invoices", {
-        params: { limit, offset },
+        params: { limit, offset, owner_id },
       });
       return Array.isArray(response.data)
         ? response.data

@@ -1,4 +1,6 @@
+console.log("BOQ Service Loaded - Version FIX_V1");
 import api from "./api";
+
 import type {
   BoqFilters,
   BoqItem,
@@ -222,13 +224,15 @@ export const boqService = {
    * Add a single item to a BOQ document
    * POST /api/v1/boq/{boq_id}/items
    */
-  async addBoqItem(boqId: number, itemData: CreateBoqRequest): Promise<BoqItem> {
+  async addBoqItem(_boqId: number, itemData: CreateBoqRequest): Promise<BoqItem> {
     try {
-      const response = await api.post(`/boq/${boqId}/items`, itemData);
+      // Backend does not support /boq/{id}/items. 
+      // Line items are independent entities created via /boq.
+      const response = await api.post("/boq", itemData);
       return response.data;
     } catch (error: any) {
       console.error(
-        `Add Item to Boq ${boqId} Error:`,
+        "Add Item Error:",
         error.response?.data || error.message,
       );
       throw error;
@@ -236,16 +240,23 @@ export const boqService = {
   },
 
   /**
-   * List all items for a specific BOQ document
-   * GET /api/v1/boq/{boq_id}/items
+   * List all items for a specific BOQ document/project
+   * GET /api/v1/boq?project_id={id}
    */
-  async getBoqItems(boqId: number): Promise<BoqItem[]> {
+  async getBoqItems(projectId: number): Promise<BoqItem[]> {
     try {
-      const response = await api.get(`/boq/${boqId}/items`);
-      return response.data;
+      // Use the generic list endpoint with a filter
+      const response = await api.get("/boq", { params: { project_id: projectId, limit: 1000 } });
+      const data = response.data;
+
+      // Handle different response structures
+      if (Array.isArray(data)) return data;
+      if (data.items && Array.isArray(data.items)) return data.items;
+      if (data.data && Array.isArray(data.data)) return data.data;
+      return [];
     } catch (error: any) {
       console.error(
-        `Get Items for Boq ${boqId} Error:`,
+        `Get Items for Project ${projectId} Error:`,
         error.response?.data || error.message,
       );
       throw error;
@@ -327,8 +338,6 @@ export const boqService = {
 
   /**
    * Export BOQ in different formats
-  /**
-   * Export BOQ in different formats
    * GET /api/v1/boq/{boq_id}/export/{format}
    */
   async exportBoq(
@@ -373,13 +382,20 @@ export const boqService = {
    * Bulk add items to a BOQ document
    * POST /api/v1/boq/{boq_id}/items/bulk
    */
-  async bulkAddItems(boqId: number, items: CreateBoqRequest[]): Promise<any> {
+  async bulkAddItems(_boqId: number, items: CreateBoqRequest[]): Promise<any[]> {
+    console.log("bulkAddItems called with:", { _boqId, itemCount: items.length });
     try {
-      const response = await api.post(`/boq/${boqId}/items/bulk`, { items });
-      return response.data;
+      // Backend does not support bulk endpoints for items.
+      // We iterate and save each item individually.
+      const results = [];
+      for (const item of items) {
+        const response = await api.post("/boq", item);
+        results.push(response.data);
+      }
+      return results;
     } catch (error: any) {
       console.error(
-        `Bulk Add Items to Boq ${boqId} Error:`,
+        `Bulk Add Items to Boq ${_boqId} Error:`,
         error.response?.data || error.message,
       );
       throw error;
@@ -419,4 +435,5 @@ export const boqService = {
       return [];
     }
   },
+
 };

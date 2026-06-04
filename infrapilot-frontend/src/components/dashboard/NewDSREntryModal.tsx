@@ -149,10 +149,7 @@ const NewDSREntryModal = ({
     if (!formData.safety_observations || !formData.safety_observations.trim()) errs.safety_observations = "Required";
     if (!formData.remarks || !formData.remarks.trim()) errs.remarks = "Required";
 
-    // Labour numeric validation
-    if (isNaN(Number(formData.total_labour)) || Number(formData.total_labour) < 0) errs.total_labour = "Must be a valid number";
-    if (isNaN(Number(formData.skilled_labour)) || Number(formData.skilled_labour) < 0) errs.skilled_labour = "Must be a valid number";
-    if (isNaN(Number(formData.unskilled_labour)) || Number(formData.unskilled_labour) < 0) errs.unskilled_labour = "Must be a valid number";
+
 
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -171,25 +168,7 @@ const NewDSREntryModal = ({
     }
   };
 
-  const handleLabourChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
 
-    // Prevent non-numeric characters
-    if (/[^0-9]/.test(value) && value !== "") {
-      setErrors(prev => ({ ...prev, [name]: "Only numbers are allowed" }));
-      return;
-    }
-
-    const numValue = value === "" ? 0 : Number(value);
-    setFormData((prev: any) => ({ ...prev, [name]: numValue }));
-
-    if (errors[name]) {
-      setErrors(prev => {
-        const { [name]: _, ...rest } = prev;
-        return rest;
-      });
-    }
-  };
 
   const modalFooter = (
     <>
@@ -488,47 +467,7 @@ const NewDSREntryModal = ({
           </div>
         </div>
 
-        {/* Labour Statistics */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
-            Labour Statistics
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className={labelClasses}>Total Labour</label>
-              <input
-                type="number"
-                name="total_labour"
-                value={formData.total_labour}
-                onChange={handleLabourChange}
-                className={inputClasses()}
-                placeholder="0"
-              />
-            </div>
-            <div>
-              <label className={labelClasses}>Skilled Labour</label>
-              <input
-                type="number"
-                name="skilled_labour"
-                value={formData.skilled_labour}
-                onChange={handleLabourChange}
-                className={inputClasses()}
-                placeholder="0"
-              />
-            </div>
-            <div>
-              <label className={labelClasses}>Unskilled Labour</label>
-              <input
-                type="number"
-                name="unskilled_labour"
-                value={formData.unskilled_labour}
-                onChange={handleLabourChange}
-                className={inputClasses()}
-                placeholder="0"
-              />
-            </div>
-          </div>
-        </div>
+
 
         {/* Issues & Observations */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">

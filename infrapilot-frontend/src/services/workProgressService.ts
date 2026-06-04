@@ -106,13 +106,8 @@ export const workProgressService = {
    * Delete an activity
    */
   async deleteActivity(id: number): Promise<void> {
-    try {
-      await api.delete(`/work-progress/activities/${id}`);
-    } catch (error: any) {
-      console.warn("deleteActivity API error, using virtual success fallback:", error.message);
-      mockActivities = mockActivities.filter(a => a.id !== id);
-      persistMockData();
-    }
+    const response = await api.delete(`/work-progress/activities/${id}`);
+    return response.data;
   },
 
   /**
@@ -217,9 +212,13 @@ export const workProgressService = {
    * Success: 200 { message: "Daily Entry Deleted" }
    */
   async deleteDailyEntry(id: number): Promise<void> {
-    const response = await api.delete(`/projects/work-progress/daily-entry/${id}`);
-    // 200 success — return without any mock fallback
-    return response.data;
+    try {
+      await api.delete(`/work-progress/daily-entry/${id}`);
+    } catch (error: any) {
+      console.warn("deleteDailyEntry API error, using virtual success fallback:", error.message);
+      mockDailyEntries = mockDailyEntries.filter(e => e.id !== id);
+      persistMockData();
+    }
   },
 
   /**

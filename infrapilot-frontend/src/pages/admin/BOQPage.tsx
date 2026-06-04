@@ -8,8 +8,8 @@ import toast from "react-hot-toast";
 import BOQDetailsModal from "../../components/dashboard/BOQDetailsModal";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import { boqService } from "../../services/boqService";
+import { approvalService } from "../../services/approvalService";
 import { projectService } from "../../services/projectService";
-import { masterService } from "../../services/masterService";
 import type { BoqItem, BoqSummary } from "../../types/boq";
 import type { Project } from "../../types/project";
 import { jsPDF } from "jspdf";
@@ -31,6 +31,7 @@ import {
   Eye,
   Trash2,
   Pencil,
+  FileCheck,
 } from "lucide-react";
 import OptimizationModal from "../../components/dashboard/OptimizationModal";
 import BulkImportBOQModal from "../../components/forms/BulkImportBOQModal";
@@ -86,7 +87,6 @@ const BOQPage = () => {
   const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
   const [isActivityViewModalOpen, setIsActivityViewModalOpen] = useState(false);
   const [viewingActivity, setViewingActivity] = useState<any>(null);
-  const [activitiesData, setActivitiesData] = useState<any[]>([]);
   const [isActivityDeleteModalOpen, setIsActivityDeleteModalOpen] =
     useState(false);
   const [activityToDelete, setActivityToDelete] = useState<number | null>(null);
@@ -116,23 +116,6 @@ const BOQPage = () => {
           if (pid) map[pid] = p.project_name;
         });
         setProjectMap(map);
-
-        // Fetch Master Activities
-        try {
-          const masterActs = await masterService.getEntities("activity-types");
-          // Map MasterEntity to the old Activity shape if needed, or update consumers
-          const mappedActs = masterActs.map(ma => ({
-            id: ma.id,
-            name: ma.name,
-            type: ma.category || "General",
-            project: "System Master", // Master activities are not project-specific
-            status: "Template",
-            unique_code: ma.unique_code
-          }));
-          setActivitiesData(mappedActs);
-        } catch (e) {
-          console.error("Failed to load master activities", e);
-        }
 
         // Fetch BOQ items
         await refreshBoqs();
@@ -233,11 +216,24 @@ const BOQPage = () => {
   const handleCreateOrUpdateBOQ = async (data: any) => {
     try {
       if (editingItem) {
-        await boqService.updateBoq(editingItem.id, data);
+        await boqService.updateBoqItem(editingItem.id, data);
         toast.success("BOQ item updated successfully!");
       } else {
-        await boqService.createBoq(data);
+        const newItem = await boqService.createBoq(data);
         toast.success("BOQ item created successfully!");
+
+        // Automatically request approval for new items
+        try {
+          await approvalService.createApproval({
+            entity_type: "boq",
+            entity_id: newItem.id,
+            remarks: `Initial approval request for ${newItem.item_name}`,
+          });
+          toast.success("Approval request initiated!");
+        } catch (approveErr) {
+          console.error("Auto-approval error:", approveErr);
+          toast.error("Failed to auto-initiate approval. Use manual action.");
+        }
       }
       await refreshBoqs();
       setIsModalOpen(false);
@@ -251,6 +247,21 @@ const BOQPage = () => {
 
   const handleViewDetails = (item: BoqItem) => {
     navigate(`/admin/boq/${item.project_id}`);
+  };
+
+  const handleRequestApproval = async (item: BoqItem) => {
+    try {
+      await approvalService.createApproval({
+        entity_type: "boq",
+        entity_id: item.id,
+        remarks: `Requesting approval for BOQ item: ${item.item_name}`,
+      });
+      toast.success("Approval request sent successfully!");
+      refreshBoqs();
+    } catch (error) {
+      toast.error("Failed to send approval request");
+      console.error("Approval Request Error:", error);
+    }
   };
 
   const handleEditClick = (item: BoqItem) => {
@@ -284,9 +295,6 @@ const BOQPage = () => {
 
   const handleDeleteActivityConfirm = () => {
     if (activityToDelete) {
-      setActivitiesData((prev) =>
-        prev.filter((act) => act.id !== activityToDelete),
-      );
       toast.success("Activity removed successfully!");
       setIsActivityDeleteModalOpen(false);
       setActivityToDelete(null);
@@ -814,6 +822,7 @@ const BOQPage = () => {
                     <th className="px-6 py-4">Est. Total</th>
                     <th className="px-6 py-4">Variance</th>
                     <th className="px-6 py-4 text-center">Status</th>
+                    <th className="px-6 py-4 text-center">Approval</th>
                     <th className="px-6 py-4 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -826,9 +835,14 @@ const BOQPage = () => {
                       >
                         <td className="px-6 py-4">
                           <div>
-                            <p className="font-bold text-slate-700 group-hover:text-primary transition-colors line-clamp-1">
-                              {item.item_name}
-                            </p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-bold text-slate-700 group-hover:text-primary transition-colors line-clamp-1">
+                                {item.item_name}
+                              </p>
+                              {item.boq_group_id && (
+                                <span className="text-[8px] font-black bg-primary/5 text-primary/60 px-1.5 py-0.5 rounded border border-primary/10">#{item.boq_group_id}</span>
+                              )}
+                            </div>
                             <p className="text-[10px] text-slate-400 font-medium line-clamp-1">
                               {projectMap[item.project_id] || "N/A"}
                             </p>
@@ -884,6 +898,15 @@ const BOQPage = () => {
                               : item.status}
                           </span>
                         </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${item.approval_status === 'APPROVED' ? 'bg-green-100 text-green-600' :
+                            item.approval_status === 'REJECTED' ? 'bg-rose-100 text-rose-600' :
+                              item.approval_status === 'UNDER_REVIEW' ? 'bg-amber-100 text-amber-600' :
+                                'bg-slate-100 text-slate-500 border border-slate-200'
+                            }`}>
+                            {item.approval_status || 'PENDING'}
+                          </span>
+                        </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-3">
                             <button
@@ -896,6 +919,20 @@ const BOQPage = () => {
                                 strokeWidth={1.5}
                               />
                             </button>
+                            {(item.approval_status === "PENDING" ||
+                              item.approval_status === "DRAFT" ||
+                              !item.approval_status) && (
+                                <button
+                                  onClick={() => handleRequestApproval(item)}
+                                  className="p-1.5 text-slate-400 hover:text-blue-500 transition-all duration-200"
+                                  title="Request Approval"
+                                >
+                                  <FileCheck
+                                    className="w-4.5 h-4.5"
+                                    strokeWidth={1.5}
+                                  />
+                                </button>
+                              )}
                             <button
                               onClick={() => openHistoryModal(item)}
                               className="p-1.5 text-slate-400 hover:text-violet-500 transition-all duration-200"

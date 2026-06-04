@@ -19,7 +19,6 @@ import {
     Calendar,
     Image as ImageIcon,
     RotateCcw,
-    Send,
     FileDown,
     ChevronLeft,
     ChevronRight,
@@ -61,27 +60,30 @@ const DSRPage = () => {
     const [selectedDsr, setSelectedDsr] = useState<DsrItem | null>(null);
     const [loadingId, setLoadingId] = useState<number | null>(null);
 
-    useEffect(() => {
-        const resolveProjectId = async () => {
-            try {
-                const userStr = localStorage.getItem("infrapilot_user");
-                if (userStr) {
-                    const user = JSON.parse(userStr);
-                    const pId = user?.project_id || user?.user?.project_id;
-                    if (pId) {
-                        setProjectId(Number(pId));
-                    } else {
-                        // Default fallback for Site Engineer context
-                        setProjectId(36);
-                    }
+    const resolveProjectId = useCallback(() => {
+        try {
+            const userStr = localStorage.getItem("infrapilot_user");
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                const pId = user?.default_project_id || user?.project_id || user?.user?.project_id;
+                if (pId) {
+                    setProjectId(Number(pId));
+                } else {
+                    // Default fallback for Site Engineer context
+                    setProjectId(92);
                 }
-            } catch (err) {
-                console.error("Failed to resolve project context", err);
-                setProjectId(36);
             }
-        };
-        resolveProjectId();
+        } catch (err) {
+            console.error("Failed to resolve project context", err);
+            setProjectId(92);
+        }
     }, []);
+
+    useEffect(() => {
+        resolveProjectId();
+        window.addEventListener('storage', resolveProjectId);
+        return () => window.removeEventListener('storage', resolveProjectId);
+    }, [resolveProjectId]);
 
     const fetchDsr = useCallback(async () => {
         if (!projectId) return;
@@ -92,7 +94,8 @@ const DSRPage = () => {
                 limit: itemsPerPage,
                 offset
             });
-            const apiData = response.items;
+            // Strictly enforce project isolation on the frontend
+            const apiData = response.items.filter((item: any) => Number(item.project_id) === Number(projectId));
             setTotalItems(response.meta.total);
 
             // Resolve photos for each item
@@ -314,9 +317,16 @@ const DSRPage = () => {
                         <button
                             onClick={() => {
                                 const toastId = toast.loading("Generating Excel report...");
-                                dsrService.exportDsrExcel(projectId || 36, {})
+                                dsrService.exportDsrExcel(projectId || 92, {})
                                     .then(() => toast.success("Excel report exported!", { id: toastId }))
-                                    .catch(() => toast.error("Export failed", { id: toastId }));
+                                    .catch((err: any) => {
+                                        console.error("DSR Export failed:", err);
+                                        if (err.response?.status === 404) {
+                                            toast.error("No daily site reports found for this project.", { id: toastId });
+                                        } else {
+                                            toast.error("Export failed", { id: toastId });
+                                        }
+                                    });
                             }}
                             className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95 font-inter"
                         >
@@ -421,7 +431,6 @@ const DSRPage = () => {
                                         <th className="px-6 py-4 font-inter">Report Details</th>
                                         <th className="px-6 py-4 font-inter">Work Summary</th>
                                         <th className="px-6 py-4 font-inter">Status</th>
-                                        <th className="px-6 py-4 font-inter">Resources</th>
                                         <th className="px-6 py-4 font-inter">Site Media</th>
                                         <th className="px-6 py-4 text-right font-inter">Actions</th>
                                     </tr>
@@ -450,13 +459,7 @@ const DSRPage = () => {
                                                         {dsr.status}
                                                     </span>
                                                 </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="flex flex-col font-inter">
-                                                        <p className="text-[10px] font-bold text-slate-800 font-inter">{dsr.total_labour || 0} Total Labour</p>
-                                                        <p className="text-[9px] font-bold text-slate-500 font-inter mt-0.5">{dsr.skilled_labour || 0} Skilled, {dsr.unskilled_labour || 0} Unskilled</p>
-                                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest font-inter mt-1.5">{dsr.weather} Weather</p>
-                                                    </div>
-                                                </td>
+
                                                 <td className="px-6 py-4">
                                                     <div className="flex -space-x-3 hover:space-x-1 transition-all">
                                                         {dsr.photos && dsr.photos.length > 0 ? (
@@ -523,7 +526,7 @@ const DSRPage = () => {
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-inter">
+                                            <td colSpan={5} className="px-6 py-20 text-center text-slate-400 font-inter">
                                                 No daily reports found in the project vault.
                                             </td>
                                         </tr>
