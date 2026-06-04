@@ -1,12 +1,14 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { Quotation } from "../types/quotation";
+import type { CompanySettings } from "../types/settings";
 import logo from "../assets/logo.png";
+import { settingsService } from "../services/settingsService";
 
 /**
  * Generates and downloads a professional Quotation/Invoice PDF on the client side.
  */
-export const generateQuotationPDF = (quotation: Quotation) => {
+export const generateQuotationPDF = (quotation: Quotation, companySettings?: CompanySettings | null) => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
 
@@ -15,8 +17,11 @@ export const generateQuotationPDF = (quotation: Quotation) => {
     const secondaryColor: [number, number, number] = [71, 85, 105]; // #475569
 
     // --- Header Section ---
+    const currentLogo = companySettings?.company_logo ? settingsService.resolveUrl(companySettings.company_logo) : logo;
     try {
-        doc.addImage(logo, 'PNG', 15, 12, 18, 18);
+        if (currentLogo) {
+            doc.addImage(currentLogo, 'PNG', 15, 12, 18, 18);
+        }
     } catch (e) {
         console.warn("Could not load logo image for PDF", e);
     }
@@ -24,12 +29,18 @@ export const generateQuotationPDF = (quotation: Quotation) => {
     doc.setFontSize(22);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text("InfraPilot", 38, 22);
+    doc.text(companySettings?.company_name || "InfraPilot", 38, 22);
 
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
     doc.text("Advanced Construction Management", 38, 28);
+
+    if (companySettings?.address) {
+        doc.setFontSize(7);
+        const splitAddr = doc.splitTextToSize(companySettings.address, 80);
+        doc.text(splitAddr, 15, 38);
+    }
 
     // Invoice Title & ID
     doc.setFontSize(18);
@@ -170,11 +181,27 @@ export const generateQuotationPDF = (quotation: Quotation) => {
     doc.text(`INR ${(quotation.grand_total || 0).toLocaleString('en-IN')}`, pageWidth - 15, currentY, { align: "right" });
 
     // --- Footer ---
-    const bottomY = doc.internal.pageSize.height - 20;
+    const bottomY = doc.internal.pageSize.height - 30;
+
+    if (companySettings?.signature_image) {
+        try {
+            const sigUrl = settingsService.resolveUrl(companySettings.signature_image);
+            if (sigUrl) {
+                doc.addImage(sigUrl, 'PNG', pageWidth - 50, bottomY - 15, 35, 12);
+                doc.setFontSize(8);
+                doc.setFont("helvetica", "bold");
+                doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+                doc.text("Authorized Signatory", pageWidth - 32.5, bottomY - 2, { align: "center" });
+            }
+        } catch (e) {
+            console.warn("Could not add signature to PDF", e);
+        }
+    }
+
     doc.setFontSize(8);
     doc.setFont("helvetica", "italic");
     doc.setTextColor(150, 150, 150);
-    doc.text("This is a system-generated document from the InfraPilot Construction Management Suite.", pageWidth / 2, bottomY, { align: "center" });
+    doc.text(`This is a system-generated document from ${companySettings?.company_name || "InfraPilot Construction Management Suite"}.`, pageWidth / 2, bottomY + 10, { align: "center" });
 
     // Download
     doc.save(`${docNo.replace(/\s+/g, '_')}.pdf`);

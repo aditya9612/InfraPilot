@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NavLink, Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../../context/AuthContext";
@@ -6,6 +6,7 @@ import { sidebarMenus, type MenuItem } from "../../config/sidebarMenu";
 import ConfirmModal from "./ConfirmModal";
 import type { JSX } from "react";
 import logo from "../../assets/logo.png";
+import { settingsService } from "../../services/settingsService";
 
 // ... (icons remain unchanged)
 
@@ -886,6 +887,21 @@ const SidebarItem = ({
 const Sidebar = ({ onClose }: SidebarProps) => {
   const { user, logout } = useAuth();
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchLogo = async () => {
+      try {
+        const companyData = await settingsService.getCompanySettings();
+        if (companyData.company_logo) {
+          setLogoUrl(settingsService.resolveUrl(companyData.company_logo));
+        }
+      } catch (error) {
+        console.error("Error fetching logo for sidebar:", error);
+      }
+    };
+    fetchLogo();
+  }, []);
 
   if (!user) return null;
   const menu = sidebarMenus[user.role];
@@ -908,7 +924,7 @@ const Sidebar = ({ onClose }: SidebarProps) => {
           className="flex items-center justify-center transition-transform hover:scale-[1.02] active:scale-[0.98]"
         >
           <img
-            src={logo}
+            src={logoUrl || logo}
             alt="InfraPilot Logo"
             className="h-16 w-auto object-contain"
           />
