@@ -3,7 +3,9 @@ import type {
     UserSettings,
     UserProfile,
     UpdateSettingsRequest,
-    UpdateProfileRequest
+    UpdateProfileRequest,
+    CompanySettings,
+    UpdateCompanySettings
 } from "../types/settings";
 
 export const settingsService = {
@@ -151,6 +153,70 @@ export const settingsService = {
             return response.data;
         } catch (error: any) {
             console.error("Profile Update API Error:", error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    /**
+     * Get Company Settings
+     * GET /api/v1/settings/company
+     */
+    async getCompanySettings(): Promise<CompanySettings> {
+        try {
+            const response = await api.get("/settings/company");
+            return response.data;
+        } catch (error: any) {
+            console.error("Get Company Settings Error:", error.message);
+            throw error;
+        }
+    },
+
+    /**
+     * Update Company Settings
+     * PUT /api/v1/settings/company
+     */
+    async updateCompanySettings(data: UpdateCompanySettings): Promise<CompanySettings> {
+        try {
+            const response = await api.put("/settings/company", data);
+            return response.data;
+        } catch (error: any) {
+            console.error("Update Company Settings Error:", error.message);
+            throw error;
+        }
+    },
+
+    /**
+     * Upload Company Logo
+     * POST /api/v1/settings/upload-logo
+     */
+    async uploadLogo(file: File): Promise<{ message: string; file_path: string }> {
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+            const response = await api.post("/settings/upload-logo", formData, {
+                headers: { "Content-Type": "multipart/form-data" }
+            });
+            return response.data;
+        } catch (error: any) {
+            console.error("Logo Upload Error:", error.message);
+            throw error;
+        }
+    },
+
+    /**
+     * Upload Company Signature
+     * POST /api/v1/settings/upload-signature
+     */
+    async uploadSignature(file: File): Promise<{ message: string; file_path: string }> {
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+            const response = await api.post("/settings/upload-signature", formData, {
+                headers: { "Content-Type": "multipart/form-data" }
+            });
+            return response.data;
+        } catch (error: any) {
+            console.error("Signature Upload Error:", error.message);
             throw error;
         }
     }

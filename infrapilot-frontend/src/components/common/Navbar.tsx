@@ -50,7 +50,6 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [selectedNotif, setSelectedNotif] = useState<Notification | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
 
@@ -63,6 +62,7 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
       const data = await notificationService.getNotifications();
       setNotifications(data);
     };
+
     fetchNotifs();
   }, [user]);
 
@@ -125,6 +125,7 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
               />
             </svg>
           </button>
+
 
           <div className="flex flex-col min-w-0">
             <h1 className="text-base sm:text-xl font-bold text-white leading-tight truncate">
