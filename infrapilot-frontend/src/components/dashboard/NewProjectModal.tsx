@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import Modal from "../common/Modal";
+import { ownerService } from "../../services/ownerService";
+import type { Owner } from "../../types/owner";
 
 interface NewProjectModalProps {
   isOpen: boolean;
@@ -32,6 +34,19 @@ const NewProjectModal = ({
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [owners, setOwners] = useState<Owner[]>([]);
+
+  useEffect(() => {
+    const fetchOwners = async () => {
+      try {
+        const ownersList = await ownerService.getOwners();
+        setOwners(ownersList);
+      } catch (error) {
+        console.error("Failed to fetch owners:", error);
+      }
+    };
+    fetchOwners();
+  }, []);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -41,7 +56,7 @@ const NewProjectModal = ({
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === "owner_id" ? value.replace(/\D/g, "") : value,
+      [name]: value,
     }));
     if (errors[name]) {
       setErrors((prev) => {
@@ -254,17 +269,22 @@ const NewProjectModal = ({
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">
-                Owner ID <span className="text-red-500">*</span>
+                Owner Name <span className="text-red-500">*</span>
               </label>
-              <input
+              <select
                 required
-                type="text"
                 name="owner_id"
                 value={formData.owner_id}
                 onChange={handleChange}
-                placeholder="e.g. 1"
-                className={`w-full px-3 py-2 bg-slate-50 border ${errors.owner_id ? "border-red-500 focus:ring-red-200" : "border-slate-200 focus:ring-primary focus:border-primary"} rounded-lg text-sm outline-none transition-all placeholder:text-slate-300`}
-              />
+                className={`w-full px-3 py-2 bg-slate-50 border ${errors.owner_id ? "border-red-500 focus:ring-red-200" : "border-slate-200 focus:ring-primary focus:border-primary"} rounded-lg text-sm outline-none transition-all`}
+              >
+                <option value="">Select Owner</option>
+                {owners.map((owner) => (
+                  <option key={owner.id} value={owner.id}>
+                    {owner.name}
+                  </option>
+                ))}
+              </select>
               {errors.owner_id && (
                 <p className="text-[10px] text-red-500 mt-1">
                   {errors.owner_id}

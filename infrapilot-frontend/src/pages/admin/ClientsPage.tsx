@@ -44,8 +44,6 @@ const ClientsPage = () => {
           email: u.email,
           mobile: u.mobile_number,
           project: u.address || "No Project Linked",
-          billing: "—", // Requires billing API integration
-          payments: "—",
           status: u.is_active ? "Active" : "Inactive",
         }));
 
@@ -219,8 +217,6 @@ const ClientsPage = () => {
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
                   <th className="px-6 py-4">Client & Company</th>
                   <th className="px-6 py-4">Linked Project</th>
-                  <th className="px-6 py-4">Billing Status</th>
-                  <th className="px-6 py-4">Financial History</th>
                   <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
@@ -228,7 +224,7 @@ const ClientsPage = () => {
               <tbody className="divide-y divide-slate-50">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic text-sm">
+                    <td colSpan={4} className="px-6 py-12 text-center text-slate-400 italic text-sm">
                       <div className="flex items-center justify-center gap-2">
                         <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
                         Loading clients...
@@ -237,7 +233,7 @@ const ClientsPage = () => {
                   </tr>
                 ) : filteredClients.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic text-sm">
+                    <td colSpan={4} className="px-6 py-12 text-center text-slate-400 italic text-sm">
                       No clients found.
                     </td>
                   </tr>
@@ -265,16 +261,6 @@ const ClientsPage = () => {
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-600 font-bold">
                         {c.project}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`text-xs font-bold ${c.billing.includes("Pending") || c.billing.includes("Overdue") ? "text-rose-500" : "text-emerald-500"}`}
-                        >
-                          {c.billing}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-xs text-slate-500 font-medium">
-                        {c.payments}
                       </td>
                       <td className="px-6 py-4">
                         <span

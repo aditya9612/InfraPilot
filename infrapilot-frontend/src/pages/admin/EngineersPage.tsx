@@ -14,6 +14,7 @@ import { labourService } from "../../services/labourService";
 import { workProgressService } from "../../services/workProgressService";
 import type { DsrItem } from "../../types/dsr";
 import SortDropdown from "../../components/common/SortDropdown";
+import { getFullImageUrl } from "../../utils/imageUtils";
 
 const EngineersPage = () => {
   const navigate = useNavigate();
@@ -139,6 +140,7 @@ const EngineersPage = () => {
             pan_number: u.pan_number || "",
             aadhaar_number: u.aadhaar_number || "",
             joiningDate: u.joining_date,
+            profile_image: u.profile_image,
             ...vitals
           };
         }));
@@ -301,6 +303,7 @@ const EngineersPage = () => {
           pan_number: u.pan_number || "",
           aadhaar_number: u.aadhaar_number || "",
           joiningDate: u.joining_date,
+          profile_image: u.profile_image,
           ...vitals
         };
       }));
@@ -451,8 +454,12 @@ const EngineersPage = () => {
                       >
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 font-bold text-xs border border-slate-200 uppercase">
-                              {e.name.split(' ').map((n: string) => n[0]).join('')}
+                            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 font-bold text-xs border border-slate-200 uppercase overflow-hidden">
+                              {e.profile_image ? (
+                                <img src={getFullImageUrl(e.profile_image)} alt={e.name} className="w-full h-full object-cover" />
+                              ) : (
+                                e.name.split(' ').map((n: string) => n[0]).join('')
+                              )}
                             </div>
                             <div>
                               <p className="font-bold text-slate-700 group-hover:text-primary transition-colors">
