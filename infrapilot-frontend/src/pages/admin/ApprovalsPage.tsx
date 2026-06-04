@@ -9,6 +9,7 @@ import { Eye, Check, X, Loader2 } from "lucide-react";
 import SortDropdown from "../../components/common/SortDropdown";
 import { approvalService } from "../../services/approvalService";
 import type { ApprovalItem } from "../../services/approvalService";
+import { userService } from "../../services/userService";
 
 const ApprovalsPage = () => {
   const location = useLocation();
@@ -23,6 +24,7 @@ const ApprovalsPage = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
+  const [usersMap, setUsersMap] = useState<Record<number, string>>({});
   const PAGE_SIZE = 8;
 
   const fetchApprovals = async () => {
@@ -36,6 +38,19 @@ const ApprovalsPage = () => {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    // Fetch users once to build an id→name lookup map
+    userService.getAllUsers(100, 0).then((data) => {
+      const list = Array.isArray(data) ? data : data?.items || data?.users || [];
+      const map: Record<number, string> = {};
+      list.forEach((u: any) => {
+        const uid = u.user_id ?? u.id;
+        if (uid) map[uid] = u.full_name || u.name || u.username || u.email || `User ${uid}`;
+      });
+      setUsersMap(map);
+    }).catch(() => {/* silently ignore */ });
+  }, []);
 
   useEffect(() => {
     fetchApprovals();
@@ -67,7 +82,6 @@ const ApprovalsPage = () => {
     } else if (subPage.includes("billing") || subPage.includes("bill")) {
       matchesCategory = isBilling;
     } else if (subPage.includes("expense")) {
-      // Catch-all: If it's not material or billing, it's an expense (or if it's explicitly an expense type)
       matchesCategory = (!isMaterial && !isBilling) || expenseTypes.some(t => type.includes(t));
     } else {
       matchesCategory = true;
@@ -284,7 +298,9 @@ const ApprovalsPage = () => {
                         <span className="text-[10px] text-slate-400 font-medium tracking-widest">ID: {item.entity_id}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-xs font-semibold text-slate-600">User ID: {item.requested_by}</td>
+                    <td className="px-6 py-4 text-xs font-semibold text-slate-600">
+                      {usersMap[item.requested_by] || `User ID: ${item.requested_by}`}
+                    </td>
                     <td className="px-6 py-4 text-xs font-medium text-slate-500 max-w-xs truncate">{item.remarks || "No remarks provided"}</td>
                     <td className="px-6 py-4">
                       <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${item.status?.toLowerCase() === "approved" ? "bg-emerald-100 text-emerald-600" :
@@ -295,7 +311,7 @@ const ApprovalsPage = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-center text-[10px] font-bold text-slate-400 uppercase tracking-tight">
-                      {item.approved_by || "-"}
+                      {item.approved_by ? (usersMap[item.approved_by] || item.approved_by) : "-"}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-1 items-center">

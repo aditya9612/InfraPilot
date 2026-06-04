@@ -21,7 +21,7 @@ import { quotationService } from "../../services/quotationService";
 import type { Quotation } from "../../types/quotation";
 import toast from "react-hot-toast";
 import InvoicePreviewModal from "../../components/forms/InvoicePreviewModal";
-import { formatCurrency } from "../../utils/currencyUtils";
+import { formatCurrency, formatCompactCurrency } from "../../utils/currencyUtils";
 
 const QuotationsPage = () => {
     const navigate = useNavigate();
@@ -207,7 +207,7 @@ const QuotationsPage = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     <StatCard
                         title="Total Pipeline Value"
-                        value={formatCurrency(totalValue)}
+                        value={formatCompactCurrency(totalValue)}
                         sub={`${quotations.length} Active Quotations`}
                         accent="text-primary"
                     />

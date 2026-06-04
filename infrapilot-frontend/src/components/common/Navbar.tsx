@@ -5,6 +5,7 @@ import { useState, useRef, useEffect } from "react";
 import { LogOut, User as UserIcon, Settings, Bell, CheckCheck } from "lucide-react";
 import Modal from "./Modal";
 import { notificationService, type Notification } from "../../services/notificationService";
+import { getFullImageUrl } from "../../utils/imageUtils";
 interface BreadcrumbItem {
   label: string;
   path?: string;
@@ -245,10 +246,14 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setIsProfileOpen(!isProfileOpen)}
-              className="w-8 h-8 rounded-full bg-blue-600 border-2 border-white flex items-center justify-center text-white text-xs font-bold shadow-sm hover:scale-105 transition-transform"
+              className="w-8 h-8 rounded-full bg-blue-600 border-2 border-white flex items-center justify-center text-white text-xs font-bold shadow-sm hover:scale-105 transition-transform overflow-hidden"
               title={user?.name || "Profile"}
             >
-              {user?.name?.charAt(0) || "U"}
+              {user?.profile_image ? (
+                <img src={getFullImageUrl(user.profile_image)} alt={user?.name || "Profile"} className="w-full h-full object-cover" />
+              ) : (
+                user?.name?.charAt(0) || "U"
+              )}
             </button>
 
             {isProfileOpen && (

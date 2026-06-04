@@ -15,12 +15,6 @@ import SortDropdown from "../../components/common/SortDropdown";
 import { materialService } from "../../services/materialService";
 import { projectService } from "../../services/projectService";
 import {
-  mockInventory,
-  mockSuppliers,
-  mockLogs,
-  mockSummary
-} from "../../components/admin/inventory/mockData";
-import {
   PlusCircle,
   FileText,
   History,
@@ -44,6 +38,7 @@ import PurchaseOrderTable from "../../components/admin/inventory/PurchaseOrderTa
 import TransferTable from "../../components/admin/inventory/TransferTable";
 import InventoryLogsTable from "../../components/admin/inventory/InventoryLogsTable";
 import EditPOModal from "../../components/admin/inventory/EditPOModal";
+import CreatePOModal from "../../components/admin/inventory/CreatePOModal";
 
 interface Project {
   id: number;
@@ -61,8 +56,9 @@ const InventoryPage = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [pos, setPos] = useState<PurchaseOrder[]>([]);
   const [transfers, setTransfers] = useState<Transfer[]>([]);
-  const [logs, setLogs] = useState<InventoryLog[]>(mockLogs);
-  const [summary, setSummary] = useState<InventorySummary | null>(mockSummary);
+  const [logs, setLogs] = useState<InventoryLog[]>([]);
+  const [summary, setSummary] = useState<InventorySummary | null>(null);
+  const [masterMaterials, setMasterMaterials] = useState<Material[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const [activeTab, setActiveTab] = useState<
@@ -83,6 +79,7 @@ const InventoryPage = () => {
   const [isMaterialFormOpen, setMaterialFormOpen] = useState(false);
   const [materialApiErrors, setMaterialApiErrors] = useState<Record<string, string>>({});
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isCreatePOModalOpen, setIsCreatePOModalOpen] = useState(false);
 
   const [purchaseActionConfig, setPurchaseActionConfig] = useState<{
     isOpen: boolean;
@@ -109,16 +106,19 @@ const InventoryPage = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [invData, supData, poData, transferData, summaryData, logsData, projData] = await Promise.all([
+      const [invData, supData, poData, transferData, summaryData, logsData, allMaterials, projectsResponse] = await Promise.all([
         materialService.listMaterials(),
         materialService.getSuppliers(),
         materialService.listPurchaseOrders(),
         materialService.listTransfers(),
         materialService.getMaterialSummary(),
         materialService.getLogs({}),
-        projectService.getProjects(100)
+        materialService.listMaterials(), // Fetch all for PO creation
+        projectService.getProjects(100) // Correct method name
       ]);
+
       setInventory(invData);
+      setMasterMaterials(allMaterials);
       setSuppliers(supData);
       setPos(Array.isArray(poData) ? poData : []);
       const transferItems = Array.isArray(transferData) ? transferData : (transferData?.data || []);
@@ -126,18 +126,17 @@ const InventoryPage = () => {
       setSummary(summaryData);
       setLogs(Array.isArray(logsData) ? logsData : []);
 
-      const projs = Array.isArray(projData) ? projData : (projData.items || []);
-      setProjectList(projs);
+      // Update projects
+      const projects = Array.isArray(projectsResponse) ? projectsResponse : (projectsResponse.items || projectsResponse.data || []);
+      setProjectList(projects);
       const map: Record<number, string> = {};
-      projs.forEach((p: any) => {
+      projects.forEach((p: any) => {
         map[p.id] = p.name || p.project_name;
       });
       setProjectMap(map);
     } catch (error) {
-      console.error("Failed to fetch inventory data, falling back to mock data:", error);
-      toast.error("Live Sync Failed: Showing mock data due to server error.");
-      setInventory(mockInventory);
-      setSuppliers(mockSuppliers);
+      console.error("Failed to fetch inventory data:", error);
+      toast.error("Failed to sync inventory data. Please check your connection.");
     } finally {
       setIsLoading(false);
     }
@@ -249,6 +248,21 @@ const InventoryPage = () => {
     }
   };
 
+  const handleCreatePOSubmit = async (data: any) => {
+    try {
+      const newPO = await materialService.createPurchaseOrder(data);
+      setPos((prev) => [newPO, ...prev]);
+      toast.success("Purchase Order issued successfully!");
+
+      // Refresh summary as this might affect financial data
+      const newSummary = await materialService.getMaterialSummary();
+      setSummary(newSummary);
+    } catch (error) {
+      console.error("Failed to create PO:", error);
+      toast.error("Failed to issue Purchase Order. Please check your data.");
+    }
+  };
+
   const handleCreateOrUpdateMaterial = async (data: any) => {
     try {
       if (selectedMaterial) {
@@ -352,6 +366,21 @@ const InventoryPage = () => {
         };
         const updatedMaterial = await materialService.recordPurchase(material.id, payload);
 
+        // Also create a formal PO record so it appears in the "Orders" tab
+        try {
+          await materialService.createPurchaseOrder({
+            supplier_id: material.supplier_id,
+            project_id: payload.project_id,
+            material_id: material.id,
+            quantity: payload.quantity,
+            rate: payload.rate
+          });
+        } catch (poError) {
+          console.error("Failed to create background PO:", poError);
+          // We don't fail the whole action if the background PO fails, 
+          // as the material purchase itself succeeded.
+        }
+
         setInventory((prev) =>
           prev.map((m) =>
             m.id === material.id ? { ...m, ...updatedMaterial } : m
@@ -363,6 +392,10 @@ const InventoryPage = () => {
         const newLogs = await materialService.getLogs({});
         setLogs(Array.isArray(newLogs) ? newLogs : []);
       }
+
+      // Refresh POs to show the new order entry
+      const newPOs = await materialService.listPurchaseOrders();
+      setPos(Array.isArray(newPOs) ? newPOs : []);
 
       // Update summary
       const newSummary = await materialService.getMaterialSummary();
@@ -541,6 +574,7 @@ const InventoryPage = () => {
                 </button>
               </>
             )}
+
             {activeTab === "suppliers" && (
               <button
                 onClick={() => {
@@ -964,6 +998,15 @@ const InventoryPage = () => {
           setPos(prev => prev.map(p => p.id === id ? { ...p, ...updated } : p));
           toast.success("Purchase Order updated successfully!");
         }}
+      />
+
+      <CreatePOModal
+        isOpen={isCreatePOModalOpen}
+        onClose={() => setIsCreatePOModalOpen(false)}
+        onSubmit={handleCreatePOSubmit}
+        suppliers={suppliers}
+        projects={projectList}
+        inventory={masterMaterials}
       />
 
       <ConfirmModal
