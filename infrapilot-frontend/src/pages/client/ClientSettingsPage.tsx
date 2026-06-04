@@ -1,5 +1,5 @@
 import Navbar from "../../components/common/Navbar";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { settingsService } from "../../services/settingsService";
 import { projectService } from "../../services/projectService";
 import type { UserProfile, UserSettings } from "../../types/settings";
@@ -7,20 +7,31 @@ import toast from "react-hot-toast";
 
 const ClientSettingsPage = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [updating, setUpdating] = useState(false);
   const [projects, setProjects] = useState<any[]>([]);
   const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // System Settings State
   const [settings, setSettings] = useState<UserSettings>({
     user_id: 0,
     default_project_id: null,
-    unit: "Meter",
+    unit: "Metric",
     notifications_enabled: true,
-    preferences: {},
+    preferences: {
+       language: "English",
+       timezone: "IST (UTC+5:30)",
+       date_format: "DD/MM/YYYY",
+       auto_save: true,
+       compact_view: true,
+       show_weather: true,
+       auto_gps: true
+    },
     financial_year: "2025-26",
-    currency: "Dollar",
+    currency: "INR",
     tax_settings: {},
     invoice_format: "standard",
     payment_terms: "30 days"
@@ -29,7 +40,6 @@ const ClientSettingsPage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        setLoading(true);
         const [profileData, settingsData, projectsResult] = await Promise.all([
           settingsService.getProfile(),
           settingsService.getSettings(),
@@ -42,281 +52,396 @@ const ClientSettingsPage = () => {
           setActiveProjectId(defaultPid);
         }
         setProfile(profileData);
+        setPreviewUrl(null);
+        setSelectedFile(null);
         setSettings({
             ...settingsData,
-            unit: settingsData.unit || "Meter",
-            financial_year: settingsData.financial_year || "2025-26",
-            currency: settingsData.currency || "Dollar",
-            notifications_enabled: settingsData.notifications_enabled ?? true
+            unit: settingsData.unit || "Metric",
+            currency: settingsData.currency || "INR",
+            preferences: {
+                ...settingsData.preferences,
+                language: settingsData.preferences?.language || "English",
+                timezone: settingsData.preferences?.timezone || "IST (UTC+5:30)",
+                date_format: settingsData.preferences?.date_format || "DD/MM/YYYY"
+            }
         });
       } catch (err) {
         console.error("Failed to load settings data", err);
       } finally {
-        setLoading(false);
+        setUpdating(false);
       }
     };
     fetchData();
   }, []);
 
-  const handleSaveProjectSelection = async () => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setProfile(p => p ? { ...p, profile_image: null } : null);
+    setPreviewUrl(null);
+    setSelectedFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleSaveAll = async () => {
     try {
       setUpdating(true);
-      await settingsService.updateSettings({
-        ...settings,
-        default_project_id: activeProjectId
-      });
-      toast.success("Default project updated successfully!");
-      // Force reload to ensure all contexts (Dashboard, Progress, etc) re-sync with the new project ID
-      setTimeout(() => {
-        window.location.reload();
-      }, 500);
+      const profileUpdateData = profile ? {
+        ...profile,
+        profile_image: selectedFile || profile.profile_image
+      } : null;
+
+      const projectChanged = activeProjectId !== settings.default_project_id;
+
+      await Promise.all([
+         settingsService.updateSettings({ ...settings, default_project_id: activeProjectId }),
+         profileUpdateData ? settingsService.updateProfile(profileUpdateData) : Promise.resolve()
+      ]);
+      toast.success("All settings saved successfully!");
+      setSelectedFile(null);
+
+      if (projectChanged) {
+        setTimeout(() => window.location.reload(), 500);
+      }
     } catch (err) {
-      console.error("Failed to update project selection", err);
-      toast.error("Failed to switch project.");
+      toast.error("Failed to save settings.");
     } finally {
       setUpdating(false);
     }
   };
 
-  const handleUpdateSettings = async () => {
-    try {
-      setUpdating(true);
-      // Create a shallow copy and explicitly omit the default_project_id or keep it as is from the server
-      // The user wants this button to NOT work for project selection.
-      // So we fetch the latest settings to ensure we don't overwrite the project ID with something stale
-      await settingsService.updateSettings({
-        ...settings,
-        // We ensure we only update systemic preferences here
-      });
-      toast.success("System preferences updated successfully!");
-    } catch (err) {
-      console.error("Failed to update settings", err);
-      toast.error("Failed to update settings.");
-    } finally {
-      setUpdating(false);
-    }
-  };
-
-  const handleSaveProfile = async () => {
-    if (!profile) return;
-    try {
-      setUpdating(true);
-      await settingsService.updateProfile({
-        full_name: profile.full_name,
-        role: profile.role,
-        mobile_number: profile.mobile_number,
-        email: profile.email,
-        address: profile.address,
-        pan_number: profile.pan_number,
-        aadhaar_number: profile.aadhaar_number,
-        designation: profile.designation,
-        joining_date: profile.joining_date,
-        is_active: profile.is_active
-      });
-      toast.success("Profile updated successfully!");
-    } catch (err) {
-      toast.error("Failed to update profile.");
-    } finally {
-      setUpdating(false);
-    }
+  const getActiveProjectName = () => {
+     const p = projects.find(proj => (proj.id || proj.project_id) === activeProjectId);
+     return p?.name || p?.project_name || "New sara city";
   };
 
   return (
     <>
       <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Portal Settings"]} />
-      <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
-        <div className="mb-10">
-          <h1 className="text-4xl font-black text-slate-800 tracking-tight">Portal Settings</h1>
-          <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">Customize your profile, notifications, and system preferences</p>
+      <div className="p-8 bg-slate-50 min-h-screen font-inter pb-20">
+        
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+          <div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Preferences</p>
+            <h1 className="text-4xl font-black text-slate-800 tracking-tight">Settings</h1>
+            <p className="text-slate-400 font-medium mt-1 text-sm">Configure your project, units, notifications, and personal preferences.</p>
+          </div>
+          <button 
+            onClick={handleSaveAll}
+            disabled={updating}
+            className="px-8 py-3 bg-blue-600 text-white rounded-xl text-xs font-black flex items-center gap-2 shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+            {updating ? "Saving..." : "Save Settings"}
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
-          <div className="lg:col-span-2 flex flex-col">
-            {/* Client Profile Section */}
-            <div className="bg-white rounded-2xl p-10 shadow-sm border border-slate-100 h-full flex flex-col justify-between">
-              <div className="flex items-center gap-6 mb-10 border-b border-slate-50 pb-8">
-                {profile?.profile_image ? (
-                  <img src={settingsService.resolveUrl(profile.profile_image) || ''} alt="Profile" className="w-24 h-24 rounded-2xl object-cover shadow-xl border-4 border-white" />
-                ) : (
-                  <div className="w-24 h-24 bg-slate-900 rounded-2xl flex items-center justify-center text-white text-4xl font-black shadow-xl">
-                    {profile?.full_name?.charAt(0) || "C"}
-                  </div>
-                )}
-                <div>
-                  <h2 className="text-2xl font-black text-slate-800 tracking-tight">{profile?.full_name || "Client Profile"}</h2>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[10px] font-black text-white bg-primary px-2 py-0.5 rounded-md uppercase tracking-widest">{profile?.role}</span>
-                  </div>
-                </div>
-              </div>
+        {/* Current Configuration Bar */}
+        <div className="mb-12">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Current Configuration</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {[
+                    { label: "Active Project", value: getActiveProjectName(), sub: "Primary project workspace", color: "text-blue-600" },
+                    { label: "Unit System", value: settings.unit, sub: "Feet · Meter", color: "text-emerald-500" },
+                    { label: "Notifications", value: "4 / 6", sub: "Channels enabled", color: "text-amber-500" },
+                    { label: "Language", value: settings.preferences?.language || "English", sub: "IST (UTC+5:30)", color: "text-slate-800" },
+                ].map((card, i) => (
+                    <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 transition-all hover:shadow-md">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{card.label}</p>
+                        <p className={`text-lg font-black tracking-tight ${card.color}`}>{card.value}</p>
+                        <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tight">{card.sub}</p>
+                    </div>
+                ))}
+            </div>
+        </div>
 
-              {loading ? (
-                <div className="flex justify-center p-20">
-                   <div className="w-10 h-10 border-4 border-slate-200 border-t-primary rounded-full animate-spin"></div>
+        <div className="space-y-8 max-w-7xl mx-auto">
+            {/* Profile & Account Card */}
+            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                <div className="p-8 border-b border-slate-50 bg-white">
+                    <div className="flex items-center gap-3">
+                        <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                        <h2 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Profile & Account</h2>
+                    </div>
                 </div>
-              ) : (
-                <div className="space-y-10">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* Identification */}
-                    <div className="md:col-span-2">
-                        <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-4">Identification & Identity</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
-                                <input type="text" value={profile?.full_name || ""} onChange={(e) => setProfile(p => p ? { ...p, full_name: e.target.value } : null)} className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-all shadow-inner" />
+                <div className="p-10 flex flex-col md:flex-row gap-12">
+                    <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        onChange={handleFileChange} 
+                        className="hidden" 
+                        accept="image/*" 
+                    />
+                    <div className="shrink-0 flex flex-col items-center gap-4">
+                        <div className="relative group">
+                            <div className="w-32 h-32 bg-slate-900 rounded-full flex items-center justify-center text-white text-5xl font-black shadow-2xl border-4 border-white overflow-hidden">
+                                {previewUrl || profile?.profile_image ? (
+                                    <img 
+                                        src={previewUrl || settingsService.resolveUrl(profile?.profile_image ?? null) || ''} 
+                                        className="w-full h-full object-cover" 
+                                        alt="Profile" 
+                                    />
+                                ) : (
+                                    profile?.full_name?.charAt(0) || "Z"
+                                )}
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Designation</label>
-                                <input type="text" value={profile?.designation || ""} onChange={(e) => setProfile(p => p ? { ...p, designation: e.target.value } : null)} className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-all shadow-inner" />
-                            </div>
+                            <button 
+                                onClick={() => fileInputRef.current?.click()}
+                                className="absolute bottom-1 right-1 p-2.5 bg-blue-600 text-white rounded-full shadow-xl hover:scale-110 active:scale-95 transition-all border-4 border-white"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                            </button>
                         </div>
+                        <button 
+                            onClick={handleRemovePhoto}
+                            className="text-[11px] font-black text-rose-500 hover:text-rose-600 flex items-center gap-2 uppercase tracking-widest transition-all"
+                        >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            Remove
+                        </button>
                     </div>
 
-                    {/* Contact Info */}
-                    <div className="md:col-span-2">
-                        <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-4">Contact Details</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email Address</label>
-                                <input type="email" value={profile?.email || ""} disabled className="w-full bg-slate-100 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold text-slate-500 cursor-not-allowed" />
+                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                        {[
+                            { label: "Full Name", key: "full_name", value: profile?.full_name },
+                            { label: "Designation", key: "designation", value: profile?.designation },
+                            { label: "Email Address", key: "email", value: profile?.email },
+                            { label: "Mobile Number", key: "mobile_number", value: profile?.mobile_number },
+                            { label: "PAN Number", key: "pan_number", value: profile?.pan_number },
+                            { label: "Aadhaar Number", key: "aadhaar_number", value: profile?.aadhaar_number },
+                            { label: "Role", key: "role", value: profile?.role },
+                            { label: "Joining Date", key: "joining_date", value: profile?.joining_date, type: "date" },
+                        ].map((field) => (
+                            <div key={field.key} className="space-y-2">
+                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">{field.label}</label>
+                                <input 
+                                    type={field.type || "text"}
+                                    value={field.value || ""}
+                                    onChange={(e) => setProfile(p => p ? { ...p, [field.key]: e.target.value } : null)}
+                                    className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-[13px] font-bold text-slate-700 outline-none focus:border-blue-500 transition-all" 
+                                />
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mobile Number</label>
-                                <input type="text" value={profile?.mobile_number || ""} disabled className="w-full bg-slate-100 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold text-slate-500 cursor-not-allowed" />
+                        ))}
+                        <div className="md:col-span-2 space-y-2">
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Address</label>
+                            <input 
+                                type="text"
+                                value={profile?.address || "Pune"}
+                                onChange={(e) => setProfile(p => p ? { ...p, address: e.target.value } : null)}
+                                className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-[13px] font-bold text-slate-700 outline-none focus:border-blue-500 transition-all" 
+                            />
+                        </div>
+
+                        <div className="md:col-span-2 mt-4 p-6 bg-slate-50/50 border border-slate-100 rounded-2xl flex items-center justify-between">
+                            <div>
+                                <h3 className="text-sm font-black text-slate-800 tracking-tight">Account Status</h3>
+                                <p className="text-[10px] text-slate-400 font-medium">Toggle active status of this profile</p>
                             </div>
-                            <div className="md:col-span-2 space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Office / Residential Address</label>
-                                <input type="text" value={profile?.address || ""} onChange={(e) => setProfile(p => p ? { ...p, address: e.target.value } : null)} className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-all shadow-inner" />
+                            <div className="flex items-center gap-3">
+                                <span className={`text-[10px] font-black tracking-widest uppercase ${profile?.is_active ? 'text-emerald-500' : 'text-slate-400'}`}>
+                                    {profile?.is_active ? 'Active' : 'Inactive'}
+                                </span>
+                                <button 
+                                    onClick={() => setProfile(p => p ? { ...p, is_active: !p.is_active } : null)}
+                                    className={`w-12 h-6 rounded-full transition-all relative ${profile?.is_active ? 'bg-blue-600' : 'bg-slate-300'}`}
+                                >
+                                    <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${profile?.is_active ? 'left-7' : 'left-1'}`} />
+                                </button>
                             </div>
                         </div>
-                    </div>
 
-                    {/* Government IDs */}
-                    <div className="md:col-span-2">
-                        <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-4">Taxation & Compliance IDs</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">PAN Number</label>
-                                <input type="text" value={profile?.pan_number || ""} onChange={(e) => setProfile(p => p ? { ...p, pan_number: e.target.value } : null)} className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-all shadow-inner uppercase" />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Aadhaar Number</label>
-                                <input type="text" value={profile?.aadhaar_number || ""} onChange={(e) => setProfile(p => p ? { ...p, aadhaar_number: e.target.value } : null)} className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-all shadow-inner" />
-                            </div>
+                        <div className="md:col-span-2 flex justify-end mt-4">
+                            <button onClick={handleSaveAll} disabled={updating} className="px-8 py-3.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-xl hover:bg-slate-800 transition-all active:scale-95">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                                Save Profile Settings
+                            </button>
                         </div>
                     </div>
-                  </div>
-
-                  <div className="pt-6 border-t border-slate-50 flex justify-between items-center">
-                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest leading-none">Account Active Since: <span className="text-slate-600">{profile?.joining_date}</span></p>
-                    <button onClick={handleSaveProfile} disabled={updating} className="px-12 py-5 bg-slate-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-2xl hover:bg-slate-800 transition-all disabled:opacity-50 hover:scale-[1.02] active:scale-95">
-                      {updating ? "Processing..." : "Update Private Profile"}
-                    </button>
-                  </div>
                 </div>
-              )}
             </div>
 
+            {/* Project Selection & Units Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+                    <div className="flex items-center gap-3 mb-8">
+                        <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                        <h2 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Project Selection</h2>
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Active Project</label>
+                        <select 
+                             value={activeProjectId ?? ''}
+                             onChange={(e) => setActiveProjectId(Number(e.target.value))}
+                             className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-[13px] font-bold text-slate-700 outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
+                        >
+                            {projects.map(p => <option key={p.id} value={p.id}>{p.name || p.project_name}</option>)}
+                        </select>
+                    </div>
+                </div>
 
-          </div>
+                <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+                    <div className="flex items-center gap-3 mb-8">
+                        <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+                        <h2 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Units</h2>
+                    </div>
+                    <div className="space-y-6">
+                        <div className="space-y-3">
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Unit System</p>
+                            <div className="flex gap-2">
+                                {["Metric", "Imperial"].map(u => (
+                                    <button 
+                                        key={u}
+                                        onClick={() => setSettings(s => ({ ...s, unit: u }))}
+                                        className={`flex-1 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${settings.unit === u ? 'bg-[#1e293b] text-white' : 'bg-slate-50 text-slate-400'}`}
+                                    >
+                                        {u}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
 
-          {/* Right Column: System Units & Regional Settings */}
-          <div className="flex flex-col gap-8">
-            {/* Project Selection */}
-            <div className="bg-white rounded-2xl p-10 shadow-sm border border-slate-100">
-              <div className="flex items-center gap-3 mb-6">
-                <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
-                <h2 className="text-[11px] font-black text-slate-600 uppercase tracking-[0.2em]">Project Selection</h2>
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Active Project</label>
-                <select
-                  value={activeProjectId ?? ''}
-                  onChange={(e) => {
-                    const id = Number(e.target.value);
-                    setActiveProjectId(id);
-                  }}
-                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-all appearance-none cursor-pointer"
-                >
-                  {projects.length === 0 && <option value="">No projects available</option>}
-                  {projects.map((p: any) => (
-                    <option key={p.id || p.project_id} value={p.id || p.project_id}>
-                      {p.name || p.project_name || `Project #${p.id || p.project_id}`}
-                    </option>
-                  ))}
-                </select>
-                <button 
-                  onClick={handleSaveProjectSelection}
-                  disabled={updating}
-                  className="w-full mt-4 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all active:scale-95 disabled:opacity-50 shadow-lg shadow-slate-200"
-                >
-                  {updating ? "Switching..." : "Switch Active Project"}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-3">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Mass / Weight</p>
+                                <div className="flex items-center bg-slate-50 rounded-xl p-1">
+                                    {["Kg", "Feet", "Meter"].map((v, i) => (
+                                        <button key={i} className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${v === "Feet" ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400'}`}>{v}</button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="space-y-3">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Length / Distance</p>
+                                <div className="flex items-center bg-slate-50 rounded-xl p-1 gap-1">
+                                    {["Meter", "Feet", "Inch", "Cm"].map((v, i) => (
+                                        <button key={i} className={`flex-1 py-2 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${v === "Meter" ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400'}`}>{v}</button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-50/50 p-4 rounded-xl flex items-center justify-between border border-dashed border-slate-200 mt-2">
+                            <div>
+                                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Current Units</p>
+                                <p className="text-xs font-black text-slate-800">{settings.unit} · Feet · Meter</p>
+                            </div>
+                            <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-sm">⚖️</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Notifications & Preferences Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+                    <div className="flex items-center gap-3 mb-8">
+                        <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                        <h2 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Notification Settings</h2>
+                    </div>
+                    <div className="space-y-4">
+                        {[
+                            { label: "Email Alerts", sub: "Receive daily summary via email", icon: "📧", active: true },
+                            { label: "SMS Alerts", sub: "Critical site alerts via SMS", icon: "📱", active: false },
+                            { label: "Push Notifications", sub: "Real-time app notifications", icon: "🔔", active: true },
+                            { label: "DSR Reminders", sub: "Daily reminder to submit DSR", icon: "📋", active: true },
+                            { label: "Issue Alerts", sub: "Notify on new high-priority issues", icon: "⚠️", active: false },
+                            { label: "Material Alerts", sub: "Low stock threshold notifications", icon: "🏗️", active: true },
+                        ].map((n, i) => (
+                            <div key={i} className="group p-4 bg-slate-50/20 hover:bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between transition-all">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm border border-slate-50 group-hover:scale-110 transition-transform">{n.icon}</div>
+                                    <div>
+                                        <p className="text-xs font-black text-slate-800 tracking-tight">{n.label}</p>
+                                        <p className="text-[10px] text-slate-400 font-medium">{n.sub}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <span className={`text-[9px] font-black tracking-widest uppercase ${n.active ? 'text-emerald-500' : 'text-slate-400'}`}>{n.active ? 'On' : 'Off'}</span>
+                                    <button className={`w-10 h-5 rounded-full relative transition-all ${n.active ? 'bg-blue-600' : 'bg-slate-300'}`}>
+                                        <div className={`w-3 h-3 bg-white rounded-full absolute top-1 transition-all ${n.active ? 'left-6' : 'left-1'}`} />
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 flex flex-col justify-between">
+                   <div className="space-y-10">
+                        <div className="flex items-center gap-3 mb-2">
+                            <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                            <h2 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">User Preferences</h2>
+                        </div>
+                        
+                        <div className="space-y-6">
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Language</label>
+                                <select className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-[13px] font-bold text-slate-700 outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer">
+                                    <option>English</option>
+                                    <option>Hindi</option>
+                                </select>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Timezone</label>
+                                    <input type="text" readOnly value="IST (UTC+5:30)" className="w-full bg-slate-100/50 border border-slate-100 rounded-xl px-5 py-3.5 text-[12px] font-bold text-slate-700 cursor-default" />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Date Format</label>
+                                    <input type="text" readOnly value="DD/MM/YYYY" className="w-full bg-slate-100/50 border border-slate-100 rounded-xl px-5 py-3.5 text-[12px] font-bold text-slate-700 cursor-default" />
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                {[
+                                    { label: "Auto Save", sub: "Auto-save form drafts every 60s", active: true },
+                                    { label: "Compact View", sub: "Reduce padding for denser layout", active: true },
+                                    { label: "Show Weather Widget", sub: "Display weather on dashboard", active: true },
+                                    { label: "Auto GPS Capture", sub: "Capture GPS on DSR form open", active: true },
+                                ].map((p, i) => (
+                                    <div key={i} className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-xs font-black text-slate-800 tracking-tight">{p.label}</p>
+                                            <p className="text-[10px] text-slate-400 font-medium">{p.sub}</p>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-[9px] font-black tracking-widest text-emerald-500 uppercase">On</span>
+                                            <button className="w-10 h-5 bg-blue-600 rounded-full relative transition-all">
+                                                <div className="w-3 h-3 bg-white rounded-full absolute top-1 left-6" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                   </div>
+
+                   <div className="mt-8 p-6 bg-amber-50/50 border border-amber-100/50 rounded-2xl flex items-start gap-4">
+                        <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-sm shrink-0">⚠️</div>
+                        <div>
+                            <p className="text-[11px] font-black text-amber-700 uppercase tracking-widest mb-1">Admin-Restricted Settings</p>
+                            <p className="text-[10px] text-amber-600/70 font-medium leading-relaxed">Global project configuration and security settings are restricted to Admin/Project Director roles. Contact your administrator for changes.</p>
+                        </div>
+                   </div>
+                </div>
+            </div>
+
+            {/* Bottom Actions */}
+            <div className="flex justify-end pt-12 items-center gap-8 border-t border-slate-200">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic opacity-60">Last Audit Logged: Yesterday 4:32 PM</p>
+                <button onClick={handleSaveAll} disabled={updating} className="px-12 py-5 bg-[#0f172a] text-white rounded-2xl text-[12px] font-black uppercase tracking-widest flex items-center gap-3 shadow-2xl hover:bg-slate-800 transition-all active:scale-95">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                    {updating ? "Saving All..." : "Save All Settings"}
                 </button>
-              </div>
             </div>
-
-            <div className="bg-white rounded-2xl p-10 shadow-sm border border-slate-100">
-              <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-8 text-primary border-b border-slate-50 pb-4">System Preferences</h2>
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Measurement Unit</label>
-                  <select 
-                    value={settings.unit} 
-                    onChange={(e) => setSettings(s => ({ ...s, unit: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-all appearance-none cursor-pointer"
-                  >
-                    <option>Meter</option>
-                    <option>Feet</option>
-                    <option>Metric System</option>
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Financial Year</label>
-                  <input 
-                    type="text" 
-                    value={settings.financial_year} 
-                    onChange={(e) => setSettings(s => ({ ...s, financial_year: e.target.value }))}
-                    placeholder="e.g. 2025-26" 
-                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-all shadow-inner" 
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Preferred Currency</label>
-                  <select 
-                    value={settings.currency} 
-                    onChange={(e) => setSettings(s => ({ ...s, currency: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-all appearance-none cursor-pointer"
-                  >
-                    <option>Dollar</option>
-                    <option>INR (₹)</option>
-                    <option>Euro (€)</option>
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Standard Payment Terms</label>
-                  <input 
-                    type="text" 
-                    value={settings.payment_terms} 
-                    onChange={(e) => setSettings(s => ({ ...s, payment_terms: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-all shadow-inner" 
-                  />
-                </div>
-
-                <button 
-                  onClick={handleUpdateSettings} 
-                  disabled={updating}
-                  className="w-full py-5 bg-primary text-white rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-2xl shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all mt-4 disabled:opacity-50"
-                >
-                  {updating ? "Saving Changes..." : "Apply System Settings"}
-                </button>
-              </div>
-            </div>
-
-
-          </div>
         </div>
       </div>
     </>

@@ -152,7 +152,7 @@ const ClientIssuesPage = () => {
           {[
             { label: "Open Issues", count: stats.open, color: "bg-white text-slate-400 border-slate-100" },
             { label: "In Progress", count: stats.inProgress, color: "bg-white text-slate-400 border-slate-100" },
-            { label: "Resolved", count: stats.resolved, color: "bg-white text-slate-400 border-slate-100" },
+            { label: "Closed Issues", count: stats.resolved, color: "bg-white text-slate-400 border-slate-100" },
           ].map((stat, i) => (
             <div key={i} className={`p-6 rounded-2xl border ${stat.color} flex items-center justify-between shadow-sm`}>
               <p className="text-[10px] font-black uppercase tracking-widest">{stat.label}</p>
@@ -187,10 +187,7 @@ const ClientIssuesPage = () => {
                   {currentItems.map((issue) => (
                     <tr key={issue.id} className="group hover:bg-slate-50/50 transition-colors">
                       <td className="py-8 pr-10 max-w-lg">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[8px] font-black text-slate-300">#{issue.business_id || issue.id}</span>
                           <p className="text-sm font-black text-slate-800">{issue.title}</p>
-                        </div>
                         <p className="text-[11px] text-slate-500 font-medium leading-relaxed">{issue.description}</p>
                         {issue.resolution && (
                           <div className="mt-4 p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100">
@@ -216,7 +213,7 @@ const ClientIssuesPage = () => {
                         <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full ${issue.status === 'Open' ? 'bg-red-50 text-red-600' :
                             issue.status === 'In Progress' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'
                           }`}>
-                          {issue.status}
+                          {issue.status === 'Resolved' ? 'Closed' : issue.status}
                         </span>
                       </td>
                       <td className="py-8 text-center">
@@ -308,7 +305,7 @@ const ClientIssuesPage = () => {
           setIsViewModalOpen(false);
           setSelectedIssue(null);
         }}
-        title={fetchingDetail ? "Auditing Issue..." : `Documentation: ${selectedIssue?.business_id || "Detail"}`}
+        title={fetchingDetail ? "Auditing Issue..." : "Documentation Detail"}
         maxWidth="max-w-2xl"
       >
         {fetchingDetail ? (
@@ -327,7 +324,7 @@ const ClientIssuesPage = () => {
                   selectedIssue.status === 'In Progress' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
                     'bg-emerald-50 text-emerald-600 border border-emerald-100'
                 }`}>
-                {selectedIssue.status}
+                {selectedIssue.status === 'Resolved' ? 'Closed' : selectedIssue.status}
               </span>
             </div>
 

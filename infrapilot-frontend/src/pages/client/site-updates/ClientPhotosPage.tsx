@@ -1,233 +1,510 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
+import Modal from "../../../components/common/Modal";
+import {
+    Camera,
+    MapPin,
+    Search,
+    Filter,
+    Upload,
+    Calendar,
+    RotateCcw,
+    LayoutGrid,
+    List as ListIcon,
+    ChevronLeft,
+    ChevronRight,
+    Eye,
+    Clock,
+    ChevronDown
+} from "lucide-react";
+
 import { sitePhotoService } from "../../../services/sitePhotoService";
 import { useClientProjectId } from "../../../hooks/useClientProjectId";
+import type { SitePhoto } from "../../../types/sitePhoto";
 
-const tags = ["All", "Structure", "Foundation", "Masonry", "Equipment", "Safety", "Quality", "Inspection"];
+// â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const ACTIVITY_TAGS = [
+    "Foundation Work",
+    "RCC Column Casting",
+    "Slab Pouring",
+    "Brickwork / Masonry",
+    "Safety Audit",
+    "Quality Inspection",
+];
+
+const LOCATION_TAGS = [
+    "Block A – Ground Floor",
+    "Block B – First Floor",
+    "Block C – Terrace",
+    "Site Office",
+    "Material Yard",
+    "North Zone",
+];
 
 const ClientPhotosPage = () => {
-  const [activeTag, setActiveTag] = useState("All");
-  const [allPhotos, setAllPhotos] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
-  const [selectedIndex, setSelectedIndex] = useState<number>(0);
+    const [photos, setPhotos] = useState<SitePhoto[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [filterActivity, setFilterActivity] = useState("All Activities");
+    const [filterLocation, setFilterLocation] = useState("All Locations");
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(12);
 
-  const { projectId } = useClientProjectId();
+    const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Recent" | "Tasks" | "Zones">("All");
+    const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+    const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
 
-  useEffect(() => {
-    if (!projectId) return;
+    const [selectedPhoto, setSelectedPhoto] = useState<SitePhoto | null>(null);
 
-    const fetchPhotos = async () => {
-      try {
-        setLoading(true);
-        // Fetch all photos to allow flexible client-side filtering
-        const response = await sitePhotoService.getPhotos({ project_id: projectId });
-        const fetchedItems = response.items || [];
+    const { projectId } = useClientProjectId();
 
-        // Resolve URLs
-        const sorted = fetchedItems.map((p: any) => ({
-          ...p,
-          displayUrl: sitePhotoService.resolveUrl((p.url || p.photo_url) ?? null) || "https://images.unsplash.com/photo-1541888946425-d81bb19480c5?w=800&q=80",
-          displayDate: p.date ? new Date(p.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : "N/A"
-        })).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const fetchPhotos = useCallback(async () => {
+        if (!projectId) return;
+        setIsLoading(true);
+        try {
+            const response = await sitePhotoService.getPhotos({ project_id: projectId });
+            setPhotos(response.items || []);
+        } catch (error) {
+            console.error("Failed to fetch photos:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [projectId]);
 
-        setAllPhotos(sorted);
-      } catch (error) {
-        console.error("Failed to fetch gallery:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    useEffect(() => {
+        fetchPhotos();
+    }, [fetchPhotos]);
 
-    fetchPhotos();
-  }, [projectId]); // Remove activeTag from dependency to avoid redundant fetches
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, filterActivity, filterLocation, activeStatFilter]);
 
-  const photos = activeTag === "All" 
-    ? allPhotos 
-    : allPhotos.filter(p => {
-        const tag = (p.activity_tag || p.tag || "").toLowerCase();
-        const active = activeTag.toLowerCase();
-        // Fuzzy match: checks if "Masonry" is inside "BRICKWORK / MASONRY"
-        return tag.includes(active);
-      });
+    const baseFilteredPhotos = useMemo(() => {
+        return photos.filter(p => {
+            const desc = p.description || "";
+            const actTag = p.activity_tag || "";
+            const locTag = p.location_tag || "";
+            
+            const matchesSearch = 
+                desc.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                actTag.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                locTag.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                String(p.id).includes(searchQuery);
+            const matchesActivity = filterActivity === "All Activities" || actTag === filterActivity;
+            const matchesLocation = filterLocation === "All Locations" || locTag === filterLocation;
+            return matchesSearch && matchesActivity && matchesLocation;
+        });
+    }, [photos, searchQuery, filterActivity, filterLocation]);
 
-  const openModal = (photo: any, index: number) => {
-    setSelectedPhoto(photo);
-    setSelectedIndex(index);
-  };
+    const filteredPhotos = useMemo(() => {
+        let data = [...baseFilteredPhotos];
 
-  const closeModal = () => setSelectedPhoto(null);
+        if (activeStatFilter === "Recent") {
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+            data = data.filter(p => new Date(p.date) >= sevenDaysAgo);
+        } else if (activeStatFilter === "Tasks") {
+            data = data.filter(p => !!p.activity_tag);
+        } else if (activeStatFilter === "Zones") {
+            data = data.filter(p => !!p.location_tag);
+        }
 
-  const goNext = useCallback(() => {
-    const next = (selectedIndex + 1) % photos.length;
-    setSelectedIndex(next);
-    setSelectedPhoto(photos[next]);
-  }, [selectedIndex, photos]);
+        data.sort((a, b) => {
+            if (sortOrder === "latest") {
+                return Number(b.id) - Number(a.id);
+            } else {
+                return Number(a.id) - Number(b.id);
+            }
+        });
 
-  const goPrev = useCallback(() => {
-    const prev = (selectedIndex - 1 + photos.length) % photos.length;
-    setSelectedIndex(prev);
-    setSelectedPhoto(photos[prev]);
-  }, [selectedIndex, photos]);
+        return data;
+    }, [baseFilteredPhotos, activeStatFilter, sortOrder]);
 
-  // Keyboard navigation
-  useEffect(() => {
-    if (!selectedPhoto) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeModal();
-      if (e.key === "ArrowRight") goNext();
-      if (e.key === "ArrowLeft") goPrev();
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [selectedPhoto, goNext, goPrev]);
+    const paginatedPhotos = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return filteredPhotos.slice(startIndex, startIndex + itemsPerPage);
+    }, [filteredPhotos, currentPage, itemsPerPage]);
 
-  return (
-    <>
-      <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Site Updates", "Photos"]} />
-      <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-          <div>
-            <h1 className="text-3xl font-black text-slate-800 tracking-tight">Project Photo Gallery</h1>
-            <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">A visual chronicle of your project's transformation</p>
-          </div>
-          <div className="flex gap-2 bg-white p-2 rounded-2xl shadow-sm border border-slate-100 overflow-x-auto max-w-full custom-scrollbar">
-            {tags.map((tag) => (
-              <button
-                key={tag}
-                onClick={() => setActiveTag(tag)}
-                className={`flex-shrink-0 whitespace-nowrap px-5 py-2 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${
-                  activeTag === tag
-                    ? "bg-slate-900 text-white shadow-lg"
-                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-                }`}
-              >
-                {tag}
-              </button>
-            ))}
-          </div>
-        </div>
 
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-32 space-y-4">
-             <div className="w-10 h-10 border-4 border-slate-200 border-t-primary rounded-full animate-spin" />
-             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Scanning Project Archives...</p>
-          </div>
-        ) : photos.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-32 text-slate-400">
-            <svg className="w-16 h-16 mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <p className="text-sm font-black uppercase tracking-widest">No photos found for {activeTag}</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {photos.map((photo, index) => (
-              <div key={photo.id} className="group bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-500 flex flex-col">
-                <div className="aspect-[4/3] overflow-hidden relative">
-                  <img src={photo.displayUrl} alt={photo.description} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                  <div className="absolute top-5 left-5">
-                    <span className="bg-white/90 backdrop-blur-md text-[9px] font-black uppercase tracking-widest text-slate-800 px-4 py-2 rounded-2xl shadow-sm border border-white/20">
-                      {photo.activity_tag || photo.tag || 'Site Update'}
-                    </span>
-                  </div>
-                  <div className="absolute bottom-5 left-5 right-5 transform translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">
-                    <p className="text-white text-[10px] font-black uppercase tracking-widest">Captured • {photo.displayDate}</p>
-                  </div>
+    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
+
+    return (
+        <>
+            <Navbar title="Project Transparency Portal" breadcrumb={["Client", "Site Updates", "Photos"]} />
+
+            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter flex flex-col pb-8">
+                {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 font-inter">
+                    <div className="font-inter">
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Evidence Documentation Ledger</h1>
+                        <p className="text-slate-500 text-sm font-inter">
+                            Maintain a chronological visual archive of project progress milestones.
+                        </p>
+                    </div>
                 </div>
-                <div className="p-8 flex-1 flex flex-col justify-between">
-                  <div>
-                    <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-3 flex items-center gap-2">
-                      <span className="w-4 h-0.5 bg-primary rounded-full" />
-                      {photo.location_tag || 'Site Location'}
-                    </p>
-                    <p className="text-sm font-bold text-slate-700 leading-relaxed mb-6 italic line-clamp-2">"{photo.description || 'No description provided'}"</p>
-                  </div>
-                  <div className="flex items-center justify-between pt-6 border-t border-slate-50">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{photo.displayDate}</span>
-                    <button
-                      onClick={() => openModal(photo, index)}
-                      title="Zoom photo"
-                      className="w-10 h-10 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-lg hover:scale-110 hover:bg-primary transition-all active:scale-95"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
 
-      {/* Lightbox Modal */}
-      {selectedPhoto && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm"
-          onClick={closeModal}
-        >
-          {/* Modal Container - stop propagation so clicking photo doesn't close */}
-          <div
-            className="relative max-w-5xl w-full mx-4 flex flex-col items-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Close Button */}
-            <button
-              onClick={closeModal}
-              className="absolute -top-12 right-0 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors z-10"
+
+                {/* â”€â”€ Evidence Vault Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
+                    {/* Integrated Filter Bar */}
+                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
+                        <div className="relative flex-1 max-w-md font-inter">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                                <Search className="w-4 h-4" />
+                            </span>
+                            <input
+                                type="text"
+                                placeholder="Search by description or audit ID..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
+                            />
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3 font-inter">
+                            <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm font-inter">
+                                <Filter className="w-4 h-4 text-slate-400" />
+                                <select
+                                    value={filterActivity}
+                                    onChange={(e) => setFilterActivity(e.target.value)}
+                                    className="bg-transparent text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer pr-2 font-inter"
+                                >
+                                    <option>All Activities</option>
+                                    {ACTIVITY_TAGS.map(t => <option key={t} value={t}>{t}</option>)}
+                                </select>
+                            </div>
+                            <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm font-inter">
+                                <MapPin className="w-4 h-4 text-slate-400" />
+                                <select
+                                    value={filterLocation}
+                                    onChange={(e) => setFilterLocation(e.target.value)}
+                                    className="bg-transparent text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer pr-2 font-inter"
+                                >
+                                    <option>All Locations</option>
+                                    {LOCATION_TAGS.map(t => <option key={t} value={t}>{t}</option>)}
+                                </select>
+                            </div>
+                            {activeStatFilter !== "All" && (
+                                <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter">
+                                    <RotateCcw className="w-4 h-4" />
+                                </button>
+                            )}
+
+                            <div className="relative flex items-center">
+                                <div className="absolute left-3 text-slate-400 pointer-events-none">
+                                    <Clock className="w-4 h-4" />
+                                </div>
+                                <select
+                                    value={sortOrder}
+                                    onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
+                                    className="appearance-none bg-white border border-primary rounded-full text-sm font-bold text-primary shadow-sm pl-9 pr-8 py-1.5 outline-none cursor-pointer"
+                                >
+                                    <option value="latest">Latest First</option>
+                                    <option value="oldest">Oldest First</option>
+                                </select>
+                                <div className="absolute right-3 text-slate-400 pointer-events-none">
+                                    <ChevronDown className="w-4 h-4" />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-200 ml-auto font-inter">
+                            <button
+                                onClick={() => setViewMode("grid")}
+                                className={`p-1.5 rounded-lg transition-all ${viewMode === "grid" ? "bg-white text-primary shadow-sm" : "text-slate-400 hover:text-slate-600"}`}
+                                title="Grid View"
+                            >
+                                <LayoutGrid className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={() => setViewMode("list")}
+                                className={`p-1.5 rounded-lg transition-all ${viewMode === "list" ? "bg-white text-primary shadow-sm" : "text-slate-400 hover:text-slate-600"}`}
+                                title="List View"
+                            >
+                                <ListIcon className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Unified Photo Grid Container */}
+                    <div className="flex-1 overflow-auto p-4 md:p-8 font-inter scrollbar-thin scrollbar-thumb-slate-200">
+                        {isLoading ? (
+                            <div className="py-32 text-center font-inter">
+                                <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4 font-inter" />
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing evidence vault...</p>
+                            </div>
+                        ) : filteredPhotos.length > 0 ? (
+                            viewMode === "grid" ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 font-inter">
+                                    {paginatedPhotos.map(photo => (
+                                        <div
+                                            key={photo.id}
+                                            className="group bg-white rounded-2xl border border-slate-100 overflow-hidden hover:shadow-2xl hover:shadow-primary/10 hover:-translate-y-2 transition-all duration-500 flex flex-col font-inter"
+                                        >
+                                            <div className="aspect-[4/3] relative overflow-hidden bg-slate-100 font-inter">
+                                                <img
+                                                    src={sitePhotoService.resolveUrl(photo.url || null) || ""}
+                                                    alt={photo.activity_tag}
+                                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 font-inter"
+                                                />
+                                                <div className="absolute top-4 left-4 z-10 font-inter">
+                                                    <span className="px-3 py-1 bg-white/90 backdrop-blur-md text-[10px] font-bold text-slate-800 rounded-lg uppercase tracking-widest shadow-sm border border-white/20 font-inter">
+                                                        {photo.activity_tag}
+                                                    </span>
+                                                </div>
+
+                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex items-center justify-center gap-2 z-20 font-inter">
+                                                    <button
+                                                        onClick={() => setSelectedPhoto(photo)}
+                                                        className="p-3 bg-white text-slate-400 hover:text-primary hover:bg-primary/10 rounded-2xl transition-all font-inter shadow-xl"
+                                                        title="View Evidence Details"
+                                                    >
+                                                        <Eye className="w-5 h-5" />
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div className="p-6 flex flex-col flex-1 font-inter">
+                                                <div className="flex items-center justify-between mb-4 font-inter">
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">AUDIT-#{photo.id}</span>
+                                                    <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100 font-inter">Live Progress</span>
+                                                </div>
+
+                                                <p className="text-[13px] font-bold text-slate-600 leading-relaxed line-clamp-3 mb-6 flex-1 font-inter uppercase tracking-tight">
+                                                    {photo.description}
+                                                </p>
+
+                                                <div className="flex items-center gap-3 pt-5 border-t border-slate-50 mt-auto font-inter">
+                                                    <div className="w-10 h-10 rounded-2xl bg-primary text-white flex items-center justify-center text-[11px] font-bold border-2 border-white shadow-lg shrink-0 font-inter">
+                                                        {(photo.uploaded_by || "Infra Pilot").split(" ").map(n => n[0]).join("")}
+                                                    </div>
+                                                    <div className="overflow-hidden font-inter">
+                                                        <p className="text-xs font-bold text-slate-800 truncate uppercase tracking-widest font-inter">{photo.uploaded_by}</p>
+                                                        <div className="flex items-center gap-1.5 text-slate-400 font-inter">
+                                                            <Calendar className="w-3 h-3 shrink-0" />
+                                                            <p className="text-[10px] font-bold uppercase tracking-widest truncate font-inter">{photo.time} â€¢ {photo.date}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden font-inter">
+                                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200">
+                                        <table className="w-full text-left font-inter min-w-[1000px]">
+                                            <thead>
+                                                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
+                                                    <th className="px-6 py-4 font-inter">Evidence</th>
+                                                    <th className="px-6 py-4 font-inter">Audit Details</th>
+                                                    <th className="px-6 py-4 font-inter">Category & Domain</th>
+                                                    <th className="px-6 py-4 font-inter">Technical Auditor</th>
+                                                    <th className="px-6 py-4 text-right font-inter">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-50 font-inter">
+                                                {paginatedPhotos.map(photo => (
+                                                    <tr key={photo.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
+                                                        <td className="px-6 py-4 font-inter">
+                                                            <div className="w-16 h-12 rounded-xl bg-slate-100 overflow-hidden border border-slate-200 shadow-sm group-hover:scale-105 transition-transform font-inter">
+                                                                <img 
+                                                                    src={sitePhotoService.resolveUrl(photo.url || null) || ""} 
+                                                                    alt="Audit" 
+                                                                    className="w-full h-full object-cover font-inter"
+                                                                />
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 font-inter">
+                                                            <div className="flex flex-col font-inter">
+                                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">AUDIT-#{photo.id}</span>
+                                                                <span className="text-sm font-bold text-slate-800 line-clamp-1 font-inter uppercase tracking-tight">{photo.description}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 font-inter">
+                                                            <div className="flex flex-col font-inter">
+                                                                <span className="text-xs font-bold text-blue-600 uppercase tracking-widest font-inter">{photo.activity_tag}</span>
+                                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">{photo.location_tag}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 font-inter">
+                                                            <div className="flex items-center gap-2 font-inter">
+                                                                <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold font-inter">
+                                                                    {(photo.uploaded_by || "IP").split(" ").map(n => n[0]).join("")}
+                                                                </div>
+                                                                <div className="flex flex-col font-inter">
+                                                                    <p className="text-[10px] font-bold text-slate-800 font-inter uppercase tracking-widest">{photo.uploaded_by}</p>
+                                                                    <p className="text-[10px] text-slate-400 font-bold font-inter">{photo.date}</p>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-right font-inter">
+                                                            <div className="flex items-center justify-end gap-2 font-inter">
+                                                                <button
+                                                                    onClick={() => setSelectedPhoto(photo)}
+                                                                    className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
+                                                                    title="View Insight"
+                                                                >
+                                                                    <Eye className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )
+                        ) : (
+                            <div className="py-32 text-center font-inter">
+                                <Camera className="w-16 h-16 mx-auto mb-6 opacity-10 text-slate-800" />
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 opacity-50 font-inter">No evidence artifacts discovered in the project vault.</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* â”€â”€ Pagination â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                    {!isLoading && filteredPhotos.length > 0 && (
+                        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                            <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                                <select 
+                                    value={itemsPerPage} 
+                                    onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                    className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                                >
+                                    <option value={10}>10</option>
+                                    <option value={12}>12</option>
+                                    <option value={24}>24</option>
+                                    <option value={48}>48</option>
+                                </select>
+                            </div>
+
+                            <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+                                Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredPhotos.length)} of {filteredPhotos.length} records
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                </button>
+                                
+                                {(() => {
+                                    const totalItems = filteredPhotos.length;
+                                    const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+                                    const pages = [];
+                                    if (totalPages <= 5) {
+                                        for (let i = 1; i <= totalPages; i++) pages.push(i);
+                                    } else {
+                                        if (currentPage <= 3) {
+                                            pages.push(1, 2, 3, 4, '...', totalPages);
+                                        } else if (currentPage >= totalPages - 2) {
+                                            pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                                        } else {
+                                            pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                                        }
+                                    }
+
+                                    return pages.map((page, index) => {
+                                        if (page === '...') {
+                                            return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                                        }
+                                        const pageNum = page as number;
+                                        const isActive = currentPage === pageNum;
+                                        return (
+                                            <button
+                                                key={`page-${pageNum}`}
+                                                onClick={() => setCurrentPage(pageNum)}
+                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
+                                                    isActive 
+                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' 
+                                                        : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                                }`}
+                                            >
+                                                {pageNum}
+                                            </button>
+                                        );
+                                    });
+                                })()}
+
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredPhotos.length / itemsPerPage), prev + 1))}
+                                    disabled={currentPage === Math.max(1, Math.ceil(filteredPhotos.length / itemsPerPage)) || filteredPhotos.length === 0}
+                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                >
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </PageTransition>
+
+            <Modal
+                isOpen={!!selectedPhoto}
+                onClose={() => setSelectedPhoto(null)}
+                title="Evidence Intelligence Analysis"
+                maxWidth="max-w-xl"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+                {selectedPhoto && (
+                    <div className="p-6 font-inter">
+                        <div className="bg-primary rounded-2xl p-10 mb-8 text-white shadow-2xl relative overflow-hidden font-inter">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl" />
+                            <div className="relative z-10 font-inter">
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-blue-100 mb-3 font-inter">Intelligence Artifact Record</p>
+                                <h3 className="text-2xl font-bold tracking-tight leading-tight mb-8 font-inter">{selectedPhoto?.location_tag}</h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 font-inter">
+                                    <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10 font-inter">
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1.5 font-inter">Reference Code</p>
+                                        <p className="text-xl font-bold text-white font-inter">#LOG-{selectedPhoto?.id}</p>
+                                    </div>
+                                    <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10 font-inter">
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1.5 font-inter">Capture Sequence</p>
+                                        <p className="text-xl font-bold font-inter">{selectedPhoto?.date}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
-            {/* Prev Button */}
-            {photos.length > 1 && (
-              <button
-                onClick={goPrev}
-                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-14 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-            )}
+                        <div className="rounded-2xl overflow-hidden border-8 border-slate-50 shadow-2xl mb-8 aspect-video group relative font-inter">
+                            <img src={sitePhotoService.resolveUrl(selectedPhoto?.url || null) || ""} alt="Site Artifact" className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110 font-inter" />
+                            <div className="absolute inset-0 ring-1 ring-inset ring-black/10 rounded-2xl" />
+                        </div>
 
-            {/* Image */}
-            <img
-              src={selectedPhoto.displayUrl}
-              alt={selectedPhoto.description}
-              className="w-full max-h-[75vh] object-contain rounded-2xl shadow-2xl"
-            />
+                        <div className="space-y-8 px-2 mb-10 font-inter">
+                            <div className="font-inter">
+                                <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-3')}>Observation Intelligence</p>
+                                <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 text-[13px] font-bold text-slate-600 leading-relaxed font-inter uppercase tracking-tight shadow-inner">
+                                    "{selectedPhoto?.description}"
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8 font-inter">
+                                <div className="font-inter">
+                                    <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-1.5')}>Milestone Domain</p>
+                                    <p className="text-sm font-bold text-blue-600 uppercase tracking-widest font-inter">{selectedPhoto?.activity_tag}</p>
+                                </div>
+                                <div className="font-inter">
+                                    <p className={labelClasses.replace('mb-1.5 ml-1', 'mb-1.5')}>Responsible Engineer</p>
+                                    <p className="text-sm font-bold text-slate-800 uppercase tracking-widest font-inter">{selectedPhoto?.uploaded_by}</p>
+                                </div>
+                            </div>
+                        </div>
 
-            {/* Next Button */}
-            {photos.length > 1 && (
-              <button
-                onClick={goNext}
-                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-14 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            )}
-
-            {/* Caption */}
-            <div className="mt-6 text-center">
-              <p className="text-white font-bold text-sm">{selectedPhoto.description || 'No description provided'}</p>
-              <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-2">
-                {selectedPhoto.activity_tag || 'Site Update'} • {selectedPhoto.displayDate}
-                {photos.length > 1 && ` • ${selectedIndex + 1} / ${photos.length}`}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
+                        <button
+                            onClick={() => setSelectedPhoto(null)}
+                            className="w-full py-5 bg-primary text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-blue-600 transition-all shadow-2xl shadow-primary/30 active:scale-95 font-inter mb-2"
+                        >
+                            Dismiss Artifact Analysis
+                        </button>
+                    </div>
+                )}
+            </Modal>
+        </>
+    );
 };
 
 export default ClientPhotosPage;

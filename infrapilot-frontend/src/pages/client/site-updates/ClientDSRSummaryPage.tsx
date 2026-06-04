@@ -8,6 +8,8 @@ const ClientDSRSummaryPage = () => {
   const [reports, setReports] = useState<any[]>([]);
   const [selectedPhoto, setSelectedPhoto] = useState<{id: number, url: string} | null>(null);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   const handleDeletePhoto = async () => {
     if (!selectedPhoto) return;
@@ -131,15 +133,15 @@ const ClientDSRSummaryPage = () => {
                   <thead>
                     <tr className="bg-slate-50/50 border-b border-slate-100">
                       <th className="p-6 pl-8 text-[9px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">Report Details</th>
-                      <th className="p-6 text-[9px] font-black text-slate-400 uppercase tracking-widest w-1/4 min-w-[250px]">Achievements</th>
-                      <th className="p-6 text-[9px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">Next Steps</th>
+                      <th className="p-6 text-[9px] font-black text-slate-400 uppercase tracking-widest w-1/4 min-w-[250px]">Work Done</th>
+                      <th className="p-6 text-[9px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">Work Planned</th>
                       <th className="p-6 text-[9px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">Issues & Safety</th>
                       <th className="p-6 text-[9px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">Material Log</th>
                       <th className="p-6 pr-8 text-[9px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">Management Remarks</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {reports.map((report) => (
+                    {reports.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((report) => (
                       <tr key={report.id} className="hover:bg-slate-50/50 transition-colors group align-top">
                         <td className="p-6 pl-8">
                           <div className="flex flex-col items-start gap-2">
@@ -179,7 +181,7 @@ const ClientDSRSummaryPage = () => {
                           )}
                         </td>
                         <td className="p-6">
-                          <p className="text-xs text-slate-500 italic leading-relaxed">{report.work_planned || "—"}</p>
+                          <p className="text-xs text-slate-500 leading-relaxed">{report.work_planned || "—"}</p>
                         </td>
                         <td className="p-6 space-y-3">
                           <div>
@@ -198,7 +200,7 @@ const ClientDSRSummaryPage = () => {
                           </div>
                           <div>
                             <p className="text-[8px] font-black text-emerald-500 uppercase tracking-widest mb-1">Received</p>
-                            <p className="text-[11px] text-slate-600 italic leading-relaxed">{report.material_received || "—"}</p>
+                            <p className="text-[11px] text-slate-600 leading-relaxed">{report.material_received || "—"}</p>
                           </div>
                         </td>
                         <td className="p-6 pr-8">
@@ -209,6 +211,44 @@ const ClientDSRSummaryPage = () => {
                   </tbody>
                 </table>
               </div>
+
+              {/* Pagination Controls */}
+              {reports.length > itemsPerPage && (
+                <div className="flex items-center justify-between px-8 py-5 border-t border-slate-100 bg-slate-50/30">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    Showing {(currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, reports.length)} of {reports.length} reports
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      ← Prev
+                    </button>
+                    {Array.from({ length: Math.ceil(reports.length / itemsPerPage) }, (_, i) => i + 1).map(page => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`w-9 h-9 rounded-xl text-[11px] font-black transition-all ${
+                          currentPage === page
+                            ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20"
+                            : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => setCurrentPage(p => Math.min(Math.ceil(reports.length / itemsPerPage), p + 1))}
+                      disabled={currentPage === Math.ceil(reports.length / itemsPerPage)}
+                      className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Next →
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
