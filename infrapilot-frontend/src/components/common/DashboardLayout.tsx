@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import { SidebarProvider, useSidebar } from "../../context/SidebarContext";
+import ChatWidget from "../chat/ChatWidget";
 
 interface Props {
   children?: ReactNode;
@@ -30,6 +31,9 @@ const DashboardContent = ({ children }: Props) => {
       <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
         <main className="flex-1 overflow-y-auto pt-20 relative">{children || <Outlet />}</main>
       </div>
+
+      {/* Floating Chat Widget */}
+      <ChatWidget />
     </div>
   );
 };

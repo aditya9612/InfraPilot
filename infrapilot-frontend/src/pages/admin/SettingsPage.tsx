@@ -17,7 +17,7 @@ const SectionHeader = ({ title, icon }: { title: string; icon: React.ReactNode }
 );
 
 const SettingsPage: React.FC = () => {
-    const { user } = useAuth();
+    const { user, refreshUser } = useAuth();
     const isAdmin = user?.role === "Admin";
     const [activeTab, setActiveTab] = useState<"general" | "personal" | "company">("general");
     const [settings, setSettings] = useState<UserSettings | null>(null);
@@ -158,6 +158,15 @@ const SettingsPage: React.FC = () => {
                 settingsService.updateSettings(settingsData),
                 settingsService.updateProfile(profileData)
             ]);
+
+            // Sync auth state
+            if (profileData.full_name) {
+                refreshUser({
+                    name: profileData.full_name,
+                    profile_image: profileImage || profileData.profile_image
+                });
+            }
+
             toast.success("Settings saved successfully!", { id: toastId });
             fetchData();
         } catch (error: any) {

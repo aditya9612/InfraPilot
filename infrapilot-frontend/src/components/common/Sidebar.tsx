@@ -3,6 +3,7 @@ import { NavLink, Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../../context/AuthContext";
 import { sidebarMenus, type MenuItem } from "../../config/sidebarMenu";
+import { useChat } from "../../context/ChatContext";
 import ConfirmModal from "./ConfirmModal";
 import type { JSX } from "react";
 import logo from "../../assets/logo.png";
@@ -793,6 +794,7 @@ const SidebarItem = ({
   depth?: number;
 }) => {
   const location = useLocation();
+  const { unreadTotal } = useChat();
   const [isOpen, setIsOpen] = useState(location.pathname.startsWith(item.path));
   const hasSubNav = item.subNav && item.subNav.length > 0;
   const isParentActive = hasSubNav && location.pathname.startsWith(item.path);
@@ -876,7 +878,14 @@ const SidebarItem = ({
           <span className={isActive ? "text-primary" : "text-slate-400"}>
             {icons[item.icon]}
           </span>
-          <span className="flex-1">{item.label}</span>
+          <span className="flex-1 flex items-center justify-between">
+            {item.label}
+            {item.label === "Chat" && unreadTotal > 0 && (
+              <span className="min-w-[18px] h-[18px] bg-rose-500 text-white text-[10px] font-black rounded-lg flex items-center justify-center px-1 shadow-sm animate-pulse">
+                {unreadTotal > 99 ? "99+" : unreadTotal}
+              </span>
+            )}
+          </span>
           {!hasSubNav && depth === 0 && <Chevron />}
         </>
       )}
@@ -962,7 +971,7 @@ const Sidebar = ({ onClose }: SidebarProps) => {
       <div className="px-4 py-4 border-t border-slate-100 bg-slate-50/50">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-md shadow-blue-600/20 overflow-hidden">
-            {user.profile_image ? (
+            {user.role === 'Admin' && user.profile_image ? (
               <img
                 src={user.profile_image.startsWith('http') || user.profile_image.startsWith('data:')
                   ? user.profile_image
