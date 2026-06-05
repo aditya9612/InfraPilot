@@ -63,7 +63,13 @@ const SettingsPage: React.FC = () => {
             const projectsList = Array.isArray(projectsRes) ? projectsRes : projectsRes.items || [];
             setProjects(projectsList);
             setSettings(settingsData);
-            setProfile(profileData);
+            // Normalize profile fields — backend may return `mobile` instead of `mobile_number`
+            const normalizedProfile = {
+                ...profileData,
+                mobile_number: profileData.mobile_number || (profileData as any).mobile || "",
+                email: profileData.email || (profileData as any).email_address || "",
+            };
+            setProfile(normalizedProfile);
             setCompanySettings(companyData);
 
             if (profileData.profile_image) {
