@@ -70,6 +70,7 @@ import ClientFinancialDetailsPage from "../pages/client/project-data/ClientFinan
 import ClientMonthlyProgressPage from "../pages/client/project-data/ClientMonthlyProgressPage";
 import ClientTaskStatusPage from "../pages/client/project-data/ClientTaskStatusPage";
 import ClientSettingsPage from "../pages/client/ClientSettingsPage";
+import ChatDashboard from "../pages/chat/ChatDashboard";
 
 // Engineer Pages
 import DSRPage from "../pages/engineer/DSRPage";
@@ -263,6 +264,10 @@ function AppRoutes() {
               />
               <Route path="/admin/settings" element={<SettingsPage />} />
             </Route>
+
+            {/* Shared Collaboration Routes */}
+            <Route path="/chat" element={<ChatDashboard />} />
+
             {/* Manager Specific Routes */}
             <Route path="/manager" element={<ProtectedRoute allowedRoles={["ProjectManager"]} />}>
               <Route index element={<ManagerDashboard />} />

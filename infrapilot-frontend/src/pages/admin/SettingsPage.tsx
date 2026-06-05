@@ -19,7 +19,7 @@ const SectionHeader = ({ title, icon }: { title: string; icon: React.ReactNode }
 );
 
 const SettingsPage: React.FC = () => {
-    const { user } = useAuth();
+    const { user, refreshUser } = useAuth();
     const isAdmin = user?.role === "Admin";
     const [activeTab, setActiveTab] = useState<"general" | "personal" | "company">("general");
     const [settings, setSettings] = useState<UserSettings | null>(null);
@@ -65,7 +65,13 @@ const SettingsPage: React.FC = () => {
             const projectsList = Array.isArray(projectsRes) ? projectsRes : projectsRes.items || [];
             setProjects(projectsList);
             setSettings(settingsData);
-            setProfile(profileData);
+            // Normalize profile fields — backend may return `mobile` instead of `mobile_number`
+            const normalizedProfile = {
+                ...profileData,
+                mobile_number: profileData.mobile_number || (profileData as any).mobile || "",
+                email: profileData.email || (profileData as any).email_address || "",
+            };
+            setProfile(normalizedProfile);
             setCompanySettings(companyData);
 
             if (profileData.profile_image) {
@@ -160,6 +166,15 @@ const SettingsPage: React.FC = () => {
                 settingsService.updateSettings(settingsData),
                 settingsService.updateProfile(profileData)
             ]);
+
+            // Sync auth state
+            if (profileData.full_name) {
+                refreshUser({
+                    name: profileData.full_name,
+                    profile_image: profileImage || profileData.profile_image
+                });
+            }
+
             toast.success("Settings saved successfully!", { id: toastId });
             fetchData();
         } catch (error: any) {

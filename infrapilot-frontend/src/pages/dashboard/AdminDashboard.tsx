@@ -93,7 +93,7 @@ const AdminDashboard = () => {
 
   const fetchDashboardData = useCallback(async () => {
     try {
-      setIsLoading(true);
+      if (projects.length === 0) setIsLoading(true);
       console.log("Dashboard: Starting Tier 1 (Core) fetch...");
 
       // Tier 1: Core Data (Essential for stats and graphs)
