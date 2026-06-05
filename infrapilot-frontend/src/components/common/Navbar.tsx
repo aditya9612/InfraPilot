@@ -54,13 +54,52 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
   const notifRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Only fetch notifications if not a Client (or handle client filtering if needed later)
-    // For now, removing to avoid cross-project ID leakage as requested.
-    if (!user || user.role === "Client") return;
+    if (!user) return;
 
     const fetchNotifs = async () => {
-      const data = await notificationService.getNotifications();
-      setNotifications(data);
+      try {
+        let data: Notification[] = [];
+        if (user.role !== "Client") {
+          data = await notificationService.getNotifications();
+        } else {
+          // Provide high-fidelity mock notifications for Client demonstration
+          data = [
+            {
+              id: 101,
+              title: "Project Milestone Reached",
+              description: "Foundation work for Tower B has been completed.",
+              details: "Concrete pouring for the Tower B foundation is complete. Next phase: Plinth level work.",
+              type: "Alert",
+              timestamp: new Date().toISOString(),
+              read: false,
+              source: "project"
+            },
+            {
+              id: 102,
+              title: "New Report Published",
+              description: "Monthly Financial Summary for April 2026.",
+              details: "The consolidated financial summary for April 2026 is now available for your review in the Reports section.",
+              type: "Info",
+              timestamp: new Date(Date.now() - 1000 * 60 * 45).toISOString(), // 45 mins ago
+              read: false,
+              source: "general"
+            },
+            {
+              id: 103,
+              title: "Payment Received",
+              description: "RA Bill #14 payment has been successfully recorded.",
+              details: "Your payment for Running Account Bill #14 has been processed and updated in the ledger.",
+              type: "Approval",
+              timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(), // 3 hours ago
+              read: true,
+              source: "general"
+            }
+          ] as any[];
+        }
+        setNotifications(data);
+      } catch (err) {
+        console.error("Notifications fetch failed", err);
+      }
     };
     fetchNotifs();
   }, [user]);

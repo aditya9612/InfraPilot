@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import Navbar from "../../../components/common/Navbar";
 import { reportService } from "../../../services/reportService";
 import { useClientProjectId } from "../../../hooks/useClientProjectId";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import toast from "react-hot-toast";
 
 interface FinancialSummaryData {
   project_id: number;
@@ -43,21 +46,132 @@ const ClientFinancialDetailsPage = () => {
   }, [projectId]);
 
   const handleDownloadPdf = async () => {
-    if (!projectId) return;
+    if (!projectId || !data) return;
     try {
       setExportingPdf(true);
-      const blob = await reportService.exportAuditPDF(projectId);
-      const url = window.URL.createObjectURL(new Blob([blob]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", `Financial_Audit_Report_${projectId}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const primaryBlue: [number, number, number] = [15, 23, 42]; // #0F172A
+      const accentOrange: [number, number, number] = [249, 115, 22]; // #F97316
+
+      // --- HEADER BACKGROUND ---
+      doc.setFillColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
+      doc.rect(0, 0, pageWidth, 45, 'F');
+
+      // --- LOGO / BRANDING ---
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(24);
+      doc.text("INFRA", 14, 25);
+      doc.setTextColor(accentOrange[0], accentOrange[1], accentOrange[2]);
+      doc.text("PILOT", 42, 25);
+
+      doc.setTextColor(200, 200, 200);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text("Construction Billing Software", 14, 32);
+
+      // --- REPORT BADGE ---
+      doc.setFillColor(accentOrange[0], accentOrange[1], accentOrange[2]);
+      doc.roundedRect(pageWidth - 65, 15, 50, 15, 3, 3, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("REPORT", pageWidth - 40, 25, { align: "center" });
+
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Generated: ${new Date().toUTCString()}`, pageWidth - 14, 36, { align: "right" });
+
+      // --- SUB-HEADER ---
+      doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
+      doc.setFontSize(20);
+      doc.setFont("helvetica", "bold");
+      doc.text("Financial Summary Report", pageWidth / 2, 60, { align: "center" });
+
+      doc.setFontSize(11);
+      doc.setTextColor(100, 100, 100);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Project Archive: PRJ-${projectId} | Financial Audit Ledger`, pageWidth / 2, 67, { align: "center" });
+
+      // --- ORANGE DIVIDER ---
+      doc.setDrawColor(accentOrange[0], accentOrange[1], accentOrange[2]);
+      doc.setLineWidth(1);
+      doc.line(14, 75, pageWidth - 14, 75);
+
+      // --- SUMMARY HEADER ---
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
+      doc.text("FINANCIAL SUMMARY", 14, 105);
+
+      const pdfFmt = (val: number) => `Rs. ${(val ?? 0).toLocaleString("en-IN")}`;
+
+      // --- SUMMARY STATS ---
+      const summaryStats = [
+        { label: "Total Expense", value: pdfFmt(data.total_expense) },
+        { label: "Total Invoice", value: pdfFmt(data.total_invoice) },
+        { label: "Paid Invoice", value: pdfFmt(data.paid_invoice) },
+        { label: "Pending", value: pdfFmt(data.pending_invoice) }
+      ];
+
+      const statCount = summaryStats.length;
+      const statWidth = (pageWidth - 28) / statCount;
+      let currentX = 14;
+
+      summaryStats.forEach(stat => {
+        doc.setDrawColor(accentOrange[0], accentOrange[1], accentOrange[2]);
+        doc.setLineWidth(1);
+        doc.line(currentX, 115, currentX + statWidth - 2, 115);
+
+        doc.setFontSize(7);
+        doc.setTextColor(150, 150, 150);
+        doc.setFont("helvetica", "normal");
+        doc.text(stat.label.toUpperCase(), currentX + 2, 125);
+
+        doc.setFontSize(9);
+        doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
+        doc.setFont("helvetica", "bold");
+        doc.text(stat.value, currentX + 2, 140);
+        currentX += statWidth;
+      });
+
+      // --- DETAILED BREAKDOWN ---
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
+      doc.text("AUDIT BREAKDOWN", 14, 165);
+
+      autoTable(doc, {
+        startY: 172,
+        head: [["Metric Identifier", "Audit Value", "Compliance Note"]],
+        body: [
+          ["Operational Expenditure", pdfFmt(data.total_expense), "Verified Site Overhead"],
+          ["Consolidated Revenue", pdfFmt(data.total_invoice), "Billed Milestone Value"],
+          ["Settled Revenue", pdfFmt(data.paid_invoice), "Confirmed Receipts"],
+          ["Outstanding AR", pdfFmt(data.pending_invoice), "Revenue in Transit"]
+        ],
+        theme: 'grid',
+        headStyles: {
+            fillColor: primaryBlue,
+            textColor: [255, 255, 255],
+            fontSize: 10,
+            fontStyle: 'bold'
+        },
+        bodyStyles: {
+            textColor: [30, 41, 59],
+            fontSize: 9
+        },
+        alternateRowStyles: {
+            fillColor: [248, 250, 252]
+        }
+      });
+
+      doc.save(`Financial_Summary_Report_${projectId}.pdf`);
+      toast.success("Financial PDF exported successfully!");
     } catch (err) {
-      console.error("Error exporting Audit PDF:", err);
-      alert("Failed to export Audit report.");
+      console.error("Error generating Premium PDF:", err);
+      toast.error("Failed to generate premium export.");
     } finally {
       setExportingPdf(false);
     }

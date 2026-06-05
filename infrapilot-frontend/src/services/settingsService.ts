@@ -74,7 +74,7 @@ export const settingsService = {
 
         try {
             const response = await api.put("/settings", payload);
-            if (payload.default_project_id) {
+            if (payload.default_project_id !== null && payload.default_project_id !== undefined) {
                 localStorage.setItem("client_selected_project_id", payload.default_project_id.toString());
             }
             // Ensure we save the user's choice locally immediately with high priority

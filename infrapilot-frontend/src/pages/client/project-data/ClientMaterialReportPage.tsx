@@ -49,7 +49,7 @@ const ClientMaterialReportPage = () => {
           total_purchased: item.total_purchased ?? item.quantity_purchased ?? 0,
           total_used: item.total_used ?? item.quantity_used ?? 0,
           remaining_stock: item.remaining_stock ?? item.remaining_quantity ?? item.current_stock ?? 0,
-          total_cost: item.total_cost ?? item.total_valuation ?? ((item.purchase_rate || 0) * (item.remaining_quantity || 0))
+          total_cost: (item.total_cost ?? item.total_amount ?? item.total_value ?? item.total_valuation ?? 0) || ((item.purchase_rate || item.avg_rate || 0) * (item.remaining_stock ?? item.remaining_quantity ?? 0))
         }));
         setMaterialData(normalizedItems);
       }

@@ -28,7 +28,13 @@ const ClientSettingsPage = () => {
        auto_save: true,
        compact_view: true,
        show_weather: true,
-       auto_gps: true
+       auto_gps: true,
+       notif_email: true,
+       notif_sms: false,
+       notif_push: true,
+       notif_dsr: true,
+       notif_issue: false,
+       notif_material: true
     },
     financial_year: "2025-26",
     currency: "INR",
@@ -36,6 +42,9 @@ const ClientSettingsPage = () => {
     invoice_format: "standard",
     payment_terms: "30 days"
   });
+  // Additional unit selections
+  const [massUnit, setMassUnit] = useState<string>("Kg");
+  const [lengthUnit, setLengthUnit] = useState<string>("Meter");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -48,8 +57,9 @@ const ClientSettingsPage = () => {
         const projectsList = Array.isArray(projectsResult) ? projectsResult : (projectsResult?.items || projectsResult?.data || []);
         setProjects(projectsList);
         if (projectsList.length > 0) {
-          const defaultPid = settingsData?.default_project_id || projectsList[0]?.id || projectsList[0]?.project_id;
-          setActiveProjectId(defaultPid);
+          const localSavedId = localStorage.getItem("client_selected_project_id");
+          const defaultPid = settingsData?.default_project_id || (localSavedId ? Number(localSavedId) : null) || projectsList[0]?.id || projectsList[0]?.project_id;
+          setActiveProjectId(Number(defaultPid));
         }
         setProfile(profileData);
         setPreviewUrl(null);
@@ -62,7 +72,17 @@ const ClientSettingsPage = () => {
                 ...settingsData.preferences,
                 language: settingsData.preferences?.language || "English",
                 timezone: settingsData.preferences?.timezone || "IST (UTC+5:30)",
-                date_format: settingsData.preferences?.date_format || "DD/MM/YYYY"
+                date_format: settingsData.preferences?.date_format || "DD/MM/YYYY",
+                auto_save: settingsData.preferences?.auto_save ?? true,
+                compact_view: settingsData.preferences?.compact_view ?? true,
+                show_weather: settingsData.preferences?.show_weather ?? true,
+                auto_gps: settingsData.preferences?.auto_gps ?? true,
+                notif_email: settingsData.preferences?.notif_email ?? true,
+                notif_sms: settingsData.preferences?.notif_sms ?? false,
+                notif_push: settingsData.preferences?.notif_push ?? true,
+                notif_dsr: settingsData.preferences?.notif_dsr ?? true,
+                notif_issue: settingsData.preferences?.notif_issue ?? false,
+                notif_material: settingsData.preferences?.notif_material ?? true
             }
         });
       } catch (err) {
@@ -73,6 +93,16 @@ const ClientSettingsPage = () => {
     };
     fetchData();
   }, []);
+
+  const togglePreference = (key: string) => {
+    setSettings(prev => ({
+      ...prev,
+      preferences: {
+        ...prev.preferences,
+        [key]: !prev.preferences?.[key]
+      }
+    }));
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -313,7 +343,7 @@ const ClientSettingsPage = () => {
                                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Mass / Weight</p>
                                 <div className="flex items-center bg-slate-50 rounded-xl p-1">
                                     {["Kg", "Feet", "Meter"].map((v, i) => (
-                                        <button key={i} className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${v === "Feet" ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400'}`}>{v}</button>
+                                        <button key={i} onClick={() => setMassUnit(v)} className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${v === massUnit ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400'}`}>{v}</button>
                                     ))}
                                 </div>
                             </div>
@@ -321,8 +351,8 @@ const ClientSettingsPage = () => {
                                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Length / Distance</p>
                                 <div className="flex items-center bg-slate-50 rounded-xl p-1 gap-1">
                                     {["Meter", "Feet", "Inch", "Cm"].map((v, i) => (
-                                        <button key={i} className={`flex-1 py-2 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${v === "Meter" ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400'}`}>{v}</button>
-                                    ))}
+                                            <button key={i} onClick={() => setLengthUnit(v)} className={`flex-1 py-2 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${v === lengthUnit ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400'}`}>{v}</button>
+                                        ))}
                                 </div>
                             </div>
                         </div>
@@ -330,7 +360,7 @@ const ClientSettingsPage = () => {
                         <div className="bg-slate-50/50 p-4 rounded-xl flex items-center justify-between border border-dashed border-slate-200 mt-2">
                             <div>
                                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Current Units</p>
-                                <p className="text-xs font-black text-slate-800">{settings.unit} · Feet · Meter</p>
+                                <p className="text-xs font-black text-slate-800">{settings.unit} · {massUnit} · {lengthUnit}</p>
                             </div>
                             <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-sm">⚖️</div>
                         </div>
@@ -347,29 +377,35 @@ const ClientSettingsPage = () => {
                     </div>
                     <div className="space-y-4">
                         {[
-                            { label: "Email Alerts", sub: "Receive daily summary via email", icon: "📧", active: true },
-                            { label: "SMS Alerts", sub: "Critical site alerts via SMS", icon: "📱", active: false },
-                            { label: "Push Notifications", sub: "Real-time app notifications", icon: "🔔", active: true },
-                            { label: "DSR Reminders", sub: "Daily reminder to submit DSR", icon: "📋", active: true },
-                            { label: "Issue Alerts", sub: "Notify on new high-priority issues", icon: "⚠️", active: false },
-                            { label: "Material Alerts", sub: "Low stock threshold notifications", icon: "🏗️", active: true },
-                        ].map((n, i) => (
-                            <div key={i} className="group p-4 bg-slate-50/20 hover:bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between transition-all">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm border border-slate-50 group-hover:scale-110 transition-transform">{n.icon}</div>
-                                    <div>
-                                        <p className="text-xs font-black text-slate-800 tracking-tight">{n.label}</p>
-                                        <p className="text-[10px] text-slate-400 font-medium">{n.sub}</p>
+                            { label: "Email Alerts", sub: "Receive daily summary via email", icon: "📧", key: "notif_email" },
+                            { label: "SMS Alerts", sub: "Critical site alerts via SMS", icon: "📱", key: "notif_sms" },
+                            { label: "Push Notifications", sub: "Real-time app notifications", icon: "🔔", key: "notif_push" },
+                            { label: "DSR Reminders", sub: "Daily reminder to submit DSR", icon: "📋", key: "notif_dsr" },
+                            { label: "Issue Alerts", sub: "Notify on new high-priority issues", icon: "⚠️", key: "notif_issue" },
+                            { label: "Material Alerts", sub: "Low stock threshold notifications", icon: "🏗️", key: "notif_material" },
+                        ].map((n, i) => {
+                            const isActive = settings.preferences?.[n.key] ?? false;
+                            return (
+                                <div key={i} className="group p-4 bg-slate-50/20 hover:bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between transition-all">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm border border-slate-50 group-hover:scale-110 transition-transform">{n.icon}</div>
+                                        <div>
+                                            <p className="text-xs font-black text-slate-800 tracking-tight">{n.label}</p>
+                                            <p className="text-[10px] text-slate-400 font-medium">{n.sub}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <span className={`text-[9px] font-black tracking-widest uppercase ${isActive ? 'text-emerald-500' : 'text-slate-400'}`}>{isActive ? 'On' : 'Off'}</span>
+                                        <button 
+                                            onClick={() => togglePreference(n.key)}
+                                            className={`w-10 h-5 rounded-full relative transition-all ${isActive ? 'bg-blue-600' : 'bg-slate-300'}`}
+                                        >
+                                            <div className={`w-3 h-3 bg-white rounded-full absolute top-1 transition-all ${isActive ? 'left-6' : 'left-1'}`} />
+                                        </button>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    <span className={`text-[9px] font-black tracking-widest uppercase ${n.active ? 'text-emerald-500' : 'text-slate-400'}`}>{n.active ? 'On' : 'Off'}</span>
-                                    <button className={`w-10 h-5 rounded-full relative transition-all ${n.active ? 'bg-blue-600' : 'bg-slate-300'}`}>
-                                        <div className={`w-3 h-3 bg-white rounded-full absolute top-1 transition-all ${n.active ? 'left-6' : 'left-1'}`} />
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
 
@@ -383,7 +419,11 @@ const ClientSettingsPage = () => {
                         <div className="space-y-6">
                             <div className="space-y-2">
                                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Language</label>
-                                <select className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-[13px] font-bold text-slate-700 outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer">
+                                <select 
+                                    value={settings.preferences?.language || "English"}
+                                    onChange={(e) => setSettings(s => ({ ...s, preferences: { ...s.preferences, language: e.target.value } }))}
+                                    className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-[13px] font-bold text-slate-700 outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
+                                >
                                     <option>English</option>
                                     <option>Hindi</option>
                                 </select>
@@ -392,34 +432,59 @@ const ClientSettingsPage = () => {
                             <div className="grid grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Timezone</label>
-                                    <input type="text" readOnly value="IST (UTC+5:30)" className="w-full bg-slate-100/50 border border-slate-100 rounded-xl px-5 py-3.5 text-[12px] font-bold text-slate-700 cursor-default" />
+                                    <select 
+                                        value={settings.preferences?.timezone || "IST (UTC+5:30)"}
+                                        onChange={(e) => setSettings(s => ({ ...s, preferences: { ...s.preferences, timezone: e.target.value } }))}
+                                        className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-[12px] font-bold text-slate-700 outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
+                                    >
+                                        <option>IST (UTC+5:30)</option>
+                                        <option>UTC</option>
+                                        <option>EST (UTC-5)</option>
+                                        <option>GST (UTC+4)</option>
+                                    </select>
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Date Format</label>
-                                    <input type="text" readOnly value="DD/MM/YYYY" className="w-full bg-slate-100/50 border border-slate-100 rounded-xl px-5 py-3.5 text-[12px] font-bold text-slate-700 cursor-default" />
+                                    <select 
+                                        value={settings.preferences?.date_format || "DD/MM/YYYY"}
+                                        onChange={(e) => setSettings(s => ({ ...s, preferences: { ...s.preferences, date_format: e.target.value } }))}
+                                        className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-[12px] font-bold text-slate-700 outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
+                                    >
+                                        <option>DD/MM/YYYY</option>
+                                        <option>MM/DD/YYYY</option>
+                                        <option>YYYY-MM-DD</option>
+                                    </select>
                                 </div>
                             </div>
 
                             <div className="space-y-4">
                                 {[
-                                    { label: "Auto Save", sub: "Auto-save form drafts every 60s", active: true },
-                                    { label: "Compact View", sub: "Reduce padding for denser layout", active: true },
-                                    { label: "Show Weather Widget", sub: "Display weather on dashboard", active: true },
-                                    { label: "Auto GPS Capture", sub: "Capture GPS on DSR form open", active: true },
-                                ].map((p, i) => (
-                                    <div key={i} className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-xs font-black text-slate-800 tracking-tight">{p.label}</p>
-                                            <p className="text-[10px] text-slate-400 font-medium">{p.sub}</p>
+                                    { label: "Auto Save", sub: "Auto-save form drafts every 60s", key: "auto_save" },
+                                    { label: "Compact View", sub: "Reduce padding for denser layout", key: "compact_view" },
+                                    { label: "Show Weather Widget", sub: "Display weather on dashboard", key: "show_weather" },
+                                    { label: "Auto GPS Capture", sub: "Capture GPS on DSR form open", key: "auto_gps" },
+                                ].map((p, i) => {
+                                    const isActive = settings.preferences?.[p.key] ?? true;
+                                    return (
+                                        <div key={i} className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-xs font-black text-slate-800 tracking-tight">{p.label}</p>
+                                                <p className="text-[10px] text-slate-400 font-medium">{p.sub}</p>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <span className={`text-[9px] font-black tracking-widest uppercase ${isActive ? 'text-emerald-500' : 'text-slate-400'}`}>
+                                                    {isActive ? 'On' : 'Off'}
+                                                </span>
+                                                <button 
+                                                    onClick={() => togglePreference(p.key)}
+                                                    className={`w-10 h-5 rounded-full relative transition-all ${isActive ? 'bg-blue-600' : 'bg-slate-300'}`}
+                                                >
+                                                    <div className={`w-3 h-3 bg-white rounded-full absolute top-1 transition-all ${isActive ? 'left-6' : 'left-1'}`} />
+                                                </button>
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-[9px] font-black tracking-widest text-emerald-500 uppercase">On</span>
-                                            <button className="w-10 h-5 bg-blue-600 rounded-full relative transition-all">
-                                                <div className="w-3 h-3 bg-white rounded-full absolute top-1 left-6" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                    </div>

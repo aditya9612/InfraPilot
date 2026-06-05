@@ -117,7 +117,7 @@ const ClientOverviewPage = () => {
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Project Name</p>
                     <p className="text-sm font-bold text-slate-800 leading-tight">{projectData?.project_name || "—"}</p>
-                    <p className="text-[9px] font-black text-blue-500 uppercase mt-1 tracking-tight">Ref: PRJ-{projectId}</p>
+                    
                   </div>
                 </div>
 
@@ -148,15 +148,7 @@ const ClientOverviewPage = () => {
                   </div>
                 </div>
 
-                {/* Total Budget */}
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-lg shrink-0">💰</div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Budget</p>
-                    <p className="text-sm font-bold text-emerald-600">₹{(projectData?.budget_total || 700000).toLocaleString("en-IN")}</p>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">Project Valuation</p>
-                  </div>
-                </div>
+
 
                 {/* Site Address */}
                 <div className="flex items-start gap-4">
@@ -176,11 +168,7 @@ const ClientOverviewPage = () => {
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Location Details</p>
                     <p className="text-sm font-bold text-slate-800 leading-tight">
                       {[projectData?.city, projectData?.state, projectData?.country, projectData?.pincode].filter(Boolean).join(", ") || "Pune, Maharashtra, India, 444236"}
-                      {projectData?.location_type && (
-                        <span className="text-slate-400 font-medium ml-1">
-                          ({projectData.location_type})
-                        </span>
-                      )}
+
                     </p>
                   </div>
                 </div>
