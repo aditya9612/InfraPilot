@@ -232,6 +232,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
   ],
   SiteEngineer: [
     { label: "Dashboard", path: "/engineer", icon: "grid" },
+    { label: "Chat", path: "/chat", icon: "message-circle" },
     { label: "Daily Site Report (DSR)", path: "/engineer/dsr", icon: "clipboard" },
     {
       label: "Work Progress",
@@ -302,7 +303,6 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       ],
     },
     { label: "Reports", path: "/engineer/reports", icon: "bar-chart" },
-    { label: "Chat", path: "/chat", icon: "message-circle" },
     { label: "Settings", path: "/engineer/settings", icon: "settings" },
   ],
   Accountant: [
@@ -430,10 +430,10 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     { label: "Approvals", path: "/client/approvals", icon: "check-circle" },
     {
       label: "Communication",
-      path: "/client/communication",
+      path: "/chat",
       icon: "message-circle",
       subNav: [
-        { label: "Messages", path: "/client/communication/messages", icon: "mail" },
+        { label: "Chat", path: "/chat", icon: "message-circle" },
         { label: "Announcements", path: "/client/communication/announcements", icon: "bell" },
       ],
     },
@@ -448,7 +448,6 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       ],
     },
     { label: "Settings", path: "/client/settings", icon: "settings" },
-    { label: "Chat", path: "/chat", icon: "message-circle" },
   ],
   Labour: [
     { label: "Dashboard", path: "/labour", icon: "grid" },

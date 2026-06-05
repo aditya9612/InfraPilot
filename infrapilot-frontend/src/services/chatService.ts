@@ -10,13 +10,19 @@ import type {
 export const chatService = {
     // --- Chat Users ---
     async getChatUsers(): Promise<ChatUser[]> {
-        const response = await api.get<ChatUser[]>("/chats/users");
-        return response.data;
+        const response = await api.get<any[]>("/chats/users");
+        return response.data.map(u => ({
+            ...u,
+            id: u.id || u.user_id || u.ID // Support multiple backend variations
+        }));
     },
 
     async searchUsers(query: string): Promise<ChatUser[]> {
-        const response = await api.get<ChatUser[]>(`/chats/search-users?q=${query}`);
-        return response.data;
+        const response = await api.get<any[]>(`/chats/search-users?q=${query}`);
+        return response.data.map(u => ({
+            ...u,
+            id: u.id || u.user_id || u.ID
+        }));
     },
 
     // --- Chat List ---
