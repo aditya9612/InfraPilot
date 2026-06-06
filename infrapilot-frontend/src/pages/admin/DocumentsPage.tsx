@@ -403,37 +403,68 @@ const DocumentsPage = () => {
             </table>
           </div>
 
-          {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="px-3 sm:px-6 py-4 border-t border-slate-50 bg-slate-50/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                Showing {(currentPage * PAGE_SIZE) + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, documents.length)} of {documents.length} Records
-              </p>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-                  disabled={currentPage === 0}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-                <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700">
-                  {currentPage + 1}
-                </div>
-                <button
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
-                  disabled={currentPage >= totalPages - 1}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
+          {/* Pagination */}
+          <div className="p-4 border-t border-slate-100 bg-slate-50/30 flex items-center justify-between flex-wrap gap-3">
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+              Showing {documents.length > 0 ? currentPage * PAGE_SIZE + 1 : 0}–{Math.min((currentPage + 1) * PAGE_SIZE, documents.length)} of {documents.length} records
+            </p>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setCurrentPage(0)}
+                disabled={currentPage === 0}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-[10px] font-bold"
+                title="First Page"
+              >
+                «
+              </button>
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                disabled={currentPage === 0}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i)
+                .filter(i => Math.abs(i - currentPage) <= 1 || i === 0 || i === totalPages - 1)
+                .map((i, idx, arr) => (
+                  <div key={i} className="flex items-center">
+                    {idx > 0 && arr[idx - 1] !== i - 1 && (
+                      <span className="px-1 text-slate-400 text-[10px]">...</span>
+                    )}
+                    <button
+                      onClick={() => setCurrentPage(i)}
+                      className={`w-8 h-8 flex items-center justify-center rounded-lg border text-xs font-bold transition-all ${i === currentPage
+                          ? "border-slate-200 text-slate-700 bg-white font-inter"
+                          : "border-slate-200 text-slate-500 hover:bg-slate-50"
+                        }`}
+                    >
+                      {i + 1}
+                    </button>
+                  </div>
+                ))}
+
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={currentPage >= totalPages - 1}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+              <button
+                onClick={() => setCurrentPage(totalPages - 1)}
+                disabled={currentPage >= totalPages - 1}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-[10px] font-bold"
+                title="Last Page"
+              >
+                »
+              </button>
             </div>
-          )}
+          </div>
 
           {documents.length === 0 && !isLoading && (
             <div className="p-20 text-center">

@@ -191,6 +191,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       ],
     },
     { label: "Integrations", path: "/admin/integrations", icon: "link" },
+    { label: "Chat", path: "/chat", icon: "message-circle" },
     { label: "Settings", path: "/admin/settings", icon: "settings" },
   ],
   ProjectManager: [
@@ -226,6 +227,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
         { label: "Safety Audit", path: "/manager/compliance/safety", icon: "alert-triangle" },
       ],
     },
+    { label: "Chat", path: "/chat", icon: "message-circle" },
     { label: "Settings", path: "/manager/settings", icon: "settings" },
   ],
   SiteEngineer: [
@@ -300,6 +302,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       ],
     },
     { label: "Reports", path: "/engineer/reports", icon: "bar-chart" },
+    { label: "Chat", path: "/chat", icon: "message-circle" },
     { label: "Settings", path: "/engineer/settings", icon: "settings" },
   ],
   Accountant: [
@@ -405,6 +408,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       ],
     },
     { label: "Reports", path: "/accountant/reports", icon: "bar-chart" },
+    { label: "Chat", path: "/chat", icon: "message-circle" },
     { label: "Settings", path: "/accountant/settings", icon: "settings" },
   ],
   Client: [
@@ -426,10 +430,10 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     { label: "Approvals", path: "/client/approvals", icon: "check-circle" },
     {
       label: "Communication",
-      path: "/client/communication",
+      path: "/chat",
       icon: "message-circle",
       subNav: [
-        { label: "Messages", path: "/client/communication/messages", icon: "mail" },
+        { label: "Chat", path: "/chat", icon: "message-circle" },
         { label: "Announcements", path: "/client/communication/announcements", icon: "bell" },
       ],
     },
@@ -450,5 +454,6 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     { label: "My Tasks", path: "/labour/tasks", icon: "clipboard" },
     { label: "Payments", path: "/labour/payments", icon: "wallet" },
     { label: "Settings", path: "/labour/settings", icon: "settings" },
+    { label: "Chat", path: "/chat", icon: "message-circle" },
   ],
 };
