@@ -486,10 +486,12 @@ const ClientReportsPage = () => {
       doc.setFont("helvetica", "normal");
       doc.text(stat.label.toUpperCase(), currentX + 5, 125);
 
-      doc.setFontSize(16);
+      doc.setFontSize(11); // Slightly smaller for better fit
       doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
       doc.setFont("helvetica", "bold");
-      doc.text(stat.value, currentX + 5, 140);
+      const statValue = stat.value ? stat.value.toString() : "-";
+      const splitValue = doc.splitTextToSize(statValue, statWidth - 10);
+      doc.text(splitValue, currentX + 5, 132); // Adjusted Y for multi-line
 
       currentX += statWidth;
     });
@@ -848,7 +850,16 @@ const ClientReportsPage = () => {
       // --- CARDS ---
       let currentY = 60;
 
-      allReports.forEach((report) => {
+      const filteredReports = allReports.filter(report => {
+        const matchesSearch =
+          report.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          report.level.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesFrequency = frequency === "All Cycles" || report.frequency === frequency;
+        if (activeTab === "issues" && report.title !== "Issue Report") return false;
+        return matchesSearch && matchesFrequency;
+      });
+
+      filteredReports.forEach((report) => {
         // Page break if card exceeds page
         if (currentY > 230) {
           doc.addPage();
@@ -858,7 +869,7 @@ const ClientReportsPage = () => {
         // Card Container
         doc.setDrawColor(240, 240, 240);
         doc.setFillColor(255, 255, 255);
-        doc.roundedRect(14, currentY, pageWidth - 28, 55, 4, 4, 'FD');
+        doc.roundedRect(14, currentY, pageWidth - 28, 60, 4, 4, 'FD');
 
         // Icon Badge (Geometric)
         const iconColor =
@@ -904,8 +915,10 @@ const ClientReportsPage = () => {
           doc.text(stat.label.toUpperCase(), statX, currentY + 45);
 
           doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
-          doc.setFontSize(10);
-          doc.text(stat.value.toString(), statX, currentY + 52);
+          doc.setFontSize(8); // Reduced slightly for better fit
+          const statValue = stat.value.toString();
+          const splitStatValue = doc.splitTextToSize(statValue, statSpacing - 5);
+          doc.text(splitStatValue, statX, currentY + 51);
           statX += statSpacing;
         });
 
@@ -944,7 +957,16 @@ const ClientReportsPage = () => {
     if (!projectId) return;
     try {
       toast.loading("Compiling Operational Dataset...", { id: "exec-excel" });
-      const summaryData = allReports.map(r => ({
+      const filteredReports = allReports.filter(report => {
+        const matchesSearch =
+          report.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          report.level.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesFrequency = frequency === "All Cycles" || report.frequency === frequency;
+        if (activeTab === "issues" && report.title !== "Issue Report") return false;
+        return matchesSearch && matchesFrequency;
+      });
+      
+      const summaryData = filteredReports.map(r => ({
         Level: r.level,
         Report_Type: r.title,
         Description: r.desc,
@@ -1066,6 +1088,7 @@ const ClientReportsPage = () => {
                   if (val === "All Cycles") setActiveTab("all");
                   else if (val === "Daily") setActiveTab("daily");
                   else if (val === "Weekly") setActiveTab("weekly");
+                  else if (val === "As Needed") setActiveTab("issues");
                   else setActiveTab("none");
                 }}
                 className="w-full bg-slate-50/50 border border-slate-100 rounded-2xl px-4 py-3.5 text-[11px] font-bold text-slate-700 focus:outline-none appearance-none cursor-pointer"
@@ -1073,6 +1096,7 @@ const ClientReportsPage = () => {
                 <option>All Cycles</option>
                 <option>Daily</option>
                 <option>Weekly</option>
+                <option>As Needed</option>
               </select>
               <svg className="w-3.5 h-3.5 absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" /></svg>
             </div>

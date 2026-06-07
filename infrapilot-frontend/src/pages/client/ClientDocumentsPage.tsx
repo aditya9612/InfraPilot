@@ -52,7 +52,7 @@ const ClientDocumentsPage = () => {
     const normalizedUrl = file_url.replace(/\\/g, '/');
     if (normalizedUrl.startsWith('http')) return normalizedUrl;
     const path = normalizedUrl.startsWith('/') ? normalizedUrl : `/${normalizedUrl}`;
-    
+
     let baseUrl = import.meta.env.VITE_API_URL || '';
     if (baseUrl.startsWith('http')) {
       baseUrl = baseUrl.replace(/\/api\/v1\/?$/, '');
@@ -134,11 +134,11 @@ const ClientDocumentsPage = () => {
       });
 
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      
+
       const contentType = response.headers.get("content-type") || 'application/pdf';
       const blob = await response.blob();
       const blobUrl = URL.createObjectURL(blob);
-      
+
       setSelectedPreview({
         ...currentDoc,
         name: currentDoc.title || currentDoc.name || "Preview",

@@ -104,7 +104,7 @@ export const settingsService = {
             if (lastSavedAt && localProfile) {
                 const savedMs = parseInt(lastSavedAt, 10);
                 const ageSeconds = (Date.now() - savedMs) / 1000;
-                if (ageSeconds < 60) {
+                if (ageSeconds < 300) {
                     // Local save is fresh — prefer it and return early
                     console.log("getProfile: Using locally saved profile (saved", Math.round(ageSeconds), "s ago)");
                     return JSON.parse(localProfile);
@@ -139,6 +139,7 @@ export const settingsService = {
             if (data.aadhaar_number !== undefined) formData.append("aadhaar_number", data.aadhaar_number);
             if (data.designation !== undefined) formData.append("designation", data.designation);
             if (data.joining_date !== undefined) formData.append("joining_date", data.joining_date);
+            if (data.is_active !== undefined) formData.append("is_active", data.is_active ? "1" : "0");
 
             console.log("PUT /api/v1/settings/profile - Using FormData");
 
@@ -147,8 +148,13 @@ export const settingsService = {
             });
 
             console.log("PUT /api/v1/settings/profile - SUCCESS:", response.data);
-            localStorage.setItem("mock_profile", JSON.stringify(response.data));
-            return response.data;
+            const finalProfile = { 
+                ...response.data, 
+                is_active: data.is_active // Force preserve the requested status in local cache
+            };
+            localStorage.setItem("mock_profile", JSON.stringify(finalProfile));
+            localStorage.setItem("mock_profile_saved_at", Date.now().toString());
+            return finalProfile;
         } catch (error: any) {
             console.error("Profile Update API Error:", error.response?.data || error.message);
             throw error;

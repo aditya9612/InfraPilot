@@ -2,8 +2,9 @@ import { useState, useEffect, useCallback } from "react";
 import Navbar from "../../components/common/Navbar";
 import Modal from "../../components/common/Modal";
 import { issueService } from "../../services/issueService";
+import { projectService } from "../../services/projectService";
 import { useClientProjectId } from "../../hooks/useClientProjectId";
-import { Search, Plus, Filter, ChevronDown, ChevronLeft, ChevronRight, Clock, CheckCircle2, History, X } from "lucide-react";
+import { Search, Plus, ChevronDown, ChevronLeft, ChevronRight, Clock, CheckCircle2, History } from "lucide-react";
 import toast from "react-hot-toast";
 
 const ClientIssuesPage = () => {
@@ -19,6 +20,7 @@ const ClientIssuesPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL STATUS");
   const [priorityFilter, setPriorityFilter] = useState("ALL PRIORITY");
+  const [categoryFilter, setCategoryFilter] = useState("ALL CATEGORY");
 
   const [newIssue, setNewIssue] = useState({
     title: "",
@@ -30,8 +32,23 @@ const ClientIssuesPage = () => {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [projectName, setProjectName] = useState("Loading...");
 
   const { projectId } = useClientProjectId();
+
+  const fetchProjectDetails = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const data = await projectService.getProjectById(projectId);
+      setProjectName(data.project_name || "New sara city");
+    } catch (error) {
+      console.error("Failed to fetch project details:", error);
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    fetchProjectDetails();
+  }, [fetchProjectDetails]);
 
   const fetchIssues = useCallback(async () => {
     if (!projectId) return;
@@ -85,9 +102,13 @@ const ClientIssuesPage = () => {
       result = result.filter(i => i.priority?.toUpperCase() === priorityFilter);
     }
 
+    if (categoryFilter !== "ALL CATEGORY") {
+      result = result.filter(i => i.category?.toUpperCase() === categoryFilter);
+    }
+
     setFilteredIssues(result);
     setCurrentPage(1);
-  }, [issues, searchQuery, statusFilter, priorityFilter]);
+  }, [issues, searchQuery, statusFilter, priorityFilter, categoryFilter]);
 
   const handleViewIssue = async (id: number) => {
     try {
@@ -194,9 +215,26 @@ const ClientIssuesPage = () => {
               />
             </div>
             
-            <div className="flex items-center gap-6 font-inter">
-              <Filter className="w-5 h-5 text-slate-300 mr-2 font-inter font-inter" />
-              
+            <div className="flex items-center gap-6 font-inter overflow-x-auto">
+              <div className="flex items-center gap-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 font-inter">Category:</p>
+                <div className="relative group">
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className="bg-slate-50 border border-slate-100 rounded-xl py-3.5 pl-6 pr-12 text-[11px] font-black uppercase tracking-widest text-slate-700 outline-none appearance-none cursor-pointer hover:bg-white shadow-sm transition-all font-inter"
+                  >
+                    <option>ALL CATEGORY</option>
+                    <option>MATERIAL</option>
+                    <option>SAFETY</option>
+                    <option>DELAY</option>
+                    <option>QUALITY</option>
+                    <option>GENERAL</option>
+                  </select>
+                  <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none font-inter" />
+                </div>
+              </div>
+
               <div className="flex items-center gap-4 font-inter">
                 <div className="relative font-inter font-inter">
                   <select 
@@ -366,7 +404,7 @@ const ClientIssuesPage = () => {
         title=""
         maxWidth="max-w-2xl"
       >
-        <div className="-mt-12 font-inter">
+        <div className="pt-2 font-inter">
             <div className="flex items-center justify-between mb-8 font-inter">
                <h3 className="text-xl font-black text-slate-700 tracking-tight font-inter">Constraint Intelligence Overview</h3>
             </div>
@@ -458,97 +496,141 @@ const ClientIssuesPage = () => {
         </div>
       </Modal>
 
-      {/* Create Issue Modal */}
       <Modal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        title=""
+        title="Log Issue"
         maxWidth="max-w-2xl"
       >
-        <div className="-mt-12 font-inter">
-            <div className="mb-8 flex items-center justify-between font-inter">
-               <h3 className="text-xl font-black text-slate-700 tracking-tight font-inter">Vault Entry: New Site Constraint</h3>
-            </div>
-            
-            <form onSubmit={handleCreateIssue} className="space-y-8 font-inter font-inter">
-            <div className="space-y-6 font-inter">
-                <div className="font-inter">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 font-inter">CONSTRAINT TITLE</label>
-                <input 
-                    required
-                    type="text" 
-                    value={newIssue.title}
-                    onChange={(e) => setNewIssue({...newIssue, title: e.target.value})}
-                    className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 transition-all font-inter font-inter"
-                    placeholder="Brief identifying name for this issue..."
-                />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-6 font-inter">
-                    <div className="font-inter">
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 font-inter">CATEGORY PROFILE font-inter</label>
-                        <div className="relative font-inter">
-                            <select 
-                                value={newIssue.category}
-                                onChange={(e) => setNewIssue({...newIssue, category: e.target.value})}
-                                className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:outline-none appearance-none cursor-pointer font-inter font-inter font-inter"
-                            >
-                                <option value="Material">Material Constraint</option>
-                                <option value="Safety">Safety Protocol</option>
-                                <option value="Delay">Project Delay</option>
-                                <option value="Quality">Quality Concern</option>
-                            </select>
-                            <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none font-inter" />
-                        </div>
+        <div className="pt-2">
+            <form onSubmit={handleCreateIssue} className="space-y-6">
+              {/* Project Section */}
+              <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+                 <h4 className="text-sm font-black text-slate-800 mb-4 font-inter">Project</h4>
+                 <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1 font-inter">
+                      PROJECT <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative group">
+                       <select 
+                         disabled
+                         className="w-full bg-slate-50/50 border border-slate-100 rounded-xl py-3 px-5 text-sm font-bold text-slate-700 outline-none appearance-none cursor-not-allowed font-inter"
+                       >
+                         <option>{projectName}</option>
+                       </select>
+                       <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                     </div>
-                    <div className="font-inter">
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 font-inter">PRIORITY RATING font-inter</label>
-                        <div className="relative font-inter font-inter">
-                            <select 
-                                value={newIssue.priority}
-                                onChange={(e) => setNewIssue({...newIssue, priority: e.target.value})}
-                                className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:outline-none appearance-none cursor-pointer font-inter"
-                            >
-                                <option value="Low">Low - Informative</option>
-                                <option value="Medium">Medium - Regular</option>
-                                <option value="High">High - Urgent</option>
-                                <option value="Critical">Critical - immediate</option>
-                            </select>
-                            <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none font-inter" />
-                        </div>
+                 </div>
+              </div>
+
+              {/* Issue Details Section */}
+              <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+                 <h4 className="text-sm font-black text-slate-800 mb-4 font-inter">Issue Details</h4>
+                 <div className="space-y-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1 font-inter">
+                        TITLE <span className="text-red-500">*</span>
+                      </label>
+                      <input 
+                        required
+                        type="text"
+                        value={newIssue.title}
+                        onChange={(e) => setNewIssue({...newIssue, title: e.target.value})}
+                        placeholder="e.g. Sand delivery delay"
+                        className="w-full bg-slate-50/50 border border-slate-100 rounded-xl py-3 px-5 text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-blue-500 transition-all font-inter"
+                      />
                     </div>
-                </div>
 
-                <div className="font-inter">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 font-inter">DETAILED OBSERVATION NARRATIVE</label>
-                <textarea 
-                    required
-                    rows={5}
-                    value={newIssue.description}
-                    onChange={(e) => setNewIssue({...newIssue, description: e.target.value})}
-                    className="w-full px-6 py-5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 transition-all resize-none font-inter"
-                    placeholder="Provide a comprehensive breakdown of the constraint..."
-                />
-                </div>
-            </div>
+                    <div className="grid grid-cols-2 gap-6">
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1 font-inter">
+                            CATEGORY <span className="text-red-500">*</span>
+                          </label>
+                          <div className="relative">
+                            <select 
+                              value={newIssue.category}
+                              onChange={(e) => setNewIssue({...newIssue, category: e.target.value})}
+                              className="w-full bg-slate-50/50 border border-slate-100 rounded-xl py-3 px-5 text-sm font-bold text-slate-700 outline-none appearance-none cursor-pointer hover:bg-white shadow-sm transition-all font-inter"
+                            >
+                              <option value="Material">Material</option>
+                              <option value="Safety">Safety</option>
+                              <option value="Delay">Delay</option>
+                              <option value="Quality">Quality</option>
+                            </select>
+                            <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                          </div>
+                       </div>
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1 font-inter">
+                            PRIORITY <span className="text-red-500">*</span>
+                          </label>
+                          <div className="relative">
+                            <select 
+                              value={newIssue.priority}
+                              onChange={(e) => setNewIssue({...newIssue, priority: e.target.value})}
+                              className="w-full bg-slate-50/50 border border-slate-100 rounded-xl py-3 px-5 text-sm font-bold text-slate-700 outline-none appearance-none cursor-pointer hover:bg-white shadow-sm transition-all font-inter"
+                            >
+                              <option value="Low">Low</option>
+                              <option value="Medium">Medium</option>
+                              <option value="High">High</option>
+                              <option value="Critical">Critical</option>
+                            </select>
+                            <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                          </div>
+                       </div>
+                    </div>
 
-            <div className="pt-8 border-t border-slate-50 flex justify-end gap-4 font-inter">
-                <button 
-                type="button"
-                onClick={() => setIsCreateModalOpen(false)}
-                className="px-8 py-4 bg-slate-100 text-slate-500 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all font-inter font-inter"
-                >
-                Cancel Entry
-                </button>
-                <button 
-                type="submit"
-                disabled={isSubmitting}
-                className="px-10 py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 flex items-center gap-3 disabled:opacity-50 active:scale-95 font-inter font-inter"
-                >
-                {isSubmitting ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin font-inter" /> : null}
-                {isSubmitting ? "FILING..." : "LODGE CONSTRAINT"}
-                </button>
-            </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1 font-inter">
+                        REPORTED DATE <span className="text-red-500">*</span>
+                      </label>
+                      <input 
+                        required
+                        type="date"
+                        value={newIssue.reported_date}
+                        max={new Date().toISOString().split('T')[0]}
+                        onChange={(e) => setNewIssue({...newIssue, reported_date: e.target.value})}
+                        className="w-full bg-slate-50/50 border border-slate-100 rounded-xl py-3 px-5 text-sm font-bold text-slate-700 outline-none hover:bg-white transition-all font-inter"
+                      />
+                    </div>
+                 </div>
+              </div>
+
+              {/* Description Section */}
+              <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+                 <h4 className="text-sm font-black text-slate-800 mb-4 font-inter">Description</h4>
+                 <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1 font-inter">
+                      DESCRIPTION <span className="text-red-500">*</span>
+                    </label>
+                    <textarea 
+                      required
+                      rows={4}
+                      value={newIssue.description}
+                      onChange={(e) => setNewIssue({...newIssue, description: e.target.value})}
+                      placeholder="Describe the issue in detail..."
+                      className="w-full bg-slate-50/50 border border-slate-100 rounded-xl py-4 px-5 text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-blue-500 transition-all resize-none font-inter"
+                    />
+                 </div>
+              </div>
+
+              {/* Footer Buttons */}
+              <div className="flex items-center justify-end gap-6 pt-4">
+                 <button 
+                   type="button"
+                   onClick={() => setIsCreateModalOpen(false)}
+                   className="text-slate-500 hover:text-slate-800 text-sm font-bold transition-colors font-inter"
+                 >
+                   Cancel
+                 </button>
+                 <button 
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-10 py-3.5 rounded-xl text-sm font-black tracking-widest transition-all shadow-xl shadow-blue-500/20 active:scale-95 disabled:opacity-50 font-inter"
+                 >
+                    {isSubmitting ? "Logging..." : "Log Issue"}
+                 </button>
+              </div>
             </form>
         </div>
       </Modal>

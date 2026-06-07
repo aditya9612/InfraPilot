@@ -50,6 +50,7 @@ export const authService = {
     role: string;
     email?: string;
     mobile_number?: string;
+    profile_image?: string | null;
   }> {
     try {
       const userString = localStorage.getItem("infrapilot_user");

@@ -95,7 +95,7 @@ const ClientOverviewPage = () => {
 
         {/* Header */}
         <div className="mb-10">
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">{projectData?.project_name || "Project Overview"}</h1>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Project Overview</h1>
           <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">{projectData?.description || "Detailed Specification"}</p>
         </div>
 
@@ -104,7 +104,7 @@ const ClientOverviewPage = () => {
           {/* Core Project Specifications - Expanded Layout */}
           <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
             <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.2em] mb-10 border-b border-slate-50 pb-4">Core Project Specifications</h2>
-            
+
             {loading ? (
               <div className="flex items-center justify-center p-20">
                 <div className="w-8 h-8 border-4 border-slate-100 border-t-primary rounded-full animate-spin" />
@@ -117,7 +117,7 @@ const ClientOverviewPage = () => {
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Project Name</p>
                     <p className="text-sm font-bold text-slate-800 leading-tight">{projectData?.project_name || "—"}</p>
-                    
+
                   </div>
                 </div>
 
@@ -127,7 +127,7 @@ const ClientOverviewPage = () => {
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Status & Type</p>
                     <p className="text-sm font-bold text-slate-800">
-                      {projectData?.status || "—"} 
+                      {projectData?.status || "—"}
                       <span className="text-slate-400 font-medium ml-1">
                         ({projectData?.type || "General Construction"})
                       </span>
@@ -141,7 +141,7 @@ const ClientOverviewPage = () => {
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Duration</p>
                     <p className="text-sm font-bold text-slate-800">
-                      {projectData?.start_date || "—"} 
+                      {projectData?.start_date || "—"}
                       <span className="mx-2 text-slate-300">→</span>
                       <span className="text-blue-600">{projectData?.end_date || "—"}</span>
                     </p>
@@ -195,7 +195,7 @@ const ClientOverviewPage = () => {
                 {team.length} Active Members
               </span>
             </div>
-            
+
             {loadingTeam ? (
               <div className="flex items-center gap-4 animate-pulse">
                 <div className="w-10 h-10 rounded-full bg-slate-100" />
@@ -238,7 +238,10 @@ const ClientOverviewPage = () => {
                     </div>
                     <div>
                       <p className="text-sm font-bold text-slate-800">{milestone.title || milestone.name}</p>
-                      <p className="text-[10px] text-slate-400 uppercase tracking-widest">
+                      {milestone.description && (
+                        <p className="text-[11px] text-slate-500 font-medium leading-relaxed mt-0.5 max-w-sm">{milestone.description}</p>
+                      )}
+                      <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-1">
                         {milestone.start_date} – {milestone.end_date}
                       </p>
                     </div>

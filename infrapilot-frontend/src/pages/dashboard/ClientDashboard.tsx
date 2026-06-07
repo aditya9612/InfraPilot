@@ -132,7 +132,7 @@ const ClientDashboard = () => {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
           <div>
             <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-[10px] mb-1">Project Command Center</p>
-            <h1 className="text-4xl font-black text-slate-800 tracking-tight">{projectData?.project_name || "PROPOSAL STAGE"}</h1>
+            <h1 className="text-4xl font-black text-slate-800 tracking-tight">{(projectData?.project_name || "PROPOSAL STAGE").toUpperCase()}</h1>
           </div>
           <div className="flex items-center gap-4">
             <div className="bg-white border border-slate-200 rounded-2xl px-6 py-3 shadow-sm flex items-center gap-3">
@@ -150,8 +150,8 @@ const ClientDashboard = () => {
             { label: "Remaining Budget", value: dashboardData ? `₹${dashboardData.remaining_budget.toLocaleString("en-IN")}` : "—", sub: "Remaining", smallText: true },
             { label: "Milestones", value: dashboardData ? `${dashboardData.milestones_completed} / ${dashboardData.milestones_total}` : "—", sub: "Completed / Total" },
             { label: "Tasks", value: dashboardData ? `${dashboardData.tasks_completed} / ${dashboardData.tasks_total}` : "—", sub: "Completed / Total" },
-            { 
-              label: "Project Dates", 
+            {
+              label: "Project Dates",
               value: dashboardData ? (
                 <div className="flex items-center gap-3 mt-2">
                   <div className="flex flex-col">
@@ -164,19 +164,19 @@ const ClientDashboard = () => {
                     <span className="text-[13px] font-black text-blue-600 uppercase tracking-tighter leading-none">{formatDate(dashboardData.end_date)}</span>
                   </div>
                 </div>
-              ) : "—", 
-              sub: "Project Duration" 
+              ) : "—",
+              sub: "Project Duration"
             },
             { label: "Days Remaining", value: dashboardData ? `${dashboardData.days_remaining}` : "—", sub: "Days Remaining" },
           ].map((card: any, i) => (
             <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 transition-all hover:shadow-md group flex flex-col justify-between min-h-[140px]">
               <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">{card.label}</p>
               <div className="flex-1 flex flex-col justify-center py-2">
-                 {typeof card.value === "string" ? (
-                   <p className={`${card.smallText ? "text-lg" : "text-2xl"} font-black text-blue-600 tracking-tight leading-snug whitespace-pre-line break-words`}>{card.value}</p>
-                 ) : (
-                   card.value
-                 )}
+                {typeof card.value === "string" ? (
+                  <p className={`${card.smallText ? "text-lg" : "text-2xl"} font-black text-blue-600 tracking-tight leading-snug whitespace-pre-line break-words`}>{card.value}</p>
+                ) : (
+                  card.value
+                )}
               </div>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">{card.sub}</p>
             </div>

@@ -13,6 +13,7 @@ const ClientDSRSummaryPage = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL STATUS");
+  const [dateFilter, setDateFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
@@ -76,12 +77,15 @@ const ClientDSRSummaryPage = () => {
         (r.business_id || "").toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
+    if (dateFilter) {
+      result = result.filter(r => r.report_date?.startsWith(dateFilter));
+    }
     if (statusFilter !== "ALL STATUS") {
       result = result.filter(r => r.status?.toUpperCase() === statusFilter);
     }
     setFilteredReports(result);
     setCurrentPage(1);
-  }, [reports, searchQuery, statusFilter]);
+  }, [reports, searchQuery, statusFilter, dateFilter]);
 
   const stats = {
     total: reports.length,
@@ -188,7 +192,29 @@ const ClientDSRSummaryPage = () => {
                 className="w-full bg-slate-50/50 border border-slate-100 rounded-full py-4 pl-14 pr-8 text-sm font-medium text-slate-600 outline-none focus:bg-white focus:border-blue-500 transition-all placeholder:text-slate-400 font-inter"
               />
             </div>
-            
+
+            <div className="flex items-center gap-4">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 font-inter">Filter By Date:</p>
+              <div className="relative group">
+                <input
+                  type="date"
+                  value={dateFilter}
+                  max={new Date().toISOString().split("T")[0]}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="bg-slate-50 border border-slate-100 rounded-xl py-3.5 px-6 text-[11px] font-black uppercase tracking-widest text-slate-700 outline-none hover:bg-white transition-all shadow-sm font-inter"
+                />
+                {dateFilter && (
+                  <button
+                    onClick={() => setDateFilter("")}
+                    className="absolute -right-2 -top-2 w-5 h-5 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 hover:border-rose-100 transition-all shadow-sm active:scale-95"
+                    title="Clear Date"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            </div>
+
             <div className="flex items-center gap-4 text-slate-400">
               <p className="text-[10px] font-black uppercase tracking-widest font-inter">Status:</p>
               <div className="relative group">

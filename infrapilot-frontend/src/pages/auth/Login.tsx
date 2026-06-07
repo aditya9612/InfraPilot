@@ -130,6 +130,7 @@ const Login = () => {
         name: profile.full_name || "User",
         mobile: mobile,
         role: normalizedRole,
+        profile_image: profile.profile_image || null,
         token: verifyData.token,
       };
 
