@@ -6,15 +6,12 @@ import StatCard from "../../../components/common/StatCard";
 import Modal from "../../../components/common/Modal";
 import toast from "react-hot-toast";
 import {
-    Mail,
     Loader2,
     FileText,
     Layers,
-    ShieldCheck,
     Search,
     Plus,
     Eye,
-    Briefcase,
     RefreshCcw,
     RotateCcw,
     Edit2,
@@ -80,7 +77,8 @@ const DrawingsDocumentsPage = () => {
 
     // Interactive StatCard Filter
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Recent">("All");
-
+    // Type filter tabs: All / Documents / Drawings
+    const [typeFilter, setTypeFilter] = useState<"All" | "Documents" | "Drawings">("All");
 
 
     // Resolve Project ID and fetch projects list
@@ -255,23 +253,8 @@ const DrawingsDocumentsPage = () => {
         }
     };
 
-    const handleViewDocument = async (drawing: DrawingRecord) => {
-        const toastId = toast.loading(`Fetching secure document: ${drawing.drawing_name}...`);
-        try {
-            const apiResponse = await drawingService.viewDocument(drawing.id);
-            toast.success("Successful", { id: toastId, duration: 3000 });
-
-            // Merge API response with local record to ensure we have the latest file_url
-            setSelectedDrawing({
-                ...drawing,
-                ...apiResponse
-            });
-        } catch (error) {
-            console.warn("View Document Sync Issue:", error);
-            toast.error("Could not fetch document source", { id: toastId });
-            // Fallback to local record if API fails
-            setSelectedDrawing(drawing);
-        }
+    const handleViewDocument = (drawing: DrawingRecord) => {
+        setSelectedDrawing(drawing);
     };
 
     const handleEditClick = (drawing: DrawingRecord) => {
@@ -315,22 +298,39 @@ const DrawingsDocumentsPage = () => {
         }
     };
 
+    const IMAGE_EXTS = /\.(jpg|jpeg|png|gif|webp|bmp|svg|tiff|tif|sketch)$/i;
+
     const filteredDrawings = useMemo(() => {
         let data = drawingData;
 
-        // Apply StatCard Filter
+        // Apply StatCard Filter (date-based)
         if (activeStatFilter === "Recent") {
-            // Filter from last 30 days
             const thirtyDaysAgo = new Date();
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
             data = data.filter(d => d.date && new Date(d.date as string) >= thirtyDaysAgo);
         }
 
+        // Apply type tab filter
+        if (typeFilter === "Drawings") {
+            // Only images — JPG, PNG, SVG, sketches, photos
+            data = data.filter(d => {
+                const url = (d.file_url || (d as any).upload_file || "").toLowerCase();
+                return IMAGE_EXTS.test(url);
+            });
+        } else if (typeFilter === "Documents") {
+            // All files EXCEPT images
+            data = data.filter(d => {
+                const url = (d.file_url || (d as any).upload_file || "").toLowerCase();
+                return url && !IMAGE_EXTS.test(url);
+            });
+        }
+
+        // Apply search
         return data.filter(d =>
             (d.drawing_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
             String(d.id).toLowerCase().includes(searchTerm.toLowerCase())
         );
-    }, [drawingData, searchTerm, activeStatFilter]);
+    }, [drawingData, searchTerm, activeStatFilter, typeFilter]);
 
     const paginatedDrawings = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
@@ -401,6 +401,7 @@ const DrawingsDocumentsPage = () => {
                 {/* â”€â”€ Registry Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
                     <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
+                        {/* Search */}
                         <div className="relative flex-1 max-w-md font-inter">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                                 <Search className="w-4 h-4" />
@@ -413,8 +414,26 @@ const DrawingsDocumentsPage = () => {
                                 className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
                             />
                         </div>
-                        <div className="flex flex-wrap items-center gap-3 font-inter">
 
+                        {/* Type Filter Tabs */}
+                        <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl font-inter">
+                            {(["All", "Documents", "Drawings"] as const).map(tab => (
+                                <button
+                                    key={tab}
+                                    onClick={() => { setTypeFilter(tab); setCurrentPage(1); }}
+                                    className={`px-4 py-1.5 rounded-lg text-[11px] font-bold transition-all font-inter ${
+                                        typeFilter === tab
+                                            ? "bg-white text-primary shadow-sm"
+                                            : "text-slate-500 hover:text-slate-700"
+                                    }`}
+                                >
+                                    {tab}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Reset date filter */}
+                        <div className="flex flex-wrap items-center gap-3 font-inter">
                             {activeStatFilter !== "All" && (
                                 <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter">
                                     <RotateCcw className="w-4 h-4" />
@@ -449,16 +468,57 @@ const DrawingsDocumentsPage = () => {
                                     paginatedDrawings.map((drawing) => (
                                         <tr key={drawing.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                             <td className="px-6 py-4 font-inter">
-                                                <div className="w-12 h-12 rounded-xl bg-slate-100 overflow-hidden border border-slate-200 shadow-sm group-hover:scale-105 transition-transform font-inter">
-                                                    <img
-                                                        src={drawingService.resolveUrl(drawing.file_url || drawing.upload_file || null) || ""}
-                                                        alt="Drawing"
-                                                        className="w-full h-full object-cover font-inter"
-                                                        onError={(e) => {
-                                                            (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1541888086225-f6740f9e8753?w=100&q=80";
-                                                        }}
-                                                    />
-                                                </div>
+                                                {(() => {
+                                                    const fileUrl = (drawing.file_url || drawing.upload_file || "").toLowerCase();
+                                                    const isPdf = fileUrl.endsWith(".pdf");
+                                                    const isDoc = fileUrl.endsWith(".doc") || fileUrl.endsWith(".docx");
+                                                    const isExcel = fileUrl.endsWith(".xls") || fileUrl.endsWith(".xlsx") || fileUrl.endsWith(".csv");
+                                                    const isDwg = fileUrl.endsWith(".dwg") || fileUrl.endsWith(".dxf");
+                                                    const isImage = /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/.test(fileUrl);
+
+                                                    if (isPdf) return (
+                                                        <div className="w-12 h-12 rounded-xl bg-rose-50 border border-rose-200 shadow-sm group-hover:scale-105 transition-transform flex flex-col items-center justify-center gap-0.5 font-inter">
+                                                            <span className="text-[9px] font-black text-rose-600 uppercase tracking-widest leading-none">PDF</span>
+                                                            <FileText className="w-5 h-5 text-rose-500" />
+                                                        </div>
+                                                    );
+                                                    if (isDoc) return (
+                                                        <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-200 shadow-sm group-hover:scale-105 transition-transform flex flex-col items-center justify-center gap-0.5 font-inter">
+                                                            <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest leading-none">DOC</span>
+                                                            <FileText className="w-5 h-5 text-blue-500" />
+                                                        </div>
+                                                    );
+                                                    if (isExcel) return (
+                                                        <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-200 shadow-sm group-hover:scale-105 transition-transform flex flex-col items-center justify-center gap-0.5 font-inter">
+                                                            <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest leading-none">XLS</span>
+                                                            <FileText className="w-5 h-5 text-emerald-500" />
+                                                        </div>
+                                                    );
+                                                    if (isDwg) return (
+                                                        <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-200 shadow-sm group-hover:scale-105 transition-transform flex flex-col items-center justify-center gap-0.5 font-inter">
+                                                            <span className="text-[9px] font-black text-amber-600 uppercase tracking-widest leading-none">DWG</span>
+                                                            <FileText className="w-5 h-5 text-amber-500" />
+                                                        </div>
+                                                    );
+                                                    if (isImage) return (
+                                                        <div className="w-12 h-12 rounded-xl bg-slate-100 overflow-hidden border border-slate-200 shadow-sm group-hover:scale-105 transition-transform font-inter">
+                                                            <img
+                                                                src={drawingService.resolveUrl(drawing.file_url || drawing.upload_file || null) || ""}
+                                                                alt="Drawing"
+                                                                className="w-full h-full object-cover font-inter"
+                                                                onError={(e) => {
+                                                                    (e.target as HTMLImageElement).style.display = "none";
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    );
+                                                    // Unknown / no extension — generic doc icon
+                                                    return (
+                                                        <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 shadow-sm group-hover:scale-105 transition-transform flex items-center justify-center font-inter">
+                                                            <FileText className="w-6 h-6 text-slate-400" />
+                                                        </div>
+                                                    );
+                                                })()}
                                             </td>
                                             <td className="px-6 py-4 font-inter">
                                                 <div className="flex flex-col font-inter">
@@ -474,13 +534,12 @@ const DrawingsDocumentsPage = () => {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 font-inter">
-                                                <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-widest border w-fit font-inter ${
-                                                    drawing.approval_status === "Approved"
-                                                        ? "bg-emerald-50 text-emerald-600 border-emerald-200"
-                                                        : drawing.approval_status === "Pending"
+                                                <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-widest border w-fit font-inter ${drawing.approval_status === "Approved"
+                                                    ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                                                    : drawing.approval_status === "Pending"
                                                         ? "bg-amber-50 text-amber-600 border-amber-200"
                                                         : "bg-slate-50 text-slate-500 border-slate-200"
-                                                }`}>
+                                                    }`}>
                                                     {drawing.approval_status || "Pending"}
                                                 </span>
                                             </td>
@@ -578,8 +637,8 @@ const DrawingsDocumentsPage = () => {
                                                 key={`page-${pageNum}`}
                                                 onClick={() => setCurrentPage(pageNum)}
                                                 className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
-                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
-                                                        : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                                    ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
+                                                    : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
                                                     }`}
                                             >
                                                 {pageNum}
@@ -601,112 +660,133 @@ const DrawingsDocumentsPage = () => {
                 </div>
             </PageTransition>
 
-            {/* â”€â”€ Detail Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-            <Modal isOpen={!!selectedDrawing && !isHistoryModalOpen} onClose={() => setSelectedDrawing(null)} title="Engineering Asset Intelligence" maxWidth="max-w-xl">
-                {selectedDrawing && (
-                    <div className="p-6 font-inter text-inter">
-                        <div className="bg-primary rounded-2xl p-8 mb-8 text-white shadow-2xl relative overflow-hidden font-inter">
-                            <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl" />
-                            <div className="relative z-10 flex items-center gap-8 font-inter">
-                                <div className="w-24 h-24 bg-white/20 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-white/20 shadow-inner font-inter relative overflow-hidden">
-                                    <img
-                                        src={drawingService.resolveUrl(selectedDrawing.file_url || selectedDrawing.upload_file || null) || ""}
-                                        alt="Avatar"
-                                        className="w-full h-full object-cover font-inter"
-                                    />
-                                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-4 border-slate-800 rounded-full animate-pulse" />
-                                </div>
-                                <div className="font-inter">
-                                    <div className="flex items-center gap-3 mb-2 font-inter">
-                                        <h3 className="text-2xl font-bold tracking-tight font-inter">{selectedDrawing.drawing_name}</h3>
-                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest font-inter">{selectedDrawing.version}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
-                                        <Mail className="w-3 h-3" />
-                                        <span className="text-[10px] font-bold font-inter uppercase tracking-widest">drawing.ref-#{selectedDrawing.id}</span>
-                                    </div>
-                                    <div className="px-4 py-1.5 bg-white/15 rounded-xl border border-white/10 inline-block font-inter shadow-sm">
-                                        <span className="text-[10px] font-bold uppercase tracking-widest font-inter">APPROVED BY: {selectedDrawing.approved_by}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="space-y-8 px-2 mb-10 font-inter">
-                            <div className="font-inter">
-                                <div className="flex items-center gap-2 mb-6 font-inter">
-                                    <div className="p-2 bg-blue-50 rounded-xl font-inter border border-blue-100 shadow-sm">
-                                        <Briefcase className="w-4 h-4 text-primary" />
-                                    </div>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">Asset Metadata</p>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 sm:gap-x-12 gap-y-6 sm:gap-y-8 font-inter">
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Drawing Version</p>
-                                        <p className="text-sm font-bold text-slate-800 font-inter uppercase tracking-widest">{selectedDrawing.version}</p>
-                                    </div>
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Authorized Authority</p>
-                                        <p className="text-sm font-bold text-blue-600 font-inter uppercase tracking-widest">{selectedDrawing.approved_by}</p>
-                                    </div>
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Registration Date</p>
-                                        <p className="text-sm font-bold text-slate-800 font-inter tracking-widest">{selectedDrawing.date}</p>
-                                    </div>
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Intelligence ID</p>
-                                        <p className="text-sm font-bold text-slate-800 font-inter tracking-widest">DRW-#{selectedDrawing.id}</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="font-inter">
-                                <div className="flex items-center gap-2 mb-6 font-inter">
-                                    <div className="p-2 bg-blue-50 rounded-xl font-inter border border-blue-100 shadow-sm">
-                                        <FileText className="w-4 h-4 text-primary" />
-                                    </div>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">Technical Narrative</p>
-                                </div>
-                                <div className="grid grid-cols-1 gap-6 font-inter">
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 font-inter ml-1">Lead Engineer Remarks</p>
-                                        <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 text-xs font-bold text-slate-600 leading-relaxed font-inter shadow-inner">
-                                            "{selectedDrawing.remarks || "No additional technical remarks recorded for this engineering asset."}"
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="font-inter">
-                                <div className="flex items-center gap-2 mb-6 font-inter">
-                                    <div className="p-2 bg-emerald-50 rounded-xl font-inter border border-emerald-100 shadow-sm">
-                                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                                    </div>
-                                    <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest font-inter">File Integrity</p>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 sm:gap-x-12 gap-y-6 sm:gap-y-8 font-inter">
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Linked Filename</p>
-                                        <p className="text-sm font-bold text-slate-800 truncate font-inter">
-                                            {selectedDrawing.file_url || selectedDrawing.upload_file || "cloud_blueprint.pdf"}
-                                        </p>
-                                    </div>
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Vault Sync Status</p>
-                                        <p className="text-sm font-bold text-emerald-500 font-inter uppercase tracking-widest">Verified Asset</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <button onClick={() => setSelectedDrawing(null)} className="w-full py-5 bg-primary text-white rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-2xl shadow-primary/20 active:scale-95 font-inter mb-2">
-                            Dismiss Asset analysis
+            {/* ── Document Preview Modal ──────────────────────────────────────── */}
+            <Modal
+                isOpen={!!selectedDrawing && !isHistoryModalOpen}
+                onClose={() => setSelectedDrawing(null)}
+                title="Document Preview"
+                maxWidth="max-w-3xl"
+                footer={
+                    <div className="flex items-center justify-end gap-3 px-6 pb-5 font-inter">
+                        <button
+                            onClick={() => setSelectedDrawing(null)}
+                            className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all font-inter"
+                        >
+                            Close
+                        </button>
+                        <button
+                            onClick={() => selectedDrawing && handleDownloadDocument(selectedDrawing)}
+                            className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
+                        >
+                            <Download className="w-4 h-4" />
+                            Download File
                         </button>
                     </div>
-                )}
+                }
+            >
+                {selectedDrawing && (() => {
+                    const fileUrl = (selectedDrawing.file_url || (selectedDrawing as any).upload_file || "");
+                    const resolvedUrl = drawingService.resolveUrl(fileUrl) || "";
+                    const lowerUrl = fileUrl.toLowerCase();
+                    const isImage = /\.(jpg|jpeg|png|gif|webp|bmp|svg|tiff|tif)$/i.test(lowerUrl);
+                    const isPdf = lowerUrl.endsWith(".pdf");
+                    const fileType = (selectedDrawing as any).document_type || (isImage ? "Drawing" : isPdf ? "PDF Document" : "File");
+
+                    return (
+                        <div className="font-inter">
+                            {/* Blue Header */}
+                            <div className="bg-primary mx-5 mt-2 mb-5 rounded-2xl p-5 text-white relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl" />
+                                <div className="flex items-center gap-4 relative z-10">
+                                    <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center border border-white/20 shrink-0">
+                                        <FileText className="w-7 h-7 text-white" />
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <h3 className="text-lg font-bold tracking-tight">{selectedDrawing.drawing_name}</h3>
+                                            <span className="px-2 py-0.5 bg-white/25 rounded-lg text-[10px] font-black uppercase tracking-widest">{selectedDrawing.version}</span>
+                                        </div>
+                                        <p className="text-white/70 text-[11px] font-bold">
+                                            🗓 Added on {selectedDrawing.date ? new Date(selectedDrawing.date).toLocaleDateString() : "—"}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Two-panel body */}
+                            <div className="flex gap-0 px-5 pb-4">
+                                {/* Left: Metadata */}
+                                <div className="w-48 shrink-0 pr-6 border-r border-slate-100">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-1">
+                                        <span>ⓘ</span> File Metadata
+                                    </p>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">File Type</p>
+                                            <p className="text-sm font-bold text-slate-800">{fileType}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Linked Project</p>
+                                            <p className="text-sm font-bold text-slate-800">{(selectedDrawing as any).project_name || "—"}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Status</p>
+                                            <p className="text-sm font-bold text-slate-800">{selectedDrawing.approval_status || "PENDING"}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Storage Location</p>
+                                            <p className="text-sm font-bold text-slate-800">Secure Vault / Project Files</p>
+                                        </div>
+                                        {selectedDrawing.remarks && (
+                                            <div>
+                                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Remarks</p>
+                                                <p className="text-xs text-slate-600 leading-relaxed">{selectedDrawing.remarks}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Right: Content Preview */}
+                                <div className="flex-1 pl-6">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-1">
+                                        <span>⊟</span> Content Preview
+                                    </p>
+                                    <div className="rounded-xl border border-slate-200 overflow-hidden bg-slate-50" style={{ minHeight: 320 }}>
+                                        {isImage && resolvedUrl ? (
+                                            <img
+                                                src={resolvedUrl}
+                                                alt={selectedDrawing.drawing_name}
+                                                className="w-full h-full object-contain max-h-[400px]"
+                                                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                                            />
+                                        ) : isPdf && resolvedUrl ? (
+                                            <iframe
+                                                src={resolvedUrl}
+                                                title={selectedDrawing.drawing_name}
+                                                className="w-full"
+                                                style={{ height: 400, border: "none" }}
+                                            />
+                                        ) : resolvedUrl ? (
+                                            <div className="flex flex-col items-center justify-center h-64 gap-3 text-slate-400">
+                                                <FileText className="w-12 h-12" />
+                                                <p className="text-xs font-bold uppercase tracking-widest">Preview not available</p>
+                                                <p className="text-[10px] text-slate-400 max-w-xs text-center truncate">{fileUrl}</p>
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center h-64 gap-3 text-slate-300">
+                                                <FileText className="w-12 h-12" />
+                                                <p className="text-xs font-bold uppercase tracking-widest">No file attached</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()}
             </Modal>
 
-            {/* â”€â”€ Form Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {/* ── Form Modal ────────────────────────────────────────────────────────── */}
             <Modal
                 isOpen={isFormModalOpen}
                 onClose={() => setIsFormModalOpen(false)}
@@ -800,36 +880,61 @@ const DrawingsDocumentsPage = () => {
 
                             <div className="flex flex-col items-center justify-center font-inter">
                                 {photoPreview ? (
-                                    <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-slate-100 shadow-sm group font-inter">
-                                        <img src={photoPreview} alt="Site" className="w-full h-full object-cover font-inter" />
-                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4 font-inter">
+                                    photoPreview === "__file__" ? (
+                                        // Non-image file: show document icon + filename
+                                        <div className="relative w-full rounded-xl border border-slate-200 bg-slate-50 shadow-sm p-6 flex flex-col items-center gap-3 font-inter">
+                                            <div className="w-16 h-16 bg-white border border-slate-200 rounded-2xl flex items-center justify-center shadow-sm">
+                                                <FileText className="w-8 h-8 text-primary" />
+                                            </div>
+                                            <div className="text-center">
+                                                <p className="text-sm font-bold text-slate-700 font-inter truncate max-w-xs">{photoFile?.name}</p>
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{photoFile ? (photoFile.size / 1024).toFixed(1) + " KB" : ""}</p>
+                                            </div>
                                             <button
                                                 type="button"
                                                 onClick={() => fileInputRef.current?.click()}
-                                                className="px-6 py-2 bg-white text-slate-800 rounded-xl text-xs font-bold shadow-xl active:scale-95 transition-all font-inter"
+                                                className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-all hover:bg-slate-50 font-inter"
                                             >
-                                                Change Photo
+                                                Change File
                                             </button>
                                         </div>
-                                    </div>
+                                    ) : (
+                                        // Image preview
+                                        <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-slate-100 shadow-sm group font-inter">
+                                            <img src={photoPreview} alt="Site" className="w-full h-full object-cover font-inter" />
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4 font-inter">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                    className="px-6 py-2 bg-white text-slate-800 rounded-xl text-xs font-bold shadow-xl active:scale-95 transition-all font-inter"
+                                                >
+                                                    Change Photo
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )
                                 ) : (
                                     <div className="w-full flex flex-col items-center gap-6 font-inter">
                                         <input
                                             type="file"
                                             ref={fileInputRef}
                                             className="hidden font-inter"
-                                            accept="image/*"
+                                            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.dwg,.dxf,.csv"
                                             onChange={(e) => {
                                                 const file = e.target.files?.[0];
                                                 if (file) {
                                                     setPhotoFile(file);
-                                                    const reader = new FileReader();
-                                                    reader.onloadend = () => {
-                                                        setPhotoPreview(reader.result as string);
-                                                        setFormData((prev: any) => ({ ...prev, file: file.name }));
-                                                    };
-                                                    reader.readAsDataURL(file);
-                                                    toast.success("Image uploaded successfully!");
+                                                    setFormData((prev: any) => ({ ...prev, file: file.name }));
+                                                    if (file.type.startsWith("image/")) {
+                                                        const reader = new FileReader();
+                                                        reader.onloadend = () => {
+                                                            setPhotoPreview(reader.result as string);
+                                                        };
+                                                        reader.readAsDataURL(file);
+                                                    } else {
+                                                        setPhotoPreview("__file__");
+                                                    }
+                                                    toast.success(`"${file.name}" selected!`);
                                                 }
                                             }}
                                         />
@@ -842,8 +947,8 @@ const DrawingsDocumentsPage = () => {
                                                 <Upload className="w-8 h-8 font-inter" />
                                             </div>
                                             <div className="text-center font-inter">
-                                                <p className="text-sm font-bold text-slate-600 font-inter">Upload Drawing / Document Image</p>
-                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 font-inter">Select from your device gallery</p>
+                                                <p className="text-sm font-bold text-slate-600 font-inter">Upload Drawing / Document</p>
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 font-inter">Images, PDF, Word, Excel, DWG &amp; more</p>
                                             </div>
                                         </button>
                                     </div>

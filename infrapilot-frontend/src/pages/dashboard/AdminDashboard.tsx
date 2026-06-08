@@ -20,7 +20,7 @@ import NewProjectModal from "../../components/dashboard/NewProjectModal";
 import CreateUserModal from "../../components/forms/CreateUserModal";
 import PageTransition from "../../components/common/PageTransition";
 import CreateBOQModal from "../../components/forms/CreateBOQModal";
-import { formatCurrency } from "../../utils/currencyUtils";
+import { formatCompactCurrency } from "../../utils/currencyUtils";
 
 import { projectService } from "../../services/projectService";
 import { boqService } from "../../services/boqService";
@@ -93,7 +93,7 @@ const AdminDashboard = () => {
 
   const fetchDashboardData = useCallback(async () => {
     try {
-      setIsLoading(true);
+      if (projects.length === 0) setIsLoading(true);
       console.log("Dashboard: Starting Tier 1 (Core) fetch...");
 
       // Tier 1: Core Data (Essential for stats and graphs)
@@ -470,19 +470,19 @@ const AdminDashboard = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <StatCard
               title="Total Revenue"
-              value={formatCurrency(dashboardStats.totalRevenue)}
+              value={formatCompactCurrency(dashboardStats.totalRevenue)}
               sub="Total Invoiced"
               accent="text-indigo-500"
             />
             <StatCard
               title="Total Expenses"
-              value={formatCurrency(dashboardStats.totalExpenses)}
+              value={formatCompactCurrency(dashboardStats.totalExpenses)}
               sub="Payments & Purchases"
               accent="text-orange-500"
             />
             <StatCard
               title="Profit / Loss"
-              value={`${dashboardStats.profitLoss > 0 ? '+ ' : ''}${formatCurrency(dashboardStats.profitLoss)}`}
+              value={`${dashboardStats.profitLoss > 0 ? '+ ' : ''}${formatCompactCurrency(dashboardStats.profitLoss)}`}
               sub="Net Margin"
               accent={dashboardStats.profitLoss >= 0 ? "text-green-600" : "text-danger"}
             />

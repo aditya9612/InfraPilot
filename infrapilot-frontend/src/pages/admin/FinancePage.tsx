@@ -14,9 +14,11 @@ import { expenseService } from "../../services/expenseService";
 import { generateInvoicePDF } from "../../utils/invoicePDFGenerator";
 import type { Project } from "../../types/project";
 import type { Expense } from "../../types/expense";
+import type { CompanySettings } from "../../types/settings";
 import CreateExpenseModal from "../../components/forms/CreateExpenseModal";
+import { settingsService } from "../../services/settingsService";
 import { useEffect, useCallback } from "react";
-import { formatCurrency } from "../../utils/currencyUtils";
+import { formatCompactCurrency } from "../../utils/currencyUtils";
 
 // No static mock data here, we use the service
 
@@ -35,6 +37,7 @@ const FinancePage = () => {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [summaryData, setSummaryData] = useState<InvoiceSummary | null>(null);
+  const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -108,6 +111,7 @@ const FinancePage = () => {
 
   useEffect(() => {
     fetchProjects();
+    settingsService.getCompanySettings().then(setCompanySettings).catch(console.error);
   }, [fetchProjects]);
 
   // Fetch summary based on project selection
@@ -242,7 +246,7 @@ const FinancePage = () => {
         const invoice = invoices.find((inv) => inv.id === id);
         if (!invoice) throw new Error("Invoice not found");
         const project = projects.find((p) => p.id === invoice.project_id);
-        generateInvoicePDF(invoice, project);
+        generateInvoicePDF(invoice, project, companySettings);
         toast.success("Client-side PDF generated!", { id: "pdf-loading" });
       } catch (fallbackError) {
         toast.error("Complete PDF generation failure", { id: "pdf-loading" });
@@ -509,19 +513,19 @@ const FinancePage = () => {
           )}
           <StatCard
             title={subPage === "profit" ? "Total Revenue" : usingExpenseFallback ? "Total Expenses" : "Total Billing"}
-            value={formatCurrency(totals.billing)}
+            value={formatCompactCurrency(totals.billing)}
             sub={subPage === "profit" ? "Total project billings" : usingExpenseFallback ? "Based on actual expenses" : "Gross including taxes"}
             accent="text-primary"
           />
           <StatCard
             title={subPage === "profit" ? "Total Expenses" : usingExpenseFallback ? "Cash / Pending Payments" : "Pending Collections"}
-            value={formatCurrency(totals.pending)}
+            value={formatCompactCurrency(totals.pending)}
             sub={subPage === "profit" ? "Total project costs" : usingExpenseFallback ? "Cash mode expenses" : "Unpaid invoices"}
             accent={subPage === "profit" ? "text-rose-500" : "text-amber-500"}
           />
           <StatCard
             title={subPage === "profit" ? "Net Profit" : "Total GST"}
-            value={formatCurrency(totals.gst)}
+            value={formatCompactCurrency(totals.gst)}
             sub={subPage === "profit" ? "Revenue - Expenses" : usingExpenseFallback ? "18% estimate on expenses" : "Net tax liability"}
             accent={subPage === "profit" ? "text-emerald-500" : "text-violet-500"}
           />

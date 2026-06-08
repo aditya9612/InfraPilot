@@ -22,7 +22,7 @@ import {
   ArrowRight,
   ChevronDown
 } from "lucide-react";
-import { formatCurrency } from "../../utils/currencyUtils";
+import { formatCurrency, formatCompactCurrency } from "../../utils/currencyUtils";
 
 type ReportCategory = "Operations" | "Resources" | "Financials" | "Performance";
 
@@ -520,7 +520,7 @@ const ReportsPage = () => {
               </div>
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Revenue Focus</span>
             </div>
-            <h3 className="text-2xl font-black text-slate-800">{formatCurrency(stats.totalProfit)}</h3>
+            <h3 className="text-2xl font-black text-slate-800">{formatCompactCurrency(stats.totalProfit)}</h3>
             <p className="text-[11px] font-bold text-emerald-500 mt-1 flex items-center gap-1">
               <CheckCircle2 size={12} /> Net project profit
             </p>
@@ -533,7 +533,7 @@ const ReportsPage = () => {
               </div>
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Expenditure</span>
             </div>
-            <h3 className="text-2xl font-black text-slate-800">{formatCurrency(stats.totalExpense)}</h3>
+            <h3 className="text-2xl font-black text-slate-800">{formatCompactCurrency(stats.totalExpense)}</h3>
             <p className="text-[11px] font-bold text-rose-500 mt-1 flex items-center gap-1">
               <AlertCircle size={12} /> Combined site costs
             </p>

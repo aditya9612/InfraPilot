@@ -171,11 +171,11 @@ const MaterialConsumptionPage = () => {
     );
 
     data.sort((a, b) => {
-        if (sortOrder === "latest") {
-            return Number(b.material_id) - Number(a.material_id);
-        } else {
-            return Number(a.material_id) - Number(b.material_id);
-        }
+      if (sortOrder === "latest") {
+        return Number(b.material_id) - Number(a.material_id);
+      } else {
+        return Number(a.material_id) - Number(b.material_id);
+      }
     });
 
     return data;
@@ -275,20 +275,20 @@ const MaterialConsumptionPage = () => {
             )}
 
             <div className="relative flex items-center font-inter">
-                <div className="absolute left-3 text-slate-400 pointer-events-none">
-                    <Clock className="w-4 h-4" />
-                </div>
-                <select
-                    value={sortOrder}
-                    onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
-                    className="appearance-none bg-white border border-primary rounded-full text-sm font-bold text-primary shadow-sm pl-9 pr-8 py-1.5 outline-none cursor-pointer"
-                >
-                    <option value="latest">Latest First</option>
-                    <option value="oldest">Oldest First</option>
-                </select>
-                <div className="absolute right-3 text-slate-400 pointer-events-none">
-                    <ChevronDown className="w-4 h-4" />
-                </div>
+              <div className="absolute left-3 text-slate-400 pointer-events-none">
+                <Clock className="w-4 h-4" />
+              </div>
+              <select
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
+                className="appearance-none bg-white border border-primary rounded-full text-sm font-bold text-primary shadow-sm pl-9 pr-8 py-1.5 outline-none cursor-pointer"
+              >
+                <option value="latest">Latest First</option>
+                <option value="oldest">Oldest First</option>
+              </select>
+              <div className="absolute right-3 text-slate-400 pointer-events-none">
+                <ChevronDown className="w-4 h-4" />
+              </div>
             </div>
           </div>
 
@@ -359,84 +359,83 @@ const MaterialConsumptionPage = () => {
 
           {/* Inventory Pagination */}
           {filteredInventory.length > 0 && (
-          <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
               {/* Left: Items per page */}
               <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
-                  <select 
-                      value={itemsPerPageInv} 
-                      onChange={(e) => { setItemsPerPageInv(Number(e.target.value)); setCurrentPageInv(1); }}
-                      className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
-                  >
-                      <option value={10}>10</option>
-                      <option value={20}>20</option>
-                      <option value={50}>50</option>
-                      <option value={100}>100</option>
-                  </select>
+                <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                <select
+                  value={itemsPerPageInv}
+                  onChange={(e) => { setItemsPerPageInv(Number(e.target.value)); setCurrentPageInv(1); }}
+                  className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
               </div>
 
               {/* Center: Showing info */}
               <div className="text-[11px] font-medium text-slate-500 hidden md:block">
-                  Showing {(currentPageInv - 1) * itemsPerPageInv + 1} - {Math.min(currentPageInv * itemsPerPageInv, filteredInventory.length)} of {filteredInventory.length} records
+                Showing {(currentPageInv - 1) * itemsPerPageInv + 1} - {Math.min(currentPageInv * itemsPerPageInv, filteredInventory.length)} of {filteredInventory.length} records
               </div>
 
               {/* Right: Pagination */}
               <div className="flex items-center gap-1.5">
-                  <button
-                      onClick={() => setCurrentPageInv(prev => Math.max(1, prev - 1))}
-                      disabled={currentPageInv === 1}
-                      className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
-                  >
-                      <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  
-                  {(() => {
-                      const totalItems = filteredInventory.length;
-                      const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPageInv));
-                      const pages = [];
-                      if (totalPages <= 5) {
-                          for (let i = 1; i <= totalPages; i++) pages.push(i);
-                      } else {
-                          if (currentPageInv <= 3) {
-                              pages.push(1, 2, 3, 4, '...', totalPages);
-                          } else if (currentPageInv >= totalPages - 2) {
-                              pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
-                          } else {
-                              pages.push(1, '...', currentPageInv - 1, currentPageInv, currentPageInv + 1, '...', totalPages);
-                          }
-                      }
+                <button
+                  onClick={() => setCurrentPageInv(prev => Math.max(1, prev - 1))}
+                  disabled={currentPageInv === 1}
+                  className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
 
-                      return pages.map((page, index) => {
-                          if (page === '...') {
-                              return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
-                          }
-                          const pageNum = page as number;
-                          const isActive = currentPageInv === pageNum;
-                          return (
-                              <button
-                                  key={`page-${pageNum}`}
-                                  onClick={() => setCurrentPageInv(pageNum)}
-                                  className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
-                                      isActive 
-                                          ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' 
-                                          : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
-                                  }`}
-                              >
-                                  {pageNum}
-                              </button>
-                          );
-                      });
-                  })()}
+                {(() => {
+                  const totalItems = filteredInventory.length;
+                  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPageInv));
+                  const pages = [];
+                  if (totalPages <= 5) {
+                    for (let i = 1; i <= totalPages; i++) pages.push(i);
+                  } else {
+                    if (currentPageInv <= 3) {
+                      pages.push(1, 2, 3, 4, '...', totalPages);
+                    } else if (currentPageInv >= totalPages - 2) {
+                      pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                    } else {
+                      pages.push(1, '...', currentPageInv - 1, currentPageInv, currentPageInv + 1, '...', totalPages);
+                    }
+                  }
 
-                  <button
-                      onClick={() => setCurrentPageInv(prev => Math.min(Math.ceil(filteredInventory.length / itemsPerPageInv), prev + 1))}
-                      disabled={currentPageInv === Math.max(1, Math.ceil(filteredInventory.length / itemsPerPageInv)) || filteredInventory.length === 0}
-                      className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
-                  >
-                      <ChevronRight className="w-4 h-4" />
-                  </button>
+                  return pages.map((page, index) => {
+                    if (page === '...') {
+                      return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                    }
+                    const pageNum = page as number;
+                    const isActive = currentPageInv === pageNum;
+                    return (
+                      <button
+                        key={`page-${pageNum}`}
+                        onClick={() => setCurrentPageInv(pageNum)}
+                        className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
+                            ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
+                            : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                          }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  });
+                })()}
+
+                <button
+                  onClick={() => setCurrentPageInv(prev => Math.min(Math.ceil(filteredInventory.length / itemsPerPageInv), prev + 1))}
+                  disabled={currentPageInv === Math.max(1, Math.ceil(filteredInventory.length / itemsPerPageInv)) || filteredInventory.length === 0}
+                  className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
-          </div>
+            </div>
           )}
         </div>
 

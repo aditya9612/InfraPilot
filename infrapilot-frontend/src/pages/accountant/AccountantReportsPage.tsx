@@ -32,22 +32,22 @@ const AccountantReportsPage = () => {
     return (
         <>
             <Navbar title={`${activeReport?.title || 'Report'}`} breadcrumb={["Accountant", "Reports", activeReport?.title || "View"]} />
-            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8 mt-2">
+            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
                     <div>
-                        <Link to="/accountant/reports" className="inline-flex items-center gap-1.5 text-primary text-[10px] font-black uppercase tracking-widest hover:translate-x-[-4px] transition-transform mb-3">
+                        <Link to="/accountant/reports" className="inline-flex items-center gap-1.5 text-primary text-[10px] font-bold uppercase tracking-[0.2em] hover:translate-x-[-4px] transition-transform mb-2">
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg>
                             Back to Reports Hub
                         </Link>
-                        <h2 className="text-3xl font-black text-slate-900 tracking-tight">{activeReport?.title} Statement</h2>
-                        <p className="text-slate-500 text-sm font-medium mt-1">For the period: <span className="font-bold text-slate-700 underline underline-offset-4 decoration-primary/30">01 April 2024</span> to <span className="font-bold text-slate-700 underline underline-offset-4 decoration-primary/30">30 April 2024</span></p>
+                        <h2 className="text-2xl font-bold text-slate-800 tracking-tight uppercase">{activeReport?.title} Statement</h2>
+                        <p className="text-slate-500 text-sm mt-1">For the period: <span className="font-bold text-slate-700 underline underline-offset-4 decoration-primary/30">01 April 2024</span> to <span className="font-bold text-slate-700 underline underline-offset-4 decoration-primary/30">30 April 2024</span></p>
                     </div>
-                    <div className="flex items-center gap-3">
-                        <button className="px-6 py-3 bg-white border border-slate-200 rounded-2xl text-[11px] font-black text-slate-600 uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm active:scale-95">
+                    <div className="flex items-center gap-2">
+                        <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                             Export PDF
                         </button>
-                        <button className="px-8 py-3 bg-primary text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow-xl shadow-primary/20 active:scale-95">
+                        <button className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95">
                             Print Report
                         </button>
                     </div>
@@ -61,7 +61,7 @@ const AccountantReportsPage = () => {
                         { label: reportId === 'pnl' ? "Total Expenses" : "Total Liabilities", value: "₹82,40,000", color: "text-rose-600", bg: "bg-rose-50/30" },
                         { label: "Net Movement", value: "₹43,40,000", color: "text-primary", bg: "bg-blue-50/30" },
                     ].map((card, i) => (
-                        <div key={i} className={`p-8 rounded-[32px] border border-slate-100 shadow-sm relative overflow-hidden group ${card.bg}`}>
+                        <div key={i} className={`p-6 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden group ${card.bg}`}>
                             <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                                 <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" /></svg>
                             </div>
@@ -72,25 +72,25 @@ const AccountantReportsPage = () => {
                 </div>
 
                 {/* Report Table */}
-                <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden mb-10">
-                    <div className="px-10 py-8 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-8">
+                    <div className="px-6 py-5 border-b border-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
-                            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Statement of Accounts</h3>
-                            <p className="text-[10px] font-bold text-slate-400 mt-0.5">GENERATED ON: {new Date().toLocaleString()}</p>
+                            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Statement of Accounts</h3>
+                            <p className="text-[10px] text-slate-400 mt-0.5">GENERATED ON: {new Date().toLocaleString()}</p>
                         </div>
-                        <span className="px-4 py-1.5 bg-white border border-slate-200 rounded-full text-[10px] font-black text-slate-500 uppercase tracking-widest shadow-sm">
+                        <span className="px-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">
                             Currency: <span className="text-slate-800">INR (₹)</span>
                         </span>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead>
-                                <tr className="bg-white text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
-                                    <th className="px-10 py-6">Particulars / Transaction</th>
-                                    <th className="px-10 py-6">Reference</th>
-                                    <th className="px-10 py-6 text-right">Debit</th>
-                                    <th className="px-10 py-6 text-right">Credit</th>
-                                    <th className="px-10 py-6 text-right">Balance</th>
+                                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] border-b border-slate-50">
+                                    <th className="px-6 py-4">Particulars / Transaction</th>
+                                    <th className="px-6 py-4">Reference</th>
+                                    <th className="px-6 py-4 text-right">Debit</th>
+                                    <th className="px-6 py-4 text-right">Credit</th>
+                                    <th className="px-6 py-4 text-right">Balance</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
@@ -103,21 +103,21 @@ const AccountantReportsPage = () => {
                                     { p: "Equipment Hire Charges", r: "EXP/24/442", d: "85,000.00", c: "-", b: "48,65,000.00" },
                                     { p: "Retention Release - Client X", r: "RCT/24/005", d: "-", c: "5,00,000.00", b: "53,65,000.00" },
                                 ].map((row, idx) => (
-                                    <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
-                                        <td className={`px-10 py-6 text-sm ${row.bold ? 'font-black text-slate-900' : 'font-bold text-slate-700'}`}>{row.p}</td>
-                                        <td className="px-10 py-6 text-[11px] font-black text-slate-400 tracking-wider font-mono">{row.r}</td>
-                                        <td className="px-10 py-6 text-right text-sm font-black text-rose-500">{row.d}</td>
-                                        <td className="px-10 py-6 text-right text-sm font-black text-emerald-500">{row.c}</td>
-                                        <td className="px-10 py-6 text-right text-sm font-black text-slate-800 tracking-tight">{row.b}</td>
+                                    <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
+                                        <td className={`px-6 py-4 text-sm ${row.bold ? 'font-bold text-slate-800' : 'font-medium text-slate-700'}`}>{row.p}</td>
+                                        <td className="px-6 py-4 text-[11px] font-mono text-slate-500">{row.r}</td>
+                                        <td className="px-6 py-4 text-right text-sm font-bold text-rose-500">{row.d}</td>
+                                        <td className="px-6 py-4 text-right text-sm font-bold text-emerald-500">{row.c}</td>
+                                        <td className="px-6 py-4 text-right text-sm font-bold text-slate-800 tracking-tight">{row.b}</td>
                                     </tr>
                                 ))}
                             </tbody>
                             <tfoot>
-                                <tr className="bg-slate-900 text-white">
-                                    <td colSpan={2} className="px-10 py-8 text-xs font-black uppercase tracking-[0.2em] border-r border-slate-800">Closing Balance C/F</td>
-                                    <td className="px-10 py-8 text-right text-sm font-black border-r border-slate-800">9,05,000.00</td>
-                                    <td className="px-10 py-8 text-right text-sm font-black border-r border-slate-800">17,50,000.00</td>
-                                    <td className="px-10 py-8 text-right text-2xl font-black tracking-tight text-primary">53,65,000.00</td>
+                                <tr className="bg-slate-50/50 text-slate-700 border-t border-slate-200">
+                                    <td colSpan={2} className="px-6 py-4 text-xs font-bold uppercase tracking-[0.2em] border-r border-slate-200">Closing Balance C/F</td>
+                                    <td className="px-6 py-4 text-right text-sm font-bold border-r border-slate-200">9,05,000.00</td>
+                                    <td className="px-6 py-4 text-right text-sm font-bold border-r border-slate-200">17,50,000.00</td>
+                                    <td className="px-6 py-4 text-right text-lg font-bold text-primary">53,65,000.00</td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -125,7 +125,7 @@ const AccountantReportsPage = () => {
                 </div>
 
                 {/* Footer Disclaimer */}
-                <div className="flex items-start gap-5 p-8 bg-blue-50/50 rounded-[32px] border border-blue-100 relative overflow-hidden">
+                <div className="flex items-start gap-4 p-6 bg-blue-50/50 rounded-2xl border border-blue-100 relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-4 opacity-5">
                         <svg className="w-16 h-16 text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
                     </div>
@@ -148,18 +148,21 @@ const AccountantReportsPage = () => {
     <>
       <Navbar title="Financial Reports" breadcrumb={["Accountant", "Analytics", "Reports Hub"]} />
       
-      <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
-        <div className="mb-10 mt-2">
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Reports Hub</h1>
-          <p className="text-slate-500 text-sm font-medium mt-1">Generate comprehensive financial statements, ledger analytics, and compliance filings.</p>
+      <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">Accountant · Analytics</p>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight uppercase">Reports Hub</h1>
+            <p className="text-slate-500 text-sm mt-1">Generate comprehensive financial statements, ledger analytics, and compliance filings.</p>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {REPORTS.map(report => (
                 <Link 
                     key={report.id} 
                     to={`/accountant/reports/${report.id}`}
-                    className="group bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm hover:shadow-[0_20px_50px_rgba(0,0,0,0.05)] hover:border-primary/20 transition-all cursor-pointer flex flex-col h-full relative overflow-hidden"
+                    className="group bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-primary/20 transition-all cursor-pointer flex flex-col h-full relative overflow-hidden"
                 >
                     <div className="absolute top-0 right-0 p-6 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
                         <svg className="w-20 h-20" fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" /></svg>

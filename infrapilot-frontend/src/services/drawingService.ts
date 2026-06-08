@@ -35,7 +35,7 @@ export const drawingService = {
     resolveUrl(path: string | null): string | null {
         if (!path) return null;
         if (path.startsWith('http') || path.startsWith('data:')) return path;
-        
+
         let baseUrl = import.meta.env.VITE_API_URL || '';
         if (path.startsWith('/uploads') || path.startsWith('uploads')) {
             try {
@@ -45,7 +45,7 @@ export const drawingService = {
                 baseUrl = baseUrl.replace(/\/api\/v1\/?$/, '');
             }
         }
-        
+
         const cleanPath = path.startsWith('/') ? path : `/${path}`;
         return `${baseUrl}${cleanPath}`;
     },
@@ -60,7 +60,7 @@ export const drawingService = {
         console.log("POST /api/v1/drawings/upload - Processing Multipart Upload");
 
         const formData = new FormData();
-        
+
         // Append all text fields to FormData
         formData.append("project_id", String(payload.project_id));
         formData.append("drawing_name", payload.drawing_name);
@@ -193,7 +193,7 @@ export const drawingService = {
             const response = await api.get(`/drawings/documents/download/${id}`, {
                 responseType: 'blob'
             });
-            
+
             const contentType = response.data.type || String(response.headers['content-type'] || '');
             let extension = 'pdf'; // Default
 
@@ -213,7 +213,7 @@ export const drawingService = {
             const link = document.createElement('a');
             link.href = url;
             const finalName = fileName ? (fileName.includes('.') ? fileName : `${fileName}.${extension}`) : `document_${id}.${extension}`;
-            link.setAttribute('download', finalName); 
+            link.setAttribute('download', finalName);
             document.body.appendChild(link);
             link.click();
             link.remove();
@@ -231,7 +231,7 @@ export const drawingService = {
     async viewDocument(id: number | string) {
         const numericId = typeof id === 'string' ? id.replace(/[^0-9]/g, '') : id;
         console.log(`GET /api/v1/drawings/documents/view/${numericId}`);
-        
+
         const response = await api.get(`/drawings/documents/view/${numericId}`, {
             responseType: 'blob'
         });

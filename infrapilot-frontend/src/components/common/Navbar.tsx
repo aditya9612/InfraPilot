@@ -5,6 +5,7 @@ import { useState, useRef, useEffect } from "react";
 import { LogOut, User as UserIcon, Settings, Bell, CheckCheck } from "lucide-react";
 import Modal from "./Modal";
 import { notificationService, type Notification } from "../../services/notificationService";
+import { getFullImageUrl } from "../../utils/imageUtils";
 interface BreadcrumbItem {
   label: string;
   path?: string;
@@ -49,7 +50,6 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [selectedNotif, setSelectedNotif] = useState<Notification | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
 
@@ -58,6 +58,7 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
 
     const fetchNotifs = async () => {
       try {
+<<<<<<< HEAD
         let data: Notification[] = [];
         if (user.role !== "Client") {
           data = await notificationService.getNotifications();
@@ -99,8 +100,15 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
         setNotifications(data);
       } catch (err) {
         console.error("Notifications fetch failed", err);
+=======
+        const data = await notificationService.getNotifications();
+        setNotifications(data);
+      } catch (err) {
+        console.error("Failed to fetch notifications", err);
+>>>>>>> testing
       }
     };
+
     fetchNotifs();
   }, [user]);
 
@@ -142,7 +150,7 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
 
   return (
     <>
-      <div className="sticky top-0 z-40 shadow-sm bg-primary px-3 sm:px-6 py-3 flex items-center justify-between gap-2">
+      <div className="fixed top-0 right-0 lg:left-56 left-0 z-[100] h-16 shadow-md bg-primary px-3 sm:px-6 py-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           {/* Mobile menu toggle */}
           <button
@@ -163,6 +171,7 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
               />
             </svg>
           </button>
+
 
           <div className="flex flex-col min-w-0">
             <h1 className="text-base sm:text-xl font-bold text-white leading-tight truncate">
@@ -254,7 +263,7 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
                     <div key={notif.id} onClick={() => handleNotifClick(notif)} className={`p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer ${notif.read ? 'opacity-60' : 'bg-blue-50/30'}`}>
                       <div className="flex justify-between items-start mb-1">
                         <p className="text-sm font-bold text-slate-800">{notif.title}</p>
-                        <span className="text-[10px] font-bold text-slate-400 whitespace-nowrap ml-2">{new Date(notif.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span className="text-[10px] font-bold text-slate-400 whitespace-nowrap ml-2">{new Date(notif.timestamp).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
                       <p className="text-xs text-slate-500 line-clamp-2 font-medium">{notif.description}</p>
                     </div>
@@ -284,10 +293,14 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setIsProfileOpen(!isProfileOpen)}
-              className="w-8 h-8 rounded-full bg-blue-600 border-2 border-white flex items-center justify-center text-white text-xs font-bold shadow-sm hover:scale-105 transition-transform"
+              className="w-8 h-8 rounded-full bg-blue-600 border-2 border-white flex items-center justify-center text-white text-xs font-bold shadow-sm hover:scale-105 transition-transform overflow-hidden"
               title={user?.name || "Profile"}
             >
-              {user?.name?.charAt(0) || "U"}
+              {user?.role === 'Admin' && user?.profile_image ? (
+                <img src={getFullImageUrl(user.profile_image)} alt={user?.name || "Profile"} className="w-full h-full object-cover" />
+              ) : (
+                user?.name?.charAt(0) || "U"
+              )}
             </button>
 
             {isProfileOpen && (

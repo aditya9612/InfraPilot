@@ -2,12 +2,14 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { Invoice } from "../types/invoice";
 import type { Project } from "../types/project";
+import type { CompanySettings } from "../types/settings";
 import logo from "../assets/logo.png";
+import { settingsService } from "../services/settingsService";
 
 /**
  * Generates and downloads a professional Invoice PDF on the client side.
  */
-export const generateInvoicePDF = (invoice: Invoice, project?: Project) => {
+export const generateInvoicePDF = (invoice: Invoice, project?: Project, companySettings?: CompanySettings | null) => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.width;
 
@@ -17,8 +19,11 @@ export const generateInvoicePDF = (invoice: Invoice, project?: Project) => {
 
   // --- Header Section ---
   // Logo Image
+  const currentLogo = companySettings?.company_logo ? settingsService.resolveUrl(companySettings.company_logo) : logo;
   try {
-    doc.addImage(logo, 'PNG', 15, 12, 18, 18);
+    if (currentLogo) {
+      doc.addImage(currentLogo, 'PNG', 15, 12, 18, 18);
+    }
   } catch (e) {
     console.warn("Could not load logo image for PDF", e);
   }
@@ -26,12 +31,18 @@ export const generateInvoicePDF = (invoice: Invoice, project?: Project) => {
   doc.setFontSize(22);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.text("InfraPilot", 38, 22);
+  doc.text(companySettings?.company_name || "InfraPilot", 38, 22);
 
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
   doc.text("Advanced Construction Management", 38, 28);
+
+  if (companySettings?.address) {
+    doc.setFontSize(7);
+    const splitAddr = doc.splitTextToSize(companySettings.address, 80);
+    doc.text(splitAddr, 15, 38);
+  }
 
   // Invoice Title & ID
   doc.setFontSize(18);
@@ -52,18 +63,18 @@ export const generateInvoicePDF = (invoice: Invoice, project?: Project) => {
   doc.setFont("helvetica", "bold");
   doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
   doc.text("BILL TO / PROJECT:", 15, 55);
-  
+
   doc.setFontSize(12);
   doc.setTextColor(20, 30, 45);
   doc.text(project?.project_name || "N/A", 15, 62);
-  
+
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
   doc.text(`ID: PRJ-${invoice.project_id}`, 15, 68);
   if (invoice.description) {
-     const splitDescription = doc.splitTextToSize(invoice.description, 80);
-     doc.text(splitDescription, 15, 75);
+    const splitDescription = doc.splitTextToSize(invoice.description, 80);
+    doc.text(splitDescription, 15, 75);
   }
 
   // Right: Invoice Info
@@ -120,7 +131,7 @@ export const generateInvoicePDF = (invoice: Invoice, project?: Project) => {
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
-  
+
   doc.text("Subtotal:", summaryX, finalY);
   doc.setFont("helvetica", "normal");
   doc.text(`INR ${invoice.amount.toLocaleString('en-IN')}`, pageWidth - 15, finalY, { align: "right" });
@@ -138,7 +149,7 @@ export const generateInvoicePDF = (invoice: Invoice, project?: Project) => {
   // Total Box
   doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
   doc.rect(summaryX - 5, finalY + 20, 75, 12, "F");
-  
+
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(255, 255, 255);
@@ -146,12 +157,28 @@ export const generateInvoicePDF = (invoice: Invoice, project?: Project) => {
   doc.text(`INR ${invoice.total_amount.toLocaleString('en-IN')}`, pageWidth - 15, finalY + 28, { align: "right" });
 
   // --- Footer ---
-  const bottomY = doc.internal.pageSize.height - 20;
+  const bottomY = doc.internal.pageSize.height - 30;
+
+  if (companySettings?.signature_image) {
+    try {
+      const sigUrl = settingsService.resolveUrl(companySettings.signature_image);
+      if (sigUrl) {
+        doc.addImage(sigUrl, 'PNG', pageWidth - 50, bottomY - 15, 35, 12);
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+        doc.text("Authorized Signatory", pageWidth - 32.5, bottomY - 2, { align: "center" });
+      }
+    } catch (e) {
+      console.warn("Could not add signature to PDF", e);
+    }
+  }
+
   doc.setFontSize(8);
   doc.setFont("helvetica", "italic");
   doc.setTextColor(150, 150, 150);
-  doc.text("This is a system-generated invoice from the InfraPilot Construction Management Suite.", pageWidth / 2, bottomY, { align: "center" });
-  doc.text(`Generated on: ${new Date().toLocaleString()}`, pageWidth / 2, bottomY + 5, { align: "center" });
+  doc.text(`This is a system-generated invoice from ${companySettings?.company_name || "InfraPilot Construction Management Suite"}.`, pageWidth / 2, bottomY + 10, { align: "center" });
+  doc.text(`Generated on: ${new Date().toLocaleString()}`, pageWidth / 2, bottomY + 15, { align: "center" });
 
   // Download
   doc.save(`Invoice_INV-${String(invoice.id).padStart(3, '0')}.pdf`);

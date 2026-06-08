@@ -91,7 +91,7 @@ const EngineerDashboard = () => {
                     const temp = Math.round(data.current_weather.temperature);
                     const wind = Math.round(data.current_weather.windspeed);
                     const code = data.current_weather.weathercode;
-                    
+
                     let cond = "Clear";
                     if ([1, 2, 3].includes(code)) cond = "Partly Cloudy";
                     else if ([45, 48].includes(code)) cond = "Foggy";
@@ -193,7 +193,7 @@ const EngineerDashboard = () => {
                 const totalPurchased = materials.reduce((sum: number, m: any) => sum + (Number(m.total_purchased) || Number(m.quantity_purchased) || 0), 0);
                 const totalUsed = materials.reduce((sum: number, m: any) => sum + (Number(m.total_used) || Number(m.quantity_used) || 0), 0);
                 const remainingStock = materials.reduce((sum: number, m: any) => sum + (Number(m.remaining_stock) || Number(m.quantity) || 0), 0);
-                
+
                 const material_stock_status = {
                     added_materials: materials.length,
                     purchased: totalPurchased,
@@ -232,8 +232,32 @@ const EngineerDashboard = () => {
                 });
 
                 // Calculate planned vs variance
-                const planned_progress = projectDetailsRes?.planned_progress || Math.min(100, progress + 5);
-                const variance = progress - planned_progress;
+                // Show planned/variance when project has activities (even at 0% — activities exist = project is in progress)
+                const hasActivities = totalAct > 0;
+
+                // Determine planned progress:
+                // 1. Use API-provided planned_progress if available
+                // 2. Otherwise calculate from project timeline (time elapsed / total duration)
+                // 3. Fall back to 0 if no activities at all
+                let planned_progress = 0;
+                if (hasActivities) {
+                    if (projectDetailsRes?.planned_progress != null && projectDetailsRes.planned_progress > 0) {
+                        planned_progress = projectDetailsRes.planned_progress;
+                    } else if (projectDetailsRes?.start_date && projectDetailsRes?.end_date) {
+                        // Time-based planned progress: how far along are we in the project duration?
+                        const startDate = new Date(projectDetailsRes.start_date).getTime();
+                        const endDate = new Date(projectDetailsRes.end_date).getTime();
+                        const now = Date.now();
+                        if (endDate > startDate) {
+                            const elapsed = Math.max(0, now - startDate);
+                            const total = endDate - startDate;
+                            planned_progress = Math.min(100, Math.round((elapsed / total) * 100));
+                        }
+                    }
+                    // If neither API value nor dates available, planned_progress stays 0
+                    // (show the ring at 0% planned rather than a fake number)
+                }
+                const variance = hasActivities ? (progress - planned_progress) : 0;
 
                 // Compile Final Data Structure
                 setDashboardData({
@@ -259,6 +283,7 @@ const EngineerDashboard = () => {
                     discipline_progress: discipline_progress,
                     timeline: timeline,
                     recent_expenses: recent_expenses,
+                    has_activities: hasActivities,
                     weather: {
                         condition: "Clear",
                         temperature: 32
@@ -399,18 +424,20 @@ const EngineerDashboard = () => {
                                     <span className="text-[9px] md:text-[10px] font-bold text-slate-400">Completed</span>
                                 </div>
                             </div>
-                            <div className="mt-8 grid grid-cols-2 gap-4 w-full">
-                                <div className="text-left p-3 bg-slate-50 rounded-xl">
-                                    <p className="text-[10px] text-slate-400 font-bold">Planned</p>
-                                    <p className="text-sm font-bold text-slate-700">{plannedPercent}%</p>
+                            {dashboardData.has_activities && (
+                                <div className="mt-8 grid grid-cols-2 gap-4 w-full">
+                                    <div className="text-left p-3 bg-slate-50 rounded-xl">
+                                        <p className="text-[10px] text-slate-400 font-bold">Planned</p>
+                                        <p className="text-sm font-bold text-slate-700">{plannedPercent}%</p>
+                                    </div>
+                                    <div className="text-left p-3 bg-slate-50 rounded-xl">
+                                        <p className="text-[10px] text-slate-400 font-bold">Variance</p>
+                                        <p className={`text-sm font-bold ${variance < 0 ? "text-rose-500" : "text-emerald-500"}`}>
+                                            {variance > 0 ? "+" : ""}{variance}%
+                                        </p>
+                                    </div>
                                 </div>
-                                <div className="text-left p-3 bg-slate-50 rounded-xl">
-                                    <p className="text-[10px] text-slate-400 font-bold">Variance</p>
-                                    <p className={`text-sm font-bold ${variance < 0 ? "text-rose-500" : "text-emerald-500"}`}>
-                                        {variance > 0 ? "+" : ""}{variance}%
-                                    </p>
-                                </div>
-                            </div>
+                            )}
                         </div>
                     </div>
 

@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { ownerService } from "../../../services/ownerService";
+import { projectService } from "../../../services/projectService";
 import type { Owner } from "../../../types/owner";
 import toast from "react-hot-toast";
 
@@ -20,6 +21,9 @@ export interface PaymentTransaction {
 export default function PaymentTracker() {
   const [owners, setOwners] = useState<Owner[]>([]);
   const [selectedOwnerId, setSelectedOwnerId] = useState<string>("");
+  const [projects, setProjects] = useState<any[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [selectedStatus, setSelectedStatus] = useState<string>("");
   const [payments, setPayments] = useState<PaymentTransaction[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -45,9 +49,8 @@ export default function PaymentTracker() {
 
         if (ownerIdParam && data.find(o => o.id === ownerIdParam)) {
           setSelectedOwnerId(ownerIdParam);
-        } else if (data.length > 0) {
-          setSelectedOwnerId(data[0].id);
         }
+        // else: leave as "" (All Owners) by default
       } catch (error) {
         console.error("Failed to fetch owners", error);
         toast.error("Failed to load owners list");
@@ -56,31 +59,69 @@ export default function PaymentTracker() {
     fetchOwners();
   }, []);
 
-  // Fetch payments when selected owner changes
+  // Fetch projects to populate dropdown
   useEffect(() => {
-    if (!selectedOwnerId) return;
+    const fetchProjects = async () => {
+      try {
+        const data = await projectService.getProjects();
+        setProjects(Array.isArray(data) ? data : (data as any).items || []);
+      } catch (error) {
+        console.error("Failed to fetch projects", error);
+      }
+    };
+    fetchProjects();
+  }, []);
 
+  // Fetch payments when selected owner/project/status filters change
+  useEffect(() => {
     const fetchPayments = async () => {
       setLoading(true);
       try {
-        const data = await ownerService.getOwnerPayments(selectedOwnerId);
+        // Use the new payment-tracker API
+        const data = await ownerService.getPaymentTracker({
+          owner_id: selectedOwnerId,
+          project_id: selectedProjectId,
+          status: selectedStatus
+        });
+
+        // Log raw API response to identify actual field names
+        if (data && data.length > 0) {
+          console.log("[PaymentTracker] Raw API response sample:", data[0]);
+        }
 
         const ownerObj = owners.find(o => o.id === selectedOwnerId);
-        const ownerName = ownerObj ? ownerObj.name : "Unknown";
 
         // Map API response to Component format
-        const mappedData: PaymentTransaction[] = (data || []).map((txn: any) => ({
-          id: String(txn.id),
-          ownerId: String(txn.owner_id),
-          ownerName: ownerName,
-          date: txn.payment_date || txn.created_at || new Date().toISOString().split("T")[0],
-          amount: parseFloat(txn.amount) || 0,
-          status: txn.status || "Paid", // Defaulting to Paid if API doesn't return
-          reference: txn.reference_id ? `${txn.reference_type}-${txn.reference_id}` : "-",
-          type: String(txn.type || "").toLowerCase() === "credit" ? "Credit" : "Debit",
-          description: txn.description || "N/A",
-          isFallbackDate: !(txn.payment_date || txn.created_at)
-        }));
+        const mappedData: PaymentTransaction[] = (data || []).map((txn: any) => {
+          // When "All Owners" is selected, resolve owner name from the owners list via txn.owner_id
+          const resolvedOwner = selectedOwnerId
+            ? ownerObj
+            : owners.find(o => o.id === String(txn.owner_id));
+
+          // Try every plausible date field name the API might return
+          const rawDate =
+            txn.payment_date ||
+            txn.transaction_date ||
+            txn.date ||
+            txn.created_at ||
+            txn.date_of_payment ||
+            txn.paid_date ||
+            txn.txn_date ||
+            null;
+
+          return {
+            id: String(txn.id),
+            ownerId: String(txn.owner_id || selectedOwnerId),
+            ownerName: resolvedOwner ? resolvedOwner.name : (txn.owner_name || "Unknown"),
+            date: rawDate || new Date().toISOString().split("T")[0],
+            amount: parseFloat(txn.amount) || 0,
+            status: txn.status || "Paid",
+            reference: txn.reference_id ? `${txn.reference_type}-${txn.reference_id}` : (txn.reference || "-"),
+            type: String(txn.type || "").toLowerCase() === "credit" ? "Credit" : "Debit",
+            description: txn.description || txn.remarks || "N/A",
+            isFallbackDate: !rawDate
+          };
+        });
 
         // Sort by date (descending) then by ID (descending)
         const sortedData = [...mappedData].sort((a, b) => {
@@ -99,7 +140,8 @@ export default function PaymentTracker() {
       }
     };
     fetchPayments();
-  }, [selectedOwnerId, owners]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedOwnerId, selectedProjectId, selectedStatus]);
 
   const filteredPayments = useMemo(() => {
     return payments.filter((txn) => {
@@ -124,7 +166,7 @@ export default function PaymentTracker() {
   // Reset to page 0 on search/filter changes
   useEffect(() => {
     setCurrentPage(0);
-  }, [searchQuery, fromDate, toDate, selectedOwnerId]);
+  }, [searchQuery, fromDate, toDate, selectedOwnerId, selectedProjectId, selectedStatus]);
 
   const totalPages = Math.max(1, Math.ceil(filteredPayments.length / PAGE_SIZE));
   const pagedData = filteredPayments.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
@@ -142,18 +184,51 @@ export default function PaymentTracker() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200">
-            <label htmlFor="ownerSelect" className="text-[10px] font-black text-slate-400 uppercase tracking-tighter ml-2">Select Account:</label>
-            <select
-              id="ownerSelect"
-              value={selectedOwnerId}
-              onChange={(e) => setSelectedOwnerId(e.target.value)}
-              className="bg-transparent text-sm font-bold text-slate-700 focus:outline-none pr-4 min-w-[160px] cursor-pointer"
-            >
-              {owners.map(o => (
-                <option key={o.id} value={o.id}>{o.name}</option>
-              ))}
-            </select>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200">
+              <label htmlFor="ownerSelect" className="text-[10px] font-black text-slate-400 uppercase tracking-tighter ml-2">Owner:</label>
+              <select
+                id="ownerSelect"
+                value={selectedOwnerId}
+                onChange={(e) => setSelectedOwnerId(e.target.value)}
+                className="bg-transparent text-sm font-bold text-slate-700 focus:outline-none pr-4 min-w-[140px] cursor-pointer"
+              >
+                <option value="">All Owners</option>
+                {owners.map(o => (
+                  <option key={o.id} value={o.id}>{o.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200">
+              <label htmlFor="projectSelect" className="text-[10px] font-black text-slate-400 uppercase tracking-tighter ml-2">Project:</label>
+              <select
+                id="projectSelect"
+                value={selectedProjectId}
+                onChange={(e) => setSelectedProjectId(e.target.value)}
+                className="bg-transparent text-sm font-bold text-slate-700 focus:outline-none pr-4 min-w-[140px] cursor-pointer"
+              >
+                <option value="">All Projects</option>
+                {projects.map(p => (
+                  <option key={p.id} value={p.id}>{p.name || p.project_name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200">
+              <label htmlFor="statusSelect" className="text-[10px] font-black text-slate-400 uppercase tracking-tighter ml-2">Status:</label>
+              <select
+                id="statusSelect"
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="bg-transparent text-sm font-bold text-slate-700 focus:outline-none pr-4 min-w-[100px] cursor-pointer"
+              >
+                <option value="">All</option>
+                <option value="Paid">Paid</option>
+                <option value="Unpaid">Unpaid</option>
+                <option value="Pending">Pending</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -289,33 +364,66 @@ export default function PaymentTracker() {
         </table>
       </div>
 
-      {/* Pagination Component */}
-      {totalPages > 1 && (
-        <div className="p-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-            Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, filteredPayments.length)} of {filteredPayments.length} records
-          </p>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-              disabled={currentPage === 0}
-              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-            </button>
-            <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700">
-              {currentPage + 1}
-            </div>
-            <button
-              onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
-              disabled={currentPage >= totalPages - 1}
-              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
-            </button>
-          </div>
+      {/* Pagination */}
+      <div className="p-4 border-t border-slate-100 bg-slate-50/30 flex items-center justify-between flex-wrap gap-3">
+        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+          Showing {filteredPayments.length > 0 ? currentPage * PAGE_SIZE + 1 : 0}–{Math.min((currentPage + 1) * PAGE_SIZE, filteredPayments.length)} of {filteredPayments.length} records
+        </p>
+        <div className="flex items-center gap-1.5">
+          {/* First page */}
+          <button
+            onClick={() => setCurrentPage(0)}
+            disabled={currentPage === 0}
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-xs font-bold"
+            title="First page"
+          >
+            «
+          </button>
+          {/* Prev page */}
+          <button
+            onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+            disabled={currentPage === 0}
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+          </button>
+
+          {/* Page number buttons */}
+          {Array.from({ length: totalPages }, (_, i) => i)
+            .filter(i => Math.abs(i - currentPage) <= 2)
+            .map(i => (
+              <button
+                key={i}
+                onClick={() => setCurrentPage(i)}
+                className={`w-8 h-8 flex items-center justify-center rounded-lg border text-xs font-bold transition-all ${i === currentPage
+                    ? "border-slate-200 text-slate-700 bg-white font-inter"
+                    : "border-slate-200 text-slate-500 hover:bg-slate-50"
+                  }`}
+              >
+                {i + 1}
+              </button>
+            ))
+          }
+
+          {/* Next page */}
+          <button
+            onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+            disabled={currentPage >= totalPages - 1}
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+          </button>
+          {/* Last page */}
+          <button
+            onClick={() => setCurrentPage(totalPages - 1)}
+            disabled={currentPage >= totalPages - 1}
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-xs font-bold"
+            title="Last page"
+          >
+            »
+          </button>
         </div>
-      )}
+      </div>
 
       {/* Detail View Modal Mock (Inline for simplicity) */}
       {selectedTxn && (

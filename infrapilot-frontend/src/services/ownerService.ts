@@ -185,7 +185,7 @@ export const ownerService = {
   },
 
   /**
-   * Export owner ledger Excel
+   * Fetch owner ledger Excel
    * GET /api/v1/owners/{owner_id}/ledger/excel
    */
   async exportLedgerExcel(ownerId: string): Promise<void> {
@@ -206,6 +206,33 @@ export const ownerService = {
       console.error(
         `Export Ledger Excel Error:`,
         error.response?.data || error.message,
+      );
+      throw error;
+    }
+  },
+
+  /**
+   * Get all payments for tracker
+   * GET /api/v1/owners/payment-tracker
+   */
+  async getPaymentTracker(params: {
+    owner_id?: string;
+    project_id?: string;
+    status?: string;
+  }): Promise<any[]> {
+    try {
+      // Strip out empty string values — backend expects integers/valid strings or nothing
+      const cleanParams: Record<string, string> = {};
+      if (params.owner_id) cleanParams.owner_id = params.owner_id;
+      if (params.project_id) cleanParams.project_id = params.project_id;
+      if (params.status) cleanParams.status = params.status;
+
+      const response = await api.get("/owners/payment-tracker", { params: cleanParams });
+      return response.data;
+    } catch (error: any) {
+      console.error(
+        "Fetch Payment Tracker API Error:",
+        error.response?.data || error.message
       );
       throw error;
     }

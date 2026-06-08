@@ -273,11 +273,11 @@ const MaterialReceiptPage = () => {
     );
 
     data.sort((a, b) => {
-        if (sortOrder === "latest") {
-            return Number(b.id) - Number(a.id);
-        } else {
-            return Number(a.id) - Number(b.id);
-        }
+      if (sortOrder === "latest") {
+        return Number(b.id) - Number(a.id);
+      } else {
+        return Number(a.id) - Number(b.id);
+      }
     });
 
     return data;
@@ -408,35 +408,35 @@ const MaterialReceiptPage = () => {
             )}
 
             <div className="flex flex-wrap items-center gap-3 font-inter">
-                <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm font-inter">
-                    <Filter className="w-4 h-4 text-slate-400" />
-                    <select
-                        value={activeFilter}
-                        onChange={(e) => setActiveFilter(e.target.value)}
-                        className="bg-transparent text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer pr-2 font-inter"
-                    >
-                        <option>All</option>
-                        <option>In Stock</option>
-                        <option>Low Stock</option>
-                    </select>
-                </div>
+              <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm font-inter">
+                <Filter className="w-4 h-4 text-slate-400" />
+                <select
+                  value={activeFilter}
+                  onChange={(e) => setActiveFilter(e.target.value)}
+                  className="bg-transparent text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer pr-2 font-inter"
+                >
+                  <option>All</option>
+                  <option>In Stock</option>
+                  <option>Low Stock</option>
+                </select>
+              </div>
 
-                <div className="relative flex items-center font-inter">
-                    <div className="absolute left-3 text-slate-400 pointer-events-none">
-                        <Clock className="w-4 h-4" />
-                    </div>
-                    <select
-                        value={sortOrder}
-                        onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
-                        className="appearance-none bg-white border border-primary rounded-full text-sm font-bold text-primary shadow-sm pl-9 pr-8 py-1.5 outline-none cursor-pointer"
-                    >
-                        <option value="latest">Latest First</option>
-                        <option value="oldest">Oldest First</option>
-                    </select>
-                    <div className="absolute right-3 text-slate-400 pointer-events-none">
-                        <ChevronDown className="w-4 h-4" />
-                    </div>
+              <div className="relative flex items-center font-inter">
+                <div className="absolute left-3 text-slate-400 pointer-events-none">
+                  <Clock className="w-4 h-4" />
                 </div>
+                <select
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
+                  className="appearance-none bg-white border border-primary rounded-full text-sm font-bold text-primary shadow-sm pl-9 pr-8 py-1.5 outline-none cursor-pointer"
+                >
+                  <option value="latest">Latest First</option>
+                  <option value="oldest">Oldest First</option>
+                </select>
+                <div className="absolute right-3 text-slate-400 pointer-events-none">
+                  <ChevronDown className="w-4 h-4" />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -488,13 +488,12 @@ const MaterialReceiptPage = () => {
                       <td className="px-6 py-4 font-inter text-right"><span className="text-sm font-bold text-slate-800 font-inter tabular-nums">{formatINR(m.extra_paid)}</span></td>
                       <td className="px-6 py-4 font-inter text-center"><span className="text-sm font-bold text-slate-800 font-inter tabular-nums">{m.minimum_stock_level}</span></td>
                       <td className="px-6 py-4 font-inter text-center">
-                        <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border font-inter ${
-                          m.alert_type === 'IN_STOCK'
+                        <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border font-inter ${m.alert_type === 'IN_STOCK'
                             ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
                             : m.alert_type === 'LOW_STOCK'
-                            ? 'bg-rose-100 text-rose-700 border-rose-200'
-                            : 'bg-slate-100 text-slate-600 border-slate-200'
-                        }`}>
+                              ? 'bg-rose-100 text-rose-700 border-rose-200'
+                              : 'bg-slate-100 text-slate-600 border-slate-200'
+                          }`}>
                           {m.alert_type?.replace(/_/g, ' ')}
                         </span>
                       </td>
@@ -572,83 +571,82 @@ const MaterialReceiptPage = () => {
 
           {/* Pagination Controls */}
           <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
-                            {/* Left: Items per page */}
-                            <div className="flex items-center gap-2">
-                                <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
-                                <select 
-                                    value={itemsPerPage} 
-                                    onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                                    className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
-                                >
-                                    <option value={10}>10</option>
-                                    <option value={20}>20</option>
-                                    <option value={50}>50</option>
-                                    <option value={100}>100</option>
-                                </select>
-                            </div>
+            {/* Left: Items per page */}
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
 
-                            {/* Center: Showing info */}
-                            <div className="text-[11px] font-medium text-slate-500 hidden md:block">
-                                Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredMaterials.length)} of {filteredMaterials.length} records
-                            </div>
+            {/* Center: Showing info */}
+            <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+              Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredMaterials.length)} of {filteredMaterials.length} records
+            </div>
 
-                            {/* Right: Pagination */}
-                            <div className="flex items-center gap-1.5">
-                                <button
-                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                    disabled={currentPage === 1}
-                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
-                                >
-                                    <ChevronLeft className="w-4 h-4" />
-                                </button>
-                                
-                                {(() => {
-                                    const totalItems = filteredMaterials.length;
-                                    const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
-                                    const pages = [];
-                                    if (totalPages <= 5) {
-                                        for (let i = 1; i <= totalPages; i++) pages.push(i);
-                                    } else {
-                                        if (currentPage <= 3) {
-                                            pages.push(1, 2, 3, 4, '...', totalPages);
-                                        } else if (currentPage >= totalPages - 2) {
-                                            pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
-                                        } else {
-                                            pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
-                                        }
-                                    }
+            {/* Right: Pagination */}
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
 
-                                    return pages.map((page, index) => {
-                                        if (page === '...') {
-                                            return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
-                                        }
-                                        const pageNum = page as number;
-                                        const isActive = currentPage === pageNum;
-                                        return (
-                                            <button
-                                                key={`page-${pageNum}`}
-                                                onClick={() => setCurrentPage(pageNum)}
-                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
-                                                    isActive 
-                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' 
-                                                        : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
-                                                }`}
-                                            >
-                                                {pageNum}
-                                            </button>
-                                        );
-                                    });
-                                })()}
+              {(() => {
+                const totalItems = filteredMaterials.length;
+                const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+                const pages = [];
+                if (totalPages <= 5) {
+                  for (let i = 1; i <= totalPages; i++) pages.push(i);
+                } else {
+                  if (currentPage <= 3) {
+                    pages.push(1, 2, 3, 4, '...', totalPages);
+                  } else if (currentPage >= totalPages - 2) {
+                    pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                  } else {
+                    pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                  }
+                }
 
-                                <button
-                                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredMaterials.length / itemsPerPage), prev + 1))}
-                                    disabled={currentPage === Math.max(1, Math.ceil(filteredMaterials.length / itemsPerPage)) || filteredMaterials.length === 0}
-                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
-                                >
-                                    <ChevronRight className="w-4 h-4" />
-                                </button>
-                            </div>
-                        </div>
+                return pages.map((page, index) => {
+                  if (page === '...') {
+                    return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                  }
+                  const pageNum = page as number;
+                  const isActive = currentPage === pageNum;
+                  return (
+                    <button
+                      key={`page-${pageNum}`}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
+                          ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
+                          : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                        }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                });
+              })()}
+
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredMaterials.length / itemsPerPage), prev + 1))}
+                disabled={currentPage === Math.max(1, Math.ceil(filteredMaterials.length / itemsPerPage)) || filteredMaterials.length === 0}
+                className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
         </div>
 
       </PageTransition>
@@ -1103,13 +1101,12 @@ const MaterialReceiptPage = () => {
                   <span className="text-xs text-white/70 font-inter">{selectedMaterial.category} &bull; {selectedMaterial.unit}</span>
                 </div>
                 <div className="ml-auto font-inter">
-                  <span className={`px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-widest border font-inter ${
-                    selectedMaterial.alert_type === 'IN_STOCK'
+                  <span className={`px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-widest border font-inter ${selectedMaterial.alert_type === 'IN_STOCK'
                       ? 'bg-emerald-500/20 text-emerald-200 border-emerald-400/30'
                       : selectedMaterial.alert_type === 'LOW_STOCK'
-                      ? 'bg-rose-500/20 text-rose-200 border-rose-400/30'
-                      : 'bg-white/10 text-white/70 border-white/20'
-                  }`}>
+                        ? 'bg-rose-500/20 text-rose-200 border-rose-400/30'
+                        : 'bg-white/10 text-white/70 border-white/20'
+                    }`}>
                     {selectedMaterial.alert_type?.replace(/_/g, ' ')}
                   </span>
                 </div>

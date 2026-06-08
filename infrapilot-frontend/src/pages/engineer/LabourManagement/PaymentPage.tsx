@@ -11,8 +11,7 @@ import {
     ArrowDownRight,
     Briefcase,
     ChevronLeft,
-    ChevronRight,
-    FileText
+    ChevronRight
 } from "lucide-react";
 import { paymentService } from '../../../services/paymentService';
 import PaySalaryModal from '../../../components/payment/PaySalaryModal';
@@ -392,39 +391,40 @@ const PaymentPage: React.FC = () => {
                                         const workerName = h.labour_name || h.worker_name || `Worker #${h.labour_id || 'N/A'}`;
 
                                         return (
-                                        <tr key={h.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
-                                            <td className="px-6 py-4 font-inter">
-                                                <div className="flex flex-col font-inter">
-                                                    <span className="text-sm font-bold text-slate-800 font-inter">{workerName}</span>
-                                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">{h.reference || "N/A"}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-center font-inter">
-                                                <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border font-inter ${h.payment_type?.toLowerCase() === 'salary' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
-                                                    {h.payment_type || 'SALARY'}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-center font-inter">
-                                                <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border font-inter bg-slate-50 text-slate-600 border-slate-100`}>
-                                                    {h.mode || 'CASH'}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-center font-inter">
-                                                <div className="flex items-center justify-center gap-1 font-inter">
-                                                    <ArrowDownRight className="w-3.5 h-3.5 text-emerald-500" />
-                                                    <span className="text-sm font-bold text-emerald-600 tabular-nums font-inter">₹{h.amount?.toLocaleString() || 0}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-center font-inter">
-                                                <span className="text-xs font-bold text-slate-500 font-inter tabular-nums">{h.created_at ? new Date(h.created_at).toLocaleDateString() : (h.payment_date || '-')}</span>
-                                            </td>
-                                            <td className="px-6 py-4 text-right font-inter">
-                                                <div className="flex items-center justify-end gap-2 text-emerald-500 font-inter">
-                                                    <span className="text-[10px] font-bold uppercase tracking-widest font-inter">Confirmed Audit ✓</span>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    )})}
+                                            <tr key={h.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
+                                                <td className="px-6 py-4 font-inter">
+                                                    <div className="flex flex-col font-inter">
+                                                        <span className="text-sm font-bold text-slate-800 font-inter">{workerName}</span>
+                                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">{h.reference || "N/A"}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-center font-inter">
+                                                    <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border font-inter ${h.payment_type?.toLowerCase() === 'salary' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
+                                                        {h.payment_type || 'SALARY'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-center font-inter">
+                                                    <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border font-inter bg-slate-50 text-slate-600 border-slate-100`}>
+                                                        {h.mode || 'CASH'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-center font-inter">
+                                                    <div className="flex items-center justify-center gap-1 font-inter">
+                                                        <ArrowDownRight className="w-3.5 h-3.5 text-emerald-500" />
+                                                        <span className="text-sm font-bold text-emerald-600 tabular-nums font-inter">₹{h.amount?.toLocaleString() || 0}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-center font-inter">
+                                                    <span className="text-xs font-bold text-slate-500 font-inter tabular-nums">{h.created_at ? new Date(h.created_at).toLocaleDateString() : (h.payment_date || '-')}</span>
+                                                </td>
+                                                <td className="px-6 py-4 text-right font-inter">
+                                                    <div className="flex items-center justify-end gap-2 text-emerald-500 font-inter">
+                                                        <span className="text-[10px] font-bold uppercase tracking-widest font-inter">Confirmed Audit ✓</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )
+                                    })}
 
                                     {activeTab === 'dues' && pendingDues.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((d, idx) => (
                                         <tr key={idx} className="hover:bg-slate-50/50 transition-colors group font-inter">
@@ -479,87 +479,86 @@ const PaymentPage: React.FC = () => {
                                 </tbody>
                             </table>
                         )}
-                        
+
                         {/* ── Pagination Controls ───────────────────────── */}
                         {!isLoading && currentDataLength > 0 && (
                             <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
-                            {/* Left: Items per page */}
-                            <div className="flex items-center gap-2">
-                                <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
-                                <select 
-                                    value={itemsPerPage} 
-                                    onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                                    className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
-                                >
-                                    <option value={10}>10</option>
-                                    <option value={20}>20</option>
-                                    <option value={50}>50</option>
-                                    <option value={100}>100</option>
-                                </select>
-                            </div>
+                                {/* Left: Items per page */}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                                    <select
+                                        value={itemsPerPage}
+                                        onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                        className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                                    >
+                                        <option value={10}>10</option>
+                                        <option value={20}>20</option>
+                                        <option value={50}>50</option>
+                                        <option value={100}>100</option>
+                                    </select>
+                                </div>
 
-                            {/* Center: Showing info */}
-                            <div className="text-[11px] font-medium text-slate-500 hidden md:block">
-                                Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, currentDataLength)} of {currentDataLength} records
-                            </div>
+                                {/* Center: Showing info */}
+                                <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+                                    Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, currentDataLength)} of {currentDataLength} records
+                                </div>
 
-                            {/* Right: Pagination */}
-                            <div className="flex items-center gap-1.5">
-                                <button
-                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                    disabled={currentPage === 1}
-                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
-                                >
-                                    <ChevronLeft className="w-4 h-4" />
-                                </button>
-                                
-                                {(() => {
-                                    const totalItems = currentDataLength;
-                                    const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
-                                    const pages = [];
-                                    if (totalPages <= 5) {
-                                        for (let i = 1; i <= totalPages; i++) pages.push(i);
-                                    } else {
-                                        if (currentPage <= 3) {
-                                            pages.push(1, 2, 3, 4, '...', totalPages);
-                                        } else if (currentPage >= totalPages - 2) {
-                                            pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                                {/* Right: Pagination */}
+                                <div className="flex items-center gap-1.5">
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                        disabled={currentPage === 1}
+                                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                    >
+                                        <ChevronLeft className="w-4 h-4" />
+                                    </button>
+
+                                    {(() => {
+                                        const totalItems = currentDataLength;
+                                        const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+                                        const pages = [];
+                                        if (totalPages <= 5) {
+                                            for (let i = 1; i <= totalPages; i++) pages.push(i);
                                         } else {
-                                            pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                                            if (currentPage <= 3) {
+                                                pages.push(1, 2, 3, 4, '...', totalPages);
+                                            } else if (currentPage >= totalPages - 2) {
+                                                pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                                            } else {
+                                                pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                                            }
                                         }
-                                    }
 
-                                    return pages.map((page, index) => {
-                                        if (page === '...') {
-                                            return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
-                                        }
-                                        const pageNum = page as number;
-                                        const isActive = currentPage === pageNum;
-                                        return (
-                                            <button
-                                                key={`page-${pageNum}`}
-                                                onClick={() => setCurrentPage(pageNum)}
-                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
-                                                    isActive 
-                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' 
-                                                        : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
-                                                }`}
-                                            >
-                                                {pageNum}
-                                            </button>
-                                        );
-                                    });
-                                })()}
+                                        return pages.map((page, index) => {
+                                            if (page === '...') {
+                                                return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                                            }
+                                            const pageNum = page as number;
+                                            const isActive = currentPage === pageNum;
+                                            return (
+                                                <button
+                                                    key={`page-${pageNum}`}
+                                                    onClick={() => setCurrentPage(pageNum)}
+                                                    className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
+                                                            ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
+                                                            : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                                        }`}
+                                                >
+                                                    {pageNum}
+                                                </button>
+                                            );
+                                        });
+                                    })()}
 
-                                <button
-                                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(currentDataLength / itemsPerPage), prev + 1))}
-                                    disabled={currentPage === Math.max(1, Math.ceil(currentDataLength / itemsPerPage)) || currentDataLength === 0}
-                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
-                                >
-                                    <ChevronRight className="w-4 h-4" />
-                                </button>
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.min(Math.ceil(currentDataLength / itemsPerPage), prev + 1))}
+                                        disabled={currentPage === Math.max(1, Math.ceil(currentDataLength / itemsPerPage)) || currentDataLength === 0}
+                                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                    >
+                                        <ChevronRight className="w-4 h-4" />
+                                    </button>
+                                </div>
                             </div>
-                        </div>
                         )}
                     </div>
                 </div>

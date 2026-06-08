@@ -54,16 +54,16 @@ const AudioButton = ({ audioData }: { audioData: string }) => {
     };
 
     return (
-        <button 
-            onClick={togglePlay} 
-            className={`p-2 rounded-xl transition-all ${isPlaying ? 'text-emerald-600 bg-emerald-100 ring-2 ring-emerald-500/20' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'}`} 
+        <button
+            onClick={togglePlay}
+            className={`p-2 rounded-xl transition-all ${isPlaying ? 'text-emerald-600 bg-emerald-100 ring-2 ring-emerald-500/20' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'}`}
             title={isPlaying ? "Pause Audio" : "Play Audio"}
         >
             {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
-            <audio 
-                ref={audioRef} 
-                src={audioData} 
-                className="hidden" 
+            <audio
+                ref={audioRef}
+                src={audioData}
+                className="hidden"
                 onEnded={() => setIsPlaying(false)}
                 onPause={() => setIsPlaying(false)}
                 onPlay={() => setIsPlaying(true)}

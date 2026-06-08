@@ -445,9 +445,6 @@ const ProjectsPage = () => {
                         >
                           <div className="flex justify-between items-start mb-1">
                             <div className="min-w-0">
-                              <p className="text-[9px] font-mono font-bold text-slate-400">
-                                PRJ-{p.id}
-                              </p>
                               <p className="text-xs font-bold text-slate-700 group-hover:text-primary transition-colors truncate max-w-[150px]">
                                 {p.project_name}
                               </p>
@@ -578,7 +575,6 @@ const ProjectsPage = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] border-b border-slate-50">
-                  <th className="px-6 py-4">Project ID</th>
                   <th className="px-6 py-4">Project Name</th>
                   <th className="px-6 py-4">Dates</th>
                   <th className="px-6 py-4">Progress</th>
@@ -607,7 +603,6 @@ const ProjectsPage = () => {
                     .slice(tablePage * TABLE_PER_PAGE, (tablePage + 1) * TABLE_PER_PAGE)
                     .map((p) => (
                       <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
-                        <td className="px-6 py-4 font-mono text-xs font-bold text-slate-500">PRJ-{p.id}</td>
                         <td className="px-6 py-4 font-bold text-slate-700 group-hover:text-primary transition-colors">{p.project_name}</td>
                         <td className="px-6 py-4 text-slate-500 text-xs">{p.start_date} to {p.end_date}</td>
                         <td className="px-6 py-4 min-w-[200px]">

@@ -343,8 +343,8 @@ const NotificationsPage = () => {
                       <td className="px-4 py-4 text-xs font-bold text-slate-400 whitespace-nowrap">
                         {alert.created_at ? (
                           <>
-                            <div>{new Date(alert.created_at).toLocaleDateString("en-IN")}</div>
-                            <div className="text-slate-300 font-normal">{new Date(alert.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</div>
+                            <div>{new Date(alert.created_at).toLocaleDateString("en-IN", { timeZone: 'Asia/Kolkata' })}</div>
+                            <div className="text-slate-300 font-normal">{new Date(alert.created_at).toLocaleTimeString("en-IN", { timeZone: 'Asia/Kolkata', hour: "2-digit", minute: "2-digit" })}</div>
                           </>
                         ) : "N/A"}
                       </td>

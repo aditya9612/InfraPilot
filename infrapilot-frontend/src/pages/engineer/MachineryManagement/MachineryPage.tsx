@@ -9,21 +9,21 @@ import toast from "react-hot-toast";
 import { equipmentService } from "../../../services/equipmentService";
 import type { Equipment } from "../../../services/equipmentService";
 
-import { 
-  Search, 
-  Plus, 
-  Edit2, 
-  Trash2,
-  Eye,
-  Briefcase,
-  Phone,
-  Mail,
-  FileText,
-  RotateCcw,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
-  ChevronDown
+import {
+    Search,
+    Plus,
+    Edit2,
+    Trash2,
+    Eye,
+    Briefcase,
+    Phone,
+    Mail,
+    FileText,
+    RotateCcw,
+    ChevronLeft,
+    ChevronRight,
+    Clock,
+    ChevronDown
 } from "lucide-react";
 
 const conditionColors: Record<string, string> = {
@@ -39,7 +39,7 @@ const conditionColors: Record<string, string> = {
 const MachineryPage = () => {
     const [machineryList, setMachineryList] = useState<Equipment[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    
+
     // UI States
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
@@ -78,7 +78,7 @@ const MachineryPage = () => {
             console.log(`Fetching Machinery Registry for Project ID: ${projectIdToFetch}`);
             const data = await equipmentService.getEquipment(projectIdToFetch);
             console.log("Machinery API Response:", data);
-            
+
             const items = data.items || [];
             console.log(`Successfully synced ${items.length} machinery items for project ID ${projectIdToFetch}`);
             setMachineryList(items);
@@ -152,15 +152,15 @@ const MachineryPage = () => {
     const filteredList = useMemo(() => {
         let list = machineryList.filter(item => {
             const term = searchTerm.toLowerCase();
-            const matchesSearch = searchTerm === "" || 
+            const matchesSearch = searchTerm === "" ||
                 item.equipment_name.toLowerCase().includes(term) ||
                 item.equipment_code.toLowerCase().includes(term) ||
                 item.operator_name.toLowerCase().includes(term);
-            
+
             const matchesCondition = conditionFilter === "All" || item.condition === conditionFilter;
-            
+
             const matchesStat = activeStatFilter === "All" || item.condition === activeStatFilter;
-            
+
             return matchesSearch && matchesCondition && matchesStat;
         });
 
@@ -229,7 +229,7 @@ const MachineryPage = () => {
                 </div>
 
                 {/* â”€â”€ Summary Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                     <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
                         <StatCard
                             title="Total Assets"
@@ -310,7 +310,7 @@ const MachineryPage = () => {
                     </div>
 
                     <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
-                         {isLoading ? (
+                        {isLoading ? (
                             <div className="p-20 text-center text-slate-400">
                                 <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
                                 <p className="text-[10px] font-bold uppercase tracking-widest">Syncing telemetry...</p>
@@ -348,32 +348,31 @@ const MachineryPage = () => {
                                                 <td className="px-6 py-4">
                                                     <span className="text-xs font-bold text-slate-600">{item.maintenance_date || 'N/A'}</span>
                                                 </td>
-                                                 <td className="px-6 py-4">
-                                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${
-                                                        item.condition === 'GOOD' ? 'bg-emerald-50 text-emerald-600' : 
-                                                        (item.condition === 'REPAIR' || item.condition === 'DAMAGED') ? 'bg-rose-50 text-rose-600 animate-pulse' : 
-                                                        item.condition === 'SERVICE' ? 'bg-amber-50 text-amber-600' :
-                                                        'bg-slate-50 text-slate-600'
-                                                    }`}>
+                                                <td className="px-6 py-4">
+                                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${item.condition === 'GOOD' ? 'bg-emerald-50 text-emerald-600' :
+                                                            (item.condition === 'REPAIR' || item.condition === 'DAMAGED') ? 'bg-rose-50 text-rose-600 animate-pulse' :
+                                                                item.condition === 'SERVICE' ? 'bg-amber-50 text-amber-600' :
+                                                                    'bg-slate-50 text-slate-600'
+                                                        }`}>
                                                         {item.condition || 'N/A'}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
                                                     <div className="flex items-center justify-end gap-2 transition-opacity">
-                                                        <button 
+                                                        <button
                                                             onClick={() => handleView(item.id)}
                                                             className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all"
                                                             title="View Details"
                                                         >
                                                             <Eye className="w-4 h-4" />
                                                         </button>
-                                                        <button 
+                                                        <button
                                                             onClick={() => { setEditingEquipment(item); setIsModalOpen(true); }}
                                                             className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all"
                                                         >
                                                             <Edit2 className="w-4 h-4" />
                                                         </button>
-                                                        <button 
+                                                        <button
                                                             onClick={() => { setItemToDelete(item.id); setIsDeleteModalOpen(true); }}
                                                             className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
                                                         >
@@ -394,15 +393,15 @@ const MachineryPage = () => {
                             </table>
                         )}
                     </div>
-                    
+
                     {/* â”€â”€ Pagination Controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                     {!isLoading && filteredList.length > 0 && (
                         <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
                             {/* Left: Items per page */}
                             <div className="flex items-center gap-2">
                                 <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
-                                <select 
-                                    value={itemsPerPage} 
+                                <select
+                                    value={itemsPerPage}
                                     onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
                                     className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
                                 >
@@ -427,7 +426,7 @@ const MachineryPage = () => {
                                 >
                                     <ChevronLeft className="w-4 h-4" />
                                 </button>
-                                
+
                                 {(() => {
                                     const totalItems = filteredList.length;
                                     const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
@@ -454,11 +453,10 @@ const MachineryPage = () => {
                                             <button
                                                 key={`page-${pageNum}`}
                                                 onClick={() => setCurrentPage(pageNum as number)}
-                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
-                                                    isActive 
-                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' 
+                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
+                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
                                                         : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
-                                                }`}
+                                                    }`}
                                             >
                                                 {pageNum}
                                             </button>
@@ -479,14 +477,14 @@ const MachineryPage = () => {
                 </div>
             </PageTransition>
 
-            <CreateMachineryModal 
+            <CreateMachineryModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 onSubmit={handleCreateOrUpdate}
                 initialData={editingEquipment}
             />
 
-            <ConfirmModal 
+            <ConfirmModal
                 isOpen={isDeleteModalOpen}
                 onClose={() => setIsDeleteModalOpen(false)}
                 onConfirm={handleDelete}
@@ -592,15 +590,15 @@ const MachineryPage = () => {
                                     <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">System Integrity</p>
                                         <p className={`text-sm font-bold font-inter ${['GOOD', 'FAIR', 'SERVICE'].includes(viewingEquipment.condition) ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                            {['GOOD', 'FAIR'].includes(viewingEquipment.condition) ? 'Fully Operational' : 
-                                             viewingEquipment.condition === 'SERVICE' ? 'Maintenance Active' : 'System Critical'}
+                                            {['GOOD', 'FAIR'].includes(viewingEquipment.condition) ? 'Fully Operational' :
+                                                viewingEquipment.condition === 'SERVICE' ? 'Maintenance Active' : 'System Critical'}
                                         </p>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <button 
+                        <button
                             onClick={() => setViewingEquipment(null)}
                             className={`w-full py-5 ${conditionColors[viewingEquipment.condition as keyof typeof conditionColors] || 'bg-primary'} text-white rounded-xl text-[11px] font-bold uppercase tracking-[0.2em] transition-all shadow-xl active:scale-95 font-inter`}
                         >
