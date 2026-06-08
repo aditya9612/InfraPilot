@@ -58,7 +58,6 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
 
     const fetchNotifs = async () => {
       try {
-<<<<<<< HEAD
         let data: Notification[] = [];
         if (user.role !== "Client") {
           data = await notificationService.getNotifications();
@@ -100,12 +99,6 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
         setNotifications(data);
       } catch (err) {
         console.error("Notifications fetch failed", err);
-=======
-        const data = await notificationService.getNotifications();
-        setNotifications(data);
-      } catch (err) {
-        console.error("Failed to fetch notifications", err);
->>>>>>> testing
       }
     };
 
