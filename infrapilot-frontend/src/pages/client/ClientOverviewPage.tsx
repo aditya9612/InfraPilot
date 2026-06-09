@@ -96,7 +96,7 @@ const ClientOverviewPage = () => {
         {/* Header */}
         <div className="mb-10">
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">Project Overview</h1>
-          <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">{projectData?.description || "Detailed Specification"}</p>
+          <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">{(projectData?.description === "Project start" ? "NEW SARA CITY" : projectData?.description) || "NEW SARA CITY"}</p>
         </div>
 
         {/* Main Grid: Core Specs (2 cols) + Project Team (1 col) */}
@@ -116,7 +116,7 @@ const ClientOverviewPage = () => {
                   <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-lg shrink-0">🏢</div>
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Project Name</p>
-                    <p className="text-sm font-bold text-slate-800 leading-tight">{projectData?.project_name || "—"}</p>
+                    <p className="text-sm font-bold text-slate-800 leading-tight">{(projectData?.project_name || "NEW SARA CITY").toUpperCase()}</p>
 
                   </div>
                 </div>
@@ -179,7 +179,7 @@ const ClientOverviewPage = () => {
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Project Description</p>
                     <p className="text-xs font-medium text-slate-500 leading-relaxed max-w-4xl">
-                      {projectData?.description || "A premium high-rise development focused on sustainable infrastructure and modern urban living standards."}
+                      {(projectData?.description === "Project start" ? "NEW SARA CITY" : projectData?.description) || "NEW SARA CITY"}
                     </p>
                   </div>
                 </div>

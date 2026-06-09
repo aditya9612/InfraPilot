@@ -83,7 +83,7 @@ const ClientProjectOverviewPage = () => {
       <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
         <div className="mb-8">
           <h1 className="text-3xl font-black text-slate-800 tracking-tight">Project Overview</h1>
-          <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">{projectData?.description || "Select a project to view details"}</p>
+          <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">{(projectData?.description === "Project start" ? "NEW SARA CITY" : projectData?.description) || "NEW SARA CITY"}</p>
         </div>
 
         {/* Projects Grid */}
@@ -136,10 +136,10 @@ const ClientProjectOverviewPage = () => {
                 <h2 className="text-base font-black text-slate-800 uppercase tracking-widest text-[11px] mb-8">Core Project Details</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-y-8 gap-x-12">
                   {[
-                    { label: "Project Name", value: projectData?.project_name || "—", icon: "🏢" },
+                    { label: "Project Name", value: (projectData?.project_name || "NEW SARA CITY").toUpperCase(), icon: "🏢" },
                     { label: "Location", value: "Sector 45, Pune, MH", icon: "📍" },
                     { label: "Project Type", value: "High-Rise Residential", icon: "🏗️" },
-                    { label: "Description", value: projectData?.description || "—", icon: "📝" },
+                    { label: "Description", value: (projectData?.description === "Project start" ? "NEW SARA CITY" : projectData?.description) || "NEW SARA CITY", icon: "📝" },
                     { label: "Start Date", value: formatDate(projectData?.start_date), icon: "📅" },
                     { label: "End Date (EST)", value: formatDate(projectData?.end_date), icon: "🏁" },
                     { label: "Project Status", value: projectData?.status || "—", icon: "🟢", status: projectData?.status },

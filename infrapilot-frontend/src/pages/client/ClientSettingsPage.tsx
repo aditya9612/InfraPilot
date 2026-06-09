@@ -2,6 +2,7 @@ import Navbar from "../../components/common/Navbar";
 import { useState, useEffect, useRef } from "react";
 import { settingsService } from "../../services/settingsService";
 import { projectService } from "../../services/projectService";
+import { masterService, type MasterEntity } from "../../services/masterService";
 import { useAuth } from "../../context/AuthContext";
 import type { UserProfile, UserSettings } from "../../types/settings";
 import toast from "react-hot-toast";
@@ -13,6 +14,7 @@ const ClientSettingsPage = () => {
     const [updating, setUpdating] = useState(false);
     const [projects, setProjects] = useState<any[]>([]);
     const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
+    const [availableUnits, setAvailableUnits] = useState<MasterEntity[]>([]);
     const { refreshUser } = useAuth();
 
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -51,13 +53,15 @@ const ClientSettingsPage = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [profileData, settingsData, projectsResult] = await Promise.all([
+                const [profileData, settingsData, projectsResult, unitsResult] = await Promise.all([
                     settingsService.getProfile(),
                     settingsService.getSettings(),
-                    projectService.getProjects(50, 0).catch(() => [])
+                    projectService.getProjects(50, 0).catch(() => []),
+                    masterService.getEntities("units").catch(() => [])
                 ]);
                 const projectsList = Array.isArray(projectsResult) ? projectsResult : (projectsResult?.items || projectsResult?.data || []);
                 setProjects(projectsList);
+                setAvailableUnits(unitsResult);
                 if (projectsList.length > 0) {
                     const localSavedId = localStorage.getItem("client_selected_project_id");
                     const defaultPid = settingsData?.default_project_id || (localSavedId ? Number(localSavedId) : null) || projectsList[0]?.id || projectsList[0]?.project_id;
@@ -188,6 +192,24 @@ const ClientSettingsPage = () => {
         return p?.name || p?.project_name || "New sara city";
     };
 
+    const formatDisplayDate = (dateStr: any) => {
+        if (!dateStr) return "";
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return dateStr;
+        
+        const format = settings.preferences?.date_format || "DD/MM/YYYY";
+        const d = date.getDate().toString().padStart(2, '0');
+        const m = (date.getMonth() + 1).toString().padStart(2, '0');
+        const y = date.getFullYear();
+
+        switch (format) {
+            case "MM/DD/YYYY": return `${m}/${d}/${y}`;
+            case "YYYY-MM-DD": return `${y}-${m}-${d}`;
+            case "DD/MM/YYYY":
+            default: return `${d}/${m}/${y}`;
+        }
+    };
+
     return (
         <>
             <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Portal Settings"]} />
@@ -218,7 +240,7 @@ const ClientSettingsPage = () => {
                             { label: "Active Project", value: getActiveProjectName(), sub: "Primary project workspace", color: "text-blue-600" },
                             { label: "Unit System", value: settings.unit, sub: "Feet · Meter", color: "text-emerald-500" },
                             { label: "Notifications", value: "4 / 6", sub: "Channels enabled", color: "text-amber-500" },
-                            { label: "Language", value: settings.preferences?.language || "English", sub: "IST (UTC+5:30)", color: "text-slate-800" },
+                            { label: "Language", value: settings.preferences?.language || "English", sub: settings.preferences?.timezone || "IST (UTC+5:30)", color: "text-slate-800" },
                         ].map((card, i) => (
                             <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 transition-all hover:shadow-md">
                                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{card.label}</p>
@@ -279,8 +301,8 @@ const ClientSettingsPage = () => {
                                 {[
                                     { label: "Full Name", key: "full_name", value: profile?.full_name },
                                     { label: "Designation", key: "designation", value: profile?.designation },
-                                    { label: "Email Address", key: "email", value: profile?.email },
-                                    { label: "Mobile Number", key: "mobile_number", value: profile?.mobile_number },
+                                    { label: "Email Address", key: "email", value: profile?.email, locked: true },
+                                    { label: "Mobile Number", key: "mobile_number", value: profile?.mobile_number, locked: true },
                                     { label: "PAN Number", key: "pan_number", value: profile?.pan_number },
                                     { label: "Aadhaar Number", key: "aadhaar_number", value: profile?.aadhaar_number },
                                     { label: "Role", key: "role", value: profile?.role },
@@ -288,12 +310,32 @@ const ClientSettingsPage = () => {
                                 ].map((field) => (
                                     <div key={field.key} className="space-y-2">
                                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">{field.label}</label>
-                                        <input
-                                            type={field.type || "text"}
-                                            value={field.value || ""}
-                                            onChange={(e) => setProfile(p => p ? { ...p, [field.key]: e.target.value } : null)}
-                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-[13px] font-bold text-slate-700 outline-none focus:border-blue-500 transition-all"
-                                        />
+                                        <div className="relative">
+                                            <input
+                                                type={field.key === 'joining_date' ? 'text' : (field.type || "text")}
+                                                value={field.key === 'joining_date' ? formatDisplayDate(field.value) : (field.value || "")}
+                                                onChange={(e) => {
+                                                    if (field.key !== 'joining_date' && !field.locked) {
+                                                        setProfile(p => p ? { ...p, [field.key]: e.target.value } : null);
+                                                    }
+                                                }}
+                                                readOnly={field.key === 'joining_date' || field.locked}
+                                                className={`w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-[13px] font-bold text-slate-700 outline-none focus:border-blue-500 transition-all ${field.key === 'joining_date' ? 'cursor-pointer' : field.locked ? 'cursor-not-allowed opacity-60 select-none bg-slate-100/50' : ''}`}
+                                            />
+                                            {field.key === 'joining_date' && (
+                                                <>
+                                                    <input
+                                                        type="date"
+                                                        value={field.value || ""}
+                                                        onChange={(e) => setProfile(p => p ? { ...p, [field.key]: e.target.value } : null)}
+                                                        className="absolute inset-0 opacity-0 cursor-pointer"
+                                                    />
+                                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2-2v12a2 2 0 002 2z" /></svg>
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
                                 ))}
                                 <div className="md:col-span-2 space-y-2">
@@ -377,20 +419,36 @@ const ClientSettingsPage = () => {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-3">
                                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Mass / Weight</p>
-                                        <div className="flex items-center bg-slate-50 rounded-xl p-1">
-                                            {["Kg", "Feet", "Meter"].map((v, i) => (
-                                                <button key={i} onClick={() => setMassUnit(v)} className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${v === massUnit ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400'}`}>{v}</button>
+                                        <div className="flex items-center bg-slate-50 rounded-xl p-1 overflow-x-auto">
+                                            {(availableUnits.filter(u => u.category.toLowerCase().includes("mass") || u.category === "Weight").length > 0
+                                                ? availableUnits.filter(u => u.category.toLowerCase().includes("mass") || u.category === "Weight")
+                                                : [{ name: "Kg", unique_code: "Kg" }, { name: "Ton", unique_code: "Ton" }]
+                                            ).map((v, i) => (
+                                                <button key={i} onClick={() => setMassUnit(v.unique_code)} className={`flex-1 min-w-[50px] py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${v.unique_code === massUnit ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400'}`}>{v.name}</button>
                                             ))}
                                         </div>
                                     </div>
                                     <div className="space-y-3">
                                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Length / Distance</p>
-                                        <div className="flex items-center bg-slate-50 rounded-xl p-1 gap-1">
-                                            {["Meter", "Feet", "Inch", "Cm"].map((v, i) => (
-                                                <button key={i} onClick={() => setLengthUnit(v)} className={`flex-1 py-2 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${v === lengthUnit ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400'}`}>{v}</button>
+                                        <div className="flex items-center bg-slate-50 rounded-xl p-1 gap-1 overflow-x-auto">
+                                            {(availableUnits.filter(u => u.category.toLowerCase().includes("length") || u.category === "Distance").length > 0
+                                                ? availableUnits.filter(u => u.category.toLowerCase().includes("length") || u.category === "Distance")
+                                                : [{ name: "Meter", unique_code: "Meter" }, { name: "Feet", unique_code: "Feet" }]
+                                            ).map((v, i) => (
+                                                <button key={i} onClick={() => setLengthUnit(v.unique_code)} className={`flex-1 min-w-[50px] py-2 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${v.unique_code === lengthUnit ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400'}`}>{v.name}</button>
                                             ))}
                                         </div>
                                     </div>
+                                    {availableUnits.some(u => u.category.toLowerCase() === "area") && (
+                                        <div className="space-y-3 md:col-span-2">
+                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Area</p>
+                                            <div className="flex items-center bg-slate-50 rounded-xl p-1 gap-1 overflow-x-auto">
+                                                {availableUnits.filter(u => u.category.toLowerCase() === "area").map((v, i) => (
+                                                    <button key={i} className="flex-1 min-w-[80px] py-2 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all bg-slate-50 text-slate-400 hover:bg-slate-100">{v.name}</button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="bg-slate-50/50 p-4 rounded-xl flex items-center justify-between border border-dashed border-slate-200 mt-2">

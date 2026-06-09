@@ -428,15 +428,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     { label: "Issues & Risks", path: "/client/issues", icon: "alert-triangle" },
     { label: "Documents & Drawings", path: "/client/documents", icon: "folder" },
     { label: "Approvals", path: "/client/approvals", icon: "check-circle" },
-    {
-      label: "Communication",
-      path: "/chat",
-      icon: "message-circle",
-      subNav: [
-        { label: "Chat", path: "/chat", icon: "message-circle" },
-        { label: "Announcements", path: "/client/communication/announcements", icon: "bell" },
-      ],
-    },
+    { label: "Chat", path: "/chat", icon: "message-circle" },
     {
       label: "Reports",
       path: "/client/reports",

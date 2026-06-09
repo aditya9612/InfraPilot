@@ -971,7 +971,7 @@ const Sidebar = ({ onClose }: SidebarProps) => {
       <div className="px-4 py-4 border-t border-slate-100 bg-slate-50/50">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-md shadow-blue-600/20 overflow-hidden">
-            {user.role === 'Admin' && user.profile_image ? (
+            {user.profile_image ? (
               <img
                 src={user.profile_image.startsWith('http') || user.profile_image.startsWith('data:')
                   ? user.profile_image

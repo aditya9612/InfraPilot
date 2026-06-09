@@ -52,7 +52,7 @@ const ClientDSRSummaryPage = () => {
 
         return {
           ...item,
-          formattedDate: item.report_date ? new Date(item.report_date).toLocaleDateString('en-CA') : "N/A", // YYYY-MM-DD
+          formattedDate: item.report_date ? new Date(item.report_date).toLocaleDateString('en-GB') : "N/A", // DD/MM/YYYY
           gallery
         };
       }));
