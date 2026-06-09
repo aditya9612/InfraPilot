@@ -289,7 +289,7 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
               className="w-8 h-8 rounded-full bg-blue-600 border-2 border-white flex items-center justify-center text-white text-xs font-bold shadow-sm hover:scale-105 transition-transform overflow-hidden"
               title={user?.name || "Profile"}
             >
-              {user?.role === 'Admin' && user?.profile_image ? (
+              {user?.profile_image ? (
                 <img src={getFullImageUrl(user.profile_image)} alt={user?.name || "Profile"} className="w-full h-full object-cover" />
               ) : (
                 user?.name?.charAt(0) || "U"

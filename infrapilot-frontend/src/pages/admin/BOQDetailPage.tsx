@@ -37,6 +37,7 @@ import BOQHistoryModal from "../../components/dashboard/BOQHistoryModal";
 import BOQDetailsModal from "../../components/dashboard/BOQDetailsModal";
 import StatCard from "../../components/common/StatCard";
 import CreateBOQModal from "../../components/forms/CreateBOQModal";
+import { formatCompactCurrency } from "../../utils/currencyUtils";
 
 // ─── Tabs Configuration ──────────────────────────────────────────────────────
 const TABS = [
@@ -84,6 +85,7 @@ const BOQDetailPage = () => {
         if (!projectId) return;
         setIsLoading(true);
         try {
+            console.log(`[BOQ Detail] Fetching data for Project: ${projectId}, Version: ${selectedVersion}, Page: ${currentPage}`);
             const [projectData, boqSummary, boqComparison] = await Promise.all([
                 projectService.getProjectById(projectId),
                 boqService.getBoqSummary(projectId),
@@ -96,10 +98,11 @@ const BOQDetailPage = () => {
 
             const res = await boqService.getBoqs({
                 project_id: projectId,
-                version_no: selectedVersion !== 'latest' ? Number(selectedVersion) : undefined,
+                version_no: selectedVersion !== 'latest' ? Number(selectedVersion) : null,
                 limit: itemsPerPage,
                 offset: (currentPage - 1) * itemsPerPage
             });
+
 
             // Filter out deleted and inactive items from the local state
             const activeItems = res.items.filter((item: any) =>
@@ -110,22 +113,22 @@ const BOQDetailPage = () => {
             setBoqItems(activeItems);
             setTotalItems(res.total || activeItems.length);
 
-            // Fetch versions only if we have active items to derive a BOQ handle from
-            if (activeItems.length > 0) {
+            // Fetch versions only if we are on 'latest' view to keep the dropdown stable
+            if (selectedVersion === 'latest' && activeItems.length > 0) {
                 try {
-                    // USER FEEDBACK: Favor item.id over boq_group_id as the primary version handle
-                    const boqHandle = activeItems[0].id || activeItems[0].boq_group_id;
-                    if (boqHandle) {
+                    // Reverted to item.id as boq_group_id triggers 404 on this backend
+                    const item = activeItems[0];
+                    const boqHandle = item.id;
+                    if (typeof boqHandle === 'number') {
                         const boqVersions = await boqService.getBoqVersions(boqHandle);
                         setVersions(boqVersions);
-                    } else {
-                        setVersions([]);
+                        console.log(`[BOQ Detail] Versions for Item Handle ${boqHandle}:`, boqVersions);
                     }
                 } catch (vErr) {
-                    console.warn("Versions not available for this BOQ yet (ID:", activeItems[0].id, ")");
+                    console.warn("Versions not available for this BOQ yet.");
                     setVersions([]);
                 }
-            } else {
+            } else if (selectedVersion === 'latest' && activeItems.length === 0) {
                 setVersions([]);
             }
         } catch (error) {
@@ -134,21 +137,15 @@ const BOQDetailPage = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [projectId, currentPage, itemsPerPage]);
+    }, [projectId, currentPage, itemsPerPage, selectedVersion]);
 
     useEffect(() => {
         fetchData();
     }, [fetchData, currentPage]);
 
-    const handleVersionChange = async (version: number | "latest") => {
+    const handleVersionChange = (version: number | "latest") => {
         setSelectedVersion(version);
-        try {
-            const filters = version === "latest" ? { project_id: projectId } : { project_id: projectId, version_no: version };
-            const res = await boqService.getBoqs(filters);
-            setBoqItems(res.items);
-        } catch (error) {
-            toast.error("Failed to load version data");
-        }
+        setCurrentPage(1); // Reset to first page when version changes
     };
 
     const handleUpdateActuals = async (data: { actual_quantity: number; actual_cost: number }) => {
@@ -181,7 +178,7 @@ const BOQDetailPage = () => {
     const handleGenerateTasks = async () => {
         setIsGeneratingTasks(true);
         try {
-            // Using individual item ID as the handle (e.g. #162) as per user instruction.
+            // Standardizing on item.id as the primary BOQ handle (referred to as boq_id by backend)
             const targetId = boqItems.length > 0 ? boqItems[0].id : null;
 
             if (!targetId) {
@@ -216,7 +213,8 @@ const BOQDetailPage = () => {
             return;
         }
         try {
-            const boqId = boqItems[0].boq_group_id || boqItems[0].id;
+            // Using item.id as the BOQ handle for consistency with other operations
+            const boqId = boqItems[0].id;
             const newItem = await boqService.addBoqItem(boqId, data);
             toast.success("Item added to BOQ");
 
@@ -282,7 +280,8 @@ const BOQDetailPage = () => {
     const fetchSuggestions = useCallback(async () => {
         if (boqItems.length === 0) return;
         try {
-            const boqId = boqItems[0].boq_group_id || boqItems[0].id;
+            // Using item.id as the primary BOQ handle for suggestions
+            const boqId = boqItems[0].id;
             const res = await boqService.getBoqSuggestions(boqId);
             setSuggestions(res.suggestions || []);
         } catch (error) {
@@ -305,7 +304,8 @@ const BOQDetailPage = () => {
 
             toast.loading(`Preparing ${format.toUpperCase()}...`, { id: "export" });
 
-            const boqId = boqItems[0].boq_group_id || boqItems[0].id;
+            // Using item.id as the primary BOQ handle for export (resolves 404 with project/group IDs)
+            const boqId = boqItems[0].id;
             const data = await boqService.exportBoq(boqId, format);
 
             const fileName = `BOQ_Export_${project?.project_name || "Project"}.${format === "excel" ? "xlsx" : format === "json" ? "json" : "pdf"}`;
@@ -436,19 +436,19 @@ const BOQDetailPage = () => {
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                                 <StatCard
                                     title="Est. Budget"
-                                    value={`₹${(summary?.estimated || boqItems.reduce((acc, curr) => acc + (Number(curr.total_cost) || 0), 0)).toLocaleString('en-IN')}`}
+                                    value={formatCompactCurrency(summary?.estimated || boqItems.reduce((acc, curr) => acc + (Number(curr.total_cost) || 0), 0))}
                                     sub={`${boqItems.length} items estimated`}
                                     accent="text-primary"
                                 />
                                 <StatCard
                                     title="Actual Spend"
-                                    value={`₹${(summary?.actual || boqItems.reduce((acc, curr) => acc + (Number(curr.actual_cost) || 0), 0)).toLocaleString('en-IN')}`}
+                                    value={formatCompactCurrency(summary?.actual || boqItems.reduce((acc, curr) => acc + (Number(curr.actual_cost) || 0), 0))}
                                     sub="Current realized costs"
                                     accent="text-violet-600"
                                 />
                                 <StatCard
                                     title="Variance"
-                                    value={`₹${Math.abs(summary?.difference || ((summary?.estimated || boqItems.reduce((acc, curr) => acc + (Number(curr.total_cost) || 0), 0)) - (summary?.actual || boqItems.reduce((acc, curr) => acc + (Number(curr.actual_cost) || 0), 0)))).toLocaleString('en-IN')}`}
+                                    value={formatCompactCurrency(Math.abs(summary?.difference || ((summary?.estimated || boqItems.reduce((acc, curr) => acc + (Number(curr.total_cost) || 0), 0)) - (summary?.actual || boqItems.reduce((acc, curr) => acc + (Number(curr.actual_cost) || 0), 0)))))}
                                     sub={(summary?.difference || 0) < 0 ? "Above Budget" : "Under Budget"}
                                     accent={(summary?.difference || 0) < 0 ? "text-rose-500" : "text-emerald-500"}
                                 />
@@ -466,7 +466,7 @@ const BOQDetailPage = () => {
                                                     <div className="flex justify-between text-xs font-bold uppercase tracking-tight">
                                                         <span className="text-slate-400">{item.item_name}</span>
                                                         <span className={item.variance < 0 ? "text-rose-500" : "text-emerald-500"}>
-                                                            ₹{Math.abs(item.variance).toLocaleString()}
+                                                            {formatCompactCurrency(Math.abs(item.variance))}
                                                         </span>
                                                     </div>
                                                     <div className="h-2 bg-slate-50 rounded-full overflow-hidden">
@@ -507,15 +507,19 @@ const BOQDetailPage = () => {
                                     >
                                         + Add Item
                                     </button>
-                                    <Layers className="w-4 h-4 text-slate-400" />
-                                    <select
-                                        value={selectedVersion}
-                                        onChange={(e) => handleVersionChange(e.target.value === "latest" ? "latest" : parseInt(e.target.value))}
-                                        className="bg-slate-50 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 outline-none border border-slate-100"
-                                    >
-                                        <option value="latest">Latest View</option>
-                                        {versions.map(v => <option key={v} value={v}>Version v{v}</option>)}
-                                    </select>
+                                    {versions.length > 0 && (
+                                        <div className="flex items-center gap-2">
+                                            <Layers className="w-4 h-4 text-slate-400" />
+                                            <select
+                                                value={selectedVersion}
+                                                onChange={(e) => handleVersionChange(e.target.value === "latest" ? "latest" : parseInt(e.target.value))}
+                                                className="bg-slate-50 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 outline-none border border-slate-100"
+                                            >
+                                                <option value="latest">Latest View</option>
+                                                {versions.map(v => <option key={v} value={v}>Version v{v}</option>)}
+                                            </select>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             <div className="overflow-x-auto">
@@ -548,18 +552,18 @@ const BOQDetailPage = () => {
                                                     </td>
                                                     <td className="px-6 py-4">
                                                         <div className="flex flex-col">
-                                                            <p className="font-bold text-slate-800 group-hover:text-primary transition-all uppercase tracking-tight">{item.item_name}</p>
-                                                            {item.boq_group_id && (
-                                                                <span className="text-[9px] font-bold text-primary/60 uppercase tracking-wider">Group: #{item.boq_group_id}</span>
-                                                            )}
-                                                            <p className="text-[10px] font-medium text-slate-400 line-clamp-1">{item.description}</p>
+                                                            <span className="text-xs font-bold text-slate-800 tracking-tight transition-colors group-hover:text-primary">
+                                                                {item.item_name}
+                                                            </span>
+                                                            <div className="flex items-center gap-2 mt-1">
+                                                            </div>
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4"><span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md text-[10px] font-black uppercase tracking-tighter">{item.category}</span></td>
                                                     <td className="px-6 py-4 text-right font-bold text-slate-600">{item.quantity} <span className="text-[10px] text-slate-300">{item.unit}</span></td>
-                                                    <td className="px-6 py-4 text-right font-black text-slate-800">₹{(item.total_cost || 0).toLocaleString()}</td>
-                                                    <td className="px-6 py-4 text-right font-black text-violet-600">₹{(item.actual_cost || 0).toLocaleString()}</td>
-                                                    <td className={`px-6 py-4 text-right font-bold ${varVal < 0 ? "text-rose-500" : "text-emerald-500"}`}>₹{Math.abs(varVal).toLocaleString()}</td>
+                                                    <td className="px-6 py-4 text-right font-black text-slate-800">{formatCompactCurrency(Number(item.total_cost) || 0)}</td>
+                                                    <td className="px-6 py-4 text-right font-black text-violet-600">{formatCompactCurrency(Number(item.actual_cost) || 0)}</td>
+                                                    <td className={`px-6 py-4 text-right font-bold ${varVal < 0 ? "text-rose-500" : "text-emerald-500"}`}>{formatCompactCurrency(Math.abs(varVal))}</td>
                                                     <td className="px-6 py-4 text-center">
                                                         <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${item.status === 'Active' ? 'bg-emerald-100 text-emerald-600' :
                                                             item.status === 'Under Review' ? 'bg-amber-100 text-amber-600' :
@@ -750,7 +754,7 @@ const BOQDetailPage = () => {
                                                     <Sparkles className="w-6 h-6 text-amber-500" />
                                                 </div>
                                                 <span className="px-3 py-1 bg-rose-50 text-rose-500 rounded-lg text-[10px] font-black uppercase tracking-widest">
-                                                    Over Budget: ₹{s.over_budget_by?.toLocaleString()}
+                                                    Over Budget: {formatCompactCurrency(s.over_budget_by || 0)}
                                                 </span>
                                             </div>
                                             <h3 className="text-lg font-bold text-slate-800 mb-2">{s.item}</h3>

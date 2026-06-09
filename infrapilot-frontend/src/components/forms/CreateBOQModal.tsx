@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import Modal from '../common/Modal';
 
 import type { Project } from '../../types/project';
 import type { BoqItem } from '../../types/boq';
 import { BOQ_CATEGORIES, BOQ_UNITS, BOQ_STATUSES } from '../../config/constants';
+import { masterService, type MasterEntity } from '../../services/masterService';
 
 interface CreateBOQModalProps {
   isOpen: boolean;
@@ -26,6 +27,27 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
     status: 'Active',
     activity_type_id: '',
   });
+
+  const [activityTypes, setActivityTypes] = useState<MasterEntity[]>([]);
+  const [units, setUnits] = useState<MasterEntity[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [types, fetchedUnits] = await Promise.all([
+          masterService.getEntities('activity-types'),
+          masterService.getEntities('units'),
+        ]);
+        setActivityTypes(types);
+        setUnits(fetchedUnits);
+      } catch (error) {
+        console.error("Failed to fetch master data:", error);
+      }
+    };
+    if (isOpen) {
+      fetchData();
+    }
+  }, [isOpen]);
 
   React.useEffect(() => {
     if (initialData) {
@@ -270,7 +292,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
               className={`w-full px-4 py-2.5 bg-white border ${errors.unit ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all appearance-none`}
             >
               <option value="">Select Unit</option>
-              {BOQ_UNITS?.map(u => <option key={u} value={u}>{u}</option>)}
+              {units?.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
             </select>
             {errors.unit && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.unit}</p>}
           </div>
@@ -301,15 +323,18 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Activity Type ID (Optional)</label>
-            <input
-              type="text"
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Activity Type (Optional)</label>
+            <select
               name="activity_type_id"
               value={formData.activity_type_id}
               onChange={handleChange}
-              placeholder="e.g. 0"
-              className={`w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all`}
-            />
+              className={`w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all appearance-none`}
+            >
+              <option value="">Select Activity Type</option>
+              {activityTypes?.map(type => (
+                <option key={type.id} value={type.id}>{type.name}</option>
+              ))}
+            </select>
           </div>
 
           <div className="md:col-span-2 p-4 bg-primary/5 rounded-2xl border border-primary/10 flex items-center justify-between">
